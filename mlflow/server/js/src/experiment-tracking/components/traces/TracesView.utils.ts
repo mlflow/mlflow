@@ -1,5 +1,6 @@
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { type MessageDescriptor, defineMessage } from 'react-intl';
+import { isNil } from 'lodash';
 
 const TRACE_METADATA_FIELD_RUN_ID = 'mlflow.sourceRun';
 const TRACE_METADATA_FIELD_TOTAL_TOKENS = 'total_tokens';
@@ -25,11 +26,29 @@ export const getTraceInfoRunId = (traceInfo: ModelTraceInfo) =>
 export const getTraceInfoTotalTokens = (traceInfo: ModelTraceInfo) =>
   getTraceMetadataField(traceInfo, TRACE_METADATA_FIELD_TOTAL_TOKENS);
 
-export const getTraceInfoInputs = (traceInfo: ModelTraceInfo) =>
-  getTraceMetadataField(traceInfo, TRACE_METADATA_FIELD_INPUTS);
+export const getTraceInfoInputs = (traceInfo: ModelTraceInfo) => {
+  const inputs = getTraceMetadataField(traceInfo, TRACE_METADATA_FIELD_INPUTS);
+  if (isNil(inputs)) {
+    return undefined;
+  }
+  try {
+    return JSON.stringify(JSON.parse(inputs)); // unescape non-ascii characters
+  } catch (e) {
+    return inputs;
+  }
+};
 
-export const getTraceInfoOutputs = (traceInfo: ModelTraceInfo) =>
-  getTraceMetadataField(traceInfo, TRACE_METADATA_FIELD_OUTPUTS);
+export const getTraceInfoOutputs = (traceInfo: ModelTraceInfo) => {
+  const outputs = getTraceMetadataField(traceInfo, TRACE_METADATA_FIELD_OUTPUTS);
+  if (isNil(outputs)) {
+    return undefined;
+  }
+  try {
+    return JSON.stringify(JSON.parse(outputs)); // unescape non-ascii characters
+  } catch (e) {
+    return outputs;
+  }
+};
 
 export const getTraceTagValue = (traceInfo: ModelTraceInfo, tagName: string) => {
   return traceInfo.tags?.find(({ key }) => key === tagName)?.value;

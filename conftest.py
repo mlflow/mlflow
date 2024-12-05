@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 import threading
-import traceback
 
 import click
 import pytest
@@ -164,11 +163,15 @@ def pytest_ignore_collect(collection_path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/anthropic",
             "tests/autogen",
             "tests/azureml",
             "tests/catboost",
+            "tests/crewai",
             "tests/diviner",
+            "tests/dspy",
             "tests/fastai",
+            "tests/gemini",
             "tests/gluon",
             "tests/h2o",
             "tests/johnsnowlabs",
@@ -177,6 +180,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/llama_index",
             "tests/langchain",
             "tests/lightgbm",
+            "tests/litellm",
             "tests/mleap",
             "tests/models",
             "tests/onnx",
@@ -273,14 +277,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         for idx, thread in enumerate(threads, start=1):
             terminalreporter.write(f"{idx}: {thread}\n")
 
-        if non_daemon_threads := [t for t in threads if not t.daemon]:
-            frames = sys._current_frames()
-            terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
-            for thread in non_daemon_threads:
-                thread.join(timeout=1)
-                if thread.is_alive() and (frame := frames.get(thread.ident)):
-                    terminalreporter.section(repr(thread), sep="~")
-                    terminalreporter.write("".join(traceback.format_stack(frame)))
+        # Uncomment this block to print tracebacks of non-daemon threads
+        # if non_daemon_threads := [t for t in threads if not t.daemon]:
+        #     frames = sys._current_frames()
+        #     terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+        #     for thread in non_daemon_threads:
+        #         thread.join(timeout=1)
+        #         if thread.is_alive() and (frame := frames.get(thread.ident)):
+        #             terminalreporter.section(repr(thread), sep="~")
+        #             terminalreporter.write("".join(traceback.format_stack(frame)))
 
     try:
         import psutil

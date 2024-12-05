@@ -199,10 +199,8 @@ There are also two ways to authenticate to HDFS:
   export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
   export MLFLOW_KERBEROS_USER=user_name_to_use
 
-Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native
-driver using the ``CLASSPATH`` environment variable.
-
-The HDFS driver that is used is ``libhdfs``.
+The HDFS artifact store is accessed using the ``pyarrow.fs`` module, refer to the
+`PyArrow Documentation <https://arrow.apache.org/docs/python/filesystems.html#filesystem-hdfs>`_ for configuration and environment variables needed.
 
 
 Deletion Behavior

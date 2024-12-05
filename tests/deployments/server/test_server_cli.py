@@ -109,4 +109,4 @@ def test_start_server_fail_on_windows(tmp_path):
     with mock.patch("mlflow.deployments.cli.is_windows", return_value=True):
         result = runner.invoke(cli.start_server, ["--config-path", config], catch_exceptions=True)
         assert result.exit_code == 1
-        assert "MLflow Deployments Server does not support Windows" in result.output
+        assert "MLflow AI Gateway does not support Windows" in result.output

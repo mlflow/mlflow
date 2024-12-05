@@ -1,9 +1,9 @@
 import { useEvaluationAddNewInputsModal } from './useEvaluationAddNewInputsModal';
-import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { act, renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { createParamFieldName } from '../../experiment-page/utils/experimentPage.column-utils';
 import { useEffect } from 'react';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../../constants';
 
 describe('useEvaluationAddNewInputsModal', () => {
@@ -19,7 +19,7 @@ describe('useEvaluationAddNewInputsModal', () => {
     return renderWithIntl(<Component />);
   };
 
-  it('should properly calculate input field names for visible runs', () => {
+  it('should properly calculate input field names for visible runs', async () => {
     const runA = {
       runName: 'run A',
       params: [
@@ -71,17 +71,20 @@ describe('useEvaluationAddNewInputsModal', () => {
     ).toBeInTheDocument();
 
     // Type in data for two inputs, leave input_b empty
-    userEvent.paste(screen.getAllByRole<HTMLTextAreaElement>('textbox')[0], 'val_a');
-    userEvent.paste(screen.getAllByRole<HTMLTextAreaElement>('textbox')[2], 'val_c');
+    act(() => screen.getAllByRole<HTMLTextAreaElement>('textbox')[0].focus());
+    await userEvent.paste('val_a');
+    act(() => screen.getAllByRole<HTMLTextAreaElement>('textbox')[2].focus());
+    await userEvent.paste('val_c');
 
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
 
     // Fill in missing input
-    userEvent.paste(screen.getAllByRole<HTMLTextAreaElement>('textbox')[1], 'val_b');
+    act(() => screen.getAllByRole<HTMLTextAreaElement>('textbox')[1].focus());
+    await userEvent.paste('val_b');
 
     expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
 
-    userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     // Assert returned data
     expect(onSuccess).toBeCalledWith({

@@ -7,10 +7,8 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
-
-from starlette.responses import StreamingResponse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
@@ -175,7 +173,6 @@ def get_gateway_uri() -> str:
     If the Gateway uri has not been set by using ``set_gateway_uri``, an ``MlflowException``
     is raised.
     """
-    global _gateway_uri
     if _gateway_uri is not None:
         return _gateway_uri
     elif uri := MLFLOW_GATEWAY_URI.get():
@@ -188,7 +185,7 @@ def get_gateway_uri() -> str:
         )
 
 
-def assemble_uri_path(paths: List[str]) -> str:
+def assemble_uri_path(paths: list[str]) -> str:
     """Assemble a correct URI path from a list of path parts.
 
     Args:
@@ -303,6 +300,8 @@ async def handle_incomplete_chunks(
 
 
 async def make_streaming_response(resp):
+    from starlette.responses import StreamingResponse
+
     if isinstance(resp, AsyncGenerator):
         return StreamingResponse(
             (to_sse_chunk(d.json()) async for d in resp),

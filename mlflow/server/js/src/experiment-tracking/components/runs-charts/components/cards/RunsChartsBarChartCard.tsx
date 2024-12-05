@@ -5,7 +5,7 @@ import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
-  shouldEnableHidingChartsWithNoData,
+  shouldEnableDraggableChartsGridLayout,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import {
@@ -14,13 +14,17 @@ import {
   RunsChartsChartsDragGroup,
   ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
+  RunsChartCardVisibilityProps,
 } from './ChartCard.common';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
-export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsBarChartCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps {
   config: RunsChartsBarCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -46,8 +50,11 @@ export const RunsChartsBarChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
+  const usingDraggableChartsGridLayout = shouldEnableDraggableChartsGridLayout();
+
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
@@ -58,26 +65,26 @@ export const RunsChartsBarChartCard = ({
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
-      // If hiding empty charts is supported, we additionally filter out bars without recorded metric of interest
-      if (shouldEnableHidingChartsWithNoData()) {
-        return chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[config.metricKey]);
-      }
-      return chartRunData.filter(({ hidden }) => !hidden);
+      return chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[config.metricKey]);
     }
     return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return !metricsInRuns.includes(config.metricKey);
   }, [config, slicedRuns]);
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const { elementRef, isInViewport } = useIsInViewport();
+  const { elementRef, isInViewport: isInViewportInternal } = useIsInViewport({
+    enabled: !usingDraggableChartsGridLayout,
+  });
+
+  // If the chart is in fullscreen mode, we always render its body.
+  // Otherwise, we only render the chart if it is in the viewport.
+  // Viewport flag is either consumed from the prop (new approach) or calculated internally (legacy).
+  const isInViewport = fullScreen || (isInViewportProp ?? isInViewportInternal);
 
   const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 

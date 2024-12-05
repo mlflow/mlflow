@@ -11,6 +11,8 @@ resource for understanding and leveraging the combined capabilities of LangChain
 `LangChain <https://www.langchain.com/>`_ is a versatile framework designed for building applications powered by language models. It excels in creating context-aware applications 
 that utilize language models for reasoning and generating responses, enabling the development of sophisticated NLP applications.
 
+`LangGraph <https://langchain-ai.github.io/langgraph/>`_ is a complementary agent-based framework from the creators of Langchain, supporting the creation of
+stateful agent and multi-agent GenAI applications. LangGraph utilizes LangChain in order to interface with GenAI agent components.
 
 Why use MLflow with LangChain?
 ------------------------------
@@ -23,7 +25,12 @@ LangChain's flexibility in experimenting with various agents, tools, and retriev
 
 Dependency Management
 ^^^^^^^^^^^^^^^^^^^^^
-Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record all external dependencies <../../model/dependencies.html>`_ automatically. This ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
+Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record code and environment dependencies <../../model/dependencies.html>`_ automatically.
+You can also explicitly declare external resource dependencies, like the LLM serving endpoint or vector search index queried by your LangChain application.
+These dependencies are tracked by MLflow as model metadata, so that downstream serving systems can ensure authentication from your
+deployed LangChain application to these dependent resources just works.
+
+These features ensure consistency between development and production environments, reducing deployment risks with less manual intervention.
 
 MLflow Evaluate
 ^^^^^^^^^^^^^^^
@@ -48,10 +55,18 @@ Autologging is a powerful one stop solution to achieve all the above benefits wi
 
 Supported Elements in MLflow LangChain Integration
 --------------------------------------------------
-- `LLMChain <https://python.langchain.com/docs/modules/chains/foundational/llm_chain>`_
 - `Agents <https://python.langchain.com/docs/modules/agents/>`_
-- `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_
 - `Retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
+- `Runnables <https://python.langchain.com/v0.1/docs/expression_language/interface/>`_
+- `LangGraph Complied Graph <https://langchain-ai.github.io/langgraph/reference/graphs/>`_ (only supported via `Model-from-Code <#logging-models-from-code>`_)
+- `LLMChain <https://python.langchain.com/docs/modules/chains/foundational/llm_chain>`_ (deprecated, only support for ``langchain<0.3.0``)
+- `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_ (deprecated, only support for ``langchain<0.3.0``)
+
+
+.. warning::
+
+    There is a known deserialization issue when logging chains or agents dependent upon LangChain components from `the partner packages <https://python.langchain.com/v0.1/docs/integrations/platforms/#partner-packages>`_ such as ``langchain-openai``. If you log such models using the legacy serialization based logging, some components may be loaded from the respective ``langchain-community`` package instead of the partner package library, which can lead to unexpected behavior or import errors when executing your code.
+    To avoid this issue, we strongly recommend using the `Model-from-Code <#logging-models-from-code>`_ method for logging such models. This method allows you to bypass the model serialization and robustly save the model definition.
 
 
 .. attention::
@@ -154,6 +169,140 @@ exploring these more advanced use cases.
     </section>
 
 
+
+Logging models from Code
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since MLflow 2.12.2, MLflow introduced the ability to log LangChain models directly from a code definition.
+
+The feature provides several benefits to manage LangChain models:
+
+1. **Avoid Serialization Complication**: File handles, sockets, external connections, dynamic references, lambda functions and system resources are unpicklable. Some LangChain components do not support native serialization, e.g. ``RunnableLambda``.
+
+2. **No Pickling**: Loading a pickle or cloudpickle file in a Python version that was different than the one used to serialize the object does not guarantee compatibility.
+
+3. **Readability**: The serialized objects are often hardly readable by humans. Model-from-code allows you to review your model definition via code.
+
+
+Refer to the `Models From Code feature documentation <../../models.html#models-from-code>`_ for more information about this feature.
+
+In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model.
+After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain.
+
+The following example demonstrates how to log a simple chain with this method:
+
+
+1. Define the chain in a separate Python file.**
+
+    .. tip::
+
+        If you are using Jupyter Notebook, you can use the `%%writefile` magic command to write the code cell directly to a file, without leaving the notebook to create it manually.
+
+    .. blacken-docs:off
+
+    .. code-block:: python
+
+        %%writefile chain.py
+
+        import os
+        from operator import itemgetter
+
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain_core.prompts import PromptTemplate
+        from langchain_core.runnables import RunnableLambda
+        from langchain_openai import OpenAI
+
+        import mlflow
+
+        mlflow.set_experiment("Homework Helper")
+
+        mlflow.langchain.autolog()
+
+        prompt = PromptTemplate(
+            template="You are a helpful tutor that evaluates my homework assignments and provides suggestions on areas for me to study further."
+            " Here is the question: {question} and my answer which I got wrong: {answer}",
+            input_variables=["question", "answer"],
+        )
+
+
+        def get_question(input):
+            default = "What is your name?"
+            if isinstance(input_data[0], dict):
+                return input_data[0].get("content").get("question", default)
+            return default
+
+
+        def get_answer(input):
+            default = "My name is Bobo"
+            if isinstance(input_data[0], dict):
+                return input_data[0].get("content").get("answer", default)
+            return default
+
+
+        model = OpenAI(temperature=0.95)
+
+        chain = (
+            {
+                "question": itemgetter("messages") | RunnableLambda(get_question),
+                "answer": itemgetter("messages") | RunnableLambda(get_answer),
+            }
+            | prompt
+            | model
+            | StrOutputParser()
+        )
+
+        mlflow.models.set_model(chain)
+
+    .. blacken-docs:on
+
+2. Then from the main notebook, log the model via supplying the path to the file that defines the chain:
+
+    .. code-block:: python
+
+        from pprint import pprint
+
+        import mlflow
+
+        chain_path = "chain.py"
+
+        with mlflow.start_run():
+            info = mlflow.langchain.log_model(lc_model=chain_path, artifact_path="chain")
+
+3. The model defined in ``chain.py`` is now logged to MLflow. You can load the model back and run inference:
+
+    .. code-block:: python
+
+        # Load the model and run inference
+        homework_chain = mlflow.langchain.load_model(model_uri=info.model_uri)
+
+        exam_question = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "question": "What is the primary function of control rods in a nuclear reactor?",
+                        "answer": "To stir the primary coolant so that the neutrons are mixed well.",
+                    },
+                },
+            ]
+        }
+
+        response = homework_chain.invoke(exam_question)
+
+        pprint(response)
+
+    You can see the model is logged as a code on MLflow UI:
+
+    .. figure:: ../../_static/images/tutorials/llms/langchain-code-model.png
+            :alt: Logging a LangChain model from a code script file
+            :width: 100%
+            :align: center
+
+.. warning::
+
+    When logging models from code, make sure that your code does not contain any sensitive information, such as API keys, passwords, or other confidential data. The code will be stored in plain text in the MLflow model artifact, and anyone with access to the artifact will be able to view the code.
+
+
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
 
@@ -246,102 +395,202 @@ How can I use a streaming API with LangChain?
     streamable inference using the ``predict_stream`` API. Ensure that you are consuming the return type correctly, as the return from these models is a ``Generator`` object.
     To learn more, refer to the `predict_stream guide <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
 
-How can I log my chain from code?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **Models from Code**: MLflow 2.12.2 introduced the ability to log LangChain models directly from a code definition. 
+How can I log an agent built with LangGraph to MLflow?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model. 
-    After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain. 
+The LangGraph integration with MLflow is designed to utilize the `Models From Code feature <../../model/models-from-code.html>`_
+in MLflow to broaden and simplify the support of agent serialization.
 
-    For example, here is a simple chain defined in a file named ``langchain_code_chain.py``:
+To log a LangGraph agent, you can define your agent code within a script, as shown below, saved to a file ``langgraph.py``:
 
-    .. code-block:: python
-        
-        import os
-        from operator import itemgetter
+.. code-block:: python
 
-        from langchain_core.output_parsers import StrOutputParser
-        from langchain_core.prompts import PromptTemplate
-        from langchain_core.runnables import RunnableLambda
-        from langchain_openai import OpenAI
+    from typing import Literal
 
-        import mlflow
+    from langchain_core.tools import tool
+    from langchain_openai import ChatOpenAI
+    from langgraph.prebuilt import create_react_agent
 
-        mlflow.set_experiment("Homework Helper")
+    import mlflow
 
-        mlflow.langchain.autolog()
 
-        prompt = PromptTemplate(
-            template="You are a helpful tutor that evaluates my homework assignments and provides suggestions on areas for me to study further."
-            " Here is the question: {question} and my answer which I got wrong: {answer}",
-            input_variables=["question", "answer"],
+    @tool
+    def get_weather(city: Literal["seattle", "sf"]):
+        """Use this to get weather information."""
+        if city == "seattle":
+            return "It's probably raining. Again."
+        elif city == "sf":
+            return "It's always sunny in sf"
+
+
+    llm = ChatOpenAI()
+    tools = [get_weather]
+    graph = create_react_agent(llm, tools)
+
+    # specify the Agent as the model interface to be loaded when executing the script
+    mlflow.models.set_model(graph)
+
+When you're ready to log this agent script definition to MLflow, you can refer to 
+this saved script directly when defining the model:
+
+.. code-block:: python
+
+    import mlflow
+
+    input_example = {
+        "messages": [{"role": "user", "content": "what is the weather in seattle today?"}]
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="./langgraph.py",  # specify the path to the LangGraph agent script definition
+            artifact_path="langgraph",
+            input_example=input_example,
         )
 
+When the agent is loaded from MLflow, the script will be executed and the defined agent will be
+made available for use for invocation.
 
-        def get_question(input):
-            default = "What is your name?"
-            if isinstance(input_data[0], dict):
-                return input_data[0].get("content").get("question", default)
-            return default
+The agent can be loaded and used for inference as follows:
 
+.. code-block:: python
 
-        def get_answer(input):
-            default = "My name is Bobo"
-            if isinstance(input_data[0], dict):
-                return input_data[0].get("content").get("answer", default)
-            return default
-
-
-        model = OpenAI(temperature=0.95)
-
-        chain = (
+    agent = mlflow.langchain.load_model(model_info.model_uri)
+    query = {
+        "messages": [
             {
-                "question": itemgetter("messages") | RunnableLambda(get_question),
-                "answer": itemgetter("messages") | RunnableLambda(get_answer),
+                "role": "user",
+                "content": "Should I bring an umbrella today when I go to work in San Francisco?",
             }
-            | prompt
-            | model
-            | StrOutputParser()
-        )
+        ]
+    }
+    agent.invoke(query)
 
-        mlflow.models.set_model(chain)
+How can I evaluate a LangGraph Agent?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    From a different file (in this case, a Jupyter Notebook), logging the model directly via supplying the path to the file that defines the chain:
+The `mlflow.evaluate <https://mlflow.org/docs/latest/model-evaluation/index.html>`_ function provides 
+a robust way to evaluate model performance. 
 
-    .. code-block:: python
+LangGraph agents, especially those with chat functionality, can return multiple messages in one 
+inference call. Given ``mlflow.evaluate`` performs naive comparisons between raw predictions and a specified
+ground truth value, it is the user's responsibility to reconcile potential differences prediction output
+and ground truth.
 
-        from pprint import pprint
+Often, the best approach is to use a `custom function <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#evaluating-with-a-custom-function>`_ 
+to process the response. Below we provide an example of a custom function that extracts the last chat 
+message from a LangGraph model. This function is then used in mlflow.evaluate to return a single 
+string response, which can be compared to the `"ground_truth"` column.
 
-        import mlflow
+.. code-block:: python
 
-        chain_path = "langchain_code_chain.py"
+    import mlflow
+    import pandas as pd
+    from typing import List
 
-        with mlflow.start_run():
-            info = mlflow.langchain.log_model(lc_model=chain_path, artifact_path="chain")
+    # Note that we assume the `model_uri` variable is present
+    # Also note that registering and loading the model is optional and you
+    # can simply leverage your langgraph object in the custom function.
+    loaded_model = mlflow.langchain.load_model(model_uri)
 
-        # Load the model and run inference
-        homework_chain = mlflow.langchain.load_model(model_uri=info.model_uri)
-
-        exam_question = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": {
-                        "question": "What is the primary function of control rods in a nuclear reactor?",
-                        "answer": "To stir the primary coolant so that the neutrons are mixed well.",
-                    },
-                },
-            ]
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
         }
+    )
 
-        response = homework_chain.invoke(exam_question)
 
-        pprint(response)
-    
-    The model will be logged as a script within the MLflow UI:
+    def custom_langgraph_wrapper(inputs: pd.DataFrame) -> List[str]:
+        """Extract the predictions from a chat message sequence."""
+        answers = []
+        for content in inputs["inputs"]:
+            prediction = loaded_model.invoke(
+                {"messages": [{"role": "user", "content": content}]}
+            )
+            last_message_content = prediction["messages"][-1].content
+            answers.append(last_message_content)
 
-    .. figure:: ../../_static/images/tutorials/llms/langchain-code-model.png
-            :alt: Logging a LangChain model from a code script file
-            :width: 100%
-            :align: center
+        return answers
+
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            custom_langgraph_wrapper,  # Pass our function defined above
+            data=eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+            extra_metrics=[
+                mlflow.metrics.latency(),
+                mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
+            ],
+        )
+    print(results.metrics)
+
+.. code-block:: python
+    :caption: Output
+
+    {
+        "latency/mean": 1.8976624011993408,
+        "latency/variance": 0.10328687906900313,
+        "latency/p90": 2.1547686100006103,
+        "flesch_kincaid_grade_level/v1/mean": 12.1,
+        "flesch_kincaid_grade_level/v1/variance": 0.25,
+        "flesch_kincaid_grade_level/v1/p90": 12.5,
+        "ari_grade_level/v1/mean": 15.850000000000001,
+        "ari_grade_level/v1/variance": 0.06250000000000044,
+        "ari_grade_level/v1/p90": 16.05,
+        "exact_match/v1": 0.0,
+        "answer_correctness/v1/mean": 5.0,
+        "answer_correctness/v1/variance": 0.0,
+        "answer_correctness/v1/p90": 5.0,
+    }
+
+For a complete example of a LangGraph model that works with this evaluation example, see the 
+`MLflow LangGraph blog <https://mlflow.org/blog/langgraph-model-from-code>`_.
+
+How to control whether my input is converted to List[langchain.schema.BaseMessage] in PyFunc predict?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, MLflow converts chat request format input ``{"messages": [{"role": "user", "content": "some_question"}]}`` to
+List[langchain.schema.BaseMessage] like ``[HumanMessage(content="some_question")]`` for certain model types.
+To force the conversion, set the environment variable ``MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN`` to ``True``.
+To disable this behavior, set the environment variable ``MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN`` to ``False`` as demonstrated below:
+
+.. code-block:: python
+
+    import json
+    import mlflow
+    import os
+    from operator import itemgetter
+    from langchain.schema.runnable import RunnablePassthrough
+
+    model = RunnablePassthrough.assign(
+        problem=lambda x: x["messages"][-1]["content"]
+    ) | itemgetter("problem")
+
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Hello",
+            }
+        ]
+    }
+    # this model accepts the input_example
+    assert model.invoke(input_example) == "Hello"
+
+    # set this environment variable to avoid input conversion
+    os.environ["MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN"] = "false"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example=input_example)
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict(input_example) == ["Hello"]

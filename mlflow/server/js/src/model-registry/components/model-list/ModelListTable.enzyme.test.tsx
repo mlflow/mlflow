@@ -1,16 +1,15 @@
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { ModelListTable, ModelListTableProps } from './ModelListTable';
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
-
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),
@@ -109,7 +108,6 @@ describe('ModelListTable', () => {
   });
 
   it('checks if the staged model version links are rendered', () => {
-    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     const wrapper = createComponentWrapper({});
     // Model #2 contains versions 2 and 3 in staging in production, but version 1 is not shown
     const row = getTableRowByCellText(wrapper, 'test_model_2');
@@ -176,12 +174,8 @@ describe('ModelListTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
 
     // Flip the "Next models UI" switch
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
-    await act(async () => {
-      userEvent.click(screen.getByText('Disable'));
-    });
+    await userEvent.click(screen.getByRole('switch'));
+    await userEvent.click(screen.getByText('Disable'));
 
     // Assert stages column being visible and aliased versions column being absent
     expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();

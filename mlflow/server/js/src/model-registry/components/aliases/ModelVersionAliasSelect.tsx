@@ -41,7 +41,12 @@ export const ModelVersionAliasSelect = ({
     (aliases: string[]) => {
       const sanitizedAliases = aliases
         // Remove all characters that are not alphanumeric, underscores or hyphens
-        .map((alias) => alias.replace(/[^\w-]/g, '').substring(0, 255))
+        .map((alias) =>
+          alias
+            .replace(/[^\w-]/g, '')
+            .toLowerCase()
+            .substring(0, 255),
+        )
         // After sanitization, filter out invalid aliases
         // so we won't get empty values
         .filter((alias) => alias.length > 0);

@@ -78,6 +78,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
       }}
     >
       <Drawer.Content
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_81"
         title={
           <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography.Title level={4} css={{ marginRight: theme.spacing.sm, marginBottom: 0 }}>
@@ -203,6 +204,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
                       </LegacyTooltip>
                       {contextTag && (
                         <Tag
+                          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_206"
                           css={{
                             textTransform: 'capitalize',
                             marginLeft: theme.spacing.xs,

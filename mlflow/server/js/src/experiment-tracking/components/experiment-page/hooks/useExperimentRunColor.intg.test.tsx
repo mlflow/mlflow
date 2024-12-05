@@ -1,6 +1,6 @@
 import { applyMiddleware, combineReducers, compose, createStore } from 'redux';
 import { colorByRunUuid } from '../../../reducers/RunColorReducer';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-for-react-18';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider, useDispatch } from 'react-redux';
 import { RunColorPill } from '../components/RunColorPill';
 import {

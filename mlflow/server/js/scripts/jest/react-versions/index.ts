@@ -15,7 +15,7 @@ const { currentEntry: mock_currentEntry } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('./user-settings') as unknown as typeof import('./user-settings');
 
-type RTL18 = typeof import('@testing-library/react-for-react-18');
+type RTL18 = typeof import('@testing-library/react');
 
 if (mock_currentEntry && mock_currentEntry.reactVersion === 17) {
   jest.mock('react', () => ({
@@ -59,49 +59,15 @@ if (mock_currentEntry && mock_currentEntry.reactVersion === 17) {
     __esModule: true,
   }));
 
-  jest.mock('@testing-library/react-for-react-18', () => {
-    throw new Error('@testing-library/react-for-react-18 should not be imported when running tests with React 17');
+  jest.mock('@testing-library/react', () => {
+    throw new Error('@testing-library/react should not be imported when running tests with React 17');
   });
 } else {
   // React 18
   if (mock_currentEntry.rtlVersion === 14) {
-    // In RTL 14, renderHook moved from @testing-library/react-hooks to @testing-library/react itself
-    jest.mock('@testing-library/react-hooks', () => {
-      const rtl = jest.requireActual<RTL18>('@testing-library/react-for-react-18');
-
-      return {
-        act: rtl.act,
-        renderHook(render, options) {
-          const result = rtl.renderHook(render, options);
-
-          return {
-            ...result,
-            act: rtl.act,
-            waitFor: rtl.waitFor,
-          } as any;
-        },
-      } as RTL18;
-    });
-
-    jest.mock('@testing-library/react-hooks/dom', () => {
-      const rtl = jest.requireActual<RTL18>('@testing-library/react-for-react-18');
-
-      return {
-        act: rtl.act,
-        renderHook(render, options) {
-          const result = rtl.renderHook(render, options);
-
-          return {
-            ...result,
-            waitFor: rtl.waitFor,
-          } as any;
-        },
-      } as RTL18;
-    });
-
     jest.mock('@testing-library/dom', () => {
       // Get the path for @testing-library/react v14
-      const rtlPath = require.resolve('@testing-library/react-for-react-18');
+      const rtlPath = require.resolve('@testing-library/react');
       // Force resolving of @testing-library/dom relative to the v14 version of RTL
       // so that @testing-library/user-event resolves the same version of the package
       const domPath = mock_resolve.sync('@testing-library/dom', { basedir: rtlPath });
@@ -121,7 +87,7 @@ if (mock_currentEntry && mock_currentEntry.reactVersion === 17) {
   //   );
   // });
 
-  const { configure: configureReactTestingLibraryForReact18 } = require('@testing-library/react-for-react-18');
+  const { configure: configureReactTestingLibraryForReact18 } = require('@testing-library/react');
 
   configureReactTestingLibraryForReact18({
     asyncUtilTimeout: process.env.BAZEL_YARN ? 30000 : 1000,

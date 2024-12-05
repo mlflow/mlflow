@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from mlflow.entities import (
     DatasetInput,
@@ -154,7 +154,7 @@ class AbstractStore:
         Restore deleted experiment unless it is permanently deleted.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
         """
 
     @abstractmethod
@@ -163,7 +163,8 @@ class AbstractStore:
         Update an experiment's name. The new name must be unique.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
+            new_name: New name for the experiment.
         """
 
     @abstractmethod
@@ -201,8 +202,11 @@ class AbstractStore:
         and the start time to the current time.
 
         Args:
-            experiment_id: String id of the experiment for this run
-            user_id: ID of the user launching this run
+            experiment_id: String id of the experiment for this run.
+            user_id: ID of the user launching this run.
+            start_time: Start time of the run.
+            tags: A dictionary of string keys and string values.
+            run_name: Name of the run.
 
         Returns:
             The created Run object
@@ -214,7 +218,7 @@ class AbstractStore:
         Delete a run.
 
         Args:
-            run_id: Description of run_id.
+            run_id: The ID of the run to delete.
 
         """
 
@@ -224,7 +228,7 @@ class AbstractStore:
         Restore a run.
 
         Args:
-            run_id:
+            run_id: The ID of the run to restore.
 
         """
 
@@ -233,8 +237,8 @@ class AbstractStore:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -257,8 +261,8 @@ class AbstractStore:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -283,7 +287,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -327,7 +331,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         raise NotImplementedError
 
@@ -345,12 +349,12 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -428,8 +432,8 @@ class AbstractStore:
         Log a param for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            param: :py:class:`mlflow.entities.Param` instance to log
+            run_id: String id for the run.
+            param: :py:class:`mlflow.entities.Param` instance to log.
         """
         return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
@@ -438,8 +442,8 @@ class AbstractStore:
         Set a tag for the specified experiment
 
         Args:
-            experiment_id: String id for the experiment
-            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
+            experiment_id: String id for the experiment.
+            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
         """
 
     def set_tag(self, run_id, tag):
@@ -447,8 +451,8 @@ class AbstractStore:
         Set a tag for the specified run
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
@@ -457,8 +461,8 @@ class AbstractStore:
         Set a tag for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
@@ -664,7 +668,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

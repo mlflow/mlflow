@@ -4,29 +4,48 @@ import { useCallback, useMemo } from 'react';
 import { RunsChartsRunData } from '../components/RunsCharts.common';
 import { DifferenceCardAttributes, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { Run } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowMessages';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 
-const DEFAULT_EMPTY_VALUE = '-';
+export const DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE = '-';
 const DIFFERENCE_EPSILON = 1e-6;
-export const getFixedPointValue = (val: string | number, places = 2) =>
-  typeof val === 'number' ? val.toFixed(places) : val;
+export const getDifferenceChartDisplayedValue = (val: any, places = 2) => {
+  if (typeof val === 'number') {
+    return val.toFixed(places);
+  } else if (typeof val === 'string') {
+    return val;
+  }
+  try {
+    return JSON.stringify(val);
+  } catch {
+    return DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE;
+  }
+};
 
-export const differenceView = (a: string | number, b: string | number) => {
-  if (typeof a === 'string' || typeof b === 'string') {
+export enum DifferenceChartCellDirection {
+  POSITIVE,
+  NEGATIVE,
+  SAME,
+}
+export const differenceView = (a: any, b: any) => {
+  if (typeof a !== 'number' || typeof b !== 'number') {
     return undefined;
   } else {
     const diff = a - b;
-    if (diff >= 0) {
-      return `+${getFixedPointValue(diff)}`;
+    if (diff === 0) {
+      return { label: getDifferenceChartDisplayedValue(diff).toString(), direction: DifferenceChartCellDirection.SAME };
+    } else if (diff > 0) {
+      return { label: `+${getDifferenceChartDisplayedValue(diff)}`, direction: DifferenceChartCellDirection.POSITIVE };
     } else {
-      return getFixedPointValue(diff).toString();
+      return {
+        label: getDifferenceChartDisplayedValue(diff).toString(),
+        direction: DifferenceChartCellDirection.NEGATIVE,
+      };
     }
   }
 };
 
-export const isDifferent = (a: string | number, b: string | number) => {
-  if (a === DEFAULT_EMPTY_VALUE || b === DEFAULT_EMPTY_VALUE) {
+export const isDifferent = (a: any, b: any) => {
+  if (a === DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE || b === DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE) {
     return false;
   }
   // Check if type a and b are the same
@@ -68,7 +87,7 @@ export const getDifferenceViewDataGroups = (
         // Set the key as runData.uuid and the value as the metric's value or DEFAULT_EMPTY_VALUE
         data[runData.uuid] = runDataAttribute(runData)[key]
           ? runDataAttribute(runData)[key].value
-          : DEFAULT_EMPTY_VALUE;
+          : DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE;
         if (index > 0) {
           const prev = previewData[index - 1];
           if (isDifferent(data[prev.uuid], data[runData.uuid])) {

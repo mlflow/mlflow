@@ -133,6 +133,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
 
   const EditTagsModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_135"
       destroyOnClose
       visible={showModal}
       title={
@@ -221,6 +222,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                   })}
             </FormUI.Label>
             <RHFControlledComponents.Input
+              componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_223"
               name="value"
               control={form.control}
               aria-label={
@@ -304,7 +306,7 @@ function UnsavedTagPopoverTrigger({
     },
   );
   return (
-    <Popover.Root>
+    <Popover.Root componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_309">
       <Popover.Trigger asChild>
         <Button
           componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_306"

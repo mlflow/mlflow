@@ -170,6 +170,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     groupBy: uiState.groupBy,
     groupsExpanded: uiState.groupsExpanded,
     runsHiddenMode: uiState.runsHiddenMode,
+    runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
   });
 
@@ -265,6 +266,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
               autoRefreshEnabled={autoRefreshEnabled}
               hideEmptyCharts={uiState.hideEmptyCharts}
+              globalLineChartConfig={uiState.globalLineChartConfig}
+              chartsSearchFilter={uiState.chartsSearchFilter}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

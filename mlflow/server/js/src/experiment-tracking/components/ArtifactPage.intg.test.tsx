@@ -1,5 +1,5 @@
 import { last } from 'lodash';
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { render, screen, waitFor } from '@testing-library/react';
 import ArtifactPage from './ArtifactPage';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { MlflowService } from '../sdk/MlflowService';

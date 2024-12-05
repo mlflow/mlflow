@@ -17,12 +17,16 @@ bool_values = [True, False]
 def test_databricks_request_header_provider_in_context(
     is_in_databricks_notebook, is_in_databricks_job, is_in_cluster
 ):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-        return_value=is_in_databricks_notebook,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
-    ), mock.patch("mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+            return_value=is_in_databricks_notebook,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
+        ),
+        mock.patch("mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster),
+    ):
         assert (
             DatabricksRequestHeaderProvider().in_context() == is_in_databricks_notebook
             or is_in_databricks_job
@@ -38,24 +42,24 @@ def test_databricks_request_header_provider_in_context(
 def test_databricks_request_header_provider_request_headers(
     is_in_databricks_notebook, is_in_databricks_job, is_in_cluster
 ):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-        return_value=is_in_databricks_notebook,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster
-    ), mock.patch("mlflow.utils.databricks_utils.get_notebook_id") as notebook_id_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_id"
-    ) as job_id_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_run_id"
-    ) as job_run_id_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_type"
-    ) as job_type_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_cluster_id"
-    ) as cluster_id_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_command_run_id"
-    ) as command_run_id_mock:
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+            return_value=is_in_databricks_notebook,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
+        ),
+        mock.patch("mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster),
+        mock.patch("mlflow.utils.databricks_utils.get_notebook_id") as notebook_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_job_id") as job_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_job_run_id") as job_run_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_job_type") as job_type_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_cluster_id") as cluster_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_command_run_id") as command_run_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_workload_id") as workload_id_mock,
+        mock.patch("mlflow.utils.databricks_utils.get_workload_class") as workload_class_mock,
+    ):
         request_headers = DatabricksRequestHeaderProvider().request_headers()
 
         if is_in_databricks_notebook:
@@ -81,3 +85,13 @@ def test_databricks_request_header_provider_request_headers(
             assert request_headers["command_run_id"] == command_run_id_mock.return_value
         else:
             assert "command_run_id" not in request_headers
+
+        if workload_id_mock.return_value is not None:
+            assert request_headers["workload_id"] == workload_id_mock.return_value
+        else:
+            assert "workload_id" not in request_headers
+
+        if workload_class_mock.return_value is not None:
+            assert request_headers["workload_class"] == workload_class_mock.return_value
+        else:
+            assert "workload_class" not in request_headers

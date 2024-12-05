@@ -5,6 +5,7 @@ import {
   ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
   RunsChartCardReorderProps,
+  RunsChartCardVisibilityProps,
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
 } from './ChartCard.common';
@@ -12,7 +13,7 @@ import { RunsScatterPlot } from '../RunsScatterPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
-  shouldEnableHidingChartsWithNoData,
+  shouldEnableDraggableChartsGridLayout,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
@@ -20,7 +21,10 @@ import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentP
 import { intersection, uniq } from 'lodash';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
-export interface RunsChartsScatterChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsScatterChartCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardVisibilityProps,
+    RunsChartCardFullScreenProps {
   config: RunsChartsScatterCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -38,8 +42,10 @@ export const RunsChartsScatterChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsScatterChartCardProps) => {
+  const usingDraggableChartsGridLayout = shouldEnableDraggableChartsGridLayout();
   const title = `${config.xaxis.key} vs. ${config.yaxis.key}`;
 
   const toggleFullScreenChart = () => {
@@ -52,15 +58,12 @@ export const RunsChartsScatterChartCard = ({
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
+      return chartRunData.filter(({ hidden }) => !hidden);
     }
     return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricKeys = [config.xaxis.key, config.yaxis.key];
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
@@ -68,7 +71,14 @@ export const RunsChartsScatterChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const { elementRef, isInViewport } = useIsInViewport();
+  const { elementRef, isInViewport: isInViewportInternal } = useIsInViewport({
+    enabled: !usingDraggableChartsGridLayout,
+  });
+
+  // If the chart is in fullscreen mode, we always render its body.
+  // Otherwise, we only render the chart if it is in the viewport.
+  // Viewport flag is either consumed from the prop (new approach) or calculated internally (legacy).
+  const isInViewport = fullScreen || (isInViewportProp ?? isInViewportInternal);
 
   const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 

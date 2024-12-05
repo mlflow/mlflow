@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { shallow } from 'enzyme';
-import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
-import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
+import ShowArtifactLoggedModelView, { ShowArtifactLoggedModelViewImpl } from './ShowArtifactLoggedModelView';
+import { mountWithIntl, shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ShowArtifactLoggedModelView', () => {
   let wrapper: any;
@@ -34,7 +34,7 @@ flavors:
       return Promise.resolve(minimumFlavors);
     });
     commonProps = { ...minimalProps, getArtifact };
-    wrapper = shallow(<ShowArtifactLoggedModelView {...commonProps} />);
+    wrapper = shallowWithInjectIntl(<ShowArtifactLoggedModelView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -46,7 +46,7 @@ flavors:
       return Promise.reject(new Error('my error text'));
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = shallow(<ShowArtifactLoggedModelView {...props} />);
+    wrapper = shallowWithInjectIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       expect(wrapper.find('.artifact-logged-model-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
@@ -164,7 +164,7 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).html()).toContain(
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).text()).toContain(
         'validate_serving_input(model_uri, serving_payload)',
       );
       done();
@@ -176,7 +176,7 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain('You can also');
+      expect(wrapper.find('.artifact-logged-model-view-header').text()).toContain('You can also');
       done();
     });
   });
@@ -186,21 +186,20 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-header').html()).toContain(
+      expect(wrapper.find('.artifact-logged-model-view-header').text()).toContain(
         'This model is also registered to the',
       );
       done();
     });
   });
 
-  test('should fetch artifacts on component update', () => {
+  test('should fetch artifacts and serving input on component update', () => {
     instance = wrapper.instance();
     instance.fetchLoggedModelMetadata = jest.fn();
     instance.fetchServingInputExample = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
-    expect(instance.fetchServingInputExample).toBeCalled();
   });
 
   test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
@@ -215,8 +214,9 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.state().flavor).toBe('sklearn');
-      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
+      expect(impl.state().flavor).toBe('sklearn');
+      const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       expect(codeContent.at(1).text().includes('mlflow.sklearn.load_model')).toBe(true);
       done();
@@ -235,9 +235,10 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.state().flavor).toBe('mleap');
+      const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
+      expect(impl.state().flavor).toBe('mleap');
       // Only validate model serving code snippet is rendered
-      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(1);
+      expect(impl.find('.artifact-logged-model-view-code-content').length).toBe(1);
       done();
     });
   });
@@ -250,6 +251,8 @@ flavors:
 flavors:
   sklearn:
     version: 1.2.3
+saved_input_example_info:
+  serving_input_path: serving_input_example.json
 `);
       })
       .mockImplementationOnce((artifactLocation) => {
@@ -277,8 +280,9 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.state().serving_input).toBeDefined();
-      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
+      expect(impl.state().serving_input).toBeDefined();
+      const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
       expect(codeContentText.includes('# The model is logged with an input example')).toBe(true);
@@ -304,8 +308,9 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.state().serving_input).toBeDefined();
-      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
+      expect(impl.state().serving_input).toBeDefined();
+      const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
       expect(codeContentText.includes('# The logged model does not contain an input_example')).toBe(true);

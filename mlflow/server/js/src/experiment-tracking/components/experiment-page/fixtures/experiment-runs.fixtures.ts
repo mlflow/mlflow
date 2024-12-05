@@ -14,6 +14,11 @@ import { ExperimentStoreEntities } from '../../../types';
  * - "654321" with one run:
  *   - active state, one metric "met1", no params
  * - "789" without runs
+ * - "3210" with one run:
+ *   - active state
+ *   - metrics "met1" and ""
+ *   - tags "testtag1" and "\t"
+ *   - params "p1" and "\n"
  */
 export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } = {
   entities: {
@@ -89,6 +94,16 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         tags: [],
         allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
       },
+      '3210': {
+        experimentId: '3210',
+        name: '/Users/john.doe@databricks.com/test-experiment',
+        artifactLocation: 'dbfs:/databricks/mlflow-tracking/3210',
+        lifecycleStage: 'active',
+        lastUpdateTime: 1000502190604,
+        creationTime: 1000502190604,
+        tags: [],
+        allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
+      },
     },
     runInfosByUuid: {
       experiment123456789_run1: {
@@ -151,7 +166,26 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         artifactUri: 'dbfs:/databricks/mlflow-tracking/654321/experiment654321_run1/artifacts',
         lifecycleStage: 'active',
       },
+      experiment3210_run1: {
+        runUuid: 'experiment3210_run1',
+        runName: 'experiment3210_run1',
+        experimentId: '3210',
+        status: 'FINISHED',
+        startTime: 1660116161321,
+        endTime: 1660116194042,
+        artifactUri: 'dbfs:/databricks/mlflow-tracking/3210/experiment3210_run1/artifacts',
+        lifecycleStage: 'active',
+      },
     },
+    runInfoOrderByUuid: [
+      'experiment123456789_run1',
+      'experiment123456789_run2',
+      'experiment123456789_run3',
+      'experiment123456789_run4',
+      'experiment123456789_run5',
+      'experiment654321_run1',
+      'experiment3210_run1',
+    ],
     metricsByRunUuid: {},
     imagesByRunUuid: {},
     latestMetricsByRunUuid: {
@@ -243,6 +277,20 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           step: 0,
         },
       },
+      experiment3210_run1: {
+        met1: {
+          key: 'met1',
+          value: 2,
+          timestamp: 1000,
+          step: 0,
+        },
+        '': {
+          key: '',
+          value: 0,
+          timestamp: 1000,
+          step: 0,
+        },
+      },
     },
     minMetricsByRunUuid: {},
     maxMetricsByRunUuid: {},
@@ -318,6 +366,16 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         },
       },
       experiment654321_run1: {},
+      experiment3210_run1: {
+        p1: {
+          key: 'p1',
+          value: '',
+        },
+        '\n': {
+          key: '\n',
+          value: '0',
+        },
+      },
     },
     tagsByRunUuid: {
       experiment123456789_run1: {
@@ -376,6 +434,16 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         testtag2: {
           key: 'testtag2',
           value: 'value2_5',
+        },
+      },
+      experiment3210_run1: {
+        testtag1: {
+          key: 'testtag1',
+          value: '',
+        },
+        '\t': {
+          key: '\t',
+          value: 'value1',
         },
       },
     },

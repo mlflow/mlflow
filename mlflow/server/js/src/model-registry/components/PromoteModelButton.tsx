@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
-import { getModelNameFilter } from '../../model-registry/utils/SearchUtils';
+import { getModelNameFilter } from '../utils/SearchUtils';
 import { ReduxState, ThunkDispatch } from '../../redux-types';
 import { createModelVersionApi, createRegisteredModelApi, searchRegisteredModelsApi } from '../actions';
 import { ModelRegistryRoutes } from '../routes';
@@ -130,7 +130,7 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
       <>
         <Typography.Paragraph css={{ marginTop: '-12px' }}>
           <FormattedMessage
-            defaultMessage="Copy your MLflow models to another registered model for 
+            defaultMessage="Copy your MLflow models to another registered model for
             simple model promotion across environments. For more mature production-grade setups, we
             recommend setting up automated model training workflows to produce models in controlled
             environments. <link>Learn more</link>"
@@ -138,6 +138,7 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
             values={{
               link: (chunks) => (
                 <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_promotemodelbutton.tsx_140"
                   href={
                     'https://mlflow.org/docs/latest/model-registry.html' +
                     '#promoting-an-mlflow-model-across-environments'

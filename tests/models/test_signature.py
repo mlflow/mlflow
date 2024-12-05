@@ -1,4 +1,6 @@
 import json
+from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -18,6 +20,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Schema,
     TensorSpec,
+    convert_dataclass_to_schema,
 )
 
 
@@ -72,7 +75,7 @@ def test_model_signature_with_tensorspec():
     # Name mismatch
     signature4 = ModelSignature(
         inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
-        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "mismatch")]),
     )
     assert signature3 != signature4
     as_json = json.dumps(signature1.to_dict())
@@ -208,7 +211,7 @@ def test_signature_inference_infers_datime_types_as_expected():
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+        mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
     signature = infer_signature(np.array([1]))
     run_id = run.info.run_id
     model_uri = f"runs:/{run_id}/{artifact_path}"
@@ -233,8 +236,8 @@ def test_set_signature_overwrite():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(
-            sk_model=RandomForestRegressor(),
-            artifact_path=artifact_path,
+            RandomForestRegressor(),
+            artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
@@ -305,11 +308,69 @@ def test_signature_for_rag():
         "outputs": (
             '[{"type": "array", "items": {"type": "object", "properties": '
             '{"finish_reason": {"type": "string", "required": true}, '
-            '"index": {"type": "integer", "required": true}, '
+            '"index": {"type": "long", "required": true}, '
             '"message": {"type": "object", "properties": '
             '{"content": {"type": "string", "required": true}, '
             '"role": {"type": "string", "required": true}}, '
-            '"required": true}}}, "name": "choices", "required": true}]'
+            '"required": true}}}, "name": "choices", "required": true}, '
+            '{"type": "string", "name": "object", "required": true}]'
         ),
         "params": None,
     }
+
+
+def test_infer_signature_and_convert_dataclass_to_schema_for_rag():
+    inferred_signature = infer_signature(
+        asdict(rag_signatures.ChatCompletionRequest()),
+        asdict(rag_signatures.ChatCompletionResponse()),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+def test_infer_signature_with_dataclass():
+    inferred_signature = infer_signature(
+        rag_signatures.ChatCompletionRequest(),
+        rag_signatures.ChatCompletionResponse(),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = None
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: Optional[CustomOutput] = None
+
+
+def test_infer_signature_with_optional_and_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+    assert "id" in custom_input_schema["properties"]
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )

@@ -40,6 +40,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
       <DropdownMenu.Content align="end">
         {isChartTypeSupported(RunsChartType.BAR) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_42"
             onClick={() => onAddChart(RunsChartType.BAR)}
             data-testid="experiment-view-compare-runs-chart-type-bar"
           >
@@ -54,6 +55,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {isChartTypeSupported(RunsChartType.LINE) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_56"
             onClick={() => onAddChart(RunsChartType.LINE)}
             data-testid="experiment-view-compare-runs-chart-type-line"
           >
@@ -68,6 +70,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {isChartTypeSupported(RunsChartType.PARALLEL) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_70"
             onClick={() => onAddChart(RunsChartType.PARALLEL)}
             data-testid="experiment-view-compare-runs-chart-type-parallel"
           >
@@ -82,6 +85,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {isChartTypeSupported(RunsChartType.SCATTER) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_84"
             onClick={() => onAddChart(RunsChartType.SCATTER)}
             data-testid="experiment-view-compare-runs-chart-type-scatter"
           >
@@ -96,6 +100,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {isChartTypeSupported(RunsChartType.CONTOUR) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_98"
             onClick={() => onAddChart(RunsChartType.CONTOUR)}
             data-testid="experiment-view-compare-runs-chart-type-contour"
           >
@@ -110,6 +115,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_112"
             onClick={() => onAddChart(RunsChartType.DIFFERENCE)}
             data-testid="experiment-view-compare-runs-chart-type-difference"
           >
@@ -124,6 +130,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
         )}
         {shouldEnableImageGridCharts() && isChartTypeSupported(RunsChartType.IMAGE) && (
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_126"
             onClick={() => onAddChart(RunsChartType.IMAGE)}
             data-testid="experiment-view-compare-runs-chart-type-image"
           >

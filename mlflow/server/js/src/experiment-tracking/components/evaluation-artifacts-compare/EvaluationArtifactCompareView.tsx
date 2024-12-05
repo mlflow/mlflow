@@ -356,6 +356,7 @@ export const EvaluationArtifactCompareViewImpl = ({
           }}
         >
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_358"
             label={
               <FormattedMessage
                 defaultMessage="Table"
@@ -412,6 +413,7 @@ export const EvaluationArtifactCompareViewImpl = ({
               }}
             >
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_414"
                 prefix={<SearchIcon />}
                 suffix={showSearchSpinner && <Spinner size="small" />}
                 css={{ width: 300, minWidth: 300 }}
@@ -430,6 +432,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 disabled={!isViewConfigured || isSyncingArtifacts}
               />
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_433"
                 value={groupByCols}
                 multiSelect
                 label={
@@ -462,6 +465,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 </DialogComboboxContent>
               </DialogCombobox>
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_465"
                 value={[outputColumn]}
                 label={
                   <FormattedMessage

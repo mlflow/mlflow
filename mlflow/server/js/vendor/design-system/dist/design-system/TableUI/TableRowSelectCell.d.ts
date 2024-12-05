@@ -1,5 +1,6 @@
-import type { HTMLDataAttributes } from '../types';
-interface TableRowSelectCellProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventProps, HTMLDataAttributes } from '../types';
+interface TableRowSelectCellProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** Called when the checkbox is clicked */
     onChange?: (event: unknown) => void;
     /** Whether the checkbox is checked */

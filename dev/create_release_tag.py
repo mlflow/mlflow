@@ -26,6 +26,7 @@ git push --delete origin v9.0.0
 git checkout master
 git branch -D branch-9.0
 """
+
 import subprocess
 
 import click

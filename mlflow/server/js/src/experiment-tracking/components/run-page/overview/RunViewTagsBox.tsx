@@ -9,8 +9,7 @@ import { ThunkDispatch } from '../../../../redux-types';
 import { setRunTagsBulkApi } from '../../../actions';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
 import { useMemo } from 'react';
-
-export const isUserFacingTag = (tagKey: string) => !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX);
+import { isUserFacingTag } from '../../../../common/utils/TagUtils';
 
 /**
  * Displays run tags cell in run detail overview.

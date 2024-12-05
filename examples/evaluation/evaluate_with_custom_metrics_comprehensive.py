@@ -1,6 +1,6 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
@@ -43,11 +43,12 @@ def custom_artifact(eval_df, builtin_metrics, _artifacts_dir):
     example_dict = {"hello": "there", "test_list": [0.1, 0.3, 4]}
     example_dict.update(builtin_metrics)
     example_dict_2 = '{"a": 3, "b": [1, 2, 3]}'
-    example_image = plt.figure()
-    plt.scatter(eval_df["prediction"], eval_df["target"])
-    plt.xlabel("Targets")
-    plt.ylabel("Predictions")
-    plt.title("Targets vs. Predictions")
+    example_image = Figure()
+    ax = example_image.subplots()
+    ax.scatter(eval_df["prediction"], eval_df["target"])
+    ax.set_xlabel("Targets")
+    ax.set_ylabel("Predictions")
+    ax.set_title("Targets vs. Predictions")
     example_custom_class = ExampleClass(10)
 
     return {

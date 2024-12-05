@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -24,7 +24,7 @@ class TensorDatasetSchema:
         self.features = features
         self.targets = targets
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize into a 'jsonable' dictionary.
 
         Returns:
@@ -40,7 +40,7 @@ class TensorDatasetSchema:
         }
 
     @classmethod
-    def from_dict(cls, schema_dict: Dict[str, Any]):
+    def from_dict(cls, schema_dict: dict[str, Any]):
         """Deserialize from dictionary representation.
 
         Args:

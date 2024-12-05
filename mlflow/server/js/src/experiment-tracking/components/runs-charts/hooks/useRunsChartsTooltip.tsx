@@ -7,6 +7,7 @@ import type {
 import { RunsMetricsBarPlotHoverData } from '../components/RunsMetricsBarPlot';
 import { shouldEnableDeepLearningUIPhase3 } from '../../../../common/utils/FeatureUtils';
 import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
+import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
 export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, THoverData = any> {
   runUuid: string;
@@ -537,9 +538,10 @@ const styles = {
     height: '100%',
     position: 'fixed',
     pointerEvents: 'none',
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP_CONTAINER,
   } as Interpolation<Theme>,
   contextMenuWrapper: (theme: Theme) => ({
-    zIndex: 1,
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP,
     position: 'absolute' as const,
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.backgroundPrimary,

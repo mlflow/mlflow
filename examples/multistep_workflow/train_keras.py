@@ -3,6 +3,7 @@ Trains a Keras model for user/movie ratings. The input is a Parquet
 ratings dataset (see etl_data.py) and an ALS model (see als.py), which we
 will use to supplement our input and train using.
 """
+
 from itertools import chain
 
 import click

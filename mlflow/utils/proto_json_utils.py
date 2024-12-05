@@ -7,7 +7,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -214,7 +214,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, DataType, Map, Object
+    from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -224,6 +224,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     else:
         n = min(len(schema.input_types()), len(pdf.columns))
         dtype_list = zip(pdf.columns[:n], schema.input_types()[:n])
+    required_input_names = set(schema.required_input_names())
 
     for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):
@@ -231,6 +232,7 @@ def cast_df_types_according_to_schema(pdf, schema):
         else:
             col_type = col_type_spec
         if col_name in actual_cols:
+            required = col_name in required_input_names
             try:
                 if isinstance(col_type_spec, DataType) and col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
@@ -247,11 +249,19 @@ def cast_df_types_according_to_schema(pdf, schema):
                     # `PyFuncModel.predict` being called.
                     pass
                 elif isinstance(col_type_spec, Array):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_array(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Object):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_object(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Map):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_map(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_map(x, col_type_spec, required=required)
+                    )
+                elif isinstance(col_type_spec, AnyType):
+                    pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -265,8 +275,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
     Args:
         decoded_input: Parsed json - either a list or a dictionary.
-        schema: MLflow schema used when parsing the data.
         pandas_orient: pandas data frame convention used to store the data.
+        schema: MLflow schema used when parsing the data.
 
     Returns:
         pandas.DataFrame.
@@ -380,7 +390,7 @@ def convert_data_type(data, spec):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
+    from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -396,11 +406,13 @@ def convert_data_type(data, spec):
                 )
             elif isinstance(spec.type, Array):
                 # convert to numpy array for backwards compatibility
-                return np.array(_enforce_array(data, spec.type))
+                return np.array(_enforce_array(data, spec.type, required=spec.required))
             elif isinstance(spec.type, Object):
-                return _enforce_object(data, spec.type)
+                return _enforce_object(data, spec.type, required=spec.required)
             elif isinstance(spec.type, Map):
-                return _enforce_map(data, spec.type)
+                return _enforce_map(data, spec.type, required=spec.required)
+            elif isinstance(spec.type, AnyType):
+                return data
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
@@ -598,7 +610,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: Optional[dict[str, Any]] = None):
     """
     Args:
         data: Input data.

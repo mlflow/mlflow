@@ -31,7 +31,13 @@ export const RunViewRegisteredModelsBox = ({
           to={getModelLink(model)}
           css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
         >
-          <RegisteredModelOkIcon /> {model.name} <Tag css={{ cursor: 'pointer' }}>v{model.version}</Tag>
+          <RegisteredModelOkIcon /> {model.name}{' '}
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewregisteredmodelsbox.tsx_40"
+            css={{ cursor: 'pointer' }}
+          >
+            v{model.version}
+          </Tag>
         </Link>
       ))}
     </Overflow>

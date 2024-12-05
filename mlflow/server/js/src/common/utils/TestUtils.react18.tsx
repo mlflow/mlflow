@@ -5,15 +5,7 @@
   Will NOT work with react@17.
 */
 
-import {
-  fireEvent,
-  within,
-  render,
-  type RenderResult,
-  screen,
-  act,
-  waitFor,
-} from '@testing-library/react-for-react-18';
+import { fireEvent, within, render, type RenderResult, screen, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event-14';
@@ -91,4 +83,4 @@ export const findAntdSelectElement = async (optionText: string, endsWith: string
   });
 };
 
-export * from '@testing-library/react-for-react-18';
+export * from '@testing-library/react';

@@ -25,6 +25,7 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
       />,
     );
 
@@ -44,6 +45,7 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
       />,
     );
 
@@ -66,6 +68,7 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
       />,
     );
 
@@ -90,6 +93,7 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
       />,
     );
 

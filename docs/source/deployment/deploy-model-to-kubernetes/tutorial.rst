@@ -54,7 +54,7 @@ First, please install mlflow to your local machine using the following command:
 
 .. code-block:: bash
 
-  pip install mlflow[extras]
+  pip install mlflow[mlserver]
 
 ``[extras]`` will install additional dependencies required for this tutorial including `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ and
 `scikit-learn <https://scikit-learn.org/stable/>`_. Note that scikit-learn is not required for deployment, just for training the example model used in this tutorial.
@@ -267,7 +267,7 @@ This command starts a local server listening on port 1234. You can send a reques
 
 .. code-block:: bash
 
-    $ curl -X POST -H "Content-Type:application/json" --data '{"inputs": [[14.23, 1.71, 2.43, 15.6, 127.0, 2.8, 3.06, 0.28, 2.29, 5.64, 1.04, 3.92, 1065.0]]' http://127.0.0.1:1234/invocations
+    $ curl -X POST -H "Content-Type:application/json" --data '{"inputs": [[14.23, 1.71, 2.43, 15.6, 127.0, 2.8, 3.06, 0.28, 2.29, 5.64, 1.04, 3.92, 1065.0]]}' http://127.0.0.1:1234/invocations
 
     {"predictions": [-0.03416275504140387]}
 

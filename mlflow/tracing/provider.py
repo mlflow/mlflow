@@ -7,11 +7,13 @@ tracer provider and ensure that it won't interfere with the other external libra
 use OpenTelemetry e.g. PromptFlow, Snowpark.
 """
 
+import contextvars
 import functools
 import json
 import logging
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
+from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -19,10 +21,14 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
+from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import Span
 
 # Global tracer provider instance. We manage the tracer provider by ourselves instead of using
 # the global tracer provider provided by OpenTelemetry.
@@ -56,7 +62,7 @@ def start_detached_span(
     parent: Optional[trace.Span] = None,
     experiment_id: Optional[str] = None,
     start_time_ns: Optional[int] = None,
-) -> Optional[Tuple[str, trace.Span]]:
+) -> Optional[tuple[str, trace.Span]]:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.
@@ -75,10 +81,39 @@ def start_detached_span(
     """
     tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
-    attributes = (
-        {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
-    )
+    attributes = {}
+
+    # Set start time and experiment to attribute so we can pass it to the span processor
+    if start_time_ns:
+        attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+
+def set_span_in_context(span: "Span") -> contextvars.Token:
+    """
+    Set the given OpenTelemetry span as the active span in the current context.
+
+    Args:
+        span: An MLflow span object to set as the active span.
+
+    Returns:
+        A token object that will be required when detaching the span from the context.
+    """
+    context = trace.set_span_in_context(span._span)
+    token = context_api.attach(context)
+    return token  # noqa: RET504
+
+
+def detach_span_from_context(token: contextvars.Token):
+    """
+    Remove the active span from the current context.
+
+    Args:
+        token: The token returned by `_set_span_to_active` function.
+    """
+    context_api.detach(token)
 
 
 def _get_tracer(module_name: str):
@@ -118,7 +153,15 @@ def _setup_tracer_provider(disabled=False):
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    if is_in_databricks_model_serving_environment():
+    if should_use_otlp_exporter():
+        # Export to OpenTelemetry Collector when configured
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        processor = OtelSpanProcessor(exporter)
+
+    elif is_in_databricks_model_serving_environment():
+        # Export to Inference Table when running in Databricks Model Serving
         if not is_mlflow_tracing_enabled_in_model_serving():
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
@@ -128,7 +171,9 @@ def _setup_tracer_provider(disabled=False):
 
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
+
     else:
+        # Default to MLflow Tracking Server
         from mlflow.tracing.export.mlflow import MlflowSpanExporter
         from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 
@@ -138,6 +183,17 @@ def _setup_tracer_provider(disabled=False):
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
+
+    from mlflow.tracing.utils.token import suppress_token_detach_warning_to_debug_level
+
+    # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
+    # level so that it does not show up in the user's console. This warning may indicate
+    # some incorrect context handling, but in many cases just false positive that does not
+    # cause any issue in the generated trace.
+    # Note that we need to apply it permanently rather than just the scope of prediction call,
+    # because the exception can happen for streaming case, where the error log might be
+    # generated when the iterator is consumed and we don't know when it will happen.
+    suppress_token_detach_warning_to_debug_level()
 
 
 @raise_as_trace_exception
@@ -174,7 +230,7 @@ def disable():
         assert len(mlflow.search_traces()) == 1
 
     """
-    if not _is_enabled():
+    if not is_tracing_enabled():
         return
 
     _setup_tracer_provider(disabled=True)
@@ -214,7 +270,7 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if _is_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if is_tracing_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
         _logger.info("Tracing is already enabled")
         return
 
@@ -247,7 +303,7 @@ def trace_disabled(f):
         is_func_called = False
         result = None
         try:
-            if _is_enabled():
+            if is_tracing_enabled():
                 disable()
                 try:
                     is_func_called, result = True, f(*args, **kwargs)
@@ -289,7 +345,7 @@ def reset_tracer_setup():
 
 
 @raise_as_trace_exception
-def _is_enabled() -> bool:
+def is_tracing_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
     is instantiated or not.

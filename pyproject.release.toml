@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.15.2.dev0"
+version = "2.19.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
-readme = "README.rst"
+readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -18,21 +18,21 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
-  "mlflow-skinny==2.15.2.dev0",
+  "mlflow-skinny==2.19.1.dev0",
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
   "alembic<2,!=1.10.0",
   "docker<8,>=4.0.0",
   "graphene<4",
-  "gunicorn<23; platform_system != 'Windows'",
+  "gunicorn<24; platform_system != 'Windows'",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<2",
+  "numpy<3",
   "pandas<3",
   "pyarrow>=4.0.0",
   "scikit-learn<2",
@@ -57,8 +57,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "mlserver>=1.2.0,!=1.3.1,<1.4.0",
-  "mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0",
   "virtualenv",
   "prometheus-flask-exporter",
 ]
@@ -68,11 +66,12 @@ databricks = [
   "boto3>1",
   "botocore",
 ]
+mlserver = ["mlserver>=1.2.0,!=1.3.1", "mlserver-mlflow>=1.2.0,!=1.3.1"]
 gateway = [
   "pydantic<3,>=1.0",
   "fastapi<1",
   "uvicorn[standard]<1",
-  "watchfiles<1",
+  "watchfiles<2",
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "tiktoken<1",
@@ -82,7 +81,7 @@ genai = [
   "pydantic<3,>=1.0",
   "fastapi<1",
   "uvicorn[standard]<1",
-  "watchfiles<1",
+  "watchfiles<2",
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "tiktoken<1",
@@ -92,7 +91,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.11"]
+langchain = ["langchain>=0.1.0,<=0.3.9"]
 
 [project.urls]
 homepage = "https://mlflow.org"

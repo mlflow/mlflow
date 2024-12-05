@@ -28,21 +28,22 @@ def prefetch(func):
 
 @prefetch
 @flaky()
-def load_small_seq2seq_pipeline():
-    architecture = "lordtt13/emo-mobilebert"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.TFAutoModelForSequenceClassification.from_pretrained(architecture)
-    return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
-
-
-@prefetch
-@flaky()
 def load_small_qa_pipeline():
     architecture = "csarron/mobilebert-uncased-squad-v2"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
     model = transformers.MobileBertForQuestionAnswering.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
+    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
+
+
+@prefetch
+@flaky()
+def load_small_qa_tf_pipeline():
+    # Same architecture as above but loaded as a Tensorflow based model
+    architecture = "csarron/mobilebert-uncased-squad-v2"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.TFAutoModelForQuestionAnswering.from_pretrained(architecture)
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
@@ -180,7 +181,7 @@ def load_zero_shot_pipeline():
 @flaky()
 def load_table_question_answering_pipeline():
     return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
+        task="table-question-answering", model="google/tapas-tiny-finetuned-sqa"
     )
 
 

@@ -12,7 +12,7 @@ import importlib
 import logging
 import re
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
 from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
@@ -412,7 +412,7 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[Dict[str, Any]]
+    method: str, view_args: Optional[dict[str, Any]]
 ) -> Optional[Callable[[], bool]]:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
@@ -592,13 +592,13 @@ def filter_search_registered_models(resp: Response):
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
     ):
-        refetched: PagedList[
-            RegisteredModel
-        ] = _get_model_registry_store().search_registered_models(
-            filter_string=request_message.filter,
-            max_results=request_message.max_results,
-            order_by=request_message.order_by,
-            page_token=response_message.next_page_token,
+        refetched: PagedList[RegisteredModel] = (
+            _get_model_registry_store().search_registered_models(
+                filter_string=request_message.filter,
+                max_results=request_message.max_results,
+                order_by=request_message.order_by,
+                page_token=response_message.next_page_token,
+            )
         )
         refetched = refetched[
             : request_message.max_results - len(response_message.registered_models)
@@ -748,11 +748,11 @@ def signup():
   </div>
   <label for="username">Username:</label>
   <br>
-  <input type="text" id="username" name="username">
+  <input type="text" id="username" name="username" minlength="4">
   <br>
   <label for="password">Password:</label>
   <br>
-  <input type="password" id="password" name="password">
+  <input type="password" id="password" name="password" minlength="4">
   <br>
   <br>
   <input type="submit" value="Sign up">
@@ -770,6 +770,10 @@ def create_user():
         username = request.form["username"]
         password = request.form["password"]
 
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
+
         if store.has_user(username):
             flash(f"Username has already been taken: {username}")
             return alert(href=SIGNUP)
@@ -780,6 +784,10 @@ def create_user():
     elif content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
+
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
 
         user = store.create_user(username, password)
         return jsonify({"user": user.to_json()})

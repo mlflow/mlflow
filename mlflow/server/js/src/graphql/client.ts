@@ -39,7 +39,8 @@ export function createApolloClient() {
     attempts: { retryIf: (_, op) => !containsMutation(op) },
   });
 
-  const combinedLinks = ApolloLink.from([
+  // eslint-disable-next-line prefer-const
+  let combinedLinks = ApolloLink.from([
     // This link retries queries that fail due to network errors
     retryLink,
     httpLink,

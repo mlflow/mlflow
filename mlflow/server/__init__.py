@@ -236,7 +236,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _run_server(
+def _run_server(  # noqa: D417
     file_store_path,
     registry_store_uri,
     default_artifact_root,

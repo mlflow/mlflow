@@ -7,8 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage } from 'react-intl';
-import { Spacer, Switch, Tabs, LegacyTooltip } from '@databricks/design-system';
+import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
+import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -25,8 +25,9 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
 import { RunInfoEntity } from '../types';
+import { CompareRunArtifactView } from './CompareRunArtifactView';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -40,9 +41,7 @@ type CompareRunViewProps = {
   tagLists: any[][];
   runNames: string[];
   runDisplayNames: string[];
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
 };
 
 type CompareRunViewState = any;
@@ -209,6 +208,21 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
+      (key: any, data: any) => key,
+      (value) => {
+        try {
+          const jsonValue = parsePythonDictString(value);
+
+          // Pretty print if parsed value is an object or array
+          if (typeof jsonValue === 'object' && jsonValue !== null) {
+            return this.renderPrettyJson(jsonValue);
+          } else {
+            return value;
+          }
+        } catch (e) {
+          return value;
+        }
+      },
     );
     if (dataRows.length === 0) {
       return (
@@ -229,6 +243,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderPrettyJson(jsonValue: any) {
+    return <pre>{JSON.stringify(jsonValue, null, 2)}</pre>;
   }
 
   renderMetricTable(colWidth: any, experimentIds: any) {
@@ -274,6 +292,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderArtifactTable(colWidth: any) {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
   }
 
   renderTagTable(colWidth: any) {
@@ -400,6 +422,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       description: 'Row group title for metrics of runs on the experiment compare runs page',
     });
 
+    const artifactsLabel = this.props.intl.formatMessage({
+      defaultMessage: 'Artifacts',
+      description: 'Row group title for artifacts of runs on the experiment compare runs page',
+    });
+
     const tagsLabel = this.props.intl.formatMessage({
       defaultMessage: 'Tags',
       description: 'Row group title for tags of runs on the experiment compare runs page',
@@ -423,7 +450,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               description: 'Tabs title for plots on the compare runs page',
             })}
           >
-            <Tabs>
+            <LegacyTabs>
               <TabPane
                 tab={
                   <FormattedMessage
@@ -474,7 +501,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               >
                 <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
               </TabPane>
-            </Tabs>
+            </LegacyTabs>
           </CollapsibleSection>
         )}
         <CollapsibleSection
@@ -557,6 +584,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_570"
             label={diffOnlyLabel}
             aria-label={[paramsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
@@ -568,6 +596,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={metricsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_581"
             label={diffOnlyLabel}
             aria-label={[metricsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
@@ -577,8 +606,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
             label={diffOnlyLabel}
             aria-label={[tagsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
@@ -673,6 +704,10 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const experiments = experimentIds.map((experimentId: any) => getExperiment(experimentId, state));
   runUuids.forEach((runUuid: any) => {
     const runInfo = getRunInfo(runUuid, state);
+    // Skip processing data if run info is not available yet
+    if (!runInfo) {
+      return;
+    }
     runInfos.push(runInfo);
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
@@ -698,5 +733,19 @@ const mapStateToProps = (state: any, ownProps: any) => {
   };
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
+/**
+ * Parse a Python dictionary in string format into a JSON object.
+ * @param value The Python dictionary string to parse
+ * @returns The parsed JSON object, or null if parsing fails
+ */
+const parsePythonDictString = (value: string) => {
+  try {
+    const jsonString = value.replace(/'/g, '"');
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error('Failed to parse string to JSON:', e);
+    return null;
+  }
+};
+
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
@@ -26,7 +26,7 @@ class Trace(_MlflowObject):
     def __repr__(self) -> str:
         return f"Trace(request_id={self.info.request_id})"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
 
     def to_json(self, pretty=False) -> str:
@@ -35,15 +35,16 @@ class Trace(_MlflowObject):
         return json.dumps(self.to_dict(), cls=TraceJSONEncoder, indent=2 if pretty else None)
 
     @classmethod
-    def from_dict(cls, trace_dict: Dict[str, Any]) -> Trace:
+    def from_dict(cls, trace_dict: dict[str, Any]) -> Trace:
         info = trace_dict.get("info")
         data = trace_dict.get("data")
         if info is None or data is None:
             raise MlflowException(
                 "Unable to parse Trace from dictionary. Expected keys: 'info' and 'data'. "
-                "Received keys: %s" % list(trace_dict.keys()),
+                f"Received keys: {list(trace_dict.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
         return cls(
             info=TraceInfo.from_dict(info),
             data=TraceData.from_dict(data),
@@ -76,12 +77,16 @@ class Trace(_MlflowObject):
         which contains a JSON representation of the Trace object. This object is deserialized
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
-        return {
-            "application/databricks.mlflow.trace": self._serialize_for_mimebundle(),
-            "text/plain": repr(self),
-        }
+        from mlflow.tracing.display import get_display_handler
 
-    def to_pandas_dataframe_row(self) -> Dict[str, Any]:
+        bundle = {"text/plain": repr(self)}
+
+        if not get_display_handler().disabled:
+            bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
+
+        return bundle
+
+    def to_pandas_dataframe_row(self) -> dict[str, Any]:
         return {
             "request_id": self.info.request_id,
             "trace": self,
@@ -96,7 +101,7 @@ class Trace(_MlflowObject):
         }
 
     @staticmethod
-    def pandas_dataframe_columns() -> List[str]:
+    def pandas_dataframe_columns() -> list[str]:
         return [
             "request_id",
             "trace",

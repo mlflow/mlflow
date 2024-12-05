@@ -1,4 +1,6 @@
-from typing import Dict
+import subprocess
+import tempfile
+import time
 from unittest import mock
 
 import pytest
@@ -19,21 +21,24 @@ def reset_active_experiment():
 
 @pytest.fixture
 def mock_upload_trace_data():
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
-        return_value=TraceInfo(
-            request_id="tr-1234",
-            experiment_id="0",
-            timestamp_ms=0,
-            execution_time_ms=0,
-            status=TraceStatus.OK,
-            request_metadata={},
-            tags={"mlflow.artifactLocation": "test"},
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
+            return_value=TraceInfo(
+                request_id="tr-1234",
+                experiment_id="0",
+                timestamp_ms=0,
+                execution_time_ms=0,
+                status=TraceStatus.OK,
+                request_metadata={},
+                tags={"mlflow.artifactLocation": "test"},
+            ),
         ),
-    ), mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
-        return_value=None,
-    ) as mock_upload_trace_data:
+        mock.patch(
+            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
+            return_value=None,
+        ) as mock_upload_trace_data,
+    ):
         yield mock_upload_trace_data
 
 
@@ -47,7 +52,7 @@ def mock_store(monkeypatch):
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
-        _traces: Dict[str, TraceInfo] = {}
+        _traces: dict[str, TraceInfo] = {}
 
         def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
             trace_info = create_test_trace_info(
@@ -92,3 +97,36 @@ def databricks_tracking_uri():
 def async_logging_enabled(request, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
     return request.param
+
+
+@pytest.fixture
+def otel_collector():
+    """Start an OpenTelemetry collector in a Docker container."""
+    subprocess.run(["docker", "pull", "otel/opentelemetry-collector-contrib"], check=True)
+
+    with (
+        tempfile.NamedTemporaryFile() as output_file,
+        subprocess.Popen(
+            [
+                "docker",
+                "run",
+                "-p",
+                "127.0.0.1:4317:4317",
+                "otel/opentelemetry-collector",
+            ],
+            stdout=output_file,
+            stderr=subprocess.STDOUT,
+            text=True,
+        ) as process,
+    ):
+        # Wait for the collector to start
+        time.sleep(5)
+
+        yield process, output_file.name
+
+        # Stop the collector
+        container_id = subprocess.check_output(
+            ["docker", "ps", "-q", "--filter", "ancestor=otel/opentelemetry-collector"],
+            text=True,
+        ).strip()
+        subprocess.check_call(["docker", "stop", container_id])

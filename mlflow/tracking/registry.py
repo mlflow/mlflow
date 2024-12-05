@@ -1,5 +1,5 @@
 import warnings
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -39,7 +39,6 @@ class StoreRegistry:
 
     __metaclass__ = ABCMeta
 
-    @abstractmethod
     def __init__(self, group_name):
         self._registry = {}
         self.group_name = group_name
@@ -74,7 +73,9 @@ class StoreRegistry:
             URI requirements.
         """
         scheme = (
-            store_uri if store_uri in {"databricks", "databricks-uc"} else get_uri_scheme(store_uri)
+            store_uri
+            if store_uri in {"databricks", "databricks-uc", "uc"}
+            else get_uri_scheme(store_uri)
         )
         try:
             store_builder = self._registry[scheme]

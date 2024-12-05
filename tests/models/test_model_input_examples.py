@@ -299,7 +299,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
 @pytest.mark.parametrize(
     ("input_is_tabular", "output_shape", "expected_signature"),
     [
-        # When the input example is column-based, output 1D numpy arrays are interpretted `ColSpec`s
+        # When the input example is column-based, output 1D numpy arrays are interpreted `ColSpec`s
         (
             True,
             (),
@@ -308,7 +308,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
                 outputs=Schema([ColSpec(type=DataType.long)]),
             ),
         ),
-        # But if the output numpy array has higher dimensions, fallback to interpretting the model
+        # But if the output numpy array has higher dimensions, fallback to interpreting the model
         # output as `TensorSpec`s.
         (
             True,
@@ -318,7 +318,7 @@ class DummySklearnModel(BaseEstimator, ClassifierMixin):
                 outputs=Schema([TensorSpec(np.dtype("int64"), (-1, 2))]),
             ),
         ),
-        # If the input example is tensor-based, intrepret output numpy arrays as `TensorSpec`s
+        # If the input example is tensor-based, interpret output numpy arrays as `TensorSpec`s
         (
             False,
             (),
@@ -335,7 +335,7 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path=artifact_path, input_example=example)
+        mlflow.sklearn.log_model(model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
@@ -347,7 +347,7 @@ def test_infer_signature_from_example_can_be_disabled():
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             DummySklearnModel(output_shape=()),
-            artifact_path=artifact_path,
+            artifact_path,
             input_example=np.array([[1]]),
             signature=False,
         )
@@ -369,9 +369,7 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(
-                ErrorModel(), artifact_path="model", input_example=np.array([[1]])
-            )
+            mlflow.sklearn.log_model(ErrorModel(), "model", input_example=np.array([[1]]))
         mock_warning.assert_called_once()
         assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
 
@@ -407,9 +405,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            iris_model, artifact_path=artifact_path, input_example=input_example
-        )
+        mlflow.sklearn.log_model(iris_model, artifact_path, input_example=input_example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
@@ -436,9 +432,7 @@ def test_infer_signature_on_scalar_input_examples(input_example):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            IdentitySklearnModel(), artifact_path=artifact_path, input_example=input_example
-        )
+        mlflow.sklearn.log_model(IdentitySklearnModel(), artifact_path, input_example=input_example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

@@ -4,23 +4,23 @@ import type { ReactElement } from 'react';
 import React from 'react';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps } from '../types';
+import type { AnalyticsEventProps, AnalyticsEventValueChangeNoPiiFlagProps } from '../types';
 export declare const Root: ({ children, ...props }: DropdownMenu.DropdownMenuProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
     forceCloseOnEscape?: boolean;
 }
-export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     danger?: boolean;
     disabledReason?: React.ReactNode;
 }
 export interface DropdownMenuSubTriggerProps extends DropdownMenu.DropdownMenuSubTriggerProps {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
 }
 export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRadioItemProps {
     disabledReason?: React.ReactNode;

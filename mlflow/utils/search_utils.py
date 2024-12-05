@@ -5,7 +5,7 @@ import math
 import operator
 import re
 import shlex
-from typing import Any, Dict
+from typing import Any
 
 import sqlparse
 from packaging.version import Version
@@ -297,8 +297,8 @@ class SearchUtils:
         elif expect_quoted_value:
             raise MlflowException(
                 "Parameter value is either not quoted or unidentified quote "
-                "types used for string value %s. Use either single or double "
-                "quotes." % value,
+                f"types used for string value {value}. Use either single or double "
+                "quotes.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         else:
@@ -338,9 +338,9 @@ class SearchUtils:
                 entity_type, key = tokens
         except ValueError:
             raise MlflowException(
-                "Invalid identifier '%s'. Columns should be specified as "
+                f"Invalid identifier {identifier!r}. Columns should be specified as "
                 "'attribute.<key>', 'metric.<key>', 'tag.<key>', 'dataset.<key>', or "
-                "'param.'." % identifier,
+                "'param.'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         identifier = cls._valid_entity_type(entity_type)
@@ -507,8 +507,8 @@ class SearchUtils:
             )
         elif len(parsed) > 1:
             raise MlflowException(
-                "Search filter contained multiple expression '%s'. "
-                "Provide AND-ed expression list." % filter_string,
+                f"Search filter contained multiple expression {filter_string!r}. "
+                "Provide AND-ed expression list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._process_statement(parsed[0])
@@ -1461,8 +1461,8 @@ class SearchModelVersionUtils(SearchUtils):
             )
         elif len(parsed) > 1:
             raise MlflowException(
-                "Search filter contained multiple expression '%s'. "
-                "Provide AND-ed expression list." % filter_string,
+                f"Search filter contained multiple expression {filter_string!r}. "
+                "Provide AND-ed expression list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._process_statement(parsed[0])
@@ -1595,7 +1595,7 @@ class SearchTraceUtils(SearchUtils):
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
     @classmethod
-    def _replace_key_to_tag_or_metadata(cls, parsed: Dict[str, Any]):
+    def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """

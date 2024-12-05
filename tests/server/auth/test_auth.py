@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
+
 import subprocess
 import sys
 import time
@@ -60,6 +61,19 @@ def test_authenticate(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
     with User(username, password, monkeypatch):
         client.search_experiments()
+
+
+@pytest.mark.parametrize(
+    ("username", "password"),
+    [
+        ("", "password"),
+        ("username", ""),
+        ("", ""),
+    ],
+)
+def test_validate_username_and_password(client, username, password):
+    with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
+        create_user(client.tracking_uri, username=username, password=password)
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):

@@ -140,6 +140,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       })
       .catch((ex: any) => {
         this.setState({ isTagsRequestPending: false });
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(ex);
         message.error(
           this.props.intl.formatMessage(
@@ -159,6 +160,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: any) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
       message.error(
         this.props.intl.formatMessage(
@@ -178,6 +180,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: any) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
       message.error(
         this.props.intl.formatMessage(
@@ -223,12 +226,16 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   renderDisabledStage(modelVersion: any) {
     const tooltipContent = (
       <FormattedMessage
-        defaultMessage="Stages have been deprecated in the new Model Registry UI. Learn how to 
+        defaultMessage="Stages have been deprecated in the new Model Registry UI. Learn how to
       migrate models <link>here</link>."
         description="Tooltip content for the disabled stage metadata in model version page"
         values={{
           link: (chunks: any) => (
-            <Typography.Link href={modelStagesMigrationGuideLink} openInNewTab>
+            <Typography.Link
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_301"
+              href={modelStagesMigrationGuideLink}
+              openInNewTab
+            >
               {chunks}
             </Typography.Link>
           ),

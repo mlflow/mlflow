@@ -37,8 +37,11 @@ import { TracesViewTableRow } from './TracesViewTableRow';
 import { TracesViewTableTimestampCell } from './TracesViewTableTimestampCell';
 import { TracesViewTableHeaderCheckbox } from './TracesViewTableHeaderCheckbox';
 import { TracesViewTableCellCheckbox } from './TracesViewTableCellCheckbox';
+import { TracesViewTableNoTracesQuickstart } from './quickstart/TracesViewTableNoTracesQuickstart';
 
 export interface TracesViewTableProps {
+  experimentIds: string[];
+  runUuid?: string;
   traces: ModelTraceInfoWithRunName[];
   onTraceClicked?: (trace: ModelTraceInfo) => void;
   onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
@@ -57,10 +60,13 @@ export interface TracesViewTableProps {
   setRowSelection: React.Dispatch<React.SetStateAction<{ [id: string]: boolean }>>;
   hiddenColumns?: string[];
   disableTokenColumn?: boolean;
+  baseComponentId: string;
 }
 
 export const TracesViewTable = React.memo(
   ({
+    experimentIds,
+    runUuid,
     traces,
     loading,
     error,
@@ -78,6 +84,7 @@ export const TracesViewTable = React.memo(
     setRowSelection,
     hiddenColumns = [],
     disableTokenColumn,
+    baseComponentId,
   }: TracesViewTableProps) => {
     const intl = useIntl();
 
@@ -99,6 +106,7 @@ export const TracesViewTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                componentId={`${baseComponentId}.traces_table.request_id_link`}
                 ellipsis
                 css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
@@ -119,6 +127,7 @@ export const TracesViewTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                componentId={`${baseComponentId}.traces_table.trace_name_link`}
                 ellipsis
                 css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
@@ -235,14 +244,18 @@ export const TracesViewTable = React.memo(
           id: ExperimentViewTracesTableColumns.tags,
           cell({ row: { original } }) {
             return (
-              <TracesViewTableTagCell tags={original.tags || []} onAddEditTags={() => onTraceTagsEdit?.(original)} />
+              <TracesViewTableTagCell
+                tags={original.tags || []}
+                onAddEditTags={() => onTraceTagsEdit?.(original)}
+                baseComponentId={baseComponentId}
+              />
             );
           },
         },
       );
 
       return columns.filter((column) => column.id && !hiddenColumns.includes(column.id));
-    }, [intl, onTraceClicked, onTraceTagsEdit, disableTokenColumn, hiddenColumns]);
+    }, [intl, onTraceClicked, onTraceTagsEdit, disableTokenColumn, hiddenColumns, baseComponentId]);
 
     const table = useReactTable<ModelTraceInfoWithRunName>({
       columns,
@@ -282,7 +295,14 @@ export const TracesViewTable = React.memo(
                 defaultMessage="No traces found with the current filter query. <button>Reset filters</button> to see all traces."
                 description="Experiment page > traces table > no traces recorded"
                 values={{
-                  button: (chunks: any) => <Typography.Link onClick={onResetFilters}>{chunks}</Typography.Link>,
+                  button: (chunks: any) => (
+                    <Typography.Link
+                      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_289"
+                      onClick={onResetFilters}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
                 }}
               />
             }
@@ -297,14 +317,10 @@ export const TracesViewTable = React.memo(
       }
       if (!loading && traces.length === 0) {
         return (
-          <Empty
-            description={null}
-            title={
-              <FormattedMessage
-                defaultMessage="No traces recorded"
-                description="Experiment page > traces table > no traces recorded"
-              />
-            }
+          <TracesViewTableNoTracesQuickstart
+            baseComponentId={baseComponentId}
+            experimentIds={experimentIds}
+            runUuid={runUuid}
           />
         );
       }
@@ -332,6 +348,7 @@ export const TracesViewTable = React.memo(
         style={columnSizeVars}
         pagination={
           <CursorPagination
+            componentId={`${baseComponentId}.traces_table.pagination`}
             hasNextPage={hasNextPage}
             hasPreviousPage={hasPreviousPage}
             onNextPage={onNextPage}
@@ -343,6 +360,7 @@ export const TracesViewTable = React.memo(
           {table.getLeafHeaders().map((header) => {
             return (
               <TableHeader
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_365"
                 key={header.id}
                 css={(header.column.columnDef as TracesColumnDef).meta?.styles}
                 sortable={header.column.getCanSort()}

@@ -1,4 +1,4 @@
-import { renderHook, act, type RenderHookResult } from '@testing-library/react-for-react-18';
+import { renderHook, act, type RenderHookResult, waitFor } from '@testing-library/react';
 import {
   ExperimentPageSearchFacetsState,
   createExperimentPageSearchFacetsState,
@@ -15,6 +15,7 @@ import {
   paramsByRunUuid,
   runDatasetsByUuid,
   runInfosByUuid,
+  runInfoOrderByUuid,
   runUuidsMatchingFilter,
   tagsByRunUuid,
 } from '../../../reducers/Reducers';
@@ -24,7 +25,12 @@ import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import Utils from '../../../../common/utils/Utils';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageAutoRefresh,
+  shouldUseRegexpBasedAutoRunsSearchFilter,
+} from '../../../../common/utils/FeatureUtils';
+import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
+import { useMemo } from 'react';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual('../../../actions'),
@@ -35,6 +41,7 @@ jest.mock('../../../actions', () => ({
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../../common/utils/FeatureUtils'),
   shouldEnableExperimentPageAutoRefresh: jest.fn(),
+  shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn().mockImplementation(() => false),
 }));
 
 const MOCK_RESPONSE_DELAY = 1000;
@@ -138,6 +145,7 @@ const store = createStore(
   combineReducers({
     entities: combineReducers({
       runInfosByUuid,
+      runInfoOrderByUuid,
       experimentTagsByExperimentId,
       experimentsById,
       runDatasetsByUuid,
@@ -159,6 +167,7 @@ const testSearchFacets = createExperimentPageSearchFacetsState();
 describe('useExperimentRuns - integration test', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.mocked(searchRunsApi).mockClear();
     jest
       .mocked(searchRunsApi)
       .mockReturnValue({ type: 'SEARCH_RUNS_API', payload: Promise.resolve({}), meta: { id: 0 } });
@@ -383,6 +392,144 @@ describe('useExperimentRuns - integration test', () => {
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
   });
 
+  test('should refresh list using last valid request parameters', async () => {
+    jest.mocked(searchRunsApi).mockImplementation(({ filter }) => {
+      // React to a certain filter and return error
+      if (filter === 'invalid_filter') {
+        return {
+          type: 'mocked-action',
+          payload: Promise.reject(new ErrorWrapper({ message: 'invalid filter syntax' })),
+          meta: { id: 0 },
+        };
+      }
+      return {
+        type: 'SEARCH_RUNS_API',
+        payload: Promise.resolve({
+          runs: [
+            {
+              info: {
+                runUuid: `run_1_${filter}`,
+                experimentId: 'test-experiment',
+                runName: 'run_1_name',
+                lifecycleStage: 'active',
+              },
+              data: { metrics: [], params: [], tags: [] },
+            },
+          ],
+        }),
+        meta: { id: 0 },
+      };
+    });
+    jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+
+    const renderHookWithSearchFacets = (initialFacets: ExperimentQueryParamsSearchFacets) =>
+      renderHook(
+        ({ searchFacets }: { searchFacets: ExperimentQueryParamsSearchFacets }) =>
+          useExperimentRuns(testUiState, searchFacets, testExperimentIds),
+        {
+          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          initialProps: { searchFacets: initialFacets },
+        },
+      );
+
+    const { result, rerender } = renderHookWithSearchFacets({
+      ...createExperimentPageSearchFacetsState(),
+      searchFilter: 'valid_filter',
+    });
+
+    // Wait for the initial runs to be fetched
+    await waitFor(() => {
+      expect(result.current.isLoadingRuns).toEqual(false);
+    });
+
+    // Check that the runs data is as expected
+    expect(result.current.runsData.runInfos[0].runUuid).toEqual('run_1_valid_filter');
+
+    // Change the search facets to include an "invalid" filter
+    rerender({
+      searchFacets: {
+        ...createExperimentPageSearchFacetsState(),
+        searchFilter: 'invalid_filter',
+      },
+    });
+
+    // Wait for the data to be fetched
+    await waitFor(() => {
+      expect(result.current.isLoadingRuns).toEqual(false);
+    });
+
+    // Assert number of calls
+    expect(searchRunsApi).toHaveBeenCalledTimes(2);
+
+    // Refresh the runs
+    act(() => {
+      result.current.refreshRuns();
+    });
+
+    // Assert that additional API call has actually been made
+    await waitFor(() => {
+      expect(searchRunsApi).toHaveBeenCalledTimes(3);
+    });
+
+    // Check that the API was called by the last filter considered valid
+    expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual('valid_filter');
+  });
+
+  test('should use quick regexp-based filter when necessary', async () => {
+    jest.mocked(shouldUseRegexpBasedAutoRunsSearchFilter).mockImplementation(() => true);
+
+    const renderHookWithSearchFacets = (initialFilter: string) =>
+      renderHook(
+        ({ searchFilter }: { searchFilter: string }) => {
+          const facets = useMemo(() => ({ ...createExperimentPageSearchFacetsState(), searchFilter }), [searchFilter]);
+          return useExperimentRuns(testUiState, facets, testExperimentIds);
+        },
+        {
+          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          initialProps: { searchFilter: initialFilter },
+        },
+      );
+
+    const { rerender } = renderHookWithSearchFacets('');
+
+    // Should not use any filter when the query is empty
+    await waitFor(() => {
+      expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual(undefined);
+    });
+
+    // Change the search filter to a SQL-like query
+    rerender({ searchFilter: 'metrics.m1 > 4' });
+
+    // API should be called with untransformed filter
+    await waitFor(() => {
+      expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual('metrics.m1 > 4');
+    });
+
+    // Change the search filter to a SQL-like query
+    rerender({ searchFilter: "attributes.run_id IN ('abc')" });
+
+    // API should be called with untransformed filter
+    await waitFor(() => {
+      expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual("attributes.run_id IN ('abc')");
+    });
+
+    // Change the search filter to a SQL-like query (with table alias)
+    rerender({ searchFilter: "attr.run_id = 'abc'" });
+
+    // API should be called with untransformed filter
+    await waitFor(() => {
+      expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual("attr.run_id = 'abc'");
+    });
+
+    // Change the search filter to a plain non-SQL string
+    rerender({ searchFilter: 'run_alpha' });
+
+    // API should be called with transformed filter
+    await waitFor(() => {
+      expect(jest.mocked(searchRunsApi).mock.lastCall?.[0].filter).toEqual("attributes.run_name RLIKE 'run_alpha'");
+    });
+  });
+
   describe('useExperimentRuns auto-refresh', () => {
     beforeEach(() => {
       jest.mocked(shouldEnableExperimentPageAutoRefresh).mockImplementation(() => true);
@@ -515,6 +662,138 @@ describe('useExperimentRuns - integration test', () => {
 
       // We should not have any new calls
       expect(searchRunsApi).toBeCalledTimes(3);
+    });
+
+    test("should sequentially call for more auto-refresh results if one call won't suffice", async () => {
+      // Prepare "database" with 256 runs
+      const fakeRuns = new Array(256).fill({}).map((_, index) => ({
+        info: {
+          runUuid: `run_${index}`,
+          experimentId: 'test-experiment',
+          runName: `run_${index}_name`,
+          lifecycleStage: 'active',
+        },
+        data: { metrics: [], params: [], tags: [] },
+      }));
+
+      // Mock the search runs action to select first 100 runs
+      jest.mocked(searchRunsApi).mockImplementation(() => ({
+        type: 'SEARCH_RUNS_API',
+        payload: Promise.resolve({
+          next_page_token: '100',
+          runs: fakeRuns.slice(0, 100),
+        }),
+        meta: { id: 0 },
+      }));
+
+      // loadMoreRunsApi will subsequently return next 100 runs until the "database" is exhausted
+      // Important: our "backend" won't return more than 100 runs at a time
+      jest.mocked(loadMoreRunsApi).mockImplementation(({ pageToken }) => {
+        const startFrom = Number(pageToken);
+        const nextPageOffset = startFrom + 100;
+        return {
+          type: 'LOAD_MORE_RUNS_API',
+          payload: Promise.resolve({
+            next_page_token: nextPageOffset < fakeRuns.length ? nextPageOffset.toString() : undefined,
+            runs: fakeRuns.slice(startFrom, startFrom + 100),
+          }),
+          meta: { id: 0 },
+        };
+      });
+
+      // Render the hook
+      const { result } = renderHook(
+        ({
+          experimentIds,
+          searchFacets,
+          uiState,
+        }: {
+          uiState: ExperimentPageUIState;
+          searchFacets: ExperimentPageSearchFacetsState;
+          experimentIds: string[];
+        }) => useExperimentRuns(uiState, searchFacets, experimentIds),
+        {
+          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          initialProps: {
+            uiState: {
+              ...testUiState,
+              autoRefreshEnabled: true,
+            },
+            searchFacets: createExperimentPageSearchFacetsState(),
+            experimentIds: testExperimentIds,
+          },
+        },
+      );
+
+      // Wait for the initial call to go through
+      await waitFor(() => {
+        expect(searchRunsApi).toBeCalledTimes(1);
+        expect(result.current.runsData.runInfos).toHaveLength(100);
+      });
+
+      // Load more runs for the first time
+      act(() => {
+        result.current.loadMoreRuns();
+      });
+
+      await waitFor(() => {
+        expect(result.current.runsData.runInfos).toHaveLength(200);
+      });
+
+      // Load the last batch of runs
+      act(() => {
+        result.current.loadMoreRuns();
+      });
+
+      // Wait for all runs to be loaded
+      await waitFor(() => {
+        expect(result.current.runsData.runInfos).toHaveLength(256);
+      });
+
+      // Clear mocks so we can count the calls
+      jest.mocked(searchRunsApi).mockClear();
+      jest.mocked(loadMoreRunsApi).mockClear();
+
+      // Wait for the fake auto-refresh interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // We should get three calls for all runs, the result list shouldn't change
+      await waitFor(() => {
+        expect(searchRunsApi).toBeCalledTimes(1);
+        expect(loadMoreRunsApi).toBeCalledTimes(2);
+        expect(result.current.runsData.runInfos).toHaveLength(256);
+      });
+
+      // Clear mocks once again
+      jest.mocked(searchRunsApi).mockClear();
+      jest.mocked(loadMoreRunsApi).mockClear();
+
+      // Insert 20 new runs into the "database"
+      fakeRuns.unshift(
+        ...new Array(20).fill({}).map((_, index) => ({
+          info: {
+            runUuid: `new_run_${index}`,
+            experimentId: 'test-experiment',
+            runName: `new_run_${index}_name`,
+            lifecycleStage: 'active',
+          },
+          data: { metrics: [], params: [], tags: [] },
+        })),
+      );
+
+      // Wait for the interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // Again, we should get three calls for all runs. This time, the result list should change and include new runs.
+      await waitFor(() => {
+        expect(searchRunsApi).toBeCalledTimes(1);
+        expect(loadMoreRunsApi).toBeCalledTimes(2);
+        expect(result.current.runsData.runInfos).toHaveLength(276);
+      });
     });
   });
 });

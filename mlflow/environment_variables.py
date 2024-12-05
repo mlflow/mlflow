@@ -1,6 +1,7 @@
 """
 This module defines environment variables used in MLflow.
 """
+
 import os
 from pathlib import Path
 
@@ -273,9 +274,9 @@ MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES = _BooleanEnvironmentVariable(
 
 #: Specifies to Huggingface whether to use the automatic device placement logic of
 # HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
-# set to True and device_map will not be set to "auto".
+# set to True and device_map will not be set to "auto". Default to False.
 MLFLOW_HUGGINGFACE_USE_DEVICE_MAP = _BooleanEnvironmentVariable(
-    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", True
+    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", False
 )
 
 #: Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.
@@ -380,6 +381,10 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
 
+#: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
+#: (default: ``None``)
+MLFLOW_UC_OSS_TOKEN = _EnvironmentVariable("MLFLOW_UC_OSS_TOKEN", str, None)
+
 #: Specifies the root directory to create Python virtual environments in.
 #: (default: ``~/.mlflow/envs``)
 MLFLOW_ENV_ROOT = _EnvironmentVariable(
@@ -408,7 +413,7 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 
 #: (Experimental, may be changed or removed)
-#: Specifies the uri of a MLflow Deployments Server instance to be used with the Deployments
+#: Specifies the uri of an MLflow AI Gateway instance to be used with the Deployments
 #: Client APIs
 #: (default: ``None``)
 MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", str, None)
@@ -417,7 +422,7 @@ MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", st
 #: (default: ``None``)
 MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
 
-#: Specifies the path of the config file for the MLflow Deployments server.
+#: Specifies the path of the config file for MLflow AI Gateway.
 #: (default: ``None``)
 MLFLOW_DEPLOYMENTS_CONFIG = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_CONFIG", str, None)
 
@@ -627,7 +632,7 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
-#: Enable Unity Catalog integration for mlflow deployments server.
+#: Enable Unity Catalog integration for MLflow AI Gateway.
 #: (default: ``False``)
 MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
 
@@ -647,4 +652,31 @@ MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
 #: A flag that's set to 'true' in the child process for capturing modules.
 _MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
     "MLFLOW_IN_CAPTURE_MODULE_PROCESS", False
+)
+
+#: Use DatabricksSDKModelsArtifactRepository when registering and loading models to and from
+#: Databricks UC. This is required for SEG(Secure Egress Gateway) enabled workspaces and helps
+#: eliminate models exfiltration risk associated with temporary scoped token generation used in
+#: existing model artifact repo classes.
+MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
+)
+
+# Specifies the model environment archive file downloading path when using
+# ``mlflow.pyfunc.spark_udf``. (default: ``None``)
+MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
+    "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
+)
+
+# Specifies whether to log environment variable names used during model logging.
+MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
+)
+
+# Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
+# to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
+# This takes precedence over the default behavior of trying such conversion if the model
+# is not an AgentExecutor and the input schema doesn't contain a 'messages' field.
+MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
+    "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )

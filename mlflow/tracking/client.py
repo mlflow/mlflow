@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+
 import contextlib
 import json
 import logging
@@ -14,7 +15,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 import yaml
 
@@ -265,7 +266,7 @@ class MlflowClient:
             return None
         return self._tracking_client.get_run(parent_run_id)
 
-    def get_metric_history(self, run_id: str, key: str) -> List[Metric]:
+    def get_metric_history(self, run_id: str, key: str) -> list[Metric]:
         """Return a list of metric objects corresponding to all values logged for a given metric.
 
         Args:
@@ -339,7 +340,7 @@ class MlflowClient:
         self,
         experiment_id: str,
         start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_name: Optional[str] = None,
     ) -> Run:
         """
@@ -394,13 +395,12 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
-    @experimental
     def delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -452,13 +452,13 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
-    @experimental
     def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
 
         Args:
             request_id: String ID of the trace to fetch.
+            display: If ``True``, display the trace on the notebook.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
@@ -477,14 +477,14 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
-    @experimental
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -496,6 +496,9 @@ class MlflowClient:
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            run_id: A run id to scope the search. When a trace is created under an active run,
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -511,6 +514,7 @@ class MlflowClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            run_id=run_id,
         )
 
         get_display_handler().display_traces(traces)
@@ -520,10 +524,11 @@ class MlflowClient:
         self,
         name: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
         experiment_id: Optional[str] = None,
+        start_time_ns: Optional[int] = None,
     ) -> Span:
         """
         Create a new trace object and start a root span under it.
@@ -551,6 +556,7 @@ class MlflowClient:
                 :py:func:`mlflow.set_experiment() <mlflow.set_experiment>`,
                 ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
                 environment variable, or the default experiment as defined by the tracking server.
+            start_time_ns: The start time of the trace in nanoseconds since the UNIX epoch.
 
         Returns:
             An :py:class:`Span <mlflow.entities.Span>` object
@@ -600,7 +606,7 @@ class MlflowClient:
             # Once OTel span is created, SpanProcessor.on_start is invoked
             # TraceInfo is created and logged into backend store inside on_start method
             otel_span = mlflow.tracing.provider.start_detached_span(
-                name, experiment_id=experiment_id
+                name, experiment_id=experiment_id, start_time_ns=start_time_ns
             )
             request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
             mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
@@ -630,13 +636,13 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
     def end_trace(
         self,
         request_id: str,
-        outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        outputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
+        end_time_ns: Optional[int] = None,
     ):
         """
         End the trace with the given trace ID. This will end the root span of the trace and
@@ -657,6 +663,7 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+            end_time_ns: The end time of the trace in nanoseconds since the UNIX epoch.
         """
         # NB: If the specified request ID is of no-op span, this means something went wrong in
         #     the span start logic. We should simply ignore it as the upstream should already
@@ -680,7 +687,7 @@ class MlflowClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        self.end_span(request_id, root_span_id, outputs, attributes, status)
+        self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
 
     def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
         # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
@@ -707,15 +714,14 @@ class MlflowClient:
             json.dumps(parsed_spans, ensure_ascii=False),
         )
 
-    @experimental
     def start_span(
         self,
         name: str,
         request_id: str,
         parent_id: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        inputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
         """
@@ -784,10 +790,10 @@ class MlflowClient:
             name: The name of the span.
             request_id: The ID of the trace to attach the span to. This is synonym to
                 trace_id` in OpenTelemetry.
-            span_type: The type of the span. Can be either a string or a
-                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             parent_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
+            span_type: The type of the span. Can be either a string or a
+                :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
             inputs: Inputs to set on the span.
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
@@ -854,19 +860,15 @@ class MlflowClient:
 
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(
-                name=name, parent=parent_span._span
+                name=name,
+                parent=parent_span._span,
+                start_time_ns=start_time_ns,
             )
-
-            # We have to set the custom start time here after the span is created,
-            # because span processor may override the start time in the on_start() method.
-            if start_time_ns is not None:
-                otel_span._start_time = start_time_ns
 
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
             if inputs is not None:
                 span.set_inputs(inputs)
-
             trace_manager.register_span(span)
             return span
         except Exception as e:
@@ -877,13 +879,12 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
     def end_span(
         self,
         request_id: str,
         span_id: str,
-        outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        outputs: Optional[dict[str, Any]] = None,
+        attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
     ):
@@ -935,8 +936,8 @@ class MlflowClient:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None,
+        request_metadata: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -979,7 +980,6 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
-    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1022,7 +1022,6 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
-    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
@@ -1067,7 +1066,7 @@ class MlflowClient:
         view_type: int = ViewType.ACTIVE_ONLY,
         max_results: Optional[int] = SEARCH_MAX_RESULTS_DEFAULT,
         filter_string: Optional[str] = None,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token=None,
     ) -> PagedList[Experiment]:
         """
@@ -1252,7 +1251,7 @@ class MlflowClient:
         self,
         name: str,
         artifact_location: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> str:
         """Create an experiment.
 
@@ -1391,6 +1390,7 @@ class MlflowClient:
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
+            new_name: The new name for the experiment.
 
         .. code-block:: python
             :caption: Example
@@ -1636,7 +1636,7 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-           synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -1877,12 +1877,9 @@ class MlflowClient:
         """Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future representing the
-                logging operation. If None, read from environment variable
-                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -1928,6 +1925,7 @@ class MlflowClient:
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
@@ -2039,7 +2037,7 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: Dict[str, Any], artifact_file: str) -> None:
+    def log_dict(self, run_id: str, dictionary: dict[str, Any], artifact_file: str) -> None:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
@@ -2091,7 +2089,7 @@ class MlflowClient:
         figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
         artifact_file: str,
         *,
-        save_kwargs: Optional[Dict[str, Any]] = None,
+        save_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log a figure as an artifact. The following figure objects are supported:
 
@@ -2239,6 +2237,10 @@ class MlflowClient:
             step: Integer training step (iteration) at which the image was saved.
                 Defaults to 0.
             timestamp: Time when this image was saved. Defaults to the current system time.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Time-stepped image logging numpy example
@@ -2403,7 +2405,7 @@ class MlflowClient:
     def log_table(
         self,
         run_id: str,
-        data: Union[Dict[str, Any], "pandas.DataFrame"],
+        data: Union[dict[str, Any], "pandas.DataFrame"],
         artifact_file: str,
     ) -> None:
         """
@@ -2588,8 +2590,8 @@ class MlflowClient:
         self,
         experiment_id: str,
         artifact_file: str,
-        run_ids: Optional[List[str]] = None,
-        extra_columns: Optional[List[str]] = None,
+        run_ids: Optional[list[str]] = None,
+        extra_columns: Optional[list[str]] = None,
     ) -> "pandas.DataFrame":
         """
         Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
@@ -2737,7 +2739,7 @@ class MlflowClient:
         """
         self._tracking_client._record_logged_model(run_id, mlflow_model)
 
-    def list_artifacts(self, run_id: str, path=None) -> List[FileInfo]:
+    def list_artifacts(self, run_id: str, path=None) -> list[FileInfo]:
         """List the artifacts for a run.
 
         Args:
@@ -2848,6 +2850,7 @@ class MlflowClient:
         """Set a run's status to terminated.
 
         Args:
+            run_id: The ID of the run to terminate.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
 
@@ -2955,11 +2958,11 @@ class MlflowClient:
 
     def search_runs(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: str = "",
         run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Run]:
         """
@@ -3051,7 +3054,7 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[Dict[str, Any]] = None, description: Optional[str] = None
+        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3267,7 +3270,7 @@ class MlflowClient:
         self,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
@@ -3403,8 +3406,8 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_latest_versions(
-        self, name: str, stages: Optional[List[str]] = None
-    ) -> List[ModelVersion]:
+        self, name: str, stages: Optional[list[str]] = None
+    ) -> list[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -3580,7 +3583,7 @@ class MlflowClient:
         name: str,
         source: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -3634,7 +3637,7 @@ class MlflowClient:
         name: str,
         source: str,
         run_id: Optional[str] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -4156,7 +4159,7 @@ class MlflowClient:
         self,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[ModelVersion]:
         """
@@ -4237,7 +4240,7 @@ class MlflowClient:
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
-    def get_model_version_stages(self, name: str, version: str) -> List[str]:
+    def get_model_version_stages(self, name: str, version: str) -> list[str]:
         """
         This is a docstring. Here is info.
 

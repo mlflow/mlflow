@@ -39,6 +39,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_42"
       verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
@@ -73,7 +74,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
             css={{
               boxSizing: 'border-box',
               border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-              borderRadius: theme.borders.borderRadiusMd,
+              borderRadius: theme.legacyBorders.borderRadiusMd,
               background: theme.colors.backgroundPrimary,
               padding: theme.spacing.md,
               margin: 0,

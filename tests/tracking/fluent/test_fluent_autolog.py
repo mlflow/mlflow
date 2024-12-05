@@ -1,12 +1,22 @@
+import contextlib
+import inspect
 import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
 
+import anthropic
+import autogen
+import dspy
 import fastai
+import google.generativeai
 import keras
+import langchain
 import lightgbm
 import lightning
+import litellm
+import llama_index.core
+import openai
 import pyspark
 import pyspark.ml
 import pytest
@@ -19,6 +29,7 @@ import transformers
 import xgboost
 
 import mlflow
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils import (
     AutologgingEventLogger,
     autologging_is_disabled,
@@ -30,6 +41,7 @@ from tests.autologging.fixtures import (
     test_mode_off,
     test_mode_on,
 )
+from tests.helper_functions import start_mock_openai_server
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
@@ -46,9 +58,25 @@ library_to_mlflow_module_without_spark_datasource = {
     setfit: mlflow.transformers,
 }
 
-library_to_mlflow_module = {
+library_to_mlflow_module_genai = {
+    openai: mlflow.openai,
+    llama_index.core: mlflow.llama_index,
+    langchain: mlflow.langchain,
+    anthropic: mlflow.anthropic,
+    autogen: mlflow.autogen,
+    dspy: mlflow.dspy,
+    litellm: mlflow.litellm,
+    google.generativeai: mlflow.gemini,
+}
+
+library_to_mlflow_module_traditional_ai = {
     **library_to_mlflow_module_without_spark_datasource,
     pyspark: mlflow.spark,
+}
+
+library_to_mlflow_module = {
+    **library_to_mlflow_module_traditional_ai,
+    **library_to_mlflow_module_genai,
 }
 
 
@@ -134,14 +162,13 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         autolog_mock.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    ("library", "mlflow_module"), library_to_mlflow_module_without_spark_datasource.items()
-)
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
     args_to_test = {
         "log_models": False,
         "log_datasets": False,
+        "log_traces": False,
         "disable": True,
         "exclusive": True,
         "disable_for_unsupported_versions": True,
@@ -153,12 +180,30 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.autolog(**args_to_test)
 
     mlflow.utils.import_hooks.notify_module_loaded(library)
+    params_to_check = set(inspect.signature(mlflow_module.autolog).parameters) & set(args_to_test)
 
-    for arg_key, arg_value in args_to_test.items():
+    for arg_key in params_to_check:
         assert (
             get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
-            == arg_value
+            == args_to_test[arg_key]
         )
+
+
+@pytest.mark.parametrize("is_databricks", [False, True])
+@pytest.mark.parametrize("disable", [False, True])
+def test_genai_auto_logging(is_databricks, disable):
+    with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=is_databricks):
+        mlflow.autolog(disable=disable)
+
+    for library, mlflow_module in library_to_mlflow_module_traditional_ai.items():
+        mlflow.utils.import_hooks.notify_module_loaded(library)
+        assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") == disable
+
+    # Auto logging for GenAI libraries should be disabled when disable=False on Databricks
+    expected = None if is_databricks and (not disable) else disable
+    for library, mlflow_module in library_to_mlflow_module_genai.items():
+        mlflow.utils.import_hooks.notify_module_loaded(library)
+        assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") == expected
 
 
 def test_universal_autolog_calls_pyspark_immediately_in_databricks():
@@ -272,7 +317,8 @@ def test_autolog_success_message_obeys_disabled():
         autolog_logger_mock.assert_called()
 
 
-@pytest.mark.parametrize("library", library_to_mlflow_module.keys())
+# Currently some GenAI integrations do not fully follow standard autolog annotation
+@pytest.mark.parametrize("library", library_to_mlflow_module_traditional_ai.keys())
 @pytest.mark.parametrize("disable", [False, True])
 @pytest.mark.parametrize("exclusive", [False, True])
 @pytest.mark.parametrize("disable_for_unsupported_versions", [False, True])
@@ -339,3 +385,98 @@ def test_extra_tags_mlflow_autolog():
 
     with pytest.raises(MlflowException, match="Invalid `extra_tags` type"):
         mlflow.autolog(extra_tags="test_tag")
+
+
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
+def test_autolog_excluded_flavors(library, mlflow_module):
+    mlflow.autolog(exclude_flavors=[mlflow_module.__name__.removeprefix("mlflow.")])
+    mlflow.utils.import_hooks.notify_module_loaded(library)
+
+    assert get_autologging_config(mlflow_module.autolog.integration_name, "disable") is None
+
+
+# Tests for auto tracing
+@pytest.fixture
+def mock_openai(monkeypatch):
+    with start_mock_openai_server() as base_url:
+        monkeypatch.setenvs(
+            {
+                "OPENAI_API_KEY": "test",
+                "OPENAI_API_BASE": base_url,
+            }
+        )
+        yield base_url
+
+
+@pytest.fixture(params=[True, False])
+def other_library_present(request):
+    if request.param:
+        yield
+    else:
+        with mock.patch.dict(sys.modules, {"openai": openai}):
+            yield
+
+
+@pytest.mark.parametrize("is_databricks", [False, True])
+@pytest.mark.parametrize("disable", [False, True])
+def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_library_present):
+    with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=is_databricks):
+        mlflow.autolog(disable=disable)
+    mlflow.utils.import_hooks.notify_module_loaded(openai)
+    client = openai.OpenAI(api_key="test", base_url=mock_openai)
+    client.completions.create(
+        prompt="test",
+        model="gpt-4o-mini",
+        temperature=0,
+    )
+
+    # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
+    if is_databricks or disable:
+        trace = mlflow.get_last_active_trace()
+        assert trace is None
+    else:
+        trace = mlflow.get_last_active_trace()
+        assert trace is not None
+        assert trace.info.status == "OK"
+        assert len(trace.data.spans) == 1
+        span = trace.data.spans[0]
+        assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
+        assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+
+
+@contextlib.contextmanager
+def reset_module_import():
+    """
+    Temporarily reset the module import state to simulate the module being not imported.
+    """
+    original_modules = {}
+    for module_name in FLAVOR_TO_MODULE_NAME.values():
+        original_modules[module_name] = sys.modules.get(module_name)
+
+    try:
+        yield
+    finally:
+        for module_name, original_module in original_modules.items():
+            if original_module is not None:
+                sys.modules[module_name] = original_module
+
+
+@pytest.mark.parametrize("flavor_and_module", FLAVOR_TO_MODULE_NAME.items())
+@pytest.mark.parametrize("disable", [False, True])
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_autolog_genai_import(disable, flavor_and_module):
+    flavor, module = flavor_and_module
+
+    # pytorch-lightning is not valid flavor name.
+    # gluon autologging is deprecated.
+    # paddle autologging is not in the list of autologging integrations.
+    # crewai requires Python 3.10+ (our CI runs on Python 3.9).
+    if flavor in {"gluon", "pytorch-lightning", "paddle", "crewai"}:
+        return
+
+    with reset_module_import():
+        mlflow.autolog(disable=disable)
+
+        __import__(module)
+
+        assert get_autologging_config(flavor, "disable") == disable

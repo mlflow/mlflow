@@ -28,7 +28,14 @@ export const RunsChartsNoDataFoundIndicator = () => {
             defaultMessage="No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>"
             description="Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
             values={{
-              link: (chunks) => <Typography.Link onClick={hideEmptyCharts}>{chunks}</Typography.Link>,
+              link: (chunks) => (
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsnodatafoundindicator.tsx_31"
+                  onClick={hideEmptyCharts}
+                >
+                  {chunks}
+                </Typography.Link>
+              ),
             }}
           />
         }

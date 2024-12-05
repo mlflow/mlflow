@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-for-react-18';
+import { act, renderHook } from '@testing-library/react';
 import { useExperimentPageSearchFacets, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { MemoryRouter, Routes, Route, useLocation, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../../../common/utils/RoutingTestUtils';
@@ -25,7 +25,7 @@ describe('useExperimentPageSearchFacets', () => {
   };
   test('return null for uninitialized state', async () => {
     const { result } = await mountHook('/experiments/123');
-    expect(result.current).toEqual([null, ['123']]);
+    expect(result.current).toEqual([null, ['123'], false]);
   });
 
   test('return correct data for initialized state', async () => {
@@ -43,6 +43,7 @@ describe('useExperimentPageSearchFacets', () => {
         startTime: 'ALL',
       },
       ['123'],
+      false,
     ]);
   });
 
@@ -53,6 +54,7 @@ describe('useExperimentPageSearchFacets', () => {
         orderByKey: 'foo',
       }),
       ['444', '555'],
+      false,
     ]);
   });
 
@@ -65,6 +67,7 @@ describe('useExperimentPageSearchFacets', () => {
       [
         /* empty */
       ],
+      false,
     ]);
   });
 
@@ -75,6 +78,7 @@ describe('useExperimentPageSearchFacets', () => {
         orderByKey: 'foo',
       }),
       ['123'],
+      false,
     ]);
   });
 
@@ -142,7 +146,14 @@ describe('useExperimentPageSearchFacets', () => {
         orderByKey: 'foo',
       },
       ['123'],
+      false,
     ]);
+  });
+
+  test('reports if the view is in preview mode', async () => {
+    const { result } = await mountHook('/experiments/123?o=123456&isPreview=true');
+
+    expect(result.current).toEqual([null, ['123'], true]);
   });
 });
 
@@ -222,6 +233,15 @@ describe('useUpdateExperimentPageSearchFacets', () => {
 
   test('correctly retain unrelated parameters', async () => {
     const { result } = await mountHook('/experiments/123?o=12345');
+    const updateFn = result.current;
+    act(() => {
+      updateFn({ orderByKey: 'some-column' });
+    });
+    expect(locationSpyFn).toHaveBeenLastCalledWith('/experiments/123?o=12345&orderByKey=some-column');
+  });
+
+  test('correctly disable preview mode when params are explicitly changed', async () => {
+    const { result } = await mountHook('/experiments/123?o=12345&&orderByKey=abc&isPreview=true');
     const updateFn = result.current;
     act(() => {
       updateFn({ orderByKey: 'some-column' });

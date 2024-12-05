@@ -2,7 +2,12 @@ import pytest
 
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
+    DatabricksFunction,
+    DatabricksGenieSpace,
     DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksTable,
+    DatabricksUCConnection,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
 )
@@ -28,11 +33,67 @@ def test_index_name():
     }
 
 
+def test_sql_warehouse():
+    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1")
+    expected = {"sql_warehouse": [{"name": "id1"}]}
+    assert sql_warehouse.to_dict() == expected
+    assert _ResourceBuilder.from_resources([sql_warehouse]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_uc_function():
+    uc_function = DatabricksFunction(function_name="function")
+    expected = {"function": [{"name": "function"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_genie_space():
+    genie_space = DatabricksGenieSpace(genie_space_id="id1")
+    expected = {"genie_space": [{"name": "id1"}]}
+
+    assert genie_space.to_dict() == expected
+    assert _ResourceBuilder.from_resources([genie_space]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_uc_connection():
+    uc_function = DatabricksUCConnection(connection_name="slack_connection")
+    expected = {"uc_connection": [{"name": "slack_connection"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_table():
+    table = DatabricksTable(table_name="tableName")
+    expected = {"table": [{"name": "tableName"}]}
+
+    assert table.to_dict() == expected
+    assert _ResourceBuilder.from_resources([table]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
 def test_resources():
     resources = [
         DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
         DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
         DatabricksServingEndpoint(endpoint_name="databricks-llama-8x7b-instruct"),
+        DatabricksSQLWarehouse(warehouse_id="id123"),
+        DatabricksFunction(function_name="rag.studio.test_function_1"),
+        DatabricksFunction(function_name="rag.studio.test_function_2"),
+        DatabricksUCConnection(connection_name="slack_connection"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -42,6 +103,12 @@ def test_resources():
                 {"name": "databricks-mixtral-8x7b-instruct"},
                 {"name": "databricks-llama-8x7b-instruct"},
             ],
+            "sql_warehouse": [{"name": "id123"}],
+            "function": [
+                {"name": "rag.studio.test_function_1"},
+                {"name": "rag.studio.test_function_2"},
+            ],
+            "uc_connection": [{"name": "slack_connection"}],
         },
     }
 
@@ -60,6 +127,13 @@ def test_resources_from_yaml(tmp_path):
                 serving_endpoint:
                 - name: databricks-mixtral-8x7b-instruct
                 - name: databricks-llama-8x7b-instruct
+                sql_warehouse:
+                - name: id123
+                function:
+                - name: rag.studio.test_function_1
+                - name: rag.studio.test_function_2
+                uc_connection:
+                - name: slack_connection
             """
         )
 
@@ -71,6 +145,12 @@ def test_resources_from_yaml(tmp_path):
                 {"name": "databricks-mixtral-8x7b-instruct"},
                 {"name": "databricks-llama-8x7b-instruct"},
             ],
+            "sql_warehouse": [{"name": "id123"}],
+            "function": [
+                {"name": "rag.studio.test_function_1"},
+                {"name": "rag.studio.test_function_2"},
+            ],
+            "uc_connection": [{"name": "slack_connection"}],
         },
     }
 

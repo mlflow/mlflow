@@ -238,8 +238,8 @@ def test_diviner_log_model(grouped_prophet, tmp_path, should_start_run):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         model_info = mlflow.diviner.log_model(
-            diviner_model=grouped_prophet,
-            artifact_path=artifact_path,
+            grouped_prophet,
+            artifact_path,
             conda_env=str(conda_env),
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -266,8 +266,8 @@ def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         mlflow.diviner.log_model(
-            diviner_model=grouped_pmdarima,
-            artifact_path=artifact_path,
+            grouped_pmdarima,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="DivinerModel",
         )
@@ -283,9 +283,7 @@ def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
-        mlflow.diviner.log_model(
-            diviner_model=grouped_prophet, artifact_path=artifact_path, conda_env=str(conda_env)
-        )
+        mlflow.diviner.log_model(grouped_prophet, artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -449,9 +447,10 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_groups)
 
 def test_log_model_with_code_paths(grouped_pmdarima):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.diviner._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.diviner._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.diviner.log_model(grouped_pmdarima, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.diviner.FLAVOR_NAME)
@@ -482,7 +481,7 @@ def test_model_log_with_metadata(grouped_pmdarima):
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
             grouped_pmdarima,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)

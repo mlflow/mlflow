@@ -3,8 +3,8 @@ import {
   CopyIcon,
   Input,
   Modal,
-  TabPane,
-  Tabs,
+  LegacyTabPane,
+  LegacyTabs,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -106,6 +106,7 @@ mlflow.end_run()
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_createnotebookrunmodal.tsx_111"
       visible={isOpen}
       onCancel={closeModal}
       onOk={closeModal}
@@ -135,8 +136,8 @@ mlflow.end_run()
         </div>
       }
     >
-      <Tabs>
-        <TabPane
+      <LegacyTabs>
+        <LegacyTabPane
           tab={<FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />}
           key="classical-ml"
         >
@@ -156,8 +157,11 @@ mlflow.end_run()
           >
             {classical_ml_text}
           </CodeSnippet>
-        </TabPane>
-        <TabPane tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />} key="llm">
+        </LegacyTabPane>
+        <LegacyTabPane
+          tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />}
+          key="llm"
+        >
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
@@ -174,8 +178,8 @@ mlflow.end_run()
           >
             {llm_text}
           </CodeSnippet>
-        </TabPane>
-      </Tabs>
+        </LegacyTabPane>
+      </LegacyTabs>
     </Modal>
   );
 };

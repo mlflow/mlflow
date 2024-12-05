@@ -41,17 +41,21 @@ MLmodel file
 ^^^^^^^^^^^^
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
-format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
+format. For example, running ``python examples/sklearn_logistic_regression/train.py`` from `MLflow repo <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_logistic_regression/train.py>`_
+will create the following files under the ``model`` directory:
 
 ::
 
-    # Directory written by mlflow.sklearn.save_model(model, "my_model")
-    my_model/
+    # Directory written by mlflow.sklearn.save_model(model, "model", input_example=...)
+    model/
     ├── MLmodel
     ├── model.pkl
     ├── conda.yaml
     ├── python_env.yaml
-    └── requirements.txt
+    ├── requirements.txt
+    ├── input_example.json (optional, only logged when input example is provided and valid during model logging)
+    ├── serving_input_example.json (optional, only logged when input example is provided and valid during model logging)
+    └── environment_variables.txt (optional, only logged when environment variables are used during model inference)
 
 
 And its ``MLmodel`` file describes two flavors:
@@ -83,6 +87,9 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
 :ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
+If a model input example is provided when logging the model, two additional files ``input_example.json`` and ``serving_input_example.json`` are logged.
+See `Model Input Example <model/signatures.html#input-example>`_ for more details.
+
 When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt``) are copied to a subdirectory named ``metadata``. For wheeled models, ``original_requirements.txt`` file is also copied.
 
 .. note::
@@ -102,6 +109,74 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
     :hidden:
 
     model/dependencies
+
+Environment variables file
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+MLflow records the environment variables that are used during model inference in ``environment_variables.txt`` file when logging a model.
+
+.. attention::
+    ``environment_variables.txt`` file **only contains names** of the environment variables that are used during model inference, 
+    **values are not stored**.
+
+Currently MLflow only logs the environment variables whose name contains any of the following keywords:
+
+.. code-block:: python
+
+    RECORD_ENV_VAR_ALLOWLIST = {
+        # api key related
+        "API_KEY",  # e.g. OPENAI_API_KEY
+        "API_TOKEN",
+        # databricks auth related
+        "DATABRICKS_HOST",
+        "DATABRICKS_USERNAME",
+        "DATABRICKS_PASSWORD",
+        "DATABRICKS_TOKEN",
+        "DATABRICKS_INSECURE",
+        "DATABRICKS_CLIENT_ID",
+        "DATABRICKS_CLIENT_SECRET",
+        "_DATABRICKS_WORKSPACE_HOST",
+        "_DATABRICKS_WORKSPACE_ID",
+    }
+
+Example of a pyfunc model that uses environment variables:
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    os.environ["TEST_API_KEY"] = "test_api_key"
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            if os.environ.get("TEST_API_KEY"):
+                return model_input
+            raise Exception("API key not found")
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=MyModel(), input_example="data"
+        )
+
+Environment variable `TEST_API_KEY` is logged in the environment_variables.txt file like below
+
+.. code-block::
+
+    # This file records environment variable names that are used during model inference.
+    # They might need to be set when creating a serving endpoint from this model.
+    # Note: it is not guaranteed that all environment variables listed here are required
+    TEST_API_KEY
+
+.. attention::
+    Before you deploy a model to a serving endpoint, **review the environment_variables.txt file** to ensure 
+    all necessary environment variables for model inference are set. Note that **not all environment variables 
+    listed in the file are always required for model inference.** For detailed instructions on setting 
+    environment variables on a databricks serving endpoint, refer to `this guidance <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html#add-plain-text-environment-variables>`_.
+
+.. note::
+    To disable this feature, set the environment variable ``MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING`` to ``false``.
 
 Managing Model Dependencies
 ---------------------------
@@ -179,7 +254,7 @@ that rely on external services (e.g., LangChain chains). Another benefit is that
 ``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
 
 .. note::
-    This feature is only supported for **LangChain** and **PythonModel** models.
+    This feature is only supported for **LangChain**, **LlamaIndex**, and **PythonModel** models.
 
 In order to log a model from code, you can leverage the :py:func:`mlflow.models.set_model` API. This API allows you to define a model by specifying
 an instance of the model class directly within the file where the model is defined. When logging such a model, a
@@ -1847,56 +1922,77 @@ ds            y
 
     import numpy as np
     import pandas as pd
-    from prophet import Prophet
+    from prophet import Prophet, serialize
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
     from mlflow.models import infer_signature
 
-    # starts on 2007-12-10, ends on 2016-01-20
-    train_df = pd.read_csv(
-        "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
-    )
+    # URL to the dataset
+    SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
+
+    np.random.seed(12345)
+
+
+    def extract_params(pr_model):
+        params = {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
+        return {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool))}
+
+
+    # Load the training data
+    train_df = pd.read_csv(SOURCE_DATA)
 
     # Create a "test" DataFrame with the "ds" column containing 10 days after the end date in train_df
     test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
-    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+    test_df = pd.DataFrame({"ds": test_dates})
 
+    # Initialize Prophet model with specific parameters
     prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
     with mlflow.start_run():
+        # Fit the model on the training data
         prophet_model.fit(train_df)
 
-        # extract and log parameters such as changepoint_prior_scale in the mlflow run
-        model_params = {
-            name: value for name, value in vars(prophet_model).items() if np.isscalar(value)
-        }
-        mlflow.log_params(model_params)
+        # Extract and log model parameters
+        params = extract_params(prophet_model)
+        mlflow.log_params(params)
 
-        # cross validate with 900 days of data initially, predictions for next 30 days
-        # walk forward by 30 days
+        # Perform cross-validation
         cv_results = cross_validation(
-            prophet_model, initial="900 days", period="30 days", horizon="30 days"
+            prophet_model,
+            initial="900 days",
+            period="30 days",
+            horizon="30 days",
+            parallel="threads",
+            disable_tqdm=True,
         )
 
-        # Calculate metrics from cv_results, then average each metric across all backtesting windows and log to mlflow
-        cv_metrics = ["mse", "rmse", "mape"]
-        metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
-        average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
+        # Calculate and log performance metrics
+        cv_metrics = performance_metrics(cv_results, metrics=["mse", "rmse", "mape"])
+        average_metrics = cv_metrics.drop(columns=["horizon"]).mean(axis=0).to_dict()
         mlflow.log_metrics(average_metrics)
 
-        # Calculate model signature
+        # Generate predictions and infer model signature
         train = prophet_model.history
-        predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
-        signature = infer_signature(train, predictions)
 
+        # Log the Prophet model with MLflow
         model_info = mlflow.prophet.log_model(
-            prophet_model, "prophet-model", signature=signature
+            prophet_model,
+            artifact_path="prophet_model",
+            input_example=train[["ds"]].head(10),
         )
 
-    # Load saved model
+    # Load the saved model as a pyfunc
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Generate predictions for the test set
     predictions = prophet_model_saved.predict(test_df)
+
+    # Truncate and display the forecast if needed
+    forecast = predictions[["ds", "yhat"]]
+
+    print(f"forecast:\n{forecast.head(5)}")
+
 
 Output (``Pandas DataFrame``):
 
@@ -2779,13 +2875,18 @@ The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dat
 Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
-generated during model evaluation to validate the quality of your model. By specifying a
-``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold`
-objects, you can specify value thresholds that your model's evaluation metrics must exceed as well
-as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
-will throw a ``ModelValidationFailedException`` detailing the validation failure.
+.. attention::
+
+    MLflow 2.18.0 has moved the model validation functionality from the :py:func:`mlflow.evaluate()` API to a dedicated :py:func:`mlflow.validate_evaluation_results()` API. The relevant parameters, such as baseline_model, are deprecated and will be removed from the older API in future versions.
+
+With the :py:func:`mlflow.validate_evaluation_results()` API, you can validate metrics generated during model evaluation to assess the quality of your model against a baseline. To achieve this, first evaluate both the candidate and baseline models using :py:func:`mlflow.evaluate()` (or load persisted evaluation results from local storage). Then, pass the results along with a validation_thresholds dictionary that maps metric names to :py:class:`mlflow.models.MetricThreshold` objects. If your model fails to meet the specified thresholds, :py:func:`mlflow.validate_evaluation_results()` will raise a ``ModelValidationFailedException`` with details about the validation failure.
+
+More information on model evaluation behavior and outputs can be found in the :py:func:`mlflow.evaluate()` API documentation.
+
+Validating a Model Agasint a Baseline Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below is an example of how to validate a candidate model's performance against a baseline using predefined thresholds.
 
 .. code-block:: python
 
@@ -2794,7 +2895,6 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
-    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
@@ -2803,18 +2903,39 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         X, y, test_size=0.33, random_state=42
     )
 
-    # train a candidate XGBoost model
-    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
-
-    # train a baseline dummy model
-    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
-
-    # create signature that is shared by the two models
-    signature = infer_signature(X_test, y_test)
-
     # construct an evaluation dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
+
+    # Log and evaluate the candidate model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="candidate") as run:
+        candidate_model_uri = mlflow.sklearn.log_model(
+            candidate_model, "candidate_model", signature=signature
+        ).model_uri
+
+        candidate_result = mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
+
+    # Log and evaluate the baseline model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    with mlflow.start_run(run_name="baseline") as run:
+        baseline_model_uri = mlflow.sklearn.log_model(
+            baseline_model, "baseline_model", signature=signature
+        ).model_uri
+
+        baseline_result = mlflow.evaluate(
+            baseline_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+        )
 
     # Define criteria for model to be validated against
     thresholds = {
@@ -2826,43 +2947,72 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         ),
     }
 
-    with mlflow.start_run() as run:
-        candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model", signature=signature
-        ).model_uri
-        baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model", signature=signature
-        ).model_uri
-
-        mlflow.evaluate(
-            candidate_model_uri,
-            eval_data,
-            targets="label",
-            model_type="classifier",
-            validation_thresholds=thresholds,
-            baseline_model=baseline_model_uri,
-        )
+    # Validate the candidate model agaisnt baseline
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        validation_thresholds=thresholds,
+    )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to
-`the Model Validation example from the MLflow GitHub Repository
-<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+and checked.
 
-The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
-been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+The logged output within the MLflow UI for the comprehensive example is shown below.
 
 |eval_importance_compare_img|
 
 .. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
    :width: 99%
 
-.. note:: Limitations (when the default evaluator is used):
+.. note::
 
-    - Model validation results are not included in the active MLflow run.
-    - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
+    Model validation results are not included in the active MLflow run.
 
-Additional information about model evaluation behaviors and outputs is available in the
-:py:func:`mlflow.evaluate()` API docs.
+Validating a Model Against Static Thresholds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:func:`mlflow.validate_evaluation_results()` API can also be used to validate a candidate model against static thresholds, instead of comparing it to a baseline model, by passing ``None`` to the ``baseline_result`` parameter.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    thresholds = {
+        "accuracy_score": MetricThreshold(
+            threshold=0.8,  # accuracy should be >=0.8
+            greater_is_better=True,
+        ),
+    }
+
+    # Validate the candidate model agaisnt static threshold
+    mlflow.validate_evaluation_results(
+        candidate_result=candidate_result,
+        baseline_result=None,
+        validation_thresholds=thresholds,
+    )
+
+Reusing Baseline Result For Multiple Validations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:class:`mlflow.models.EvaluationResult` object returned by :py:func:`mlflow.evaluate()` can be saved to and loaded from local storage. This feature allows you to reuse the same baseline result across different candidate models, which is particularly useful for automating model quality monitoring.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models.evaluation import EvaluationResult
+
+    baseline_result = mlflow.evaluate(
+        baseline_model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+    )
+    baseline_result.save("RESULT_PATH")
+
+    # Load the evaluation result for validation
+    baseline_result = EvaluationResult.load("RESULT_PATH")
+
 
 .. note:: There are plugins that support in-depth model validation with features that are not supported
     directly in MLflow. To learn more, see:
@@ -3921,6 +4071,40 @@ set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
 
 
+If you want to call `:py:func:`mlflow.pyfunc.spark_udf` through Databricks connect in remote client, you need to build the model environment in Databricks runtime first.
+
+.. rubric:: Example
+
+.. code-block:: python
+
+    from mlflow.pyfunc import build_model_env
+
+    # Build the model env and save it as an archive file to the provided UC volume directory
+    # and print the saved model env archive file path (like '/Volumes/.../.../XXXXX.tar.gz')
+    print(build_model_env(model_uri, "/Volumes/..."))
+
+    # print the cluster id. Databricks Connect client needs to use the cluster id.
+    print(spark.conf.get("spark.databricks.clusterUsageTags.clusterId"))
+
+Once you have pre-built the model environment, you can run `:py:func:`mlflow.pyfunc.spark_udf` with 'prebuilt_model_env' parameter through Databricks connect in remote client,
+
+.. rubric:: Example
+
+.. code-block:: python
+
+    from databricks.connect import DatabricksSession
+
+    spark = DatabricksSession.builder.remote(
+        host=os.environ["DATABRICKS_HOST"],
+        token=os.environ["DATABRICKS_TOKEN"],
+        cluster_id="<cluster id>",  # get cluster id by spark.conf.get("spark.databricks.clusterUsageTags.clusterId")
+    ).getOrCreate()
+
+    # The path generated by `build_model_env` in Databricks runtime.
+    model_env_uc_uri = "dbfs:/Volumes/.../.../XXXXX.tar.gz"
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark, model_uri, prebuilt_env_uri=model_env_uc_uri
+    )
 
 .. _deployment_plugin:
 

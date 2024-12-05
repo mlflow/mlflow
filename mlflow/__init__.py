@@ -26,6 +26,7 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
+
 import contextlib
 
 from mlflow.version import VERSION
@@ -46,16 +47,21 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
+crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
+dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
+gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
+litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
@@ -107,14 +113,17 @@ from mlflow.config import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
+from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
+    add_trace,
     get_current_active_span,
     get_last_active_trace,
     get_trace,
     search_traces,
     start_span,
     trace,
+    update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -226,6 +235,7 @@ __all__ = [
     "set_tags",
     "set_tracking_uri",
     "start_run",
+    "validate_evaluation_results",
     "Image",
     # Tracing Fluent APIs
     "get_current_active_span",
@@ -233,6 +243,8 @@ __all__ = [
     "search_traces",
     "start_span",
     "trace",
+    "add_trace",
+    "update_current_trace",
 ]
 
 

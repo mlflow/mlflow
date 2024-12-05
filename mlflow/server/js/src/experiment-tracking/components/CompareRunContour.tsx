@@ -280,6 +280,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
                       in MLflow"
               />{' '}
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_compareruncontour.tsx_282"
                 className="show-point-toggle"
                 // @ts-expect-error TS(4111): Property 'reverseColor' comes from an index signat... Remove this comment to see the full error message
                 checked={this.state.reverseColor}
@@ -297,6 +298,7 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
   renderSelect(axis: string) {
     return (
       <SimpleSelect
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_compareruncontour.tsx_299"
         css={{ width: '100%' }}
         id={axis + '-selector'}
         onChange={({ target }) => {

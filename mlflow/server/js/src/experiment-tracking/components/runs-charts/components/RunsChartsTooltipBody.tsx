@@ -161,7 +161,6 @@ const createLineChartValuesBox = (
   }
 
   const xValue = getTooltipXValue(hoverData, xAxisKey);
-
   return (
     <>
       {hoverData && (

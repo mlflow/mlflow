@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
@@ -36,21 +36,15 @@ describe('RunViewTagsBox integration', () => {
 
     expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    await act(async () => {
-      await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
 
-      userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
-      await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
+    await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(setRunTagsBulkApi).toBeCalledWith('test-run-uuid', [], [{ key: 'new_tag_with_value', value: 'tag_value' }]);
     expect(onTagsUpdated).toBeCalled();
@@ -72,27 +66,21 @@ describe('RunViewTagsBox integration', () => {
 
     expect(screen.getByRole('button', { name: 'Edit tags' })).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Edit tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Edit tags' }));
 
     const modalBody = screen.getByRole('dialog');
 
-    await act(async () => {
-      userEvent.click(within(within(modalBody).getByRole('status', { name: 'existing_tag_1' })).getByRole('button'));
-    });
+    await userEvent.click(
+      within(within(modalBody).getByRole('status', { name: 'existing_tag_1' })).getByRole('button'),
+    );
 
-    await act(async () => {
-      await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
 
-      userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
-      await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
+    await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(setRunTagsBulkApi).toBeCalledWith(
       'test-run-uuid',
@@ -123,21 +111,15 @@ describe('RunViewTagsBox integration', () => {
 
     expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    await act(async () => {
-      await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
 
-      userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
-      await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
+    await fastFillInput(screen.getByLabelText('Value'), 'tag_value');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(setRunTagsBulkApi).toBeCalledWith('test-run-uuid', [], [{ key: 'new_tag_with_value', value: 'tag_value' }]);
 

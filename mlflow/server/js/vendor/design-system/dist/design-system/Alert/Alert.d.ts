@@ -1,8 +1,8 @@
 import type { AlertProps as AntDAlertProps } from 'antd';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+import type { AnalyticsEventProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 type AlertType = NonNullable<Exclude<AntDAlertProps['type'], 'success'>>;
-export interface AlertProps extends Omit<AntDAlertProps, 'closeText' | 'showIcon' | 'type' | 'icon'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDAlertProps>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
+export interface AlertProps extends Omit<AntDAlertProps, 'closeText' | 'showIcon' | 'type' | 'icon'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDAlertProps>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     type: AlertType;
     closeIconLabel?: string;
 }

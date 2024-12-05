@@ -17,9 +17,8 @@ import { RegisterModel } from '../../../model-registry/components/RegisterModel'
 import { ModelVersionStatusIcons } from '../../../model-registry/constants';
 import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import type { ReduxState } from '../../../redux-types';
-import { getArtifactRootUri } from '../../reducers/Reducers';
 import Routes from '../../routes';
-import { ModelVersionInfoEntity } from '../../types';
+import { KeyValueEntity, ModelVersionInfoEntity } from '../../types';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../common/static/registered-model-grey-ok.svg';
 
 interface LoggedModelWithRegistrationInfo {
@@ -48,7 +47,11 @@ export function LoggedModelsDropdownContent({
           const registeredModel = first(model.registeredVersions);
           if (!registeredModel) {
             return (
-              <DropdownMenu.Item onClick={() => onRegisterClick(model)} key={model.absolutePath}>
+              <DropdownMenu.Item
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_50"
+                onClick={() => onRegisterClick(model)}
+                key={model.absolutePath}
+              >
                 <div css={{ marginRight: theme.spacing.md }}>{last(model.path.split('/'))}</div>
                 <DropdownMenu.HintColumn>
                   <Link
@@ -78,13 +81,18 @@ export function LoggedModelsDropdownContent({
 
           return (
             <Link target="_blank" to={getRegisteredModelVersionLink(registeredModel)} key={model.absolutePath}>
-              <DropdownMenu.Item>
+              <DropdownMenu.Item componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_80">
                 <DropdownMenu.IconWrapper css={{ display: 'flex', alignItems: 'center' }}>
                   {status === 'READY' ? <RegisteredModelOkIcon /> : ModelVersionStatusIcons[status]}
                 </DropdownMenu.IconWrapper>
                 <span css={{ marginRight: theme.spacing.md }}>
                   {name}
-                  <Tag css={{ marginLeft: 8, marginRight: 4 }}>v{version}</Tag>
+                  <Tag
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_90"
+                    css={{ marginLeft: 8, marginRight: 4 }}
+                  >
+                    v{version}
+                  </Tag>
                 </span>
                 <DropdownMenu.HintColumn>
                   <Button
@@ -128,13 +136,16 @@ const getRegisteredModelVersionLink = (modelVersion: ModelVersionInfoEntity) => 
 export const RunViewHeaderRegisterModelButton = ({
   runUuid,
   experimentId,
+  runTags,
+  artifactRootUri,
 }: {
   runUuid: string;
   experimentId: string;
+  runTags: Record<string, KeyValueEntity>;
+  artifactRootUri?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const runTags = useSelector((state: ReduxState) => state.entities.tagsByRunUuid[runUuid]);
-  const artifactRootUri = useSelector((state: ReduxState) => getArtifactRootUri(runUuid, state));
+
   const registeredModelVersions = useSelector((state: ReduxState) =>
     orderBy(state.entities.modelVersionsByRunUuid[runUuid]),
   );

@@ -216,7 +216,10 @@ export const getParentRunIdsToFetch = (runs: any) => {
   return Array.from(parentsToFetch);
 };
 
-// this function takes a response of runs and returns them along with their missing parents
+/**
+ * This function takes a response of runs and returns them along with their missing parents.
+ * @deprecated Use fetchMissingParentsWithSearchRuns instead
+ */
 export const fetchMissingParents = (searchRunsResponse: any) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
     ? Promise.all(
@@ -228,6 +231,45 @@ export const fetchMissingParents = (searchRunsResponse: any) =>
               // marked as those matching filter
               if (searchRunsResponse.runsMatchingFilter) {
                 searchRunsResponse.runsMatchingFilter.push(value.run);
+              }
+            })
+            .catch((error) => {
+              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+                // NB: The parent run may have been deleted, in which case attempting to fetch the
+                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
+                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
+                // encountered when fetching parent runs because they are unexpected
+                throw error;
+              }
+            }),
+        ),
+      ).then((_) => {
+        return searchRunsResponse;
+      })
+    : searchRunsResponse;
+
+/**
+ * Fetches missing parent runs for the given search runs response in a set of experimentIds. Returns
+ * the original runs along with their parents.
+ */
+export const fetchMissingParentsWithSearchRuns = (searchRunsResponse: any, experimentIds: any) =>
+  searchRunsResponse.runs && searchRunsResponse.runs.length
+    ? Promise.all(
+        getParentRunIdsToFetch(searchRunsResponse.runs).map((parentRunId) =>
+          MlflowService.searchRuns({
+            experiment_ids: experimentIds,
+            filter: `run_id = '${parentRunId}'`,
+            max_results: 1,
+          })
+            .then((parentSearchRunsResponse) => {
+              const parentRun = parentSearchRunsResponse.runs?.[0];
+              if (parentRun) {
+                searchRunsResponse.runs.push(parentRun);
+                // Additional parent runs should be always visible
+                // marked as those matching filter
+                if (searchRunsResponse.runsMatchingFilter) {
+                  searchRunsResponse.runsMatchingFilter.push(parentRun);
+                }
               }
             })
             .catch((error) => {
@@ -319,7 +361,7 @@ export const searchRunsPayload = ({
       throw new Error(`Invalid format of the runs search response: ${String(response)}`);
     }
 
-    // Place aside ans save runs that matched filter naturally (not the pinned ones):
+    // Place aside and save runs that matched filter naturally (not the pinned ones):
     (response as any).runsMatchingFilter = (baseSearchResponse as any).runs?.slice() || [];
 
     // If we get pinned rows from the additional response, merge them into the base run list:
@@ -332,7 +374,8 @@ export const searchRunsPayload = ({
     }
 
     // If there are any pending parents to fetch, do it before returning the response
-    return shouldFetchParents ? fetchMissingParents(response) : response;
+    const fetchParents = () => fetchMissingParents(response);
+    return shouldFetchParents ? fetchParents() : response;
   });
 };
 
@@ -361,6 +404,22 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
       ...(path && { path: path }),
     }),
     meta: { id: id, runUuid: runUuid, path: path },
+  };
+};
+
+/**
+ * Redux action to list artifacts for a logged model.
+ * TODO: discard redux, refactor into hooks
+ */
+export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
+export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: MlflowService.listArtifactsLoggedModel({
+      loggedModelId,
+      path,
+    }),
+    meta: { id: id, loggedModelId, path: path },
   };
 };
 

@@ -81,6 +81,8 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -184,6 +186,10 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras uvicorn
+          # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
+          pip install "litellm>=1.52.9"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -219,7 +225,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community
+          pip install pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -234,6 +240,12 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v4
         with:
@@ -245,12 +257,12 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -334,9 +346,8 @@ jobs:
           source .venv/Scripts/activate
           python -m pip install -U pip
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install .[extras]
+          pip install '.[extras,genai]'
           pip install pyspark
-          pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
@@ -344,6 +355,8 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

@@ -6,6 +6,7 @@ import typing
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -201,6 +202,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
+    from mlflow.utils.autologging_utils import _has_active_training_session
 
     def create_managed_run():
         managed_run = mlflow.start_run(tags=tags)
@@ -221,7 +223,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 self.managed_run = None
 
             def _patch_implementation(self, original, *args, **kwargs):
-                if not mlflow.active_run():
+                # If there is an active training session but there is no active run
+                # in current thread, it means the thread is spawned by `estimator.fit`
+                # as a worker thread, we should disable autologging in
+                # these worker threads, so skip creating managed run.
+                if not mlflow.active_run() and not _has_active_training_session():
                     self.managed_run = create_managed_run()
 
                 result = super()._patch_implementation(original, *args, **kwargs)
@@ -242,7 +248,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
-            if not mlflow.active_run():
+            # If there is an active training session but there is no active run
+            # in current thread, it means the thread is spawned by `estimator.fit`
+            # as a worker thread, we should disable autologging in
+            # these worker threads, so skip creating managed run.
+            if not mlflow.active_run() and not _has_active_training_session():
                 managed_run = create_managed_run()
 
             try:
@@ -352,7 +362,7 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f"Unsupport patch on {destination}.{function_name}")
+        raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         is_property_method = True
 
@@ -404,25 +414,28 @@ def safe_patch(
         # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
-        with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not
-            # actionable and result from the autologging implementation invoking another MLflow
-            # API. Accordingly, we reroute these warnings to the MLflow event logger with level
-            # WARNING For reference, see recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_event_logs=is_silent_mode,
-            disable_warnings=is_silent_mode,
-        ), set_non_mlflow_warnings_behavior_for_current_thread(
-            # non-MLflow Warnings emitted during the autologging preamble (before the original /
-            # underlying ML function is called) and postamble (after the original / underlying ML
-            # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute
-            # these warnings to the MLflow event logger with level WARNING. For reference, see
-            # recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_warnings=is_silent_mode,
+        with (
+            set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging training sessions are likely not
+                # actionable and result from the autologging implementation invoking another MLflow
+                # API. Accordingly, we reroute these warnings to the MLflow event logger with level
+                # WARNING For reference, see recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ),
+            set_non_mlflow_warnings_behavior_for_current_thread(
+                # non-MLflow Warnings emitted during the autologging preamble (before the original /
+                # underlying ML function is called) and postamble (after the original / underlying
+                # ML function is called) are likely not actionable and result from the autologging
+                # implementation invoking an API from a dependent library. Accordingly, we reroute
+                # these warnings to the MLflow event logger with level WARNING. For reference, see
+                # recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ),
         ):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
@@ -445,7 +458,6 @@ def safe_patch(
                 or (
                     mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
                     and autologging_integration
-                    not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
                 )
             ):
                 # If the autologging integration associated with this patch is disabled,
@@ -829,8 +841,8 @@ class ValidationExemptArgument(typing.NamedTuple):
     autologging_integration: str
     function_name: str
     type_function: typing.Callable
-    positional_argument_index: int = None
-    keyword_argument_name: str = None
+    positional_argument_index: Optional[int] = None
+    keyword_argument_name: Optional[str] = None
 
     def matches(
         self,

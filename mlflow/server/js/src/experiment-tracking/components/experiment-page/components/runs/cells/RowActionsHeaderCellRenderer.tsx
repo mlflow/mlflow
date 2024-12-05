@@ -1,4 +1,5 @@
 import {
+  DashIcon,
   DropdownMenu,
   Icon,
   VisibleIcon as VisibleHollowIcon,
@@ -19,15 +20,13 @@ const VisibleIcon = () =>
 
 export const RowActionsHeaderCellRendererV2 = React.memo(
   ({
-    allRunsHidden,
     onToggleVisibility,
   }: {
-    allRunsHidden?: boolean;
     onToggleVisibility: (mode: RUNS_VISIBILITY_MODE | string, runOrGroupUuid?: string) => void;
   }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { runsHiddenMode } = useExperimentViewRunsTableHeaderContext();
+    const { runsHiddenMode, usingCustomVisibility, allRunsHidden } = useExperimentViewRunsTableHeaderContext();
 
     return (
       <DropdownMenu.Root modal={false}>
@@ -49,30 +48,35 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content>
-          <DropdownMenu.RadioGroup value={runsHiddenMode} onValueChange={(e) => onToggleVisibility(e)}>
+          <DropdownMenu.RadioGroup
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_52"
+            value={runsHiddenMode}
+            onValueChange={(e) => onToggleVisibility(e)}
+          >
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.FIRST_10_RUNS}>
-              <DropdownMenu.ItemIndicator />
+              {/* Dropdown menu does not support indeterminate state, so we're doing it manually */}
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show first 10"
                 description="Menu option for showing only 10 first runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.FIRST_20_RUNS}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show first 20"
                 description="Menu option for showing only 10 first runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.SHOWALL}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show all runs"
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.HIDEALL}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Hide all runs"
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -91,6 +95,7 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
 export const RowActionsHeaderCellRenderer = React.memo(
   (props: {
     allRunsHidden?: boolean;
+    usingCustomVisibility?: boolean;
     onToggleVisibility: (runUuidOrToggle: string) => void;
     eGridHeader?: HTMLElement;
   }) => {
@@ -123,6 +128,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
 
         <DropdownMenu.Content>
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_125"
             onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.HIDEALL)}
             data-testid="experiment-view-runs-visibility-hide-all"
           >
@@ -135,6 +141,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
             />
           </DropdownMenu.Item>
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_137"
             onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.SHOWALL)}
             data-testid="experiment-view-runs-visibility-show-all"
           >

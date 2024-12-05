@@ -1,6 +1,6 @@
-import borders from './borders';
+import { getBorders, getLegacyBorders } from './borders';
 import responsive from './breakpoints';
-import { getColors } from './colors';
+import { getColors, getProtectedSemanticColors } from './colors';
 import generalVariables, { getShadowVariables } from './generalVariables';
 import { getGradients } from './gradients';
 import spacing from './spacing';
@@ -16,10 +16,20 @@ export interface Theme {
     spacing: typeof spacing;
     general: typeof generalVariables & ReturnType<typeof getShadowVariables>;
     typography: typeof typography;
-    borders: typeof borders;
+    /**
+     * @deprecated use `borders` instead.
+     */
+    legacyBorders: ReturnType<typeof getLegacyBorders>;
+    borders: ReturnType<typeof getBorders>;
     responsive: typeof responsive;
     isDarkMode: boolean;
     options: ThemeOptions;
+    /**
+     * @private INTERNAL USE ONLY, DO NOT USE.
+     */
+    DU_BOIS_INTERNAL_ONLY: {
+        colors: ReturnType<typeof getProtectedSemanticColors>;
+    };
 }
 export declare function getTheme(isDarkMode: boolean, options?: ThemeOptions): Theme;
 //# sourceMappingURL=index.d.ts.map

@@ -175,11 +175,14 @@ def test_requestor():
         "mlflow.tracking.context.default_context._get_source_type",
         return_value=SourceType.LOCAL,
     )
-    with mock_http_request() as mock_http, mock.patch(
-        "mlflow.tracking._tracking_service.utils._get_store", return_value=store
-    ), mock.patch(
-        "mlflow.tracking.context.default_context._get_user", return_value=user_name
-    ), mock.patch("time.time", return_value=13579), source_name_patch, source_type_patch:
+    with (
+        mock_http_request() as mock_http,
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch("mlflow.tracking.context.default_context._get_user", return_value=user_name),
+        mock.patch("time.time", return_value=13579),
+        source_name_patch,
+        source_type_patch,
+    ):
         with mlflow.start_run(experiment_id="43", run_name=run_name):
             cr_body = message_to_json(
                 CreateRun(
@@ -329,9 +332,33 @@ def test_requestor():
         run_id = "run_id"
         m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
         store.record_logged_model("run_id", m)
-        expected_message = LogModel(run_id=run_id, model_json=m.to_json())
+        expected_message = LogModel(run_id=run_id, model_json=json.dumps(m.get_tags_dict()))
         _verify_requests(
             mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
+        )
+
+    # if model has config, it should be removed from the model_json before sending to the server
+    with mock_http_request() as mock_http:
+        run_id = "run_id"
+        flavors_with_config = {
+            "tf": "flavor body",
+            "python_function": {"config": {"a": 1}, "code": "code"},
+        }
+        m_with_config = Model(
+            artifact_path="model/path", run_id="run_id", flavors=flavors_with_config
+        )
+        store.record_logged_model("run_id", m_with_config)
+        flavors = m_with_config.get_tags_dict().get("flavors", {})
+        assert all("config" not in v for v in flavors.values())
+        expected_message = LogModel(
+            run_id=run_id, model_json=json.dumps(m_with_config.get_tags_dict())
+        )
+        _verify_requests(
+            mock_http,
+            creds,
+            "runs/log-model",
+            "POST",
+            message_to_json(expected_message),
         )
 
 

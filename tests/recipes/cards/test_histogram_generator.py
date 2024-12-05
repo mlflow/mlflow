@@ -1,6 +1,7 @@
 """
 Unit tests for histogram_generator.py
 """
+
 import pytest
 from google.protobuf import text_format
 

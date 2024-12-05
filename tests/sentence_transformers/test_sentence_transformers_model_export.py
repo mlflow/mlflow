@@ -147,9 +147,7 @@ def test_get_transformers_model_name(model_name, expected):
 def test_model_logging_and_inference(basic_model):
     artifact_path = "sentence_transformer"
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(
-            model=basic_model, artifact_path=artifact_path
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, artifact_path)
 
     model = mlflow.sentence_transformers.load_model(model_info.model_uri)
 
@@ -161,7 +159,7 @@ def test_model_logging_and_inference(basic_model):
             "Just a small town girl",
             "livin in a lonely world",
             "she took the midnight train",
-            "goin anywhere",
+            "going anywhere",
         ]
     )
 
@@ -197,8 +195,8 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
             registered_model_name="My super cool encoder",
         )
@@ -219,8 +217,8 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -327,9 +325,10 @@ def test_model_log_without_conda_env_uses_default_env_with_expected_dependencies
 
 def test_log_model_with_code_paths(basic_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sentence_transformers._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sentence_transformers._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.sentence_transformers.log_model(basic_model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.sentence_transformers.FLAVOR_NAME)
@@ -387,18 +386,6 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
 
-    model_path = tmp_path / "model2"
-    mlflow.sentence_transformers.save_model(
-        basic_model,
-        model_path,
-        signature=infer_signature(sentence, params={"invalid_param": "value"}),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException, match=r"Received invalid parameter value for `params` argument"
-    ):
-        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
-
     model_path = tmp_path / "model3"
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -409,6 +396,27 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
         "schema. This model does not define a params schema. Ignoring provided params: "
         "['batch_size']"
     )
+
+
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) >= Version("3.1.0"),
+    reason="This test only passes for Sentence Transformers < 3.1.0",
+)
+def test_model_pyfunc_predict_with_invalid_params(basic_model, tmp_path):
+    sentence = "hello world and hello mlflow"
+    model_path = tmp_path / "model"
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException, match=r"Received invalid parameter value for `params` argument"
+    ):
+        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
 
 
 def test_spark_udf(basic_model, spark):
@@ -527,9 +535,7 @@ def test_model_log_with_signature_inference(basic_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, artifact_path=artifact_path, input_example=SENTENCES
-        )
+        mlflow.sentence_transformers.log_model(basic_model, artifact_path, input_example=SENTENCES)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)

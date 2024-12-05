@@ -15,6 +15,7 @@ import { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { getUUID } from '../../../../common/utils/ActionUtils';
+import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../common/utils/FeatureUtils';
 
 const START_TIME_COLUMN_OFFSET = {
   ALL: null,
@@ -24,6 +25,26 @@ const START_TIME_COLUMN_OFFSET = {
   LAST_30_DAYS: 30 * 24 * 60 * 60 * 1000,
   LAST_YEAR: 12 * 30 * 24 * 60 * 60 * 1000,
 };
+
+const VALID_TABLE_ALIASES = [
+  'attribute',
+  'attributes',
+  'attr',
+  'run',
+  'metric',
+  'metrics',
+  'param',
+  'params',
+  'parameter',
+  'tag',
+  'tags',
+  'dataset',
+  'datasets',
+];
+const SQL_SYNTAX_PATTERN = new RegExp(
+  `(${VALID_TABLE_ALIASES.join('|')})\\.\\S+\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,
+  'i',
+);
 
 export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
 
@@ -80,6 +101,13 @@ const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearch
   return `dataset.name IN (${datasetNames}) AND dataset.digest IN (${datasetDigests})`;
 };
 
+export const detectSqlSyntaxInSearchQuery = (searchFilter: string) => {
+  return SQL_SYNTAX_PATTERN.test(searchFilter);
+};
+
+export const createQuickRegexpSearchFilter = (searchFilter: string) =>
+  `attributes.run_name RLIKE '${searchFilter.replace(/'/g, "\\'")}'`;
+
 /**
  * Combines search filter and start time SQL expressions
  */
@@ -88,6 +116,14 @@ const createFilterExpression = (
   startTimeExpression: string | null,
   datasetsFilterExpression: string | null,
 ) => {
+  if (
+    shouldUseRegexpBasedAutoRunsSearchFilter() &&
+    searchFilter.length > 0 &&
+    !detectSqlSyntaxInSearchQuery(searchFilter)
+  ) {
+    return createQuickRegexpSearchFilter(searchFilter);
+  }
+
   const activeFilters = [];
   if (searchFilter) activeFilters.push(searchFilter);
   if (startTimeExpression) activeFilters.push(startTimeExpression);

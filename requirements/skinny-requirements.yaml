@@ -44,7 +44,7 @@ importlib_metadata:
   # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
   # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
   minimum: "3.7.0"
-  max_major_version: 7
+  max_major_version: 8
   unsupported: ["4.7.0"]
 
 sqlparse:

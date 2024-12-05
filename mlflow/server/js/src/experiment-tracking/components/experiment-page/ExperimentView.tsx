@@ -14,7 +14,7 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
-import { shouldEnableTracingUI } from '../../../common/utils/FeatureUtils';
+import { isExperimentLoggedModelsUIEnabled, shouldEnableTracingUI } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
@@ -32,7 +32,7 @@ import { ExperimentViewTraces } from './components/ExperimentViewTraces';
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
 
-  const [searchFacets, experimentIds] = useExperimentPageSearchFacets();
+  const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
   const [viewMode] = useExperimentPageViewMode();
 
   const experiments = useExperiments(experimentIds);
@@ -65,8 +65,16 @@ export const ExperimentView = () => {
   } = useExperimentRuns(uiState, searchFacets, experimentIds);
 
   useEffect(() => {
+    // If the logged models UI is enabled, fetch the experiments only if they are not already loaded.
+    // Helps with the smooth page transition.
+    if (
+      isExperimentLoggedModelsUIEnabled() &&
+      experimentIds.every((id) => experiments.find((exp) => exp.experimentId === id))
+    ) {
+      return;
+    }
     fetchExperiments(experimentIds);
-  }, [fetchExperiments, experimentIds]);
+  }, [fetchExperiments, experimentIds, experiments]);
 
   useEffect(() => {
     // Seed the initial UI state when the experiments and runs are loaded.
@@ -83,7 +91,7 @@ export const ExperimentView = () => {
 
   const isComparingExperiments = experimentIds.length > 1;
 
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared);
+  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 

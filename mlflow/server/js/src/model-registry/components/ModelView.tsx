@@ -164,6 +164,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
       })
       .catch((ex: any) => {
         this.setState({ isTagsRequestPending: false });
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(ex);
         message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
       });
@@ -174,6 +175,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex: any) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
       message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
     });
@@ -184,6 +186,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex: any) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
       message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
     });
@@ -343,6 +346,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 </span>
                 {!this.props.usingNextModelsUI && (
                   <SegmentedControlGroup
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_600"
                     name="stage-filter"
                     value={this.state.stageFilter}
                     onChange={(e) => this.handleStageFilterChange(e)}
@@ -405,6 +409,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
         {/* Delete Model Dialog */}
         <DangerModal
+          componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_662"
           data-testid="mlflow-input-modal"
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',
