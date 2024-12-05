@@ -15,7 +15,6 @@ from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.credentials import get_default_host_creds
-from azure.core.exceptions import ResourceNotFoundError
 
 
 def encode_base64(data: Union[str, bytes]) -> str:
@@ -198,6 +197,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
+        from azure.core.exceptions import ResourceNotFoundError
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         if artifact_path:
