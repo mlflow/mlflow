@@ -220,9 +220,14 @@ class ActiveRun(Run):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         active_run_stack = _active_run_stack.get()
-        if self in active_run_stack:  # Is this run still active?
+
+        # Check if the run is still active. We check based on ID instead of
+        # using referential equality, because some tools (e.g. AutoML) may
+        # stop a run and start it again with the same ID to restore session state
+        if any(r.info.run_id == self.info.run_id for r in active_run_stack):
             status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
             end_run(RunStatus.to_string(status))
+
         return exc_type is None
 
 
