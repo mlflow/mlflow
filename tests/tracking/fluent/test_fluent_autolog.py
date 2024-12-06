@@ -107,9 +107,6 @@ def reset_global_states():
         except Exception:
             pass
 
-    # TODO: Remove this when we remove the `mlflow.gluon` module
-    mlflow.utils.import_hooks._post_import_hooks.pop("mxnet.gluon", None)
-
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
@@ -468,10 +465,9 @@ def test_autolog_genai_import(disable, flavor_and_module):
     flavor, module = flavor_and_module
 
     # pytorch-lightning is not valid flavor name.
-    # gluon autologging is deprecated.
     # paddle autologging is not in the list of autologging integrations.
     # crewai requires Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {"gluon", "pytorch-lightning", "paddle", "crewai"}:
+    if flavor in {"pytorch-lightning", "paddle", "crewai"}:
         return
 
     with reset_module_import():

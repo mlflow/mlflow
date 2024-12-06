@@ -31,10 +31,6 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
     # autologging, therefore, we snapshot the current configuration to restore it later.
     global_config_snapshot = AUTOLOGGING_INTEGRATIONS.copy()
     for flavor in FLAVOR_TO_MODULE_NAME:
-        # TODO: Remove this once Gluon autologging is actually removed
-        if flavor == "gluon":
-            continue
-
         try:
             if autolog := get_autolog_function(flavor):
                 original_config = global_config_snapshot.get(flavor, {}).copy()

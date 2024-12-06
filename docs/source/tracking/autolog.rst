@@ -159,20 +159,6 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-.. _autolog-gluon:
-
-Gluon
------
-Call the generic autolog function :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
-See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
-
-Autologging captures the following information:
-
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
 .. _autolog-keras:
 
