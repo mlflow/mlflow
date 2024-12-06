@@ -40,6 +40,7 @@ from mlflow import (
     exceptions,  # noqa: F401
     models,  # noqa: F401
     projects,  # noqa: F401
+    tracing,  # noqa: F401
     tracking,  # noqa: F401
 )
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
