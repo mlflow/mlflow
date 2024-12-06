@@ -3923,8 +3923,8 @@ Validate Models before Deployment
 ---------------------------------
 
 After logging your model with MLflow Tracking, it is recommended to validate the model locally before deploying it to production.
-The :py:func:`mlflow.models.predict()` API offers a functionality for testing your model in a virtual environment.
-You can use this API by passing a sample input, as shown in the example code below.
+The :py:func:mlflow.models.predict() API enables you to test your model in a virtual environment for isolated execution. 
+You can utilize this functionality by passing a sample input, as demonstrated in the example code below.
 Additionally, this API is helpful for validating the environment configuration. 
 For more details, refer to  :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
 
@@ -3933,7 +3933,7 @@ For more details, refer to  :ref:`Validating Environment for Prediction <validat
     import mlflow
 
     mlflow.models.predict(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=model_uri,
         input_data={"x": 1, "y": 2},
     )
 
