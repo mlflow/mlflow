@@ -941,6 +941,10 @@ The screenshot below shows our external function wrapping runs within the MLflow
 Tracing Client APIs
 -------------------
 
+.. note::
+
+    Client APIs are in **Experimental Status** and is subject to change without deprecation warning or notification. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
+
 The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained 
 control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs 
 to manually trace a model, providing step-by-step instructions and examples.
