@@ -39,9 +39,6 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
-      - uses: astral-sh/setup-uv@v3
-        with:
-          version: 0.5.4
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
