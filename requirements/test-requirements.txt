@@ -19,8 +19,7 @@ hyperopt
 # Required by recipes tests
 ipython
 # Required by automl tests
-# TODO: Remove pin once https://github.com/microsoft/FLAML/issues/1353 is resolved
-flaml[automl]!=2.3.0
+flaml[automl]
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
