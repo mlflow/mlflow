@@ -11,12 +11,24 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadPart,
+)
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
-from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
+from mlflow.utils.async_logging.async_artifacts_logging_queue import (
+    AsyncArtifactsLoggingQueue,
+)
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
@@ -151,7 +163,7 @@ class ArtifactRepository:
         """
 
     @abstractmethod
-    def list_artifacts(self, path):
+    def list_artifacts(self, path: Optional[str] = None) -> list:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.

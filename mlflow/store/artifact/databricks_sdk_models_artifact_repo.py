@@ -1,4 +1,5 @@
 import posixpath
+from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
@@ -25,7 +26,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         self.client = _get_databricks_workspace_client()
         super().__init__(self.model_base_path)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         dest_path = self.model_base_path
         if path:
             dest_path = posixpath.join(dest_path, path)
