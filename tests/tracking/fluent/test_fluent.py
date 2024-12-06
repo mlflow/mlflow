@@ -1677,3 +1677,13 @@ def test_end_run_inside_start_run_context_manager():
     assert client.get_run(parent_run.info.run_id).info.status == RunStatus.to_string(
         RunStatus.FINISHED
     )
+
+
+def test_runs_are_ended_by_run_id():
+    with mlflow.start_run() as run:
+        # end run and start it again with the same id
+        # to make sure it's not referentially equal
+        mlflow.end_run()
+        mlflow.start_run(run_id=run.info.run_id)
+
+    assert mlflow.active_run() is None
