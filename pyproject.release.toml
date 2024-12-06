@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.18.1.dev0"
+version = "2.19.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -22,7 +22,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "mlflow-skinny==2.18.1.dev0",
+  "mlflow-skinny==2.19.1.dev0",
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
@@ -71,7 +71,7 @@ gateway = [
   "pydantic<3,>=1.0",
   "fastapi<1",
   "uvicorn[standard]<1",
-  "watchfiles<1",
+  "watchfiles<2",
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "tiktoken<1",
@@ -81,7 +81,7 @@ genai = [
   "pydantic<3,>=1.0",
   "fastapi<1",
   "uvicorn[standard]<1",
-  "watchfiles<1",
+  "watchfiles<2",
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "tiktoken<1",
@@ -91,7 +91,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.3.7"]
+langchain = ["langchain>=0.1.0,<=0.3.9"]
 
 [project.urls]
 homepage = "https://mlflow.org"

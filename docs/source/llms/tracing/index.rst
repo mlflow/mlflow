@@ -49,7 +49,7 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
-                    <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                    <img src="../../_static/images/logos/autogen-logo.png" alt="AutoGen Logo"/>
                 </div>
             </a>
             <a href="#automatic-tracing">
@@ -65,6 +65,21 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             <a href="#automatic-tracing">
                 <div class="logo-card">
                     <img src="../../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/crewai-logo.png" alt="CrewAI Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/ollama-logo.png" alt="Ollama Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
     </section>
@@ -290,6 +305,104 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Ollama
+
+        .. raw:: html
+
+            <h3>Ollama Automatic Tracing</h3>
+
+        |
+
+        `Ollama <https://github.com/ollama/ollama>`_ is an open-source platform that enables users to run large language models (LLMs) locally on their devices, such as Llama 3.2, Gemma 2, Mistral, Code Llama, and more.
+
+        Since the local LLM endpoint served by Ollama is compatible with the OpenAI API, you can query it via OpenAI SDK and enable tracing for Ollama with :py:func:`mlflow.openai.autolog`. Any LLM interactions via Ollama will be recorded to the active MLflow Experiment.
+
+        1. Run the Ollama server with the desired LLM model.
+
+        .. code-block:: bash
+
+            ollama run llama3.2:1b
+
+        2. Enable auto-tracing for OpenAI SDK.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Ollama")
+
+        3. Query the LLM and see the traces in the MLflow UI.
+
+        .. code-block:: python
+
+            from openai import OpenAI
+
+            client = OpenAI(
+                base_url="http://localhost:11434/v1",  # The local Ollama REST endpoint
+                api_key="dummy",  # Required to instantiate OpenAI client, it can be a random string
+            )
+
+            response = client.chat.completions.create(
+                model="llama3.2:1b",
+                messages=[
+                    {"role": "system", "content": "You are a science teacher."},
+                    {"role": "user", "content": "Why is the sky blue?"},
+                ],
+            )
+
+        .. figure:: ../../_static/images/llms/tracing/ollama-tracing.png
+            :alt: Ollama Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Instructor
+
+        .. raw:: html
+
+            <h3>Instructor Automatic Tracing</h3>
+
+        |
+
+        `Instructor <https://python.useinstructor.com>`_ is an open-source Python library built on top of Pydantic, simplifying structured LLM outputs with validation, retries, and streaming.
+
+        MLflow Tracing works with Instructor by enabling auto-tracing for the underlying LLM libraries.
+        For example, if you use Instructor for OpenAI LLMs, you can enable tracing with :py:func:`mlflow.openai.autolog` and the generated traces will capture the structured outputs from Instructor.
+
+        Similarly, you can also trace Instructor with other LLM providers, such as Anthropic, Gemini, and LiteLLM, by enabling the corresponding autologging in MLflow.
+
+        .. code-block:: python
+
+            import instructor
+            from pydantic import BaseModel
+            from openai import OpenAI
+
+            # Use other autologging function e.g., mlflow.anthropic.autolog() if you are using Instructor with different LLM providers
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Instructor")
+
+
+            # Use Instructor as usual
+            class ExtractUser(BaseModel):
+                name: str
+                age: int
+
+
+            client = instructor.from_openai(OpenAI())
+
+            res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                response_model=ExtractUser,
+                messages=[{"role": "user", "content": "John Doe is 30 years old."}],
+            )
+            print(f"Name: {res.name}, Age:{res.age}")
+
+        .. figure:: ../../_static/images/llms/tracing/instructor-tracing.png
+
     .. tab:: LlamaIndex
 
         .. raw:: html
@@ -461,6 +574,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
+
         MLflow Tracing ensures observability for your interactions with Anthropic AI models.
         When Anthropic autologging is enabled with :py:func:`mlflow.anthropic.autolog`,
         usage of the Anthropic SDK will automatically record generated traces during interactive development.
@@ -477,6 +591,32 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
             :alt: Anthropic Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: CrewAI
+
+        .. raw:: html
+
+            <h3>CrewAI Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for the interactions of CrewAI agents.
+        When CrewAI autologging is enabled with :py:func:`mlflow.crewai.autolog`, 
+        traces are generated for the usage of the CrewAI framework.
+        Note that asynchronous task and kickoff are not supported now.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.crewai.autolog()
+
+        To see the full example of tracing CrewAI, please refer to the `CrewAI Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/crewai/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/crewai/crewai-trace.png
+            :alt: CrewAI Tracing
             :width: 100%
             :align: center
 
@@ -800,6 +940,10 @@ The screenshot below shows our external function wrapping runs within the MLflow
 
 Tracing Client APIs
 -------------------
+
+.. note::
+
+    Client APIs are in **Experimental Status** and is subject to change without deprecation warning or notification. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
 
 The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained 
 control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs 

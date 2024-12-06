@@ -5,7 +5,7 @@
 pydantic<3,>=1.0
 fastapi<1
 uvicorn[standard]<1
-watchfiles<1
+watchfiles<2
 aiohttp<4
 boto3<2,>=1.28.56
 tiktoken<1

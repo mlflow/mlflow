@@ -32,6 +32,7 @@ def autolog(
     import litellm
 
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
     if log_traces and not disable:
@@ -70,6 +71,10 @@ def autolog(
         # Callback also needs to be removed from 'callbacks' as litellm adds
         # success/failure callbacks to there as well.
         litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
 
 
 # NB: The @autologging_integration annotation must be applied here, and the callback injection
@@ -132,13 +137,16 @@ def _patch_thread_start():
         Thread.start = original
 
 
-def _append_mlflow_callbacks(original_callbacks):
-    if not any(cb == "mlflow" for cb in original_callbacks):
-        return original_callbacks + ["mlflow"]
-    return original_callbacks
+def _append_mlflow_callbacks(callbacks):
+    if not any(cb == "mlflow" for cb in callbacks):
+        return callbacks + ["mlflow"]
+    return callbacks
 
 
-def _remove_mlflow_callbacks(original_callbacks):
-    from litellm.integrations.mlflow import MlflowLogger
+def _remove_mlflow_callbacks(callbacks):
+    try:
+        from litellm.integrations.mlflow import MlflowLogger
 
-    return [cb for cb in original_callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+        return [cb for cb in callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
+    except ImportError:
+        return callbacks

@@ -90,7 +90,9 @@ def test_score_model_on_payload_throws_for_invalid():
 
 
 def test_score_model_openai_without_key():
-    with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
+    with pytest.raises(
+        MlflowException, match="OpenAI API key must be set in the ``OPENAI_API_KEY``"
+    ):
         score_model_on_payload("openai:/gpt-4o-mini", "")
 
 
@@ -119,22 +121,27 @@ _OAI_RESPONSE = {
 
 
 def test_score_model_openai(set_envs):
-    with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_post:
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
         assert resp == "\n\nThis is a test!"
-        mock_client().chat.completions.create.assert_called_with(
-            messages=[{"role": "user", "content": "my prompt"}],
-            model="gpt-4o-mini",
-            extra_headers={},
-            temperature=0.1,
+        mock_post.assert_called_once_with(
+            endpoint="https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": "Bearer test"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+            },
         )
 
 
 def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
-    with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_post:
         resp = score_model_on_payload(
             model_uri="openai:/gpt-4o-mini",
             payload="my prompt",
@@ -144,33 +151,40 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
         )
 
         assert resp == "\n\nThis is a test!"
-        mock_client().chat.completions.create.assert_called_with(
-            messages=[{"role": "user", "content": "my prompt"}],
-            model="gpt-4o-mini",
-            extra_headers={"foo": "bar"},
-            temperature=0.1,
+        mock_post.assert_called_once_with(
+            endpoint="https://my-proxy.com/chat",
+            headers={"Authorization": "Bearer test", "foo": "bar"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+            },
         )
 
 
 def test_openai_other_error(set_envs):
-    with mock.patch("openai.OpenAI") as mock_client:
-        mock_client().chat.completions.create.side_effect = (Exception("foo"),)
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request",
+        side_effect=Exception("foo"),
+    ):
         with pytest.raises(Exception, match="foo"):
             score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_client().chat.completions.create.assert_called_once()
 
 
 def test_score_model_azure_openai(set_azure_envs):
-    with mock.patch("openai.AzureOpenAI") as mock_client:
-        mock_client().chat.completions.create().model_dump.return_value = _OAI_RESPONSE
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_post:
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
         assert resp == "\n\nThis is a test!"
-        mock_client().chat.completions.create.assert_called_with(
-            messages=[{"role": "user", "content": "my prompt"}],
-            model="gpt-4o-mini",
-            extra_headers={},
-            temperature=0.1,
+        mock_post.assert_called_once_with(
+            endpoint="https://openai-for.openai.azure.com/openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
+            headers={"api-key": "test"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
+                "temperature": 0.1,
+            },
         )
 
 

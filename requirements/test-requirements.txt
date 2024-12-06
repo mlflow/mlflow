@@ -3,6 +3,7 @@
 pip>=20.1
 ## Test-only dependencies
 pytest==8.1.1
+pytest-repeat
 pytest-cov
 pytest-timeout
 pytest-localserver==0.5.0
@@ -19,12 +20,6 @@ hyperopt
 ipython
 # Required by automl tests
 flaml[automl]
-# Required by transformers tests
-# Note: other requirements for transformers are defined in cross-version-tests.yml
-# they are not installed here due to their size and stability implications for other test suites.
-# this is pinned because huggingface_hub >= 0.24.0 causes setfit to be unimportable, see
-# https://github.com/huggingface/setfit/issues/544
-huggingface_hub<0.24.0
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
