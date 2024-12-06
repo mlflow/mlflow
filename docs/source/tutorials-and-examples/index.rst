@@ -17,8 +17,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 * `Write & Use MLflow Plugins <https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_
 * Instrument ML training code with MLflow
 
-  - `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_
-
   - `H2O <https://github.com/mlflow/mlflow/tree/master/examples/h2o>`_
 
   - `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_
