@@ -1037,6 +1037,9 @@ def remove_on_error(path: os.PathLike, onerror=None):
                 os.remove(path)
             elif os.path.isdir(path):
                 shutil.rmtree(path)
+        _logger.warning(
+            f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
+        )
         raise
 
 
