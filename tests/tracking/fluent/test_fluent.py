@@ -1678,6 +1678,7 @@ def test_end_run_inside_start_run_context_manager():
         RunStatus.FINISHED
     )
 
+
 def test_runs_are_ended_by_run_id():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
