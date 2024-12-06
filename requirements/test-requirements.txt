@@ -21,12 +21,6 @@ ipython
 # Required by automl tests
 # TODO: Remove pin once https://github.com/microsoft/FLAML/issues/1353 is resolved
 flaml[automl]!=2.3.0
-# Required by transformers tests
-# Note: other requirements for transformers are defined in cross-version-tests.yml
-# they are not installed here due to their size and stability implications for other test suites.
-# this is pinned because huggingface_hub >= 0.24.0 causes setfit to be unimportable, see
-# https://github.com/huggingface/setfit/issues/544
-huggingface_hub<0.24.0
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
