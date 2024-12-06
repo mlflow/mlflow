@@ -7,11 +7,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "scikit-learn"
         },
         "models": {
-            "minimum": "0.24.1",
+            "minimum": "1.2.0",
             "maximum": "1.5.2"
         },
         "autologging": {
-            "minimum": "0.24.1",
+            "minimum": "1.2.0",
             "maximum": "1.5.2"
         }
     },
@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "torch"
         },
         "models": {
-            "minimum": "1.9.0",
+            "minimum": "1.13.1",
             "maximum": "2.5.1"
         },
         "autologging": {
-            "minimum": "1.9.0",
+            "minimum": "1.13.1",
             "maximum": "2.5.1"
         }
     },
@@ -57,11 +57,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.7.4",
+            "minimum": "2.11.1",
             "maximum": "2.18.0"
         },
         "autologging": {
-            "minimum": "2.7.4",
+            "minimum": "2.11.1",
             "maximum": "2.18.0"
         }
     },
@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "xgboost"
         },
         "models": {
-            "minimum": "1.4.2",
+            "minimum": "1.7.2",
             "maximum": "2.1.3"
         },
         "autologging": {
-            "minimum": "1.4.2",
+            "minimum": "1.7.2",
             "maximum": "2.1.3"
         }
     },
@@ -83,11 +83,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "lightgbm"
         },
         "models": {
-            "minimum": "3.1.1",
+            "minimum": "3.3.4",
             "maximum": "4.5.0"
         },
         "autologging": {
-            "minimum": "3.1.1",
+            "minimum": "3.3.4",
             "maximum": "4.5.0"
         }
     },
@@ -96,7 +96,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "catboost"
         },
         "models": {
-            "minimum": "1.0.0",
+            "minimum": "1.2",
             "maximum": "1.2.7"
         }
     },
@@ -105,11 +105,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "fastai"
         },
         "models": {
-            "minimum": "2.4.1",
+            "minimum": "2.7.11",
             "maximum": "2.7.18"
         },
         "autologging": {
-            "minimum": "2.4.1",
+            "minimum": "2.7.11",
             "maximum": "2.7.18"
         }
     },
@@ -136,11 +136,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "statsmodels"
         },
         "models": {
-            "minimum": "0.12.2",
+            "minimum": "0.14.0",
             "maximum": "0.14.4"
         },
         "autologging": {
-            "minimum": "0.12.2",
+            "minimum": "0.14.0",
             "maximum": "0.14.4"
         }
     },
@@ -150,11 +150,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "pyspark"
         },
         "models": {
-            "minimum": "3.1.2",
+            "minimum": "3.2.4",
             "maximum": "3.5.3"
         },
         "autologging": {
-            "minimum": "3.1.2",
+            "minimum": "3.2.4",
             "maximum": "3.5.3"
         }
     },
@@ -163,7 +163,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "mleap"
         },
         "models": {
-            "minimum": "0.18.0",
+            "minimum": "0.21.1",
             "maximum": "0.23.3"
         }
     },
@@ -172,7 +172,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "prophet"
         },
         "models": {
-            "minimum": "1.1.1",
+            "minimum": "1.1.2",
             "maximum": "1.1.6"
         }
     },
@@ -230,11 +230,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "transformers"
         },
         "models": {
-            "minimum": "4.25.1",
+            "minimum": "4.26.0",
             "maximum": "4.46.3"
         },
         "autologging": {
-            "minimum": "4.25.1",
+            "minimum": "4.26.0",
             "maximum": "4.46.3"
         }
     },
@@ -334,7 +334,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "sentence-transformers"
         },
         "models": {
-            "minimum": "2.2.2",
+            "minimum": "2.3.0",
             "maximum": "3.3.1"
         }
     },
