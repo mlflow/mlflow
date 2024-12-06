@@ -1,14 +1,38 @@
 import json
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode, urljoin
 
+import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.uri import is_http_uri
 
 _logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from mlflow.entities import Trace
+
+
+TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.html"
+
+IFRAME_HTML = """
+<iframe
+  id="trace-renderer"
+  style="width: 100%; height: 600px; border: none; resize: vertical;"
+  src="{src}"
+/>
+"""
+
+
+def _get_notebook_iframe_html(traces: list["Trace"]):
+    # fetch assets from tracking server
+    uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
+    query_string = _get_query_string_for_traces(traces)
+
+    # include mlflow version to invalidate cache when mlflow updates
+    src = f"{uri}?{query_string}&version={mlflow.__version__}"
+    return IFRAME_HTML.format(src=src)
 
 
 def _serialize_trace_list(traces: list["Trace"]):
@@ -19,6 +43,21 @@ def _serialize_trace_list(traces: list["Trace"]):
         [json.loads(trace._serialize_for_mimebundle()) for trace in traces],
         ensure_ascii=False,
     )
+
+
+def _get_query_string_for_traces(traces: list["Trace"]):
+    return urlencode([("trace_id", trace.info.request_id) for trace in traces])
+
+
+def is_using_tracking_server():
+    return is_http_uri(mlflow.get_tracking_uri())
+
+
+def validate_environment():
+    # the notebook display feature only works in
+    # Databricks notebooks, or in Jupyter notebooks
+    # with a tracking server
+    return is_in_databricks_runtime() or is_using_tracking_server()
 
 
 class IPythonTraceDisplayHandler:
@@ -42,10 +81,6 @@ class IPythonTraceDisplayHandler:
             cls._instance = IPythonTraceDisplayHandler()
 
     def __init__(self):
-        # This only works in Databricks notebooks
-        if not is_in_databricks_runtime():
-            return
-
         self.traces_to_display = {}
         try:
             from IPython import get_ipython
@@ -54,7 +89,9 @@ class IPythonTraceDisplayHandler:
                 return
 
             # Register a post-run cell display hook to display traces
-            # after the cell has executed.
+            # after the cell has executed. We don't validate that the
+            # user is using a tracking server at this step, because
+            # the user might set it later using mlflow.set_tracking_uri()
             get_ipython().events.register("post_run_cell", self._display_traces_post_run)
         except Exception:
             # swallow exceptions. this function is called as
@@ -64,14 +101,14 @@ class IPythonTraceDisplayHandler:
             _logger.debug("Failed to register post-run cell display hook", exc_info=True)
 
     def _display_traces_post_run(self, result):
-        if self.disabled:
+        if self.disabled or not validate_environment():
             self.traces_to_display = {}
             return
 
         # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
-            from IPython.display import display
+            from IPython.display import HTML, display
 
             if get_ipython() is None:
                 return
@@ -82,11 +119,15 @@ class IPythonTraceDisplayHandler:
                 self.traces_to_display = {}
                 return
 
-            display(
-                self.get_mimebundle(traces_to_display),
-                display_id=True,
-                raw=True,
-            )
+            if is_in_databricks_runtime():
+                display(
+                    self.get_databricks_mimebundle(traces_to_display),
+                    display_id=True,
+                    raw=True,
+                )
+            else:
+                html = HTML(_get_notebook_iframe_html(traces_to_display))
+                display(html)
 
             # reset state
             self.traces_to_display = {}
@@ -95,9 +136,10 @@ class IPythonTraceDisplayHandler:
             # a side-effect in a few other functions (e.g. log_trace,
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
-            _logger.debug("Failed to display traces", exc_info=True)
+            _logger.error("Failed to display traces", exc_info=True)
+            self.traces_to_display = {}
 
-    def get_mimebundle(self, traces: list["Trace"]):
+    def get_databricks_mimebundle(self, traces: list["Trace"]):
         if len(traces) == 1:
             return traces[0]._repr_mimebundle_()
         else:
@@ -107,8 +149,7 @@ class IPythonTraceDisplayHandler:
             }
 
     def display_traces(self, traces: list["Trace"]):
-        # This only works in Databricks notebooks
-        if not is_in_databricks_runtime() or self.disabled:
+        if self.disabled or not validate_environment():
             return
 
         # this should do nothing if not in an IPython environment
