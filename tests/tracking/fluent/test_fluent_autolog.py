@@ -107,6 +107,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # TODO: Remove this when we run ci with Python >= 3.10
+    mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
