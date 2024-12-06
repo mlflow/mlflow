@@ -2359,11 +2359,9 @@ def autolog(
     # Mapping of library name to specific autolog function name. We use string like
     # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
     # compatible modules.
-    # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_MODULE = {
         "tensorflow": "mlflow.tensorflow",
         "keras": "mlflow.keras",
-        "mxnet.gluon": "mlflow.gluon",
         "xgboost": "mlflow.xgboost",
         "lightgbm": "mlflow.lightgbm",
         "statsmodels": "mlflow.statsmodels",
@@ -2389,6 +2387,7 @@ def autolog(
         "llama_index.core": "mlflow.llama_index",
         "langchain": "mlflow.langchain",
         "dspy": "mlflow.dspy",
+        "crewai": "mlflow.crewai",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,

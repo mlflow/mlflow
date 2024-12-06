@@ -40,6 +40,7 @@ from mlflow import (
     exceptions,  # noqa: F401
     models,  # noqa: F401
     projects,  # noqa: F401
+    tracing,  # noqa: F401
     tracking,  # noqa: F401
 )
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
@@ -55,7 +56,6 @@ diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
-gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
