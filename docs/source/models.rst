@@ -3765,6 +3765,25 @@ back to ``numpy ndarray`` type as required by ``sktime`` inference API.
     response = requests.post(url, json=json_data)
     print(f"\nPyfunc 'predict_interval':\n${response.json()}")
 
+
+Validate Models before Deployment
+---------------------------------
+
+After logging your model with MLflow Tracking, it is recommended to validate the model locally before deploying it to production.
+The :py:func:mlflow.models.predict() API enables you to test your model in a virtual environment for isolated execution. 
+You can utilize this functionality by passing a sample input, as demonstrated in the example code below.
+Additionally, this API is helpful for validating the environment configuration. 
+For more details, refer to  :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.models.predict(
+        model_uri=model_uri,
+        input_data={"x": 1, "y": 2},
+    )
+
 .. _built-in-deployment:
 
 Built-In Deployment Tools
