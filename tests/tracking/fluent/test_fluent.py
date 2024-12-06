@@ -1681,10 +1681,9 @@ def test_end_run_inside_start_run_context_manager():
 
 def test_runs_are_ended_by_run_id():
     with mlflow.start_run() as run:
-        run_id = run.info.run_id
         # end run and start it again with the same id
         # to make sure it's not referentially equal
         mlflow.end_run()
-        mlflow.start_run(run_id=run_id)
+        mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
