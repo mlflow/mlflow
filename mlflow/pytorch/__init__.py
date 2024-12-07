@@ -16,7 +16,7 @@ import posixpath
 import shutil
 import warnings
 from functools import partial
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -62,6 +62,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+if TYPE_CHECKING:
+    from torch import Tensor
+    from torch.nn import Module
 
 FLAVOR_NAME = "pytorch"
 
@@ -726,10 +730,9 @@ class _PyTorchWrapper:
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     predict(data: np.ndarray) -> model's output as np.ndarray
     predict(data: dict[str, np.ndarray]) -> model's output as dict
-    predict(data: list[dict[str, np.ndarray]]) -> model's output as list[dict]
     """
 
-    def __init__(self, pytorch_model, device):
+    def __init__(self, pytorch_model: "Module", device: str):
         import torch
 
         self.torch = torch
@@ -742,13 +745,17 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data: Any, params: Optional[dict[str, Any]] = None) -> Any:
+    def predict(
+        self,
+        data: Union[np.ndarray, list["Tensor"], pd.DataFrame],
+        params: Optional[dict[str, Any]] = None,
+    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
         """
         Overrides the predict method to handle dict and list of dict inputs.
 
         Args:
             data: Input data, which can be pandas DataFrame, numpy ndarray,
-                  dict of numpy arrays, or list of dicts of numpy arrays.
+                dict of numpy arrays, or list of dicts of numpy arrays.
             params: Additional parameters for inference (currently not used).
 
         Returns:
@@ -771,7 +778,9 @@ class _PyTorchWrapper:
 
         return self._postprocess_output(preds, data)
 
-    def _preprocess_input(self, data: Any):
+    def _preprocess_input(
+        self, data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]
+    ) -> Union["Tensor", dict[str, "Tensor"]]:
         """
         Preprocesses input data to convert it into torch.Tensors suitable for the model.
 
@@ -785,42 +794,40 @@ class _PyTorchWrapper:
 
         if isinstance(data, np.ndarray):
             # Convert ndarray to tensor
-            return self.torch.from_numpy(data.astype(np.float32)).to(device)
+            return self.torch.from_numpy(data).to(device)
 
         if isinstance(data, pd.DataFrame):
-            # Convert DataFrame to tensor
-            return self.torch.from_numpy(data.values.astype(np.float32)).to(device)
+            tensor = self.torch.from_numpy(data.values).to(device)
+            # check if dtype is float and convert to float32.
+            # since it is the most common dtype for torch models.
+            # For other dtypes we can not support this conversion
+            # as the pandas dataframes only support lists of floats
+            if self.torch.is_floating_point(tensor):
+                tensor = tensor.float()
+            return tensor
 
-        if isinstance(data, dict):
+        if isinstance(data, dict) and all(isinstance(v, np.ndarray) for v in data.values()):
             # Convert each value in the dict to tensor
-            return {
-                k: self.torch.as_tensor(v, dtype=self.torch.float32, device=device)
-                for k, v in data.items()
-            }
+            return {k: self.torch.from_numpy(v).to(device) for k, v in data.items()}
+        elif isinstance(data, dict):
+            raise TypeError(
+                "Input data must be a dict of numpy arrays. Remember to define the input signature "
+                "in order to cast your input data to the correct format."
+            )
 
-        if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-            # Aggregate data for each key
-            aggregated = {}
-            for item in data:
-                for key, value in item.items():
-                    if key not in aggregated:
-                        aggregated[key] = []
-                    aggregated[key].append(value.astype(np.float32))
+        raise TypeError("Input data must be a pd.DataFrame, np.ndarray, dict[str, np.ndarray]")
 
-            # Concatenate and convert to tensors
-            return {
-                k: self.torch.from_numpy(np.concatenate(v, axis=0)).to(device)
-                for k, v in aggregated.items()
-            }
-
-        raise TypeError(
-            "Input data must be a pd.DataFrame, np.ndarray, dict[str, np.ndarray] "
-            "or list[dict[str, np.ndarray]]"
-        )
-
-    def _postprocess_output(self, preds: Any, data: Any) -> Any:
+    def _postprocess_output(
+        self,
+        preds: Union["Tensor", dict[str, "Tensor"]],
+        data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]],
+    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
         """
         Converts model outputs to numpy arrays or pandas DataFrames as appropriate.
+
+        If the input data is a pandas DataFrame, the output will be a pandas DataFrame.
+        When the output is a dictionary, the output can be either a dictionary of numpy arrays
+        or a pandas DataFrame depending on the input data type. Note that, for a pandas DataFrame
 
         Args:
             preds: Model predictions.
@@ -829,20 +836,33 @@ class _PyTorchWrapper:
         Returns:
             Predictions in the same format as the input data.
         """
+
+        # check types and convert to numpy arrays or dict of numpy arrays
         if isinstance(preds, self.torch.Tensor):
-            preds = preds.cpu().detach().numpy()
-            if isinstance(data, pd.DataFrame):
-                return pd.DataFrame(preds, index=data.index)
-            else:
-                return preds
-        elif isinstance(preds, dict):
-            preds = {k: v.cpu().detach().numpy() for k, v in preds.items()}
-            if isinstance(data, pd.DataFrame):
-                return {k: pd.DataFrame(v, index=data.index) for k, v in preds.items()}
-            else:
-                return preds
+            if self.device != _TORCH_CPU_DEVICE_NAME:
+                preds = preds.to(_TORCH_CPU_DEVICE_NAME)
+            preds = preds.detach().numpy()
+
+        elif isinstance(preds, dict) and all(
+            isinstance(v, self.torch.Tensor) for v in preds.values()
+        ):
+            if self.device != _TORCH_CPU_DEVICE_NAME:
+                preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
+            preds = {k: v.detach().numpy() for k, v in preds.items()}
+
         else:
-            raise TypeError("Model output must be a torch.Tensor or a dict of torch.Tensors.")
+            raise TypeError("Model output must be a torch.Tensor or a dict[str,torch.Tensor]")
+
+        # return either a pandas DataFrame, a named pandas Dataframe,
+        # a dict of numpy arrays, or a numpy array
+        if isinstance(data, pd.DataFrame):
+            # in the end, this ends up being passed through json,
+            # so the datatype of float is not preserved. This
+            # allows me to convert all to a list of floats
+            # I think we may need to revisit this if we end up supporting binary data
+            return pd.DataFrame(preds.tolist(), index=data.index)
+
+        return preds
 
 
 def log_state_dict(state_dict, artifact_path, **kwargs):
