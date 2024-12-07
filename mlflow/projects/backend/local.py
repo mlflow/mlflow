@@ -295,6 +295,14 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
                     cmd += ["-" + name]
                 else:
                     cmd += ["--" + name]
+
+            elif isinstance(value, list):
+                if len(name) == 1:
+                    for val in value:
+                        cmd += ["-" + name, val]
+                else:
+                    for val in value:
+                        cmd += ["--" + name, val]
             else:
                 # Passed name=value
                 if len(name) == 1:
