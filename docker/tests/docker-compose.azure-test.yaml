@@ -1,0 +1,36 @@
+version: "2.4"
+
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: mlflow-azure-test-storage
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --loose --skipApiVersionCheck
+    environment:
+      AZURITE_ACCOUNTS: devstoreaccount1:Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+    expose:
+      - 10000
+      - 10001
+
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli
+    container_name: azurite-init
+    command: az storage container create --name mlflow
+    environment:
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1
+    depends_on:
+      - azurite
+
+  mlflow:
+    container_name: mlflow-azure-test
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
+    command: "mlflow server --artifacts-destination=wasbs://mlflow@devstoreaccount1.blob.core.windows.net --host=0.0.0.0 --port=5000"
+    environment:
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1
+    ports:
+      - "5000:5000"
+    depends_on:
+      - azurite-init
+      - azurite
