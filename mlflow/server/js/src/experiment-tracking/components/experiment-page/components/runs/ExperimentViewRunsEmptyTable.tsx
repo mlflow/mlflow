@@ -82,6 +82,8 @@ const styles = {
   },
   noResultsWrapper: (theme: Theme) => ({
     marginTop: theme.spacing.lg,
+    marginLeft: theme.spacing.lg,
+    marginRight: theme.spacing.lg,
     inset: 0,
     backgroundColor: theme.colors.backgroundPrimary,
     position: 'absolute' as const,
