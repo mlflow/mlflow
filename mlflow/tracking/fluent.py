@@ -220,9 +220,14 @@ class ActiveRun(Run):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         active_run_stack = _active_run_stack.get()
-        if self in active_run_stack:  # Is this run still active?
+
+        # Check if the run is still active. We check based on ID instead of
+        # using referential equality, because some tools (e.g. AutoML) may
+        # stop a run and start it again with the same ID to restore session state
+        if any(r.info.run_id == self.info.run_id for r in active_run_stack):
             status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
             end_run(RunStatus.to_string(status))
+
         return exc_type is None
 
 
@@ -2359,11 +2364,9 @@ def autolog(
     # Mapping of library name to specific autolog function name. We use string like
     # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
     # compatible modules.
-    # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_MODULE = {
         "tensorflow": "mlflow.tensorflow",
         "keras": "mlflow.keras",
-        "mxnet.gluon": "mlflow.gluon",
         "xgboost": "mlflow.xgboost",
         "lightgbm": "mlflow.lightgbm",
         "statsmodels": "mlflow.statsmodels",
@@ -2389,6 +2392,7 @@ def autolog(
         "llama_index.core": "mlflow.llama_index",
         "langchain": "mlflow.langchain",
         "dspy": "mlflow.dspy",
+        "crewai": "mlflow.crewai",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
