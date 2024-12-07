@@ -1,5 +1,6 @@
 import base64
 import json
+import uuid
 
 import requests
 
@@ -168,6 +169,12 @@ def http_request(
     headers = dict(**resolve_request_headers())
     if extra_headers:
         headers = dict(**headers, **extra_headers)
+
+    # generate a X-MLflow-Request-ID header for the request 
+    # this uuid will be used to track the request in the backend
+    # and should be reused across retries
+    if "X-MLflow-Request-ID" not in headers:
+        headers["X-MLflow-Request-ID"] = str(uuid.uuid4())
 
     if auth_str:
         headers["Authorization"] = auth_str
