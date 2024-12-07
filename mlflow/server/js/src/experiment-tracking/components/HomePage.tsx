@@ -11,12 +11,12 @@ import { useExperimentIds } from './experiment-page/hooks/useExperimentIds';
 import { values } from 'lodash';
 import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import { GetExperimentsContextProvider } from './experiment-page/contexts/GetExperimentsContext';
+import { useInitializeUIState } from './experiment-page/hooks/useInitializeUIState';
 import { ExperimentView } from './experiment-page/ExperimentView';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
 import { ExperimentEntity } from '../types';
 import Routes from '../routes';
-import { ExperimentPage } from './experiment-page/ExperimentPage';
 
 const getExperimentActions = {
   setExperimentTagApi,
@@ -38,6 +38,8 @@ const HomePage = () => {
   const experiments = useSelector((state: ReduxState) => values(state.entities.experimentsById));
 
   const hasExperiments = experiments.length > 0;
+
+  const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
   useEffect(() => {
     dispatch(searchExperimentsApi(searchRequestId.current));
@@ -62,13 +64,22 @@ const HomePage = () => {
       <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
         {/* Left sidebar containing experiment list */}
         <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
-          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
+          <ExperimentListView
+            activeExperimentIds={experimentIds || []}
+            experiments={experiments}
+            uiState={uiState}
+            setUIState={setUIState}
+          />
         </div>
 
         {/* Main content with the experiment view */}
         <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg }}>
           <GetExperimentsContextProvider actions={getExperimentActions}>
-            {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
+            {hasExperiments ? (
+              <ExperimentView uiState={uiState} setUIState={setUIState} seedInitialUIState={seedInitialUIState} />
+            ) : (
+              <NoExperimentView />
+            )}
           </GetExperimentsContextProvider>
         </div>
       </div>
