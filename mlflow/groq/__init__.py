@@ -32,7 +32,7 @@ def autolog(
     Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
 
     Args:
-        log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
+        log_traces: If ``True``, traces are logged for Groq models. If ``False``, no traces are
             collected during inference. Default to ``True``.
         disable: If ``True``, disables the Groq autologging. Default to ``False``.
         silent: If ``True``, suppress all event logs and warnings from MLflow during Groq
