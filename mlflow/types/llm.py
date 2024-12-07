@@ -396,7 +396,7 @@ class ChatParams(_BaseDataclass):
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. The values must be JSON-serializable.
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
@@ -481,8 +481,7 @@ class ChatCompletionRequest(ChatParams):
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
