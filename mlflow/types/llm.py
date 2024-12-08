@@ -604,7 +604,7 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
