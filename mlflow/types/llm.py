@@ -700,7 +700,7 @@ class ChatCompletionChunk(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, any]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
             The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
