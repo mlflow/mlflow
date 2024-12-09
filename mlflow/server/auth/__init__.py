@@ -15,7 +15,15 @@ import uuid
 from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
-from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
+from flask import (
+    Flask,
+    Response,
+    flash,
+    jsonify,
+    make_response,
+    render_template_string,
+    request,
+)
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.datastructures import Authorization
 
@@ -934,10 +942,17 @@ def create_app(app: Flask = app):
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
-    # secret key required for flashing
-    if not app.secret_key:
-        app.secret_key = str(uuid.uuid4())
 
+    # a secret key is required for flashing, and also for
+    # CSRF protection. it's important that this is a static key,
+    # otherwise CSRF validation won't work across workers.
+    if not app.config["SECRET_KEY"]:
+        app.config["SECRET_KEY"] = str(uuid.uuid4())
+    app.secret_key = app.config["SECRET_KEY"]
+
+    # we only need to protect the CREATE_USER_UI route, since that's
+    # the only browser-accessible route. the rest are client / REST
+    # APIs that do not have access to the CSRF token for validation
     app.config["WTF_CSRF_CHECK_DEFAULT"] = False
     csrf.init_app(app)
 

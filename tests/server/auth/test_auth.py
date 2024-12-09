@@ -3,6 +3,7 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
 
+import re
 import subprocess
 import sys
 import time
@@ -26,7 +27,7 @@ from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import ADMIN_USERNAME, User, create_user
+from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
@@ -428,3 +429,36 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
             _kill_all(prc.pid)
+
+
+def test_create_user_from_ui_fails_without_csrf_token(client):
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        json={"username": "test", "password": "test"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert "The CSRF token is missing" in response.text
+
+
+def test_create_user_ui(client):
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+
+        csrf_regex = re.compile(r"name=\"csrf_token\" value=\"([\S]+)\"")
+        match = csrf_regex.search(page.text)
+
+        # assert that the CSRF token is sent in the form
+        assert match is not None
+
+        csrf_token = match.group(1)
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": csrf_token},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        assert "Successfully signed up user" in response.text
