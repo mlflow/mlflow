@@ -1506,3 +1506,70 @@ Alternatively, you can use the :py:func:`mlflow.search_traces` function to get t
 .. code-block:: python
 
     traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")
+
+
+Q: How to find a particular span within a trace?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When you have a large number of spans in a trace, it can be cumbersome to find a particular span. You can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for spans based on several criteria.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.entities import SpanType
+
+
+    @mlflow.trace(span_type=SpanType.CHAIN)
+    def run(x: int) -> int:
+        x = add_one(x)
+        x = add_two(x)
+        x = multiply_by_two(x)
+        return x
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_one(x: int) -> int:
+        return x + 1
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_two(x: int) -> int:
+        return x + 2
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def multiply_by_two(x: int) -> int:
+        return x * 2
+
+
+    # Run the function and get the trace
+    y = run(2)
+    trace = mlflow.get_last_active_trace()
+
+This will create a :py:class:`~mlflow.entities.Trace` object with four spans.
+
+.. code-block::
+
+    run (CHAIN)
+      ├── add_one (TOOL)
+      ├── add_two (TOOL)
+      └── multiply_by_two (TOOL)
+
+Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for a particular spans:
+
+.. code-block:: python
+
+    # 1. Search by span name (exact match)
+    spans = trace.search_spans(name="add_one")
+    print(spans)
+    # Output: [Span(name='add_one', ...)]
+
+    # Search for a span with the span type "TOOL"
+    spans = trace.search_spans(span_type=SpanType.TOOL)
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...), Span(name='multiply_by_two', ...)]
+
+    # Search for spans whose name starts with "add"
+    spans = trace.search_spans(name=re.compile(r"add.*"))
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
