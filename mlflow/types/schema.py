@@ -26,6 +26,7 @@ EXPECTED_TYPE_MESSAGE = (
     "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
     "or str for the '{arg_name}' argument, but got {passed_type}"
 )
+COLSPEC_TYPES = Union["Array", "DataType", "Map", "Object", "AnyType"]
 
 try:
     import pyspark  # noqa: F401
