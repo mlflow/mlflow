@@ -112,6 +112,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          source ./dev/install-common-deps.sh
           pip install .
       - uses: ./.github/actions/show-versions
       - name: Run tests
