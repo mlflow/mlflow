@@ -175,7 +175,7 @@ def format_input_example_for_special_cases(input_example, pipeline):
 
 
 @deprecated(
-    alternative="input_example in mlflow.transformers.log_model with parameters",
+    alternative="the `input_example` parameter in mlflow.transformers.log_model",
     since="2.19.0"
 )
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
