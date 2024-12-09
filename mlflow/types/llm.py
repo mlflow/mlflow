@@ -396,8 +396,7 @@ class ChatParams(_BaseDataclass):
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
@@ -481,9 +480,8 @@ class ChatCompletionRequest(ChatParams):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
@@ -606,7 +604,7 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
@@ -665,6 +663,7 @@ class ChatCompletionResponse(_BaseDataclass):
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
         custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -701,7 +700,8 @@ class ChatCompletionChunk(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
