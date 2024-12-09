@@ -1,5 +1,4 @@
 import gc
-import inspect
 
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
