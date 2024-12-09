@@ -16,6 +16,7 @@ from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
 from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -81,6 +82,7 @@ from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_USER,
+    CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
@@ -753,6 +755,7 @@ def signup():
 </style>
 
 <form action="{{ users_route }}" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
   <div class="logo-container">
     {% autoescape false %}
     {{ mlflow_logo }}
@@ -771,12 +774,13 @@ def signup():
 </form>
 """,
         mlflow_logo=MLFLOW_LOGO,
-        users_route=CREATE_USER,
+        users_route=CREATE_USER_UI,
     )
 
 
 @catch_mlflow_exception
-def create_user():
+def create_user_ui():
+    csrf.protect()
     content_type = request.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
         username = request.form["username"]
@@ -793,7 +797,15 @@ def create_user():
         store.create_user(username, password)
         flash(f"Successfully signed up user: {username}")
         return alert(href=HOME)
-    elif content_type == "application/json":
+    else:
+        message = "Invalid content type. Must be application/x-www-form-urlencoded"
+        return make_response(message, 400)
+
+
+@catch_mlflow_exception
+def create_user():
+    content_type = request.headers.get("Content-Type")
+    if content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
 
@@ -804,10 +816,7 @@ def create_user():
         user = store.create_user(username, password)
         return jsonify({"user": user.to_json()})
     else:
-        message = (
-            "Invalid content type. Must be one of: "
-            "application/x-www-form-urlencoded, application/json"
-        )
+        message = "Invalid content type. Must be application/json"
         return make_response(message, 400)
 
 
@@ -909,6 +918,9 @@ def delete_registered_model_permission():
     return make_response({})
 
 
+csrf = CSRFProtect()
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -926,6 +938,9 @@ def create_app(app: Flask = app):
     if not app.secret_key:
         app.secret_key = str(uuid.uuid4())
 
+    app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+    csrf.init_app(app)
+
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
@@ -933,6 +948,11 @@ def create_app(app: Flask = app):
         rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=CREATE_USER_UI,
+        view_func=create_user_ui,
+        methods=["POST"],
     )
     app.add_url_rule(
         rule=CREATE_USER,
