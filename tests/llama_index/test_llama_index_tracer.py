@@ -74,8 +74,6 @@ def test_trace_llm_complete(is_async):
             "prompt_tokens": 5,
             "completion_tokens": 7,
             "total_tokens": 12,
-            "completion_tokens_details": None,
-            "prompt_tokens_details": None,
         }.items()
     )
     assert attr["prompt"] == "Hello"
@@ -113,8 +111,6 @@ def test_trace_llm_complete_stream():
             "prompt_tokens": 9,
             "completion_tokens": 12,
             "total_tokens": 21,
-            "completion_tokens_details": None,
-            "prompt_tokens_details": None,
         }.items()
     )
     assert attr["prompt"] == "Hello"
@@ -126,11 +122,12 @@ def test_trace_llm_complete_stream():
 def test_trace_llm_chat(is_async):
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
-    expected_response_content = str(list(message.dict()))
+    response_content = '[{"role": "system", "content": "Hello"}]'
+    response_message = ChatMessage(role="assistant", content=response_content)
 
     response = asyncio.run(llm.achat([message])) if is_async else llm.chat([message])
     assert isinstance(response.message, ChatMessage)
-    assert response.message.content == expected_response_content
+    assert response.message.content == response_content
 
     traces = _get_all_traces()
     assert len(traces) == 1
@@ -140,7 +137,9 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == message.dict()
+    assert spans[0].inputs == {
+        "messages": [message.model_dump()]
+    }
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
@@ -148,11 +147,7 @@ def test_trace_llm_chat(is_async):
         else {}
     )
     assert spans[0].outputs == {
-        "message": {
-            "role": "assistant",
-            "content": expected_response_content,
-            "additional_kwargs": {},
-        },
+        "message": response_message.model_dump(),
         "raw": ANY,
         "delta": None,
         "logprobs": None,
@@ -166,8 +161,6 @@ def test_trace_llm_chat(is_async):
             "prompt_tokens": 9,
             "completion_tokens": 12,
             "total_tokens": 21,
-            "completion_tokens_details": None,
-            "prompt_tokens_details": None,
         }.items()
     )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
@@ -177,6 +170,7 @@ def test_trace_llm_chat(is_async):
 def test_trace_llm_chat_stream():
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
+    expected_response = ChatMessage(role="assistant", content="Hello world")
 
     response_gen = llm.stream_chat([message])
     # No trace should be created until the generator is consumed
@@ -197,7 +191,7 @@ def test_trace_llm_chat_stream():
     assert spans[0].name == "OpenAI.stream_chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
     assert spans[0].inputs == {
-        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
+        "messages": [message.model_dump()]
     }
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
@@ -206,11 +200,7 @@ def test_trace_llm_chat_stream():
         else {}
     )
     assert spans[0].outputs == {
-        "message": {
-            "role": "assistant",
-            "content": "Hello world",
-            "additional_kwargs": {},
-        },
+        "message": expected_response.model_dump(),
         "raw": ANY,
         "delta": " world",
         "logprobs": None,
@@ -224,8 +214,6 @@ def test_trace_llm_chat_stream():
             "prompt_tokens": 9,
             "completion_tokens": 12,
             "total_tokens": 21,
-            "completion_tokens_details": None,
-            "prompt_tokens_details": None,
         }.items()
     )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
