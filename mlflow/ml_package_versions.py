@@ -367,7 +367,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "bedrock": {
         "package_info": {
-            "pip_release": "boto3"
+            "pip_release": "boto3",
+            "module_name": "boto3"
         },
         "autologging": {
             "minimum": "1.33.0",
@@ -401,6 +402,6 @@ FLAVOR_TO_MODULE_NAME = {
     "anthropic": "anthropic",
     "crewai": "crewai",
     "litellm": "litellm",
-    "bedrock": "bedrock",
+    "bedrock": "boto3",
     "pyspark.ml": "pyspark"
 }
