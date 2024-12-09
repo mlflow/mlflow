@@ -1,4 +1,5 @@
 import datetime
+import sys
 from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 
@@ -222,3 +223,19 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
         )
         assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long)])
         assert model_info.signature.outputs is None
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
+    def predict(model_input: int | str) -> int | str:
+        return model_input
+
+    with mlflow.start_run():
+        model_info1 = mlflow.pyfunc.log_model("test_model", python_model=predict, input_example=123)
+        model_info2 = mlflow.pyfunc.log_model(
+            "test_model", python_model=predict, input_example="string"
+        )
+
+    assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
+    assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
+    assert model_info1.signature == model_info2.signature
