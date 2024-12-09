@@ -564,7 +564,7 @@ transformers:
           "torchvision",
           "tensorflow",
           "accelerate",
-          "setfit",
+          "setfit>=1.1",
           "optuna",
           "accelerate<1",
         ]
