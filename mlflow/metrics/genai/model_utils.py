@@ -159,12 +159,8 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        endpoint = proxy_url or provider.get_endpoint_url("llm/v1/chat")
-        assert (
-            endpoint != "https://api.openai.com/v1/chat/completions?api-version=True"
-        ), f"{locals()=} {os.environ=}"
         response = _send_request(
-            endpoint=endpoint,
+            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
             headers={**provider.headers, **extra_headers},
             payload=chat_payload,
         )

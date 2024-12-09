@@ -180,7 +180,6 @@ def _get_api_config() -> _OpenAIApiConfig:
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    assert api_version is None, f"API version must be null, {_OpenAIEnvVar.OPENAI_API_VERSION.value=} {openai.api_version=}"
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
