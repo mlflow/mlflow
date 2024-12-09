@@ -7,6 +7,7 @@ import pydantic.fields
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import (
     COLSPEC_TYPES,
     AnyType,
@@ -47,6 +48,16 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
 class ColSpecType(NamedTuple):
     dtype: COLSPEC_TYPES
     required: bool
+
+
+class InvalidTypeHintException(MlflowException):
+    def __init__(self, type_hint, extra_msg=""):
+        super().__init__(
+            f"Unsupported type hint `{type_hint}`{extra_msg}. Supported types are: "
+            f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
+            "lists and dictionaries of primitive types, or typing.Any.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
@@ -133,14 +144,10 @@ def _invalid_type_hint_error(type_hint: type[Any]) -> None:
         )
         + UNION_TYPES
     ):
-        raise MlflowException.invalid_parameter_value(
-            f"Unsupported type hint `{type_hint}`, it must include a valid internal type."
+        raise InvalidTypeHintException(
+            type_hint=type_hint, extra_msg=", it must include a valid internal type"
         )
-    raise MlflowException.invalid_parameter_value(
-        f"Unsupported type hint `{type_hint}`, supported types are: "
-        f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
-        "lists and dictionaries of primitive types, or typing.Any."
-    )
+    raise InvalidTypeHintException(type_hint=type_hint)
 
 
 def _infer_fields_from_pydantic_model(

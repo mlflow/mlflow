@@ -191,6 +191,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         kwargs["input_example"] = input_example
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+    assert model_info.valid_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict(input_example) == input_example
@@ -239,3 +240,5 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
     assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
     assert model_info1.signature == model_info2.signature
+    assert model_info1.valid_type_hint is True
+    assert model_info2.valid_type_hint is True

@@ -9,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
+    InvalidTypeHintException,
     _infer_schema_from_type_hint,
     _validate_example_against_type_hint,
 )
@@ -188,7 +189,7 @@ def test_infer_schema_from_type_hints_errors():
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_type_hint(dict)
 
-    with pytest.raises(MlflowException, match=r"Unsupported type hint"):
+    with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
         _infer_schema_from_type_hint(object)
 
 
@@ -329,7 +330,7 @@ def test_type_hints_validation_errors():
         _validate_example_against_type_hint("a", Optional[int])
 
     with pytest.raises(
-        MlflowException,
+        InvalidTypeHintException,
         match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
     ):
         _validate_example_against_type_hint(["a"], list)
