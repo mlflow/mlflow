@@ -1,6 +1,6 @@
 import numbers
 import time
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment as AssessmentEntity
@@ -20,7 +20,7 @@ class Assessment(_MlflowObject):
         source: AssessmentSource,
         value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
     ):
