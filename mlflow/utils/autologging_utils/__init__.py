@@ -521,7 +521,7 @@ def autologging_is_disabled(integration_name):
     return False
 
 
-def is_autolog_supported(integration_name):
+def is_autolog_supported(integration_name: str) -> bool:
     """
     Whether the specified autologging integration is supported by the current environment.
 

@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 # This flag is used to display the message only once when tracing is enabled during the evaluation.
-_IS_TRACE_MESSAGE_DISPLAYED = False
+_SHOWN_TRACE_MESSAGE_BEFORE = False
 
 
 @contextlib.contextmanager
@@ -54,7 +54,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
 
         # NB: Using post-import hook to configure the autologging lazily when the target
         # flavor's module is imported, rather than configuring it immediately. This is
-        # because the evaluation code usually only use a subset of the supported flavors,
+        # because the evaluation code usually only uses a subset of the supported flavors,
         # hence we want to avoid unnecessary overhead of configuring all flavors.
         @autologging_conf_lock
         def _setup_autolog(module):
@@ -72,7 +72,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     global _IS_TRACE_MESSAGE_DISPLAYED
                     if not _IS_TRACE_MESSAGE_DISPLAYED:
                         _logger.info(
-                            "Tracing is temporarily enabled during the model evaluation "
+                            "Auto tracing is temporarily enabled during the model evaluation "
                             "for computing some metrics and debugging. To disable tracing, call "
                             "`mlflow.autolog(disable=True)`."
                         )
@@ -83,8 +83,8 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
             except Exception:
                 _logger.debug(f"Failed to update autologging config for {flavor}.", exc_info=True)
 
+        module = FLAVOR_TO_MODULE_NAME[flavor]
         try:
-            module = FLAVOR_TO_MODULE_NAME[flavor]
             original_import_hooks[module] = get_post_import_hooks(module)
             new_import_hooks[module] = _setup_autolog
             register_post_import_hook(_setup_autolog, module, overwrite=True)
