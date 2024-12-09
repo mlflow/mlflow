@@ -15,20 +15,6 @@ from tests.tracing.helper import get_traces
 _IS_CONVERSE_API_AVAILABLE = Version(boto3.__version__) >= Version("1.35")
 
 
-def _create_dummy_invoke_model_response(llm_response):
-    llm_response_encoded = json.dumps(llm_response).encode("utf-8")
-    return {
-        "body": StreamingBody(io.BytesIO(llm_response_encoded), len(llm_response_encoded)),
-        "ResponseMetadata": {
-            "RequestId": "request-id-123",
-            "HTTPStatusCode": 200,
-            "HTTPHeaders": {"content-type": "application/json"},
-            "RetryAttempts": 0,
-        },
-        "contentType": "application/json",
-    }
-
-
 # https://docs.aws.amazon.com/code-library/latest/ug/python_3_bedrock-runtime_code_examples.html#anthropic_claude
 _ANTHROPIC_REQUEST = {
     "messages": [{"role": "user", "content": "Hi"}],
@@ -143,6 +129,20 @@ _META_LLAMA_RESPONSE = {
     "generation_token_count": 12,
     "stop_reason": "stop",
 }
+
+
+def _create_dummy_invoke_model_response(llm_response):
+    llm_response_encoded = json.dumps(llm_response).encode("utf-8")
+    return {
+        "body": StreamingBody(io.BytesIO(llm_response_encoded), len(llm_response_encoded)),
+        "ResponseMetadata": {
+            "RequestId": "request-id-123",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {"content-type": "application/json"},
+            "RetryAttempts": 0,
+        },
+        "contentType": "application/json",
+    }
 
 
 @pytest.mark.parametrize(
@@ -291,6 +291,31 @@ def test_bedrock_autolog_invoke_model_capture_exception():
     assert len(span.events) == 1
     assert span.events[0].name == "exception"
     assert span.events[0].attributes["exception.message"].startswith("Unable to locate credentials")
+
+
+def test_bedrock_autolog_patch_already_created_client():
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    # Call autolog after the client is created
+    mlflow.bedrock.autolog()
+
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_ANTHROPIC_RESPONSE),
+    ):
+        response = client.invoke_model(
+            body=request_body, modelId="anthropic.claude-3-5-sonnet-20241022-v2:0"
+        )
+
+    response_body = json.loads(response["body"].read())
+    assert response_body == _ANTHROPIC_RESPONSE
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
 
 
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
