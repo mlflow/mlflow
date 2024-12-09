@@ -159,8 +159,12 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
+        endpoint = proxy_url or provider.get_endpoint_url("llm/v1/chat")
+        assert (
+            endpoint != "https://api.openai.com/v1/chat/completions?api-version=True"
+        ), f"{locals()=} {os.environ=}"
         response = _send_request(
-            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+            endpoint=endpoint,
             headers={**provider.headers, **extra_headers},
             payload=chat_payload,
         )
@@ -195,6 +199,8 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         from mlflow.openai import _get_api_config, _OAITokenHolder
 
         api_config = _get_api_config()
+        print(f"{api_config=}")
+        print(f"{os.environ=}")
         api_token = _OAITokenHolder(api_config.api_type)
         api_token.refresh()
 
