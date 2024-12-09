@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -109,6 +111,103 @@ class Trace(_MlflowObject):
         except Exception:
             _logger.debug(f"Failed to deserialize JSON attribute: {value}", exc_info=True)
             return value
+
+    def search_spans(
+        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
+    ) -> list[Span]:
+        """
+        Search for spans that match the given criteria within the trace.
+
+        Args:
+            span_type: The type of the span to search for.
+            name: The name of the span to search for. This can be a string or a regular expression.
+
+        Returns:
+            A list of spans that match the given criteria.
+            If there is no match, an empty list is returned.
+
+        .. code-block:: python
+
+            import mlflow
+            import re
+            from mlflow.entities import SpanType
+
+
+            @mlflow.trace(span_type=SpanType.CHAIN)
+            def run(x: int) -> int:
+                x = add_one(x)
+                x = add_two(x)
+                x = multiply_by_two(x)
+                return x
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def add_one(x: int) -> int:
+                return x + 1
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def add_two(x: int) -> int:
+                return x + 2
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def multiply_by_two(x: int) -> int:
+                return x * 2
+
+
+            # Run the function and get the trace
+            y = run(2)
+            trace = mlflow.get_last_active_trace()
+
+            # 1. Search spans by name (exact match)
+            spans = trace.search_spans(name="add_one")
+            print(spans)
+            # Output: [Span(name='add_one', ...)]
+
+            # 2. Search spans by name (regular expression)
+            pattern = re.compile(r"add.*")
+            spans = trace.search_spans(name=pattern)
+            print(spans)
+            # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
+
+            # 3. Search spans by type
+            spans = trace.search_spans(span_type=SpanType.LLM)
+            print(spans)
+            # Output: [Span(name='run', ...)]
+
+            # 4. Search spans by name and type
+            spans = trace.search_spans(name="add_one", span_type=SpanType.TOOL)
+            print(spans)
+            # Output: [Span(name='add_one', ...)]
+        """
+
+        def _match_name(span: Span) -> bool:
+            if isinstance(name, str):
+                return span.name == name
+            elif isinstance(name, re.Pattern):
+                return name.search(span.name) is not None
+            elif name is None:
+                return True
+            else:
+                raise MlflowException(
+                    f"Invalid type for 'name'. Expected str or re.Pattern. Got: {type(name)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        def _match_type(span: Span) -> bool:
+            if isinstance(span_type, str):
+                return span.span_type == span_type
+            elif span_type is None:
+                return True
+            else:
+                raise MlflowException(
+                    "Invalid type for 'span_type'. Expected str or mlflow.entities.SpanType. "
+                    f"Got: {type(span_type)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
