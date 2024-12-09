@@ -7,9 +7,9 @@ from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _contains_params
 from mlflow.types.schema import ColSpec, DataType, Schema, TensorSpec
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.os import is_windows
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
-from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
@@ -175,14 +175,12 @@ def format_input_example_for_special_cases(input_example, pipeline):
 
 
 @deprecated(
-    alternative="the `input_example` parameter in mlflow.transformers.log_model",
-    since="2.19.0"
+    alternative="the `input_example` parameter in mlflow.transformers.log_model", since="2.19.0"
 )
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper
-    
     return _TransformersWrapper(
         pipeline=pipeline, model_config=model_config, flavor_config=flavor_config
     ).predict(data, params=params)
