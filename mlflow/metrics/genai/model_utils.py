@@ -199,8 +199,6 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         from mlflow.openai import _get_api_config, _OAITokenHolder
 
         api_config = _get_api_config()
-        print(f"{api_config=}")
-        print(f"{os.environ=}")
         api_token = _OAITokenHolder(api_config.api_type)
         api_token.refresh()
 

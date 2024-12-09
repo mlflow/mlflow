@@ -261,11 +261,9 @@ class OpenAIProvider(BaseProvider):
     @property
     def base_url(self):
         api_type = self.openai_config.openai_api_type
-        print(f"{api_type=}")
         if api_type == OpenAIAPIType.OPENAI:
             base_url = self.openai_config.openai_api_base or "https://api.openai.com/v1"
             if api_version := self.openai_config.openai_api_version is not None:
-                print(f"OpenAI base url. {locals()=}")
                 return append_to_uri_query_params(base_url, ("api-version", api_version))
             else:
                 return base_url
@@ -276,7 +274,6 @@ class OpenAIProvider(BaseProvider):
                 "deployments",
                 self.openai_config.openai_deployment_name,
             )
-            print(f"Azure OpenAI base url. {locals()=}")
             return append_to_uri_query_params(
                 openai_url,
                 ("api-version", self.openai_config.openai_api_version),
