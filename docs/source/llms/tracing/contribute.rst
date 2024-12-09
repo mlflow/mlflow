@@ -69,7 +69,7 @@ From a tracing perspective, GenAI libraries can be categorized into two types:
 
 Libraries like **OpenAI**, **Anthropic**, **Ollama**, and **LiteLLM** focus on providing access to LLMs. These libraries often have simple client SDKs, therefore, we often simply use ad-hoc patching to trace those APIs.
 
-For this type of library, start with listing up the core APIs to instrument. For example, in Anthropic auto-tracing, we patch the ``create()`` method of the ``Messages`` class. If the library has multiple APIs (e.g., embeddings, transcription) and you don't know which ones to support, consult with the maintainers. Refer to the `Anthropic auto-tracing implementation <https://github.com/mlflow/mlflow/blob/master/mlflow/anthropic/autolog.py>`_ as an example.
+For this type of library, start with listing up the core APIs to instrument. For example, in Anthropic auto-tracing, we patch the ``create()`` method of the ``Messages`` class. If the library has multiple APIs (e.g., embeddings, transcription) and you're not sure which ones to support, consult with the maintainers. Refer to the `Anthropic auto-tracing implementation <https://github.com/mlflow/mlflow/blob/master/mlflow/anthropic/autolog.py>`_ as an example.
 
 **⚙️ Orchestration Frameworks**
 
