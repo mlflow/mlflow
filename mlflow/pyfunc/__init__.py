@@ -799,9 +799,17 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        data, params = _validate_prediction_input(
-            data, params, self.input_schema, self.params_schema, self.loader_module
-        )
+        if isinstance(self._model_impl, _PythonModelPyfuncWrapper) and (
+            type_hints := self._model_impl.python_model._get_type_hints()
+        ):
+            from mlflow.types.type_hints import _validate_example_against_type_hint
+
+            _validate_example_against_type_hint(data, type_hints.input)
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)

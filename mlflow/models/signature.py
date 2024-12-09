@@ -25,7 +25,11 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
-from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.type_hints import (
+    _infer_schema_from_type_hint,
+    _validate_example_against_type_hint,
+)
+from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -350,22 +354,39 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if _contains_params(input_example):
         input_example, params = input_example
 
-    input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
+    input_schema = _infer_schema_from_type_hint(hints.input)
     params_schema = _infer_param_schema(params) if params else None
     input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_example:
+        try:
+            _validate_example_against_type_hint(example=input_example, type_hint=hints.input)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                "Input example is not compatible with the type hint of the `predict` function. "
+                f"Type hint: {hints.input}."
+            ) from e
         inputs = {input_arg_name: input_example}
         if params and params_key in inspect.signature(func).parameters:
             inputs[params_key] = params
         # This is for PythonModel's predict function
         if input_arg_index == 1:
             inputs["context"] = None
+        # Note: This has the assumption that input data is not converted at all
+        # TODO: should we catch exception here?
         output_example = func(**inputs)
     else:
         output_example = None
-    output_schema = (
-        _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
-    )
+    output_schema = _infer_schema_from_type_hint(hints.output) if hints.output else None
+    if hints.output and output_example:
+        try:
+            _validate_example_against_type_hint(example=output_example, type_hint=hints.output)
+        except Exception:
+            _logger.warning(
+                f"Failed to validate output `{output_example}` against type hint `{hints.output}`. "
+                "Set the logging level to DEBUG to see the full traceback.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
+            output_schema = None
     if not any([input_schema, output_schema, params_schema]):
         return None
     return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)

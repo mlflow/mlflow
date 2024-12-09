@@ -27,7 +27,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
-from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -367,27 +366,11 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
             with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
                 cloudpickle.dump(python_model, out)
         except Exception as e:
-            # cloudpickle sometimes raises TypeError instead of PicklingError.
-            # catching generic Exception and checking message to handle both cases.
-            if "cannot pickle" in str(e).lower():
-                raise MlflowException(
-                    "Failed to serialize Python model. Please audit your "
-                    "class variables (e.g. in `__init__()`) for any "
-                    "unpicklable objects. If you're trying to save an external model "
-                    "in your custom pyfunc, Please use the `artifacts` parameter "
-                    "in `mlflow.pyfunc.save_model()`, and load your external model "
-                    "in the `load_context()` method instead. For example:\n\n"
-                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
-                    "    def load_context(self, context):\n"
-                    "        model_path = context.artifacts['my_model_path']\n"
-                    "        // custom load logic here\n"
-                    "        self.model = load_model(model_path)\n\n"
-                    "For more information, see our full tutorial at: "
-                    "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
-                    f"\n\nFull serialization error: {e}"
-                ) from None
-            else:
-                raise e
+            raise MlflowException(
+                "Failed to serialize Python model. Please save the model as a python file "
+                "and use code-based logging method instead. For more information, see our "
+                "documentation at: https://mlflow.org/docs/latest/models.html#models-from-code"
+            ) from e
 
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
@@ -593,7 +576,7 @@ class _PythonModelPyfuncWrapper:
     predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, python_model, context, signature):
+    def __init__(self, python_model: PythonModel, context, signature):
         """
         Args:
             python_model: An instance of a subclass of :class:`~PythonModel`.
@@ -609,32 +592,32 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if _is_list_str(hints.input):
-            if isinstance(model_input, pd.DataFrame):
-                first_string_column = _get_first_string_column(model_input)
-                if first_string_column is None:
-                    raise MlflowException.invalid_parameter_value(
-                        "Expected model input to contain at least one string column"
-                    )
-                return model_input[first_string_column].tolist()
-            elif isinstance(model_input, list):
-                if all(isinstance(x, dict) for x in model_input):
-                    return [next(iter(d.values())) for d in model_input]
-                elif all(isinstance(x, str) for x in model_input):
-                    return model_input
-        elif _is_list_dict_str(hints.input):
-            if isinstance(model_input, pd.DataFrame):
-                if (
-                    len(self.signature.inputs) == 1
-                    and next(iter(self.signature.inputs)).name is None
-                ):
-                    first_string_column = _get_first_string_column(model_input)
-                    return model_input[[first_string_column]].to_dict(orient="records")
-                return model_input.to_dict(orient="records")
-            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
-                keys = [x.name for x in self.signature.inputs]
-                return [{k: d[k] for k in keys} for d in model_input]
-        elif isinstance(hints.input, type) and (
+        # if _is_list_str(hints.input):
+        #     if isinstance(model_input, pd.DataFrame):
+        #         first_string_column = _get_first_string_column(model_input)
+        #         if first_string_column is None:
+        #             raise MlflowException.invalid_parameter_value(
+        #                 "Expected model input to contain at least one string column"
+        #             )
+        #         return model_input[first_string_column].tolist()
+        #     elif isinstance(model_input, list):
+        #         if all(isinstance(x, dict) for x in model_input):
+        #             return [next(iter(d.values())) for d in model_input]
+        #         elif all(isinstance(x, str) for x in model_input):
+        #             return model_input
+        # elif _is_list_dict_str(hints.input):
+        #     if isinstance(model_input, pd.DataFrame):
+        #         if (
+        #             len(self.signature.inputs) == 1
+        #             and next(iter(self.signature.inputs)).name is None
+        #         ):
+        #             first_string_column = _get_first_string_column(model_input)
+        #             return model_input[[first_string_column]].to_dict(orient="records")
+        #         return model_input.to_dict(orient="records")
+        #     elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
+        #         keys = [x.name for x in self.signature.inputs]
+        #         return [{k: d[k] for k in keys} for d in model_input]
+        if isinstance(hints.input, type) and (
             issubclass(hints.input, ChatCompletionRequest)
             or issubclass(hints.input, SplitChatMessagesRequest)
         ):
