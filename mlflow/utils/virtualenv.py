@@ -282,7 +282,7 @@ def _create_virtualenv(
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
         install_deps_cmd_prefix = "uv pip install --prerelease=allow"
         if _MLFLOW_TESTING:
-            install_deps_cmd_prefix += " -v"
+            os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
         env_dir,
         onerror=lambda e: _logger.warning(
@@ -330,7 +330,7 @@ def _create_virtualenv(
             )
             cmd = _join_commands(
                 activate_cmd,
-                f"{install_deps_cmd_prefix} --quiet -U {' '.join(pip_requirements_override)}",
+                f"{install_deps_cmd_prefix} --quiet {' '.join(pip_requirements_override)}",
             )
             _exec_cmd(cmd, capture_output=capture_output, extra_env=extra_env)
 
@@ -391,9 +391,8 @@ def _get_or_create_virtualenv(  # noqa: D417
             environment after the environment has been activated.
         pip_requirements_override: If specified, install the specified python dependencies to
             the environment (upgrade if already installed).
-        env_manager: If specified as "virtualenv", then pyenv and virualenv are used for creating
-            the environment; if specified as "uv", then uv is used for creating the environment.
-            Default to "uv".
+        env_manager: Specifies the environment manager to use to create the environment.
+            Defaults to "uv".
 
             .. tip::
                 It is highly recommended to use "uv" as it has significant performance improvements
