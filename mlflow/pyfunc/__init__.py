@@ -2905,7 +2905,8 @@ def save_model(
         mlflow_model = Model()
     saved_example = None
 
-    hints = None
+    # TODO: if signature is provided, we should validate input_example and type hint
+    # against the signature, to make sure they're consistent
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
@@ -3043,7 +3044,6 @@ def save_model(
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
             signature=signature,
-            hints=hints,
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,

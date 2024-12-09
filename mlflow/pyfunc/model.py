@@ -153,9 +153,8 @@ class _FunctionPythonModel(PythonModel):
     in an instance of this class.
     """
 
-    def __init__(self, func, hints=None, signature=None):
+    def __init__(self, func, signature=None):
         self.func = func
-        self.hints = hints
         self.signature = signature
 
     def _get_type_hints(self):
@@ -299,7 +298,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
     signature=None,
-    hints=None,
     artifacts=None,
     conda_env=None,
     code_paths=None,
@@ -356,7 +354,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
     if callable(python_model):
-        python_model = _FunctionPythonModel(python_model, hints, signature)
+        python_model = _FunctionPythonModel(func=python_model, signature=signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
