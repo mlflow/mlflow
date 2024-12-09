@@ -1,7 +1,8 @@
 import io
 import json
-from typing import Any, Callable, Union
+from typing import Any, Callable, Type, Union
 
+from botocore.client import BaseClient
 from botocore.eventstream import EventStream
 
 import mlflow
@@ -16,8 +17,7 @@ _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
 
 def skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
     """
-    Skip the test if trace autologging is disabled via log_trace=False.
-
+    A decorator to apply the function only if trace autologging is enabled.
     This decorator is used to skip the test if the trace autologging is disabled.
     """
 
@@ -33,25 +33,30 @@ def skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
 
 def patched_create_client(original, self, *args, **kwargs):
     """
-    Patched version of the boto3 ClientCreator.create method that returns
+    Patched version of the boto3 ClientCreator.create_client method that returns
     a patched client class.
-
     """
     if kwargs.get("service_name") != _BEDROCK_RUNTIME_SERVICE_NAME:
         return original(self, *args, **kwargs)
 
     client = original(self, *args, **kwargs)
+    patch_bedrock_runtime_client(client.__class__)
 
+    return client
+
+
+def patch_bedrock_runtime_client(client_class: Type[BaseClient]):
+    """
+    Patch the BedrockRuntime client to log traces and models.
+    """
     # The most basic model invocation API
-    safe_patch(FLAVOR_NAME, client.__class__, "invoke_model", _patched_invoke_model)
+    safe_patch(FLAVOR_NAME, client_class, "invoke_model", _patched_invoke_model)
 
-    if hasattr(client, "converse"):
+    if hasattr(client_class, "converse"):
         # The new "converse" API was introduced in boto3 1.35 to access all models
         # with the consistent chat format.
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
-        safe_patch(FLAVOR_NAME, client.__class__, "converse", _patched_converse)
-
-    return client
+        safe_patch(FLAVOR_NAME, client_class, "converse", _patched_converse)
 
 
 @skip_if_trace_disabled
