@@ -126,10 +126,11 @@ def test_trace_llm_complete_stream():
 def test_trace_llm_chat(is_async):
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
+    expected_response_content = str(list(message.dict()))
 
     response = asyncio.run(llm.achat([message])) if is_async else llm.chat([message])
     assert isinstance(response.message, ChatMessage)
-    assert response.message.content == '[{"role": "system", "content": "Hello"}]'
+    assert response.message.content == expected_response_content
 
     traces = _get_all_traces()
     assert len(traces) == 1
@@ -139,9 +140,7 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {
-        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
-    }
+    assert spans[0].inputs == message.dict()
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
@@ -151,7 +150,7 @@ def test_trace_llm_chat(is_async):
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
-            "content": '[{"role": "system", "content": "Hello"}]',
+            "content": expected_response_content,
             "additional_kwargs": {},
         },
         "raw": ANY,
