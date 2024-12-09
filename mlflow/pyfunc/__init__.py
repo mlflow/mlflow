@@ -413,7 +413,6 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import is_dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
@@ -800,12 +799,12 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        type_hints = self._model_impl.python_model._get_type_hints()
-        if isinstance(self._model_impl, _PythonModelPyfuncWrapper) and not is_dataclass(
-            type_hints.input
+        if self.metadata.valid_type_hint and isinstance(
+            self._model_impl, _PythonModelPyfuncWrapper
         ):
             from mlflow.types.type_hints import _validate_example_against_type_hint
 
+            type_hints = self._model_impl.python_model._get_type_hints()
             _validate_example_against_type_hint(data, type_hints.input)
             params = _enforce_params_schema(params, self.params_schema)
         else:
@@ -2923,6 +2922,7 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
+                mlflow_model.valid_type_hint = True
         elif isinstance(python_model, ChatModel):
             mlflow_model.signature = ModelSignature(
                 CHAT_MODEL_INPUT_SCHEMA,
@@ -2993,6 +2993,7 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
+                mlflow_model.valid_type_hint = True
             elif saved_example is not None:
                 try:
                     context = PythonModelContext(artifacts, model_config)
