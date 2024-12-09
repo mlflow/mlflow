@@ -1,4 +1,5 @@
 import json
+import sys
 from unittest import mock
 
 import pytest
@@ -45,16 +46,14 @@ def set_azure_envs(monkeypatch):
     )
 
 
-@pytest.fixture
-def set_bad_azure_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_VERSION": "2023-05-15",
-            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
-        }
-    )
+@pytest.fixture(autouse=True)
+def force_reload_openai():
+    # Force reloading OpenAI module in the next test case. This is because they store
+    # configuration like api_key, api_version, at the global variable, which is not
+    # updated once set. Even if we reset the environment variable, it will retain the
+    # old value and cause unexpected side effects.
+    # https://github.com/openai/openai-python/blob/ea049cd0c42e115b90f1b9c7db80b2659a0bb92a/src/openai/__init__.py#L134
+    sys.modules.pop("openai", None)
 
 
 def test_parse_model_uri():

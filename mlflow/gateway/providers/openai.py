@@ -263,7 +263,7 @@ class OpenAIProvider(BaseProvider):
         api_type = self.openai_config.openai_api_type
         if api_type == OpenAIAPIType.OPENAI:
             base_url = self.openai_config.openai_api_base or "https://api.openai.com/v1"
-            if api_version := self.openai_config.openai_api_version is not None:
+            if (api_version := self.openai_config.openai_api_version) is not None:
                 return append_to_uri_query_params(base_url, ("api-version", api_version))
             else:
                 return base_url
