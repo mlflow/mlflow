@@ -443,6 +443,8 @@ def test_create_user_from_ui_fails_without_csrf_token(client):
 
 
 def test_create_user_ui(client):
+    # needs to be a session as the CSRF protection will set some
+    # cookies that need to be present for server side validation
     with requests.Session() as session:
         page = session.get(client.tracking_uri + "/signup", auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
 
