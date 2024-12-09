@@ -1,6 +1,6 @@
 import datetime
 import sys
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
 
 import pydantic
@@ -242,3 +242,104 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info1.signature == model_info2.signature
     assert model_info1.valid_type_hint is True
     assert model_info2.valid_type_hint is True
+
+
+def save_model_file_for_code_based_logging(
+    type_hint, tmp_path, model_type, extra_import="", extra_def=""
+):
+    if model_type == "callable":
+        model_def = f"""
+def predict(model_input: {type_hint}) -> {type_hint}:
+    return model_input
+
+set_model(predict)
+"""
+    elif model_type == "python_model":
+        model_def = f"""
+class TestModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: {type_hint}, params=None) -> {type_hint}:
+        return model_input
+
+set_model(TestModel())
+"""
+    file_content = f"""
+import mlflow
+from mlflow.models import set_model
+{extra_import}
+
+{extra_def}
+{model_def}
+"""
+    model_path = tmp_path / "model.py"
+    model_path.write_text(file_content)
+    return {"python_model": model_path}
+
+
+class TypeHintExample(NamedTuple):
+    type_hint: str
+    input_example: Any
+    extra_import: str = ""
+    extra_def: str = ""
+
+
+@pytest.mark.parametrize(
+    "type_hint_example",
+    [
+        TypeHintExample("int", 123),
+        TypeHintExample("str", "string"),
+        TypeHintExample("bool", True),
+        TypeHintExample("float", 1.23),
+        TypeHintExample("bytes", b"bytes"),
+        TypeHintExample("datetime.datetime", datetime.datetime.now(), "import datetime"),
+        TypeHintExample("Any", "any", "from typing import Any"),
+        TypeHintExample("list[str]", ["a", "b"]),
+        TypeHintExample("dict[str, int]", {"a": 1}),
+        TypeHintExample("Union[int, str]", 123, "from typing import Union"),
+        TypeHintExample(
+            "CustomExample2",
+            CustomExample2(
+                custom_field={"a": 1},
+                messages=[Message(role="admin", content="hello")],
+                optional_int=123,
+            ),
+            "import pydantic\nfrom typing import Any, Optional",
+            """
+class Message(pydantic.BaseModel):
+    role: str
+    content: str
+
+
+class CustomExample2(pydantic.BaseModel):
+    custom_field: dict[str, Any]
+    messages: list[Message]
+    optional_int: Optional[int] = None
+""",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("model_type", "has_input_example"),
+    # if python_model is callable, input_example should be provided
+    [("callable", True), ("python_model", True), ("python_model", False)],
+)
+def test_pyfunc_model_with_type_hints_code_based_logging(
+    tmp_path, type_hint_example, model_type, has_input_example
+):
+    kwargs = save_model_file_for_code_based_logging(
+        type_hint_example.type_hint,
+        tmp_path,
+        model_type,
+        type_hint_example.extra_import,
+        type_hint_example.extra_def,
+    )
+    input_example = type_hint_example.input_example
+    if has_input_example:
+        kwargs["input_example"] = input_example
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+
+    assert model_info.valid_type_hint is True
+    assert model_info.signature is not None
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict(input_example) == input_example
