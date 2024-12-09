@@ -265,6 +265,8 @@ class ArtifactRepository:
 
         # Submit download tasks
         futures = {}
+        from mlflow.utils.logging_utils import eprint
+        eprint("artifact_path at download_artifacts is", artifact_path)
         if self._is_directory(artifact_path):
             for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
