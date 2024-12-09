@@ -97,6 +97,27 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
             --ignore tests/deployments/server tests
 
+  py310:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.10"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/cache-pip
+      - name: Install dependencies
+        run: |
+          pip install .
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
+
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
