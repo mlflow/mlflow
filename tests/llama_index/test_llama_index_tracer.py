@@ -137,9 +137,7 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {
-        "messages": [message.model_dump()]
-    }
+    assert spans[0].inputs == {"messages": [message.model_dump()]}
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
@@ -190,9 +188,7 @@ def test_trace_llm_chat_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {
-        "messages": [message.model_dump()]
-    }
+    assert spans[0].inputs == {"messages": [message.model_dump()]}
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
