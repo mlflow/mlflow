@@ -530,6 +530,8 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+      # peft >= 0.14 relies on classes from newer versions of transformers
+      "< 4.43": ["peft<0.14.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
@@ -557,8 +559,7 @@ transformers:
       ">= 0.0.0": [
           "datasets",
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          # 0.24.0 contains a breaking change for setfit: https://github.com/huggingface/setfit/issues/544
-          "huggingface_hub<0.24.0,!=0.22.0",
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -580,6 +581,9 @@ transformers:
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
       "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
+      # that version of setfit requires tranformers>=4.41
+      "< 4.41": ["huggingface_hub<0.24.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
