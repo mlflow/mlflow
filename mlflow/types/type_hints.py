@@ -258,6 +258,14 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
 
 def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> None:
     if _is_pydantic_type_hint(type_hint):
+        # if example is a pydantic model instance, convert it to a dictionary for validation
+        if isinstance(example, pydantic.BaseModel):
+            example = example.model_dump()
+        elif not isinstance(example, dict):
+            raise MlflowException.invalid_parameter_value(
+                "Expecting example to be a dictionary or pydantic model instance for "
+                f"Pydantic type hint, got {type(example)}"
+            )
         try:
             model_validate(type_hint, example)
         except pydantic.ValidationError as e:
