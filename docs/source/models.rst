@@ -3787,7 +3787,7 @@ For more details, refer to  :ref:`Validating Environment for Prediction <validat
 
     model_info = mlflow.pyfunc.log_model(
         artifact_path="model",
-        python_model=MyModel,
+        python_model=MyModel(),
     )
 
     mlflow.models.predict(
