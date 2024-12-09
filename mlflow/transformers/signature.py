@@ -181,6 +181,7 @@ def generate_signature_output(pipeline, data, model_config=None, flavor_config=N
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper
+
     return _TransformersWrapper(
         pipeline=pipeline, model_config=model_config, flavor_config=flavor_config
     ).predict(data, params=params)
