@@ -71,7 +71,6 @@ extras = [
   "kubernetes",
   "virtualenv",
   "prometheus-flask-exporter",
-  "uv<1,>=0.5.5",
 ]
 databricks = [
   "azure-storage-file-datalake>12",
