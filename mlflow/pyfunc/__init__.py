@@ -413,6 +413,7 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
+from dataclasses import is_dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
@@ -799,8 +800,9 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        if isinstance(self._model_impl, _PythonModelPyfuncWrapper) and (
-            type_hints := self._model_impl.python_model._get_type_hints()
+        type_hints = self._model_impl.python_model._get_type_hints()
+        if isinstance(self._model_impl, _PythonModelPyfuncWrapper) and not is_dataclass(
+            type_hints.input
         ):
             from mlflow.types.type_hints import _validate_example_against_type_hint
 
