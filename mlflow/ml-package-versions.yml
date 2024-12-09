@@ -536,6 +536,7 @@ transformers:
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
       "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      "< 4.43": ["peft<0.14.0"] # peft>=0.14.0 relies on EncoderDecoderCache which was only added in 4.43
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
