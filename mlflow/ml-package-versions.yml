@@ -176,7 +176,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "3.3.5"
+    minimum: "3.1.1"
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
