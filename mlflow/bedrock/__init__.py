@@ -1,4 +1,5 @@
 import gc
+import inspect
 
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -38,6 +39,9 @@ def autolog(
     # This is a bit hacky, but since the class is generated dynamically, we need to
     # check all existing objects to find the client class.
     for obj in gc.get_objects():
-        if isinstance(obj, type) and obj.__name__ == "BedrockRuntime":
-            patch_bedrock_runtime_client(obj)
-            break
+        try:
+            if inspect.isclass(obj) and obj.__name__ == "BedrockRuntime":
+                patch_bedrock_runtime_client(obj)
+                break
+        except Exception:
+            pass

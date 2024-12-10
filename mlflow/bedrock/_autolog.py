@@ -1,6 +1,6 @@
 import io
 import json
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, Union
 
 from botocore.client import BaseClient
 from botocore.eventstream import EventStream
@@ -45,7 +45,7 @@ def patched_create_client(original, self, *args, **kwargs):
     return client
 
 
-def patch_bedrock_runtime_client(client_class: Type[BaseClient]):
+def patch_bedrock_runtime_client(client_class: type[BaseClient]):
     """
     Patch the BedrockRuntime client to log traces and models.
     """
