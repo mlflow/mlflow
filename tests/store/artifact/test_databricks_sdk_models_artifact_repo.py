@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors.platform import NotFound
 from databricks.sdk.service.files import DirectoryEntry, DownloadResponse
 
 from mlflow.entities.file_info import FileInfo
@@ -39,6 +40,12 @@ def mock_databricks_workspace_client():
 def test_list_artifacts_empty(mock_databricks_workspace_client):
     repo = DatabricksSDKModelsArtifactRepository(TEST_MODEL_NAME, TEST_MODEL_VERSION)
     mock_databricks_workspace_client.files.list_directory_contents.return_value = iter([])
+    assert repo.list_artifacts() == []
+
+
+def test_list_artifacts_listfile(mock_databricks_workspace_client):
+    repo = DatabricksSDKModelsArtifactRepository(TEST_MODEL_NAME, TEST_MODEL_VERSION)
+    mock_databricks_workspace_client.files.get_directory_metadata.side_effect = NotFound
     assert repo.list_artifacts() == []
 
 
