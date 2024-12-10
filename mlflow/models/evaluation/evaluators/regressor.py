@@ -77,7 +77,9 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
             y, y_pred, sample_weight=sample_weights
         ),
         "root_mean_squared_error": sk_metrics.root_mean_squared_error(
-            y, y_pred, sample_weight=sample_weights,
+            y,
+            y_pred,
+            sample_weight=sample_weights,
         ),
         "sum_on_target": sum_on_target,
         "mean_on_target": sum_on_target / len(y),
