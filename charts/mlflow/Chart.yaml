@@ -1,0 +1,20 @@
+apiVersion: v2
+
+name: mlflow
+
+description: A Helm chart for MLflow - Open source platform for the machine learning lifecycle.
+
+type: application
+
+version: "0.1.0"
+
+appVersion: "2.14.1"
+
+home: https://github.com/mlflow/mlflow/tree/master/charts/mlflow
+
+sources:
+  - https://github.com/mlflow/mlflow/tree/master/charts/mlflow
+
+maintainers:
+  - email: github@chenyicn.net
+    name: Yi Chen
