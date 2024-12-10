@@ -253,7 +253,7 @@ def start_run(
     If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
 
     MLflow sets a variety of default tags on the run, as defined in
-    :ref:`MLflow system tags <system_tags>`.
+    `MLflow system tags <../../tracking/tracking-api.html#system_tags>`_.
 
     Args:
         run_id: If specified, get the run with the specified UUID and log parameters
@@ -2240,7 +2240,7 @@ def autolog(
 
     The parameters are passed to any autologging integrations that support them.
 
-    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    See the `tracking docs <../../tracking/autolog.html>`_ for a list of supported autologging
     integrations.
 
     Note that framework-specific configurations set at any point will take precedence over

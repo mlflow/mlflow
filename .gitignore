@@ -35,6 +35,8 @@ wheels/
 *.egg
 MANIFEST
 node_modules
+.docusaurus
+docs/static/api_reference
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
