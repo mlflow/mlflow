@@ -1681,6 +1681,9 @@ def test_binary_classification_missing_minority_class_exception_override(
 
     for key, saved_val in saved_metrics.items():
         eval_val = eval_result.metrics[key]
+        # some nan fields are due to the class imbalance.
+        # for example, the roc_auc_score metric will return
+        # nan since we override all classes to `1` here
         if np.isnan(saved_val):
             assert np.isnan(eval_val)
         else:
