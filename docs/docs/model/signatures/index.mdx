@@ -125,11 +125,7 @@ Column-based signatures support data primitives defined within the <APILink fn="
         ```python
         from mlflow.models import infer_signature
 
-        infer_signature(model_input={
-            "long_col": 1,
-            "str_col": "a",
-            "bool_col": True
-        })
+        infer_signature(model_input={"long_col": 1, "str_col": "a", "bool_col": True})
         ```
       </td>
       <td>
@@ -193,17 +189,16 @@ Additional examples for composite data types can be seen by viewing the [signatu
         ```python
         from mlflow.models import infer_signature
 
-        infer_signature(model_input={
-            # Python list
-            "list_col": ["a", "b", "c"],
-            # Numpy array
-            "numpy_col": np.array([[1, 2], [3, 4]]),
-            # Dictionary
-            "obj_col": {
-                "long_prop": 1,
-                "array_prop": ["a", "b", "c"]
+        infer_signature(
+            model_input={
+                # Python list
+                "list_col": ["a", "b", "c"],
+                # Numpy array
+                "numpy_col": np.array([[1, 2], [3, 4]]),
+                # Dictionary
+                "obj_col": {"long_prop": 1, "array_prop": ["a", "b", "c"]},
             }
-        })
+        )
         ```
       </td>
       <td>
@@ -240,11 +235,7 @@ Columns that contain _None_ or _np.nan_ values within the input data will be inf
         ```python
         from mlflow.models import infer_signature
 
-        infer_signature(model_input=
-            pd.DataFrame({
-                "col": [1.0, 2.0, None]
-            })
-        )
+        infer_signature(model_input=pd.DataFrame({"col": [1.0, 2.0, None]}))
         ```
       </td>
       <td>
@@ -278,10 +269,12 @@ pass _None_ instead.
     <tr>
       <td>
         ```python
-        infer_signature(model_input={
-            "list_with_empty": [["a", "b"], []],
-            "list_with_none": [["a", "b"], None]
-        })
+        infer_signature(
+            model_input={
+                "list_with_empty": [["a", "b"], []],
+                "list_with_none": [["a", "b"], None],
+            }
+        )
         ```
       </td>
       <td>
@@ -340,10 +333,14 @@ Tensor-based schemas support [numpy data types](https://numpy.org/devdocs/user/b
         ```python
         from mlflow.models import infer_signature
 
-        infer_signature(model_input=np.array([
-            [[1, 2, 3], [4, 5, 6]],
-            [[7, 8, 9], [1, 2, 3]],
-        ]))
+        infer_signature(
+            model_input=np.array(
+                [
+                    [[1, 2, 3], [4, 5, 6]],
+                    [[7, 8, 9], [1, 2, 3]],
+                ]
+            )
+        )
         ```
       </td>
       <td>
