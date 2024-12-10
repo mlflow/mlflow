@@ -52,6 +52,7 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.tracking.artifact_utils import (
     get_artifact_uri as utils_get_artifact_uri,
 )
+from mlflow.types.schema import Array, ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -1574,7 +1575,7 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
 
 
-def test_pyfunc_model_infer_signature_from_type_hints(model_path):
+def test_pyfunc_model_infer_signature_from_type_hints():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input: list[str], params=None) -> list[str]:
             return model_input
@@ -1586,9 +1587,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
             input_example=["a"],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_model.metadata.get_input_schema().to_dict() == [
-        {"type": "string", "required": True}
-    ]
+    assert pyfunc_model.metadata.get_input_schema() == Schema([ColSpec(Array("string"))])
     assert pyfunc_model.predict(["a", "b"]) == ["a", "b"]
 
 

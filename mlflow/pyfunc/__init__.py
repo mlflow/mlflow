@@ -793,9 +793,18 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        data, params = _validate_prediction_input(
-            data, params, self.input_schema, self.params_schema, self.loader_module
-        )
+        if self.metadata.valid_type_hint and isinstance(
+            self._model_impl, _PythonModelPyfuncWrapper
+        ):
+            from mlflow.types.type_hints import _validate_example_against_type_hint
+
+            type_hints = self._model_impl.python_model._get_type_hints()
+            _validate_example_against_type_hint(data, type_hints.input)
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -2890,7 +2899,8 @@ def save_model(
         mlflow_model = Model()
     saved_example = None
 
-    hints = None
+    # TODO: if signature is provided, we should validate input_example and type hint
+    # against the signature, to make sure they're consistent
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
@@ -2907,6 +2917,7 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
+                mlflow_model.valid_type_hint = True
         elif isinstance(python_model, ChatModel):
             mlflow_model.signature = ModelSignature(
                 CHAT_MODEL_INPUT_SCHEMA,
@@ -2967,6 +2978,7 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
+                mlflow_model.valid_type_hint = True
             elif saved_example is not None:
                 try:
                     context = PythonModelContext(artifacts, model_config)
@@ -3016,7 +3028,6 @@ def save_model(
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
             signature=signature,
-            hints=hints,
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,
