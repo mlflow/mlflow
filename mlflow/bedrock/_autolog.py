@@ -15,7 +15,7 @@ _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
 _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
 
 
-def skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
+def _skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     A decorator to apply the function only if trace autologging is enabled.
     This decorator is used to skip the test if the trace autologging is disabled.
@@ -59,11 +59,8 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
         safe_patch(FLAVOR_NAME, client_class, "converse", _patched_converse)
 
 
-@skip_if_trace_disabled
+@_skip_if_trace_disabled
 def _patched_invoke_model(original, self, *args, **kwargs):
-    if not AutoLoggingConfig.init(flavor_name=FLAVOR_NAME).log_traces:
-        return original(self, *args, **kwargs)
-
     with mlflow.start_span(name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}") as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
@@ -109,11 +106,8 @@ def _parse_invoke_model_response_body(response_body: dict[str, Any]) -> Union[di
         response_body.seek(0)
 
 
-@skip_if_trace_disabled
+@_skip_if_trace_disabled
 def _patched_converse(original, self, *args, **kwargs):
-    if not AutoLoggingConfig.init(flavor_name=FLAVOR_NAME).log_traces:
-        return original(self, *args, **kwargs)
-
     with mlflow.start_span(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
