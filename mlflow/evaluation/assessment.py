@@ -17,7 +17,7 @@ class Assessment(_MlflowObject):
     def __init__(
         self,
         name: str,
-        source: AssessmentSource,
+        source: Optional[AssessmentSource] = None,
         value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -83,12 +83,12 @@ class Assessment(_MlflowObject):
         return self._rationale
 
     @property
-    def source(self) -> AssessmentSource:
+    def source(self) -> Optional[AssessmentSource]:
         """The source of the assessment."""
         return self._source
 
     @property
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self) -> Dict[str, Any]:
         """The metadata associated with the assessment."""
         return self._metadata
 
@@ -107,10 +107,10 @@ class Assessment(_MlflowObject):
             return self.to_dictionary() == __o.to_dictionary()
         return False
 
-    def to_dictionary(self) -> dict[str, Any]:
+    def to_dictionary(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "source": self.source.to_dictionary(),
+            "source": self.source.to_dictionary() if self.source is not None else None,
             "value": self.value,
             "rationale": self.rationale,
             "metadata": self.metadata,
@@ -119,7 +119,7 @@ class Assessment(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, assessment_dict: dict[str, Any]) -> "Assessment":
+    def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
         """
         Create an Assessment object from a dictionary.
 
@@ -140,6 +140,15 @@ class Assessment(_MlflowObject):
         )
 
     def _to_entity(self, evaluation_id: str) -> AssessmentEntity:
+        # We require that the source be specified for an assessment before sending it to the backend
+        if self._source is None:
+            raise MlflowException(
+                message=(
+                    f"Assessment source must be specified."
+                    f"Got empty source for assessment with name {self._name}"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return AssessmentEntity(
             evaluation_id=evaluation_id,
             name=self._name,
