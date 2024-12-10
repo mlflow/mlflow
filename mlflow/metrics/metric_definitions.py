@@ -275,11 +275,26 @@ def _mse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
         return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
+def _root_mean_squared_error(*, y_true, y_pred, sample_weight):
+    try:
+        from sklearn.metrics import root_mean_squared_error
+    except ImportError:
+        # If root_mean_squared_error is unavailable, fall back to
+        # `mean_squared_error(..., squared=False)`, which is deprecated in scikit-learn >= 1.4.
+        from sklearn.metrics import mean_squared_error
+
+        return mean_squared_error(
+            y_true=y_true, y_pred=y_pred, sample_weight=sample_weight, squared=False
+        )
+    else:
+        return root_mean_squared_error(y_true=y_true, y_pred=y_pred, sample_weight=sample_weight)
+
+
 def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
-        from sklearn.metrics import root_mean_squared_error
-
-        rmse = root_mean_squared_error(targets, predictions, sample_weight=sample_weight)
+        rmse = _root_mean_squared_error(
+            y_true=targets, y_pred=predictions, sample_weight=sample_weight
+        )
         return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
