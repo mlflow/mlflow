@@ -149,34 +149,6 @@ Autologging captures the following information:
   </tbody>
 </table>
 
-### Gluon \{#autolog-gluon}
-
-Call the generic autolog function <APILink fn="mlflow.gluon.autolog" /> before your training code to enable automatic logging of metrics and parameters.
-See example usages with [Gluon](https://github.com/mlflow/mlflow/tree/master/examples/gluon).
-
-Autologging captures the following information:
-
-<table>
-  <thead>
-    <tr>
-      <th>Framework</th>
-      <th>Metrics</th>
-      <th>Parameters</th>
-      <th>Tags</th>
-      <th>Artifacts</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Gluon</td>
-      <td>Training loss; validation loss; user-specified metrics</td>
-      <td>Number of layers; optimizer name; learning rate; epsilon</td>
-      <td>--</td>
-      <td>[MLflow Model](/models) (Gluon model); on training end</td>
-    </tr>
-  </tbody>
-</table>
-
 ### Keras/TensorFlow \{#autolog-keras}
 
 Call the generic autolog function or <APILink fn="mlflow.tensorflow.autolog" /> before your training code to enable automatic logging of metrics and parameters. As an example, try running the [Keras/Tensorflow example](https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py).

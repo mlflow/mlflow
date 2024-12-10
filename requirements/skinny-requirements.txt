@@ -15,3 +15,4 @@ cachetools<6,>=5.0.0
 opentelemetry-api<3,>=1.9.0
 opentelemetry-sdk<3,>=1.9.0
 databricks-sdk<1,>=0.20.0
+pydantic<3,>=1.0

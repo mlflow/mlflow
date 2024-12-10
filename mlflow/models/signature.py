@@ -224,24 +224,28 @@ def infer_signature(
     Returns:
       ModelSignature
     """
-    if model_input is not None:
-        inputs = (
-            convert_dataclass_to_schema(model_input)
-            if is_dataclass(model_input)
-            else _infer_schema(model_input)
-        )
-    else:
-        inputs = None
-    if model_output is not None:
-        outputs = (
-            convert_dataclass_to_schema(model_output)
-            if is_dataclass(model_output)
-            else _infer_schema(model_output)
-        )
-    else:
-        outputs = None
-    params = _infer_param_schema(params) if params else None
-    return ModelSignature(inputs, outputs, params)
+    schemas = {"inputs": model_input, "outputs": model_output}
+    for key, data in schemas.items():
+        if data is not None:
+            try:
+                schemas[key] = (
+                    convert_dataclass_to_schema(data) if is_dataclass(data) else _infer_schema(data)
+                )
+            except Exception:
+                extra_msg = (
+                    ("Note that MLflow doesn't validate data types during inference for AnyType. ")
+                    if key == "inputs"
+                    else ""
+                )
+                _logger.warning(
+                    f"Failed to infer schema for {key}. "
+                    f"Setting schema to `Schema([ColSpec(type=AnyType())]` as default. {extra_msg}"
+                    "To see the full traceback, set logging level to DEBUG.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                schemas[key] = Schema([ColSpec(type=AnyType())])
+    schemas["params"] = _infer_param_schema(params) if params else None
+    return ModelSignature(**schemas)
 
 
 # `t\w*\.` matches the `typing` module or its alias

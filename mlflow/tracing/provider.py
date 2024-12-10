@@ -184,6 +184,17 @@ def _setup_tracer_provider(disabled=False):
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
+    from mlflow.tracing.utils.token import suppress_token_detach_warning_to_debug_level
+
+    # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
+    # level so that it does not show up in the user's console. This warning may indicate
+    # some incorrect context handling, but in many cases just false positive that does not
+    # cause any issue in the generated trace.
+    # Note that we need to apply it permanently rather than just the scope of prediction call,
+    # because the exception can happen for streaming case, where the error log might be
+    # generated when the iterator is consumed and we don't know when it will happen.
+    suppress_token_detach_warning_to_debug_level()
+
 
 @raise_as_trace_exception
 def disable():

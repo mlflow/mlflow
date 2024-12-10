@@ -1,7 +1,7 @@
-mlflow.gluon
+mlflow.crewai
 ==============
 
-.. automodule:: mlflow.gluon
+.. automodule:: mlflow.crewai
     :members:
     :undoc-members:
     :show-inheritance:
