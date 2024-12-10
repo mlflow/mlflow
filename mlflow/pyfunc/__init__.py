@@ -296,7 +296,7 @@ When creating custom PyFunc models, you can choose between two different interfa
 a function-based model and a class-based model. In short, a function-based model is simply a
 python function that does not take additional params. The class-based model, on the other hand,
 is subclass of ``PythonModel`` that supports several required and optional
-methods. If your use case is simple and fits within a single predict function, a funcion-based
+methods. If your use case is simple and fits within a single predict function, a function-based
 approach is recommended. If you need more power, such as custom serialization, custom data
 processing, or to override additional methods, you should use the class-based implementation.
 
@@ -838,7 +838,7 @@ class PyFuncModel:
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
-        Generates streaming model predictions. Only LLM suports this method.
+        Generates streaming model predictions. Only LLM supports this method.
 
         If the model contains signature, enforce the input schema first before calling the model
         implementation with the sanitized input. If the pyfunc model does not include model schema,
@@ -1089,7 +1089,7 @@ def load_model(
         # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
-        # databricks moduel errors will just be re-raised.
+        # databricks module errors will just be re-raised.
         if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "
@@ -2110,17 +2110,17 @@ def spark_udf(
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
+    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
     use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
-        if Version(udf_sandbox_info.mlflow_version) < Version("2.19.0"):
+        if Version(udf_sandbox_info.mlflow_version) < Version("2.18.0"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
-                "of version >= 2.19."
+                "of version >= 2.18.0"
             )
         # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
         # It's safe to apply `Version`.
@@ -2936,29 +2936,39 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
-            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
-            input_example, input_params = _split_input_data_and_params(input_example)
-
-            if isinstance(input_example, list):
-                params = ChatParams()
-                messages = []
-                for each_message in input_example:
-                    if isinstance(each_message, ChatMessage):
-                        messages.append(each_message)
-                    else:
-                        messages.append(ChatMessage.from_dict(each_message))
+            if input_example:
+                input_example, input_params = _split_input_data_and_params(input_example)
+                valid_params = {}
+                if isinstance(input_example, list):
+                    messages = []
+                    for each_message in input_example:
+                        if isinstance(each_message, ChatMessage):
+                            messages.append(each_message)
+                        else:
+                            messages.append(ChatMessage.from_dict(each_message))
+                else:
+                    # If the input example is a dictionary, convert it to ChatMessage format
+                    messages = [
+                        ChatMessage.from_dict(m) if isinstance(m, dict) else m
+                        for m in input_example["messages"]
+                    ]
+                    valid_params = {
+                        k: v
+                        for k, v in input_example.items()
+                        if k != "messages" and k in ChatParams.keys()
+                    }
+                input_example = {
+                    "messages": [m.to_dict() for m in messages],
+                    **valid_params,
+                    **(input_params or {}),
+                }
             else:
-                # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [
-                    ChatMessage.from_dict(m) if isinstance(m, dict) else m
-                    for m in input_example["messages"]
-                ]
-                params = ChatParams.from_dict(input_example)
-            input_example = {
-                "messages": [m.to_dict() for m in messages],
-                **params.to_dict(),
-                **(input_params or {}),
-            }
+                input_example = CHAT_MODEL_INPUT_EXAMPLE
+                messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
+            # extra params introduced by ChatParams will not be included in the
+            # logged input example file to avoid confusion
+            _save_example(mlflow_model, input_example, path, example_no_conversion)
+            params = ChatParams.from_dict(input_example)
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")

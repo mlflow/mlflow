@@ -1,3 +1,4 @@
+import logging
 import os
 
 import cloudpickle
@@ -14,19 +15,18 @@ from mlflow.utils.model_utils import (
 
 _DEFAULT_MODEL_PATH = "data/model.pkl"
 
+_logger = logging.getLogger(__name__)
 
-def _set_tracer_context(model_path):
+
+def _set_tracer_context(model_path, callbacks):
     """
     Set dependency schemas from the saved model metadata to the tracer's prediction context.
     """
-    import dspy
-
-    if not hasattr(dspy.settings, "callbacks") or not dspy.settings.callbacks:
-        return
-
     from mlflow.dspy.callback import MlflowCallback
 
-    tracer = next((cb for cb in dspy.settings.callbacks if isinstance(cb, MlflowCallback)), None)
+    tracer = next((cb for cb in callbacks if isinstance(cb, MlflowCallback)), None)
+    if tracer is None:
+        return
     context = tracer._prediction_context
 
     model = Model.load(model_path)
@@ -44,10 +44,10 @@ def _load_model(model_uri, dst_path=None):
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
     with open(os.path.join(local_model_path, model_path), "rb") as f:
         loaded_wrapper = cloudpickle.load(f)
+
+    _set_tracer_context(local_model_path, loaded_wrapper.dspy_settings["callbacks"])
     # Set the global dspy settings and return the dspy wrapper.
     dspy.settings.configure(**loaded_wrapper.dspy_settings)
-
-    _set_tracer_context(local_model_path)
     return loaded_wrapper
 
 

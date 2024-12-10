@@ -8,7 +8,6 @@ from copy import deepcopy
 from typing import Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
-from langchain_core.runnables import RunnableSequence
 from packaging.version import Version
 
 import mlflow
@@ -16,7 +15,7 @@ from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LOADED_MODEL_TRACKER
-from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer, should_attach_span_to_context
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
@@ -26,7 +25,7 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
 
-UNSUPPORT_LOG_MODEL_MESSAGE = (
+UNSUPPORTED_LOG_MODEL_MESSAGE = (
     "MLflow autologging does not support logging models containing BaseRetriever because "
     "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
@@ -101,20 +100,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if should_trace:
         tracer = MlflowLangchainTracer(
             model_id=model_id,
-            # NB: RunnableSequence's batch() and abatch() methods are implemented in a peculiar way
-            # that iterates on steps->items sequentially within the same thread. For example, if a
-            # sequence has 2 steps and the batch size is 3, the execution flow will be:
-            #  - Step 1 for item 1
-            #  - Step 1 for item 2
-            #  - Step 1 for item 3
-            #  - Step 2 for item 1
-            #  - Step 2 for item 2
-            #  - Step 2 for item 3
-            # Due to this behavior, we cannot attach the span to the context for this particular
-            # API, otherwise spans for different inputs will be mixed up.
-            set_span_in_context=not (
-                isinstance(self, RunnableSequence) and func_name in ["batch", "abatch"]
-            )
+            set_span_in_context=should_attach_span_to_context(func_name, self)
         )
         args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, model_id, args, kwargs)
 
@@ -454,10 +440,10 @@ def _log_optional_artifacts(
             or _runnable_with_retriever(self)
             or _chain_with_retriever(self)
         ):
-            _logger.info(UNSUPPORT_LOG_MODEL_MESSAGE)
+            _logger.info(UNSUPPORTED_LOG_MODEL_MESSAGE)
         else:
             # warn user in case we did't capture some cases where retriever is used
-            warnings.warn(UNSUPPORT_LOG_MODEL_MESSAGE)
+            warnings.warn(UNSUPPORTED_LOG_MODEL_MESSAGE)
             if autolog_config.log_input_examples:
                 input_example = deepcopy(
                     _get_input_data_from_function(func_name, self, args, kwargs)

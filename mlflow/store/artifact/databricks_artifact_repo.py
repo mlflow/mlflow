@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 import requests
 
@@ -21,7 +21,11 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialType,
     CompleteMultipartUpload,
@@ -686,7 +690,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_file_path=artifact_file_path,
         )
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> list:
         return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):

@@ -95,7 +95,7 @@ def test_infer_artifact_type_and_ext_raise_exception_for_non_file_non_json_str(c
 
 
 def test_infer_artifact_type_and_ext_raise_exception_for_non_existent_path(tmp_path, cm_fn_tuple):
-    path = tmp_path / "dne_path"
+    path = tmp_path / "does_not_exist_path"
     with pytest.raises(MlflowException, match=f"with path '{path}' does not exist"):
         _infer_artifact_type_and_ext("test_artifact", path, cm_fn_tuple)
 

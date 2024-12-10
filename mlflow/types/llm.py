@@ -1,9 +1,9 @@
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
-from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -159,12 +159,12 @@ class ToolCall(_BaseDataclass):
     Args:
         function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
         id (str): The ID of the tool call. Defaults to a random UUID.
-        type (str): The type of the object. Currently only "function" is supported.
+        type (str): The type of the object. Defaults to "function".
     """
 
     function: FunctionToolCallArguments
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    type: Literal["function"] = "function"
+    type: str = "function"
 
     def __post_init__(self):
         self._validate_field("id", str, True)
@@ -344,7 +344,7 @@ class FunctionToolDefinition(_BaseDataclass):
 
     def to_tool_definition(self):
         """
-        Convenience function for wrapping this in a ToolDefiniton
+        Convenience function for wrapping this in a ToolDefinition
         """
         return ToolDefinition(type="function", function=self)
 
@@ -387,7 +387,7 @@ class ChatParams(_BaseDataclass):
             the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
-            (sorted in descending order by their probabilites).
+            (sorted in descending order by their probabilities).
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat
@@ -395,9 +395,8 @@ class ChatParams(_BaseDataclass):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
@@ -413,7 +412,7 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
-    custom_inputs: Optional[dict[str, str]] = None
+    custom_inputs: Optional[dict[str, Any]] = None
     tools: Optional[list[ToolDefinition]] = None
 
     def __post_init__(self):
@@ -439,15 +438,16 @@ class ChatParams(_BaseDataclass):
             for key, value in self.custom_inputs.items():
                 if not isinstance(key, str):
                     raise ValueError(
-                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
+                        "Expected `custom_inputs` to be of type `Dict[str, Any]`, "
                         f"received key of type `{type(key).__name__}` (key: {key})"
                     )
-                if not isinstance(value, str):
-                    raise ValueError(
-                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
-                        f"received value of type `{type(value).__name__}` in "
-                        f"`custom_inputs['{key}']`)"
-                    )
+
+    @classmethod
+    def keys(cls) -> set[str]:
+        """
+        Return the keys of the dataclass
+        """
+        return {field.name for field in fields(cls)}
 
 
 @dataclass()
@@ -472,7 +472,7 @@ class ChatCompletionRequest(ChatParams):
             the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
-            (sorted in descending order by their probabilites).
+            (sorted in descending order by their probabilities).
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat
@@ -480,9 +480,8 @@ class ChatCompletionRequest(ChatParams):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
     """
@@ -605,7 +604,7 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
@@ -663,7 +662,8 @@ class ChatCompletionResponse(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -673,7 +673,7 @@ class ChatCompletionResponse(_BaseDataclass):
     model: Optional[str] = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, str]] = None
+    custom_outputs: Optional[dict[str, Any]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -700,7 +700,8 @@ class ChatCompletionChunk(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -710,7 +711,7 @@ class ChatCompletionChunk(_BaseDataclass):
     model: Optional[str] = None
     object: str = "chat.completion.chunk"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, str]] = None
+    custom_outputs: Optional[dict[str, Any]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -781,7 +782,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(DataType.string), required=False),
+        ColSpec(name="custom_inputs", type=Map(AnyType()), required=False),
     ]
 )
 
@@ -824,7 +825,7 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_outputs", type=Map(DataType.string), required=False),
+        ColSpec(name="custom_outputs", type=Map(AnyType()), required=False),
     ]
 )
 

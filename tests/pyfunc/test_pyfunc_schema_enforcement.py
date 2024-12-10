@@ -82,19 +82,19 @@ def param_schema_basic():
 class PythonModelWithBasicParams(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         assert isinstance(params, dict)
-        assert DataType.is_string(params["str_param"])
-        assert DataType.is_integer(params["int_param"])
-        assert DataType.is_boolean(params["bool_param"])
-        assert DataType.is_double(params["double_param"])
-        assert DataType.is_float(params["float_param"])
-        assert DataType.is_long(params["long_param"])
-        assert DataType.is_datetime(params["datetime_param"])
+        assert isinstance(params["str_param"], str)
+        assert isinstance(params["int_param"], int)
+        assert isinstance(params["bool_param"], bool)
+        assert isinstance(params["double_param"], float)
+        assert isinstance(params["float_param"], float)
+        assert isinstance(params["long_param"], int)
+        assert isinstance(params["datetime_param"], datetime.datetime)
         assert isinstance(params["str_list"], list)
-        assert all(DataType.is_string(x) for x in params["str_list"])
+        assert all(isinstance(x, str) for x in params["str_list"])
         assert isinstance(params["bool_list"], list)
-        assert all(DataType.is_boolean(x) for x in params["bool_list"])
+        assert all(isinstance(x, bool) for x in params["bool_list"])
         assert isinstance(params["double_array"], list)
-        assert all(DataType.is_double(x) for x in params["double_array"])
+        assert all(isinstance(x, float) for x in params["double_array"])
         return params
 
 
@@ -114,11 +114,11 @@ def sample_params_with_arrays():
 class PythonModelWithArrayParams(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         assert isinstance(params, dict)
-        assert all(DataType.is_integer(x) for x in params["int_array"])
-        assert all(DataType.is_double(x) for x in params["double_array"])
-        assert all(DataType.is_float(x) for x in params["float_array"])
-        assert all(DataType.is_long(x) for x in params["long_array"])
-        assert all(DataType.is_datetime(x) for x in params["datetime_array"])
+        assert all(isinstance(x, int) for x in params["int_array"])
+        assert all(isinstance(x, float) for x in params["double_array"])
+        assert all(isinstance(x, float) for x in params["float_array"])
+        assert all(isinstance(x, int) for x in params["long_array"])
+        assert all(isinstance(x, datetime.datetime) for x in params["datetime_array"])
         return params
 
 
@@ -297,7 +297,7 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
-        # Extraneous multi-dimensional numpy array should be silenty dropped
+        # Extraneous multi-dimensional numpy array should be silently dropped
         "i": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
         # Extraneous multi-dimensional list should be silently dropped
         "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
@@ -1128,6 +1128,16 @@ def test_schema_enforcement_for_list_inputs():
     data = {"a": np.array([12]), "b": np.array(["a"])}
     pd_check = _enforce_schema(data, signature.inputs)
     assert pd_check == data
+
+
+def test_enforce_schema_warns_with_extra_fields():
+    schema = Schema([ColSpec("string", "a")])
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _enforce_schema({"a": "hi", "b": "bye"}, schema)
+        mock_warning.assert_called_once_with(
+            "Found extra inputs in the model input that are not defined in the model "
+            "signature: `['b']`. These inputs will be ignored."
+        )
 
 
 def test_enforce_params_schema_with_success():

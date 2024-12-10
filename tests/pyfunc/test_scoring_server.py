@@ -836,7 +836,7 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
                 "top_p": 0.9,  # filled with the default value
             },
         ),
-        # Test case: if some params are not defeind in either input and params schema,
+        # Test case: if some params are not defined in either input and params schema,
         # they will be dropped
         (
             ModelSignature(

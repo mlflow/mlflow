@@ -101,7 +101,7 @@ class HTTPDatasetSource(DatasetSource):
             raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
 
         Returns:
-            True if this DatsetSource can resolve the raw source, False otherwise.
+            True if this DatasetSource can resolve the raw source, False otherwise.
         """
         if not isinstance(raw_source, str):
             return False

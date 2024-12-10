@@ -132,8 +132,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # backend API.
         if request_id := maybe_get_request_id(is_evaluate=True):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
-        if depedencies_schema := maybe_get_dependencies_schemas():
-            tags.update(depedencies_schema)
+        if dependencies_schema := maybe_get_dependencies_schemas():
+            tags.update(dependencies_schema)
         tags.update({TraceTagKey.TRACE_NAME: span.name})
 
         return self._client._start_tracked_trace(

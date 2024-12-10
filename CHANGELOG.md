@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2.19.0rc0 (2024-12-04)
+
+We are excited to announce the release of MLflow 2.19.0rc0! This release includes a number of significant features, enhancements, and bug fixes.
+
+### Major New Features
+
+- **ChatModel enhancements** - ChatModel now adopts ChatCompletionRequest and ChatCompletionResponse as its new schema. The predict_stream interface uses ChatCompletionChunk to deliver true streaming responses. Additionally, the custom_inputs and custom_outputs fields in ChatModel now utilize AnyType, enabling support for a wider variety of data types. (#13782, #13857, @stevenchen-db)
+
+- **Tracing improvements** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now supports both automatic and manual tracing for DSPy, LlamaIndex and Langchain flavors. Tracing feature is also auto-enabled for mlflow evaluation for all supported flavors. (#13790, #13793, #13795, #13897, @B-Step62)
+
+- **New Tracing Integrations** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now supports **CrewAI** and **Anthropic**, enabling a one-line, fully automated tracing experience. (#13903, @TomeHirata, #13851, @gabrielfu)
+
+- **Any Type in model signature** - MLflow now supports AnyType in model signature. It can be used to host any data types that were not supported before. (#13766, @serena-ruan)
+
+Other Features:
+
+- [Tracking] Add `update_current_trace` API for adding tags to an active trace. (#13828, @B-Step62)
+- [Deployments] Update databricks deployments to support AI gateway & additional update endpoints (#13513, @djliden)
+
+Bug fixes:
+
+- [Tracking] Allow passing in spark connect dataframes in mlflow evaluate API (#13889, @WeichenXu123)
+- [Tracking] Fix `mlflow.end_run` inside a MLflow run context manager (#13888, @WeichenXu123)
+- [Scoring] Fix spark_udf conditional check on remote spark-connect client or Databricks Serverless (#13827, @WeichenXu123)
+- [Models] Allow changing max_workers for built-in LLM-as-a-Judge metrics (#13858, @B-Step62)
+- [Models] Support saving all langchain runnables using code-based logging (#13821, @serena-ruan)
+
+Documentation updates:
+
+- [Docs] Add Ollama and Instructor examples in tracing doc (#13937, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#13972, #13968, #13917, #13912, #13906, #13846, @serena-ruan; #13969, #13959, #13957, #13958, #13925, #13882, #13879, #13881, #13869, #13870, #13868, #13854, #13849, #13847, #13836, #13823, #13811, #13820, #13775, #13768, #13764, @harupy; #13960, #13914, #13862, #13892, #13916, #13918, #13915, #13878, #13891, #13863, #13859, #13850, #13844, #13835, #13818, #13762, @B-Step62; #13913, #13848, #13774, @TomeHirata; #13936, #13954, #13883, @daniellok-db; #13947, @AHB102; #13929, #13922, @Ajay-Satish-01; #13857, @stevenchen-db; #13773, @BenWilson2; #13705, @williamjamir; #13745, #13743, @WeichenXu123; #13895, @chenmoneygithub
+
 ## 2.18.0 (2024-11-18)
 
 We are excited to announce the release of MLflow 2.18.0! This release includes a number of significant features, enhancements, and bug fixes.
