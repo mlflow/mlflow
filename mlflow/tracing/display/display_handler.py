@@ -34,7 +34,6 @@ padding: 4px 8px;"
   >Collapse MLflow Trace UI</button>
   <iframe
     id="trace-renderer"
-    onerror="this.style.display = 'none'"
     style="width: 100%; height: 500px; border: none; resize: vertical;"
     src="{src}"
   />
