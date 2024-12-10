@@ -1,0 +1,80 @@
+# FAQ & Troubleshooting
+
+
+
+## Async Logging
+
+By default, MLflow Traces are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
+
+To enable async logging for tracing, call <APILink fn="mlflow.config.enable_async_logging" /> in your code. This will make the trace logging operation non-blocking and reduce the performance overhead.
+
+```python
+import mlflow
+
+mlflow.config.enable_async_logging()
+
+# Traces will be logged asynchronously
+with mlflow.start_span(name="foo") as span:
+    span.set_inputs({"a": 1})
+    span.set_outputs({"b": 2})
+
+# If you don't see the traces in the UI after waiting for a while, you can manually flush the traces
+# mlflow.flush_trace_async_logging()
+```
+
+Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
+
+
+### Q: How can I associate a trace with an MLflow Run?
+
+If a trace is generated within a run context, the recorded traces to an active Experiment will be associated with the active Run.
+
+For example, in the following code, the traces are generated within the `start_run` context.
+
+```python
+import mlflow
+
+# Create and activate an Experiment
+mlflow.set_experiment("Run Associated Tracing")
+
+# Start a new MLflow Run
+with mlflow.start_run() as run:
+    # Initiate a trace by starting a Span context from within the Run context
+    with mlflow.start_span(name="Run Span") as parent_span:
+        parent_span.set_inputs({"input": "a"})
+        parent_span.set_outputs({"response": "b"})
+        parent_span.set_attribute("a", "b")
+        # Initiate a child span from within the parent Span's context
+        with mlflow.start_span(name="Child Span") as child_span:
+            child_span.set_inputs({"input": "b"})
+            child_span.set_outputs({"response": "c"})
+            child_span.set_attributes({"b": "c", "c": "d"})
+```
+
+When navigating to the MLflow UI and selecting the active Experiment, the trace display view will show the run that is associated with the trace, as
+well as providing a link to navigate to the run within the MLflow UI. See the below video for an example of this in action.
+
+![Tracing within a Run Context](/images/llms/tracing/run-trace.gif)
+
+You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Retrieve traces associated with a specific Run
+traces = client.search_traces(run_id=run.info.run_id)
+
+print(traces)
+```
+
+
+### Q: I cannot open my trace in the MLflow UI. What should I do?
+
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI.
+
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+

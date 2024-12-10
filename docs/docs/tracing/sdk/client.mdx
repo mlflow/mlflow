@@ -1,0 +1,31 @@
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# (Advanced) Low-level Client APIs
+
+The <APILink fn="mlflow.client.MlflowClient">`MlflowClient`</APILink> class provides a set of low-level APIS for fine-grained control over creating, manipulating, and retrieving traces.
+
+:::tip
+
+We recommend using the client APIs only when the high-level APIs like `@mlflow.trace` and `mlflow.start_span` do not satisfy your requirements. See [this page](./manual-instrumentation.mdx) for the usage of those high-level APIs.
+
+:::
+
+
+* You have to distinguish a trace and a span separately.
+
+
+## Starting a Trace
+
+Unlike with the decorator and context manager, the client API requires that you explicitly start a trace before adding child spans. This initial API call starts the root span for the trace, providing a context request_id that is used for associating subsequent spans to the root span.
+
+To start a new trace, use the <APILink fn="mlflow.client.MlflowClient.start_trace">`MlflowClient.start_trace`</APILink> method. This method creates a new trace and returns the root span object.
+
+## Ending a Trace
+
+
+## Adding a Child Span
+

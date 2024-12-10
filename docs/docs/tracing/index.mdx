@@ -1,0 +1,101 @@
+---
+description: MLflow Tracing is a feature that enables LLM observability in your apps. MLflow automatically logs traces for LangChain, LlamaIndex, and more.
+sidebar_position: 1
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# MLflow Tracing for LLM Observability
+
+
+
+**MLflow Tracing** is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
+Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
+
+![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+
+* **FREE and OPEN** - MLflow is Open Source. You don't need to pay dollars to adding observability to your GenAI stack. No SaaS sign-up is required. Your trace data is hosted on your machine.
+
+* **STANDARD** - MLflow Tracing is compatible with **OpenTelemetry**, an industry standard observability spec. This allows you to export your trace data into various different storage options, such as Grafana, Prometheus, Datadog, New Relic, and more.
+
+* **Framework Support** - MLflow Tracing integrated with 15+ GenAI libraries, such as OpenAI, LangChain, LlamaIndex, DSPy, and more.
+
+* **End-to-End** - MLflow is designed for managing end-to-end machine learning lifecycle. In conjunction with MLflow's full tracking and evaluation capabilities, you can bring the full potential out of the trace data.
+
+* **Community** - MLflow is supported by strong Open Source community. 10K
+
+If you are new to the tracing or observability concepts, we recommend starting with the [Tracing Concepts Overview](./overview) guide.
+
+## Automatic Tracing
+
+MLflow Tracing is integrated with various GenAI libraries and provide **one-line automatic tracing** experience for each library (and the combination of them!). Click on the icon below to see detailed examples to integrate MLflow with your favorite library.
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/langchain/autologging">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/llama-index#enable-tracing">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/openai/autologging#auto-tracing-for-openai-swarm">
+    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![AutoGen Logo](/images/logos/autogen-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![CrewAI Logo](/images/logos/crewai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![Ollama Logo](/images/logos/ollama-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="#automatic-tracing">
+    <span>![Instructor Logo](/images/logos/instructor-logo.svg)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
+
+
+:::info Hint
+Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](./contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
+:::
+
+
+## Manual Tracing with SDK
+
+
+
+
+## Query Traces
+
+
+## Tracing in Production
+
+MLflow Tracing is production ready. Read [Production Tracing](production.mdx) for the guidance
+
+
+:::note
+MLflow Tracing support is available with the **MLflow 2.14.0** release.
+:::

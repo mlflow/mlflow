@@ -1,0 +1,216 @@
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Manual Tracing
+
+In addition to the [Auto Tracing] integrations, you can instrument your Python code with MLflow Tracing SDK.
+
+## Decorator
+
+The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator allows you to create a span for any function. This approach is simple yet effective way to adding tracing to your code with minimum effort:
+
+* MLflow detects the **parent-child relationship** of the functions. Can also be used with the auto-tracing integrations.
+* Captures an **exception** during the function execution and record it a span events.
+* Automatically records the function **name, inputs, outputs, and execution time** of the traced function.
+* Can be used together with **auto tracing** e.g., `mlflow.openai.autolog`.
+
+### Example
+
+The following example 
+
+```python
+import mlflow
+
+# Mark any function with the trace decorator to automatically capture input(s) and output(s)
+@mlflow.trace
+def parent(x):
+    x = pow(x)
+    x = pow(x, 3)
+    return x
+
+
+@mlflow.trace
+def pow(x, p=2):
+    return x**p
+
+
+# Invoking the function will generate a trace that is logged to the active experiment
+parent(2)
+```
+
+
+:::note
+
+When a trace contains multiple spans with same name, MLflow appends an auto-incrementing suffix to them, such as `_1`, `_2`.
+
+:::
+
+### Customizing Spans
+
+The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator creates 
+
+* `name` parameter to override the span name from the default (the name of decorated function)
+* `span_type` parameter to set the type of span. Set either one of built-in <APILink fn="mlflow.entities.SpanType">`SpanType`</APILink>s or a string.
+* `attributes` parameter to add custom attributes to the span.
+
+```python
+
+@mlflow.trace(
+    name="call-local-llm",
+    span_type=SpanType.LLM,
+    attributes={"model": "gpt-4o-mini"}
+):
+def invoke(prompt: str):
+    return {
+        
+    }
+```
+
+Alternatively, you can update the span dynamically inside the function by using <APILink fn="mlflow.get_current_active_span">`mlflow.get_current_active_span`</APILink> API.
+
+```python
+@mlflow.trace
+def custom():
+    
+    span = mlflow.get_current_active_span()
+    span.set_attributes()
+
+    return
+```
+
+### Adding Trace Tags
+
+Tags can be added to traces to provide additional metadata at the trace level. 
+
+```
+@mlflow.trace
+def my_func(x):
+    mlflow.update_current_trace(tags={"fruit": "apple"})
+    return x + 1
+```
+
+### Automatic Exception Handling
+
+If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not
+successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included
+within ``Events`` of the partially completed span, further aiding the identification of where issues are occurring within your code. 
+
+![Trace Error](/images/llms/tracing/trace-exception.gif)
+
+### Combining with Auto-Tracing
+
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing. For example, the following code combines OpenAI auto tracing.
+
+```python
+import mlflow
+import openai
+
+mlflow.openai.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def run(question):
+    messages = build_messages()
+    # MLflow automatically generates a span for OpenAI invocation
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=100,
+        messages=messages,
+    )
+    return parse_response(response)
+
+@mlflow.trace
+def build_messages(question):
+    return [
+        {"role": "system", "content": "You are a helpful chatbot."},
+        {"role": "user": "content": question},
+    ]
+
+@mlflow.trace
+def parse_response(response):
+    return response.choices[0].message.content
+
+run("What is MLflow?")
+```
+
+:TODO: Add picture
+
+
+
+### Function Wrapping
+
+Function wrapping provides a flexible way to add tracing to existing functions without modifying their definitions. This is particularly useful when you want to add tracing to third-party functions or functions defined outside of your control. By wrapping an external function with <APILink fn="mlflow.trace">`@mlflow.trace`</APILink>, you can capture its inputs, outputs, and execution context.
+
+```python
+import math
+import mlflow
+
+def invocation(x, y, exp=2):
+    # Wrap an external function from the math library
+    traced_pow = mlflow.trace(math.pow)
+    raised = traced_pow(x, exp)
+
+    traced_factorial = mlflow.trace(math.factorial)
+    factorial = traced_factorial(int(raised))
+    return response
+
+invocation(4)
+```
+
+
+## Context Manager
+
+In addition to the decorator, MLflow allow creating a span with arbitral code block using the <APILink fn="mlflow.start_span" /> context manager. It can be useful for capturing complex interactions within your code beyond the scope of a function.
+
+Similarly to the decorator, the context manager automatically captures parent-child relationship, exceptions, execution time, and work with auto-tracing. However, the name, inputs, and outputs of the span must be given manually. You can set them via the <APILink fn="mlflow.entities.Span">Span</APILink> object returned from the context manager.
+
+```python
+with mlflow.start_span(name="my_span") as span:
+    span.set_inputs({"x": 1, "y": 2})
+    z = x + y
+    span.set_outputs(z)
+```
+
+Below is a bit more complex example that uses the <APILink fn="mlflow.start_span" /> context manager in conjunction with the decorator and auto tracing for OpenAI.
+
+```python
+import mlflow
+from mlflow.entities import SpanType
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def start_session():
+    messages = [{"role": "system", "content": "You are a friendly chat bot"}]
+    while True:
+        with mlflow.start_span(name="User") as span:
+            span.set_inputs(messages)
+            user_input = input(">> ")
+            span.set_outputs(user_input)
+
+        if user_input == "BYE":
+            break
+
+        messages.append({"role": "user", "content": user_input})
+
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=100,
+            messages=messages,
+        )
+        answer = response.choices[0].message.content
+        print(f"🤖: {answer}")
+
+        messages.append({"role": "assistant", "content": answer})
+
+mlflow.openai.autolog()
+start_session()
+```
+
+
+## (Advanced) Low-level Client APIs.
+
+
+* Parent-child relationship is NOT captured automatically. You need to pass the ID of the parent span manually.
+* Spans created from client API does not combine with auto-tracing spans.
+

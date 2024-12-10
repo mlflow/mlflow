@@ -1,0 +1,121 @@
+# Other APIs
+
+
+## Set Tags on Traces
+
+## Disabling Traces
+
+To **disable** tracing, the <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log
+any data to the MLflow Tracking service regarding traces.
+
+To **enable** tracing (if it had been temporarily disabled), the <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models
+that are invoked.
+
+
+## Data Model and Schema
+
+To explore the structure and schema of MLflow Tracing, please see the [Tracing Schema](./tracing-schema/) guide.
+
+## Trace Tags
+
+Tags can be added to traces to provide additional metadata at the trace level. For example, you can attach a session ID to a trace to group traces by a conversation session. MLflow provides APIs to set and delete tags on traces. Select the right API based on whether you want to set tags on an active trace or on an already finished trace.
+
+<table>
+  <thead>
+    <tr>
+      <th>
+        API / Method
+      </th>
+      <th>
+        Use Case
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <APILink fn="mlflow.update_current_trace" /> API.
+      </td>
+      <td>
+        Setting tags on an **active** trace during the code execution.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <APILink fn="mlflow.client.MlflowClient.set_trace_tag" /> API.
+      </td>
+      <td>
+        Programmatically setting tags on a finished trace.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        MLflow UI
+      </td>
+      <td>
+        Setting tags on a finished trace conveniently.
+      </td>
+    </tr>
+  </tbody>
+</table>
+      
+
+### Setting Tags on an Active Trace
+
+If you are using automatic tracing or fluent APIs to create traces and want to add tags to the trace during its execution, you can use the <APILink fn="mlflow.update_current_trace" /> function.
+
+For example, the following code example adds the `"fruit": "apple"` tag to the trace created for the `my_func` function:
+
+```python
+@mlflow.trace
+def my_func(x):
+    mlflow.update_current_trace(tags={"fruit": "apple"})
+    return x + 1
+```
+
+:::note
+
+The <APILink fn="mlflow.update_current_trace" /> function adds the specified tag(s) to the current trace when the key is not already present. If the key is already present, it updates the key with the new value.
+
+:::
+
+### Setting Tags on a Finished Trace
+
+To set tags on a trace that has already been completed and logged in the backend store, use the <APILink fn="mlflow.client.MlflowClient.set_trace_tag" /> method to set a tag on a trace, 
+and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag" /> method to remove a tag from a trace.
+
+```python
+# Set a tag on a trace
+client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
+
+# Delete a tag from a trace
+client.delete_trace_tag(request_id=request_id, key="tag_key")
+```
+
+### Setting Tags via the MLflow UI
+
+Alternatively, you can update or delete tags on a trace from the MLflow UI. To do this, navigate to the trace tab, then click on the pencil icon next to the tag you want to update.
+
+![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+
+
+## Delete Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces" /> method. This method allows you to delete traces by **experiment ID**,
+**maximum timestamp**, or **request IDs**.
+
+:::tip
+Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.
+:::
+
+```python
+import time
+
+# Get the current timestamp in milliseconds
+current_time = int(time.time() * 1000)
+
+# Delete traces older than a specific timestamp
+deleted_count = client.delete_traces(
+    experiment_id="1", max_timestamp_millis=current_time, max_traces=10
+)
+```
