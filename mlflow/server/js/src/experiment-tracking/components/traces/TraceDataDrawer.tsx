@@ -154,7 +154,7 @@ export const TraceDataDrawer = ({
       return (
         <div
           css={{
-            height: '100%',
+            height: `calc(100% - ${theme.spacing.sm}px)`,
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
             marginBottom: -theme.spacing.lg,
