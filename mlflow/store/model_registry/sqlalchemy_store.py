@@ -1,5 +1,6 @@
 import logging
 import urllib
+from typing import Optional
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -638,6 +639,7 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -651,6 +653,8 @@ class SqlAlchemyStore(AbstractStore):
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
             local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`

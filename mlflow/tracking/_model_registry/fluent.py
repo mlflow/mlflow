@@ -1,16 +1,18 @@
+import json
 from typing import Any, Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present, _parse_model_uri
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.logging_utils import eprint
 
 
@@ -75,7 +77,10 @@ def register_model(
         Version: 1
     """
     return _register_model(
-        model_uri=model_uri, name=name, await_registration_for=await_registration_for, tags=tags
+        model_uri=model_uri,
+        name=name,
+        await_registration_for=await_registration_for,
+        tags=tags,
     )
 
 
@@ -108,6 +113,7 @@ def _register_model(
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
 
+    parsed_model_uri = _parse_model_uri(model_uri)
     create_version_response = client._create_model_version(
         name=name,
         source=source,
@@ -115,11 +121,29 @@ def _register_model(
         tags=tags,
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
+        model_id=parsed_model_uri.model_id,
     )
     eprint(
         f"Created version '{create_version_response.version}' of model "
         f"'{create_version_response.name}'."
     )
+
+    if model_id := _parse_model_id_if_present(model_uri):
+        new_value = [
+            {
+                "name": create_version_response.name,
+                "version": create_version_response.version,
+            }
+        ]
+        model = client.get_logged_model(model_id)
+        if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+            new_value = json.loads(existing_value) + new_value
+
+        client.set_logged_model_tags(
+            model_id,
+            {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
+        )
+
     return create_version_response
 
 

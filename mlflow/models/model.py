@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.artifacts import download_artifacts
+from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
@@ -104,6 +105,7 @@ class ModelInfo:
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
+        logged_model: Optional[LoggedModel] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -118,6 +120,7 @@ class ModelInfo:
         self._metadata = metadata
         self._registered_model_version = registered_model_version
         self._env_vars = env_vars
+        self._logged_model = logged_model
 
     @property
     def artifact_path(self) -> str:
@@ -326,6 +329,58 @@ class ModelInfo:
     def registered_model_version(self, value) -> None:
         self._registered_model_version = value
 
+    @property
+    def model_id(self) -> str:
+        """
+        The model ID of the logged model.
+
+        :getter: Gets the model ID of the logged model
+        """
+        return self._logged_model.model_id
+
+    @property
+    def metrics(self) -> Optional[list[Metric]]:
+        """
+        Returns the metrics of the logged model.
+
+        :getter: Retrieves the metrics of the logged model
+        """
+        return self._logged_model.metrics
+
+    @property
+    def params(self) -> dict[str, str]:
+        """
+        Returns the parameters of the logged model.
+
+        :getter: Retrieves the parameters of the logged model
+        """
+        return self._logged_model.params
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Returns the tags of the logged model.
+
+        :getter: Retrieves the tags of the logged model
+        """
+        return self._logged_model.tags
+
+    @property
+    def creation_timestamp(self) -> int:
+        """
+        Returns the creation timestamp of the logged model.
+
+        :getter:  the creation timestamp of the logged model
+        """
+        return self._logged_model.creation_timestamp
+
+    @property
+    def name(self) -> str:
+        """
+        Returns the name of the logged model.
+        """
+        return self._logged_model.name
+
 
 class Model:
     """
@@ -347,6 +402,7 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        model_id: Optional[str] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -362,6 +418,7 @@ class Model:
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
+        self.model_id = model_id
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -574,7 +631,7 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
-    def get_model_info(self) -> ModelInfo:
+    def get_model_info(self, logged_model: Optional[LoggedModel] = None) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
@@ -582,7 +639,7 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri=f"runs:/{self.run_id}/{self.artifact_path}",
+            model_uri=f"models:/{self.model_id}",
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -592,6 +649,7 @@ class Model:
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
             env_vars=self.env_vars,
+            logged_model=logged_model,
         )
 
     def get_tags_dict(self) -> dict[str, Any]:
@@ -729,12 +787,18 @@ class Model:
     def log(
         cls,
         artifact_path,
+        name,
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         run_id=None,
         resources=None,
+        model_type: Optional[str] = None,
+        params: Optional[dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
+        step: int = 0,
+        model_id: Optional[str] = None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -742,7 +806,8 @@ class Model:
         active run.
 
         Args:
-            artifact_path: Run relative path identifying the model.
+            artifact_path: Deprecated. Use `name` instead.
+            name: The name of the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
                 MLflow model.
@@ -754,24 +819,106 @@ class Model:
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
             metadata: {{ metadata }}
-            run_id: The run ID to associate with this model. If not provided,
-                a new run will be started.
+            run_id: The run ID to associate with this model. If not provided, a new run will be
+                started.
             resources: {{ resources }}
+            model_type: {{ model_type }}
+            params: {{ params }}
+            tags: {{ tags }}
+            step: {{ step }}
+            model_id: {{ model_id }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
-        from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
+        if name is not None and artifact_path is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Both `artifact_path` (deprecated) and `name` parameters were specified. "
+                "Please only specify `name`."
+            )
+        elif artifact_path is not None:
+            _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
+
+        name = name or artifact_path
+
+        if (model_id, name).count(None) == 2:
+            raise MlflowException(
+                "Either `model_id` or `name` must be specified when logging a model. "
+                "Both are None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        def log_model_metrics_for_step(client, model_id, run_id, step):
+            metric_names = client.get_run(run_id).data.metrics.keys()
+            metrics_for_step = []
+            for metric_name in metric_names:
+                history = client.get_metric_history(run_id, metric_name)
+                metrics_for_step.extend(
+                    [
+                        Metric(
+                            key=metric.key,
+                            value=metric.value,
+                            timestamp=metric.timestamp,
+                            step=metric.step,
+                            dataset_name=metric.dataset_name,
+                            dataset_digest=metric.dataset_digest,
+                            run_id=metric.run_id,
+                            model_id=model_id,
+                        )
+                        for metric in history
+                        if metric.step == step and metric.model_id is None
+                    ]
+                )
+            client.log_batch(run_id=run_id, metrics=metrics_for_step)
 
         registered_model = None
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            if run_id is None:
-                run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+
+            tracking_uri = _resolve_tracking_uri()
+            client = mlflow.MlflowClient(tracking_uri)
+            active_run = mlflow.tracking.fluent.active_run()
+            if model_id is not None:
+                model = client.get_logged_model(model_id)
+            else:
+                params = {
+                    **(params or {}),
+                    **(
+                        client.get_run(active_run.info.run_id).data.params
+                        if active_run is not None
+                        else {}
+                    ),
+                }
+                model = client.create_logged_model(
+                    experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+                    # TODO: Update model name
+                    name=name,
+                    source_run_id=active_run.info.run_id if active_run is not None else None,
+                    model_type=model_type,
+                    params={key: str(value) for key, value in params.items()},
+                    tags={key: str(value) for key, value in tags.items()}
+                    if tags is not None
+                    else None,
+                )
+
+            if active_run is not None:
+                run_id = active_run.info.run_id
+                client.log_outputs(
+                    run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
+                )
+                log_model_metrics_for_step(
+                    client=client, model_id=model.model_id, run_id=run_id, step=step
+                )
+
             mlflow_model = cls(
-                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+                artifact_path=model.artifact_location,
+                model_uuid=model.model_id,
+                run_id=active_run.info.run_id if active_run is not None else None,
+                metadata=metadata,
+                resources=resources,
+                model_id=model.model_id,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -782,7 +929,6 @@ class Model:
             if is_in_databricks_runtime():
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
-            tracking_uri = _resolve_tracking_uri()
             serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
@@ -843,60 +989,63 @@ class Model:
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
             mlflow_model.env_vars = env_vars
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
+            client.log_model_artifacts(model.model_id, local_path)
+            client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
-            # if the model_config kwarg is passed in, then log the model config as an params
-            if model_config := kwargs.get("model_config"):
-                if isinstance(model_config, str):
-                    try:
-                        file_extension = os.path.splitext(model_config)[1].lower()
-                        if file_extension == ".json":
-                            with open(model_config) as f:
-                                model_config = json.load(f)
-                        elif file_extension in [".yaml", ".yml"]:
-                            model_config = _validate_and_get_model_config_from_file(model_config)
-                        else:
-                            _logger.warning(
-                                "Unsupported file format for model config: %s. "
-                                "Failed to load model config.",
-                                model_config,
-                            )
-                    except Exception as e:
-                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+            # # if the model_config kwarg is passed in, then log the model config as an params
+            # if model_config := kwargs.get("model_config"):
+            #     if isinstance(model_config, str):
+            #         try:
+            #             file_extension = os.path.splitext(model_config)[1].lower()
+            #             if file_extension == ".json":
+            #                 with open(model_config) as f:
+            #                     model_config = json.load(f)
+            #             elif file_extension in [".yaml", ".yml"]:
+            #                 model_config = _validate_and_get_model_config_from_file(model_config)
+            #             else:
+            #                 _logger.warning(
+            #                     "Unsupported file format for model config: %s. "
+            #                     "Failed to load model config.",
+            #                     model_config,
+            #                 )
+            #        except Exception as e:
+            #            _logger.warning(
+            #                "Failed to load model config from %s: %s", model_config, e
+            #            )
+            #
+            #     try:
+            #         from mlflow.models.utils import _flatten_nested_params
+            #
+            #         # We are using the `/` separator to flatten the nested params
+            #         # since we are using the same separator to log nested metrics.
+            #         params_to_log = _flatten_nested_params(model_config, sep="/")
+            #     except Exception as e:
+            #         _logger.warning("Failed to flatten nested params: %s", str(e))
+            #         params_to_log = model_config
+            #
+            #     try:
+            #         mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+            #     except Exception as e:
+            #         _logger.warning("Failed to log model config as params: %s", str(e))
+            #
+            # try:
+            #     mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
+            # except MlflowException:
+            #     # We need to swallow all mlflow exceptions to maintain backwards compatibility
+            #     # with older tracking servers. Only print out a warning for now.
+            #     _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
+            #     _logger.debug("", exc_info=True)
 
-                try:
-                    from mlflow.models.utils import _flatten_nested_params
-
-                    # We are using the `/` separator to flatten the nested params
-                    # since we are using the same separator to log nested metrics.
-                    params_to_log = _flatten_nested_params(model_config, sep="/")
-                except Exception as e:
-                    _logger.warning("Failed to flatten nested params: %s", str(e))
-                    params_to_log = model_config
-
-                try:
-                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-                except Exception as e:
-                    _logger.warning("Failed to log model config as params: %s", str(e))
-
-            try:
-                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
-            except MlflowException:
-                # We need to swallow all mlflow exceptions to maintain backwards compatibility with
-                # older tracking servers. Only print out a warning for now.
-                _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
-                _logger.debug("", exc_info=True)
-
-            if registered_model_name is not None:
-                registered_model = mlflow.tracking._model_registry.fluent._register_model(
-                    f"runs:/{run_id}/{mlflow_model.artifact_path}",
-                    registered_model_name,
-                    await_registration_for=await_registration_for,
-                    local_model_path=local_path,
-                )
-            model_info = mlflow_model.get_model_info()
-            if registered_model is not None:
-                model_info.registered_model_version = registered_model.version
+        if registered_model_name is not None:
+            registered_model = mlflow.tracking._model_registry.fluent._register_model(
+                f"models:/{model.model_id}",
+                registered_model_name,
+                await_registration_for=await_registration_for,
+                local_model_path=local_path,
+            )
+        model_info = mlflow_model.get_model_info(model)
+        if registered_model is not None:
+            model_info.registered_model_version = registered_model.version
 
         return model_info
 

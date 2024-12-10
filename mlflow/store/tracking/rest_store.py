@@ -1,22 +1,40 @@
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
+    Metric,
+    Run,
+    RunInfo,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
@@ -24,14 +42,17 @@ from mlflow.protos.service_pb2 import (
     LogInputs,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     MlflowService,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
@@ -48,6 +69,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
     get_trace_info_endpoint,
@@ -71,7 +93,7 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body, endpoint=None):
+    def _call_endpoint(self, api, json_body=None, endpoint=None):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -386,7 +408,7 @@ class RestStore(AbstractStore):
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
 
-    def log_metric(self, run_id, metric):
+    def log_metric(self, run_id: str, metric: Metric):
         """
         Log a metric for the specified run
 
@@ -402,6 +424,9 @@ class RestStore(AbstractStore):
                 value=metric.value,
                 timestamp=metric.timestamp,
                 step=metric.step,
+                model_id=metric.model_id,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
             )
         )
         self._call_endpoint(LogMetric, req_body)
@@ -544,7 +569,165 @@ class RestStore(AbstractStore):
         )
         self._call_endpoint(LogModel, req_body)
 
-    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        req_body = message_to_json(
+            CreateLoggedModel(
+                experiment_id=experiment_id,
+                name=name,
+                model_type=model_type,
+                source_run_id=source_run_id,
+                params=[p.to_proto() for p in params or []],
+                tags=[t.to_proto() for t in tags or []],
+            )
+        )
+        response_proto = self._call_endpoint(CreateLoggedModel, req_body)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+        req_body = message_to_json(
+            SearchLoggedModels(
+                experiment_ids=experiment_ids,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=[
+                    SearchLoggedModels.OrderBy(
+                        field_name=d["field_name"],
+                        ascending=d.get("ascending", True),
+                        dataset_name=d.get("dataset_name"),
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in order_by or []
+                ],
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(SearchLoggedModels, req_body)
+        models = [LoggedModel.from_proto(x) for x in response_proto.models]
+        return PagedList(models, response_proto.next_page_token)
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
+        )
+        return self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            SetLoggedModelTags(model_id=model_id, tags=[tag.to_proto() for tag in tags])
+        )
+        self._call_endpoint(SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags")
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+
+        Returns:
+            The model with the specified tag removed.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
+
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -552,10 +735,33 @@ class RestStore(AbstractStore):
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Returns:
             None.
         """
-        datasets_protos = [dataset.to_proto() for dataset in datasets]
-        req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
+        datasets_protos = [dataset.to_proto() for dataset in datasets or []]
+        models_protos = [model.to_proto() for model in models or []]
+        req_body = message_to_json(
+            LogInputs(
+                run_id=run_id,
+                datasets=datasets_protos,
+                models=models_protos,
+            )
+        )
         self._call_endpoint(LogInputs, req_body)
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
+        self._call_endpoint(LogOutputs, req_body)
