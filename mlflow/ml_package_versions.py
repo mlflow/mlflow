@@ -83,11 +83,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "lightgbm"
         },
         "models": {
-            "minimum": "3.1.1",
+            "minimum": "3.3.5",
             "maximum": "4.5.0"
         },
         "autologging": {
-            "minimum": "3.1.1",
+            "minimum": "3.3.5",
             "maximum": "4.5.0"
         }
     },
