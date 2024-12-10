@@ -17,7 +17,7 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
-from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -521,12 +521,24 @@ def autologging_is_disabled(integration_name):
     return False
 
 
+def is_autolog_supported(integration_name: str) -> bool:
+    """
+    Whether the specified autologging integration is supported by the current environment.
+
+    Args:
+        integration_name: An autologging integration flavor name.
+    """
+    # NB: We don't check for the presence of autolog() function as it requires importing
+    #   the flavor module, which may cause import error or overhead.
+    return "autologging" in _ML_PACKAGE_VERSIONS.get(integration_name, {})
+
+
 def get_autolog_function(integration_name: str) -> Optional[Callable[..., Any]]:
     """
     Get the autolog() function for the specified integration.
     Returns None if the flavor does not have an autolog() function.
     """
-    flavor_module = getattr(mlflow, integration_name, None)
+    flavor_module = importlib.import_module(f"mlflow.{integration_name}")
     return getattr(flavor_module, "autolog", None)
 
 

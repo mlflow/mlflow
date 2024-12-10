@@ -167,6 +167,11 @@ def register_post_import_hook(hook, name, overwrite=True):
     register_generic_import_hook(hook, name, _post_import_hooks, overwrite)
 
 
+@synchronized(_post_import_hooks_lock)
+def get_post_import_hooks(name):
+    return _post_import_hooks.get(name)
+
+
 # Register post import hooks defined as package entry points.
 
 
