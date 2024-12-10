@@ -10,6 +10,7 @@ Usage
 import functools
 import importlib
 import logging
+import os
 import re
 import uuid
 from typing import Any, Callable, Optional, Union
@@ -82,7 +83,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
-from mlflow.server import app
+from mlflow.server import FLASK_SERVER_SECRET_KEY, app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
@@ -946,9 +947,7 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    if not app.config["SECRET_KEY"]:
-        app.config["SECRET_KEY"] = str(uuid.uuid4())
-    app.secret_key = app.config["SECRET_KEY"]
+    app.secret_key = os.environ[FLASK_SERVER_SECRET_KEY] or str(uuid.uuid4())
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
