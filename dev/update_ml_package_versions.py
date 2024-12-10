@@ -38,6 +38,12 @@ def uploaded_recently(dist) -> bool:
     return False
 
 
+def is_older_than_two_years(dist) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days > 2 * 365
+    return False
+
+
 def get_package_versions(package_name):
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
@@ -63,12 +69,19 @@ def get_package_versions(package_name):
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
             and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(is_older_than_two_years(dist) for dist in dist_files)
         )
     ]
 
 
-def get_latest_version(candidates):
-    return sorted(candidates, key=Version, reverse=True)[0]
+def get_min_and_max(candidates):
+    sorted_candidates = sorted(candidates, key=Version, reverse=True)
+    if len(sorted_candidates) == 0:
+        return (None, None)
+    if len(sorted_candidates) == 1:
+        return (sorted_candidates[0], sorted_candidates[0])
+
+    return (sorted_candidates[-1], sorted_candidates[0])
 
 
 def update_max_version(src, key, new_max_version, category):
@@ -102,6 +115,49 @@ def update_max_version(src, key, new_max_version, category):
         maximum: "1.2.1"
     """
     pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(
+        key=re.escape(key), category=category
+    )
+    # Matches the following pattern:
+    #
+    # <key>:
+    #   ...
+    #   <category>:
+    #     ...
+    #     maximum: "1.2.3"
+    return re.sub(pattern, rf'\g<1>"{new_max_version}"', src, flags=re.DOTALL)
+
+
+def update_min_version(src, key, new_max_version, category):
+    """
+    Examples
+    ========
+    >>> src = '''
+    ... sklearn:
+    ...   ...
+    ...   models:
+    ...     minimum: "0.0.0"
+    ...     maximum: "0.0.0"
+    ... xgboost:
+    ...   ...
+    ...   autologging:
+    ...     minimum: "1.1.1"
+    ...     maximum: "1.1.1"
+    ... '''.strip()
+    >>> new_src = update_max_version(src, "sklearn", "0.1.0", "models")
+    >>> new_src = update_max_version(new_src, "xgboost", "1.2.1", "autologging")
+    >>> print(new_src)
+    sklearn:
+      ...
+      models:
+        minimum: "0.0.0"
+        maximum: "0.1.0"
+    xgboost:
+      ...
+      autologging:
+        minimum: "1.1.1"
+        maximum: "1.2.1"
+    """
+    pattern = r"((^|\n){key}:.+?{category}:.+?minimum: )\".+?\"".format(
         key=re.escape(key), category=category
     )
     # Matches the following pattern:
@@ -222,15 +278,17 @@ def update(skip_yml=False):
 
                 package_name = config["package_info"]["pip_release"]
                 max_ver = config[category]["maximum"]
+                min_ver = config[category]["minimum"]
                 versions = get_package_versions(package_name)
                 unsupported = config[category].get("unsupported", [])
                 versions = set(versions).difference(unsupported)  # exclude unsupported versions
-                latest_version = get_latest_version(versions)
+                min_version, max_version = get_min_and_max(versions)
 
-                if Version(latest_version) <= Version(max_ver):
-                    continue
+                if max_version and Version(max_ver) >= Version(max_version):
+                    new_src = update_max_version(new_src, flavor_key, max_version, category)
 
-                new_src = update_max_version(new_src, flavor_key, latest_version, category)
+                if min_version and Version(min_ver) < Version(min_version):
+                    new_src = update_min_version(new_src, flavor_key, min_version, category)
 
         save_file(new_src, yml_path)
 
