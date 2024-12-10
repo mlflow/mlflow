@@ -74,7 +74,7 @@ The code above creates the following traces:
    * - Evening Experiment
      - ``goodbye``
      - ``N/A``
-     - ``Fail``
+     - ``ERROR``
 
 Then, you can search traces by `experiment_ids` using either :py:func:`mlflow.search_traces` or 
 :py:meth:`mlflow.client.MlflowClient.search_traces`.
@@ -97,8 +97,8 @@ Then, you can search traces by `experiment_ids` using either :py:func:`mlflow.se
     mlflow.search_traces(experiment_ids=[morning_experiment.experiment_id])
     # Returns Trace #1
 
-Search Traces with `filter_string`
-----------------------------------
+Search Traces with **filter_string**
+------------------------------------
 
 The ``filter_string`` argument provides a flexible way to query traces using a **Domain-Specific Language (DSL)**, 
 which is inspired by SQL. The DSL supports various attributes and allows for combining multiple conditions.
@@ -158,7 +158,7 @@ Search for traces by their status:
 Combine Multiple Conditions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `filter_string`` DSL allows you to combine multiple filters together by using ``AND`` :
+The `filter_string` DSL allows you to combine multiple filters together by using ``AND``.
 
 .. code-block:: python
 
@@ -207,3 +207,22 @@ Output:
 
         request_id                              ...     morning_greeting.inputs        morning_greeting.outputs
     0   053adf2f5f5e4ad68d432e06e254c8a4        ...     {'name': 'Tom'}                'Good morning Tom.'
+
+Lastly, you can convert the pandas DataFrame to the MLflow LLM evaluation dataset format and evaluate your language model.
+
+.. code-block:: python
+    
+    import pandas as pd
+
+    eval_data = traces.rename(
+        columns={
+            "morning_greeting.inputs": "inputs",
+            "morning_greeting.outputs": "ground_truth",
+        }
+    )
+    results = mlflow.evaluate(
+        model,
+        eval_data,
+        targets="ground_truth",
+        model_type="question-answering",
+    )

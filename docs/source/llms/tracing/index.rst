@@ -1034,7 +1034,7 @@ Searching and Retrieving Traces
 -------------------------------
 
 You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method or the fluent API :py:func:`mlflow.search_traces`. 
-See `Searching and Retrieving Traces <./index.html>`_ for the usages of these APIs.
+See `Searching and Retrieving Traces <./search-traces.html>`_ for the usages of these APIs.
 
 
 Deleting Traces
