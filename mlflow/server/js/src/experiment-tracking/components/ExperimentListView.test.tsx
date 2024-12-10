@@ -15,9 +15,7 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
-import { RenameExperimentModal } from './modals/RenameExperimentModal';
-import { CreateExperimentModal } from './modals/CreateExperimentModal';
+import { createExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // Make the autosizer render items.
@@ -41,17 +39,26 @@ afterAll(() => {
   jest.restoreAllMocks();
 });
 
-// Need to mock this since the hoc doesn't pick up theme
-const designSystemThemeApi = {
-  theme: {
-    colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
-    general: { iconSize: 24 },
-    spacing: { xs: 4 },
+const defaultProps = {
+  // Need to mock this since the hoc doesn't pick up theme
+  designSystemThemeApi: {
+    theme: {
+      colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
+      general: { iconSize: 24 },
+      spacing: { xs: 4 },
+    },
   },
+  history: [],
+  uiState: createExperimentPageUIState(),
+  navigate: () => {},
 };
 
-const mountComponent = (props: any) => {
+const mountComponent = (addedProps: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
+  const props = { ...defaultProps, ...addedProps };
+  props.setUIState = (setState: (state: Record<string, unknown>) => Record<string, unknown>) => {
+    props.uiState = setState(props.uiState);
+  };
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider
@@ -62,7 +69,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
+          <ExperimentListView {...props} />,
         </BrowserRouter>
         ,
       </Provider>
