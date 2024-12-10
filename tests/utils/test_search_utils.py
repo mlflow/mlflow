@@ -97,7 +97,7 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             "attribute.start_time >= 1234",
-            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": 1234}],
         ),
         (
             "run.status = 'RUNNING'",
