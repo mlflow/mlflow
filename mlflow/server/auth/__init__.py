@@ -947,7 +947,7 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    app.secret_key = os.environ[FLASK_SERVER_SECRET_KEY] or str(uuid.uuid4())
+    app.secret_key = os.environ.get(FLASK_SERVER_SECRET_KEY, str(uuid.uuid4()))
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
