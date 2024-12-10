@@ -83,6 +83,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         Split 'models:/<name>@alias/path/to/model' into
         ('models:/<name>@alias', 'path/to/model').
         """
+        uri = uri.rstrip("/")
         path = urllib.parse.urlparse(uri).path
         if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)

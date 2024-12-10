@@ -255,9 +255,11 @@ def test_models_artifact_repo_does_not_add_meta_for_directory_without_mlmodel(tm
     ("model_uri", "expected_uri", "expected_path"),
     [
         ("models:/model/1", "models:/model/1", ""),
+        ("models:/model/1/", "models:/model/1", ""),
         ("models:/model/1/path", "models:/model/1", "path"),
         ("models:/model/1/path/to/artifact", "models:/model/1", "path/to/artifact"),
         ("models:/model@alias", "models:/model@alias", ""),
+        ("models:/model@alias/", "models:/model@alias", ""),
         ("models:/model@alias/path", "models:/model@alias", "path"),
         ("models:/model@alias/path/to/artifact", "models:/model@alias", "path/to/artifact"),
     ],
