@@ -1861,6 +1861,10 @@ class MlflowClient:
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+
+        # Stringify the values of the params
+        params = [Param(key=param.key, value=str(param.value)) for param in params]
+
         return self._tracking_client.log_batch(
             run_id, metrics, params, tags, synchronous=synchronous
         )
