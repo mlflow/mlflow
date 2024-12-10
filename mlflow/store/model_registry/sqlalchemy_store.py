@@ -20,6 +20,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -202,12 +203,22 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         query_options = cls._get_eager_registered_model_query_options() if eager else []
-        rms = (
-            session.query(SqlRegisteredModel)
-            .options(*query_options)
-            .filter(SqlRegisteredModel.name == name)
-            .all()
-        )
+        if session.bind.dialect.name == MYSQL:
+            rms = (
+                session.query(SqlRegisteredModel)
+                .options(*query_options)
+                .filter(
+                    sqlalchemy.func.binary(SqlRegisteredModel.name) == sqlalchemy.func.binary(name)
+                )
+                .all()
+            )
+        else:
+            rms = (
+                session.query(SqlRegisteredModel)
+                .options(*query_options)
+                .filter(SqlRegisteredModel.name == name)
+                .all()
+            )
 
         if len(rms) == 0:
             raise MlflowException(
