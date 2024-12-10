@@ -148,7 +148,7 @@ print(response.json())
 The JSON input can also include an optional `params` field for passing additional parameters.
 Valid parameter types are `Union[DataType, List[DataType], None]`, where DataType
 is <APILink fn="mlflow.types.DataType">`MLflow data types`</APILink>. To pass parameters,
-a valid [Model Signature](/model/signatures#id1) with `params` must be defined.
+a valid [Model Signature](/model/signatures#model-signature) with `params` must be defined.
 
 ```bash
 curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
