@@ -281,15 +281,13 @@ def _root_mean_squared_error(*, y_true, y_pred, sample_weight):
     except ImportError:
         # If root_mean_squared_error is unavailable, fall back to
         # `mean_squared_error(..., squared=False)`, which is deprecated in scikit-learn >= 1.4.
-        pass
+        from sklearn.metrics import mean_squared_error
+
+        return mean_squared_error(
+            y_true=y_true, y_pred=y_pred, sample_weight=sample_weight, squared=False
+        )
     else:
         return root_mean_squared_error(y_true=y_true, y_pred=y_pred, sample_weight=sample_weight)
-
-    from sklearn.metrics import mean_squared_error
-
-    return mean_squared_error(
-        y_true=y_true, y_pred=y_pred, sample_weight=sample_weight, squared=False
-    )
 
 
 def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
