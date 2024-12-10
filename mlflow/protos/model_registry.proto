@@ -355,6 +355,9 @@ message ModelVersion {
 
   // Aliases pointing to this ``model_version``.
   repeated string aliases = 14;
+
+  // Optional `model_id` for model version that is used to link the registered model to the source logged model
+  optional string model_id = 15;
 }
 
 message CreateRegisteredModel {
@@ -489,6 +492,9 @@ message CreateModelVersion {
 
   // Optional description for model version.
   optional string description = 6;
+
+    // Optional `model_id` for model version that is used to link the registered model to the source logged model
+  optional string model_id = 7;
 
   message Response {
     // Return new version number generated for this model in registry.
