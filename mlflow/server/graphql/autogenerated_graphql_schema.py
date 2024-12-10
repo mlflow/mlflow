@@ -47,6 +47,7 @@ class MlflowModelVersion(graphene.ObjectType):
     tags = graphene.List(graphene.NonNull(MlflowModelVersionTag))
     run_link = graphene.String()
     aliases = graphene.List(graphene.String)
+    model_id = graphene.String()
 
 
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
