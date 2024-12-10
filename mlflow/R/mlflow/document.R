@@ -25,12 +25,12 @@ markdown_fixed <- markdown_fixed[1:last_section - 1]
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
 # Clear Sphinx docs and tree to correctly generate sections
-if (dir.exists("../../../docs/build")) {
-  unlink("../../../docs/build", recursive = TRUE)
+if (dir.exists("../../../docs/api_reference/build")) {
+  unlink("../../../docs/api_reference/build", recursive = TRUE)
 }
 
 # Generate reStructuredText documentation
-rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/source/R-api.rst")
+rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/api_reference/source/R-api.rst")
 
 # Add R API header to RST docs
 rst_header <- ".. _R-api:
@@ -73,10 +73,10 @@ You can use the R API to start the `user interface <mlflow_ui_>`_, `create exper
     :local:
     :depth: 1
 "
-rst_doc <- readLines("../../../docs/source/R-api.rst")
+rst_doc <- readLines("../../../docs/api_reference/source/R-api.rst")
 # Convert non-breaking spaces inserted by pandoc to regular spaces
 rst_doc <- gsub("\302\240", " ", rst_doc)
 rst_doc <- c(rst_header, rst_doc)
-writeLines(rst_doc, "../../../docs/source/R-api.rst")
+writeLines(rst_doc, "../../../docs/api_reference/source/R-api.rst")
 
 # Generate docs by using an mlflow virtualenv and running `make` from `mlflow/docs`

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="19px" height="16px" viewBox="0 0 19 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 40 (33762) - http://www.bohemiancoding.com/sketch -->
+    <title>house</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="1" transform="translate(-11.000000, -237.000000)" stroke-width="1.5" stroke="#0193E1">
+            <g id="leftnav" transform="translate(0.000000, 74.000000)">
+                <g id="house" transform="translate(12.000000, 164.000000)">
+                    <g id="Group-5">
+                        <polyline id="Stroke-1" points="3 4.10584211 3 13.9431579 14 13.9431579 14 4.10584211"></polyline>
+                        <polyline id="Stroke-3" points="17 6.71168421 8.5004837 0.5 0 6.71168421"></polyline>
+                    </g>
+                    <path d="M8.75,13.5 L8.75,10.5" id="Line" stroke-linecap="square"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
