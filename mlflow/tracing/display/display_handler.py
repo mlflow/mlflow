@@ -2,7 +2,6 @@ import json
 import logging
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urljoin
-import uuid
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
@@ -18,11 +17,28 @@ if TYPE_CHECKING:
 TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.html"
 
 IFRAME_HTML = """
-<iframe
-  id="trace-renderer"
-  style="width: 100%; height: 500px; border: none; resize: vertical;"
-  src="{src}"
-/>
+<div>
+  <button
+    onclick="const display = this.nextElementSibling.style.display;
+const isCollapsed = display === 'none';
+this.nextElementSibling.style.display = isCollapsed ? null : 'none';
+const verb = isCollapsed ? 'Collapse' : 'Expand';
+this.innerText = `${{verb}} Mlflow Trace UI`;"
+  style="border: 1px solid;
+border-color: var(--jp-border-color0, grey);
+background-color: var(--neutral-layer-1, white);
+color: var(--jp-content-font-color1, black);
+margin-top: 8px;
+margin-bottom: 8px;
+padding: 4px 8px;"
+  >Collapse MLflow Trace UI</button>
+  <iframe
+    id="trace-renderer"
+    onerror="this.style.display = 'none'"
+    style="width: 100%; height: 500px; border: none; resize: vertical;"
+    src="{src}"
+  />
+</div>
 """
 
 
@@ -47,7 +63,13 @@ def _serialize_trace_list(traces: list["Trace"]):
 
 
 def _get_query_string_for_traces(traces: list["Trace"]):
-    return urlencode([("trace_id", trace.info.request_id) for trace in traces])
+    query_params = []
+
+    for trace in traces:
+        query_params.append(("trace_id", trace.info.request_id))
+        query_params.append(("experiment_id", trace.info.experiment_id))
+
+    return urlencode(query_params)
 
 
 def is_using_tracking_server():
