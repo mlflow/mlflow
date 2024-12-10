@@ -69,14 +69,14 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     new_config |= {"log_traces": True, "silent": True}
                     _kwargs_safe_invoke(autolog, new_config)
 
-                    global _IS_TRACE_MESSAGE_DISPLAYED
-                    if not _IS_TRACE_MESSAGE_DISPLAYED:
+                    global _SHOWN_TRACE_MESSAGE_BEFORE
+                    if not _SHOWN_TRACE_MESSAGE_BEFORE:
                         _logger.info(
                             "Auto tracing is temporarily enabled during the model evaluation "
                             "for computing some metrics and debugging. To disable tracing, call "
                             "`mlflow.autolog(disable=True)`."
                         )
-                        _IS_TRACE_MESSAGE_DISPLAYED = True
+                        _SHOWN_TRACE_MESSAGE_BEFORE = True
                 else:
                     autolog(disable=True)
 
