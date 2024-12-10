@@ -574,7 +574,7 @@ The Python API is available since MLflow 2.10.0. If you are using an older versi
 
     mlflow.models.predict(
         model_uri="runs:/<run_id>/model",
-        input_data=<input_data>,
+        input_data="<input_data>",
     )
     ```
 
@@ -677,7 +677,7 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 
     mlflow.models.predict(
         model_uri="runs:/<run_id>/<model_path>",
-        input_data=<input_data>,
+        input_data="<input_data>",
         pip_requirements_override=["opencv-python==4.8.0"],
     )
     ```
