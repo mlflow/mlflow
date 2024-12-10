@@ -2937,7 +2937,7 @@ def save_model(
                         for k, v in input_example.items()
                         if k != "messages" and k in ChatParams.keys()
                     }
-                if valid_params:
+                if valid_params or input_params:
                     _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
                 input_example = {
                     "messages": [m.to_dict() for m in messages],
