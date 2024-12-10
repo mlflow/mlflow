@@ -445,7 +445,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[list[Resource], str]] =None,
+    resources: Optional[Union[list[Resource], str]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,

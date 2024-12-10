@@ -72,7 +72,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         status_message=uc_proto.status_message,
         aliases=[alias.alias for alias in (uc_proto.aliases or [])],
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
-        model_id = uc_proto.status_message,
+        model_id=uc_proto.status_message,
     )
 
 
