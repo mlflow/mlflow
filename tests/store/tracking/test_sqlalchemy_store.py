@@ -492,6 +492,7 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         store.DEFAULT_EXPERIMENT_ID,
     ]
 
+    # To avoid that the creation_time equals `now`, we wait one additional milisecond.
     time.sleep(0.001)
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time >= {now}")
@@ -1307,12 +1308,10 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(
-        MlflowException,
-        match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters",
+        MlflowException, match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters"
     ):
         store.set_tag(
-            run.info.run_id,
-            entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)),
+            run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
         )
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
