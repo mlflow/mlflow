@@ -1690,7 +1690,6 @@ def test_binary_classification_missing_minority_class_exception_override(
             assert eval_val == saved_val
 
 
-
 def test_multiclass_classification_missing_minority_class_exception_override(
     multiclass_logistic_regressor_model_uri, iris_dataset, monkeypatch
 ):
