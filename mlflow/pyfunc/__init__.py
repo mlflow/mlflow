@@ -433,7 +433,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.dependencies_schemas import clear_dependencies_schemas, get_dependencies_schemas
+from mlflow.models.dependencies_schemas import (
+    _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
+    _get_dependencies_schemas,
+)
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import (
     _DATABRICKS_FS_LOADER_MODULE,
@@ -839,15 +843,14 @@ class PyFuncModel:
 
     def _updated_context_with_model_info(self) -> Context:
         """
-        Attach the model info to the prediction context.
+        Propagate the dependencies schemas from the model metadata to the prediction context.
         If the context is already set, update it, otherwise create a new one.
         E.g., In Databricks model serving, the prediction context is set upstream with a request_id.
         """
         context = get_prediction_context() or Context()
 
-        # Attach the model info to the prediction context
-        if context.model_info is None:
-            context.model_info = self._model_meta.get_model_info()
+        if context.dependencies_schemas is None:
+            context.dependencies_schemas = _get_dependencies_schema_from_model(self._model_meta)
 
         return context
 
@@ -1074,8 +1077,7 @@ def load_model(
     finally:
         # clean up the dependencies schema which is set to global state after loading the model.
         # This avoids the schema being used by other models loaded in the same process.
-        clear_dependencies_schemas()
-
+        _clear_dependencies_schemas()
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
@@ -2979,11 +2981,12 @@ def save_model(
     if saved_example is None:
         saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
-    if dependencies_schemas := get_dependencies_schemas():
-        mlflow_model.set_dependencies_schema(dependencies_schemas)
-        # Dependency schemas are set to the global context during the model loading.
-        # Clear them after saving it to the model metadata.
-        clear_dependencies_schemas()
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     if resources is not None:
         if isinstance(resources, (Path, str)):

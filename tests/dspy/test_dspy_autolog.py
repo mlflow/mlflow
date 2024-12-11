@@ -14,7 +14,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.models.dependencies_schemas import DependenciesSchemasType, clear_dependencies_schemas
+from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 
 from tests.tracing.helper import get_traces
 
@@ -395,7 +395,7 @@ def test_autolog_set_retriever_schema():
         model_info = mlflow.dspy.log_model(CoT(), "model")
 
     # Reset retriever schema
-    clear_dependencies_schemas()
+    _clear_retriever_schema()
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     loaded_model.predict({"question": "What is 2 + 2?"})

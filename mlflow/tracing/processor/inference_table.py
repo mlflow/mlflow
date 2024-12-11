@@ -9,11 +9,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
-    SpanAttributeKey,
-)
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
@@ -78,9 +74,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {}
         if dependencies_schema := maybe_get_dependencies_schemas():
-            # NB: This adds tags like {"retrievers": '[...]'}", not using the reserved "mlflow."
-            # prefix, which is not ideal but we cannot change as Databricks already depends on it.
-            tags.update({k: json.dumps(v) for k, v in dependencies_schema.items()})
+            tags.update(dependencies_schema)
 
         if span._parent is None:
             trace_info = TraceInfo(

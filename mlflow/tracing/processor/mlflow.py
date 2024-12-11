@@ -133,9 +133,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if request_id := maybe_get_request_id(is_evaluate=True):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if dependencies_schema := maybe_get_dependencies_schemas():
-            # NB: This adds tags like {"retrievers": '[...]'}", not using the reserved "mlflow."
-            # prefix, which is not ideal but we cannot change as Databricks already depends on it.
-            tags.update({k: json.dumps(v) for k, v in dependencies_schema.items()})
+            tags.update(dependencies_schema)
         tags.update({TraceTagKey.TRACE_NAME: span.name})
 
         return self._client._start_tracked_trace(

@@ -44,7 +44,10 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
-from mlflow.models.dependencies_schemas import clear_dependencies_schemas, get_dependencies_schemas
+from mlflow.models.dependencies_schemas import (
+    _clear_dependencies_schemas,
+    _get_dependencies_schemas,
+)
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -324,11 +327,12 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    if dependencies_schemas := get_dependencies_schemas():
-        mlflow_model.set_dependencies_schema(dependencies_schemas)
-        # Dependency schemas are set to the global context during the model loading.
-        # Clear them after saving it to the model metadata.
-        clear_dependencies_schemas()
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     if streamable is None:
         streamable = hasattr(lc_model, "stream")
@@ -849,7 +853,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         finally:
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
-            clear_dependencies_schemas()
+            _clear_dependencies_schemas()
         return model
     else:
         return _load_model(local_model_path, flavor_conf)

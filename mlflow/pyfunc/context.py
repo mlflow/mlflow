@@ -3,8 +3,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Optional
 
-from mlflow.models.model import Model
-
 # A thread local variable to store the context of the current prediction request.
 # This is particularly used to associate logs/traces with a specific prediction request in the
 # caller side. The context variable is intended to be set by the called before invoking the
@@ -26,10 +24,8 @@ class Context:
     request_id: Optional[str] = None
     # Whether the current prediction request is as a part of MLflow model evaluation.
     is_evaluate: bool = False
-    # The metadata of the model being used for the current prediction request. This is
-    # useful for propagating model-specific information without explicitly passing the model
-    # object around, e.g., dependencies schemas.
-    model_info: Optional[Model] = None
+    # The schema of the dependencies to be added into the tag of trace info.
+    dependencies_schemas: Optional[dict] = None
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
