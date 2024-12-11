@@ -8,7 +8,7 @@ sidebar_position: 2
   ![MLflow Tracing](/images/llms/tracing/tracing-top.gif)
 </div>
 
-A good companion to the explanations in this guide is the [Tracing Schema](./tracing-schema) guide which will show how MLflow Tracing constructs the
+A good companion to the explanations in this guide is the [Tracing Schema](/llms/tracing/tracing-schema) guide which will show how MLflow Tracing constructs the
 concepts discussed here.
 
 ## What is tracing?
@@ -24,8 +24,7 @@ In traditional ML, the inference process is relatively straightforward. When a r
 The diagram below illustrates the relationship between the input data, the model serving interface, and the model itself.
 
 <div class="center-div" style={{ width: "40%" }}>
-  ![Traditional ML Inference
-  Architecture](/images/llms/tracing/tracing-traditional-ml.png)
+  ![Traditional ML Inference Architecture](/images/llms/tracing/tracing-traditional-ml.png)
 </div>
 
 This process is wholly visible, meaning both the input and output are clearly defined and understandable to the end-user. For example, in a spam detection model, the input is an email,
@@ -78,8 +77,7 @@ submitted to the GenAI model.
 As an example, the illustration below shows the nature of a ChatCompletions interface used for connecting a model, hosted in a deployment server, to an external GenAI service.
 
 <div class="center-div" style={{ width: "60%" }}>
-  ![GenAI ChatCompletions
-  Architecture](/images/llms/tracing/chat-completions-architecture.png)
+  ![GenAI ChatCompletions Architecture](/images/llms/tracing/chat-completions-architecture.png)
 </div>
 
 Additional metadata surrounding the inference process is useful for various reasons, including billing, performance evaluation, relevance, evaluation of hallucinations, and general debugging. Key metadata includes:
@@ -127,4 +125,4 @@ steps presents an entirely different challenge that would require the configurat
 
 ## Getting Started with Tracing in MLflow
 
-To learn how to utilize tracing in MLflow, see the [MLflow Tracing Guide](./).
+To learn how to utilize tracing in MLflow, see the [MLflow Tracing Guide](/llms/tracing).
