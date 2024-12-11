@@ -12,7 +12,7 @@ const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
   params.reduce((result, entity) => ({ ...result, [entity.key]: entity }), {} as Record<string, T>);
 
 /**
- * Escapes a string for safe inclusion in a CSV fil to prevent CSV injection attacks.
+ * Escapes a string for safe inclusion in a CSV file to prevent CSV injection attacks.
  * See https://owasp.org/www-community/attacks/CSV_Injection for more information.
  */
 const csvEscape = (str: string | undefined) => {
