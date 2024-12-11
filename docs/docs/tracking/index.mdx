@@ -40,7 +40,7 @@ data science code, for example, a single `python train.py` execution. Each run r
 ### Experiments
 
 An experiment groups together runs for a specific task. You can create an experiment using the CLI, API, or UI.
-The MLflow API and UI also let you create and search for experiments. See [Organizing Runs into Experiments](tracking-api#organizing-runs-in-experiments)
+The MLflow API and UI also let you create and search for experiments. See [Organizing Runs into Experiments](/tracking/tracking-api#organizing-runs-in-experiments)
 for more details on how to organize your runs into experiments.
 
 ### Tracing
@@ -51,9 +51,9 @@ debugging, or analysis. See the [MLflow Tracing Guide](/llms/tracing) for more d
 
 ## Tracking Runs \{#start-logging}
 
-[MLflow Tracking APIs](tracking-api) provide a set of functions to track your runs. For example, you can call <APILink fn="mlflow.start_run" /> to start a new run,
-then call [Logging Functions](tracking-api#tracking_logging_functions) such as <APILink fn="mlflow.log_param" /> and <APILink fn="mlflow.log_metric" /> to log a parameters and metrics respectively.
-Please visit the [Tracking API documentation](tracking-api) for more details about using these APIs.
+[MLflow Tracking APIs](/tracking/tracking-api) provide a set of functions to track your runs. For example, you can call <APILink fn="mlflow.start_run" /> to start a new run,
+then call [Logging Functions](/tracking/tracking-api#tracking_logging_functions) such as <APILink fn="mlflow.log_param" /> and <APILink fn="mlflow.log_metric" /> to log a parameters and metrics respectively.
+Please visit the [Tracking API documentation](/tracking/tracking-api) for more details about using these APIs.
 
 ```python
 import mlflow
@@ -65,11 +65,11 @@ with mlflow.start_run():
     mlflow.log_metric("val_loss", val_loss)
 ```
 
-Alternatively, [Auto-logging](autolog) offers the ultra-quick setup for starting MLflow tracking.
+Alternatively, [Auto-logging](/tracking/autolog) offers the ultra-quick setup for starting MLflow tracking.
 This powerful feature allows you to log metrics, parameters, and models without the need for explicit log statements -
 all you need to do is call <APILink fn="mlflow.autolog" /> before your training code. Auto-logging supports popular
-libraries such as [Scikit-learn](autolog#autolog-sklearn), [XGBoost](autolog#autolog-xgboost), [PyTorch](autolog#autolog-pytorch),
-[Keras](autolog#autolog-keras), [Spark](autolog#autolog-spark), and more. See [Automatic Logging Documentation](autolog)
+libraries such as [Scikit-learn](/tracking/autolog#autolog-sklearn), [XGBoost](/tracking/autolog#autolog-xgboost), [PyTorch](/tracking/autolog#autolog-pytorch),
+[Keras](/tracking/autolog#autolog-keras), [Spark](/tracking/autolog#autolog-spark), and more. See [Automatic Logging Documentation](/tracking/autolog)
 for supported libraries and how to use auto-logging APIs with each of them.
 
 ```python
@@ -89,7 +89,7 @@ your team, follow the instructions in the [Set up MLflow Tracking Environment](#
 ## Tracking Datasets
 
 MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the <APILink fn="mlflow.log_input" /> API.
-To learn more, please visit the [MLflow data documentation](data-api) to see the features available in this API.
+To learn more, please visit the [MLflow data documentation](/tracking/data-api) to see the features available in this API.
 
 ## Explore Runs and Results
 
@@ -140,26 +140,26 @@ From a bird's-eye view, the MLflow Tracking environment consists of the followin
 
 ### Components
 
-#### [MLflow Tracking APIs](tracking-api)
+#### [MLflow Tracking APIs](/tracking/tracking-api)
 
 You can call MLflow Tracking APIs in your ML code to log runs and communicate with the MLflow Tracking Server if necessary.
 
-#### [Backend Store](backend-stores)
+#### [Backend Store](/tracking/backend-stores)
 
 The backend store persists various metadata for each [Run](#runs), such as run ID, start and end times, parameters, metrics, etc.
 MLflow supports two types of storage for the backend: **file-system-based** like local files and **database-based** like PostgreSQL.
 
-#### [Artifact Store](artifacts-stores) \{#artifact-stores}
+#### [Artifact Store](/tracking/artifacts-stores) \{#artifact-stores}
 
 Artifact store persists (typicaly large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 
-#### [MLflow Tracking Server](server) (Optional) \{#tracking_server}
+#### [MLflow Tracking Server](/tracking/server) (Optional) \{#tracking_server}
 
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.
 Tracking server also offers flexibility to configure what data to server, govern access control, versioning, and etc. Read
-[MLflow Tracking Server documentation](server) for more details.
+[MLflow Tracking Server documentation](/tracking/server) for more details.
 
 ### Common Setups \{#tracking_setup}
 
@@ -187,14 +187,14 @@ The following diagram and table show a few common setups for the MLflow Tracking
     <tr>
       <th>Use Case</th>
       <td>By default, MLflow records metadata and artifacts for each run to a local directory, `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.</td>
-      <td>The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the [backend](backend-stores). Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.</td>
+      <td>The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the [backend](/tracking/backend-stores). Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.</td>
       <td>MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact requests through the tracking server to store and retrieve artifacts without having to interact with underlying object store services. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.</td>
     </tr>
     <tr>
       <th>Tutorial</th>
       <td>[QuickStart](/getting-started/intro-quickstart)</td>
-      <td>[Tracking Experiments using a Local Database](tutorials/local-database)</td>
-      <td>[Remote Experiment Tracking with MLflow Tracking Server](tutorials/remote-server)</td>
+      <td>[Tracking Experiments using a Local Database](/tracking/tutorials/local-database)</td>
+      <td>[Remote Experiment Tracking with MLflow Tracking Server](/tracking/tutorials/remote-server)</td>
     </tr>
   </tbody>
 </table>
@@ -202,7 +202,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
 ## Other Configuration with [MLflow Tracking Server](#tracking_server) \{#other-tracking-setup}
 
 MLflow Tracking Server provides customizability for other special use cases. Please follow
-[Remote Experiment Tracking with MLflow Tracking Server](tutorials/remote-server) for learning
+[Remote Experiment Tracking with MLflow Tracking Server](/tracking/tutorials/remote-server) for learning
 the basic setup and continue to the following materials for advanced configurations to meet your needs.
 
 <Tabs>
@@ -224,7 +224,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server has `--artifacts-only` option, which lets the server to serve (proxy) only artifacts
     and not metadata. This is particularly useful when you are in a large organization or training huge models, you might have high artifact
     transfer volumes and want to split out the traffic for serving artifacts to not impact tracking functionality. Please read
-    [Optionally using a Tracking Server instance exclusively for artifact handling](server#optionally-using-a-tracking-server-instance-exclusively-for-artifact-handling)
+    [Optionally using a Tracking Server instance exclusively for artifact handling](/tracking/server#optionally-using-a-tracking-server-instance-exclusively-for-artifact-handling)
     for more details on how to use this mode.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -238,7 +238,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
     to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality
     of metadata tracking. This can be done by disabling artifact proxying by starting server with `--no-serve-artifacts` option.
-    Refer to [Use Tracking Server without Proxying Artifacts Access](server#use-tracking-server-w-o-proxying-artifacts-access)
+    Refer to [Use Tracking Server without Proxying Artifacts Access](/tracking/server#use-tracking-server-w-o-proxying-artifacts-access)
     for how to set this up.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -253,15 +253,15 @@ the basic setup and continue to the following materials for advanced configurati
 ### Can I launch multiple runs in parallel?
 
 Yes, MLflow supports launching multiple runs in parallel e.g. multi processing / threading.
-See [Launching Multiple Runs in One Program](tracking-api#launching-multiple-runs) for more details.
+See [Launching Multiple Runs in One Program](/tracking/tracking-api#launching-multiple-runs) for more details.
 
 ### How can I organize many MLflow Runs neatly?
 
 MLflow provides a few ways to organize your runs:
 
-- [Organize runs into experiments](tracking-api#organizing_runs_in_experiments) - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
-- [Create child runs](tracking-api#child_runs) - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
-- [Add tags to runs](tracking-api#add-tags-to-runs) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
+- [Organize runs into experiments](/tracking/tracking-api#organizing_runs_in_experiments) - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
+- [Create child runs](/tracking/tracking-api#child_runs) - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
+- [Add tags to runs](/tracking/tracking-api#add-tags-to-runs) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
 
 ### Can I directly access remote storage without running the Tracking Server?
 
@@ -269,7 +269,7 @@ Yes, while it is best practice to have the MLflow Tracking Server as a proxy for
 if you are using it for personal projects or testing. You can achieve this by following the workaround below:
 
 1. Set up artifacts configuration such as credentials and endpoints, just like you would for the MLflow Tracking Server.
-   See [configure artifact storage](artifacts-stores#artifacts-store-supported-storages) for more details.
+   See [configure artifact storage](/tracking/artifacts-stores#artifacts-store-supported-storages) for more details.
 2. Create an experiment with an explicit artifact location,
 
 ```python
@@ -284,10 +284,10 @@ Your runs under this experiment will log artifacts to the remote storage directl
 
 To use the Model Registry functionality with MLflow tracking, you **must use database backed store** such as PostgresQL and log a model using the `log_model` methods of the corresponding model flavors.
 Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API.
-See [Backend Stores](backend-stores) and [Common Setups](#tracking_setup) for how to configures backend store properly for your workflow.
+See [Backend Stores](/tracking/backend-stores) and [Common Setups](#tracking_setup) for how to configures backend store properly for your workflow.
 
 #### How to include additional decription texts about the run?
 
-A system tag `mlflow.note.content` can be used to add descriptive note about this run. While the other [system tags](tracking-api#system_tags) are set automatically,
+A system tag `mlflow.note.content` can be used to add descriptive note about this run. While the other [system tags](/tracking/tracking-api#system_tags) are set automatically,
 this tag is **not set by default** and users can override it to include additional information about the run. The content will be displayed on the run's page under
 the Notes section.
