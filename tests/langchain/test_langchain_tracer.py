@@ -30,6 +30,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
@@ -337,9 +338,10 @@ def test_multiple_components():
 def _predict_with_callbacks(lc_model, request_id, data):
     model = _LangChainModelWrapper(lc_model)
     tracer = MlflowLangchainTracer()
-    response = model._predict_with_callbacks(
-        data, callback_handlers=[tracer], convert_chat_responses=True
-    )
+    with set_prediction_context(Context(request_id=request_id)):
+        response = model._predict_with_callbacks(
+            data, callback_handlers=[tracer], convert_chat_responses=True
+        )
     trace_dict = pop_trace(request_id)
     return response, trace_dict
 
