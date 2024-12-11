@@ -136,6 +136,22 @@ const config: Config = {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
+    algolia: {
+      // The application ID provided by Algolia
+      appId: "XKVLO8P882",
+
+      // Public API key: it is safe to commit it
+      apiKey: "e78ac2f60eba60a4c4a353c0702cc7bb",
+
+      indexName: "d1voxqa8i8phxc-cloudfront",
+
+      // Optional: see doc section below
+      contextualSearch: true,
+
+      // Optional: Specify domains where the navigation should occur through window.location instead on history.push.
+      // Useful when our Algolia config crawls multiple documentation sites and we want to navigate with window.location.href to them.
+      externalUrlRegex: "/api_reference",
+    },
   } satisfies Preset.ThemeConfig,
 
   plugins: [
