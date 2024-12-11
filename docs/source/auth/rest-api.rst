@@ -482,7 +482,7 @@ ExperimentPermission
 +===============+=========================+=====================+
 | experiment_id | ``STRING``              | Experiment id.      |
 +---------------+-------------------------+---------------------+
-| user_id       | ``STRING``              | User id.            |
+| username      | ``STRING``              | Username.            |
 +---------------+-------------------------+---------------------+
 | permission    | :ref:`mlflowPermission` | Permission granted. |
 +---------------+-------------------------+---------------------+
@@ -497,7 +497,7 @@ RegisteredModelPermission
 +============+=========================+========================+
 | name       | ``STRING``              | Registered model name. |
 +------------+-------------------------+------------------------+
-| user_id    | ``STRING``              | User id.               |
+| username   | ``STRING``              | Username.               |
 +------------+-------------------------+------------------------+
 | permission | :ref:`mlflowPermission` | Permission granted.    |
 +------------+-------------------------+------------------------+

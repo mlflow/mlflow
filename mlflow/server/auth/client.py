@@ -7,6 +7,7 @@ from mlflow.server.auth.routes import (
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
     GET_EXPERIMENT_PERMISSION,
+    LIST_EXPERIMENT_PERMISSIONS,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_USER,
     UPDATE_EXPERIMENT_PERMISSION,
@@ -253,14 +254,14 @@ class AuthServiceClient:
             ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
 
             print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
+            print(f"username: {ep.username}")
             print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
 
             experiment_id: myexperiment
-            user_id: 3
+            user_id: newuser
             permission: READ
         """
         resp = self._request(
@@ -302,14 +303,14 @@ class AuthServiceClient:
             client.create_experiment_permission("myexperiment", "newuser", "READ")
             ep = client.get_experiment_permission("myexperiment", "newuser")
             print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
+            print(f"username: {ep.username}")
             print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
 
             experiment_id: myexperiment
-            user_id: 3
+            username: newuser
             permission: READ
         """
         resp = self._request(
@@ -318,6 +319,53 @@ class AuthServiceClient:
             params={"experiment_id": experiment_id, "username": username},
         )
         return ExperimentPermission.from_json(resp["experiment_permission"])
+
+    def list_experiment_permissions(self, experiment_id: str):
+        """
+        Lists users and permissions for an experiment.
+
+        Args:
+            experiment_id: The id of the experiment.
+
+        Raises:
+            mlflow.exceptions.RestException: if the experiment does not exist.
+                Note that the default permission will still be effective even if
+                no permission exists.
+
+        Returns:
+            A list of :py:class:`mlflow.server.auth.entities.ExperimentPermission` objects.
+
+        .. code-block:: bash
+            :caption: Example
+
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
+
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
+
+            client = AuthServiceClient("tracking_uri")
+            client.create_user("newuser", "newpassword")
+            client.create_experiment_permission("myexperiment", "newuser", "READ")
+            eps = client.list_experiment_permissions("myexperiment")
+            print(f"experiment_id: {eps[0].experiment_id}")
+            print(f"usernames: {[ep.username for ep in eps]}")
+            print(f"permissions: {[ep.permission for ep in eps]}")
+
+        .. code-block:: text
+            :caption: Output
+
+            experiment_id: myexperiment
+            usernames: ["newuser"]
+            permission: [READ]
+        """
+        resp = self._request(
+            LIST_EXPERIMENT_PERMISSIONS,
+            "GET",
+            params={"experiment_id": experiment_id},
+        )
+        return [ExperimentPermission.from_json(x) for x in resp.get("experiment_permissions", [])]
 
     def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
         """
@@ -448,14 +496,14 @@ class AuthServiceClient:
             rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
 
             print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
+            print(f"username: {rmp.username}")
             print(f"permission: {rmp.permission}")
 
         .. code-block:: text
             :caption: Output
 
             name: myregisteredmodel
-            user_id: 3
+            username: newuser
             permission: READ
         """
         resp = self._request(
