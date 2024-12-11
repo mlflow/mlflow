@@ -11,7 +11,7 @@ This page describes various ways to search and retrieve traces in MLflow. MLflow
   a trace. It supports the same filtering capabilities as `MlflowClient.search_traces` and additionally allows you to specify 
   fields to extract from traces. See :ref:`extract_fields` for details. 
 
-The pandas Dataframe returned by consists of the following columns by default:
+The pandas Dataframe returned by the :py:func:`mlflow.search_traces` API consists of the following columns by default:
 
 - request_id: A primary identifier of a trace
 - trace: A trace object.
@@ -61,7 +61,7 @@ First, create several traces using the following code:
         raise Exception("Cannot say goodbye")
 
 
-    # Execute methods with experiments
+    # Execute the methods within different experiments
     morning_experiment = mlflow.set_experiment("Morning Experiment")
     morning_greeting("Tom")
 
@@ -95,7 +95,7 @@ The code above creates the following traces:
      - ``N/A``
      - ``ERROR``
 
-Then, you can search traces by `experiment_ids` using either :py:func:`mlflow.search_traces` or 
+Then, you can search traces by ``experiment_ids`` using either :py:func:`mlflow.search_traces` or 
 :py:meth:`MlflowClient.search_traces() <mlflow.client.MlflowClient.search_traces>`.
 
 .. note::
