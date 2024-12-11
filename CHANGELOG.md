@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2.19.0 (2024-12-11)
+
+MLflow 2.19.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Add an method for search spans within a trace (#13984, @B-Step62)
+- [] Support uv in mlflow.models.predict (#13824, @serena-ruan)
+- [Models] Add type hints support including pydantic models (#13924, @serena-ruan)
+
+Bug fixes:
+
+- [Model Registry] return empty array when DatabricksSDKModelsArtifactRepository.list_artifacts is called on a file (#14027, @shichengzhou-db)
+- [Tracking] Stringify param values in client.log_batch() (#14015, @B-Step62)
+- [Tracking] Remove deprecated squared parameter (#14028, @B-Step62)
+- [Tracking] Fix request/response field in the search_traces output (#13985, @B-Step62)
+
+Documentation updates:
+
+- [] [tracing] Fix Tracing section (#14023, @theBeginner86)
+
+Small bug fixes and documentation updates:
+
+#14043, #13989, #13983, @serena-ruan; #14038, #14036, #14005, #14010, #13998, @daniellok-db; #14025, @nojaf; #14040, #14035, #14032, #14014, #14002, #14000, #13997, #13996, #13995, @harupy; #14029, @freemso; #13987, #14011, #14001, @B-Step62; #14007, @smurching; #13948, @benglewis; #14012, #14009, #13988, #13971, @TomeHirata; #13942, @justsomerandomdude264; #14003, @Ajay-Satish-01; #13982, @prithvikannan; #13638, @MaxwellSalmon
+
 ## 2.19.0rc0 (2024-12-04)
 
 We are excited to announce the release of MLflow 2.19.0rc0! This release includes a number of significant features, enhancements, and bug fixes.
