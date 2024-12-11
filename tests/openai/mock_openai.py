@@ -20,9 +20,20 @@ class TextContentBlock(BaseModel):
     text: str
 
 
+class ImageUrl(BaseModel):
+    url: str
+
+
+class ImageContentBlock(BaseModel):
+    type: Literal["image_url"]
+    image_url: ImageUrl
+
+
 class Message(BaseModel):
     role: str
-    content: Union[str, list[TextContentBlock]] = Field(union_mode="left_to_right")
+    content: Union[str, list[Union[TextContentBlock, ImageContentBlock]]] = Field(
+        union_mode="left_to_right"
+    )
 
 
 class ChatPayload(BaseModel):
