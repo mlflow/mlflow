@@ -19,11 +19,11 @@
   {# FAVICON #}
   {% if favicon %}
     <link rel="shortcut icon" href="{{ pathto('_static/' + favicon, 1) }}"/>
-    {% endif %}
+  {% endif %}
 
-    {% if s %}
-        <meta name="robots" content="noindex">
-    {% endif %}
+  {% if s %}
+    <meta name="robots" content="noindex">
+  {% endif %}
 
   {# Google Tag Manager #}
     {% if gtm_id %}
@@ -37,6 +37,10 @@
     {% endif %}
 
   {# CSS #}
+
+  {# Algolia / Docusaurus Indexing #}
+  <meta name="docsearch:docusaurus_tag" content="docs-default-current" data-rh="true">
+  <meta name="docusaurus_tag" content="docs-default-current" data-rh="true">
 
   {# OPENSEARCH #}
   {% if not embedded %}
