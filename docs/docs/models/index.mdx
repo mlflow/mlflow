@@ -3163,7 +3163,7 @@ print(f"metrics:\n{result.metrics}")
 print(f"artifacts:\n{result.artifacts}")
 ```
 
-### Performing Model Validation \{#model-validation}
+### Performing Model Validation
 
 :::warning attention
 MLflow 2.18.0 has moved the model validation functionality from the <APILink fn="mlflow.evaluate" /> API
@@ -4208,9 +4208,9 @@ print(f"\nPyfunc 'predict_interval':\n${response.json()}")
 ## Validate Models before Deployment
 
 After logging your model with MLflow Tracking, it is recommended to validate the model locally before deploying it to production.
-The <APILink fn="mlflow.models.predict" /> API enables you to test your model in a virtual environment for isolated execution. 
+The <APILink fn="mlflow.models.predict" /> API enables you to test your model in a virtual environment for isolated execution.
 You can utilize this functionality by passing a sample input, as demonstrated in the example code below.
-Additionally, this API is helpful for validating the model dependecies. 
+Additionally, this API is helpful for validating the model dependecies.
 
 For more details, refer to [Validating Environment for Prediction](/model/dependencies#validating-environment-for-prediction).
 
