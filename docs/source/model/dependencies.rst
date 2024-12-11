@@ -711,7 +711,7 @@ to a CSV or JSON file containing the input payload.
 
 3. Update the model metadata
 ****************************
-Once you find the correct dependencies, you can update the logged model's dependency using :py:func:`mlflow.models.update_model_requirements` API.
+Once you find the correct dependencies, you can update the logged model's dependencies using :py:func:`mlflow.models.update_model_requirements` API.
 
 .. code:: python
 

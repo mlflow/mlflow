@@ -3776,7 +3776,7 @@ The :py:func:`mlflow.models.predict` API provides a convenient way to test your 
   For more details, refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
 * Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
   Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
-* Extra environment variables validation: By specifying the `extra_envs`` parameter, you can test whether additional environment variables are needed for the model to run successfully.
+* Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are needed for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
 .. code-block:: python
@@ -3808,17 +3808,17 @@ Different environment managers
 
 The :py:func:`mlflow.models.predict` API supports different environment managers to create the virtual environment for prediction. The following environment managers are supported:
 
-* virtualenv: the default environment manager which creates a virtual environment using `virtualenv` and `pyenv`.
-* uv: uses `uv` to create a virtual environment. For more details, refer to `uv documentation <https://docs.astral.sh/uv/>`_.
-* conda: uses conda to create environment.
+* `virtualenv <https://virtualenv.pypa.io/en/latest/>`_: the default environment manager which creates a virtual environment using `virtualenv` and `pyenv`.
+* `uv <https://docs.astral.sh/uv/>`_: uses `uv` to create a virtual environment. **This is an experimental feature since MLflow 2.20.0.**
+* `conda <https://docs.conda.io/projects/conda/>`_: uses conda to create environment.
 * local: uses the current environment to run the model. Note that `pip_requirements_override` is not supported in this mode.
 
 .. tip::
 
-    Starting from MLflow 2.20.0, the `uv` environment manager is available. It is a extremely fast and lightweight environment manager.
+    Starting from MLflow 2.20.0, the `uv` environment manager is available, and **it is extremely fast**.
     Run `pip install uv` to install uv, or refer to `uv installation guidance <https://docs.astral.sh/uv/getting-started/installation>`_ for other installation methods.
 
-Example of using `uv` as the environment manager:
+Example of using `uv` to create virtual environment for prediction:
 
 .. code-block:: python
 
