@@ -798,14 +798,16 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
 )
 
 
-@deprecated("mlflow.types.llm.ChatCompletionResponse", impact="As part of a broader unification effort within MLflow "
-                                                              "and services that rely on or deeply integrate with "
-                                                              "MLflow's GenAI features, mlflow 2.19 makes breaking "
-                                                              "changes to the ChatModel interface. As one of these "
-                                                              "changes, you must migrate from ChatResponse to "
-                                                              "ChatCompletionResponse. For the full list of "
-                                                              "breaking changes and migration instructions, see "
-                                                              "https://mlflow.org/releases/2.18.0#breaking-changes-to-chatmodel-interface.")
+@deprecated(
+    "mlflow.types.llm.ChatCompletionResponse",
+    impact=(
+        "As part of a broader unification effort within MLflow and services that rely on or deeply "
+        "integrate with MLflow's GenAI features, mlflow 2.19 makes breaking changes to the "
+        "ChatModel interface. As one of these changes, you must migrate from ChatResponse to "
+        "ChatCompletionResponse. For the full list of breaking changes and migration instructions, "
+        "see https://mlflow.org/releases/2.18.0#breaking-changes-to-chatmodel-interface."
+    )
+)
 @dataclass
 class ChatResponse(_BaseDataclass):
     """
