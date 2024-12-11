@@ -23,23 +23,31 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
 
 * **🪽 FREE and OPEN** - MLflow is Open Source and 100% FREE. You don’t need to pay extra SaaS costs for adding observability to your GenAI stack. Your trace data is hosted on your own machine.
 
-* **🥇 STANDARD** - MLflow Tracing is compatible with **OpenTelemetry**, an industry standard observability spec. You can to export your trace data to various different services used in your existing observability stack, such as Grafana, Prometheus, Datadog, New Relic, and more.
+* **🥇 STANDARD** - MLflow Tracing is compatible with **OpenTelemetry**, an industry-standard observability spec. You can export your trace data to various services in your existing observability stack, such as Grafana, Prometheus, Datadog, New Relic, and more.
 
+* **🤝 Framework Support** - MLflow Tracing integrates with 15+ GenAI libraries, including OpenAI, LangChain, LlamaIndex, DSPy, and others. See the [Automatic Tracing](#automatic-tracing) section for the full list of supported libraries.
 
-* **🤝 Framework Support** - MLflow Tracing integrates with 15+ GenAI libraries, such as OpenAI, LangChain, LlamaIndex, DSPy, and more. See [Automatic Tracing](#automatic-tracing) section for the full list of the integrated libraries.
+* **🔄 End-to-End** - MLflow is designed for managing the end-to-end machine learning lifecycle. With its model tracking and evaluation capabilities, MLflow empowers you to leverage your trace data fully.
 
-* **🔄 End-to-End** - MLflow is designed for managing end-to-end machine learning lifecycle. In conjunction with its model tracking and evaluation capabilities, you can bring the full potential out of the trace data.
+* **👥 Community** - MLflow boasts a vibrant Open Source community as a part of the Linux Foundation. With 19,000+ GitHub Stars and 15MM+ monthly downloads, MLflow is a trusted standard in the MLOps/LLMOps ecosystem.
 
-* **👥 Community** - MLflow is supported by strong Open Source community and a part of Linux Foundation. MLflow gains 19,000+ Github Stars and 15MM+ monthly downloads.
 
 ## Introduction to Observability and Traces
 
-If you are new to the tracing or observability concepts, we recommend starting with the [Tracing Concepts Overview](./overview) guide.
+:::tip
 
-* Debugging and
-* Inspect
-* Evaluate the LLM application with its intermediate outputs
-* Monitor production application
+If you are new to the tracing or observability concepts, we recommend starting with the [Tracing Concepts](./ceoncept) page.
+
+:::
+
+Modern Generative AI applications often involve complex pipelines with multiple steps, APIs, and integrations. Observability provides visibility into these workflows, making it easier to:
+
+- **Debugging bugs**: Identify the root cause of errors in your application.
+- **Inspect quality**: Analyze inputs and outputs for unexpected behaviors.
+- **Evaluate models**: Assess intermediate outputs to refine LLM workflows.
+- **Monitor production**: Track performance and ensure reliability at scale.
+
+MLflow Tracing automatically logs this data, enabling efficient monitoring, debugging, and optimization of your LLM applications.
 
 ## Automatic Tracing
 
@@ -94,17 +102,27 @@ Is your favorite library missing from the list? Consider [contributing to MLflow
 :::
 
 
-## Manual Tracing with SDK
+## Tracing with SDK
 
-MLflow 
+In addition to the one-line auto tracing experience, MLflow offers Python SDK for manually instrumenting
+you code and manipulating traces.
 
+1. [Instrument a function with `@mlflow.trace` decorator.](sdk/manual-instrumentation.mdx#decorator)
+2. [Instrument any block of code using `mlflow.start_span` context manager.](sdk/manual-instrumentation.mdx#context-manager)
+3. [Setting a tag to an active trace]
+4. [Enabling and disabling trace globally]
+
+Please continue to the [MLflow Tracing SDK guide](sdk) for mode details.
 
 ## Query Traces
 
+Trace data are useful for various downstream tasks, such as creating an evaluation dataset for offline evaluation and production monitoring.
+
+MLflow provides several APIs to search and retrieve recorded traces programmatically. See [Searching and Retrieving Traces](sdk/search.mdx) for more details.
 
 ## Tracing in Production
 
-MLflow Tracing is production ready. Read [Production Tracing](production.mdx) for the guidance
+MLflow Tracing is production ready. Read [Production Tracing](production.mdx) for the guidance to use it for monitoring models in production and various backend options.
 
 
 :::note
