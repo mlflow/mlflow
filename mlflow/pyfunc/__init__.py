@@ -569,6 +569,10 @@ DATA = "data"
 ENV = "env"
 
 _MODEL_DATA_SUBPATH = "data"
+_CHAT_PARAMS_WARNING_MESSAGE = (
+    "Default values for temperature, n and stream in ChatParams will be removed in the "
+    "next release. Specify them in the input example explicitly if needed."
+)
 
 
 class EnvType:
@@ -2933,6 +2937,8 @@ def save_model(
                         for k, v in input_example.items()
                         if k != "messages" and k in ChatParams.keys()
                     }
+                if valid_params or input_params:
+                    _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
                 input_example = {
                     "messages": [m.to_dict() for m in messages],
                     **valid_params,
@@ -2940,6 +2946,7 @@ def save_model(
                 }
             else:
                 input_example = CHAT_MODEL_INPUT_EXAMPLE
+                _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
                 messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
             # extra params introduced by ChatParams will not be included in the
             # logged input example file to avoid confusion
