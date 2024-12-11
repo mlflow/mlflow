@@ -14,14 +14,20 @@ const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
 /**
  * Format a string for insertion into a CSV file.
  */
-const csvEscape = (str: string) => {
-  if (str === undefined) {
-    return '';
+const csvEscape = (str: string | undefined) => {
+  // Implements the CSV sanitizing rules specified in https://owasp.org/www-community/attacks/CSV_Injection
+  let sanitized = str || '';
+
+  // Escape double quotes by doubling them
+  sanitized = sanitized.replace(/"/g, '""');
+
+  // If the string starts with a character that could be interpreted as a formula, escape it
+  // by prepending a single quote
+  if (/^[=+\-@\r\t]/.test(sanitized)) {
+    sanitized = `'${sanitized}`;
   }
-  if (/[,"\r\n]/.test(str)) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
+
+  return `"${sanitized}"`;
 };
 
 /**
