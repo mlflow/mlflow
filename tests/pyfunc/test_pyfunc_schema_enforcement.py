@@ -1293,7 +1293,7 @@ def test_enforce_params_schema_with_success():
     assert _enforce_params_schema(test_parameters, test_schema) == {"1": 1.0}
 
 
-def test__enforce_params_schema_add_default_values():
+def test_enforce_params_schema_add_default_values():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, model_input, params):
             return list(params.values())

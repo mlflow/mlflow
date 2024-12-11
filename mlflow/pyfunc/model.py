@@ -671,7 +671,10 @@ class _PythonModelPyfuncWrapper:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if parameters.get("context"):
+        if (
+            parameters.get("context")
+            or len([param for param in parameters if param != "params"]) == 2
+        ):
             _logger.info(
                 _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
             )
@@ -690,13 +693,16 @@ class _PythonModelPyfuncWrapper:
         Returns:
             Streaming predictions.
         """
-        parameters = inspect.signature(self.python_model.predict).parameters
+        parameters = inspect.signature(self.python_model.predict_stream).parameters
         kwargs = {}
         if parameters.get("params"):
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if parameters.get("context"):
+        if (
+            parameters.get("context")
+            or len([param for param in parameters if param != "params"]) == 2
+        ):
             _logger.info(
                 _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.replace(
                     "<FUNCTION_NAME>", "predict_stream"

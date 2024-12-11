@@ -84,7 +84,8 @@ class _ChatModelPyfuncWrapper:
             Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        if inspect.signature(self.chat_model.predict).parameters.get("context"):
+        parameters = inspect.signature(self.chat_model.predict).parameters
+        if parameters.get("context") or len(parameters) == 3:
             _logger.info(
                 _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
             )
@@ -125,7 +126,8 @@ class _ChatModelPyfuncWrapper:
             Generator over model predictions in :py:class:`~ChatCompletionChunk` format.
         """
         messages, params = self._convert_input(model_input)
-        if inspect.signature(self.chat_model.predict).parameters.get("context"):
+        parameters = inspect.signature(self.chat_model.predict_stream).parameters
+        if parameters.get("context") or len(parameters) == 3:
             _logger.info(
                 _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace(
                     "<FUNCTION_NAME>", "predict_stream"
