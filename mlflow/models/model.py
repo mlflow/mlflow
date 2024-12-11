@@ -4,6 +4,7 @@ import os
 import shutil
 import uuid
 import warnings
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -17,6 +18,11 @@ import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.models.dependencies_schemas import (
+    DEPENDENCIES_SCHEMA_KEY,
+    DependenciesSchemasType,
+    Schema,
+)
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -899,6 +905,40 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
         return model_info
+
+    def set_dependencies_schema(self, schema: dict[DependenciesSchemasType, list[Schema]]) -> None:
+        """
+        Set the dependencies schema of the model metadata in a dictionary format.
+
+        Dependencies schema is exclusively used for Databricks. It is a dictionary that maps a
+        "schema" of a specific component within the composite model. For example, the interface of
+        vector search retriever within a RAG model.
+
+        The dependencies schema is stored in the dictionary format, where the key is the type of the
+        dependencies (currently only "retrievers" is supported) and the value is a list of schema
+        objects defined for that type. For example, if the model uses a vector search index whose
+        primary key is "doc_id", the schema would look like:
+
+            {
+                "retrievers": [
+                    {
+                        "name": "my_retriever",
+                        "primary_key": "doc_id",
+                        "text_column": "chunked_text",
+                        "doc_uri": "source",
+                    },
+                    ...
+                ],
+                ...
+            }
+
+        """
+        if self.metadata is None:
+            self.metadata = {}
+
+        self.metadata[DEPENDENCIES_SCHEMA_KEY] = {
+            k: [asdict(v) for v in vs] for k, vs in schema.items()
+        }
 
 
 def _copy_model_metadata_for_uc_sharing(local_path: str, flavor) -> None:

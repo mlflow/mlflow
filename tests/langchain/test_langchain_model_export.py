@@ -93,7 +93,6 @@ from mlflow.models.resources import (
 )
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
-from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -2544,7 +2543,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     reset_tracer_setup()
 
     request_id = "mock_request_id"
-    tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
+    tracer = MlflowLangchainTracer()
     input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
     response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
         data=input_example, callback_handlers=[tracer]

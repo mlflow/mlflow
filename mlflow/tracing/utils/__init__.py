@@ -221,8 +221,10 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
 
 def maybe_get_dependencies_schemas() -> Optional[dict]:
     context = _try_get_prediction_context()
-    if context:
-        return context.dependencies_schemas
+    if context and context.model_info and context.model_info.metadata:
+        from mlflow.models.dependencies_schemas import DEPENDENCIES_SCHEMA_KEY
+
+        return context.model_info.metadata.get(DEPENDENCIES_SCHEMA_KEY)
 
 
 def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:

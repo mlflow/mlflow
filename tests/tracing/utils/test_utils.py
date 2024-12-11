@@ -2,9 +2,12 @@ import pytest
 
 from mlflow.entities import LiveSpan
 from mlflow.exceptions import MlflowTracingException
+from mlflow.models.dependencies_schemas import DEPENDENCIES_SCHEMA_KEY, DependenciesSchemasType
+from mlflow.models.model import ModelInfo
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,
+    maybe_get_dependencies_schemas,
     maybe_get_request_id,
 )
 
@@ -49,3 +52,55 @@ def test_maybe_get_request_id():
     with pytest.raises(MlflowTracingException, match="Missing request_id for context"):
         with set_prediction_context(Context(request_id=None, is_evaluate=True)):
             maybe_get_request_id(is_evaluate=True)
+
+
+def test_maybe_get_dependencies_schemas():
+    try:
+        from mlflow.pyfunc.context import Context, set_prediction_context
+    except ImportError:
+        pytest.skip("Skipping the rest of tests as mlflow.pyfunc module is not available.")
+
+    model_info = ModelInfo(
+        artifact_path="model",
+        flavors={
+            "python_function": {"loader_module": "mlflow.pyfunc", "pickled_model": "model.pkl"},
+            "lang": {"loader_module": "mlflow.lang", "pickled_model": "model.pkl"},
+        },
+        model_uri="models:/model",
+        model_uuid="model_uuid",
+        run_id="run_id",
+        saved_input_example_info=None,
+        signature=None,
+        utc_time_created="2021-01-01",
+        mlflow_version="1.0.0",
+        metadata={
+            DEPENDENCIES_SCHEMA_KEY: {
+                DependenciesSchemasType.RETRIEVERS.value: [
+                    {
+                        "name": "retriever",
+                        "primary_key": "primary-key",
+                        "text_column": "text-column",
+                        "doc_uri": "doc-uri",
+                        "other_columns": ["column1", "column2"],
+                    }
+                ]
+            }
+        },
+    )
+
+    assert maybe_get_dependencies_schemas() is None
+
+    with set_prediction_context(Context(model_info=model_info)):
+        assert maybe_get_dependencies_schemas() == {
+            DependenciesSchemasType.RETRIEVERS.value: [
+                {
+                    "name": "retriever",
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                    "doc_uri": "doc-uri",
+                    "other_columns": ["column1", "column2"],
+                }
+            ]
+        }
+
+    assert maybe_get_dependencies_schemas() is None

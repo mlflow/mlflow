@@ -7,7 +7,6 @@ from dspy.utils.callback import BaseCallback
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
-from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
 
@@ -17,9 +16,8 @@ _logger = logging.getLogger(__name__)
 class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
-    def __init__(self, prediction_context: Optional[Context] = None):
+    def __init__(self):
         self._client = mlflow.MlflowClient()
-        self._prediction_context = prediction_context or Context()
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
 
@@ -124,15 +122,14 @@ class MlflowCallback(BaseCallback):
             "attributes": attributes,
         }
 
-        with maybe_set_prediction_context(self._prediction_context):
-            if parent_span:
-                span = self._client.start_span(
-                    request_id=parent_span.request_id,
-                    parent_id=parent_span.span_id,
-                    **common_params,
-                )
-            else:
-                span = self._client.start_trace(**common_params)
+        if parent_span:
+            span = self._client.start_span(
+                request_id=parent_span.request_id,
+                parent_id=parent_span.span_id,
+                **common_params,
+            )
+        else:
+            span = self._client.start_trace(**common_params)
 
         token = set_span_in_context(span)
         self._call_id_to_span[call_id] = SpanWithToken(span, token)
