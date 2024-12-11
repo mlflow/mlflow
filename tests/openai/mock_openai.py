@@ -1,8 +1,8 @@
 import json
-from typing import Union
+from typing import Literal, Union
 
 import fastapi
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
 EMPTY_CHOICES = "EMPTY_CHOICES"
@@ -15,9 +15,14 @@ def health():
     return {"status": "healthy"}
 
 
+class TextContentBlock(BaseModel):
+    type: Literal["text"]
+    text: str
+
+
 class Message(BaseModel):
     role: str
-    content: str
+    content: Union[str, list[TextContentBlock]] = Field(union_mode="left_to_right")
 
 
 class ChatPayload(BaseModel):
