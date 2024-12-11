@@ -18,20 +18,30 @@ TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.htm
 
 IFRAME_HTML = """
 <div>
+  <style scoped>
+  button {{
+    border: none;
+    border-radius: 4px;
+    background-color: rgb(34, 114, 180);
+    font-family: -apple-system, "system-ui", "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    font-size: 13px;
+    color: white;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }}
+  button:hover {{
+    background-color: rgb(66, 153, 224);
+  }}
+  </style>
   <button
     onclick="const display = this.nextElementSibling.style.display;
 const isCollapsed = display === 'none';
 this.nextElementSibling.style.display = isCollapsed ? null : 'none';
 const verb = isCollapsed ? 'Collapse' : 'Expand';
-this.innerText = `${{verb}} Mlflow Trace UI`;"
-  style="border: 1px solid;
-border-color: var(--jp-border-color0, grey);
-background-color: var(--neutral-layer-1, white);
-color: var(--jp-content-font-color1, black);
-margin-top: 8px;
-margin-bottom: 8px;
-padding: 4px 8px;"
-  >Collapse MLflow Trace UI</button>
+this.innerText = `${{verb}} Mlflow Trace`;"
+  >Collapse MLflow Trace</button>
   <iframe
     id="trace-renderer"
     style="width: 100%; height: 500px; border: none; resize: vertical;"
