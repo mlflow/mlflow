@@ -2,6 +2,7 @@
 sidebar_position: 2
 ---
 
+import Link from "@docusaurus/Link";
 import BorderedContainer from "@site/src/components/BorderedContainer";
 
 # MLflow Overview
@@ -27,19 +28,19 @@ MLflow, at its core, provides a suite of tools aimed at simplifying the ML workf
 the various stages of ML development and deployment. Despite its expansive offerings, MLflow's functionalities are rooted in several
 foundational components:
 
-- [Tracking](../tracking#tracking): MLflow Tracking provides both an API and UI dedicated to the logging of parameters, code versions, metrics, and artifacts during the ML process. This centralized repository captures details such as parameters, metrics, artifacts, data, and environment configurations, giving teams insight into their models' evolution over time. Whether working in standalone scripts, notebooks, or other environments, Tracking facilitates the logging of results either to local files or a server, making it easier to compare multiple runs across different users.
+- [Tracking](/tracking#tracking): MLflow Tracking provides both an API and UI dedicated to the logging of parameters, code versions, metrics, and artifacts during the ML process. This centralized repository captures details such as parameters, metrics, artifacts, data, and environment configurations, giving teams insight into their models' evolution over time. Whether working in standalone scripts, notebooks, or other environments, Tracking facilitates the logging of results either to local files or a server, making it easier to compare multiple runs across different users.
 
-- [Model Registry](../model-registry#registry): A systematic approach to model management, the Model Registry assists in handling different versions of models, discerning their current state, and ensuring smooth productionization. It offers a centralized model store, APIs, and UI to collaboratively manage an MLflow Model's full lifecycle, including model lineage, versioning, aliasing, tagging, and annotations.
+- [Model Registry](/model-registry#registry): A systematic approach to model management, the Model Registry assists in handling different versions of models, discerning their current state, and ensuring smooth productionization. It offers a centralized model store, APIs, and UI to collaboratively manage an MLflow Model's full lifecycle, including model lineage, versioning, aliasing, tagging, and annotations.
 
-- [MLflow Deployments for LLMs](../llms/deployments#deployments): This server, equipped with a set of standardized APIs, streamlines access to both SaaS and OSS LLM models. It serves as a unified interface, bolstering security through authenticated access, and offers a common set of APIs for prominent LLMs.
+- [MLflow Deployments for LLMs](/llms/deployments#deployments): This server, equipped with a set of standardized APIs, streamlines access to both SaaS and OSS LLM models. It serves as a unified interface, bolstering security through authenticated access, and offers a common set of APIs for prominent LLMs.
 
-- [Evaluate](../models#model-evaluation): Designed for in-depth model analysis, this set of tools facilitates objective model comparison, be it traditional ML algorithms or cutting-edge LLMs.
+- [Evaluate](/models#model-evaluation): Designed for in-depth model analysis, this set of tools facilitates objective model comparison, be it traditional ML algorithms or cutting-edge LLMs.
 
-- [Prompt Engineering UI](../llms/prompt-engineering#prompt-engineering): A dedicated environment for prompt engineering, this UI-centric component provides a space for prompt experimentation, refinement, evaluation, testing, and deployment.
+- [Prompt Engineering UI](/llms/prompt-engineering#prompt-engineering): A dedicated environment for prompt engineering, this UI-centric component provides a space for prompt experimentation, refinement, evaluation, testing, and deployment.
 
-- [Recipes](../recipes#recipes): Serving as a guide for structuring ML projects, Recipes, while offering recommendations, are focused on ensuring functional end results optimized for real-world deployment scenarios.
+- [Recipes](/recipes#recipes): Serving as a guide for structuring ML projects, Recipes, while offering recommendations, are focused on ensuring functional end results optimized for real-world deployment scenarios.
 
-- [Projects](../projects#projects): MLflow Projects standardize the packaging of ML code, workflows, and artifacts, akin to an executable. Each project, be it a directory with code or a Git repository, employs a descriptor or convention to define its dependencies and execution method.
+- [Projects](/projects#projects): MLflow Projects standardize the packaging of ML code, workflows, and artifacts, akin to an executable. Each project, be it a directory with code or a Git repository, employs a descriptor or convention to define its dependencies and execution method.
 
 By integrating these core components, MLflow offers an end-to-end platform, ensuring efficiency, consistency, and traceability throughout the ML lifecycle.
 
@@ -64,7 +65,9 @@ MLflow addresses these challenges by offering a unified platform tailored for th
 
 - **Consistency**: Be it accessing models through the MLflow Deployments for LLMs or structuring projects with MLflow Recipes, MLflow promotes a consistent approach, reducing both the learning curve and potential errors.
 
-- **Flexibility**: MLflow's library-agnostic design ensures compatibility with a wide range of machine learning libraries. It offers comprehensive support across different programming languages, backed by a robust [REST API](../rest-api#rest-api), [CLI](../cli#cli), and APIs for [Python API](../python_api#python-api), [R API](../R-api#r-api), and [Java API](../java-api#java-api).
+- **Flexibility**: MLflow's library-agnostic design ensures compatibility with a wide range of machine learning libraries. It offers comprehensive support across different programming languages, backed by a
+  robust <Link to="/api_reference/rest-api.html" target="_blank">REST API</Link>, <Link to="/api_reference/cli.html" target="_blank">CLI</Link>, and APIs for <Link to="/api_reference/python_api/index.html" target="_blank">Python API</Link>
+  , <Link to="/api_reference/R-api.html" target="_blank">R API</Link>, and <Link to="/api_reference/java-api.html" target="_blank">Java API</Link>.
 
 By simplifying the complex landscape of ML workflows, MLflow empowers data scientists and developers to focus on building and refining models,
 ensuring a streamlined path from experimentation to production.
