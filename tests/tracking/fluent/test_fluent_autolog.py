@@ -7,6 +7,7 @@ from unittest import mock
 
 import anthropic
 import autogen
+import boto3
 import dspy
 import fastai
 import google.generativeai
@@ -67,6 +68,7 @@ library_to_mlflow_module_genai = {
     dspy: mlflow.dspy,
     litellm: mlflow.litellm,
     google.generativeai: mlflow.gemini,
+    boto3: mlflow.bedrock,
 }
 
 library_to_mlflow_module_traditional_ai = {
