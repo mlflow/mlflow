@@ -3776,7 +3776,7 @@ The :py:func:`mlflow.models.predict` API provides a convenient way to test your 
   For more details, refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
 * Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
   Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
-* Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are needed for the model to run successfully.
+* Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
 .. code-block:: python
@@ -3803,10 +3803,10 @@ The :py:func:`mlflow.models.predict` API provides a convenient way to test your 
         extra_envs={"MY_ENV_VAR": "my_value"},
     )
 
-Different environment managers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Environment managers
+^^^^^^^^^^^^^^^^^^^^
 
-The :py:func:`mlflow.models.predict` API supports different environment managers to create the virtual environment for prediction. The following environment managers are supported:
+The :py:func:`mlflow.models.predict` API supports the following environment managers to create the virtual environment for prediction:
 
 * `virtualenv <https://virtualenv.pypa.io/en/latest/>`_: the default environment manager which creates a virtual environment using `virtualenv` and `pyenv`.
 * `uv <https://docs.astral.sh/uv/>`_: uses `uv` to create a virtual environment. **This is an experimental feature since MLflow 2.20.0.**
