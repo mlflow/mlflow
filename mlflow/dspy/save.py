@@ -256,7 +256,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -269,6 +269,12 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     resources: Optional[Union[str, Path, list[Resource]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -278,7 +284,7 @@ def log_model(
 
     Args:
         dspy_model: an instance of `dspy.Module`. The Dspy model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
             now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
@@ -300,6 +306,12 @@ def log_model(
             file.
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -344,6 +356,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.dspy,
         model=dspy_model,
         task=task,
@@ -358,4 +371,9 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         resources=resources,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

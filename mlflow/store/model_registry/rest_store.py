@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
@@ -235,6 +236,7 @@ class RestStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -248,6 +250,8 @@ class RestStore(BaseRestStore):
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
             local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
