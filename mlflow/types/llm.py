@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.utils.annotations import deprecated
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -795,6 +796,52 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="custom_inputs", type=Map(AnyType()), required=False),
     ]
 )
+
+
+@deprecated("mlflow.types.llm.ChatCompletionResponse", impact="As part of a broader unification effort within MLflow "
+                                                              "and services that rely on or deeply integrate with "
+                                                              "MLflow's GenAI features, mlflow 2.19 makes breaking "
+                                                              "changes to the ChatModel interface. As one of these "
+                                                              "changes, you must migrate from ChatResponse to "
+                                                              "ChatCompletionResponse. For the full list of "
+                                                              "breaking changes and migration instructions, see "
+                                                              "https://mlflow.org/releases/2.18.0#breaking-changes-to-chatmodel-interface.")
+@dataclass
+class ChatResponse(_BaseDataclass):
+    """
+    The full response object returned by the chat endpoint.
+    .. warning::
+        In an upcoming MLflow release, we will be changing ``ChatResponse`` to a new
+        ``ChatCompletionResponse`` type and renaming the ``metadata`` field to ``custom_outputs``
+    Args:
+        choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
+            containing the generated responses
+        usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+            **Optional**, defaults to ``None``.
+        id (str): The ID of the response. **Optional**, defaults to ``None``
+        model (str): The name of the model used. **Optional**, defaults to ``None``
+        object (str): The object type. Defaults to 'chat.completion'
+        created (int): The time the response was created.
+            **Optional**, defaults to the current time.
+        metadata (Dict[str, str]): An field that can contain arbitrary additional context.
+            **Optional**, defaults to ``None``
+    """
+
+    choices: list[ChatChoice]
+    usage: Optional[TokenUsageStats] = None
+    id: Optional[str] = None
+    model: Optional[str] = None
+    object: str = "chat.completion"
+    created: int = field(default_factory=lambda: int(time.time()))
+    metadata: Optional[dict[str, str]] = None
+
+    def __post_init__(self):
+        self._validate_field("id", str, False)
+        self._validate_field("object", str, True)
+        self._validate_field("created", int, True)
+        self._validate_field("model", str, False)
+        self._convert_dataclass_list("choices", ChatChoice)
+        self._convert_dataclass("usage", TokenUsageStats, False)
 
 CHAT_MODEL_OUTPUT_SCHEMA = Schema(
     [
