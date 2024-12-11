@@ -1,3 +1,5 @@
+import inspect
+import logging
 from typing import Any, Generator, Optional
 
 from mlflow.exceptions import MlflowException
@@ -8,6 +10,14 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.utils.annotations import experimental
+
+_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO = (
+    "Since MLflow 2.20.0, `context` parameter can be dropped from `<FUNCTION_NAME>` function "
+    "signature if it's not used. "
+    "`def <FUNCTION_NAME>(self, messages: list[ChatMessage], params: ChatParams)` is a valid "
+    "<FUNCTION_NAME> function."
+)
+_logger = logging.getLogger(__name__)
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
@@ -74,7 +84,13 @@ class _ChatModelPyfuncWrapper:
             Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict(self.context, messages, params)
+        if inspect.signature(self.chat_model.predict).parameters.get("context"):
+            _logger.info(
+                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
+            )
+            response = self.chat_model.predict(self.context, messages, params)
+        else:
+            response = self.chat_model.predict(messages, params)
         return self._response_to_dict(response)
 
     def _response_to_dict(self, response: ChatCompletionResponse) -> dict[str, Any]:
@@ -109,5 +125,14 @@ class _ChatModelPyfuncWrapper:
             Generator over model predictions in :py:class:`~ChatCompletionChunk` format.
         """
         messages, params = self._convert_input(model_input)
-        for response in self.chat_model.predict_stream(self.context, messages, params):
-            yield self._streaming_response_to_dict(response)
+        if inspect.signature(self.chat_model.predict).parameters.get("context"):
+            _logger.info(
+                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace(
+                    "<FUNCTION_NAME>", "predict_stream"
+                )
+            )
+            for response in self.chat_model.predict_stream(self.context, messages, params):
+                yield self._streaming_response_to_dict(response)
+        else:
+            for response in self.chat_model.predict_stream(messages, params):
+                yield self._streaming_response_to_dict(response)
