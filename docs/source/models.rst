@@ -3815,7 +3815,7 @@ The :py:func:`mlflow.models.predict` API supports the following environment mana
 
 .. tip::
 
-    Starting from MLflow 2.20.0, the ``uv`` environment manager is available, and **it is extremely fast**.
+    Starting from MLflow 2.20.0, ``uv`` is available, and **it is extremely fast**.
     Run ``pip install uv`` to install uv, or refer to `uv installation guidance <https://docs.astral.sh/uv/getting-started/installation>`_ for other installation methods.
 
 Example of using ``uv`` to create a virtual environment for prediction:
