@@ -3769,11 +3769,15 @@ back to ``numpy ndarray`` type as required by ``sktime`` inference API.
 Validate Models before Deployment
 ---------------------------------
 
-After logging your model with MLflow Tracking, it is recommended to validate the model locally before deploying it to production.
-The :py:func:`mlflow.models.predict()` API enables you to test your model in a virtual environment for isolated execution. 
-You can utilize this functionality by passing a sample input, as demonstrated in the example code below.
-Additionally, this API is helpful for validating the model dependecies. 
-For more details, refer to  :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
+After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.
+The :py:func:`mlflow.models.predict` API provides a convenient way to test your model in a virtual environment, offering isolated execution and several advantages:
+
+* Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
+  For more details, refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
+* Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
+  Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
+* Extra environment variables validation: By specifying the ``extra_envs`` parameter, you can test whether additional environment variables are required for the model to run successfully.
+  Note that all existing environment variables in ``os.environ`` are automatically passed into the virtual environment.
 
 .. code-block:: python
 
@@ -3781,18 +3785,49 @@ For more details, refer to  :ref:`Validating Environment for Prediction <validat
 
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
-            return len(model_input)
+        def predict(self, context, model_input, params=None):
+            return model_input
 
 
-    model_info = mlflow.pyfunc.log_model(
-        artifact_path="model",
-        python_model=MyModel(),
-    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
 
     mlflow.models.predict(
         model_uri=model_info.model_uri,
-        input_data=[1, 2],
+        input_data=["a", "b", "c"],
+        pip_requirements_override=["..."],
+        extra_envs={"MY_ENV_VAR": "my_value"},
+    )
+
+Environment managers
+^^^^^^^^^^^^^^^^^^^^
+
+The :py:func:`mlflow.models.predict` API supports the following environment managers to create the virtual environment for prediction:
+
+* `virtualenv <https://virtualenv.pypa.io/en/latest/>`_: The default environment manager.
+* `uv <https://docs.astral.sh/uv/>`_: An **extremely fast** environment manager written in Rust. **This is an experimental feature since MLflow 2.20.0.**
+* `conda <https://docs.conda.io/projects/conda/>`_: uses conda to create environment.
+* ``local``: uses the current environment to run the model. Note that ``pip_requirements_override`` is not supported in this mode.
+
+.. tip::
+
+    Starting from MLflow 2.20.0, ``uv`` is available, and **it is extremely fast**.
+    Run ``pip install uv`` to install uv, or refer to `uv installation guidance <https://docs.astral.sh/uv/getting-started/installation>`_ for other installation methods.
+
+Example of using ``uv`` to create a virtual environment for prediction:
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.models.predict(
+        model_uri="runs:/<run_id>/<model_path>",
+        input_data="your_data",
+        env_manager="uv",
     )
 
 .. _built-in-deployment:
