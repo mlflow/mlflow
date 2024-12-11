@@ -83,10 +83,10 @@ the following fields:
 
 For environment recreation, we automatically log `conda.yaml`, `python_env.yaml`, and `requirements.txt` files whenever a model is logged.
 These files can then be used to reinstall dependencies using `conda` or `virtualenv` with `pip`. Please see
-[How MLflow Model Records Dependencies](dependencies#how-mlflow-records-dependencies) for more details about these files.
+[How MLflow Model Records Dependencies](/model/dependencies#how-mlflow-records-dependencies) for more details about these files.
 
 If a model input example is provided when logging the model, two additional files `input_example.json` and `serving_input_example.json` are logged.
-See [Model Input Example](signatures#input-example) for more details.
+See [Model Input Example](/model/signatures#input-example) for more details.
 
 When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`.
 For wheeled models, `original_requirements.txt` file is also copied.
@@ -181,7 +181,7 @@ To disable this feature, set the environment variable `MLFLOW_RECORD_ENV_VARS_IN
 
 An MLflow Model infers dependencies required for the model flavor and automatically logs them. However, it also allows
 you to define extra dependencies or custom Python code, and offer a tool to validate them in a sandbox environment.
-Please refer to [Managing Dependencies in MLflow Models](dependencies) for more details.
+Please refer to [Managing Dependencies in MLflow Models](/model/dependencies) for more details.
 
 ## Model Signatures And Input Examples
 
@@ -207,8 +207,8 @@ Our documentation delves into several key areas:
   clarity and reliability in model operations.
 
 For a detailed exploration of these concepts, including examples and best practices, visit the
-[Model Signatures and Examples Guide](signatures). If you would like to see signature enforcement in action,
-see the [notebook tutorial on Model Signatures](notebooks/signature_examples) to learn more.
+[Model Signatures and Examples Guide](/model/signatures). If you would like to see signature enforcement in action,
+see the [notebook tutorial on Model Signatures](/model/notebooks/signature_examples) to learn more.
 
 ## Model API
 
@@ -230,7 +230,7 @@ class has four key functions:
 
 ## Models From Code
 
-To **learn more about the Models From Code feature**, please visit [the deep dive guide](models-from-code)
+To **learn more about the Models From Code feature**, please visit [the deep dive guide](/model/models-from-code)
 for more in-depth explanation and to see additional examples.
 
 :::note
@@ -350,7 +350,7 @@ adding custom python code to ML models. For more information, see the [custom Py
 documentation](#custom-python-models).
 
 For information on how to store a custom model from a python script (models from code functionality),
-see the [guide to models from code](models-from-code) for the recommended approaches.
+see the [guide to models from code](/model/models-from-code) for the recommended approaches.
 
 #### How To Load And Score Python Function Models
 
