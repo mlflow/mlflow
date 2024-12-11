@@ -1,12 +1,15 @@
-import { fireEvent, within, screen, render as rtlRender } from '@testing-library/react';
-import { act } from 'react-dom/test-utils';
+import type { DeepPartial } from 'redux';
 
-import React from 'react';
-import { IntlProvider } from 'react-intl';
-import { shallow, mount } from 'enzyme';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
+
+import React, { useRef } from 'react';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
+import { ReduxState } from '../../redux-types';
+import { Provider } from 'react-redux';
 
-export const NOOP = () => {};
+export const NOOP = (...args: any[]) => {};
 
 export function deepFreeze(o: any) {
   Object.freeze(o);
@@ -23,66 +26,10 @@ export function deepFreeze(o: any) {
   return o;
 }
 
-const defaultProvderProps = {
+export const defaultProviderProps = {
   locale: DEFAULT_LOCALE,
   defaultLocale: DEFAULT_LOCALE,
   messages: {},
-};
-
-export function mountWithIntl(node: React.ReactElement, providerProps = {}) {
-  return mount(node, {
-    wrappingComponent: IntlProvider,
-    wrappingComponentProps: {
-      ...defaultProvderProps,
-      ...providerProps,
-    },
-  });
-}
-
-export function shallowWithIntl(node: React.ReactElement, providerProps = {}) {
-  const mergedProviderProps = {
-    ...defaultProvderProps,
-    ...providerProps,
-  };
-  return shallow(<IntlProvider {...mergedProviderProps}>{node}</IntlProvider>).dive();
-}
-
-export function shallowWithInjectIntl(node: React.ReactElement, providerProps = {}) {
-  return shallowWithIntl(node, providerProps).dive().dive().dive();
-}
-
-function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProps = {}) {
-  const mergedProviderProps = {
-    ...defaultProvderProps,
-    ...providerProps,
-  };
-  const wrapper: React.JSXElementConstructor<{ children: React.ReactElement }> = ({ children }) => (
-    <IntlProvider {...mergedProviderProps}>{children}</IntlProvider>
-  );
-
-  return rtlRender(ui, { wrapper, ...renderOptions });
-}
-
-export const findAntdOption = (optionText: string) => {
-  return screen.getByText((content, element) => {
-    return (
-      Boolean(element) &&
-      Boolean(
-        Array.from(element?.classList || []).some((x) => x.endsWith('-select-item-option-content')),
-      ) &&
-      content === optionText
-    );
-  });
-};
-
-export const selectAntdOption = async (container: HTMLElement, optionText: string) => {
-  await act(async () => {
-    fireEvent.mouseDown(within(container).getByRole('combobox'));
-  });
-  const optionElement = findAntdOption(optionText);
-  act(() => {
-    fireEvent.click(optionElement);
-  });
 };
 
 /**
@@ -100,5 +47,13 @@ export const createPrng = (seed = 1000) => {
   return () => (next() - 1) / 2147483646;
 };
 
-export * from '@testing-library/react';
-export { renderWithIntl };
+export const MockedReduxStoreProvider = ({
+  state = {},
+  children,
+}: {
+  state?: DeepPartial<ReduxState>;
+  children: React.ReactNode;
+}) => {
+  const store = useRef(configureStore([thunk, promiseMiddleware()])(state));
+  return <Provider store={store.current}>{children}</Provider>;
+};

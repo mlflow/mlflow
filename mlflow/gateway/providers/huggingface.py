@@ -1,18 +1,20 @@
-from typing import Any, Dict
-
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
+import time
+from typing import Any
 
 from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
     rename_payload_keys,
     send_request,
 )
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 
 class HFTextGenerationInferenceServerProvider(BaseProvider):
+    NAME = "Hugging Face Text Generation Inference"
+    CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
@@ -22,7 +24,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         self.huggingface_config: HuggingFaceTextGenerationInferenceConfig = config.model.config
         self.headers = {"Content-Type": "application/json"}
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.headers,
             base_url=self.huggingface_config.hf_server_url,
@@ -30,13 +32,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             payload=payload,
         )
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise HTTPException(
-            status_code=404,
-            detail="The chat route is not available for the Text Generation Inference provider.",
-        )
-
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -44,21 +42,24 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
 
         # HF TGI does not support generating multiple candidates.
-        candidate_count = payload.get("candidate_count", 1)
-        if candidate_count != 1:
-            raise HTTPException(
+        n = payload.pop("n", 1)
+        if n != 1:
+            raise AIGatewayException(
                 status_code=422,
-                detail="'candidate_count' must be '1' for the Text Generation Inference provider."
-                f"Received value: '{candidate_count}'.",
+                detail="'n' must be '1' for the Text Generation Inference provider."
+                f"Received value: '{n}'.",
             )
         prompt = payload.pop("prompt")
         parameters = rename_payload_keys(payload, key_mapping)
 
+        # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
+        # by 50
+        payload["temperature"] = 50 * payload["temperature"]
         # HF TGI does not support 0 temperature
         parameters["temperature"] = max(payload["temperature"], 1e-3)
         parameters["details"] = True
@@ -96,30 +97,19 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         output_tokens = resp["details"]["generated_tokens"]
         input_tokens = len(resp["details"]["prefill"])
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": resp["generated_text"],
-                        "metadata": {
-                            "finish_reason": resp["details"]["finish_reason"],
-                            "seed": str(resp["details"]["seed"]),
-                        },
-                    }
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                    "output_tokens": output_tokens,
-                    "input_tokens": input_tokens,
-                    "total_tokens": output_tokens + input_tokens,
-                },
-            }
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "The embedding route is not available for the Text Generation Inference provider."
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=0,
+                    text=resp["generated_text"],
+                    finish_reason=resp["details"]["finish_reason"],
+                )
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
             ),
         )

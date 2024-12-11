@@ -1,4 +1,4 @@
-import { Button, ChevronDownIcon, ChevronRightIcon, Tooltip } from '@databricks/design-system';
+import { Button, ChevronDownIcon, ChevronRightIcon, LegacyTooltip } from '@databricks/design-system';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { FormattedMessage } from 'react-intl';
@@ -10,16 +10,17 @@ export const EvaluationTableActionsColumnRenderer = () => {
 
   return (
     <EvaluationTableHeader>
-      <Tooltip
-        placement='right'
+      <LegacyTooltip
+        placement="right"
         title={
           <FormattedMessage
-            defaultMessage='Toggle detailed view'
+            defaultMessage="Toggle detailed view"
             description='Experiment page > artifact compare view > table header > label for "toggle detailed view" button'
           />
         }
       >
         <Button
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationtableactionscolumnrenderer.tsx_22"
           icon={
             isHeaderExpanded ? (
               <ChevronDownIcon css={enlargedIconStyle} />
@@ -29,7 +30,7 @@ export const EvaluationTableActionsColumnRenderer = () => {
           }
           onClick={toggleExpandedHeader}
         />
-      </Tooltip>
+      </LegacyTooltip>
     </EvaluationTableHeader>
   );
 };

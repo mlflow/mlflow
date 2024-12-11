@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Control, useController } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { PlusIcon, Select, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { PlusIcon, LegacySelect, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 
 /**
@@ -35,12 +35,10 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
             value: searchValue,
             disabled: !isValidTagKey,
             style: {
-              color: isValidTagKey
-                ? theme.colors.actionTertiaryTextDefault
-                : theme.colors.actionDisabledText,
+              color: isValidTagKey ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
             },
             children: (
-              <Tooltip
+              <LegacyTooltip
                 title={
                   isValidTagKey
                     ? undefined
@@ -50,22 +48,21 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
                           'Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error',
                       })
                 }
-                placement='right'
+                placement="right"
               >
                 <span css={{ display: 'block' }}>
                   <PlusIcon css={{ marginRight: theme.spacing.sm }} />
                   {intl.formatMessage(
                     {
                       defaultMessage: 'Add tag "{tagKey}"',
-                      description:
-                        'Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button',
+                      description: 'Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button',
                     },
                     {
                       tagKey: searchValue,
                     },
                   )}
                 </span>
-              </Tooltip>
+              </LegacyTooltip>
             ),
           },
           key: searchValue,
@@ -128,7 +125,7 @@ export function TagKeySelectDropdown({
   };
 
   return (
-    <Select
+    <LegacySelect
       allowClear
       ref={selectRef}
       dangerouslySetAntdProps={{
@@ -150,10 +147,10 @@ export function TagKeySelectDropdown({
       validationState={fieldState.error ? 'error' : undefined}
     >
       {allAvailableTags.map((tag) => (
-        <Select.Option value={tag} key={tag}>
+        <LegacySelect.Option value={tag} key={tag}>
           {tag}
-        </Select.Option>
+        </LegacySelect.Option>
       ))}
-    </Select>
+    </LegacySelect>
   );
 }

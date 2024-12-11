@@ -1,5 +1,11 @@
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { getJson, fetchEndpoint, HTTPMethods } from '../../common/utils/FetchUtils';
+import invariant from 'invariant';
+import { getJson } from '../../common/utils/FetchUtils';
+import { MlflowService } from './MlflowService';
+import { ModelGatewayRouteTask } from './MlflowEnums';
+import { GatewayErrorWrapper } from '../utils/LLMGatewayUtils';
+import { fetchEndpoint, HTTPMethods } from '../../common/utils/FetchUtils';
+import { parseEndpointEvaluationResponse } from '../utils/LLMGatewayUtils';
+export const DATABRICKS_API_CLIENT_PROMPTLAB = 'PromptLab';
 
 export interface ModelGatewayQueryPayload {
   inputText: string;
@@ -10,7 +16,7 @@ export interface ModelGatewayQueryPayload {
   };
 }
 
-interface ModelGatewayResponseMetadata<T extends ModelGatewayRouteType> {
+export interface ModelGatewayResponseMetadata<T extends ModelGatewayRouteTask> {
   mode: string;
   route_type: T;
   total_tokens: number;
@@ -26,7 +32,7 @@ export interface ModelGatewayCompletionsResponseType {
     };
   }[];
 
-  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteType.LLM_V1_COMPLETIONS>;
+  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_COMPLETIONS>;
 }
 
 export interface ModelGatewayChatResponseType {
@@ -37,16 +43,45 @@ export interface ModelGatewayChatResponseType {
     };
   }[];
 
-  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteType.LLM_V1_CHAT>;
+  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_CHAT>;
 }
 
-export type ModelGatewayResponseType =
-  | ModelGatewayCompletionsResponseType
-  | ModelGatewayChatResponseType;
+export type ModelGatewayResponseType = ModelGatewayCompletionsResponseType | ModelGatewayChatResponseType;
+
+export interface EndpointModelCompletionsResponseType {
+  choices: {
+    text: string;
+    finish_reason: string;
+  }[];
+
+  usage: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface EndpointModelChatResponseType {
+  choices: {
+    message: {
+      role: string;
+      content: string;
+    };
+    finish_reason: string;
+  }[];
+
+  usage: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export type EndpointModelGatewayResponseType = EndpointModelCompletionsResponseType | EndpointModelChatResponseType;
 
 export interface ModelGatewayModelInfo {
   /**
-   * "Original" name of the model (e.g. "gpt-3.5-turbo")
+   * "Original" name of the model (e.g. "gpt-4o-mini")
    */
   name: string;
   /**
@@ -55,16 +90,10 @@ export interface ModelGatewayModelInfo {
   provider: string;
 }
 
-export enum ModelGatewayRouteType {
-  LLM_V1_COMPLETIONS = 'llm/v1/completions',
-  LLM_V1_CHAT = 'llm/v1/chat',
-  LLM_V1_EMBEDDINGS = 'llm/v1/embeddings',
-}
-
 /**
  * Response object for routes. Does not include model credentials.
  */
-export interface ModelGatewayRoute {
+export interface ModelGatewayRouteLegacy {
   /**
    * User-defined name of the model route
    */
@@ -72,26 +101,42 @@ export interface ModelGatewayRoute {
   /**
    * Type of route (e.g., embedding, text generation, etc.)
    */
-  route_type: ModelGatewayRouteType;
+  route_type: ModelGatewayRouteTask;
   /**
    * Underlying ML model that can be accessed via this route. Could add other types of resources in the future.
    */
   model: ModelGatewayModelInfo;
 }
 
-export interface SearchModelGatewayRouteResponse {
-  routes: ModelGatewayRoute[];
+export interface MlflowDeploymentsEndpoint {
+  name: string;
+  endpoint_type: ModelGatewayRouteTask;
+  endpoint_url: string;
+  model: ModelGatewayModelInfo;
 }
 
-export class GatewayErrorWrapper extends ErrorWrapper {
-  getGatewayErrorMessage() {
-    return (
-      this.textJson?.error?.message ||
-      this.textJson?.message ||
-      this.textJson?.toString() ||
-      this.text
-    );
-  }
+export type ModelGatewayRouteType = 'mlflow_deployment_endpoint';
+
+export interface ModelGatewayRoute {
+  type: ModelGatewayRouteType;
+  /**
+   * Key of the route, the type is always prefix
+   */
+  key: `${ModelGatewayRouteType}:${string}`;
+
+  name: string;
+  /**
+   * Type of route (e.g., embedding, text generation, etc.)
+   */
+  task: ModelGatewayRouteTask;
+  /**
+   * MLflow deployments URL of the endpoint
+   */
+  mlflowDeployment?: MlflowDeploymentsEndpoint;
+}
+
+export interface SearchMlflowDeploymentsModelRoutesResponse {
+  endpoints: MlflowDeploymentsEndpoint[];
 }
 
 const gatewayErrorHandler = ({
@@ -110,98 +155,49 @@ const gatewayErrorHandler = ({
   }
 };
 
-function isGatewayResponseOfType(
-  response: ModelGatewayResponseType,
-  type: ModelGatewayRouteType.LLM_V1_CHAT,
-): response is ModelGatewayChatResponseType;
-
-function isGatewayResponseOfType(
-  response: ModelGatewayResponseType,
-  type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
-): response is ModelGatewayCompletionsResponseType;
-
-function isGatewayResponseOfType(
-  response?: ModelGatewayResponseType,
-  type?: ModelGatewayRouteType,
-) {
-  return response?.metadata.route_type === type;
-}
-
 export class ModelGatewayService {
-  static createEvaluationTextPayload(inputText: string, route: ModelGatewayRoute) {
-    switch (route.route_type) {
-      case ModelGatewayRouteType.LLM_V1_COMPLETIONS: {
+  static createEvaluationTextPayload(inputText: string, task: ModelGatewayRouteTask) {
+    switch (task) {
+      case ModelGatewayRouteTask.LLM_V1_COMPLETIONS: {
         return { prompt: inputText };
       }
-      case ModelGatewayRouteType.LLM_V1_CHAT: {
+      case ModelGatewayRouteTask.LLM_V1_CHAT: {
         return { messages: [{ content: inputText, role: 'user' }] };
       }
-      case ModelGatewayRouteType.LLM_V1_EMBEDDINGS: {
+      case ModelGatewayRouteTask.LLM_V1_EMBEDDINGS: {
         // Should never happen
-        throw new GatewayErrorWrapper(`Unsupported AI gateway route type "${route.route_type}"!`);
+        throw new Error(`Unsupported served LLM model task "${task}"!`);
       }
       default:
-        throw new GatewayErrorWrapper(`Unknown AI gateway route type "${route.route_type}"!`);
+        throw new Error(`Unknown served LLM model task "${task}"!`);
     }
   }
-  static parseEvaluationResponse(response: ModelGatewayResponseType) {
-    // We're supporting completions and chat responses for the time being
-    if (isGatewayResponseOfType(response, ModelGatewayRouteType.LLM_V1_COMPLETIONS)) {
-      const text = response.candidates[0]?.text;
-      const { metadata } = response;
-      if (text && metadata) {
-        return { text, metadata };
-      }
-    }
-    if (isGatewayResponseOfType(response, ModelGatewayRouteType.LLM_V1_CHAT)) {
-      const text = response.candidates[0]?.message?.content;
-      const { metadata } = response;
-      if (text && metadata) {
-        return { text, metadata };
-      }
-    }
-    // Should not happen since we shouldn't call other route types for now
-    throw new GatewayErrorWrapper(
-      `Unrecognizable AI gateway response metadata "${response.metadata}"!`,
-    );
-  }
-  /**
-   * Search gateway routes
-   */
-  static searchModelGatewayRoutes = async (
-    filter?: string,
-  ): Promise<SearchModelGatewayRouteResponse> =>
-    getJson({
-      relativeUrl: 'ajax-api/2.0/gateway/routes',
-      data: { filter },
-    }) as Promise<SearchModelGatewayRouteResponse>;
 
-  /**
-   * Get gateway route
-   */
-  static getModelGatewayRoute = (name: string) =>
-    getJson({ relativeUrl: `ajax-api/2.0/gateway/routes/${name}` }) as Promise<ModelGatewayRoute>;
-
-  /**
-   * Query a gateway route
-   */
-  static queryModelGatewayRoute = (route: ModelGatewayRoute, payload: ModelGatewayQueryPayload) => {
-    const prefix = 'ajax-gateway';
-
-    const { inputText } = payload;
-    const textPayload = this.createEvaluationTextPayload(inputText, route);
-    const data = {
+  static queryMLflowDeploymentEndpointRoute = async (
+    route: ModelGatewayRoute,
+    data: ModelGatewayQueryPayload,
+  ): Promise<any> => {
+    invariant(route.mlflowDeployment, 'Trying to call a MLflow deployment route without a deployment_url');
+    const { inputText } = data;
+    const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, route.task);
+    const processed_data = {
       ...textPayload,
-      ...payload.parameters,
+      ...data.parameters,
     };
 
-    return fetchEndpoint({
-      relativeUrl: `${prefix}/${route.name}/invocations`,
-      method: HTTPMethods.POST,
-      retries: 3,
-      initialDelay: 500,
-      body: JSON.stringify(data),
-      error: gatewayErrorHandler,
+    return MlflowService.gatewayProxyPost({
+      gateway_path: route.mlflowDeployment.endpoint_url.substring(1),
+      json_data: processed_data,
     }) as Promise<ModelGatewayResponseType>;
+  };
+
+  static queryModelGatewayRoute = async (route: ModelGatewayRoute, payload: ModelGatewayQueryPayload) => {
+    if (route.type === 'mlflow_deployment_endpoint') {
+      invariant(route.mlflowDeployment, 'Trying to call a serving endpoint route without an endpoint');
+      const result = await this.queryMLflowDeploymentEndpointRoute(route, payload);
+      return parseEndpointEvaluationResponse(result, route.task);
+    }
+
+    throw new Error('Unknown route type');
   };
 }

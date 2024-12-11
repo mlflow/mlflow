@@ -1,18 +1,16 @@
-import { fireEvent, within } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, renderHook, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event-14';
 import { Control, useForm } from 'react-hook-form';
 
 import { KeyValueEntity } from '../../experiment-tracking/types';
-import { renderWithIntl, screen, selectAntdOption, waitFor, act } from '../utils/TestUtils';
+import { screen, waitFor, act, selectAntdOption } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 
 import { TagKeySelectDropdown } from './TagSelectDropdown';
 
 describe('TagKeySelectDropdown', () => {
   function renderTestComponent(allAvailableTags: string[], control: Control<KeyValueEntity>) {
-    return renderWithIntl(
-      <TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />,
-    );
+    return renderWithIntl(<TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />);
   }
 
   test('it should render list of tags', async () => {
@@ -29,9 +27,7 @@ describe('TagKeySelectDropdown', () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
     renderTestComponent(['tag1', 'tag2'], result.current.control);
     const input = screen.getByRole('combobox');
-    await act(async () => {
-      userEvent.type(input, 'tag1');
-    });
+    await userEvent.type(input, 'tag1');
     expect(screen.getByRole('option', { name: 'tag1' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'tag2' })).not.toBeInTheDocument();
   });
@@ -40,9 +36,7 @@ describe('TagKeySelectDropdown', () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
     renderTestComponent(['tag1', 'tag2'], result.current.control);
     const input = screen.getByRole('combobox');
-    await act(async () => {
-      userEvent.type(input, 'TAG1');
-    });
+    await userEvent.type(input, 'TAG1');
     expect(screen.getByRole('option', { name: 'tag1' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'tag2' })).not.toBeInTheDocument();
   });
@@ -51,7 +45,9 @@ describe('TagKeySelectDropdown', () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
     renderTestComponent(['tag1', 'tag2'], result.current.control);
     const input = screen.getByRole('combobox');
-    userEvent.type(input, 'tag_non_existing{enter}');
+    await userEvent.type(input, 'tag_non_existing');
+    // user-event v14 does not pass down keyCode, so we need to use fireEvent
+    fireEvent.keyDown(input, { keyCode: 13 });
     await waitFor(() => {
       expect(result.current.getValues().key).toBe('tag_non_existing');
     });
@@ -61,7 +57,9 @@ describe('TagKeySelectDropdown', () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
     renderTestComponent(['tag1', 'tag2'], result.current.control);
     const input = screen.getByRole('combobox');
-    userEvent.type(input, 'invalid-tag{enter}');
+    await userEvent.type(input, 'invalid-tag');
+    // user-event v14 does not pass down keyCode, so we need to use fireEvent
+    fireEvent.keyDown(input, { keyCode: 13 });
     await waitFor(() => {
       // Do not add the value
       expect(result.current.getValues().key).toBe(undefined);
@@ -81,7 +79,9 @@ describe('TagKeySelectDropdown', () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
     renderTestComponent(['tag1', 'tag2'], result.current.control);
     const input = screen.getByRole('combobox');
-    userEvent.type(input, 'TAG_NON_EXISTING{enter}');
+    await userEvent.type(input, 'TAG_NON_EXISTING');
+    // user-event v14 does not pass down keyCode, so we need to use fireEvent
+    fireEvent.keyDown(input, { keyCode: 13 });
     await waitFor(() => {
       expect(result.current.getValues().key).toBe('tag_non_existing');
     });

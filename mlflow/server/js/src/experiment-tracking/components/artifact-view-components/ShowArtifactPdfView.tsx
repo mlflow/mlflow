@@ -12,24 +12,26 @@ import { Pagination, Spinner } from '@databricks/design-system';
 import {
   getArtifactBytesContent,
   getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
 pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
 
-type OwnProps = {
+type Props = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
 type State = any;
-
-type Props = OwnProps & typeof ShowArtifactPdfView.defaultProps;
 
 class ShowArtifactPdfView extends Component<Props, State> {
   state = {
@@ -46,9 +48,15 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
+
+    const artifactLocation =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.(artifactLocation)
       .then((artifactPdfData: any) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })
@@ -82,8 +90,8 @@ class ShowArtifactPdfView extends Component<Props, State> {
   renderPdf = () => {
     return (
       <React.Fragment>
-        <div className='pdf-viewer'>
-          <div className='paginator'>
+        <div className="pdf-viewer">
+          <div className="paginator">
             <Pagination
               // @ts-expect-error TS(2322): Type '{ simple: true; currentPageIndex: number; nu... Remove this comment to see the full error message
               simple
@@ -98,7 +106,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
               dangerouslySetAntdProps={{ simple: true }}
             />
           </div>
-          <div className='document'>
+          <div className="document">
             <Document
               file={this.state.pdfData}
               onLoadSuccess={this.onDocumentLoadSuccess}
@@ -115,16 +123,12 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-pdf-view-loading'>Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-pdf-view-loading" />;
     }
     if (this.state.error) {
-      return (
-        <div className='artifact-pdf-view-error'>
-          Oops we couldn't load your file because of an error. Please reload the page to try again.
-        </div>
-      );
+      return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
     } else {
-      return <div className='pdf-outer-container'>{this.renderPdf()}</div>;
+      return <div className="pdf-outer-container">{this.renderPdf()}</div>;
     }
   }
 }

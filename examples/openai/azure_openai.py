@@ -1,5 +1,3 @@
-import os
-
 import openai
 import pandas as pd
 
@@ -14,22 +12,21 @@ export OPENAI_API_BASE="<AZURE OPENAI BASE>"
 # OPENAI_API_VERSION e.g. 2023-05-15
 export OPENAI_API_VERSION="<AZURE OPENAI API VERSION>"
 export OPENAI_API_TYPE="azure"
-export DEPLOYMENT_ID="<AZURE OPENAI DEPLOYMENT ID OR NAME>"
+export OPENAI_DEPLOYMENT_NAME="<AZURE OPENAI DEPLOYMENT ID OR NAME>"
 """
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        # Your Azure OpenAI model e.g. gpt-3.5-turbo
+        # Your Azure OpenAI model e.g. gpt-4o-mini
         model="<YOUR AZURE OPENAI MODEL>",
-        task=openai.ChatCompletion,
+        task=openai.chat.completions,
         artifact_path="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-        deployment_id=os.environ["DEPLOYMENT_ID"],
     )
 
 # Load native OpenAI model
 native_model = mlflow.openai.load_model(model_info.model_uri)
-completion = openai.ChatCompletion.create(
+completion = openai.chat.completions.create(
     deployment_id=native_model["deployment_id"],
     messages=native_model["messages"],
 )

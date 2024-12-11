@@ -7,10 +7,10 @@ import pytest
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -165,6 +165,49 @@ def test_targets_property(spark_session, tmp_path, df):
         name="testname",
     )
     assert dataset_with_targets.targets == "c"
+
+    with pytest.raises(
+        MlflowException,
+        match="The specified Spark dataset does not contain the specified targets column",
+    ):
+        SparkDataset(
+            df=df_spark,
+            source=source,
+            targets="nonexistent",
+            name="testname",
+        )
+
+
+def test_predictions_property(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.parquet")
+    df_spark.write.parquet(path)
+
+    source = SparkDatasetSource(path=path)
+    dataset_no_predictions = SparkDataset(
+        df=df_spark,
+        source=source,
+        name="testname",
+    )
+    assert dataset_no_predictions.predictions is None
+    dataset_with_predictions = SparkDataset(
+        df=df_spark,
+        source=source,
+        predictions="b",
+        name="testname",
+    )
+    assert dataset_with_predictions.predictions == "b"
+
+    with pytest.raises(
+        MlflowException,
+        match="The specified Spark dataset does not contain the specified predictions column",
+    ):
+        SparkDataset(
+            df=df_spark,
+            source=source,
+            predictions="nonexistent",
+            name="testname",
+        )
 
 
 def test_from_spark_no_source_specified(spark_session, df):
@@ -349,8 +392,10 @@ def test_to_evaluation_dataset(spark_session, tmp_path, df):
         source=source,
         targets="c",
         name="testname",
+        predictions="b",
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
-    assert evaluation_dataset.features_data.equals(df_spark.toPandas().drop(columns=["c"]))
+    assert evaluation_dataset.features_data.equals(df_spark.toPandas()[["a"]])
     assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)
+    assert np.array_equal(evaluation_dataset.predictions_data, df_spark.toPandas()["b"].values)

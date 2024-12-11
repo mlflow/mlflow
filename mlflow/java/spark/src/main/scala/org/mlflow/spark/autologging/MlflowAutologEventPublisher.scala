@@ -149,12 +149,17 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   private val checkpointFilePattern = ".*\\d+\\.checkpoint(\\.\\d+\\.\\d+)?\\.parquet$".r.pattern
   private def isCheckpointFile(path: String): Boolean = checkpointFilePattern.matcher(path).matches()
 
+  private def shouldSkipPublish(path: String, format: Option[String]): Boolean = {
+    // 1. Spark first loads head of the data as unknown "text" to infer the schema, which we don't want to log
+    // 2. Checkpoint files don't provide useful information, so we filter them out
+    (format.isEmpty || format.get == "text") || isCheckpointFile(path)
+  }
+
   private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
-      // Checkpoint files don't provide useful information, so we filter them out
-      case SparkTableInfo(path, version, format) if !isCheckpointFile(path) =>
+      case SparkTableInfo(path, version, format) if !shouldSkipPublish(path, format) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {
             try {

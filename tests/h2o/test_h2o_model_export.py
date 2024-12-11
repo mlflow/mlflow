@@ -18,7 +18,7 @@ import mlflow.h2o
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -48,7 +48,7 @@ def h2o_iris_model():
             "target": ([f"Flower {i}" for i in iris.target]),
         }
     )
-    train, test = data.split_frame(ratios=[0.7])  # pylint: disable=unbalanced-tuple-unpacking
+    train, test = data.split_frame(ratios=[0.7])
 
     h2o_gbm = H2OGradientBoostingEstimator(ntrees=10, max_depth=6)
     h2o_gbm.train(["feature1", "feature2"], "target", training_frame=train)
@@ -130,7 +130,7 @@ def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
         artifact_path = "gbm_model"
-        model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
+        model_info = mlflow.h2o.log_model(h2o_model, artifact_path)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert model_info.model_uri == model_uri
         # Load model
@@ -281,9 +281,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -303,9 +301,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env)
         model_path = _download_artifact_from_uri(
             f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         )
@@ -326,7 +322,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(model_uri, mlflow.h2o.get_default_pip_requirements())
 
@@ -335,12 +331,14 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     model, inference_dataframe = h2o_iris_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.h2o.log_model(
+            model, artifact_path, input_example=inference_dataframe.as_data_frame()
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe.as_data_frame(),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     decoded_json = json.loads(resp.content.decode("utf-8"))
@@ -351,9 +349,10 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
 
 def test_log_model_with_code_paths(h2o_iris_model):
     artifact_path = "model_uri"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.h2o._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.h2o._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.h2o.FLAVOR_NAME)
@@ -376,7 +375,7 @@ def test_model_log_with_metadata(h2o_iris_model):
     with mlflow.start_run():
         mlflow.h2o.log_model(
             h2o_iris_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -390,9 +389,7 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
     example = h2o_iris_model.inference_data.as_data_frame().head(3)
 
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_iris_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

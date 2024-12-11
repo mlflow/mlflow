@@ -1,8 +1,8 @@
-/// <reference types="react" />
-import type { UseComboboxReturnValue, UseMultipleSelectionReturnValue } from 'downshift';
+import type { UseMultipleSelectionReturnValue } from 'downshift';
 import type { TypeaheadComboboxInputProps } from './TypeaheadComboboxInput';
+import type { ComboboxStateAnalyticsReturnValue } from './hooks';
 export interface TypeaheadComboboxMultiSelectInputProps<T> extends TypeaheadComboboxInputProps<T> {
-    comboboxState: UseComboboxReturnValue<T>;
+    comboboxState: ComboboxStateAnalyticsReturnValue<T>;
     multipleSelectionState: UseMultipleSelectionReturnValue<T>;
     selectedItems: T[];
     setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>;
@@ -11,6 +11,7 @@ export interface TypeaheadComboboxMultiSelectInputProps<T> extends TypeaheadComb
     showTagAfterValueCount?: number;
     width?: string | number;
     maxHeight?: string | number;
+    disableTooltip?: boolean;
 }
-export declare const TypeaheadComboboxMultiSelectInput: React.FC<TypeaheadComboboxMultiSelectInputProps<any>>;
+export declare const TypeaheadComboboxMultiSelectInput: import("react").ForwardRefExoticComponent<TypeaheadComboboxMultiSelectInputProps<any> & import("react").RefAttributes<HTMLInputElement>>;
 //# sourceMappingURL=TypeaheadComboboxMultiSelectInput.d.ts.map

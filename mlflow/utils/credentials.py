@@ -2,11 +2,20 @@ import configparser
 import getpass
 import logging
 import os
-import subprocess
-from typing import NamedTuple, Optional, Tuple
+from typing import NamedTuple, Optional
 
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_AUTH,
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +29,7 @@ def _get_credentials_path() -> str:
     return os.path.expanduser("~/.mlflow/credentials")
 
 
-def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_file() -> tuple[Optional[str], Optional[str]]:
     path = _get_credentials_path()
     if not os.path.exists(path):
         return None, None
@@ -36,7 +45,7 @@ def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
     return mlflow_cfg.get(username_key), mlflow_cfg.get(password_key)
 
 
-def _read_mlflow_creds_from_env() -> Tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_env() -> tuple[Optional[str], Optional[str]]:
     return MLFLOW_TRACKING_USERNAME.get(), MLFLOW_TRACKING_PASSWORD.get()
 
 
@@ -49,7 +58,22 @@ def read_mlflow_creds() -> MlflowCreds:
     )
 
 
-def login(backend="databricks"):
+def get_default_host_creds(store_uri):
+    creds = read_mlflow_creds()
+    return MlflowHostCreds(
+        host=store_uri,
+        username=creds.username,
+        password=creds.password,
+        token=MLFLOW_TRACKING_TOKEN.get(),
+        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
+        auth=MLFLOW_TRACKING_AUTH.get(),
+        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
+        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
+        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
+    )
+
+
+def login(backend: str = "databricks", interactive: bool = True) -> None:
     """Configure MLflow server authentication and connect MLflow to tracking server.
 
     This method provides a simple way to connect MLflow to its tracking server. Currently only
@@ -59,6 +83,10 @@ def login(backend="databricks"):
     Args:
         backend: string, the backend of the tracking server. Currently only "databricks" is
             supported.
+
+        interactive: bool, controls request for user input on missing credentials. If true, user
+            input will be requested if no credentials are found, otherwise an exception will be
+            raised if no credentials are found.
 
     .. code-block:: python
         :caption: Example
@@ -72,7 +100,7 @@ def login(backend="databricks"):
     from mlflow.tracking import set_tracking_uri
 
     if backend == "databricks":
-        _databricks_login()
+        _databricks_login(interactive)
         set_tracking_uri("databricks")
     else:
         raise MlflowException(
@@ -81,30 +109,28 @@ def login(backend="databricks"):
 
 
 def _validate_databricks_auth():
-    """Validate Databricks authentication."""
-    max_attempts = 3  # Allow 3 attempts for timeout.
-    timeout = 3
-    for i in range(max_attempts):
-        try:
-            # If the host name is invalid, the command will hang.
-            # If the credential is invalid, the command will return non-zero exit code.
-            # If both host and credential are valid, it will return zero exit code.
-            result = subprocess.run(
-                ["databricks", "tokens", "list"],
-                timeout=timeout,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            if result.returncode != 0:
-                raise MlflowException("Failed to validate databricks credentials.")
-        except subprocess.TimeoutExpired:
-            if i == max_attempts - 1:
-                raise subprocess.TimeoutExpired(
-                    "Timeout while signing in Databricks",
-                    timeout=timeout,
-                )
+    # Check if databricks credentials are valid.
+    try:
+        from databricks.sdk import WorkspaceClient
+    except ImportError:
+        raise ImportError(
+            "Databricks SDK is not installed. To use `mlflow.login()`, please install "
+            "databricks-sdk by `pip install databricks-sdk`."
+        )
 
-            _logger.error("Timeout while signing in Databricks, retrying...")
+    try:
+        w = WorkspaceClient()
+        if "community" in w.config.host:
+            # Databricks community edition cannot use `w.current_user.me()` for auth validation.
+            w.clusters.list_zones()
+        else:
+            # If credentials are invalid, `w.current_user.me()` will throw an error.
+            w.current_user.me()
+        _logger.info(
+            f"Successfully connected to MLflow hosted tracking server! Host: {w.config.host}."
+        )
+    except Exception as e:
+        raise MlflowException(f"Failed to validate databricks credentials: {e}")
 
 
 def _overwrite_or_create_databricks_profile(
@@ -159,17 +185,19 @@ def _overwrite_or_create_databricks_profile(
         file.writelines(lines)
 
 
-def _databricks_login():
+def _databricks_login(interactive):
     """Set up databricks authentication."""
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
         return
     except Exception:
-        # If no valid auth is found, we will prompt the user to enter thepy auth.
-        pass
-
-    _logger.info("No valid Databricks credentials found, please enter your credentials...")
+        if interactive:
+            _logger.info("No valid Databricks credentials found, please enter your credentials...")
+        else:
+            raise MlflowException(
+                "No valid Databricks credentials found while running in non-interactive mode."
+            )
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
@@ -198,12 +226,6 @@ def _databricks_login():
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
-        return
-    except subprocess.TimeoutExpired:
-        raise MlflowException(
-            "Timeout while signing in Databricks, max retry reached. This often happens when you "
-            "are using an invalid host. Please check your credentials and retry `mlflow.login`."
-        )
     except Exception as e:
         # If user entered invalid auth, we will raise an error and ask users to retry.
-        raise MlflowException(f"Failed to sign in Databricks, please retry `mlflow.login()`: {e}")
+        raise MlflowException(f"`mlflow.login()` failed with error: {e}")

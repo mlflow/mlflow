@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { useEffect, useState } from 'react';
 import { Provider, useDispatch } from 'react-redux';
@@ -9,7 +9,7 @@ import { ModelVersionInfoEntity } from '../../experiment-tracking/types';
 import { updateModelVersionTagsApi } from '../../model-registry/actions';
 import { Services as ModelRegistryServices } from '../../model-registry/services';
 import { ThunkDispatch } from '../../redux-types';
-import { act, renderWithIntl, screen, within } from '../utils/TestUtils';
+import { act, screen, within, fastFillInput, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 
 const ERRONEOUS_TAG_KEY = 'forbidden_tag';
@@ -27,9 +27,7 @@ class MockDatabase {
       name: 'test_model',
       creation_timestamp: 1234,
       current_stage: '',
-      email_subscription_status: 'active',
       last_updated_timestamp: 1234,
-      permission_level: '',
       run_id: 'experiment123456789_run4',
       source: 'notebook',
       status: 'active',
@@ -42,27 +40,13 @@ class MockDatabase {
     },
   ];
   private getVersion(findName: string, findVersion: string) {
-    return (
-      this.modelVersions.find(
-        ({ name, version }) => name === findName && version === findVersion,
-      ) || null
-    );
+    return this.modelVersions.find(({ name, version }) => name === findName && version === findVersion) || null;
   }
   // Exposed "API":
   getModelVersion = async (findName: string, findVersion: string) => {
     return Promise.resolve(this.getVersion(findName, findVersion));
   };
-  setTag = async ({
-    name,
-    key,
-    version,
-    value,
-  }: {
-    name: string;
-    version: string;
-    key: string;
-    value?: string;
-  }) => {
+  setTag = async ({ name, key, version, value }: { name: string; version: string; key: string; value?: string }) => {
     if (key === ERRONEOUS_TAG_KEY) {
       throw new Error('You shall not use this tag!');
     }
@@ -82,18 +66,8 @@ class MockDatabase {
     if (!modelVersion) {
       return;
     }
-    modelVersion.tags = (modelVersion.tags || []).filter(
-      ({ key: existingKey }) => existingKey !== key,
-    );
+    modelVersion.tags = (modelVersion.tags || []).filter(({ key: existingKey }) => existingKey !== key);
   };
-}
-
-/**
- * userEvent.type() is quite slow for this component, let's use userEvent.paste()
- * to improve testing performance
- */
-async function fastFillInput(element: HTMLInputElement, text: string) {
-  return userEvent.paste(element, text, { clipboardData: { getData: jest.fn() } } as any);
 }
 
 describe('useEditKeyValueTagsModal integration', () => {
@@ -111,20 +85,17 @@ describe('useEditKeyValueTagsModal integration', () => {
       const dispatch = useDispatch<ThunkDispatch>();
       const [modelVersion, setModelVersion] = useState<ModelVersionInfoEntity | null>(null);
 
-      const fetchModelVersion = () =>
-        database.getModelVersion('test_model', '1').then(setModelVersion);
+      const fetchModelVersion = () => database.getModelVersion('test_model', '1').then(setModelVersion);
       useEffect(() => {
         fetchModelVersion();
       }, []);
 
-      const { showEditTagsModal, EditTagsModal } = useEditKeyValueTagsModal<ModelVersionInfoEntity>(
-        {
-          allAvailableTags: [],
-          saveTagsHandler: async (savedModelVersion, existingTags, newTags) =>
-            dispatch(updateModelVersionTagsApi(savedModelVersion, existingTags, newTags)),
-          onSuccess: fetchModelVersion,
-        },
-      );
+      const { showEditTagsModal, EditTagsModal } = useEditKeyValueTagsModal<ModelVersionInfoEntity>({
+        allAvailableTags: [],
+        saveTagsHandler: async (savedModelVersion, existingTags, newTags) =>
+          dispatch(updateModelVersionTagsApi(savedModelVersion, existingTags, newTags)),
+        onSuccess: fetchModelVersion,
+      });
       return (
         <>
           {modelVersion && (
@@ -142,9 +113,7 @@ describe('useEditKeyValueTagsModal integration', () => {
               </ul>
             </div>
           )}
-          <button onClick={() => modelVersion && showEditTagsModal(modelVersion)}>
-            change tags
-          </button>
+          <button onClick={() => modelVersion && showEditTagsModal(modelVersion)}>change tags</button>
           {EditTagsModal}
         </>
       );
@@ -172,68 +141,42 @@ describe('useEditKeyValueTagsModal integration', () => {
     );
 
     // Open the modal in order to modify tags
-    userEvent.click(screen.getByRole('button', { name: 'change tags' }));
+    await userEvent.click(screen.getByRole('button', { name: 'change tags' }));
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
 
     // Add a new tag with value
-    await act(async () => {
-      await fastFillInput(
-        within(screen.getByRole('dialog')).getByRole('combobox'),
-        'new_tag_with_value',
-      );
-
-      userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
-      await fastFillInput(screen.getByLabelText('Value (optional)'), 'tag_value');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
+    await userEvent.click(screen.getByText(/Add tag "new_tag_with_value"/));
+    await fastFillInput(screen.getByLabelText('Value (optional)'), 'tag_value');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
     // Add another tag without value
-    await act(async () => {
-      await fastFillInput(
-        within(screen.getByRole('dialog')).getByRole('combobox'),
-        'new_tag_without_value',
-      );
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_without_value');
 
-      userEvent.click(screen.getByText(/Add tag "new_tag_without_value"/));
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(screen.getByText(/Add tag "new_tag_without_value"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
     // Add yet another tag without value
-    await act(async () => {
-      await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'another_tag');
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'another_tag');
+    await userEvent.click(screen.getByText(/Add tag "another_tag"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-      userEvent.click(screen.getByText(/Add tag "another_tag"/));
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
-
-    await act(async () => {
-      // Delete existing tag
-      userEvent.click(
-        within(screen.getByRole('status', { name: 'existing_tag_1' })).getByRole('button'),
-      );
-      // Also, scratch one of the newly added tags
-      userEvent.click(
-        within(screen.getByRole('status', { name: 'another_tag' })).getByRole('button'),
-      );
-    });
+    // Delete existing tag
+    await userEvent.click(within(screen.getByRole('status', { name: 'existing_tag_1' })).getByRole('button'));
+    // Also, scratch one of the newly added tags
+    await userEvent.click(within(screen.getByRole('status', { name: 'another_tag' })).getByRole('button'));
 
     // Save the tags
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     // Assert tags from newly refreshed model version
     expect(screen.queryByRole('listitem', { name: 'existing_tag_1' })).not.toBeInTheDocument();
     expect(screen.queryByRole('listitem', { name: 'existing_tag_2' })).toBeInTheDocument();
-    expect(screen.getByRole('listitem', { name: 'new_tag_without_value' })).toContainHTML(
-      'new_tag_without_value',
-    );
-    expect(screen.getByRole('listitem', { name: 'new_tag_with_value' })).toContainHTML(
-      'new_tag_with_value: tag_value',
-    );
+    expect(screen.getByRole('listitem', { name: 'new_tag_without_value' })).toContainHTML('new_tag_without_value');
+    expect(screen.getByRole('listitem', { name: 'new_tag_with_value' })).toContainHTML('new_tag_with_value: tag_value');
     expect(screen.queryByRole('listitem', { name: 'another_tag' })).not.toBeInTheDocument();
 
-    userEvent.click(screen.getByRole('button', { name: 'change tags' }));
+    await userEvent.click(screen.getByRole('button', { name: 'change tags' }));
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
   });
   test('should react accordingly when API responds with an error', async () => {
@@ -243,22 +186,15 @@ describe('useEditKeyValueTagsModal integration', () => {
     });
 
     // Open the modal in order to modify tags
-    userEvent.click(screen.getByRole('button', { name: 'change tags' }));
+    await userEvent.click(screen.getByRole('button', { name: 'change tags' }));
 
-    await act(async () => {
-      await fastFillInput(
-        within(screen.getByRole('dialog')).getByRole('combobox'),
-        'forbidden_tag',
-      );
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'forbidden_tag');
 
-      userEvent.click(screen.getByText(/Add tag "forbidden_tag"/));
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(screen.getByText(/Add tag "forbidden_tag"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
     // Attempt to save it
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     // Confirm there's an error and that the tag was not added
     expect(screen.getByText(/You shall not use this tag!/)).toBeInTheDocument();

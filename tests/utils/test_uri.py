@@ -24,6 +24,8 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
+    strip_scheme,
+    validate_path_is_safe,
 )
 
 
@@ -99,13 +101,17 @@ def test_is_local_uri():
     assert is_local_uri("file://localhost:5000/mlruns")
     assert is_local_uri("file://127.0.0.1/mlruns")
     assert is_local_uri("file://127.0.0.1:5000/mlruns")
+    assert is_local_uri("//proc/self/root")
+    assert is_local_uri("/proc/self/root")
 
-    assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
+
+    with pytest.raises(MlflowException, match="is not a valid remote uri."):
+        is_local_uri("file://myhostname/path/to/file")
 
 
 @pytest.mark.skipif(not is_windows(), reason="Windows-only test")
@@ -229,6 +235,22 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
             ("$@''(,", ")]*%", "$@''(,/)]*%"),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        # query string contains '..' (and its encoded form) are considered invalid
+        "https://example.com?..",
+        "https://example.com?/path/../path/../path",
+        "https://example.com?key=value&../../path",
+        "https://example.com?key=value&%2E%2E%2Fpath",
+        "https://example.com?key=value&%252E%252E%252Fpath",
+    ],
+)
+def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
+    with pytest.raises(MlflowException, match=r"Invalid query string"):
+        append_to_uri_path(uri)
 
 
 @pytest.mark.parametrize(
@@ -663,7 +685,7 @@ def _assert_resolve_uri_if_local(input_uri, expected_uri):
     [
         ("my/path", "{cwd}/my/path"),
         ("#my/path?a=b", "{cwd}/#my/path?a=b"),
-        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file://localhost/my/path", "file://localhost/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
         ("/home/my/path", "/home/my/path"),
@@ -681,7 +703,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     [
         ("my/path", "file://{cwd}/my/path"),
         ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
-        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("\\myhostname/my/path", "file:///{drive}myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
         ("/home/my/path", "file:///{drive}home/my/path"),
@@ -703,6 +725,9 @@ def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
         "//dbfs////my_path",
         "///Volumes/",
         "dbfs://my///path",
+        "/volumes/path/to/file",
+        "/volumes/",
+        "DBFS:/my/path",
     ],
 )
 def test_correctly_detect_fuse_and_uc_uris(uri):
@@ -722,3 +747,169 @@ def test_correctly_detect_fuse_and_uc_uris(uri):
 )
 def test_negative_detection(uri):
     assert not is_fuse_or_uc_volumes_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "path",
+        "path/",
+        "path/to/file",
+    ],
+)
+def test_validate_path_is_safe_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        # relative path from current directory of C: drive
+        ".../...//",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "../path",
+        "../../path",
+        "./../path",
+        "path/../to/file",
+        "path/../../to/file",
+        "file://a#/..//tmp",
+        "file://a%23/..//tmp/",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/etc/passwd%00.html",
+        "/etc/passwd%00.txt",
+        "/etc/passwd%00.php",
+        "/etc/passwd%00.asp",
+        "/file://etc/passwd",
+        # Encoded paths with '..'
+        "%2E%2E%2Fpath",
+        "%2E%2E%2F%2E%2E%2Fpath",
+        # Some URIs are passed to urllib.parse.urlparse after validation,
+        # which strips out some whitespace characters. If they are further
+        # decoded, this could result in a path that is not safe.
+        # In this example, %2%0952e -> %2\t52e -> %252e -> %2e -> .
+        "%2%0952e%2%0952e/%2%0A52e%2%0A52e/path",
+    ],
+)
+def test_validate_path_is_safe_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"../path",
+        r"../../path",
+        r"./../path",
+        r"path/../to/file",
+        r"path/../../to/file",
+        r"..\path",
+        r"..\..\path",
+        r".\..\path",
+        r"path\..\to\file",
+        r"path\..\..\to\file",
+        # Drive-relative paths
+        r"C:path",
+        r"C:path/",
+        r"C:path/to/file",
+        r"C:../path/to/file",
+        r"C:\path",
+        r"C:/path",
+        r"C:\path\to\file",
+        r"C:\path/to/file",
+        r"C:\path\..\to\file",
+        r"C:/path/../to/file",
+        # UNC(Universal Naming Convention) paths
+        r"\\path\to\file",
+        r"\\path/to/file",
+        r"\\.\\C:\path\to\file",
+        r"\\?\C:\path\to\file",
+        r"\\?\UNC/path/to/file",
+        # Other potential attackable paths
+        r"/etc/password",
+        r"/path",
+        r"/etc/passwd%00.jpg",
+        r"/etc/passwd%00.html",
+        r"/etc/passwd%00.txt",
+        r"/etc/passwd%00.php",
+        r"/etc/passwd%00.asp",
+        r"/Windows/no/such/path",
+        r"/file://etc/passwd",
+        r"/file:c:/passwd",
+        r"/file://d:/windows/win.ini",
+        r"/file://./windows/win.ini",
+        r"file://c:/boot.ini",
+        r"file://C:path",
+        r"file://C:path/",
+        r"file://C:path/to/file",
+        r"file:///C:/Windows/System32/",
+        r"file:///etc/passwd",
+        r"file:///d:/windows/repair/sam",
+        r"file:///proc/version",
+        r"file:///inetpub/wwwroot/global.asa",
+        r"/file://../windows/win.ini",
+        r"../etc/passwd",
+        r"..\Windows\System32\\",
+        r"C:\Windows\System32\\",
+        r"/etc/passwd",
+        r"::Windows\System32",
+        r"..\..\..\..\Windows\System32\\",
+        r"../Windows/System32",
+        r"....\\",
+        r"\\?\C:\Windows\System32\\",
+        r"\\.\C:\Windows\System32\\",
+        r"\\UNC\Server\Share\\",
+        r"\\Server\Share\folder\\",
+        r"\\127.0.0.1\c$\Windows\\",
+        r"\\localhost\c$\Windows\\",
+        r"\\smbserver\share\path\\",
+        r"..\\?\C:\Windows\System32\\",
+        r"C:/Windows/../Windows/System32/",
+        r"C:\Windows\..\Windows\System32\\",
+        r"../../../../../../../../../../../../Windows/System32",
+        r"../../../../../../../../../../../../etc/passwd",
+        r"../../../../../../../../../../../../var/www/html/index.html",
+        r"../../../../../../../../../../../../usr/local/etc/openvpn/server.conf",
+        r"../../../../../../../../../../../../Program Files (x86)",
+        r"/../../../../../../../../../../../../Windows/System32",
+        r"/Windows\../etc/passwd",
+        r"/Windows\..\Windows\System32\\",
+        r"/Windows\..\Windows\System32\cmd.exe",
+        r"/Windows\..\Windows\System32\msconfig.exe",
+        r"/Windows\..\Windows\System32\regedit.exe",
+        r"/Windows\..\Windows\System32\taskmgr.exe",
+        r"/Windows\..\Windows\System32\control.exe",
+        r"/Windows\..\Windows\System32\services.msc",
+        r"/Windows\..\Windows\System32\diskmgmt.msc",
+        r"/Windows\..\Windows\System32\eventvwr.msc",
+        r"/Windows/System32/drivers/etc/hosts",
+    ],
+)
+def test_validate_path_is_safe_windows_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("file:///path", "/path"),
+        ("file://host/path", "//host/path"),
+        ("file://host", "//host"),
+    ],
+)
+def test_strip_scheme(uri: str, expected: str):
+    assert strip_scheme(uri) == expected

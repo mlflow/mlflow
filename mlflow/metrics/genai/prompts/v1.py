@@ -1,19 +1,26 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Optional
 
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 
 # TODO: Update the default_mode and default_parameters to the correct values post experimentation
 default_model = "openai:/gpt-4"
+# Default parameters expressed in the OpenAI format
 default_parameters = {
     "temperature": 0.0,
     "max_tokens": 200,
     "top_p": 1.0,
 }
+
 grading_system_prompt_template = PromptTemplate(
-    """
+    [
+        """
 Task:
+You must return the following fields in your response in two lines, one below the other:
+score: Your numerical score for the model's {name} based on the rubric
+justification: Your reasoning about the model's {name} score
+
 You are an impartial judge. You will be given an input that was sent to a machine
 learning model, and you will be given an output that the model produced. You
 may also be given additional information that was used by the model to generate the output.
@@ -23,10 +30,12 @@ A definition of {name} and a grading rubric are provided below.
 You must use the grading rubric to determine your score. You must also justify your score.
 
 Examples could be included below for reference. Make sure to use them as references and to
-understand them before completing the task.
+understand them before completing the task.""",
+        """
 
 Input:
-{input}
+{input}""",
+        """
 
 Output:
 {output}
@@ -41,10 +50,13 @@ Grading rubric:
 
 {examples}
 
-You must return the following fields in your response one below the other:
+You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {name} based on the rubric
-justification: Your step-by-step reasoning about the model's {name} score
-    """
+justification: Your reasoning about the model's {name} score
+
+Do not add additional new lines. Do not add any other fields.
+    """,
+    ]
 )
 
 
@@ -57,9 +69,9 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
-    examples: List[EvaluationExample] = None
+    examples: Optional[list[EvaluationExample]] = None
     model: str = default_model
-    parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
+    parameters: dict[str, Any] = field(default_factory=lambda: default_parameters)
 
     def to_dict(self):
         examples_str = (

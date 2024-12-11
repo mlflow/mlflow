@@ -1,6 +1,6 @@
-routes:
+endpoints:
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: palm
       name: text-bison-001
@@ -8,7 +8,7 @@ routes:
         palm_api_key: $PALM_API_KEY
 
   - name: embeddings
-    route_type: llm/v1/embeddings
+    endpoint_type: llm/v1/embeddings
     model:
       provider: palm
       name: embedding-gecko-001
@@ -16,7 +16,7 @@ routes:
         palm_api_key: $PALM_API_KEY
 
   - name: chat
-    route_type: llm/v1/chat
+    endpoint_type: llm/v1/chat
     model:
       provider: palm
       name: chat-bison-001

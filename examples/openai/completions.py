@@ -19,9 +19,9 @@ print(
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
         model="text-davinci-002",
-        task=openai.Completion,
+        task=openai.completions,
         artifact_path="model",
-        prompt="Clasify the following tweet's sentiment: '{tweet}'.",
+        prompt="Classify the following tweet's sentiment: '{tweet}'.",
     )
 
 model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -38,9 +38,9 @@ print(
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
         model="text-davinci-002",
-        task=openai.Completion,
+        task=openai.completions,
         artifact_path="model",
-        prompt="Clasify the following tweet's sentiment: '{tweet}'.",
+        prompt="Classify the following tweet's sentiment: '{tweet}'.",
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([ColSpec(type="string", name=None)]),

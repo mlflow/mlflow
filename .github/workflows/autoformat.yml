@@ -16,7 +16,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -30,26 +30,25 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+      - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
-            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association);
-            if (!isMaintainer) {
-              core.setFailed("Only MLflow maintainers can trigger this workflow.");
-            }
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
-            const pullInfo = await autoformat.getPullInformation(context, github);
+            const pullInfo = await autoformat.getPullInfo(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   format:
@@ -62,7 +61,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -74,12 +73,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
-          protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
-          python=$([[ -z $(echo "$changed_files" | grep '\.py$\|^pyproject\.toml$') ]] && echo "false" || echo "true")
+          protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
-          echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
@@ -90,11 +87,16 @@ jobs:
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
+      - uses: ./.github/actions/setup-python
       # ************************************************************************
-      # Prettier
+      # pre-commit
       # ************************************************************************
       - run: |
-          pre-commit run prettier --all-files --color=always || true
+          dev/install-taplo.sh
+      - run: |
+          pip install -r requirements/lint-requirements.txt
+          pre-commit install
+          pre-commit run --all-files --color=always || true
       # ************************************************************************
       # protos
       # ************************************************************************
@@ -102,30 +104,20 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker build -t gen-protos -f dev/Dockerfile.protos .
+          wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip
+          sudo unzip /tmp/protoc.zip -d /tmp/protoc
+          sudo chmod -R 777 /tmp/protoc
+          echo "/tmp/protoc/bin" >> $GITHUB_PATH
+          pip install --upgrade pip
+          pip install -e .
       - if: steps.diff.outputs.protos == 'true'
         run: |
-          docker run --rm -w /mlflow -v $(pwd):/mlflow gen-protos ./dev/generate-protos.sh
-      # ************************************************************************
-      # python
-      # ************************************************************************
-      - if: steps.diff.outputs.python == 'true'
-        uses: ./.github/actions/setup-python
-      - if: steps.diff.outputs.python == 'true'
-        run: |
-          pip install -r requirements/lint-requirements.txt
-      - if: steps.diff.outputs.python == 'true'
-        run: |
-          ruff --fix .
-          black .
-          blacken-docs $(git ls-files '*.py' '*.rst' '*.md') || true
+          python ./dev/generate_protos.py
       # ************************************************************************
       # js
       # ************************************************************************
       - if: steps.diff.outputs.js == 'true'
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
+        uses: ./.github/actions/setup-node
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
@@ -134,6 +126,7 @@ jobs:
         working-directory: mlflow/server/js
         run: |
           yarn lint:fix
+          yarn prettier:fix
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
@@ -156,7 +149,7 @@ jobs:
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
@@ -167,7 +160,7 @@ jobs:
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -184,7 +177,7 @@ jobs:
           git merge base/${{ needs.check-comment.outputs.base_ref }}
 
       - name: Download patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
@@ -203,11 +196,13 @@ jobs:
     permissions:
       statuses: write # autoformat.updateStatus
     steps:
-      - uses: actions/checkout@v3
-      - name: Update status
-        uses: actions/github-script@v6
+      - uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sparse-checkout: |
+            .github
+      - name: Update status
+        uses: actions/github-script@v7
+        with:
           script: |
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'

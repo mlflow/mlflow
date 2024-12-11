@@ -17,7 +17,7 @@ def patch_destination():
             self.fn_call_count = 0
             self.recurse_fn_call_count = 0
 
-        def fn(self, *args, **kwargs):  # pylint: disable=unused-argument
+        def fn(self, *args, **kwargs):
             self.fn_call_count += 1
             return PATCH_DESTINATION_FN_DEFAULT_RESULT
 

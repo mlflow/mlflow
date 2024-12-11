@@ -31,29 +31,38 @@ When the logged model is served on Databricks, each secret will be resolved and 
 corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
 for how to set up secrets on Databricks.
 """
+
+import importlib.metadata
 import itertools
 import logging
 import os
 import warnings
-from enum import Enum
+from functools import partial
 from string import Formatter
-from typing import Any, Dict, NamedTuple, Optional, Set
+from typing import Any, Optional
 
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
+from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _exclude_params_from_envs, _OAITokenHolder, _validate_model_params
+from mlflow.openai._openai_autolog import (
+    patched_agent_get_chat_completion,
+    patched_call,
+    patched_swarm_run,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -77,6 +86,12 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
+from mlflow.utils.openai_utils import (
+    _OAITokenHolder,
+    _OpenAIApiConfig,
+    _OpenAIEnvVar,
+    _validate_model_params,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "openai"
@@ -86,23 +101,13 @@ _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 _logger = logging.getLogger(__name__)
 
 
-class _OpenAIApiConfig(NamedTuple):
-    api_type: str
-    batch_size: int
-    max_requests_per_minute: int
-    max_tokens_per_minute: int
-    api_version: Optional[str]
-    api_base: str
-    engine: Optional[str]
-    deployment_id: Optional[str]
-
-
 @experimental
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return list(map(_get_pinned_requirement, ["openai", "tiktoken", "tenacity"]))
 
@@ -110,53 +115,28 @@ def get_default_pip_requirements():
 @experimental
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _get_class_to_task_mapping():
-    from openai.api_resources import (
-        Audio,
-        ChatCompletion,
-        Completion,
-        Deployment,
-        Edit,
-        Embedding,
-        Engine,
-        File,
-        FineTune,
-        Image,
-        Moderation,
-    )
-    from openai.api_resources import (
-        Model as OpenAIModel,
-    )
+def _get_obj_to_task_mapping():
+    from openai import resources as r
 
     return {
-        Audio: Audio.OBJECT_NAME,
-        ChatCompletion: ChatCompletion.OBJECT_NAME,
-        Completion: Completion.OBJECT_NAME,
-        Edit: Edit.OBJECT_NAME,
-        Deployment: Deployment.OBJECT_NAME,
-        Embedding: Embedding.OBJECT_NAME,
-        Engine: Engine.OBJECT_NAME,
-        File: File.OBJECT_NAME,
-        Image: Image.OBJECT_NAME,
-        FineTune: FineTune.OBJECT_NAME,
-        OpenAIModel: OpenAIModel.OBJECT_NAME,
-        Moderation: "moderations",
+        r.Audio: "audio",
+        r.chat.Completions: "chat.completions",
+        r.Completions: "completions",
+        r.Images.edit: "images.edit",
+        r.Embeddings: "embeddings",
+        r.Files: "files",
+        r.Images: "images",
+        r.FineTuning: "fine_tuning",
+        r.Moderations: "moderations",
+        r.Models: "models",
     }
-
-
-def _class_to_task(cls):
-    task = _get_class_to_task_mapping().get(cls)
-    if task is None:
-        raise mlflow.MlflowException(
-            f"Unsupported class: {cls}", error_code=INVALID_PARAMETER_VALUE
-        )
-    return task
 
 
 def _get_model_name(model):
@@ -164,36 +144,47 @@ def _get_model_name(model):
 
     if isinstance(model, str):
         return model
-    elif isinstance(model, openai.Model):
+
+    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
         return model.id
-    else:
-        raise mlflow.MlflowException(
-            f"Unsupported model type: {type(model)}", error_code=INVALID_PARAMETER_VALUE
-        )
+
+    raise mlflow.MlflowException(
+        f"Unsupported model type: {type(model)}", error_code=INVALID_PARAMETER_VALUE
+    )
 
 
 def _get_task_name(task):
+    mapping = _get_obj_to_task_mapping()
     if isinstance(task, str):
+        if task not in mapping.values():
+            raise mlflow.MlflowException(
+                f"Unsupported task: {task}", error_code=INVALID_PARAMETER_VALUE
+            )
         return task
-    elif isinstance(task, type):
-        return _class_to_task(task)
     else:
-        raise mlflow.MlflowException(
-            f"Unsupported task type: {type(task)}", error_code=INVALID_PARAMETER_VALUE
+        task_name = (
+            mapping.get(task)
+            or mapping.get(task.__class__)
+            or mapping.get(getattr(task, "__func__"))  # if task is a method
         )
+        if task_name is None:
+            raise mlflow.MlflowException(
+                f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
+            )
+        return task_name
 
 
 def _get_api_config() -> _OpenAIApiConfig:
-    """
-    Gets the parameters and configuration of the OpenAI API connected to.
-    """
+    """Gets the parameters and configuration of the OpenAI API connected to."""
     import openai
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, openai.api_base)
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
+        _OpenAIEnvVar.OPENAI_BASE_URL.value
+    )
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    organization = os.getenv(_OpenAIEnvVar.OPENAI_ORGANIZATION.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
@@ -210,46 +201,13 @@ def _get_api_config() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
+        organization=organization,
     )
 
 
 def _get_openai_package_version():
-    import openai
-
-    try:
-        return openai.__version__
-    except AttributeError:
-        # openai < 0.27.5 doesn't have a __version__ attribute
-        return openai.version.VERSION
-
-
-# See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
-# for the list of environment variables that openai-python uses
-class _OpenAIEnvVar(str, Enum):
-    OPENAI_API_TYPE = "OPENAI_API_TYPE"
-    OPENAI_API_BASE = "OPENAI_API_BASE"
-    OPENAI_API_KEY = "OPENAI_API_KEY"
-    OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"
-    OPENAI_API_VERSION = "OPENAI_API_VERSION"
-    OPENAI_ORGANIZATION = "OPENAI_ORGANIZATION"
-    OPENAI_ENGINE = "OPENAI_ENGINE"
-    # use deployment_name instead of deployment_id to be
-    # consistent with gateway
-    OPENAI_DEPLOYMENT_NAME = "OPENAI_DEPLOYMENT_NAME"
-
-    @property
-    def secret_key(self):
-        return self.value.lower()
-
-    @classmethod
-    def read_environ(cls):
-        env_vars = {}
-        for e in _OpenAIEnvVar:
-            if value := os.getenv(e.value):
-                env_vars[e.value] = value
-        return env_vars
+    return importlib.metadata.version("openai")
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -257,10 +215,8 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> Set[str]:
-    """
-    Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
-    """
+def _parse_format_fields(s) -> set[str]:
+    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
 
@@ -292,47 +248,42 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
     Save an OpenAI model to a path on the local file system.
 
-    :param model: The OpenAI model name or reference instance, e.g.,
-                  ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-                 ``'chat.completions'``.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    Args:
+        model: The OpenAI model name.
+        task: The task the model is performing, e.g., ``openai.chat.completions`` or
+            ``'chat.completions'``.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param  kwargs:
-        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-        :ref:`mlflow.openai.messages` for more details on this parameter)
-        or ``top_p`` value to use for chat completion.
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
+        kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
 
     .. code-block:: python
 
@@ -341,8 +292,8 @@ def save_model(
 
         # Chat
         mlflow.openai.save_model(
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            model="gpt-4o-mini",
+            task=openai.chat.completions,
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
         )
@@ -350,7 +301,7 @@ def save_model(
         # Completions
         mlflow.openai.save_model(
             model="text-davinci-002",
-            task=openai.Completion,
+            task=openai.completions,
             prompt="{text}. The general sentiment of the text is",
             path="model",
         )
@@ -358,10 +309,13 @@ def save_model(
         # Embeddings
         mlflow.openai.save_model(
             model="text-embedding-ada-002",
-            task=openai.Embedding,
+            task=openai.embeddings,
             path="model",
         )
     """
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("Only openai>=1.0 is supported.")
+
     import numpy as np
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -378,7 +332,6 @@ def save_model(
             _validate_model_params(
                 task, kwargs, {p.name: p.default for p in signature.params.params}
             )
-        mlflow_model.signature = signature
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
@@ -389,24 +342,30 @@ def save_model(
                 "'role' and 'content'."
             )
 
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "completions":
         prompt = kwargs.get("prompt")
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, prompt),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "embeddings":
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
         )
 
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    if signature is None and saved_example is not None:
+        wrapped_model = _OpenAIWrapper(model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
+    if signature is not None:
+        mlflow_model.signature = signature
+
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -491,54 +450,53 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
     Log an OpenAI model as an MLflow artifact for the current run.
 
-    :param model: The OpenAI model name or reference instance, e.g.,
-                  ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-                 ``'chat.completions'``.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        model: The OpenAI model name or reference instance, e.g.,
+            ``openai.Model.retrieve("gpt-4o-mini")``.
+        task: The task the model is performing, e.g., ``openai.chat.completions`` or
+            ``'chat.completions'``.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
+        kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param  kwargs:
-        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-        :ref:`mlflow.openai.messages` for more details on this parameter)
-        or ``top_p`` value to use for chat completion.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
 
@@ -548,8 +506,8 @@ def log_model(
         # Chat
         with mlflow.start_run():
             info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
-                task=openai.ChatCompletion,
+                model="gpt-4o-mini",
+                task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
                 artifact_path="model",
             )
@@ -561,13 +519,13 @@ def log_model(
         with mlflow.start_run():
             info = mlflow.openai.log_model(
                 model="text-embedding-ada-002",
-                task=openai.Embedding,
+                task=openai.embeddings,
                 artifact_path="embeddings",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
-
     """
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.openai,
@@ -582,6 +540,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 
@@ -678,149 +637,148 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
-        # If the same parameter exists in self.model & self.api_config,
-        # we use the parameter from self.model
-        self.envs = {
-            x: getattr(self.api_config, x)
-            for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-            if getattr(self.api_config, x) is not None and x not in self.model
-        }
-        api_type = self.model.get("api_type") or self.envs.get("api_type")
-        if api_type in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.model.get("deployment_id") or self.envs.get("deployment_id")
-            if self.model.get("engine") or self.envs.get("engine"):
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
 
         if self.task != "embeddings":
             self._setup_completions()
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def _setup_completions(self):
         if self.task == "chat.completions":
             self.template = self.model.get("messages", [])
         else:
             self.template = self.model.get("prompt")
-        self.formater = _ContentFormatter(self.task, self.template)
+        self.formatter = _ContentFormatter(self.task, self.template)
 
     def format_completions(self, params_list):
-        return [self.formater.format(**params) for params in params_list]
+        return [self.formatter.format(**params) for params in params_list]
 
     def get_params_list(self, data):
-        if len(self.formater.variables) == 1:
-            variable = self.formater.variables[0]
+        if len(self.formatter.variables) == 1:
+            variable = self.formatter.variables[0]
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
                 first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
-            return data[self.formater.variables].to_dict(orient="records")
+            return data[self.formatter.variables].to_dict(orient="records")
+
+    def get_client(self, max_retries: int, timeout: float):
+        # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
+        if self.api_config.api_type in ("azure", "azure_ad", "azuread"):
+            from openai import AzureOpenAI
+
+            return AzureOpenAI(
+                api_key=self.api_token.token,
+                azure_endpoint=self.api_config.api_base,
+                api_version=self.api_config.api_version,
+                azure_deployment=self.api_config.deployment_id,
+                max_retries=max_retries,
+                timeout=timeout,
+            )
+        else:
+            from openai import OpenAI
+
+            return OpenAI(
+                api_key=self.api_token.token,
+                base_url=self.api_config.api_base,
+                max_retries=max_retries,
+                timeout=timeout,
+            )
 
     def _predict_chat(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
+
         messages_list = self.format_completions(self.get_params_list(data))
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {**self.model, **envs, **params, "messages": messages} for messages in messages_list
+            partial(
+                client.chat.completions.create,
+                messages=messages,
+                model=self.model["model"],
+                **params,
+            )
+            for messages in messages_list
         ]
-        results = process_api_requests(
-            requests,
-            openai.ChatCompletion,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [r["choices"][0]["message"]["content"] for r in results]
+
+        results = process_api_requests(request_tasks=requests)
+
+        return [r.choices[0].message.content for r in results]
 
     def _predict_completions(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
         prompts_list = self.format_completions(self.get_params_list(data))
-
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
-                **envs,
+            partial(
+                client.completions.create,
+                prompt=prompts_list[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "prompt": prompts_list[i : i + batch_size],
-            }
+            )
             for i in range(0, len(prompts_list), batch_size)
         ]
-        results = process_api_requests(
-            requests,
-            openai.Completion,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["text"] for batch in results for row in batch["choices"]]
+
+        results = process_api_requests(request_tasks=requests)
+
+        return [row.text for batch in results for row in batch.choices]
 
     def _predict_embeddings(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
-                **envs,
+            partial(
+                client.embeddings.create,
+                input=texts[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "input": texts[i : i + batch_size],
-            }
+            )
             for i in range(0, len(texts), batch_size)
         ]
-        results = process_api_requests(
-            requests,
-            openai.Embedding,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["embedding"] for batch in results for row in batch["data"]]
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        results = process_api_requests(request_tasks=requests)
+
+        return [row.embedding for batch in results for row in batch.data]
+
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
-
-        self.api_token.validate()
+        self.api_token.refresh()
         if self.task == "chat.completions":
             return self._predict_chat(data, params or {})
         elif self.task == "completions":
@@ -829,37 +787,13 @@ class _OpenAIWrapper:
             return self._predict_embeddings(data, params or {})
 
 
-class _TestOpenAIWrapper(_OpenAIWrapper):
-    """
-    A wrapper class that should be used for testing purposes only.
-    """
-
-    def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
-    ):
-        """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
-        """
-        from mlflow.openai.utils import _mock_openai_request
-
-        with _mock_openai_request():
-            return super().predict(data)
-
-
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
-    wrapper_cls = _TestOpenAIWrapper if _MLFLOW_TESTING.get() else _OpenAIWrapper
-    return wrapper_cls(_load_model(path))
+    return _OpenAIWrapper(_load_model(path))
 
 
 @experimental
@@ -867,24 +801,120 @@ def load_model(model_uri, dst_path=None):
     """
     Load an OpenAI model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A dictionary representing the OpenAI model.
+    Returns:
+        A dictionary representing the OpenAI model.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
     return _load_model(model_data_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+    log_traces=True,
+):
+    """
+    Enables (or disables) and configures autologging from OpenAI to MLflow.
+    Raises :py:class:`MlflowException <mlflow.exceptions.MlflowException>`
+    if the OpenAI version < 1.0.
+
+    Args:
+        log_input_examples: If ``True``, input examples from inference data are collected and
+            logged along with Langchain model artifacts during inference. If
+            ``False``, input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with OpenAI model artifacts during inference. If ``False``,
+            signatures are not logged.
+            Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, OpenAI models are logged as MLflow model artifacts.
+            If ``False``, OpenAI models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+            if applicable. If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the OpenAI autologging integration. If ``False``,
+            enables the OpenAI autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            OpenAI that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during OpenAI
+            autologging. If ``False``, show all events and warnings during OpenAI
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
+            collected during inference. Default to ``True``.
+    """
+
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
+
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    for task in (ChatCompletions, Completions, Embeddings):
+        safe_patch(
+            FLAVOR_NAME,
+            task,
+            "create",
+            patched_call,
+        )
+
+    # Patch Swarm agent to generate traces
+    try:
+        from swarm import Swarm
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "get_chat_completion",
+            patched_agent_get_chat_completion,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "run",
+            patched_swarm_run,
+        )
+    except ImportError:
+        pass

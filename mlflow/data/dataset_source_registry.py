@@ -1,13 +1,12 @@
 import warnings
-from typing import Any, List, Optional
-
-import entrypoints
+from typing import Any, Optional
 
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.plugins import get_entry_points
 
 
 class DatasetSourceRegistry:
@@ -15,10 +14,10 @@ class DatasetSourceRegistry:
         self.sources = []
 
     def register(self, source: DatasetSource):
-        """
-        Registers a DatasetSource for use with MLflow Tracking.
+        """Registers a DatasetSource for use with MLflow Tracking.
 
-        :param source: The DatasetSource to register.
+        Args:
+            source: The DatasetSource to register.
         """
         self.sources.append(source)
 
@@ -27,31 +26,34 @@ class DatasetSourceRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
-        for entrypoint in entrypoints.get_group_all("mlflow.dataset_source"):
+        for entrypoint in get_entry_points("mlflow.dataset_source"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    f"Failure attempting to register dataset source with source type"
-                    f' "{entrypoint.source_type}": {exc}',
+                    "Failure attempting to register dataset constructor"
+                    + f' "{entrypoint}": {exc}',
                     stacklevel=2,
                 )
 
     def resolve(
-        self, raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
+        self, raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
     ) -> DatasetSource:
-        """
-        Resolves a raw source object, such as a string URI, to a DatasetSource for use with
+        """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
         MLflow Tracking.
 
-        :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                           HuggingFace :py:class:`datasets.Dataset` object.
-        :param candidate_sources: A list of DatasetSource classes to consider as potential sources
-                                  when resolving the raw source. Subclasses of the specified
-                                  candidate sources are also considered. If unspecified, all
-                                  registered sources are considered.
-        :throws: MlflowException if no DatasetSource class can resolve the raw source.
-        :return: The resolved DatasetSource.
+        Args:
+            raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
+                HuggingFace :py:class:`datasets.Dataset` object.
+            candidate_sources: A list of DatasetSource classes to consider as potential sources
+                when resolving the raw source. Subclasses of the specified candidate sources are
+                also considered. If unspecified, all registered sources are considered.
+
+        Raises:
+            MlflowException: If no DatasetSource class can resolve the raw source.
+
+        Returns:
+            The resolved DatasetSource.
         """
         matching_sources = []
         for source in self.sources:
@@ -97,12 +99,12 @@ class DatasetSourceRegistry:
         )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
-        """
-        Parses and returns a DatasetSource object from its JSON representation.
+        """Parses and returns a DatasetSource object from its JSON representation.
 
-        :param source_json: The JSON representation of the DatasetSource.
-        :param source_type: The string type of the DatasetSource, which indicates how to parse the
-                            source JSON.
+        Args:
+            source_json: The JSON representation of the DatasetSource.
+            source_type: The string type of the DatasetSource, which indicates how to parse the
+                source JSON.
         """
         for source in reversed(self.sources):
             if source._get_source_type() == source_type:
@@ -116,29 +118,33 @@ class DatasetSourceRegistry:
 
 
 def register_dataset_source(source: DatasetSource):
-    """
-    Registers a DatasetSource for use with MLflow Tracking.
+    """Registers a DatasetSource for use with MLflow Tracking.
 
-    :param source: The DatasetSource to register.
+    Args:
+        source: The DatasetSource to register.
     """
     _dataset_source_registry.register(source)
 
 
 def resolve_dataset_source(
-    raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
+    raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
 ) -> DatasetSource:
-    """
-    Resolves a raw source object, such as a string URI, to a DatasetSource for use with
+    """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
     MLflow Tracking.
 
-    :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                       HuggingFace :py:class:`datasets.Dataset` object.
-    :param candidate_sources: A list of DatasetSource classes to consider as potential sources
-                              when resolving the raw source. Subclasses of the specified candidate
-                              sources are also considered. If unspecified, all registered sources
-                              are considered.
-    :throws: MlflowException if no DatasetSource class can resolve the raw source.
-    :return: The resolved DatasetSource.
+    Args:
+        raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
+            HuggingFace :py:class:`datasets.Dataset` object.
+        candidate_sources: A list of DatasetSource classes to consider as potential sources
+            when resolving the raw source. Subclasses of the specified candidate
+            sources are also considered. If unspecified, all registered sources
+            are considered.
+
+    Raises:
+        MlflowException: If no DatasetSource class can resolve the raw source.
+
+    Returns:
+        The resolved DatasetSource.
     """
     return _dataset_source_registry.resolve(
         raw_source=raw_source, candidate_sources=candidate_sources
@@ -146,23 +152,24 @@ def resolve_dataset_source(
 
 
 def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:
-    """
-    Parses and returns a DatasetSource object from its JSON representation.
+    """Parses and returns a DatasetSource object from its JSON representation.
 
-    :param source_json: The JSON representation of the DatasetSource.
-    :param source_type: The string type of the DatasetSource, which indicates how to parse the
-                        source JSON.
+    Args:
+        source_json: The JSON representation of the DatasetSource.
+        source_type: The string type of the DatasetSource, which indicates how to parse the
+            source JSON.
     """
     return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
     )
 
 
-def get_registered_sources() -> List[DatasetSource]:
-    """
-    Obtains the registered dataset sources.
+def get_registered_sources() -> list[DatasetSource]:
+    """Obtains the registered dataset sources.
 
-    :return: A list of registered dataset sources.
+    Returns:
+        A list of registered dataset sources.
+
     """
     return _dataset_source_registry.sources
 
@@ -202,5 +209,11 @@ try:
     from mlflow.data.code_dataset_source import CodeDatasetSource
 
     _dataset_source_registry.register(CodeDatasetSource)
+except ImportError:
+    pass
+try:
+    from mlflow.data.uc_volume_dataset_source import UCVolumeDatasetSource
+
+    _dataset_source_registry.register(UCVolumeDatasetSource)
 except ImportError:
     pass

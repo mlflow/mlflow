@@ -1,0 +1,37 @@
+$schema: https://azuremlschemas.azureedge.net/promptflow/latest/Flow.schema.json
+
+inputs:
+  text:
+    type: string
+    default: Hello World!
+
+outputs:
+  output:
+    type: string
+    reference: ${llm.output}
+
+nodes:
+  - name: hello_prompt
+    type: python
+    source:
+      type: code
+      path: render_template.py
+    inputs:
+      text: ${inputs.text}
+      template: |
+        system:
+        Your task is to generate what I ask.
+        user:
+        Write a simple {{text}} program that displays the greeting message.
+  - name: llm
+    type: python
+    source:
+      type: code
+      path: hello.py
+    inputs:
+      prompt: ${hello_prompt.output}
+      deployment_name: gpt-4o-mini
+      max_tokens: "120"
+environment:
+  image: mcr.microsoft.com/azureml/promptflow/promptflow-runtime:latest
+  python_requirements_txt: requirements.txt

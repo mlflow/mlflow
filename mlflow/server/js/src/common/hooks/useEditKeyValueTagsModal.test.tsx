@@ -1,16 +1,16 @@
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import {
   act,
   fireEvent,
-  renderWithIntl,
   screen,
-  selectAntdOption,
   waitFor,
   within,
-} from '../utils/TestUtils';
+  selectAntdOption,
+  renderWithIntl,
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('useEditKeyValueTagsModal', () => {
   function renderTestComponent(
@@ -39,11 +39,11 @@ describe('useEditKeyValueTagsModal', () => {
   test('it should open and close the creation modal properly', async () => {
     renderTestComponent({ tags: [] }, []);
     // When click on trigger button
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // When click on close
-    userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     // Then modal closed
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('useEditKeyValueTagsModal', () => {
   test('should show list of provided tags', async () => {
     renderTestComponent({}, ['tag3', 'tag4']);
     // When click on trigger button
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // Then list of tags shown
@@ -74,21 +74,18 @@ describe('useEditKeyValueTagsModal', () => {
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
     // When click on trigger button to open modal
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // And fill out the form
-    await act(async () => {
-      await userEvent.paste(within(screen.getByRole('dialog')).getByRole('combobox'), 'newtag', {
-        clipboardData: { getData: jest.fn() },
-      } as any);
-      userEvent.click(screen.getByText(/Add tag "newtag"/));
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('combobox'));
+    await userEvent.paste('newtag', {
+      clipboardData: { getData: jest.fn() },
+    } as any);
+    await userEvent.click(screen.getByText(/Add tag "newtag"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
@@ -102,18 +99,14 @@ describe('useEditKeyValueTagsModal', () => {
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
     // When click on trigger button to open modal
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // And fill out the form
-    await act(async () => {
-      await selectAntdOption(screen.getByRole('dialog'), 'tag2');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await selectAntdOption(screen.getByRole('dialog'), 'tag2');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
@@ -127,24 +120,21 @@ describe('useEditKeyValueTagsModal', () => {
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
     // When click on trigger button to open modal
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // And fill out the form
-    await act(async () => {
-      await userEvent.paste(within(screen.getByRole('dialog')).getByRole('combobox'), 'newtag', {
-        clipboardData: { getData: jest.fn() },
-      } as any);
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('combobox'));
+    await userEvent.paste('newtag', {
+      clipboardData: { getData: jest.fn() },
+    } as any);
 
-      userEvent.click(screen.getByText(/Add tag "newtag"/));
+    await userEvent.click(screen.getByText(/Add tag "newtag"/));
 
-      userEvent.type(screen.getByLabelText('Value (optional)'), 'newvalue');
-      userEvent.click(screen.getByLabelText('Add tag'));
-    });
+    await userEvent.type(screen.getByLabelText('Value (optional)'), 'newvalue');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
@@ -158,22 +148,18 @@ describe('useEditKeyValueTagsModal', () => {
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
     // When click on trigger button to open modal
-    userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
     // Then modal shown with correct header
     expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
     // And fill out the form
-    await act(async () => {
-      await userEvent.type(within(screen.getByRole('dialog')).getByRole('combobox'), 'newtag', {
-        delay: 1,
-      });
-
-      userEvent.click(screen.getByText(/Add tag "newtag"/));
-      userEvent.click(screen.getByLabelText('Add tag'));
+    await userEvent.type(within(screen.getByRole('dialog')).getByRole('combobox'), 'newtag', {
+      delay: 1,
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-    });
+    await userEvent.click(screen.getByText(/Add tag "newtag"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     expect(screen.getByText(/This is a test exception/)).toBeInTheDocument();
   });

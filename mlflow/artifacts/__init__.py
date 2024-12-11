@@ -1,6 +1,7 @@
 """
 APIs for interacting with artifacts in MLflow
 """
+
 import json
 import pathlib
 import tempfile
@@ -11,6 +12,7 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
+    _get_root_uri_and_artifact_path,
     add_databricks_profile_info_to_artifact_uri,
     get_artifact_repository,
 )
@@ -23,24 +25,26 @@ def download_artifacts(
     dst_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
 ) -> str:
-    """
-    Download an artifact file or directory to a local directory.
+    """Download an artifact file or directory to a local directory.
 
-    :param artifact_uri: URI pointing to the artifacts, such as
-                         ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``,
-                         ``"models:/my_model/Production"``, or ``"s3://my_bucket/my/file.txt"``.
-                         Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
-    :param run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
-                   ``artifact_uri`` must be specified.
-    :param artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
-                          Run's root directory containing the artifacts to download.
-    :param dst_path: Path of the local filesystem destination directory to which to download the
-                     specified artifacts. If the directory does not exist, it is created. If
-                     unspecified, the artifacts are downloaded to a new uniquely-named directory on
-                     the local filesystem, unless the artifacts already exist on the local
-                     filesystem, in which case their local path is returned directly.
-    :param tracking_uri: The tracking URI to be used when downloading artifacts.
-    :return: The location of the artifact file or directory on the local filesystem.
+    Args:
+        artifact_uri: URI pointing to the artifacts, such as
+            ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``,
+            ``"models:/my_model/Production"``, or ``"s3://my_bucket/my/file.txt"``.
+            Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
+        run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
+            ``artifact_uri`` must be specified.
+        artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
+            Run's root directory containing the artifacts to download.
+        dst_path: Path of the local filesystem destination directory to which to download the
+            specified artifacts. If the directory does not exist, it is created. If
+            unspecified, the artifacts are downloaded to a new uniquely-named directory on
+            the local filesystem, unless the artifacts already exist on the local
+            filesystem, in which case their local path is returned directly.
+        tracking_uri: The tracking URI to be used when downloading artifacts.
+
+    Returns:
+        The location of the artifact file or directory on the local filesystem.
     """
     if (run_id, artifact_uri).count(None) != 1:
         raise MlflowException(
@@ -69,12 +73,57 @@ def download_artifacts(
     return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
-def load_text(artifact_uri: str) -> str:
-    """
-    Loads the artifact contents as a string.
+def list_artifacts(
+    artifact_uri: Optional[str] = None,
+    run_id: Optional[str] = None,
+    artifact_path: Optional[str] = None,
+    tracking_uri: Optional[str] = None,
+):
+    """List artifacts at the specified URI.
 
-    :param artifact_uri: artifact location
-    :return: str
+    Args:
+        artifact_uri: URI pointing to the artifacts, such as
+            ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``,
+            ``"models:/my_model/Production"``, or ``"s3://my_bucket/my/file.txt"``.
+            Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
+        run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
+            ``artifact_uri`` must be specified.
+        artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
+            Run's root directory containing the artifacts to list.
+        tracking_uri: The tracking URI to be used when list artifacts.
+
+    Returns:
+        List of artifacts as FileInfo listed directly under path.
+    """
+    if (run_id, artifact_uri).count(None) != 1:
+        raise MlflowException.invalid_parameter_value(
+            message="Exactly one of `run_id` or `artifact_uri` must be specified",
+        )
+    elif artifact_uri is not None and artifact_path is not None:
+        raise MlflowException.invalid_parameter_value(
+            message="`artifact_path` cannot be specified if `artifact_uri` is specified",
+        )
+
+    if artifact_uri is not None:
+        root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
+        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
+
+    store = _get_store(store_uri=tracking_uri)
+    artifact_uri = store.get_run(run_id).info.artifact_uri
+    artifact_repo = get_artifact_repository(
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
+    )
+    return artifact_repo.list_artifacts(artifact_path)
+
+
+def load_text(artifact_uri: str) -> str:
+    """Loads the artifact contents as a string.
+
+    Args:
+        artifact_uri: Artifact location.
+
+    Returns:
+        The contents of the artifact as a string.
 
     .. code-block:: python
         :caption: Example
@@ -102,27 +151,29 @@ def load_text(artifact_uri: str) -> str:
 
 
 def load_dict(artifact_uri: str) -> dict:
-    """
-    Loads the artifact contents as a dictionary.
+    """Loads the artifact contents as a dictionary.
 
-    :param artifact_uri: artifact location
-    :return: dict
+    Args:
+        artifact_uri: artifact location.
+
+    Returns:
+        A dictionary.
 
     .. code-block:: python
-        :caption: Example
+      :caption: Example
 
-        import mlflow
+      import mlflow
 
-        with mlflow.start_run() as run:
-            artifact_uri = run.info.artifact_uri
-            mlflow.log_dict({"mlflow-version": "0.28", "n_cores": "10"}, "config.json")
-            config_json = mlflow.artifacts.load_dict(artifact_uri + "/config.json")
-            print(config_json)
+      with mlflow.start_run() as run:
+          artifact_uri = run.info.artifact_uri
+          mlflow.log_dict({"mlflow-version": "0.28", "n_cores": "10"}, "config.json")
+          config_json = mlflow.artifacts.load_dict(artifact_uri + "/config.json")
+          print(config_json)
 
     .. code-block:: text
-        :caption: Output
+      :caption: Output
 
-        {'mlflow-version': '0.28', 'n_cores': '10'}
+      {'mlflow-version': '0.28', 'n_cores': '10'}
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
@@ -134,11 +185,13 @@ def load_dict(artifact_uri: str) -> dict:
 
 
 def load_image(artifact_uri: str):
-    """
-    Loads artifact contents as a ``PIL.Image.Image`` object
+    """Loads artifact contents as a ``PIL.Image.Image`` object
 
-    :param artifact_uri: artifact location
-    :return: PIL.Image
+    Args:
+        artifact_uri: Artifact location.
+
+    Returns:
+        A PIL.Image object.
 
     .. code-block:: python
         :caption: Example

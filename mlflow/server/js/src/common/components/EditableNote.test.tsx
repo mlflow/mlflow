@@ -1,90 +1,61 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
 import { EditableNote, EditableNoteImpl } from './EditableNote';
-import { mountWithIntl } from '../utils/TestUtils';
-import { BrowserRouter } from '../../common/utils/RoutingUtils';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+
+// Mock the Prompt component here. Otherwise, whenever we try to modify the note view's text
+// area in the tests, it failed with the "RPC API is not defined" error.
+jest.mock('./Prompt', () => {
+  return {
+    Prompt: jest.fn(() => <div />),
+  };
+});
+
+const minimalProps = {
+  onSubmit: jest.fn(() => Promise.resolve({})),
+  onCancel: jest.fn(() => Promise.resolve({})),
+};
+
+const commonProps = { ...minimalProps, showEditor: true };
+
+const textAreaDataTestId = 'text-area';
+const saveButtonDataTestId = 'editable-note-save-button';
 
 describe('EditableNote', () => {
-  let wrapper: any;
-  let minimalProps;
-  let commonProps: any;
-  let mockSubmit: any;
-  let mockCancel: any;
-
-  beforeEach(() => {
-    mockSubmit = jest.fn(() => Promise.resolve({}));
-    mockCancel = jest.fn(() => Promise.resolve({}));
-    minimalProps = {
-      onSubmit: mockSubmit,
-      onCancel: mockCancel,
-    };
-    commonProps = { ...minimalProps, showEditor: true };
-    wrapper = mountWithIntl(
-      <BrowserRouter>
-        <EditableNote {...minimalProps} />
-      </BrowserRouter>,
-    );
-  });
-
   test('should render with minimal props without exploding', () => {
-    expect(wrapper.length).toBe(1);
-    expect(wrapper.find('.note-view-outer-container').length).toBe(1);
+    renderWithIntl(<EditableNote {...minimalProps} />);
+    expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
   });
 
   test('test renderActions is called and rendered correctly when showEditor is true', () => {
-    wrapper = mountWithIntl(
-      <BrowserRouter>
-        <EditableNote {...commonProps} />
-      </BrowserRouter>,
-    );
-    expect(wrapper.length).toBe(1);
-    expect(wrapper.find('.note-view-outer-container').length).toBe(1);
-    expect(wrapper.find('.editable-note-actions').length).toBe(1);
+    renderWithIntl(<EditableNote {...commonProps} />);
+    expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
+    expect(screen.getByTestId('editable-note-actions')).toBeInTheDocument();
   });
 
-  test('test handleSubmitClick with successful onSubmit', (done) => {
-    wrapper.find(EditableNoteImpl).setState({ error: 'should not appear' });
-    const instance = wrapper.find(EditableNoteImpl).instance();
-    const promise = instance.handleSubmitClick();
-    promise.finally(() => {
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
-      expect(instance.state.error).toEqual(null);
-      done();
-    });
+  test('test handleSubmitClick with successful onSubmit', async () => {
+    renderWithIntl(<EditableNote {...commonProps} />);
+
+    await userEvent.type(screen.getByTestId(textAreaDataTestId), 'test note');
+    await userEvent.click(screen.getByTestId(saveButtonDataTestId));
+
+    expect(commonProps.onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Failed to submit')).not.toBeInTheDocument();
   });
 
-  test('test handleRenameExperiment errors correctly', (done) => {
-    mockSubmit = jest.fn(
-      () =>
-        new Promise((resolve, reject) => {
-          window.setTimeout(() => {
-            reject();
-          }, 100);
-        }),
-    );
-    minimalProps = {
+  test('test handleRenameExperiment errors correctly', async () => {
+    const mockSubmit = jest.fn(() => Promise.reject());
+    const props = {
       onSubmit: mockSubmit,
-      onCancel: mockCancel,
+      onCancel: jest.fn(() => Promise.resolve({})),
+      showEditor: true,
     };
-    wrapper = mountWithIntl(
-      <BrowserRouter>
-        <EditableNote {...minimalProps} />
-      </BrowserRouter>,
-    );
+    renderWithIntl(<EditableNote {...props} />);
 
-    const instance = wrapper.find(EditableNoteImpl).instance();
-    const promise = instance.handleSubmitClick();
-    promise.finally(() => {
-      wrapper.update();
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
-      expect(instance.state.error).toEqual('Failed to submit');
-      done();
-    });
+    await userEvent.type(screen.getByTestId(textAreaDataTestId), 'test note');
+    await userEvent.click(screen.getByTestId(saveButtonDataTestId));
+
+    expect(mockSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Failed to submit')).toBeInTheDocument();
   });
 });

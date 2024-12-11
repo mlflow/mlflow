@@ -1,40 +1,39 @@
-from typing import List
+import time
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError, validator
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class ServingTextResponse(BaseModel):
-    predictions: List[StrictStr]
+    predictions: list[StrictStr]
 
     @validator("predictions", pre=True)
-    def extract_candidates(cls, predictions):
+    def extract_choices(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
         if isinstance(predictions, dict):
-            if "candidates" not in predictions and len(predictions) > 1:
+            if "choices" not in predictions and len(predictions) > 1:
                 raise ValueError(
                     "The dict format is invalid for this route type. Ensure the served model "
-                    "returns a dict key containing 'candidates'"
+                    "returns a dict key containing 'choices'"
                 )
             if len(predictions) == 1:
                 predictions = next(iter(predictions.values()))
             else:
-                predictions = predictions.get("candidates", predictions)
+                predictions = predictions.get("choices", predictions)
             if not predictions:
                 raise ValueError("The input list is empty")
         return predictions
 
 
 class EmbeddingsResponse(BaseModel):
-    predictions: List[List[StrictFloat]]
+    predictions: list[list[StrictFloat]]
 
     @validator("predictions", pre=True)
     def validate_predictions(cls, predictions):
@@ -51,6 +50,9 @@ class EmbeddingsResponse(BaseModel):
 
 
 class MlflowModelServingProvider(BaseProvider):
+    NAME = "MLflow Model Serving"
+    CONFIG_TYPE = MlflowModelServingConfig
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
@@ -63,7 +65,7 @@ class MlflowModelServingProvider(BaseProvider):
     @staticmethod
     def _extract_mlflow_response_key(response):
         if MLFLOW_SERVING_RESPONSE_KEY not in response:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=502,
                 detail=f"The response is missing the required key: {MLFLOW_SERVING_RESPONSE_KEY}.",
             )
@@ -71,6 +73,8 @@ class MlflowModelServingProvider(BaseProvider):
 
     @staticmethod
     def _process_payload(payload, key):
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
 
         input_data = payload.pop(key, None)
@@ -87,9 +91,12 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = ServingTextResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
-        return [{"text": entry, "metadata": {}} for entry in inference_data]
+        return [
+            completions.Choice(index=idx, text=entry, finish_reason=None)
+            for idx, entry in enumerate(inference_data)
+        ]
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
@@ -112,13 +119,15 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["hello", "hi", "goodbye"]}
 
         return completions.ResponsePayload(
-            **{
-                "candidates": self._process_completions_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=self._process_completions_response_for_mlflow_serving(resp),
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_chat_response_for_mlflow_serving(self, response):
@@ -126,7 +135,7 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = ServingTextResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
         return [
             {"message": {"role": "assistant", "content": entry}, "metadata": {}}
@@ -144,7 +153,7 @@ class MlflowModelServingProvider(BaseProvider):
 
         query_count = len(payload["inputs"])
         if query_count > 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="MLflow chat models are only capable of processing a single query at a "
                 f"time. The request submitted consists of {query_count} queries.",
@@ -163,13 +172,23 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["answer"]}
 
         return chat.ResponsePayload(
-            **{
-                "candidates": self._process_chat_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"], content=c["message"]["content"]
+                    ),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(self._process_chat_response_for_mlflow_serving(resp))
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_embeddings_response_for_mlflow_serving(self, response):
@@ -177,7 +196,7 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = EmbeddingsResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
         return inference_data
 
@@ -194,18 +213,25 @@ class MlflowModelServingProvider(BaseProvider):
             headers=self.headers,
             base_url=self.mlflow_config.model_server_url,
             path="invocations",
-            payload=self._process_payload(payload, "text"),
+            payload=self._process_payload(payload, "input"),
         )
 
         # Example response:
         # {"predictions": [[0.100, -0.234, 0.002, ...], [0.222, -0.111, 0.134, ...]]}
 
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": self._process_embeddings_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=embedding,
+                    index=idx,
+                )
+                for idx, embedding in enumerate(
+                    self._process_embeddings_response_for_mlflow_serving(resp)
+                )
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )

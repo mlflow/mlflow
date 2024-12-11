@@ -27,31 +27,6 @@ from mlflow.utils.rest_utils import (
 from tests import helper_functions
 
 
-def test_well_formed_json_error_response():
-    with mock.patch(
-        "requests.Session.request", return_value=mock.MagicMock(status_code=400, text="{}")
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(RestException, match="INTERNAL_ERROR"):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
-
-
-def test_non_json_ok_response():
-    with mock.patch(
-        "requests.Session.request",
-        return_value=mock.MagicMock(status_code=200, text="<html></html>"),
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(
-            MlflowException,
-            match="API request to endpoint was successful but the response body was not "
-            "in a valid JSON format",
-        ):
-            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
-
-
 @pytest.mark.parametrize(
     "response_mock",
     [
@@ -68,7 +43,7 @@ def test_malformed_json_error_response(response_mock):
         with pytest.raises(
             MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
         ):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+            call_endpoint(host_only, "/my/endpoint", "GET", None, response_proto)
 
 
 def test_call_endpoints():
@@ -116,6 +91,7 @@ def test_http_request_hostonly(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -133,6 +109,7 @@ def test_http_request_cleans_hostname(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -151,6 +128,7 @@ def test_http_request_with_basic_auth(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -183,6 +161,7 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
     request.assert_called_once_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=mock.ANY,
         headers=mock.ANY,
         timeout=mock.ANY,
@@ -207,6 +186,7 @@ def test_http_request_with_auth(fetch_auth, request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=mock.ANY,
         headers=mock.ANY,
         timeout=mock.ANY,
@@ -226,6 +206,7 @@ def test_http_request_with_token(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -242,6 +223,7 @@ def test_http_request_with_insecure(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -258,6 +240,7 @@ def test_http_request_client_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         cert="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
@@ -275,6 +258,7 @@ def test_http_request_server_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -295,6 +279,7 @@ def test_http_request_with_content_type_header(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -320,6 +305,7 @@ def test_http_request_request_headers(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers={**DefaultRequestHeaderProvider().request_headers(), "test": "header"},
             timeout=120,
@@ -335,12 +321,13 @@ def test_http_request_request_headers_user_agent(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
@@ -356,6 +343,7 @@ def test_http_request_request_headers_user_agent(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -371,12 +359,13 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
@@ -393,6 +382,7 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -440,6 +430,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -450,6 +441,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -500,33 +492,40 @@ def test_http_request_customize_config(monkeypatch):
         monkeypatch.delenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", raising=False)
         monkeypatch.delenv("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", raising=False)
         monkeypatch.delenv("MLFLOW_HTTP_REQUEST_TIMEOUT", raising=False)
+        monkeypatch.delenv("MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", raising=False)
         http_request(host_only, "/my/endpoint", "GET")
         mock_get_http_response_with_retries.assert_called_with(
             mock.ANY,
             mock.ANY,
             5,
             2,
+            1.0,
             mock.ANY,
             True,
             headers=mock.ANY,
             verify=mock.ANY,
             timeout=120,
+            respect_retry_after_header=True,
         )
         mock_get_http_response_with_retries.reset_mock()
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "8")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", "3")
+        monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", "1.0")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "300")
+        monkeypatch.setenv("MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", "false")
         http_request(host_only, "/my/endpoint", "GET")
         mock_get_http_response_with_retries.assert_called_with(
             mock.ANY,
             mock.ANY,
             8,
             3,
+            1.0,
             mock.ANY,
             True,
             headers=mock.ANY,
             verify=mock.ANY,
             timeout=300,
+            respect_retry_after_header=False,
         )
 
 
@@ -557,3 +556,68 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
+
+
+def test_provide_redirect_kwarg():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = http_request(
+            MlflowHostCreds("http://my-host"),
+            "/my/endpoint",
+            "GET",
+            allow_redirects=False,
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=False,
+            headers=mock.ANY,
+            verify=mock.ANY,
+            timeout=120,
+        )
+
+
+def test_http_request_max_retries(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT", "15")
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The configured max_retries"):
+            http_request(host_creds, "/endpoint", "GET", max_retries=16)
+        mock_request.assert_not_called()
+        http_request(host_creds, "/endpoint", "GET", max_retries=3)
+        mock_request.assert_called_once()
+
+
+def test_http_request_backoff_factor(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT", "200")
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The configured backoff_factor"):
+            http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
+        mock_request.assert_not_called()
+        http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
+        mock_request.assert_called_once()
+
+
+def test_http_request_negative_max_retries():
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The max_retries value must be either"):
+            http_request(host_creds, "/endpoint", "GET", max_retries=-1)
+        mock_request.assert_not_called()
+
+
+def test_http_request_negative_backoff_factor():
+    host_creds = MlflowHostCreds("http://example.com")
+
+    with mock.patch("requests.Session.request") as mock_request:
+        with pytest.raises(MlflowException, match="The backoff_factor value must be"):
+            http_request(host_creds, "/endpoint", "GET", backoff_factor=-1)
+        mock_request.assert_not_called()

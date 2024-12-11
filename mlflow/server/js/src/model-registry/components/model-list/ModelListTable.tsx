@@ -4,30 +4,21 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-  Tooltip,
+  LegacyTooltip,
   Empty,
   PlusIcon,
   TableSkeletonRows,
+  WarningIcon,
 } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
-import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  SortingState,
-  useReactTable,
-} from '@tanstack/react-table';
+import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type {
-  KeyValueEntity,
-  ModelEntity,
-  ModelVersionInfoEntity,
-} from '../../../experiment-tracking/types';
+import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
@@ -56,11 +47,13 @@ export interface ModelListTableProps {
   orderByKey: string;
   orderByAsc: boolean;
   isLoading: boolean;
+  error?: Error;
   isFiltered: boolean;
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
 }
 
-type ModelsColumnDef = ColumnDef<ModelEntity> & {
+type EnrichedModelEntity = ModelEntity;
+type ModelsColumnDef = ColumnDef<EnrichedModelEntity> & {
   // Our experiments column definition houses style definitions in the metadata field
   meta?: { styles?: Interpolation<Theme> };
 };
@@ -71,12 +64,17 @@ export const ModelListTable = ({
   orderByKey,
   onSortChange,
   isLoading,
+  error,
   isFiltered,
   pagination,
 }: ModelListTableProps) => {
   const intl = useIntl();
 
   const { usingNextModelsUI } = useNextModelsUIContext();
+
+  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
+    return model;
+  });
 
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
@@ -90,7 +88,7 @@ export const ModelListTable = ({
         accessorKey: 'name',
         cell: ({ getValue }) => (
           <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
-            <Tooltip title={getValue()}>{getValue()}</Tooltip>
+            <LegacyTooltip title={getValue()}>{getValue()}</LegacyTooltip>
           </Link>
         ),
         meta: { styles: { minWidth: 200, flex: 1 } },
@@ -172,12 +170,13 @@ export const ModelListTable = ({
         id: ColumnKeys.CREATED_BY,
         header: intl.formatMessage({
           defaultMessage: 'Created by',
-          description:
-            'Column title for created by column for a model in the registered model page',
+          description: 'Column title for created by column for a model in the registered model page',
         }),
         accessorKey: 'user_id',
         enableSorting: false,
-        cell: ({ getValue }) => <span title={getValue() as string}>{getValue()}</span>,
+        cell: ({ getValue, row: { original } }) => {
+          return <span title={getValue() as string}>{getValue()}</span>;
+        },
         meta: { styles: { flex: 1 } },
       },
       {
@@ -185,8 +184,7 @@ export const ModelListTable = ({
         enableSorting: true,
         header: intl.formatMessage({
           defaultMessage: 'Last modified',
-          description:
-            'Column title for last modified timestamp for a model in the registered model page',
+          description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
         cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
@@ -216,8 +214,7 @@ export const ModelListTable = ({
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
   const setSorting = (stateUpdater: SortingState | ((state: SortingState) => SortingState)) => {
-    const [newSortState] =
-      typeof stateUpdater === 'function' ? stateUpdater(sorting) : stateUpdater;
+    const [newSortState] = typeof stateUpdater === 'function' ? stateUpdater(sorting) : stateUpdater;
     if (newSortState) {
       onSortChange({ orderByKey: newSortState.id, orderByAsc: !newSortState.desc });
     }
@@ -226,50 +223,60 @@ export const ModelListTable = ({
   // eslint-disable-next-line prefer-const
   let registerModelDocUrl = RegisteringModelDocUrl;
 
-  const emptyDescription = (
-    <FormattedMessage
-      defaultMessage='No models registered yet. <link>Learn more about registering models</link>.'
-      description='Models table > no models present yet'
-      values={{
-        link: (content: any) => (
-          <a target='_blank' rel='noopener noreferrer' href={registerModelDocUrl}>
-            {content}
-          </a>
-        ),
-      }}
-    />
-  );
-  const noResultsDescription = (
-    <FormattedMessage
-      defaultMessage='No results. Try using a different keyword or adjusting your filters.'
-      description='Models table > no results after filtering'
-    />
-  );
-  const emptyComponent = isFiltered ? (
-    // Displayed when there is no results, but any filters have been applied
+  const noResultsDescription = (() => {
+    return (
+      <FormattedMessage
+        defaultMessage="No results. Try using a different keyword or adjusting your filters."
+        description="Models table > no results after filtering"
+      />
+    );
+  })();
+  const emptyComponent = error ? (
     <Empty
-      description={noResultsDescription}
-      image={<SearchIcon />}
-      data-testid='model-list-no-results'
+      image={<WarningIcon />}
+      description={error.message}
+      title={
+        <FormattedMessage
+          defaultMessage="Error fetching models"
+          description="Workspace models page > Error empty state title"
+        />
+      }
     />
+  ) : isFiltered ? (
+    // Displayed when there is no results, but any filters have been applied
+    <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
   ) : (
     // Displayed when there is no results with no filters applied
     <Empty
-      description={emptyDescription}
+      description={
+        <FormattedMessage
+          defaultMessage="No models registered yet. <link>Learn more about registering models</link>."
+          description="Models table > no models present yet"
+          values={{
+            link: (content: any) => (
+              <a target="_blank" rel="noopener noreferrer" href={registerModelDocUrl}>
+                {content}
+              </a>
+            ),
+          }}
+        />
+      }
       image={<PlusIcon />}
       button={
         <CreateModelButton
-          buttonType='primary'
-          buttonText={<FormattedMessage defaultMessage='Create a model' description='' />}
+          buttonType="primary"
+          buttonText={
+            <FormattedMessage defaultMessage="Create a model" description="Create button to register a new model" />
+          }
         />
       }
     />
   );
 
-  const isEmpty = () => !isLoading && table.getRowModel().rows.length === 0;
+  const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<ModelEntity>({
-    data: modelsData,
+  const table = useReactTable<EnrichedModelEntity>({
+    data: enrichedModelsData,
     columns: tableColumns,
     state: {
       sorting,
@@ -282,7 +289,7 @@ export const ModelListTable = ({
   return (
     <>
       <Table
-        data-testid='model-list-table'
+        data-testid="model-list-table"
         pagination={pagination}
         scrollable
         empty={isEmpty() ? emptyComponent : undefined}
@@ -290,6 +297,7 @@ export const ModelListTable = ({
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_412"
               ellipsis
               key={header.id}
               sortable={header.column.getCanSort()}
@@ -312,11 +320,7 @@ export const ModelListTable = ({
           table.getRowModel().rows.map((row) => (
             <TableRow key={row.id}>
               {row.getAllCells().map((cell) => (
-                <TableCell
-                  ellipsis
-                  key={cell.id}
-                  css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}
-                >
+                <TableCell ellipsis key={cell.id} css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               ))}

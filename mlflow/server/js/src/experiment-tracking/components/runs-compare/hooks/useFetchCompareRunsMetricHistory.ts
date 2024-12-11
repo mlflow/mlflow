@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMetricHistoryApiBulk } from '../../../actions';
 import type { RunInfoEntity } from '../../../types';
-import { useAsyncDispatch } from '../../experiment-page/hooks/useAsyncDispatch';
-import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+
+import { useDispatch, useSelector } from 'react-redux';
+import { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import { compact } from 'lodash';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 
 /**
  * Automatically fetches metric history for runs, used in compare runs charts.
@@ -13,10 +15,11 @@ import { ReduxState } from '../../../../redux-types';
 export const useFetchCompareRunsMetricHistory = (
   // We can fetch multiple metrics at once
   metricKeys: string[],
-  runsData: { runInfo: RunInfoEntity }[],
+  runsData: { runInfo?: RunInfoEntity }[],
   maxResults?: number,
+  enabled = true,
 ) => {
-  const dispatch = useAsyncDispatch();
+  const dispatch = useDispatch<ThunkDispatch>();
 
   const [error, setError] = useState<any>(null);
   const [requests, setRequests] = useState<Record<string, boolean>>({});
@@ -52,7 +55,7 @@ export const useFetchCompareRunsMetricHistory = (
   );
 
   const isLoading = useMemo(() => {
-    const runUuids = runsData.map((r) => r.runInfo.run_uuid);
+    const runUuids = compact(runsData.map((r) => r.runInfo?.runUuid));
     for (const uuid of runUuids) {
       for (const metric of metricKeys) {
         const isPendingRequest = requests[`${uuid}-${metric}`];
@@ -65,7 +68,7 @@ export const useFetchCompareRunsMetricHistory = (
   }, [metricKeys, requests, runsData]);
 
   useEffect(() => {
-    if (!metricKeys.length) {
+    if (!metricKeys.length || !enabled) {
       return;
     }
 
@@ -76,7 +79,7 @@ export const useFetchCompareRunsMetricHistory = (
 
       // Determine which runs does not have corresponding
       // metric history entries already fetched and stored
-      const runUuids = runsData.map((r) => r.runInfo.run_uuid);
+      const runUuids = compact(runsData.map((r) => r.runInfo?.runUuid));
       const runUuidsToFetch = runUuids.filter((runUuid) => {
         const isInStore = Boolean(metricsByRunUuid[runUuid]?.[metricKey]);
         const isPendingRequest = requests[`${runUuid}-${metricKey}`];
@@ -102,16 +105,7 @@ export const useFetchCompareRunsMetricHistory = (
           setError(e);
         });
     }
-  }, [
-    addRequests,
-    metricsByRunUuid,
-    dispatch,
-    settleRequests,
-    metricKeys,
-    requests,
-    runsData,
-    maxResults,
-  ]);
+  }, [addRequests, metricsByRunUuid, dispatch, settleRequests, metricKeys, requests, runsData, maxResults, enabled]);
 
   return { isLoading, error };
 };

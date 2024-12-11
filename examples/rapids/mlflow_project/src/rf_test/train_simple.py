@@ -15,26 +15,33 @@ def load_data(fpath):
     """
     Simple helper function for loading data to be used by CPU/GPU models.
 
-    :param fpath: Path to the data to be ingested
-    :return: DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
+    Args:
+        fpath: Path to the data to be ingested
+
+    Returns:
+        DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
     """
     import cudf
 
-    df = cudf.read_parquet(fpath)
-    X = df.drop(["ArrDelayBinary"], axis=1)
-    y = df["ArrDelayBinary"].astype("int32")
+    df = cudf.read_csv(fpath)
+    X = df.drop(["target"], axis=1)
+    y = df["target"].astype("int32")
 
     return train_test_split(X, y, test_size=0.2)
 
 
 def train(fpath, max_depth, max_features, n_estimators):
     """
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param max_depth: RF max_depth parameter
-    :param max_features: RF max_features parameter
-    :param n_estimators: RF n_estimators parameter
-    :return: trained model
+    Train a Random Forest classifier with the specified hyperparameters.
+
+    Args:
+        fpath: Path or URL for the training data used with the model.
+        max_depth: Maximum depth of the trees in the Random Forest.
+        max_features: Number of features to consider when looking for the best split.
+        n_estimators: Number of trees in the Random Forest.
+
+    Returns:
+        A tuple containing the trained Random Forest model and the inferred model signature.
     """
     X_train, X_test, y_train, y_test = load_data(fpath)
 

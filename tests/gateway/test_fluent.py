@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -46,7 +47,7 @@ def basic_config_dict():
                 "name": "chat",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                     "config": {"openai_api_key": "mykey"},
                 },
@@ -107,6 +108,7 @@ def test_fluent_get_valid_route(gateway):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
 
 
@@ -127,12 +129,14 @@ def test_fluent_search_routes(gateway):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
     assert routes[1].dict() == {
-        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "model": {"name": "gpt-4o-mini", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
+        "limit": None,
     }
 
 
@@ -157,7 +161,9 @@ def test_fluent_search_routes_handles_pagination(tmp_path):
         "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
     }
     save_yaml(conf, gateway_config_dict)
-    with Gateway(conf) as gateway:
+
+    # Increase Gunicorn worker timeout from default 30 sec to handle huge number of routes
+    with Gateway(conf, env={**os.environ, "GUNICORN_CMD_ARGS": "--timeout=120"}) as gateway:
         set_gateway_uri(gateway_uri=gateway.url)
         assert [route.name for route in search_routes()] == gateway_route_names
 
@@ -172,22 +178,25 @@ def test_fluent_query_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "The core of the sun is estimated to have a temperature of about "
                     "15 million degrees Celsius (27 million degrees Fahrenheit).",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -204,19 +213,18 @@ def test_fluent_query_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-davinci-003",
+        "choices": [
             {
                 "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "input_tokens": 7,
-            "output_tokens": 16,
-            "total_tokens": 23,
-            "model": "text-davinci-003",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": 7, "completion_tokens": 16, "total_tokens": 23},
     }
 
     data = {"prompt": "I like to drive fast in my"}
@@ -247,18 +255,14 @@ def test_fluent_delete_route_raises(gateway):
 def test_fluent_set_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(
-        HTTPError, match=".*The set_limits API is not available in OSS MLflow AI Gateway."
-    ):
+    with pytest.raises(HTTPError, match="The set_limits API is not available"):
         set_limits("some-route", [])
 
 
 def test_fluent_get_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(
-        HTTPError, match=".*The get_limits API is not available in OSS MLflow AI Gateway."
-    ):
+    with pytest.raises(HTTPError, match="The get_limits API is not available"):
         get_limits("some-route")
 
 
@@ -280,6 +284,7 @@ def test_get_route_accepts_unknown_provider():
         "route_type": "llm/v1/chat",
         "model": {"name": "unknown-5", "provider": "unknown-ai"},
         "route_url": "http://localhost:5000/gateway/chat/invocations",
+        "limit": None,
     }
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         route = get_route("chat")
@@ -295,6 +300,7 @@ def test_get_route_accepts_unknown_route_type():
         "route_type": "llm/v1/unknown",
         "model": {"name": "gpt4", "provider": "openai"},
         "route_url": "http://localhost:5000/gateway/chat/invocations",
+        "limit": None,
     }
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         route = get_route("chat")
@@ -312,6 +318,7 @@ def test_search_routes_accepts_unknown_provider():
                 "route_type": "llm/v1/chat",
                 "model": {"name": "unknown-5", "provider": "unknown-ai"},
                 "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "limit": None,
             },
         ],
         "next_page_token": None,
@@ -332,6 +339,7 @@ def test_search_routes_accepts_unknown_route_type():
                 "route_type": "llm/v1/unknown",
                 "model": {"name": "gpt4", "provider": "openai"},
                 "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "limit": None,
             },
         ],
         "next_page_token": None,

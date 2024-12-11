@@ -7,7 +7,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -54,6 +54,17 @@ def test_mlflow_artifact_uri_formats_resolved(artifact_uri, resolved_uri, tracki
 
 
 def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
+    with pytest.raises(
+        MlflowException,
+        match="When an mlflow-artifacts URI was supplied, the tracking URI must be a valid",
+    ):
+        MlflowArtifactsRepository.resolve_uri(
+            artifact_uri=f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
+            tracking_uri="file:///tmp",
+        )
+
+
+def test_mlflow_artifact_uri_raises_with_invalid_artifact_uri():
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
     for failing_condition in failing_conditions:
@@ -79,7 +90,7 @@ class MockResponse:
 
 
 class MockStreamResponse(MockResponse):
-    def iter_content(self, chunk_size):  # pylint: disable=unused-argument
+    def iter_content(self, chunk_size):
         yield self.data.encode("utf-8")
 
     def __enter__(self):
@@ -200,7 +211,7 @@ def test_list_artifacts(mlflow_artifact_repo):
         endpoint = "/mlflow-artifacts/artifacts"
         url, _ = mlflow_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
         mock_get.assert_called_once_with(
-            _get_default_host_creds(url),
+            get_default_host_creds(url),
             endpoint,
             "GET",
             params={"path": ""},

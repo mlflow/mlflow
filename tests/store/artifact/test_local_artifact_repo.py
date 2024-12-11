@@ -1,9 +1,11 @@
+import json
 import os
+import pathlib
 import posixpath
 
 import pytest
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
@@ -180,7 +182,7 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
             assert f.read() == "42"
 
 
-def test_delete_artifacts(local_artifact_repo):
+def test_delete_artifacts_folder(local_artifact_repo):
     with TempDir() as local_dir:
         os.mkdir(local_dir.path("subdir"))
         os.mkdir(local_dir.path("subdir", "nested"))
@@ -198,5 +200,46 @@ def test_delete_artifacts(local_artifact_repo):
         assert not os.path.exists(os.path.join(local_artifact_repo._artifact_dir))
 
 
+def test_delete_artifacts_files(local_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    nested = subdir / "nested"
+    subdir.mkdir()
+    nested.mkdir()
+
+    (subdir / "a.txt").write_text("A")
+    (subdir / "b.txt").write_text("B")
+    (nested / "c.txt").write_text("C")
+
+    local_artifact_repo.log_artifacts(str(subdir))
+    artifact_dir = pathlib.Path(local_artifact_repo._artifact_dir)
+    assert (artifact_dir / "nested").exists()
+    assert (artifact_dir / "a.txt").exists()
+    assert (artifact_dir / "b.txt").exists()
+
+    local_artifact_repo.delete_artifacts(artifact_path="nested/c.txt")
+    local_artifact_repo.delete_artifacts(artifact_path="b.txt")
+
+    assert not (artifact_dir / "nested" / "c.txt").exists()
+    assert not (artifact_dir / "b.txt").exists()
+    assert (artifact_dir / "a.txt").exists()
+
+
 def test_delete_artifacts_with_nonexistent_path_succeeds(local_artifact_repo):
     local_artifact_repo.delete_artifacts("nonexistent")
+
+
+def test_download_artifacts_invalid_remote_file_path(local_artifact_repo):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.download_artifacts("/absolute/path/to/file")
+
+
+def test_trace_data(local_artifact_repo):
+    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found for path="):
+        local_artifact_repo.download_trace_data()
+    local_artifact_repo.upload_trace_data("invalid data")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        local_artifact_repo.download_trace_data()
+
+    mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
+    local_artifact_repo.upload_trace_data(json.dumps(mock_trace_data))
+    assert local_artifact_repo.download_trace_data() == mock_trace_data

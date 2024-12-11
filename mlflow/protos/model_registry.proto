@@ -172,6 +172,7 @@ service ModelRegistryService {
       visibility: PUBLIC,
       rpc_doc_title: "Search ModelVersions",
     };
+    option (graphql) = {};
   }
 
   rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {

@@ -1,14 +1,15 @@
-# pylint: disable=redefined-outer-name
 import os
 import posixpath
 from unittest import mock
 
 import pytest
+import requests
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
 from tests.helper_functions import mock_method_chain
 
@@ -194,7 +195,6 @@ def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmp_p
     repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     def mkfile(fname, **kwargs):
-        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmp_path.joinpath(fname)
         f.write_text("hello world!")
@@ -256,7 +256,7 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         prefix = os.path.join("/", prefix)
         if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
             return mock_populated_results
@@ -264,7 +264,6 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
             return mock_empty_results
 
     def mkfile(fname, **kwargs):
-        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmp_path.joinpath(fname)
         f.write_text("hello world!")
@@ -319,7 +318,6 @@ def test_delete_artifacts(mock_client):
         directory traversal.
         """
 
-        # pylint: disable=unused-argument
         if hasattr(obj_mock, "name") and hasattr(obj_mock, "size"):
             mock_results = mock.MagicMock()
             mock_results.__iter__.return_value = [obj_mock]
@@ -343,3 +341,207 @@ def test_delete_artifacts(mock_client):
     repo.delete_artifacts()
     artifact_file_names = [obj.path for obj in repo.list_artifacts()]
     assert not artifact_file_names
+
+
+def test_gcs_mpu_arguments():
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+    requests_session = requests.Session()
+    mock_blob = mock.MagicMock()
+    mock_blob.name = "experiment_id/run_id/file.txt"
+    mock_blob.bucket.name = "test_bucket"
+    mock_blob.kms_key_name = None
+    mock_blob.user_project = None
+    mock_blob._get_upload_arguments.return_value = {}, {}, "application/octet-stream"
+    mock_blob._get_transport.return_value = requests_session
+    mock_blob.client._connection.get_api_base_url_for_mtls.return_value = "gcs_base_url"
+    args = repo._gcs_mpu_arguments("file.txt", mock_blob)
+    assert args.transport == requests_session
+    assert args.url == "gcs_base_url/test_bucket/experiment_id/run_id/file.txt"
+    assert args.headers == {}
+    assert args.content_type == "application/octet-stream"
+
+
+def test_create_multipart_upload(mock_client):
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=GCSMPUArguments(
+            requests.Session(),
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
+            {},
+            "application/octet-stream",
+        ),
+    )
+
+    # mock the XML API response of initiate multipart upload
+    # see https://cloud.google.com/storage/docs/xml-api/post-object-multipart#example
+    upload_id = "some_upload_id"
+    resp = mock.Mock(status_code=200)
+    resp.text = f"""<?xml version="1.0" encoding="UTF-8"?>
+<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Bucket>{bucket_name}</Bucket>
+  <Key>{file_name}</Key>
+  <UploadId>{upload_id}</UploadId>
+</InitiateMultipartUploadResult>"""
+
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
+        create = repo.create_multipart_upload(
+            file_name, num_parts=5, artifact_path=artifact_root_path
+        )
+        request_mock.assert_called_once()
+        args, kwargs = request_mock.call_args
+        assert args == (
+            "POST",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploads",
+        )
+        assert len(create.credentials) == 5
+        assert create.upload_id == upload_id
+        assert kwargs["data"] is None
+
+
+def test_complete_multipart_upload(mock_client):
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    upload_id = "some_upload_id"
+    parts = []
+    for part_number in range(1, 3):
+        parts.append(MultipartUploadPart(part_number=part_number, etag=f"etag_{part_number}"))
+
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=GCSMPUArguments(
+            requests.Session(),
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
+            {},
+            "application/octet-stream",
+        ),
+    )
+
+    # See https://cloud.google.com/storage/docs/xml-api/post-object-complete
+    expected_payload = (
+        b"<CompleteMultipartUpload>"
+        b"<Part><PartNumber>1</PartNumber>"
+        b"<ETag>etag_1</ETag></Part>"
+        b"<Part><PartNumber>2</PartNumber>"
+        b"<ETag>etag_2</ETag></Part>"
+        b"</CompleteMultipartUpload>"
+    )
+
+    resp = mock.Mock(status_code=200)
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
+        repo.complete_multipart_upload(file_name, upload_id, parts, artifact_root_path)
+        request_mock.assert_called_once()
+        args, kwargs = request_mock.call_args
+        assert args == (
+            "POST",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploadId={upload_id}",
+        )
+        assert kwargs["data"] == expected_payload
+
+
+def test_abort_multipart_upload(mock_client):
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    upload_id = "some_upload_id"
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=GCSMPUArguments(
+            requests.Session(),
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
+            {},
+            "application/octet-stream",
+        ),
+    )
+
+    resp = mock.Mock(status_code=204)
+    with (
+        gcs_mpu_arguments_patch,
+        mock.patch("requests.Session.request", return_value=resp) as request_mock,
+    ):
+        repo.abort_multipart_upload(file_name, upload_id, artifact_root_path)
+        request_mock.assert_called_once()
+        args, kwargs = request_mock.call_args
+        assert args == (
+            "DELETE",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploadId={upload_id}",
+        )
+        assert kwargs["data"] is None
+
+
+@pytest.mark.parametrize("throw", [True, False])
+def test_retryable_log_artifacts(throw, tmp_path):
+    with (
+        mock.patch("google.cloud.storage.Client") as mock_gcs_client_factory,
+        mock.patch("google.oauth2.credentials.Credentials") as mock_gcs_credentials_factory,
+    ):
+        gcs_client_mock = mock.Mock()
+        gcs_bucket_mock = mock.Mock()
+        gcs_client_mock.bucket.return_value = gcs_bucket_mock
+
+        gcs_refreshed_client_mock = mock.Mock()
+        gcs_refreshed_bucket_mock = mock.Mock()
+        gcs_refreshed_client_mock.bucket.return_value = gcs_refreshed_bucket_mock
+        mock_gcs_client_factory.return_value = gcs_refreshed_client_mock
+
+        def exception_thrown_side_effect_func(*args, **kwargs):
+            if throw:
+                raise Exception("Test Exception")
+            return None
+
+        def success_side_effect_func(*args, **kwargs):
+            return None
+
+        def creds_func():
+            return {"oauth_token": "new_creds"}
+
+        gcs_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            exception_thrown_side_effect_func
+        )
+        gcs_refreshed_bucket_mock.blob.return_value.upload_from_filename.side_effect = (
+            success_side_effect_func
+        )
+
+        repo = GCSArtifactRepository(
+            artifact_uri="gs://test_bucket/test_root/",
+            client=gcs_client_mock,
+            credential_refresh_def=creds_func,
+        )
+
+        data = tmp_path.joinpath("data")
+        data.mkdir()
+        subd = data.joinpath("subdir")
+        subd.mkdir()
+        subd.joinpath("a.txt").write_text("A")
+
+        repo.log_artifacts(subd)
+
+        if throw:
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_called_once()
+            mock_gcs_client_factory.assert_called_once()
+            mock_gcs_credentials_factory.assert_called_once()
+        else:
+            gcs_bucket_mock.blob.assert_called_once()
+            gcs_refreshed_bucket_mock.blob.assert_not_called()
+            mock_gcs_client_factory.assert_not_called()
+            mock_gcs_credentials_factory.assert_not_called()

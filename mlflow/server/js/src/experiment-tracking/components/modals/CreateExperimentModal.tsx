@@ -56,8 +56,8 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
     const { isOpen } = this.props;
     return (
       <GenericInputModal
-        title='Create Experiment'
-        okText='Create'
+        title="Create Experiment"
+        okText="Create"
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}
@@ -71,7 +71,7 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
 
 const mapStateToProps = (state: any) => {
   const experiments = getExperiments(state);
-  const experimentNames = experiments.map((e) => (e as any).getName());
+  const experimentNames = experiments.map((e) => e.name);
   return { experimentNames };
 };
 

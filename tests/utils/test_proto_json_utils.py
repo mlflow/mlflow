@@ -13,22 +13,22 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.types import ColSpec, DataType, Schema, TensorSpec
+from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
     _stringify_all_experiment_ids,
     cast_df_types_according_to_schema,
+    dataframe_from_parsed_json,
     dataframe_from_raw_json,
     message_to_json,
     parse_dict,
     parse_tf_serving_input,
 )
 
-from tests.protos.test_message_pb2 import TestMessage
-
-# Prevent pytest from trying to collect TestMessage as a test class:
-TestMessage.__test__ = False
+from tests.protos.test_message_pb2 import SampleMessage
 
 
 def test_message_to_json():
@@ -151,7 +151,7 @@ def test_message_to_json():
                               field_inner_repeated_int64: 83
                               field_inner_string: "str2"}}]
     """,
-        TestMessage(),
+        SampleMessage(),
     )
     json_out = message_to_json(test_message)
     json_dict = json.loads(json_out)
@@ -194,7 +194,7 @@ def test_message_to_json():
         },
         "[mlflow.ExtensionMessage.field_extended_int64]": "100",
     }
-    new_test_message = TestMessage()
+    new_test_message = SampleMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message
 
@@ -297,6 +297,15 @@ def test_parse_tf_serving_dictionary():
     # With df Schema
     result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
+    # With df Schema containing array
+    new_schema = _infer_schema(tfserving_input["instances"])
+    result = parse_tf_serving_input(tfserving_input, new_schema)
+    expected_result = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+    }
+    assert_result(result, expected_result)
 
     # input provided as a dict
     tfserving_input = {
@@ -426,10 +435,7 @@ def test_parse_tf_serving_raises_expected_errors():
         "instances": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    match = (
-        'Failed to parse data as TF serving input. One of "instances" and "inputs"'
-        " must be specified"
-    )
+    match = 'Invalid input. One of "instances" and "inputs" must be specified'
     with pytest.raises(MlflowException, match=match):
         parse_tf_serving_input(tfserving_input)
 
@@ -438,7 +444,7 @@ def test_parse_tf_serving_raises_expected_errors():
         "signature_name": "hello",
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    match = 'Failed to parse data as TF serving input. "signature_name" is currently not supported'
+    match = '"signature_name" parameter is currently not supported'
     with pytest.raises(MlflowException, match=match):
         parse_tf_serving_input(tfserving_input)
 
@@ -621,3 +627,120 @@ def test_cast_df_types_according_to_schema_success(dataframe, schema, expected):
 def test_cast_df_types_according_to_schema_error_message(dataframe, schema, error_message):
     with pytest.raises(MlflowFailedTypeConversion, match=error_message):
         cast_df_types_according_to_schema(dataframe, schema)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema", "instances_data"),
+    [
+        ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")]), None),
+        (
+            {"query": ["sentence_1", "sentence_2"]},
+            Schema([ColSpec(Array(DataType.string), name="query")]),
+            None,
+        ),
+        (
+            {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            Schema(
+                [
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table"),
+                ]
+            ),
+            None,
+        ),
+        (
+            {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                [
+                                    Property("name", DataType.string),
+                                    Property("age", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="query",
+                    ),
+                    ColSpec(Array(DataType.string), name="table"),
+                ]
+            ),
+            None,
+        ),
+        (
+            [{"query": "sentence"}, {"query": "sentence"}],
+            Schema([ColSpec(DataType.string, name="query")]),
+            {"query": ["sentence", "sentence"]},
+        ),
+        (
+            [
+                {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+                {"query": ["sentence_1", "sentence_2"]},
+            ],
+            Schema(
+                [
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table", required=False),
+                ]
+            ),
+            {
+                "query": [["sentence_1", "sentence_2"], ["sentence_1", "sentence_2"]],
+                "table": ["some_table"],
+            },
+        ),
+        (
+            [
+                {"query": {"a": "sentence_1", "b": "sentence_2"}, "table": "some_table"},
+                {"query": {"a": "sentence_1"}, "table": "some_table"},
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("a", DataType.string),
+                                Property("b", DataType.string, required=False),
+                            ]
+                        ),
+                        name="query",
+                    ),
+                    ColSpec(DataType.string, name="table"),
+                ]
+            ),
+            {
+                "query": [{"a": "sentence_1", "b": "sentence_2"}, {"a": "sentence_1"}],
+                "table": ["some_table", "some_table"],
+            },
+        ),
+        (
+            {
+                "query": [{"name": "value", "age": "10"}, {"name": "value"}],
+                "table": {"k": "some_table"},
+                "data": {"k1": ["a", "b"], "k2": ["c"]},
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Array(Map(value_type=DataType.string)),
+                        name="query",
+                    ),
+                    ColSpec(Map(value_type=DataType.string), name="table"),
+                    ColSpec(Map(value_type=Array(DataType.string)), name="data"),
+                ]
+            ),
+            None,
+        ),
+    ],
+)
+def test_parse_tf_serving_input_for_dictionaries_and_lists_and_maps(data, schema, instances_data):
+    np.testing.assert_equal(parse_tf_serving_input({"inputs": data}, schema), data)
+    if instances_data is None:
+        np.testing.assert_equal(parse_tf_serving_input({"instances": data}, schema), data)
+    else:
+        np.testing.assert_equal(parse_tf_serving_input({"instances": data}, schema), instances_data)
+    df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+    df_split = df.to_dict(orient="split")
+    pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_split, "split", schema), df)
+    df_records = df.to_dict(orient="records")
+    pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_records, "records", schema), df)

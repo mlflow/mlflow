@@ -33,15 +33,15 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
   getCompareRunsPageText(numRuns: any, numExperiments: any) {
     return numExperiments > 1 ? (
       <FormattedMessage
-        defaultMessage='Comparing {numRuns} Runs from {numExperiments} Experiments'
+        defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
         // eslint-disable-next-line max-len
-        description='Breadcrumb title for compare runs page with multiple experiments'
+        description="Breadcrumb title for compare runs page with multiple experiments"
         values={{ numRuns, numExperiments }}
       />
     ) : (
       <FormattedMessage
-        defaultMessage='Comparing {numRuns} Runs from 1 Experiment'
-        description='Breadcrumb title for compare runs page with single experiment'
+        defaultMessage="Comparing {numRuns} Runs from 1 Experiment"
+        description="Breadcrumb title for compare runs page with single experiment"
         values={{ numRuns }}
       />
     );
@@ -69,17 +69,16 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
   getCompareExperimentsPageLinkText(numExperiments: any) {
     return (
       <FormattedMessage
-        defaultMessage='Displaying Runs from {numExperiments} Experiments'
+        defaultMessage="Displaying Runs from {numExperiments} Experiments"
         // eslint-disable-next-line max-len
-        description='Breadcrumb nav item to link to the compare-experiments page on compare runs page'
+        description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
         values={{ numExperiments }}
       />
     );
   }
 
   getExperimentPageLink() {
-    const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } =
-      this.props;
+    const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } = this.props;
 
     if (hasComparedExperimentsBefore && comparedExperimentIds) {
       const text = this.getCompareExperimentsPageLinkText(comparedExperimentIds.length);
@@ -91,9 +90,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
       return <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
     }
 
-    return (
-      <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].getName()}</Link>
-    );
+    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;
   }
 
   render() {
@@ -101,7 +98,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     const { selectedMetricKeys } = Utils.getMetricPlotStateFromUrl(location.search);
     const title =
       selectedMetricKeys.length > 1 ? (
-        <FormattedMessage defaultMessage='Metrics' description='Title for metrics page' />
+        <FormattedMessage defaultMessage="Metrics" description="Title for metrics page" />
       ) : (
         selectedMetricKeys[0]
       );
@@ -119,9 +116,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { comparedExperimentIds, hasComparedExperimentsBefore } = state.compareExperiments;
   const { experimentIds, runUuids } = ownProps;
   const experiments =
-    experimentIds !== null
-      ? experimentIds.map((experimentId: any) => getExperiment(experimentId, state))
-      : null;
+    experimentIds !== null ? experimentIds.map((experimentId: any) => getExperiment(experimentId, state)) : null;
   const runNames = runUuids.map((runUuid: any) => {
     const runInfo = getRunInfo(runUuid, state);
     return Utils.getRunDisplayName(runInfo, runUuid);

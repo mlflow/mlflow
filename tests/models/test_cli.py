@@ -15,6 +15,7 @@ import sklearn
 import sklearn.datasets
 import sklearn.neighbors
 from click.testing import CliRunner
+from packaging.requirements import Requirement
 
 import mlflow
 import mlflow.models.cli as models_cli
@@ -22,16 +23,22 @@ import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.model import get_model_requirements_files, update_model_requirements
+from mlflow.models.utils import load_serving_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 )
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import _get_conda_env_name
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import (
+    _get_requirements_from_file,
+    _mlflow_conda_env,
+)
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
 
@@ -88,6 +95,8 @@ def test_mlflow_is_not_installed_unless_specified():
         # The following should fail because there should be no mlflow in the env:
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -123,7 +132,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         m.save(tmp.path("model", "MLmodel"))
         # The following should fail because there should be no suitable flavor
         prc = subprocess.run(
-            ["mlflow", "models", "predict", "-m", tmp.path("model")],
+            [sys.executable, "-m", "mlflow", "models", "predict", "-m", tmp.path("model")],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
             check=False,
@@ -137,7 +146,10 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="imlegit")
+        x, _ = iris_data
+        mlflow.sklearn.log_model(
+            sk_model, "model", registered_model_name="imlegit", input_example=pd.DataFrame(x)
+        )
         run_id = active_run.info.run_id
 
     model_uris = [
@@ -147,11 +159,11 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     for model_uri in model_uris:
         with TempDir() as tpm:
             output_file_path = tpm.path("stoudt")
+            inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
-                x, _ = iris_data
                 scoring_response = pyfunc_serve_and_score_model(
                     model_uri,
-                    pd.DataFrame(x),
+                    inference_payload,
                     content_type=CONTENT_TYPE_JSON,
                     stdout=output_file,
                     extra_args=["-w", "3"],
@@ -186,6 +198,8 @@ def test_predict(iris_data, sk_model):
         # Test with no conda & model registry URI
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -211,6 +225,8 @@ def test_predict(iris_data, sk_model):
         # With conda + --install-mlflow
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -233,6 +249,8 @@ def test_predict(iris_data, sk_model):
         # explicit json format with default orient (should be split)
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -258,6 +276,8 @@ def test_predict(iris_data, sk_model):
         # explicit json format with orient==split
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -282,6 +302,8 @@ def test_predict(iris_data, sk_model):
         # read from stdin, write to stdout.
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -309,6 +331,8 @@ def test_predict(iris_data, sk_model):
         # csv
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "predict",
@@ -348,6 +372,8 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     # Throw errors for invalid content_type
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -368,7 +394,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
         check=False,
     )
     assert prc.returncode != 0
-    assert "Unknown content type" in prc.stderr.decode("utf-8")
+    assert "Content type must be one of json or csv." in prc.stderr.decode("utf-8")
 
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
@@ -388,6 +414,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     # Valid input path with space
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -411,6 +439,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     # Throw errors for invalid input_path
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -435,6 +465,8 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -476,6 +508,8 @@ def test_predict_check_output_path(iris_data, sk_model, tmp_path):
 
     prc = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -510,6 +544,8 @@ def test_prepare_env_passes(sk_model):
         # With conda
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",
@@ -523,6 +559,8 @@ def test_prepare_env_passes(sk_model):
         # Should be idempotent
         subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",
@@ -548,6 +586,8 @@ def test_prepare_env_fails(sk_model):
         # With conda - should fail due to bad conda environment.
         prc = subprocess.run(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "models",
                 "prepare-env",
@@ -750,10 +790,13 @@ def test_host_invalid_value():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="test_model", registered_model_name="model"
+            "test_model", python_model=MyModel(), registered_model_name="model"
         )
 
-    with mock.patch("mlflow.models.cli.get_flavor_backend", return_value=PyFuncBackend({})):
+    with mock.patch(
+        "mlflow.models.cli.get_flavor_backend",
+        return_value=PyFuncBackend({}, env_manager=_EnvManager.VIRTUALENV),
+    ):
         with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
             CliRunner().invoke(
                 models_cli.serve,
@@ -801,12 +844,12 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     # Test with model1_path
     model1_path = tmp_path / "model1"
 
-    _test_model(env_root1_path, model1_path, "1.0.1")
-    _test_model(env_root2_path, model1_path, "1.0.1")
+    _test_model(env_root1_path, model1_path, "1.4.0")
+    _test_model(env_root2_path, model1_path, "1.4.0")
 
     # Test with model2_path
     model2_path = tmp_path / "model2"
-    _test_model(env_root1_path, model2_path, "1.0.2")
+    _test_model(env_root1_path, model2_path, "1.4.2")
 
 
 @pytest.mark.parametrize(
@@ -828,7 +871,7 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="test_model", python_model=MyModel(), signature=signature
+            "test_model", python_model=MyModel(), signature=signature
         )
 
     inference_payload = json.dumps({"inputs": ["test"]})
@@ -844,3 +887,136 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     # Assert the prediction result
     assert json.loads(scoring_result.content)["predictions"] == ["test"]
+
+
+def assert_base_model_reqs():
+    """
+    Helper function for testing model requirements. Asserts that the
+    contents of requirements.txt and conda.yaml are as expected, then
+    returns their filepaths so mutations can be performed.
+    """
+    import cloudpickle
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return ["test"]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    requirements_txt_file = local_paths.requirements
+    conda_env_file = local_paths.conda
+
+    reqs = _get_requirements_from_file(requirements_txt_file)
+    assert Requirement(f"mlflow=={mlflow.__version__}") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    reqs = _get_requirements_from_file(conda_env_file)
+    assert Requirement(f"mlflow=={mlflow.__version__}") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    return model_info.model_uri
+
+
+def test_update_requirements_cli_adds_reqs_successfully():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+
+    CliRunner().invoke(
+        models_cli.update_pip_requirements,
+        ["-m", f"{model_uri}", "add", "mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"],
+        catch_exceptions=False,
+    )
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+
+def test_update_requirements_cli_removes_reqs_successfully():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+
+    CliRunner().invoke(
+        models_cli.update_pip_requirements,
+        ["-m", f"{model_uri}", "remove", "mlflow"],
+        catch_exceptions=False,
+    )
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should remove mlflow and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+
+def test_update_requirements_cli_throws_on_incompatible_input():
+    model_uri = assert_base_model_reqs()
+
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible"
+    ):
+        CliRunner().invoke(
+            models_cli.update_pip_requirements,
+            ["-m", f"{model_uri}", "add", "mlflow<2.6", "mlflow>2.7"],
+            catch_exceptions=False,
+        )
+
+
+def test_update_model_requirements_add():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+    update_model_requirements(
+        model_uri, "add", ["mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"]
+    )
+
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert Requirement("mlflow!=2.9.0,>=2.9") in reqs
+    assert Requirement("coolpackage[extra]==8.8.8") in reqs
+    assert Requirement(f"cloudpickle=={cloudpickle.__version__}") in reqs
+
+
+def test_update_model_requirements_remove():
+    import cloudpickle
+
+    model_uri = assert_base_model_reqs()
+
+    update_model_requirements(model_uri, "remove", ["mlflow"])
+    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    local_paths = get_model_requirements_files(resolved_uri)
+
+    # the tool should remove mlflow and leave cloudpickle alone
+    reqs = _get_requirements_from_file(local_paths.requirements)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+    reqs = _get_requirements_from_file(local_paths.conda)
+    assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]

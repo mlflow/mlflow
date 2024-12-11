@@ -34,14 +34,12 @@ class SubmittedRun:
         that in some cases (e.g. remote execution on Databricks), we may wait until the remote job
         completes rather than until the MLflow run completes.
         """
-        pass
 
     @abstractmethod
     def get_status(self):
         """
         Get status of the run.
         """
-        pass
 
     @abstractmethod
     def cancel(self):
@@ -50,7 +48,6 @@ class SubmittedRun:
         waits for it to terminate. The MLflow run status may not be set correctly
         upon run cancellation.
         """
-        pass
 
     @property
     @abstractmethod

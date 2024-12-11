@@ -1,6 +1,7 @@
 """
 Getting started with Captum - Titanic Data Analysis
 """
+
 # Initial imports
 import os
 from argparse import ArgumentParser
@@ -36,10 +37,9 @@ def get_titanic():
     Class1 : Binary var indicating whether passenger was in first class
     Class2 : Binary var indicating whether passenger was in second class
     Class3 : Binary var indicating whether passenger was in third class
-    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
     """
-    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
-    titanic_data = pd.read_csv(url)
+    data_path = "titanic3.csv"
+    titanic_data = pd.read_csv(data_path)
     titanic_data = pd.concat(
         [
             titanic_data,
@@ -52,21 +52,18 @@ def get_titanic():
 
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
-    titanic_data = titanic_data.drop(
+    return titanic_data.drop(
         [
+            "passengerid",
             "name",
             "ticket",
             "cabin",
-            "boat",
-            "body",
-            "home.dest",
             "sex",
             "embarked",
             "pclass",
         ],
         axis=1,
     )
-    return titanic_data
 
 
 torch.manual_seed(1)  # Set seed for reproducibility.
@@ -131,7 +128,7 @@ def visualize_importances(
     feature_imp = PrettyTable(["feature_name", "importances"])
     feature_imp_dict = {}
     for i in range(len(feature_names)):
-        print(feature_names[i], ": ", "%.3f" % (importances[i]))
+        print(feature_names[i], ": ", f"{importances[i]:.3f}")
         feature_imp.add_row([feature_names[i], importances[i]])
         feature_imp_dict[str(feature_names[i])] = importances[i]
     x_pos = np.arange(len(feature_names))

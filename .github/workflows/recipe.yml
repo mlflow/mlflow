@@ -2,6 +2,11 @@ name: Recipe tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - master
@@ -26,6 +31,7 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
+  PYTHONUTF8: "1"
 
 jobs:
   recipes:
@@ -33,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -42,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          pip install 'numpy<2.0'
       - name: Run tests
         run: |
           pytest tests/recipes
@@ -57,7 +63,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -67,11 +73,11 @@ jobs:
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .
-          pip install pyspark
+          pip install .
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets
+          pip install 'numpy<2.0'
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils

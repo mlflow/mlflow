@@ -2,16 +2,17 @@
 Example of a custom python function implementing image classifier with image preprocessing embedded
 in the model.
 """
+
 import base64
+import importlib.metadata
 import os
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import keras
 import numpy as np
 import pandas as pd
 import PIL
-import pip
 import tensorflow as tf
 import yaml
 from PIL import Image
@@ -25,9 +26,12 @@ def decode_and_resize_image(raw_bytes, size):
     """
     Read, decode and resize raw image bytes (e.g. raw content of a jpeg file).
 
-    :param raw_bytes: Image bits, e.g. jpeg image.
-    :param size: requested output dimensions
-    :return: Multidimensional numpy array representing the resized image.
+    Args:
+        raw_bytes: Image bits, e.g. jpeg image.
+        size: Requested output dimensions.
+
+    Returns:
+        Multidimensional numpy array representing the resized image.
     """
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
@@ -56,25 +60,26 @@ class KerasImageClassifierPyfunc:
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
     def predict(
-        self, input, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        input,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Generate predictions for the data.
 
-        :param input: pandas.DataFrame with one column containing images to be scored. The image
-                     column must contain base64 encoded binary content of the image files. The image
-                     format must be supported by PIL (e.g. jpeg or png).
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            input: pandas.DataFrame with one column containing images to be scored. The image
+                column must contain base64 encoded binary content of the image files. The image
+                format must be supported by PIL (e.g. jpeg or png).
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: pandas.DataFrame containing predictions with the following schema:
-                     Predicted class: string,
-                     Predicted class index: int,
-                     Probability(class==0): float,
-                     ...,
-                     Probability(class==N): float,
+        Returns:
+            pandas.DataFrame containing predictions with the following schema:
+                Predicted class: string,
+                Predicted class index: int,
+                Probability(class==0): float,
+                ...,
+                Probability(class==N): float,
         """
 
         # decode image bytes from base64 encoding
@@ -94,8 +99,12 @@ class KerasImageClassifierPyfunc:
     def _predict_images(self, images):
         """
         Generate predictions for input images.
-        :param images: binary image data
-        :return: predicted probabilities for each class
+
+        Args:
+            images: Binary image data.
+
+        Returns:
+            Predicted probabilities for each class.
         """
 
         def preprocess_f(z):
@@ -111,10 +120,12 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
-    :param keras_model: Keras model to be saved.
-    :param artifact_path: Run-relative artifact path this model is to be saved to.
-    :param image_dims: Image dimensions the Keras model expects.
-    :param domain: Labels for the classes this model can predict.
+    Args:
+        keras_model: Keras model to be saved.
+        signature: Model signature.
+        artifact_path: Run-relative artifact path this model is to be saved to.
+        image_dims: Image dimensions the Keras model expects.
+        domain: Labels for the classes this model can predict.
     """
 
     with TempDir() as tmp:
@@ -133,7 +144,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
                     keras_version=keras.__version__,
                     tf_name=tf.__name__,  # can have optional -gpu suffix
                     tf_version=tf.__version__,
-                    pip_version=pip.__version__,
+                    pip_version=importlib.metadata.version("pip"),
                     pillow_version=PIL.__version__,
                 )
             )
@@ -142,7 +153,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
             artifact_path=artifact_path,
             signature=signature,
             loader_module=__name__,
-            code_path=[__file__],
+            code_paths=[__file__],
             data_path=data_path,
             conda_env=conda_env,
         )

@@ -9,9 +9,7 @@ import {
 describe('PromptEngineering utils', () => {
   describe('extractPromptInputVariables', () => {
     test('correctly extracts multiple variable names', () => {
-      const variables = extractPromptInputVariables(
-        'this {{a}} is a {{b}} test but {{a}} is duplicated',
-      );
+      const variables = extractPromptInputVariables('this {{a}} is a {{b}} test but {{a}} is duplicated');
       expect(variables).toEqual(['a', 'b']);
     });
     test('correctly handles spaces in the variable name', () => {
@@ -26,9 +24,7 @@ describe('PromptEngineering utils', () => {
       expect(extractPromptInputVariables('this {{a ww}} asdafsdf')).toEqual([]);
     });
     test('correctly handles letter case', () => {
-      expect(
-        extractPromptInputVariables('this {{ONE}} parameter and another {{One}} parameter'),
-      ).toEqual(['one']);
+      expect(extractPromptInputVariables('this {{ONE}} parameter and another {{One}} parameter')).toEqual(['one']);
     });
   });
 
@@ -129,12 +125,9 @@ describe('PromptEngineering utils', () => {
 
     test('correctly handles fields with no values', () => {
       expect(
-        compilePromptInputText(
-          'the value is {{ value }} and not provided value is {{ not_provided }}',
-          {
-            value: 'TestValue',
-          },
-        ),
+        compilePromptInputText('the value is {{ value }} and not provided value is {{ not_provided }}', {
+          value: 'TestValue',
+        }),
       ).toEqual('the value is TestValue and not provided value is {{ not_provided }}');
     });
   });

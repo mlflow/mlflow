@@ -6,22 +6,84 @@
  */
 
 import React from 'react';
+import { Typography } from '@databricks/design-system';
 import { Table } from 'antd';
 import { LogModelWithSignatureUrl } from '../../common/constants';
-import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
-import { MODEL_SCHEMA_TENSOR_TYPE } from '../constants';
+import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
-import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import {
+  DesignSystemHocProps,
+  MinusSquareIcon,
+  PlusSquareIcon,
+  WithDesignSystemThemeHoc,
+} from '@databricks/design-system';
 
 const { Column } = Table;
+const { Text } = Typography;
+const INDENTATION_SPACES = 2;
 
 type Props = DesignSystemHocProps & {
   schema?: any;
   defaultExpandAllRows?: boolean;
   intl: IntlShape;
 };
+
+function getTensorTypeRepr(tensorType: TensorSpec): string {
+  return `Tensor (dtype: ${tensorType['tensor-spec'].dtype}, shape: [${tensorType['tensor-spec'].shape}])`;
+}
+
+// return a formatted string representation of the column type
+function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): string {
+  const { type } = columnType;
+
+  const indentation = ' '.repeat(indentationLevel * INDENTATION_SPACES);
+  if (type === 'object') {
+    const propertyReprs = Object.keys(columnType.properties).map((propertyName) => {
+      const property = columnType.properties[propertyName];
+      const requiredRepr = property.required ? '' : ' (optional)';
+      const propertyRepr = getColumnTypeRepr(property, indentationLevel + 1);
+      const indentOffset = (indentationLevel + 1) * INDENTATION_SPACES;
+
+      return `${' '.repeat(indentOffset)}${propertyName}: ${propertyRepr.slice(indentOffset) + requiredRepr}`;
+    });
+
+    return `${indentation}{\n${propertyReprs.join(',\n')}\n${indentation}}`;
+  }
+
+  if (type === 'array') {
+    const indentOffset = indentationLevel * INDENTATION_SPACES;
+    const itemsTypeRepr = getColumnTypeRepr(columnType.items, indentationLevel).slice(indentOffset);
+    return `${indentation}Array(${itemsTypeRepr})`;
+  }
+
+  return `${indentation}${type}`;
+}
+
+function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
+  let required = true;
+  if (spec.required !== undefined) {
+    ({ required } = spec);
+  } else if (spec.optional !== undefined && spec.optional) {
+    required = false;
+  }
+  const requiredTag = required ? <Text bold>(required)</Text> : <Text color="secondary">(optional)</Text>;
+
+  const name = 'name' in spec ? spec.name : '-';
+
+  return (
+    <Text>
+      {name} {requiredTag}
+    </Text>
+  );
+}
+
+function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
+  const repr = spec.type === 'tensor' ? getTensorTypeRepr(spec) : getColumnTypeRepr(spec, 0);
+
+  return <pre css={signatureCodeBlock}>{repr}</pre>;
+}
 
 export class SchemaTableImpl extends React.PureComponent<Props> {
   renderSchemaTable = (schemaData: any, schemaType: any) => {
@@ -30,20 +92,20 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
         title: 'Name',
         dataIndex: 'name',
         key: 'name',
-        width: '50%',
+        width: '40%',
       },
       {
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
-        width: '50%',
+        width: '60%',
       },
     ];
 
     return (
       <Table
-        className='inner-table'
-        size='middle'
+        className="inner-table"
+        size="middle"
         showHeader={false}
         pagination={false}
         locale={{ emptyText: `No schema ${schemaType}.` }}
@@ -54,33 +116,20 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     );
   };
 
-  getSchemaTypeRepr = (schemaTypeSpec: any) => {
-    let { type } = schemaTypeSpec;
-    if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
-      type = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
-    }
-
-    // If the "optional" property is present and true, wrap the type around an "Optional[]"
-    if (schemaTypeSpec.optional) {
-      type = `Optional[${type}]`;
-    }
-    return type;
-  };
-
   getSchemaRowData = (schemaData: any) => {
     const rowData: any = [];
     schemaData.forEach((row: any, index: any) => {
       rowData[index] = {
         key: index,
-        name: row.name ? row.name : '-',
-        type: row.type ? this.getSchemaTypeRepr(row) : '-',
+        name: formatColumnName(row),
+        type: formatColumnSchema(row),
       };
     });
     return rowData;
   };
 
   renderSectionHeader = (text: any) => {
-    return <strong className='primary-text'>{text}</strong>;
+    return <strong className="primary-text">{text}</strong>;
   };
 
   render() {
@@ -125,10 +174,10 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
       // @ts-expect-error TS(2322): Type '{ [x: string]: { padding: string; width: str... Remove this comment to see the full error message
       <div css={getSchemaTableStyles(theme)}>
         <Table
-          key='schema-table'
-          className='outer-table'
-          rowClassName='section-header-row'
-          size='middle'
+          key="schema-table"
+          className="outer-table"
+          rowClassName="section-header-row"
+          size="middle"
           pagination={false}
           defaultExpandAllRows={this.props.defaultExpandAllRows}
           expandRowByClick
@@ -136,11 +185,11 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
           expandIcon={({ expanded, onExpand, record }) =>
             expanded ? (
               <span onClick={(e) => onExpand(record, e)}>
-                <i className='far fa-minus-square' />
+                <MinusSquareIcon />
               </span>
             ) : (
               <span onClick={(e) => onExpand(record, e)}>
-                <i className='far fa-plus-square' />
+                <PlusSquareIcon />
               </span>
             )
           }
@@ -149,13 +198,13 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               <div>
                 {/* eslint-disable-next-line max-len */}
                 <FormattedMessage
-                  defaultMessage='No schema. See <link>MLflow docs</link> for how to include
-                     input and output schema with your model.'
-                  description='Text for schema table when no schema exists in the model version
-                     page'
+                  defaultMessage="No schema. See <link>MLflow docs</link> for how to include
+                     input and output schema with your model."
+                  description="Text for schema table when no schema exists in the model version
+                     page"
                   values={{
                     link: (chunks: any) => (
-                      <a href={LogModelWithSignatureUrl} target='_blank' rel='noreferrer'>
+                      <a href={LogModelWithSignatureUrl} target="_blank" rel="noreferrer">
                         {chunks}
                       </a>
                     ),
@@ -173,8 +222,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Name',
               description: 'Text for name column in schema table in model version page',
             })}
-            width='50%'
-            dataIndex='name'
+            width="40%"
+            dataIndex="name"
             render={this.renderSectionHeader}
           />
           <Column
@@ -183,8 +232,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Type',
               description: 'Text for type column in schema table in model version page',
             })}
-            width='50%'
-            dataIndex='type'
+            width="60%"
+            dataIndex="type"
             render={this.renderSectionHeader}
           />
         </Table>
@@ -248,4 +297,10 @@ const getSchemaTableStyles = (theme: Theme) => ({
     backgroundColor: theme.colors.backgroundPrimary,
     color: theme.colors.textPrimary,
   },
+});
+const signatureCodeBlock = (theme: Theme): Interpolation<Theme> => ({
+  whiteSpace: 'pre-wrap',
+  padding: theme.spacing.sm,
+  marginTop: theme.spacing.sm,
+  marginBottom: theme.spacing.sm,
 });

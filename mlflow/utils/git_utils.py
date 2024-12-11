@@ -44,7 +44,7 @@ def get_git_commit(path: str) -> Optional[str]:
         return None
     try:
         if os.path.isfile(path):
-            path = os.path.dirname(path)
+            path = os.path.dirname(os.path.abspath(path))
         repo = Repo(path, search_parent_directories=True)
         if path in repo.ignored(path):
             return None

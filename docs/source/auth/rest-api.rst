@@ -12,6 +12,8 @@ The API is hosted under the ``/api`` route on the MLflow tracking server. For ex
 experiments on a tracking server hosted at ``http://localhost:5000``, access
 ``http://localhost:5000/api/2.0/mlflow/users/create``.
 
+.. important::
+    The MLflow REST API requires content type ``application/json`` for all POST requests.
 
 .. contents:: Table of Contents
     :local:

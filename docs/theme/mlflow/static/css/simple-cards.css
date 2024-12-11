@@ -48,6 +48,19 @@
     overflow: hidden; 
 }
 
+.simple-card .header-with-image {
+    text-align: left; 
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 1rem 2rem;
+    position: relative;
+    height: calc(5rem + 1.2em);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
 .simple-card a {
     display: block;
     height: 100%;

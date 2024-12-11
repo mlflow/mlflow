@@ -9,6 +9,9 @@ from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksMode
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
+    UnityCatalogOSSModelsArtifactRepository,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
@@ -18,6 +21,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
+    is_oss_unity_catalog_uri,
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
@@ -46,6 +50,12 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
+        elif is_oss_unity_catalog_uri(uri=registry_uri):
+            self.repo = UnityCatalogOSSModelsArtifactRepository(
+                artifact_uri=artifact_uri, registry_uri=registry_uri
+            )
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
         elif is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
@@ -70,12 +80,16 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Split 'models:/<name>/<version>/path/to/model' into
         ('models:/<name>/<version>', 'path/to/model').
+        Split 'models:/<name>@alias/path/to/model' into
+        ('models:/<name>@alias', 'path/to/model').
         """
+        uri = uri.rstrip("/")
         path = urllib.parse.urlparse(uri).path
-        if path.count("/") >= 3 and not path.endswith("/"):
+        if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)
-            model_name_and_version = splits[:3]
-            artifact_path = splits[-1]
+            cut_index = 2 if "@" in splits[1] else 3
+            model_name_and_version = splits[:cut_index]
+            artifact_path = "/".join(splits[cut_index:])
             return "models:" + "/".join(model_name_and_version), artifact_path
         return uri, ""
 
@@ -111,9 +125,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         within the run's artifacts. Run artifacts can be organized into directories, so you can
         place the artifact in a directory this way.
 
-        :param local_file: Path to artifact to log
-        :param artifact_path: Directory within the run's artifact directory in which to log the
-                              artifact
+        Args:
+            local_file: Path to artifact to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifact.
         """
         raise ValueError(
             "log_artifact is not supported for models:/ URIs. Use register_model instead."
@@ -124,9 +139,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         Log the files in the specified local directory as artifacts, optionally taking
         an ``artifact_path`` to place them in within the run's artifacts.
 
-        :param local_dir: Directory of local artifacts to log
-        :param artifact_path: Directory within the run's artifact directory in which to log the
-                              artifacts
+        Args:
+            local_dir: Directory of local artifacts to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+                artifacts.
         """
         raise ValueError(
             "log_artifacts is not supported for models:/ URIs. Use register_model instead."
@@ -137,9 +153,11 @@ class ModelsArtifactRepository(ArtifactRepository):
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
 
-        :param path: Relative source path that contain desired artifacts
+        Args:
+            path: Relative source path that contain desired artifacts.
 
-        :return: List of artifacts as FileInfo listed directly under path.
+        Returns:
+            List of artifacts as FileInfo listed directly under path.
         """
         return self.repo.list_artifacts(path)
 
@@ -155,7 +173,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -163,19 +181,28 @@ class ModelsArtifactRepository(ArtifactRepository):
         are saved in the "registered_model_meta" file on the caller's side.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-        :param artifact_path: Relative source path to the desired artifacts.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist.
-                         If unspecified, the artifacts will either be downloaded to a new
-                         uniquely-named directory on the local filesystem or will be returned
-                         directly in the case of the LocalArtifactRepository.
+        Args:
+            artifact_path: Relative source path to the desired artifacts.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist.
+                If unspecified, the artifacts will either be downloaded to a new
+                uniquely-named directory on the local filesystem or will be returned
+                directly in the case of the LocalArtifactRepository.
+            lineage_header_info: Linear header information.
 
-        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        Returns:
+            Absolute path of the local filesystem location containing the desired artifacts.
         """
 
         from mlflow.models.model import MLMODEL_FILE_NAME
 
-        model_path = self.repo.download_artifacts(artifact_path, dst_path)
+        # Pass lineage header info if model is registered in UC
+        if isinstance(self.repo, UnityCatalogModelsArtifactRepository):
+            model_path = self.repo.download_artifacts(
+                artifact_path, dst_path, lineage_header_info=lineage_header_info
+            )
+        else:
+            model_path = self.repo.download_artifacts(artifact_path, dst_path)
         # NB: only add the registered model metadata iff the artifact path is at the root model
         # directory. For individual files or subdirectories within the model directory, do not
         # create the metadata file.
@@ -189,9 +216,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         Download the file at the specified relative remote path and saves
         it at the specified local path.
 
-        :param remote_file_path: Source path to the remote file, relative to the root
-                                 directory of the artifact repository.
-        :param local_path: The path to which to save the downloaded file.
+        Args:
+            remote_file_path: Source path to the remote file, relative to the root
+                directory of the artifact repository.
+            local_path: The path to which to save the downloaded file.
         """
         self.repo._download_file(remote_file_path, local_path)
 

@@ -1,18 +1,17 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.digest_utils import compute_pandas_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -22,13 +21,12 @@ if TYPE_CHECKING:
     import datasets
 
 
-@experimental
 class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
-    def __init__(
+    def __init__(  # noqa: D417
         self,
         ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,
@@ -37,13 +35,14 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        :param ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
-                   Other types, such as :py:class:`datasets.DatasetDict`, are not supported.
-        :param source: The source of the Hugging Face dataset.
-        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-                     automatically generated.
-        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-                       is automatically computed.
+        Args:
+            ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
+                Other types, such as :py:class:`datasets.DatasetDict`, are not supported.
+            source: The source of the Hugging Face dataset.
+            name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                automatically generated.
+            digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                is automatically computed.
         """
         if targets is not None and targets not in ds.column_names:
             raise MlflowException(
@@ -68,29 +67,29 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
         return compute_pandas_digest(df)
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
-        """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def ds(self) -> "datasets.Dataset":
-        """
-        The Hugging Face ``datasets.Dataset`` instance.
+        """The Hugging Face ``datasets.Dataset`` instance.
 
-        :return: The Hugging Face ``datasets.Dataset`` instance.
+        Returns:
+            The Hugging Face ``datasets.Dataset`` instance.
+
         """
         return self._ds
 
@@ -100,17 +99,17 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         The name of the Hugging Face dataset column containing targets (labels) for supervised
         learning.
 
-        :return: The string name of the Hugging Face dataset column containing targets.
+        Returns:
+            The string name of the Hugging Face dataset column containing targets.
         """
         return self._targets
 
     @property
     def source(self) -> HuggingFaceDatasetSource:
-        """
-        Hugging Face dataset source information.
+        """Hugging Face dataset source information.
 
-        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource`
-                 instance.
+        Returns:
+            A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource`
         """
         return self._source
 
@@ -173,7 +172,6 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def from_huggingface(
     ds,
     path: Optional[str] = None,
@@ -183,11 +181,14 @@ def from_huggingface(
     revision=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    trust_remote_code: Optional[bool] = None,
 ) -> HuggingFaceDataset:
-    """Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
+    """
+    Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
 
     Args:
-        ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as
+        ds:
+            A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as
             `datasets.DatasetDict`, are not supported.
         path: The path of the Hugging Face dataset used to construct the source. This is the same
             argument as `path` in `datasets.load_dataset()` function. To be able to reload the
@@ -212,6 +213,7 @@ def from_huggingface(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        trust_remote_code: Whether to trust remote code from the dataset repo.
     """
     import datasets
 
@@ -235,6 +237,7 @@ def from_huggingface(
             data_files=data_files,
             split=ds.split,
             revision=revision,
+            trust_remote_code=trust_remote_code,
         )
     else:
         context_tags = registry.resolve_tags()

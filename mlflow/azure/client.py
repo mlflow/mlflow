@@ -2,6 +2,7 @@
 This module provides utilities for performing Azure Blob Storage operations without requiring
 the heavyweight azure-storage-blob library dependency
 """
+
 import logging
 import urllib
 from copy import deepcopy
@@ -16,13 +17,13 @@ _PUT_BLOCK_HEADERS = {
 
 
 def put_adls_file_creation(sas_url, headers):
-    """
-    Performs an ADLS Azure file create `Put` operation
+    """Performs an ADLS Azure file create `Put` operation
     (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
 
-    :param sas_url: A shared access signature URL referring to the Azure ADLS server
-                    to which the file creation command should be issued.
-    :param headers: Additional headers to include in the Put request body
+    Args:
+        sas_url: A shared access signature URL referring to the Azure ADLS server
+            to which the file creation command should be issued.
+        headers: Additional headers to include in the Put request body.
     """
     request_url = _append_query_parameters(sas_url, {"resource": "file"})
 
@@ -44,14 +45,15 @@ def patch_adls_file_upload(sas_url, local_file, start_byte, size, position, head
     Performs an ADLS Azure file create `Patch` operation
     (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
 
-    :param sas_url: A shared access signature URL referring to the Azure ADLS server
-                    to which the file update command should be issued.
-    :param local_file: The local file to upload
-    :param start_byte: The starting byte of the local file to upload
-    :param size: The number of bytes to upload
-    :param position: Positional offset of the data in the Patch request
-    :param headers: Additional headers to include in the Patch request body
-    :param is_single: Whether this is the only patch operation for this file
+    Args:
+        sas_url: A shared access signature URL referring to the Azure ADLS server
+            to which the file update command should be issued.
+        local_file: The local file to upload
+        start_byte: The starting byte of the local file to upload
+        size: The number of bytes to upload
+        position: Positional offset of the data in the Patch request
+        headers: Additional headers to include in the Patch request body
+        is_single: Whether this is the only patch operation for this file
     """
     new_params = {"action": "append", "position": str(position)}
     if is_single:
@@ -73,14 +75,15 @@ def patch_adls_file_upload(sas_url, local_file, start_byte, size, position, head
 
 
 def patch_adls_flush(sas_url, position, headers):
-    """
-    Performs an ADLS Azure file flush `Patch` operation
+    """Performs an ADLS Azure file flush `Patch` operation
     (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
 
-    :param sas_url: A shared access signature URL referring to the Azure ADLS server
-                    to which the file update command should be issued.
-    :param position: The final size of the file to flush.
-    :param headers: Additional headers to include in the Patch request body.
+    Args:
+        sas_url: A shared access signature URL referring to the Azure ADLS server
+            to which the file update command should be issued.
+        position: The final size of the file to flush.
+        headers: Additional headers to include in the Patch request body.
+
     """
     request_url = _append_query_parameters(sas_url, {"action": "flush", "position": str(position)})
 
@@ -102,12 +105,13 @@ def put_block(sas_url, block_id, data, headers):
     Performs an Azure `Put Block` operation
     (https://docs.microsoft.com/en-us/rest/api/storageservices/put-block)
 
-    :param sas_url: A shared access signature URL referring to the Azure Block Blob
-                    to which the specified data should be staged.
-    :param block_id: A base64-encoded string identifying the block.
-    :param data: Data to include in the Put Block request body.
-    :param headers: Additional headers to include in the Put Block request body
-                    (the `x-ms-blob-type` header is always included automatically).
+    Args:
+        sas_url: A shared access signature URL referring to the Azure Block Blob
+            to which the specified data should be staged.
+        block_id: A base64-encoded string identifying the block.
+        data: Data to include in the Put Block request body.
+        headers: Additional headers to include in the Put Block request body
+            (the `x-ms-blob-type` header is always included automatically).
     """
     request_url = _append_query_parameters(sas_url, {"comp": "block", "blockid": block_id})
 
@@ -125,16 +129,17 @@ def put_block(sas_url, block_id, data, headers):
 
 
 def put_block_list(sas_url, block_list, headers):
-    """
-    Performs an Azure `Put Block List` operation
+    """Performs an Azure `Put Block List` operation
     (https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list)
 
-    :param sas_url: A shared access signature URL referring to the Azure Block Blob
-                    to which the specified data should be staged.
-    :param block_list: A list of uncommitted base64-encoded string block IDs to commit. For
-                       more information, see
-                       https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list.
-    :param headers: Headers to include in the Put Block request body.
+    Args:
+        sas_url: A shared access signature URL referring to the Azure Block Blob
+            to which the specified data should be staged.
+        block_list: A list of uncommitted base64-encoded string block IDs to commit. For
+            more information, see
+            https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list.
+        headers: Headers to include in the Put Block request body.
+
     """
     request_url = _append_query_parameters(sas_url, {"comp": "blocklist"})
     data = _build_block_list_xml(block_list)
@@ -174,11 +179,12 @@ def _build_block_list_xml(block_list):
 
 def _is_valid_put_block_list_header(header_name):
     """
-    :return: True if the specified header name is a valid header for the Put Block List operation,
-             False otherwise. For a list of valid headers, see https://docs.microsoft.com/en-us/
-             rest/api/storageservices/put-block-list#request-headers and https://docs.microsoft.com/
-             en-us/rest/api/storageservices/
-             specifying-conditional-headers-for-blob-service-operations#Subheading1.
+    Returns:
+        True if the specified header name is a valid header for the Put Block List operation,
+        False otherwise. For a list of valid headers, see https://docs.microsoft.com/en-us/
+        rest/api/storageservices/put-block-list#request-headers and https://docs.microsoft.com/
+        en-us/rest/api/storageservices/
+        specifying-conditional-headers-for-blob-service-operations#Subheading1.
     """
     return header_name.startswith("x-ms-meta-") or header_name in {
         "Authorization",
@@ -208,11 +214,12 @@ def _is_valid_put_block_list_header(header_name):
 
 def _is_valid_put_block_header(header_name):
     """
-    :return: True if the specified header name is a valid header for the Put Block operation, False
-             otherwise. For a list of valid headers, see
-             https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#request-headers and
-             https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
-             request-headers-customer-provided-encryption-keys.
+    Returns:
+        True if the specified header name is a valid header for the Put Block operation, False
+        otherwise. For a list of valid headers, see
+        https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#request-headers and
+        https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
+        request-headers-customer-provided-encryption-keys.
     """
     return header_name in {
         "Authorization",
@@ -232,9 +239,10 @@ def _is_valid_put_block_header(header_name):
 
 def _is_valid_adls_put_header(header_name):
     """
-    :return: True if the specified header name is a valid header for the ADLS Put operation, False
-             otherwise. For a list of valid headers, see
-             https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create
+    Returns:
+        True if the specified header name is a valid header for the ADLS Put operation, False
+        otherwise. For a list of valid headers, see
+        https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create
     """
     return header_name in {
         "Cache-Control",
@@ -277,9 +285,10 @@ def _is_valid_adls_put_header(header_name):
 
 def _is_valid_adls_patch_header(header_name):
     """
-    :return: True if the specified header name is a valid header for the ADLS Patch operation, False
-             otherwise. For a list of valid headers, see
-             https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update
+    Returns:
+        True if the specified header name is a valid header for the ADLS Patch operation, False
+        otherwise. For a list of valid headers, see
+        https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update
     """
     return header_name in {
         "Content-Length",

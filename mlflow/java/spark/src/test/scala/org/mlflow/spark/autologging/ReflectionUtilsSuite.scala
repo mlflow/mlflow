@@ -1,9 +1,13 @@
 package org.mlflow.spark.autologging
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 object TestObject {
   def myMethod: String = "hi"
+}
+
+object TestFileIndex {
+  def version: String = "1.0"
 }
 
 abstract class TestAbstractClass {
@@ -16,7 +20,7 @@ class RealClass extends TestAbstractClass {
   def subclassMethod(x: Int): Int = x * x
 }
 
-class ReflectionUtilsSuite extends FunSuite {
+class ReflectionUtilsSuite extends AnyFunSuite {
 
   test("Can get private & protected fields of an object via reflection") {
     val obj = new RealClass()
@@ -40,5 +44,39 @@ class ReflectionUtilsSuite extends FunSuite {
     val obj = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestObject")
     val res = ReflectionUtils.callMethod(obj, "myMethod", Seq.empty).asInstanceOf[String]
     assert(res == "hi")
+  }
+
+  test("maybeCallMethod None if method not found") {
+    val obj = new RealClass()
+    val res = ReflectionUtils.maybeCallMethod(obj, "nonExistentMethod", Seq.empty)
+
+    assert (res.isEmpty)
+  }
+
+  test("maybeCallMethod invokes the method if the method is found") {
+    val obj = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestObject")
+    val res0 = ReflectionUtils.maybeCallMethod(obj, "myMethod", Seq.empty).getOrElse("")
+    assert(res0 == "hi")
+  }
+
+  test("chaining maybeCallMethod works") {
+    val fileIndex = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestFileIndex")
+
+    val versionOpt0 = ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty).orElse(
+      Option("second thing")
+    ).map(_.toString)
+    assert(versionOpt0 == Some("1.0"))
+
+    // if only the second method exists, return it
+    val versionOpt1 = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+      ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
+    ).map(_.toString)
+    assert(versionOpt1 == Some("1.0"))
+
+    // if both don't exist, just return None
+    val versionOpt2 = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+      ReflectionUtils.maybeCallMethod(fileIndex, "anotherTableVersion", Seq.empty)
+    ).map(_.toString)
+    assert(versionOpt2 == None)
   }
 }

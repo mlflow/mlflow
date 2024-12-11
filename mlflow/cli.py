@@ -1,5 +1,4 @@
 import contextlib
-import importlib.metadata
 import json
 import logging
 import os
@@ -28,6 +27,7 @@ from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
@@ -262,7 +262,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
             )
 
 
-def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
+def _validate_static_prefix(ctx, param, value):
     """
     Validate that the static_prefix option starts with a "/" and does not end in a "/".
     Conforms to the callback interface of click documented at
@@ -353,7 +353,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--app-name",
     default=None,
-    type=click.Choice([e.name for e in importlib.metadata.entry_points().get("mlflow.app", [])]),
+    type=click.Choice([e.name for e in get_entry_points("mlflow.app")]),
     show_default=True,
     help=(
         "Application name to be used for the tracking server. "
@@ -470,6 +470,18 @@ def server(
     "from the ./mlruns directory.",
 )
 @click.option(
+    "--artifacts-destination",
+    envvar="MLFLOW_ARTIFACTS_DESTINATION",
+    metavar="URI",
+    default=None,
+    help=(
+        "The base artifact location from which to resolve artifact upload/download/list requests "
+        "(e.g. 's3://my-bucket'). This option only applies when the tracking server is configured "
+        "to stream artifacts and the experiment's artifact root location is http or "
+        "mlflow-artifacts URI. Otherwise, the default artifact location will be used."
+    ),
+)
+@click.option(
     "--run-ids",
     default=None,
     help="Optional comma separated list of runs to be permanently deleted. If run ids"
@@ -483,16 +495,24 @@ def server(
     "all of their associated runs. If experiment ids are not specified, data is removed for all "
     "experiments in the `deleted` lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids, experiment_ids):
+def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     If the provided artifact URL is invalid, the artifact deletion will be bypassed,
     and the gc process will continue.
+
+    .. attention::
+
+        If you are running an MLflow tracking server with artifact proxying enabled,
+        you **must** set the ``MLFLOW_TRACKING_URI`` environment variable before running
+        this command. Otherwise, the ``gc`` command will not be able to resolve
+        artifact URIs and will not be able to delete the associated artifacts.
+
     """
     from mlflow.utils.time import get_current_time_millis
 
-    backend_store = _get_store(backend_store_uri, None)
+    backend_store = _get_store(backend_store_uri, artifacts_destination)
     skip_experiments = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(

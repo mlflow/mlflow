@@ -11,17 +11,12 @@ export type ErrorBoundaryProps = {
 function ErrorFallback() {
   return (
     <Empty
-      data-testid='fallback'
-      title={
-        <FormattedMessage
-          defaultMessage='Error'
-          description='Title of editor error fallback component'
-        />
-      }
+      data-testid="fallback"
+      title={<FormattedMessage defaultMessage="Error" description="Title of editor error fallback component" />}
       description={
         <FormattedMessage
-          defaultMessage='An error occurred while rendering this component.'
-          description='Description of error fallback component'
+          defaultMessage="An error occurred while rendering this component."
+          description="Description of error fallback component"
         />
       }
       image={<DangerIcon />}
@@ -31,6 +26,7 @@ function ErrorFallback() {
 
 export function CustomErrorBoundary({ children }: React.PropsWithChildren<ErrorBoundaryProps>) {
   function logErrorToConsole(error: Error, info: { componentStack: string }) {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     console.error('Caught Unexpected Error: ', error, info.componentStack);
   }
 

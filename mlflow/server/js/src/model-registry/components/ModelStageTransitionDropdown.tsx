@@ -6,22 +6,19 @@
  */
 
 import React from 'react';
-import { Dropdown, Menu, Modal, ChevronDownIcon } from '@databricks/design-system';
+import { Dropdown, Menu, Modal, ChevronDownIcon, ArrowRightIcon } from '@databricks/design-system';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
 import { DirectTransitionForm } from './DirectTransitionForm';
 import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
 
-type OwnModelStageTransitionDropdownProps = {
+type ModelStageTransitionDropdownProps = {
   currentStage?: string;
   permissionLevel?: string;
   onSelect?: (...args: any[]) => any;
 };
 
 type ModelStageTransitionDropdownState = any;
-
-type ModelStageTransitionDropdownProps = OwnModelStageTransitionDropdownProps &
-  typeof ModelStageTransitionDropdown.defaultProps;
 
 export class ModelStageTransitionDropdown extends React.Component<
   ModelStageTransitionDropdownProps,
@@ -83,13 +80,13 @@ export class ModelStageTransitionDropdown extends React.Component<
             }
           >
             <FormattedMessage
-              defaultMessage='Transition to'
-              description='Text for transitioning a model version to a different stage under
-                 dropdown menu in model version page'
+              defaultMessage="Transition to"
+              description="Text for transitioning a model version to a different stage under
+                 dropdown menu in model version page"
             />
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <i className='fas fa-long-arrow-right' />
-            &nbsp;&nbsp;&nbsp;&nbsp;
+            &nbsp;&nbsp;&nbsp;
+            <ArrowRightIcon />
+            &nbsp;&nbsp;&nbsp;
             {StageTagComponents[stage]}
           </Menu.Item>
         ))}
@@ -109,10 +106,11 @@ export class ModelStageTransitionDropdown extends React.Component<
       );
       return (
         <Modal
+          componentId="codegen_mlflow_app_src_model-registry_components_modelstagetransitiondropdown.tsx_270"
           title={
             <FormattedMessage
-              defaultMessage='Stage Transition'
-              description='Title text for model version stage transitions in confirm modal'
+              defaultMessage="Stage Transition"
+              description="Title text for model version stage transitions in confirm modal"
             />
           }
           visible={confirmModalVisible}
@@ -120,16 +118,16 @@ export class ModelStageTransitionDropdown extends React.Component<
           onCancel={this.handleConfirmModalCancel}
           okText={
             <FormattedMessage
-              defaultMessage='OK'
-              description='Text for OK button on the confirmation page for stage transition
-                 on the model versions page'
+              defaultMessage="OK"
+              description="Text for OK button on the confirmation page for stage transition
+                 on the model versions page"
             />
           }
           cancelText={
             <FormattedMessage
-              defaultMessage='Cancel'
-              description='Text for cancel button on the confirmation page for stage
-                transitions on the model versions page'
+              defaultMessage="Cancel"
+              description="Text for cancel button on the confirmation page for stage
+                transitions on the model versions page"
             />
           }
         >
@@ -145,13 +143,9 @@ export class ModelStageTransitionDropdown extends React.Component<
     const { currentStage } = this.props;
     return (
       <span>
-        <Dropdown
-          overlay={this.getMenu()}
-          trigger={['click']}
-          className='stage-transition-dropdown'
-        >
+        <Dropdown overlay={this.getMenu()} trigger={['click']} className="stage-transition-dropdown">
           <span>
-            {StageTagComponents[currentStage]}
+            {StageTagComponents[currentStage ?? Stages.NONE]}
             <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>
@@ -166,13 +160,13 @@ export const renderActivityDescription = (activity: any) => {
     return (
       <div>
         <FormattedMessage
-          defaultMessage='Transition to'
-          description='Text for activity description under confirmation modal for model
-             version stage transition'
+          defaultMessage="Transition to"
+          description="Text for activity description under confirmation modal for model
+             version stage transition"
         />
         &nbsp;&nbsp;&nbsp;
-        <i className='fas fa-long-arrow-right' />
-        &nbsp;&nbsp;&nbsp;&nbsp;
+        <ArrowRightIcon />
+        &nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}
       </div>
     );

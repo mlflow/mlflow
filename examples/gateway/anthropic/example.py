@@ -1,20 +1,22 @@
-from mlflow.gateway import query, set_gateway_uri
+from mlflow.deployments import get_deploy_client
 
 
 def main():
-    # Set the URI for the MLflow AI Gateway
-    set_gateway_uri("http://localhost:5000")
+    client = get_deploy_client("http://localhost:7000")
+
+    print(f"Anthropic endpoints: {client.list_endpoints()}\n")
+    print(f"Anthropic completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
     # Completions request
-    response_completions = query(
-        route="completions",
-        data={
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
             "prompt": "How many average size European ferrets can fit inside a standard olympic "
             "size swimming pool?",
             "max_tokens": 5000,
         },
     )
-    print(f"Fluent API response: {response_completions}")
+    print(f"Anthropic response for completions: {response_completions}")
 
 
 if __name__ == "__main__":

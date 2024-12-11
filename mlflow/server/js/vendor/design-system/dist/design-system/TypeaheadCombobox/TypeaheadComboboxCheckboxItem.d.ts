@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { UseComboboxReturnValue } from 'downshift';
 import { type TypeaheadComboboxMenuItemProps } from './TypeaheadComboboxMenuItem';
 export interface TypeaheadComboboxCheckboxItemProps<T> extends TypeaheadComboboxMenuItemProps<T> {

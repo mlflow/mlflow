@@ -6,6 +6,7 @@ Validation data is used to select the best hyperparameters, test set performance
 at epochs which improved performance on the validation dataset. The model with best validation set
 performance is logged with MLflow.
 """
+
 import math
 import warnings
 
@@ -36,7 +37,7 @@ def get_standardize_f(train):
     return lambda x: (x - mu) / std
 
 
-class MLflowCheckpoint(Callback):
+class MlflowCheckpoint(Callback):
     """
     Example of Keras MLflow logger.
     Logs training metrics and final model with MLflow.
@@ -133,7 +134,7 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
             eval_and_log_metrics("val", valid_y, np.ones(len(valid_y)) * np.mean(valid_y), epoch=-1)
             eval_and_log_metrics("test", test_y, np.ones(len(test_y)) * np.mean(test_y), epoch=-1)
         else:
-            with MLflowCheckpoint(test_x, test_y) as mlflow_logger:
+            with MlflowCheckpoint(test_x, test_y) as mlflow_logger:
                 model = Sequential()
                 model.add(Lambda(get_standardize_f(train_x)))
                 model.add(

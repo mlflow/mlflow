@@ -8,6 +8,7 @@ import pytest
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json, resolve_dataset_source
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import cloud_storage_http_request
 
 
@@ -92,10 +93,13 @@ def test_source_load(tmp_path):
         return cloud_storage_http_request(*args, **kwargs)
 
     source5 = HTTPDatasetSource("https://nonexistentwebsitebuiltbythemlflowteam112312.com")
-    with mock.patch(
-        "mlflow.data.http_dataset_source.cloud_storage_http_request",
-        side_effect=cloud_storage_http_request_with_fast_fail,
-    ), pytest.raises(Exception, match="Max retries exceeded with url"):
+    with (
+        mock.patch(
+            "mlflow.data.http_dataset_source.cloud_storage_http_request",
+            side_effect=cloud_storage_http_request_with_fast_fail,
+        ),
+        pytest.raises(Exception, match="Max retries exceeded with url"),
+    ):
         source5.load()
 
 
@@ -128,3 +132,57 @@ def test_source_load_with_content_disposition_header(attachment_filename, expect
         loaded = source.load()
         assert os.path.exists(loaded)
         assert os.path.basename(loaded) == expected_filename
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "/foo/bar.txt",
+        "./foo/bar.txt",
+        "../foo/bar.txt",
+        "foo/bar.txt",
+    ],
+)
+def test_source_load_with_content_disposition_header_invalid_filename(filename):
+    def download_with_mock_content_disposition_headers(*args, **kwargs):
+        response = cloud_storage_http_request(*args, **kwargs)
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+
+    with mock.patch(
+        "mlflow.data.http_dataset_source.cloud_storage_http_request",
+        side_effect=download_with_mock_content_disposition_headers,
+    ):
+        source = HTTPDatasetSource(
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+        )
+
+        with pytest.raises(MlflowException, match="Invalid filename in Content-Disposition header"):
+            source.load()
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "filename",
+    [
+        r"..\..\poc.txt",
+        r"Users\User\poc.txt",
+    ],
+)
+def test_source_load_with_content_disposition_header_invalid_filename_windows(filename):
+    def download_with_mock_content_disposition_headers(*args, **kwargs):
+        response = cloud_storage_http_request(*args, **kwargs)
+        response.headers = {"Content-Disposition": f"attachment; filename={filename}"}
+        return response
+
+    with mock.patch(
+        "mlflow.data.http_dataset_source.cloud_storage_http_request",
+        side_effect=download_with_mock_content_disposition_headers,
+    ):
+        source = HTTPDatasetSource(
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+        )
+
+        # Expect an MlflowException for invalid filenames
+        with pytest.raises(MlflowException, match="Invalid filename in Content-Disposition header"):
+            source.load()

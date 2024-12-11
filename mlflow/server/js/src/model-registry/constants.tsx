@@ -30,10 +30,24 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color='lemon'>{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color='lime'>{StageLabels[Stages.PRODUCTION]}</Tag>,
-  [Stages.ARCHIVED]: <Tag color='charcoal'>{StageLabels[Stages.ARCHIVED]}</Tag>,
+  [Stages.NONE]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_37">{StageLabels[Stages.NONE]}</Tag>
+  ),
+  [Stages.STAGING]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_38" color="lemon">
+      {StageLabels[Stages.STAGING]}
+    </Tag>
+  ),
+  [Stages.PRODUCTION]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_39" color="lime">
+      {StageLabels[Stages.PRODUCTION]}
+    </Tag>
+  ),
+  [Stages.ARCHIVED]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_40" color="charcoal">
+      {StageLabels[Stages.ARCHIVED]}
+    </Tag>
+  ),
 };
 
 export const ActivityTypes = {
@@ -54,18 +68,15 @@ export const ModelVersionStatus = {
 
 export const DefaultModelVersionStatusMessages = {
   [ModelVersionStatus.READY]: (
-    <FormattedMessage
-      defaultMessage='Ready.'
-      description='Default status message for model versions that are ready'
-    />
+    <FormattedMessage defaultMessage="Ready." description="Default status message for model versions that are ready" />
   ),
 };
 
 export const modelVersionStatusIconTooltips = {
   [ModelVersionStatus.READY]: (
     <FormattedMessage
-      defaultMessage='Ready'
-      description='Tooltip text for ready model version status icon in model view page'
+      defaultMessage="Ready"
+      description="Tooltip text for ready model version status icon in model view page"
     />
   ),
 };
@@ -105,10 +116,10 @@ registered model, transition versions in active stages to the 'Archived' stage.`
 
 export const archiveExistingVersionToolTipText = (currentStage: any) => (
   <FormattedMessage
-    defaultMessage='Model versions in the `{currentStage}` stage will be moved to the
-     `Archived` stage.'
-    description='Tooltip text for transitioning existing model versions in stage to archived
-     in the model versions page'
+    defaultMessage="Model versions in the `{currentStage}` stage will be moved to the
+     `Archived` stage."
+    description="Tooltip text for transitioning existing model versions in stage to archived
+     in the model versions page"
     values={{ currentStage: currentStage }}
   />
 );

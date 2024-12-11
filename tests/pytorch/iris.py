@@ -1,7 +1,3 @@
-# pylint: disable=arguments-differ
-# pylint: disable=unused-argument
-# pylint: disable=abstract-method
-
 import tempfile
 
 import pytorch_lightning as pl
@@ -26,7 +22,7 @@ def create_multiclass_accuracy():
         if Version(torchmetrics.__version__) >= Version("0.11"):
             return Accuracy(task="multiclass", num_classes=3)
         else:
-            return Accuracy()  # pylint: disable=no-value-for-parameter
+            return Accuracy()
     except ImportError:
         from pytorch_lightning.metrics import Accuracy
 
@@ -104,6 +100,39 @@ class IrisClassificationWithoutValidation(IrisClassificationBase):
         self.test_acc(torch.argmax(logits, dim=1), y)
         self.log("test_loss", loss)
         self.log("test_acc", self.test_acc.compute())
+
+
+class IrisClassificationMultiOptimizer(IrisClassificationBase):
+    """
+    Contrived lightning module that uses multiple optimizers. In real-world scenarios
+    multiple optimizers might be used for Generative Adversarial Networks (GANs).
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.automatic_optimization = False
+
+    def training_step(self, batch, batch_idx):
+        opt1, opt2 = self.optimizers()
+
+        x, y = batch
+        logits = self.forward(x)
+        loss = self.cross_entropy_loss(logits, y)
+
+        opt1.zero_grad()
+        opt2.zero_grad()
+
+        self.manual_backward(loss)
+
+        opt1.step()
+        opt2.step()
+
+        self.log("loss", loss, on_epoch=True, on_step=True)
+
+    def configure_optimizers(self):
+        opt1 = torch.optim.Adam(self.parameters(), 0.01)
+        opt2 = torch.optim.Adam(self.parameters(), 0.01)
+        return [opt1, opt2]
 
 
 if __name__ == "__main__":

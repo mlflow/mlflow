@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
-import { act, renderWithIntl, screen, waitFor } from '../../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {
@@ -63,7 +63,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
       return (
         <div>
-          {isSyncingArtifacts && <div data-testid='is-syncing' />}
+          {isSyncingArtifacts && <div data-testid="is-syncing" />}
           {EvaluationSyncStatusElement}
         </div>
       );
@@ -125,9 +125,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(uploadArtifactApi).toBeCalledWith('run_1', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
       columns: ['question', 'answer'],
@@ -195,15 +193,11 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(Utils.logErrorAndNotifyUser).toBeCalledWith(
       expect.objectContaining({
-        message: expect.stringMatching(
-          /Cannot find existing prompt engineering artifact for run run_1/,
-        ),
+        message: expect.stringMatching(/Cannot find existing prompt engineering artifact for run run_1/),
       }),
     );
   });
@@ -216,9 +210,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
     expect(discardPendingEvaluationData).toBeCalledWith();
   });

@@ -1,14 +1,16 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
+import { RenameExperimentModal } from './RenameExperimentModal';
+import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
+import { IntlProvider } from 'react-intl';
+import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
+import userEvent from '@testing-library/user-event-14';
+import { MlflowService } from '../../sdk/MlflowService';
+import { getExperimentApi, updateExperimentApi } from '../../actions';
+import Utils from '../../../common/utils/Utils';
 
-import React from 'react';
-import { shallow } from 'enzyme';
-import { RenameExperimentModalImpl } from './RenameExperimentModal';
-import { GenericInputModal } from './GenericInputModal';
+jest.mock('../../actions', () => ({
+  getExperimentApi: jest.fn(() => ({ type: 'action', meta: {}, payload: Promise.resolve({}) })),
+  updateExperimentApi: jest.fn(() => ({ type: 'action', meta: {}, payload: Promise.resolve({}) })),
+}));
 
 describe('RenameExperimentModal', () => {
   let wrapper: any;
@@ -17,10 +19,16 @@ describe('RenameExperimentModal', () => {
   let mockGetExperimentApi: any;
 
   beforeEach(() => {
-    mockUpdateExperimentApi = jest.fn(() => Promise.resolve({}));
-    mockGetExperimentApi = jest.fn(() => Promise.resolve({}));
+    jest.mocked(updateExperimentApi).mockClear();
+    jest.mocked(getExperimentApi).mockClear();
+    jest.spyOn(MlflowService, 'getExperimentByName').mockImplementation(() => Promise.reject({} as any));
+    jest.spyOn(Utils, 'logErrorAndNotifyUser');
+    jest.clearAllMocks();
+  });
+
+  const renderTestComponent = () => {
     minimalProps = {
-      isOpen: false,
+      isOpen: true,
       experimentId: '123',
       experimentName: 'testName',
       experimentNames: ['arrayName1', 'arrayName2'],
@@ -29,70 +37,68 @@ describe('RenameExperimentModal', () => {
       getExperimentApi: mockGetExperimentApi,
     };
 
-    wrapper = shallow(<RenameExperimentModalImpl {...minimalProps} />);
+    render(<RenameExperimentModal {...minimalProps} />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <MockedReduxStoreProvider
+            state={{
+              entities: { experimentsById: {} },
+            }}
+          >
+            {children}
+          </MockedReduxStoreProvider>
+        </IntlProvider>
+      ),
+    });
+  };
+
+  test('should render with minimal props without exploding', async () => {
+    renderTestComponent();
+    expect(screen.getByText('Rename Experiment')).toBeInTheDocument();
   });
 
-  test('should render with minimal props without exploding', () => {
-    expect(wrapper.length).toBe(1);
-    expect(wrapper.find(GenericInputModal).length).toBe(1);
-  });
+  test('form submission should result in updateExperimentApi and getExperimentApi calls', async () => {
+    renderTestComponent();
+    await userEvent.clear(screen.getByLabelText('New experiment name'));
+    await userEvent.type(screen.getByLabelText('New experiment name'), 'renamed');
+    await userEvent.click(screen.getByText('Save'));
 
-  test('form submission should result in updateExperimentApi and getExperimentApi calls', (done) => {
-    const values = { newName: 'renamed' };
-    const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
-    promise.finally(() => {
-      expect(mockUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
-      expect(mockGetExperimentApi).toHaveBeenCalledTimes(1);
-      done();
+    await waitFor(() => {
+      expect(updateExperimentApi).toHaveBeenCalledTimes(1);
+      expect(updateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
+      expect(getExperimentApi).toHaveBeenCalledTimes(1);
     });
   });
 
-  test('if updateExperimentApi fails, getExperimentApi should not be called', (done) => {
-    const values = { newName: 'renamed' };
-    // Failing the updateExperimentApi call means getExperimentApi should not be called.
-    const mockFailUpdateExperimentApi = jest.fn(
-      () =>
-        new Promise((resolve, reject) => {
-          window.setTimeout(() => {
-            reject();
-          }, 100);
-        }),
-    );
+  test('if updateExperimentApi fails, error is reported', async () => {
+    const error = new Error('123');
+    jest
+      .mocked(updateExperimentApi)
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
 
-    const failUpdateProps = { ...minimalProps, updateExperimentApi: mockFailUpdateExperimentApi };
-    const failUpdateWrapper = shallow(<RenameExperimentModalImpl {...failUpdateProps} />);
-    const failUpdatePromise = failUpdateWrapper.find(GenericInputModal).prop('handleSubmit')(
-      values,
-    );
-    failUpdatePromise.catch(() => {
-      expect(mockFailUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockFailUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
-      expect(mockGetExperimentApi).toHaveBeenCalledTimes(0);
-      done();
+    renderTestComponent();
+    await userEvent.clear(screen.getByLabelText('New experiment name'));
+    await userEvent.type(screen.getByLabelText('New experiment name'), 'renamed');
+    await userEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(Utils.logErrorAndNotifyUser).toHaveBeenLastCalledWith(error);
     });
   });
 
-  test('If getExperimentApi fails, updateExperimentApi should still have been called', (done) => {
-    const values = { newName: 'renamed' };
+  test('if getExperimentApi fails, error is reported', async () => {
+    const error = new Error('123');
+    jest
+      .mocked(getExperimentApi)
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
 
-    // Failing the getExperimentApi call should still mean both functions are called.
-    const mockFailGetExperimentApi = jest.fn(
-      () =>
-        new Promise((resolve, reject) => {
-          window.setTimeout(() => {
-            reject();
-          }, 100);
-        }),
-    );
-    const failGetProps = { ...minimalProps, getExperimentApi: mockFailGetExperimentApi };
-    const failGetWrapper = shallow(<RenameExperimentModalImpl {...failGetProps} />);
-    const failGetPromise = failGetWrapper.find(GenericInputModal).prop('handleSubmit')(values);
-    failGetPromise.catch(() => {
-      expect(mockUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
-      expect(mockFailGetExperimentApi).toHaveBeenCalledTimes(1);
-      done();
+    renderTestComponent();
+    await userEvent.clear(screen.getByLabelText('New experiment name'));
+    await userEvent.type(screen.getByLabelText('New experiment name'), 'renamed');
+    await userEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(Utils.logErrorAndNotifyUser).toHaveBeenLastCalledWith(error);
     });
   });
 });

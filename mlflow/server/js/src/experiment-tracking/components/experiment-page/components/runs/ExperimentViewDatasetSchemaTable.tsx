@@ -10,11 +10,11 @@ export const ExperimentViewDatasetSchemaTable = ({
   schema,
   filter,
 }: ExperimentViewDatasetSchemaTableProps): JSX.Element => {
-  const hasFilter = (name: string, type: string) => {
+  const hasFilter = (name?: string, type?: string) => {
     return (
       filter === '' ||
-      name.toLowerCase().includes(filter.toLowerCase()) ||
-      type.toLowerCase().includes(filter.toLowerCase())
+      name?.toLowerCase().includes(filter.toLowerCase()) ||
+      type?.toLowerCase().includes(filter.toLowerCase())
     );
   };
 
@@ -25,34 +25,33 @@ export const ExperimentViewDatasetSchemaTable = ({
   const getNameHeader = () => {
     return (
       <FormattedMessage
-        defaultMessage='Name'
+        defaultMessage="Name"
         description={'Header for "name" column in the experiment run dataset schema'}
       />
     );
   };
 
   const getTypeHeader = () => {
-    return (
-      <FormattedMessage
-        defaultMessage='Type'
-        description={'Header for "type" column in the UC table schema'}
-      />
-    );
+    return <FormattedMessage defaultMessage="Type" description={'Header for "type" column in the UC table schema'} />;
   };
 
   return (
     <Table scrollable css={{ width: '100%' }}>
       <TableRow isHeader>
-        <TableHeader>{getNameHeader()}</TableHeader>
-        <TableHeader>{getTypeHeader()}</TableHeader>
+        <TableHeader componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschematable.tsx_57">
+          {getNameHeader()}
+        </TableHeader>
+        <TableHeader componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschematable.tsx_58">
+          {getTypeHeader()}
+        </TableHeader>
       </TableRow>
       <div onWheel={(e) => e.stopPropagation()}>
         {filteredSchema.length === 0 ? (
           <TableRow>
             <TableCell>
               <FormattedMessage
-                defaultMessage='No results match this search.'
-                description={'No results message in datasets drawer table'}
+                defaultMessage="No results match this search."
+                description="No results message in datasets drawer table"
               />
             </TableCell>
           </TableRow>

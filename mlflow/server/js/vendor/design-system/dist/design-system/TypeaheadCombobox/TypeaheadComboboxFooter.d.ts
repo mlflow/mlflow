@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface TypeaheadComboboxFooterProps extends React.HTMLAttributes<HTMLDivElement> {
     _TYPE?: string;
 }

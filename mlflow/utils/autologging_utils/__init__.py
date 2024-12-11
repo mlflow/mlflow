@@ -1,10 +1,10 @@
-# pylint: disable=unused-wildcard-import,wildcard-import
-
 import contextlib
+import importlib
 import inspect
 import logging
+import threading
 import time
-from typing import List
+from typing import Any, Callable, Optional
 
 import mlflow
 from mlflow.entities import Metric
@@ -17,6 +17,7 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -40,7 +41,6 @@ from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
@@ -62,21 +62,52 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
+# When the library version installed in the user's environment is outside of the supported
+# version range declared in `ml-package-versions.yml`, a warning message is issued to the user.
+# However, some libraries releases versions very frequently, and our configuration (updated on
+# MLflow release) cannot keep up with the pace, resulting in false alarms. Therefore, we
+# suppress warnings for certain libraries that are known to have frequent releases.
+_AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
+    "langchain",
+    "llama_index",
+    "litellm",
+    "openai",
+    "dspy",
+]
+
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
+
 _logger = logging.getLogger(__name__)
 
 
-def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
+def autologging_conf_lock(fn):
     """
-    Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
+    Apply a global lock on functions that enable / disable autologging.
+    """
+
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return update_wrapper_extended(wrapper, fn)
+
+
+def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
+    """Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
     parameter key / value pairs.
 
-    :param fn: function whose parameters are to be logged
-    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
-                 `self` should not be part of `args`; the caller is responsible for
-                 filtering out `self` before calling this function.
-    :param kwargs: kwargs explicitly passed into fn
-    :param unlogged: parameters not to be logged
-    :return: A dictionary of MLflow Run parameter key / value pairs.
+    Args:
+        fn: function whose parameters are to be logged.
+        args: arguments explicitly passed into fn. If `fn` is defined on a class,
+            `self` should not be part of `args`; the caller is responsible for
+            filtering out `self` before calling this function.
+        kwargs: kwargs explicitly passed into fn.
+        unlogged: parameters not to be logged.
+
+    Returns:
+        A dictionary of MLflow Run parameter key / value pairs.
     """
     unlogged = unlogged or []
     param_spec = inspect.signature(fn).parameters
@@ -106,17 +137,20 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
-    """
-    Log arguments explicitly passed to a function as MLflow Run parameters to the current active
+    """Log arguments explicitly passed to a function as MLflow Run parameters to the current active
     MLflow Run.
 
-    :param fn: function whose parameters are to be logged
-    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
-                 `self` should not be part of `args`; the caller is responsible for
-                 filtering out `self` before calling this function.
-    :param kwargs: kwargs explicitly passed into fn
-    :param unlogged: parameters not to be logged
-    :return: None
+    Args:
+        fn: function whose parameters are to be logged
+        args: arguments explicitly passed into fn. If `fn` is defined on a class,
+            `self` should not be part of `args`; the caller is responsible for
+            filtering out `self` before calling this function.
+        kwargs: kwargs explicitly passed into fn
+        unlogged: parameters not to be logged
+
+    Returns:
+        None
+
     """
     params_to_log = get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged)
     mlflow.log_params(params_to_log)
@@ -140,27 +174,29 @@ class InputExampleInfo:
 def resolve_input_example_and_signature(
     get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
 ):
-    """
-    Handles the logic of calling functions to gather the input example and infer the model
+    """Handles the logic of calling functions to gather the input example and infer the model
     signature.
 
-    :param get_input_example: function which returns an input example, usually sliced from a
-                              dataset. This function can raise an exception, its message will be
-                              shown to the user in a warning in the logs.
-    :param infer_model_signature: function which takes an input example and returns the signature
-                                  of the inputs and outputs of the model. This function can raise
-                                  an exception, its message will be shown to the user in a warning
-                                  in the logs.
-    :param log_input_example: whether to log errors while collecting the input example, and if it
-                              succeeds, whether to return the input example to the user. We collect
-                              it even if this parameter is False because it is needed for inferring
-                              the model signature.
-    :param log_model_signature: whether to infer and return the model signature.
-    :param logger: the logger instance used to log warnings to the user during input example
-                   collection and model signature inference.
+    Args:
+        get_input_example: Function which returns an input example, usually sliced from a
+            dataset. This function can raise an exception, its message will be
+            shown to the user in a warning in the logs.
+        infer_model_signature: Function which takes an input example and returns the signature
+            of the inputs and outputs of the model. This function can raise
+            an exception, its message will be shown to the user in a warning
+            in the logs.
+        log_input_example: Whether to log errors while collecting the input example, and if it
+            succeeds, whether to return the input example to the user. We collect
+            it even if this parameter is False because it is needed for inferring
+            the model signature.
+        log_model_signature: Whether to infer and return the model signature.
+        logger: The logger instance used to log warnings to the user during input example
+            collection and model signature inference.
 
-    :return: A tuple of input_example and signature. Either or both could be None based on the
-             values of log_input_example and log_model_signature.
+    Returns:
+        A tuple of input_example and signature. Either or both could be None based on the
+        values of log_input_example and log_model_signature.
+
     """
 
     input_example = None
@@ -260,8 +296,9 @@ class BatchMetricsLogger:
         class will batch them in order to not increase execution time too much by logging
         frequently.
 
-        :param metrics: dictionary containing key, value pairs of metrics to be logged.
-        :param step: the training step that the metrics correspond to.
+        Args:
+            metrics: Dictionary containing key, value pairs of metrics to be logged.
+            step: The training step that the metrics correspond to.
         """
         current_timestamp = time.time()
         if self.previous_training_timestamp is None:
@@ -298,7 +335,8 @@ def batch_metrics_logger(run_id):
 
     Once the context is closed, any metrics that have yet to be logged will be logged.
 
-    :param run_id: ID of the run that the metrics will be logged to.
+    Args:
+        run_id: ID of the run that the metrics will be logged to.
     """
 
     batch_metrics_logger = BatchMetricsLogger(run_id)
@@ -308,11 +346,11 @@ def batch_metrics_logger(run_id):
 
 def gen_autologging_package_version_requirements_doc(integration_name):
     """
-    :return: A document note string saying the compatibility for the specified autologging
-             integration's associated package versions.
+    Returns:
+        A document note string saying the compatibility for the specified autologging
+        integration's associated package versions.
     """
-    _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
+    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(integration_name)
     required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
@@ -331,17 +369,19 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     are not supported, log a warning message.
     """
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
+        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
+        min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
+        module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
         _logger.warning(
-            "You are using an unsupported version of %s. If you encounter errors during "
-            "autologging, try upgrading / downgrading %s to a supported version, or try "
-            "upgrading MLflow.",
-            integration_name,
-            integration_name,
+            f"MLflow {integration_name} autologging is known to be compatible with "
+            f"{min_var} <= {pip_release} <= {max_var}, but the installed version is "
+            f"{module.__version__}. If you encounter errors during autologging, try upgrading "
+            f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
 
 
@@ -373,6 +413,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(
@@ -402,22 +443,25 @@ def autologging_integration(name):
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
-            with set_mlflow_events_and_warnings_behavior_globally(
-                # MLflow warnings emitted during autologging setup / enablement are likely
-                # actionable and relevant to the user, so they should be emitted as normal
-                # when `silent=False`. For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=False,
-                disable_event_logs=is_silent_mode,
-                disable_warnings=is_silent_mode,
-            ), set_non_mlflow_warnings_behavior_for_current_thread(
-                # non-MLflow warnings emitted during autologging setup / enablement are not
-                # actionable for the user, as they are a byproduct of the autologging
-                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
-                # For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
+            with (
+                set_mlflow_events_and_warnings_behavior_globally(
+                    # MLflow warnings emitted during autologging setup / enablement are likely
+                    # actionable and relevant to the user, so they should be emitted as normal
+                    # when `silent=False`. For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=False,
+                    disable_event_logs=is_silent_mode,
+                    disable_warnings=is_silent_mode,
+                ),
+                set_non_mlflow_warnings_behavior_for_current_thread(
+                    # non-MLflow warnings emitted during autologging setup / enablement are not
+                    # actionable for the user, as they are a byproduct of the autologging
+                    # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                    # For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=True,
+                    disable_warnings=is_silent_mode,
+                ),
             ):
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
@@ -429,7 +473,7 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
+        if name in FLAVOR_TO_MODULE_NAME:
             wrapped_autolog.__doc__ = gen_autologging_package_version_requirements_doc(name) + (
                 wrapped_autolog.__doc__ or ""
             )
@@ -441,12 +485,14 @@ def autologging_integration(name):
 def get_autologging_config(flavor_name, config_key, default_value=None):
     """
     Returns a desired config value for a specified autologging integration.
+
     Returns `None` if specified `flavor_name` has no recorded configs.
     If `config_key` is not set on the config object, default value is returned.
 
-    :param flavor_name: An autologging integration flavor name.
-    :param config_key: The key for the desired config value.
-    :param default_value: The default_value to return
+    Args:
+        flavor_name: An autologging integration flavor name.
+        config_key: The key for the desired config value.
+        default_value: The default_value to return.
     """
     config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
     if config is not None:
@@ -456,22 +502,44 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
 
 
 def autologging_is_disabled(integration_name):
-    """
-    Returns a boolean flag of whether the autologging integration is disabled.
+    """Returns a boolean flag of whether the autologging integration is disabled.
 
-    :param integration_name: An autologging integration flavor name.
+    Args:
+        integration_name: An autologging integration flavor name.
+
     """
     explicit_disabled = get_autologging_config(integration_name, "disable", True)
     if explicit_disabled:
         return True
 
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+def is_autolog_supported(integration_name: str) -> bool:
+    """
+    Whether the specified autologging integration is supported by the current environment.
+
+    Args:
+        integration_name: An autologging integration flavor name.
+    """
+    # NB: We don't check for the presence of autolog() function as it requires importing
+    #   the flavor module, which may cause import error or overhead.
+    return "autologging" in _ML_PACKAGE_VERSIONS.get(integration_name, {})
+
+
+def get_autolog_function(integration_name: str) -> Optional[Callable[..., Any]]:
+    """
+    Get the autolog() function for the specified integration.
+    Returns None if the flavor does not have an autolog() function.
+    """
+    flavor_module = importlib.import_module(f"mlflow.{integration_name}")
+    return getattr(flavor_module, "autolog", None)
 
 
 @contextlib.contextmanager
@@ -482,12 +550,14 @@ def disable_autologging():
     """
     global _AUTOLOGGING_GLOBALLY_DISABLED
     _AUTOLOGGING_GLOBALLY_DISABLED = True
-    yield None
-    _AUTOLOGGING_GLOBALLY_DISABLED = False
+    try:
+        yield
+    finally:
+        _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
 @contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+def disable_discrete_autologging(flavors_to_disable: list[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for
@@ -498,9 +568,11 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     temporary autologging disabling, a new run will be generated that contains a sklearn model
     that holds no use for tracking purposes as it is only used during the metric evaluation phase
     of training.
-    :param flavors_to_disable: A list of flavors that need to be temporarily disabled while
-                               executing another flavor's autologging to prevent spurious run
-                               logging of unrelated models, metrics, and parameters.
+
+    Args:
+        flavors_to_disable: A list of flavors that need to be temporarily disabled while
+            executing another flavor's autologging to prevent spurious run
+            logging of unrelated models, metrics, and parameters.
     """
     enabled_flavors = []
     for flavor in flavors_to_disable:
@@ -514,15 +586,21 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
         autolog_func.autolog(disable=False)
 
 
+_training_sessions = []
+
+
 def _get_new_training_session_class():
     """
     Returns a session manager class for nested autologging runs.
 
     Examples
     --------
-    >>> class Parent: pass
-    >>> class Child: pass
-    >>> class Grandchild: pass
+    >>> class Parent:
+    ...     pass
+    >>> class Child:
+    ...     pass
+    >>> class Grandchild:
+    ...     pass
     >>>
     >>> _TrainingSession = _get_new_training_session_class()
     >>> with _TrainingSession(Parent, False) as p:
@@ -539,7 +617,7 @@ def _get_new_training_session_class():
     >>>
     >>> with _TrainingSession(Child, True) as c1:
     ...     with _TrainingSession(Child, True) as c2:
-    ...             print(c1.should_log(), c2.should_log())
+    ...         print(c1.should_log(), c2.should_log())
     True False
     """
 
@@ -552,12 +630,13 @@ def _get_new_training_session_class():
         _session_stack = []
 
         def __init__(self, estimator, allow_children=True):
-            """
-            A session manager for nested autologging runs.
+            """A session manager for nested autologging runs.
 
-            :param estimator: An estimator that this session originates from.
-            :param allow_children: If True, allows autologging in child sessions.
-                                   If False, disallows autologging in all descendant sessions.
+            Args:
+                estimator: An estimator that this session originates from.
+                allow_children: If True, allows autologging in child sessions.
+                    If False, disallows autologging in all descendant sessions.
+
             """
             self.allow_children = allow_children
             self.estimator = estimator
@@ -601,15 +680,21 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
 
 
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
+
+
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
-    """
-    Get instance method first argument value (exclude the `self` argument).
-    :param method A `cls.method` object which includes the `self` argument.
-    :param call_pos_args: positional arguments excluding the first `self` argument.
-    :param call_kwargs: keywords arguments.
+    """Get instance method first argument value (exclude the `self` argument).
+
+    Args:
+        method: A `cls.method` object which includes the `self` argument.
+        call_pos_args: positional arguments excluding the first `self` argument.
+        call_kwargs: keywords arguments.
     """
     if len(call_pos_args) >= 1:
         return call_pos_args[0]
@@ -624,13 +709,14 @@ def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):
 
 
 def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args, call_kwargs):
-    """
-    Get argument value for a method call.
-    :param arg_index: the argument index in the function signature. start from 0.
-    :param arg_name: the argument name in the function signature.
-    :param default_value: default argument value.
-    :param call_pos_args: the positional argument values in the method call.
-    :param call_kwargs: the keyword argument values in the method call.
+    """Get argument value for a method call.
+
+    Args:
+        arg_index: The argument index in the function signature. Start from 0.
+        arg_name: The argument name in the function signature.
+        default_value: Default argument value.
+        call_pos_args: The positional argument values in the method call.
+        call_kwargs: The keyword argument values in the method call.
     """
     if arg_name in call_kwargs:
         return call_kwargs[arg_name]

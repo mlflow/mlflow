@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { MenuProps as AntDMenuProps, MenuItemProps as AntDMenuItemProps } from 'antd';
 import { Menu as AntDMenu } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';

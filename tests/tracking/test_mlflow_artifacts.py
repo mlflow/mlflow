@@ -11,13 +11,10 @@ import requests
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.utils.os import is_windows
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
-
-
-def is_windows():
-    return os.name == "nt"
 
 
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
@@ -244,9 +241,9 @@ def test_mlflow_artifacts_example(tmp_path):
 err=0
 trap 'err=1' ERR
 ./build.sh
-docker-compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
-docker-compose logs
-docker-compose down {rmi_option} --volumes --remove-orphans
+docker compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
+docker compose logs
+docker compose down {rmi_option} --volumes --remove-orphans
 test $err = 0
 """
     script_path = tmp_path.joinpath("test.sh")

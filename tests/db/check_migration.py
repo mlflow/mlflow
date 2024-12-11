@@ -9,6 +9,7 @@ python tests/db/check_migration.py pre-migration
 # post migration
 python tests/db/check_migration.py post-migration
 """
+
 import os
 import uuid
 from pathlib import Path
@@ -62,7 +63,7 @@ def log_everything():
         mlflow.log_params({"param": "value"})
         mlflow.log_metrics({"metric": 0.1})
         mlflow.set_tags({"tag": "run"})
-        model_info = mlflow.pyfunc.log_model(python_model=Model(), artifact_path="model")
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
 
     client = mlflow.MlflowClient()
     registered_model_name = uuid.uuid4().hex

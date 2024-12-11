@@ -217,7 +217,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
             with mlflow.start_run():
                 mlflow.johnsnowlabs.log_model(
                     jsl_model,
-                    artifact_path=artifact_path,
+                    artifact_path,
                     signature=signature,
                     input_example=example,
                 )
@@ -248,8 +248,8 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
             mlflow.start_run()
         artifact_path = "model"
         mlflow.johnsnowlabs.log_model(
-            artifact_path=artifact_path,
-            spark_model=jsl_model,
+            jsl_model,
+            artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -267,8 +267,8 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
-            artifact_path=artifact_path,
-            spark_model=jsl_model,
+            jsl_model,
+            artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
@@ -644,7 +644,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 # def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
 #     monkeypatch, jsl_model, dummy_read_shows_mlflowdbfs_available
 # ):
-#     def mock_spark_session_load(path):  # pylint: disable=unused-argument
+#     def mock_spark_session_load(path):
 #         if dummy_read_shows_mlflowdbfs_available:
 #             raise Exception("MlflowdbfsClient operation failed!")
 #         else:

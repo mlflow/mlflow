@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
-from fastapi import HTTPException
+from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -85,30 +87,38 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = AI21LabsProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "temperature": 0.2,
+            "max_tokens": 1000,
+            "n": 1,
+            "stop": ["foobazbardiddly"],
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "this is a test response",
-                    "metadata": {"finish_reason": "length"},
-                }
-            ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "j2-ultra",
-                "route_type": "llm/v1/completions",
-            },
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "j2-ultra",
+            "choices": [{"text": "this is a test response", "index": 0, "finish_reason": "length"}],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.ai21.com/studio/v1/j2-ultra/complete",
+            json={
+                "temperature": 0.2,
+                "numResults": 1,
+                "stopSequences": ["foobazbardiddly"],
+                "maxTokens": 1000,
+                "prompt": "This is a test",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
@@ -126,7 +136,7 @@ async def test_param_maxTokens_is_not_permitted():
         "prompt": "This should fail",
         "maxTokens": 5000,
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Invalid parameter maxTokens. Use max_tokens instead." in e.value.detail
     assert e.value.status_code == 422
@@ -140,7 +150,7 @@ async def test_param_model_is_not_permitted():
         "prompt": "This should fail",
         "model": "j2-light",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
@@ -154,19 +164,19 @@ async def test_chat_is_not_supported_for_ai21labs():
         "messages": [{"role": "user", "content": "J2-ultra, can you chat with me? I'm lonely."}]
     }
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
-    assert "The chat route is not available for AI21Labs models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The chat route is not implemented for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 501
 
 
 @pytest.mark.asyncio
 async def test_embeddings_are_not_supported_for_ai21labs():
     config = embedding_config()
     provider = AI21LabsProvider(RouteConfig(**config))
-    payload = {"text": "give me that sweet, sweet vector, please."}
+    payload = {"input": "give me that sweet, sweet vector, please."}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
-    assert "The embeddings route is not available for AI21Labs models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The embeddings route is not implemented for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 501

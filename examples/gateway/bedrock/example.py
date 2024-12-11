@@ -1,20 +1,22 @@
-from mlflow.gateway import query, set_gateway_uri
+from mlflow.deployments import get_deploy_client
 
 
 def main():
-    # Set the URI for the MLflow AI Gateway
-    set_gateway_uri("http://localhost:5000")
+    client = get_deploy_client("http://localhost:7000")
+
+    print(f"Bedrock endpoints: {client.list_endpoints()}\n")
+    print(f"Bedrock completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
     # Completions example
-    response_completions = query(
-        route="completions",
-        data={
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
             "prompt": "How many patties could be stacked on a cheeseburger before issues arise?",
             "max_tokens": 200,
             "temperature": 0.25,
         },
     )
-    print(f"Fluent API completions response: {response_completions}")
+    print(f"Bedrock completions response: {response_completions}")
 
 
 if __name__ == "__main__":

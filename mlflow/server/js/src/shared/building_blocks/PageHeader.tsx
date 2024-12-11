@@ -15,8 +15,11 @@ import {
   Header,
   OverflowIcon,
   useDesignSystemTheme,
+  type HeaderProps,
 } from '@databricks/design-system';
-import { PreviewIcon } from './PreviewIcon';
+import { useIntl } from 'react-intl';
+
+import { PreviewBadge } from './PreviewBadge';
 
 type OverflowMenuProps = {
   menu?: {
@@ -42,19 +45,26 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
 
   // @ts-expect-error TS(2532): Object is possibly 'undefined'.
   return menu.length > 0 ? (
-    <Dropdown overlay={overflowMenu} trigger={['click']} placement='bottomLeft' arrow>
-      <Button icon={<OverflowIcon />} data-test-id='overflow-menu-trigger' />
+    <Dropdown overlay={overflowMenu} trigger={['click']} placement="bottomLeft" arrow>
+      <Button
+        componentId="codegen_mlflow_app_src_shared_building_blocks_pageheader.tsx_54"
+        icon={<OverflowIcon />}
+        data-test-id="overflow-menu-trigger"
+        aria-label="Open header dropdown menu"
+      />
     </Dropdown>
   ) : null;
 }
 
-type PageHeaderProps = {
+type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   title: React.ReactNode;
   breadcrumbs?: React.ReactNode[];
   preview?: boolean;
-  feedbackForm?: string;
+  feedbackOrigin?: string;
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
+  spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
+  titleAddOns?: React.ReactNode | React.ReactNode[];
 };
 
 /**
@@ -62,17 +72,22 @@ type PageHeaderProps = {
  *   - title,
  *   - optional breadcrumb content,
  *   - optional preview mark,
- *   - optional feedback link, and
+ *   - optional feedback origin: shows the "Send feedback" button when not empty, and
  *   - optional info popover, safe to have link inside.
  */
 export function PageHeader(props: PageHeaderProps) {
   const {
     title, // required
     breadcrumbs = [],
+    titleAddOns = [],
     preview,
     children,
+    spacerSize,
+    dangerouslyAppendEmotionCSS,
   } = props;
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
   return (
     <>
       <Header
@@ -90,9 +105,11 @@ export function PageHeader(props: PageHeaderProps) {
         // prettier-ignore
         titleAddOns={
           <>
-            {preview && <PreviewIcon css={{ marginRight: theme.spacing.sm }}/>}
+            {preview && <PreviewBadge css={{ marginLeft: 0 }} />}
+            {titleAddOns}
           </>
         }
+        dangerouslyAppendEmotionCSS={dangerouslyAppendEmotionCSS}
       />
       <Spacer
         // @ts-expect-error TS(2322): Type '{ css: { flexShrink: number; }; }' is not as... Remove this comment to see the full error message
@@ -100,6 +117,7 @@ export function PageHeader(props: PageHeaderProps) {
           // Ensure spacer's fixed height
           flexShrink: 0,
         }}
+        size={spacerSize}
       />
     </>
   );

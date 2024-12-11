@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { CSSObject } from '@emotion/react';
 import type { Theme } from '../../theme';
 import type { TypographyColor, ValidationState } from '../types';
@@ -28,4 +27,11 @@ export declare function getValidationStateColor(theme: Theme, validationState?: 
     successColor?: string;
 }): string | undefined;
 export declare function getDarkModePortalStyles(theme: Theme): React.CSSProperties;
+type GetShadowScrollFunction = (theme: Theme, options?: {
+    backgroundColor?: string;
+    orientation?: 'vertical' | 'horizontal';
+}) => Pick<CSSObject, 'background' | 'backgroundRepeat' | 'backgroundSize' | 'backgroundAttachment'>;
+export declare const getShadowScrollStyles: GetShadowScrollFunction;
+export declare const getBottomOnlyShadowScrollStyles: GetShadowScrollFunction;
+export {};
 //# sourceMappingURL=css-utils.d.ts.map

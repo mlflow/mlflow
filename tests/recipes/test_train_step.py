@@ -26,6 +26,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
+from mlflow.utils.os import is_windows
 
 
 # Sets up the train step output dir
@@ -361,7 +362,7 @@ def xgb_classifier():
     return xgb.XGBClassifier()
 
 
-def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
+def early_stop_fn(trial, count=0):
     return count + 1 <= 2, [count + 1]
 
 
@@ -508,6 +509,27 @@ def test_train_step_with_tuning_output_yaml_correct(
         else:
             assert lines[expected_num_tuned + 2] == "# default parameters \n"
         assert len(lines) == 19 + num_sections * 2
+
+
+@pytest.mark.parametrize("with_hardcoded_params", [(True), (False)])
+def test_train_step_with_tuning_trials_card_tab(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, with_hardcoded_params
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True, exist_ok=True)
+    train_step = setup_train_step_with_tuning(
+        tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
+    )
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
+    assert (train_step_output_dir / "card.html").exists()
+    with open(train_step_output_dir / "card.html") as f:
+        step_card_content = f.read()
+
+    assert "Tuning Trials" in step_card_content
 
 
 def test_train_step_with_tuning_child_runs_and_early_stop(
@@ -817,7 +839,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
 
 
 @pytest.mark.skipif(
-    os.name == "nt",
+    is_windows(),
     reason="Flaky on windows, sometimes fails with `(sqlite3.OperationalError) database is locked`",
 )
 def test_train_step_with_probability_calibration(

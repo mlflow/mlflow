@@ -24,7 +24,7 @@ mlflow.pyfunc
         the last datetime value of the training dataset, utilizing the frequency of the input
         training series when the model was trained. (for example, if the training data series
         elements represent one value per hour, in order to forecast 3 hours of future data, set
-        the column ``fh`` to ``[1,2,3]``. If the paramter is not provided it must be passed
+        the column ``fh`` to ``[1,2,3]``. If the parameter is not provided it must be passed
         during fit(). (Default: ``None``)
     * ``X`` (optional) - exogenous regressor values as a 2D numpy ndarray or list of values for future
         time period events. For more information, read the underlying library explanation
@@ -50,10 +50,11 @@ Index  predict_method    coverage     fh
 0      predict_interval  [0.9,0.95]   [1,2,3]
 ====== ================= ============ ========
 """
+
 import logging
 import os
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import flavor
 import numpy as np
@@ -112,6 +113,9 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 ]
 
 _logger = logging.getLogger(__name__)
+
+
+_MODEL_DATA_SUBPATH = "model.pkl"
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -218,7 +222,7 @@ def save_model(
             message=(
                 f"Unrecognized serialization format: {serialization_format}. "
                 "Please specify one of the following supported formats: "
-                "{SUPPORTED_SERIALIZATION_FORMATS}."
+                f"{SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -233,14 +237,13 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    model_data_subpath = "model.pkl"
-    model_data_path = os.path.join(path, model_data_subpath)
+    model_data_path = os.path.join(path, _MODEL_DATA_SUBPATH)
     _save_model(sktime_model, model_data_path, serialization_format=serialization_format)
 
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="flavor",
-        model_path=model_data_subpath,
+        model_path=_MODEL_DATA_SUBPATH,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
@@ -248,7 +251,7 @@ def save_model(
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        pickled_model=model_data_subpath,
+        pickled_model=_MODEL_DATA_SUBPATH,
         sktime_version=sktime.__version__,
         serialization_format=serialization_format,
         code=code_dir_subpath,
@@ -470,9 +473,7 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

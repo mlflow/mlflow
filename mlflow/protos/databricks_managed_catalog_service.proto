@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package mlflow.managedcatalog;
+
+import "databricks.proto";
+import "databricks_managed_catalog_messages.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service DatabricksUnityCatalogService {
+  rpc getTable (GetTable) returns (GetTableResponse) {
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/tables/{full_name_arg}",
+        since { major: 2, minor: 0 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+}

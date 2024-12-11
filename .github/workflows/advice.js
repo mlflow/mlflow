@@ -41,7 +41,9 @@ ${codespacesBadge}
 #### Install mlflow from this PR
 
 \`\`\`
-pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# Use \`%sh\` to run this command on Databricks
+OPTIONS=$(if pip freeze | grep -q 'mlflow @ git+https://github.com/mlflow/mlflow.git'; then echo '--force-reinstall --no-deps'; fi)
+pip install $OPTIONS git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
 \`\`\`
 
 #### Checkout with GitHub CLI
@@ -62,7 +64,7 @@ gh pr checkout ${issue_number}
   }
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
-  if (dcoCheck.conclusion !== "success") {
+  if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
       "#### &#x26a0; DCO check\n\n" +
         "The DCO check failed. " +

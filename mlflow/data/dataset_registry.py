@@ -1,14 +1,13 @@
 import inspect
 import warnings
 from contextlib import suppress
-from typing import Dict, Optional
-
-import entrypoints
+from typing import Optional
 
 import mlflow.data
 from mlflow.data.dataset import Dataset
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.plugins import get_entry_points
 
 
 class DatasetRegistry:
@@ -18,22 +17,24 @@ class DatasetRegistry:
     def register_constructor(
         self, constructor_fn: callable, constructor_name: Optional[str] = None
     ) -> str:
-        """
-        Registers a dataset constructor.
+        """Registers a dataset constructor.
 
-        :param constructor_fn: A function that accepts at least the following
-                               inputs and returns an instance of a subclass of
-                               :py:class:`mlflow.data.dataset.Dataset`:
+        Args:
+            constructor_fn: A function that accepts at least the following
+                inputs and returns an instance of a subclass of
+                :py:class:`mlflow.data.dataset.Dataset`:
 
-                               - name: Optional. A string dataset name
-                               - digest: Optional. A string dataset digest.
+                - name: Optional. A string dataset name
+                - digest: Optional. A string dataset digest.
 
-        :param constructor_name: The name of the constructor, e.g.
-                                 "from_spark". The name must begin with the
-                                 string "from_" or "load_". If unspecified, the `__name__`
-                                 attribute of the `constructor_fn` is used instead and must
-                                 begin with the string "from_" or "load_".
-        :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+            constructor_name: The name of the constructor, e.g.
+                "from_spark". The name must begin with the
+                string "from_" or "load_". If unspecified, the `__name__`
+                attribute of the `constructor_fn` is used instead and must
+                begin with the string "from_" or "load_".
+
+        Returns:
+            The name of the registered constructor, e.g. "from_pandas" or "load_delta".
         """
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
@@ -46,7 +47,7 @@ class DatasetRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
-        for entrypoint in entrypoints.get_group_all("mlflow.dataset_constructor"):
+        for entrypoint in get_entry_points("mlflow.dataset_constructor"):
             try:
                 self.register_constructor(
                     constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
@@ -90,22 +91,25 @@ class DatasetRegistry:
 
 
 def register_constructor(constructor_fn: callable, constructor_name: Optional[str] = None) -> str:
-    """
-    Registers a dataset constructor.
+    """Registers a dataset constructor.
 
-    :param constructor_fn: A function that accepts at least the following
-                           inputs and returns an instance of a subclass of
-                           :py:class:`mlflow.data.dataset.Dataset`:
+    Args:
+        constructor_fn: A function that accepts at least the following
+            inputs and returns an instance of a subclass of
+            :py:class:`mlflow.data.dataset.Dataset`:
 
-                           - name: Optional. A string dataset name
-                           - digest: Optional. A string dataset digest.
+            - name: Optional. A string dataset name
+            - digest: Optional. A string dataset digest.
 
-    :param constructor_name: The name of the constructor, e.g.
-                             "from_spark". The name must begin with the
-                             string "from_" or "load_". If unspecified, the `__name__`
-                             attribute of the `constructor_fn` is used instead and must
-                             begin with the string "from_" or "load_".
-    :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+        constructor_name: The name of the constructor, e.g.
+            "from_spark". The name must begin with the
+            string "from_" or "load_". If unspecified, the `__name__`
+            attribute of the `constructor_fn` is used instead and must
+            begin with the string "from_" or "load_".
+
+    Returns:
+        The name of the registered constructor, e.g. "from_pandas" or "load_delta".
+
     """
     registered_constructor_name = _dataset_registry.register_constructor(
         constructor_fn=constructor_fn, constructor_name=constructor_name
@@ -115,11 +119,12 @@ def register_constructor(constructor_fn: callable, constructor_name: Optional[st
     return registered_constructor_name
 
 
-def get_registered_constructors() -> Dict[str, callable]:
-    """
-    Obtains the registered dataset constructors.
+def get_registered_constructors() -> dict[str, callable]:
+    """Obtains the registered dataset constructors.
 
-    :return: A dictionary mapping constructor names to constructor functions.
+    Returns:
+        A dictionary mapping constructor names to constructor functions.
+
     """
     return _dataset_registry.constructors
 

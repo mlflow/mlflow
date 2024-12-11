@@ -44,3 +44,8 @@ class LazyLoader(types.ModuleType):
     def __dir__(self):
         module = self._load()
         return dir(module)
+
+    def __repr__(self):
+        if not self._module:
+            return f"<module '{self.__name__} (Not loaded yet)'>"
+        return repr(self._module)

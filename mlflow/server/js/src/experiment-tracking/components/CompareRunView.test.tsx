@@ -1,30 +1,69 @@
-import React from 'react';
-import { shallow } from 'enzyme';
-import Fixtures from '../utils/test-utils/Fixtures';
-import Utils from '../../common/utils/Utils';
-import { CompareRunView } from './CompareRunView';
-import { createIntl } from 'react-intl';
+import { IntlProvider } from 'react-intl';
+import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
+import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
+import CompareRunView from './CompareRunView';
+import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 
-const getCompareRunViewMock = () => {
-  return shallow(
-    <CompareRunView
-      runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
-      experiments={[Fixtures.createExperiment()]}
-      experimentIds={['0']}
-      runUuids={['0']}
-      metricLists={[[{ m: 1 }]]}
-      paramLists={[[{ p: 'p' }]]}
-      tagLists={[[{ t: 't' }]]}
-      runNames={['run1']}
-      runDisplayNames={['run1DisplayName', 'run2DisplayName']}
-      intl={createIntl({ locale: 'en' })}
-    />,
+describe('CompareRunView', () => {
+  const wrapper = ({ children }: { children?: React.ReactNode }) => (
+    <IntlProvider locale="en">
+      <TestRouter routes={[testRoute(<>{children}</>)]} />
+    </IntlProvider>
   );
-};
+  test('Will display title for two runs', async () => {
+    render(
+      <MockedReduxStoreProvider
+        state={
+          {
+            compareExperiments: {},
+            comparedExperiments: {},
+            entities: {
+              experimentsById: { exp_1: {} },
+              runInfosByUuid: { run_1: { runUuid: 'run_1' }, run_2: { runUuid: 'run_2' } },
+              paramsByRunUuid: { run_1: {}, run_2: {} },
+              latestMetricsByRunUuid: { run_1: {}, run_2: {} },
+              tagsByRunUuid: { run_1: {}, run_2: {} },
+            },
+          } as any
+        }
+      >
+        <CompareRunView experimentIds={['exp_1']} runUuids={['run_1', 'run_2']} />
+      </MockedReduxStoreProvider>,
+      {
+        wrapper,
+      },
+    );
 
-test('Page title is set', () => {
-  const mockUpdatePageTitle = jest.fn();
-  Utils.updatePageTitle = mockUpdatePageTitle;
-  getCompareRunViewMock();
-  expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Comparing 2 MLflow Runs');
+    await waitFor(() => {
+      expect(screen.getByText(/Comparing 2 Runs/)).toBeInTheDocument();
+    });
+  });
+
+  test('Will not crash when run infos are not present in the store', async () => {
+    render(
+      <MockedReduxStoreProvider
+        state={
+          {
+            compareExperiments: {},
+            comparedExperiments: {},
+            entities: {
+              experimentsById: { exp_1: {} },
+              runInfosByUuid: {},
+              paramsByRunUuid: {},
+              latestMetricsByRunUuid: {},
+            },
+          } as any
+        }
+      >
+        <CompareRunView experimentIds={['exp_1']} runUuids={['run_1', 'run_2']} />
+      </MockedReduxStoreProvider>,
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Comparing 0 Runs/)).toBeInTheDocument();
+    });
+  });
 });

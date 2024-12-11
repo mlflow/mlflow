@@ -1,10 +1,3 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import {
   deleteJson,
   getBigIntJson,
@@ -97,8 +90,7 @@ export class Services {
   /**
    * Get individual model version
    */
-  static getModelVersion = (data: any) =>
-    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/model-versions/get', data });
+  static getModelVersion = (data: any) => getJson({ relativeUrl: 'ajax-api/2.0/mlflow/model-versions/get', data });
 
   /**
    * Set model version tag

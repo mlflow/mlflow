@@ -13,7 +13,7 @@ Paddle (native) format
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -49,22 +49,26 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "paddle"
 
+_MODEL_DATA_SUBPATH = "model"
+
 _logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return [_get_pinned_requirement("paddlepaddle", module="paddle")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -91,24 +95,20 @@ def save_model(
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
 
-    :param pd_model: paddle model to be saved.
-    :param path: Local path where the model is to be saved.
-    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
-                     If set to True, the saved model supports both re-training and
-                     inference. If set to False, it only supports inference.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+    Args:
+        pd_model: paddle model to be saved.
+        path: Local path where the model is to be saved.
+        training: Only valid when saving a model trained using the PaddlePaddle high level API.
+            If set to True, the saved model supports both re-training and
+            inference. If set to False, it only supports inference.
+        conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -128,15 +128,12 @@ def save_model(
         def load_data():
             # dataset on boston housing prediction
             X, y = load_diabetes(return_X_y=True, as_frame=True)
-
             min_max_scaler = preprocessing.MinMaxScaler()
             X_min_max = min_max_scaler.fit_transform(X)
             X_normalized = preprocessing.scale(X_min_max, with_std=False)
-
             X_train, X_test, y_train, y_test = train_test_split(
                 X_normalized, y, test_size=0.2, random_state=42
             )
-
             y_train = y_train.reshape(-1, 1)
             y_test = y_test.reshape(-1, 1)
             return np.concatenate((X_train, y_train), axis=1), np.concatenate(
@@ -147,7 +144,6 @@ def save_model(
         class Regressor(paddle.nn.Layer):
             def __init__(self):
                 super().__init__()
-
                 self.fc = Linear(in_features=13, out_features=1)
 
             @paddle.jit.to_static
@@ -160,10 +156,8 @@ def save_model(
         model.train()
         training_data, test_data = load_data()
         opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
-
         EPOCH_NUM = 10
         BATCH_SIZE = 10
-
         for epoch_id in range(EPOCH_NUM):
             np.random.shuffle(training_data)
             mini_batches = [
@@ -175,18 +169,14 @@ def save_model(
                 y = np.array(mini_batch[:, -1:]).astype("float32")
                 house_features = paddle.to_tensor(x)
                 prices = paddle.to_tensor(y)
-
                 predicts = model(house_features)
-
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
                 if iter_id % 20 == 0:
                     print(f"epoch: {epoch_id}, iter: {iter_id}, loss is: {avg_loss.numpy()}")
-
                 avg_loss.backward()
                 opt.step()
                 opt.clear_grad()
-
         mlflow.log_param("learning_rate", 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = "./test-out"
@@ -200,22 +190,22 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _PaddleWrapper(pd_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = "model"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     output_path = os.path.join(path, model_data_subpath)
 
     if isinstance(pd_model, paddle.Model):
@@ -277,27 +267,28 @@ def save_model(
 def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
 
+    Args:
+        model_uri: The location, in URI format, of the MLflow model, for example:
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
-
-    :param model: Required when loading a `paddle.Model` model saved with `training=True`.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-    :param kwargs: The keyword arguments to pass to `paddle.jit.load`
-                   or `model.load`.
+        model: Required when loading a `paddle.Model` model saved with `training=True`.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
+        kwargs: The keyword arguments to pass to `paddle.jit.load`
+            or `model.load`.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
     artifact-locations>`_.
 
-    :return: A paddle model.
+    Returns:
+        A paddle model.
 
     .. code-block:: python
         :caption: Example
@@ -355,31 +346,29 @@ def log_model(
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
 
-    :param pd_model: paddle model to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
-                     If set to True, the saved model supports both re-training and
-                     inference. If set to False, it only supports inference.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        pd_model: paddle model to be saved.
+        artifact_path: Run-relative artifact path.
+        training: Only valid when saving a model trained using the PaddlePaddle high level API.
+            If set to True, the saved model supports both re-training and
+            inference. If set to False, it only supports inference.
+        conda_env: {{ conda_env }}
+        code_paths: {{ code_paths }}
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -387,25 +376,20 @@ def log_model(
         import mlflow.paddle
 
 
-        def load_data():
-            ...
+        def load_data(): ...
 
 
-        class Regressor:
-            ...
+        class Regressor: ...
 
 
         model = Regressor()
         model.train()
         training_data, test_data = load_data()
         opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
-
         EPOCH_NUM = 10
         BATCH_SIZE = 10
-
         for epoch_id in range(EPOCH_NUM):
             ...
-
         mlflow.log_param("learning_rate", 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = ...
@@ -430,8 +414,10 @@ def log_model(
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``paddle`` flavor.
+    Loads PyFunc implementation. Called by ``pyfunc.load_model``.
+
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``paddle`` flavor.
     """
     return _PaddleWrapper(load_model(path))
 
@@ -445,19 +431,27 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pd_model
+
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         import numpy as np
+        import paddle
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
@@ -475,7 +469,7 @@ class _PaddleWrapper:
 
         self.pd_model.eval()
 
-        predicted = self.pd_model(inp_data)
+        predicted = self.pd_model(paddle.to_tensor(inp_data))
         return pd.DataFrame(predicted.numpy())
 
 
@@ -493,7 +487,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
 
@@ -502,22 +496,23 @@ def autolog(
     .. _paddle.Model:
         https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
 
-    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
-                       are logged after every epoch.
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the PaddlePaddle autologging integration.
-                    If ``False``, enables the PaddlePaddle autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
-                   Lightning autologging. If ``False``, show all events and warnings during
-                   PaddlePaddle autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+            are logged after every epoch.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+        disable: If ``True``, disables the PaddlePaddle autologging integration.
+            If ``False``, enables the PaddlePaddle autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+            Lightning autologging. If ``False``, show all events and warnings during
+            PaddlePaddle autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -547,16 +542,12 @@ def autolog(
 
         train_dataset = paddle.text.datasets.UCIHousing(mode="train")
         eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
-
         model = paddle.Model(LinearRegression())
         optim = paddle.optimizer.SGD(learning_rate=1e-2, parameters=model.parameters())
         model.prepare(optim, paddle.nn.MSELoss(), paddle.metric.Accuracy())
-
         mlflow.paddle.autolog()
-
         with mlflow.start_run() as run:
             model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)
-
         show_run_data(run.info.run_id)
 
     .. code-block:: text

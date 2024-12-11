@@ -1,45 +1,37 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
 import { DirectTransitionForm } from './DirectTransitionForm';
 import { ACTIVE_STAGES, Stages } from '../constants';
 import { Checkbox } from '@databricks/design-system';
 import _ from 'lodash';
-import { mountWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+
+const minimalProps = {
+  innerRef: React.createRef(),
+};
+
+const checkboxDataTestId = 'direct-transition-form-check-box';
+const modelVersionUpdateFormTestId = 'model-version-update-form';
+
+const [activeStages, nonActiveStages] = _.partition(Stages, (s) => ACTIVE_STAGES.includes(s));
 
 describe('DirectTransitionForm', () => {
-  let wrapper;
-  let minimalProps: any;
-
-  beforeEach(() => {
-    minimalProps = {
-      innerRef: React.createRef(),
-    };
-  });
-
   test('should render with minimal props without exploding', () => {
-    wrapper = mountWithIntl(<DirectTransitionForm {...minimalProps} />);
-    expect(wrapper.length).toBe(1);
+    renderWithIntl(<DirectTransitionForm {...minimalProps} />);
+    expect(screen.getByTestId(modelVersionUpdateFormTestId)).toBeInTheDocument();
   });
 
-  test('should render checkbox only for active stage', () => {
-    const [activeStages, nonActiveStages] = _.partition(Stages, (s) => ACTIVE_STAGES.includes(s));
+  test.each(activeStages)('should render checkbox for active stage %s', (toStage) => {
+    const props = { ...minimalProps, toStage };
+    renderWithIntl(<DirectTransitionForm {...props} />);
+    expect(screen.getByTestId(modelVersionUpdateFormTestId)).toBeInTheDocument();
+    expect(screen.getByTestId(checkboxDataTestId)).toBeInTheDocument();
+  });
 
-    activeStages.forEach((toStage) => {
-      const props = { ...minimalProps, toStage };
-      wrapper = mountWithIntl(<DirectTransitionForm {...props} />);
-      expect(wrapper.find(Checkbox).length).toBe(1);
-    });
-
-    nonActiveStages.forEach((toStage) => {
-      const props = { ...minimalProps, toStage };
-      wrapper = mountWithIntl(<DirectTransitionForm {...props} />);
-      expect(wrapper.find(Checkbox).length).toBe(0);
-    });
+  test.each(nonActiveStages)('should not render checkbox for non-active stage %s', (toStage) => {
+    const props = { ...minimalProps, toStage };
+    renderWithIntl(<DirectTransitionForm {...props} />);
+    expect(screen.getByTestId(modelVersionUpdateFormTestId)).toBeInTheDocument();
+    expect(screen.queryByTestId(checkboxDataTestId)).not.toBeInTheDocument();
   });
 });

@@ -180,12 +180,11 @@ an annotated version of the code.
 
 To aid in visualizing how MLflow tracking API calls add in to an ML training code base, see the figure below.
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/training-annotation.svg
+.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/training-annotation.png
    :width: 1024px
    :align: center
    :alt: Explanation of MLflow integration into ML training code
 
-   
 
 Putting it all together
 -----------------------

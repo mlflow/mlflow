@@ -369,6 +369,7 @@ class TrainStep(BaseStep):
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
+                best_estimator_params = estimator.get_params()
                 fitted_estimator, additional_fitted_args = self._fitted_estimator(
                     estimator, X_train, y_train
                 )
@@ -786,9 +787,7 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: f"{x:.6g}")  # pylint: disable=unnecessary-lambda
-                if s.name in metric_names
-                else s,  # pylint: disable=unnecessary-lambda
+                lambda s: s.map(lambda x: f"{x:.6g}") if s.name in metric_names else s,
                 axis=0,
             )
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")

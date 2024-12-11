@@ -1,11 +1,14 @@
+import importlib.metadata
 import os
+from unittest import mock
 
 import pytest
 import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
-    _find_duplicate_requirements,
+    _deduplicate_requirements,
     _get_pip_deps,
     _get_pip_requirement_specifier,
     _is_mlflow_requirement,
@@ -16,6 +19,7 @@ from mlflow.utils.environment import (
     _process_conda_env,
     _process_pip_requirements,
     _validate_env_arguments,
+    infer_pip_requirements,
 )
 
 from tests.helper_functions import _mlflow_major_version_string
@@ -46,8 +50,6 @@ def test_mlflow_conda_env_returns_expected_env_dict_when_output_path_is_not_spec
 
 @pytest.mark.parametrize("conda_deps", [["conda-dep-1=0.0.1", "conda-dep-2"], None])
 def test_mlflow_conda_env_includes_pip_dependencies_but_pip_is_not_specified(conda_deps):
-    import pip
-
     additional_pip_deps = ["pip-dep==0.0.1"]
     env = _mlflow_conda_env(
         path=None, additional_conda_deps=conda_deps, additional_pip_deps=additional_pip_deps
@@ -55,7 +57,8 @@ def test_mlflow_conda_env_includes_pip_dependencies_but_pip_is_not_specified(con
     if conda_deps is not None:
         for conda_dep in conda_deps:
             assert conda_dep in env["dependencies"]
-    assert f"pip<={pip.__version__}" in env["dependencies"]
+    pip_version = importlib.metadata.version("pip")
+    assert f"pip<={pip_version}" in env["dependencies"]
 
 
 @pytest.mark.parametrize("pip_specification", ["pip", "pip==20.0.02"])
@@ -281,6 +284,19 @@ def test_process_pip_requirements(tmp_path):
     assert reqs == [expected_mlflow_ver, "b", "-c constraints.txt"]
     assert cons == ["c"]
 
+    conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["a[extras]"])
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a[extras]"]
+    assert reqs == [expected_mlflow_ver, "a[extras]"]
+    assert cons == []
+
+    conda_env, reqs, cons = _process_pip_requirements(
+        ["mlflow==1.2.3", "b[extra1]", "a==1.2.3"],
+        extra_pip_requirements=["b[extra2]", "a[extras]"],
+    )
+    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]==1.2.3"]
+    assert reqs == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]==1.2.3"]
+    assert cons == []
+
 
 def test_process_conda_env(tmp_path):
     def make_conda_env(pip_deps):
@@ -328,29 +344,94 @@ def test_process_conda_env(tmp_path):
         _process_conda_env(0)
 
 
-def test_duplicate_pip_requirements():
-    packages = [
-        "numpy==1.21.0",  # specific version
-        "pandas>=1.3.0",  # minimum version
-        "scikit-learn",  # any version
-        "matplotlib<=3.4.2",  # maximum version
-        "seaborn",  # any version
-        "package!=1.2.3",  # any version but this one
-        "package~=1.2.3",  # compatible version (i.e., >= 1.2.3, == 1.2.*)
-        "package>1.2.3",  # version greater than
-        "package<1.2.3",  # version less than
-        "package[extra]==1.2.3",  # specific version with extras
-        "fastapi ===0.21.0",  # specific version (PEP 440: version with spaces around ===)
-        "fastapi @ https://my.package.repo/fastapi-0.21.0-py3-none-any.whl",  # private repo
-        "-e git+https://github.com/mlflow/mlflow@master",  # editable mode, direct from a git repo
-        "-r requirements.txt",  # from a requirements file
-        "pytest-cov; python_version < '3.8'",  # conditional requirements
-        "fastapi @ file:///local/path/to/numpy-0.22.0-py3-none-any.whl",  # wheel from a local file
-        "-c constraints.txt",  # constraint file
-        "--no-binary :all:",  # no binary packages, source code only
-        "--prefer-binary",  # prefer binary packages over source code
-        "numpy<1.24.0",  # maximum version
-        "numpy",  # any version
-    ]
-    evaluation = _find_duplicate_requirements(packages)
-    assert sorted(evaluation) == ["fastapi", "numpy", "package"]
+@pytest.mark.parametrize(
+    ("env_var", "fallbacks", "should_raise"),
+    [
+        # 1&2. If env var is True, always throw an exception from inference error
+        (True, ["sklearn"], True),
+        (True, None, True),
+        # 3. If env var is False but fallback is provided, should not throw an exception
+        (False, ["sklearn"], False),
+        # 4. If fallback is not provided, should throw an exception
+        (False, None, True),
+    ],
+)
+def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", str(env_var))
+
+    call_args = ("path/to/model", "sklearn", fallbacks)
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        side_effect=MlflowException("Failed to capture imported modules"),
+    ):
+        if should_raise:
+            with pytest.raises(MlflowException, match="Failed to capture imported module"):
+                infer_pip_requirements(*call_args)
+        else:
+            # Should just pass with warning
+            with mock.patch("mlflow.utils.environment._logger.warning") as warning_mock:
+                infer_pip_requirements(*call_args)
+            warning_mock.assert_called_once()
+            warning_text = warning_mock.call_args[0][0]
+            assert "Encountered an unexpected error while inferring" in warning_text
+
+
+@pytest.mark.parametrize(
+    ("input_requirements", "expected"),
+    [
+        # Simple cases
+        (["scikit-learn>1", "pandas"], ["scikit-learn>1", "pandas"]),
+        # Duplicates without extras, preserving version restrictions
+        (["packageA", "packageA==1.0"], ["packageA==1.0"]),
+        # Duplicates with extras
+        (["packageA", "packageA[extras]"], ["packageA[extras]"]),
+        # Mixed cases
+        (
+            ["packageA", "packageB", "packageA[extras]", "packageC<=2.0"],
+            ["packageA[extras]", "packageB", "packageC<=2.0"],
+        ),
+        # Mixed versions and extras
+        (["markdown>=3.5.1", "markdown[extras]", "markdown<4"], ["markdown[extras]>=3.5.1,<4"]),
+        # Overlapping extras
+        (
+            ["packageZ[extra1]", "packageZ[extra2]", "packageZ"],
+            ["packageZ[extra1,extra2]"],
+        ),
+        # No version on extras with final version on non-extras
+        (
+            ["markdown[extra1]", "markdown[extra2]", "markdown>3", "markdown<4"],
+            ["markdown[extra1,extra2]>3,<4"],
+        ),
+        # Version constraints with extras
+        (["markdown>1.0", "markdown[extras]<4"], ["markdown[extras]>1.0,<4"]),
+        # Verify duplicate specifiers are not preserved
+        (
+            ["markdown==3.5.1", "markdown[extras]==3.5.1", "markdown[extras]"],
+            ["markdown[extras]==3.5.1"],
+        ),
+        # Verify duplicate extras are not preserved
+        (["markdown[extras]", "markdown", "markdown[extras]"], ["markdown[extras]"]),
+    ],
+)
+def test_deduplicate_requirements_resolve_correctly(input_requirements, expected):
+    assert _deduplicate_requirements(input_requirements) == expected
+
+
+@pytest.mark.parametrize(
+    "input_requirements",
+    [
+        # Non-inclusive range with precise specifier
+        ["scikit-learn==1.1", "scikit-learn<1"],
+        # Incompatible ranges with extras
+        ["markdown[extras]==3.5.1", "markdown<3.4"],
+        # Invalid ranges
+        ["markdown<3", "markdown>3"],
+        # Conflicting versions
+        ["markdown==3.0", "markdown==3.5"],
+    ],
+)
+def test_invalid_requirements_raise(input_requirements):
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible"
+    ):
+        _deduplicate_requirements(input_requirements)

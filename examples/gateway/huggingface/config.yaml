@@ -1,6 +1,6 @@
-routes:
+endpoints:
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: "huggingface-text-generation-inference"
       name: falcon-7b-instruct

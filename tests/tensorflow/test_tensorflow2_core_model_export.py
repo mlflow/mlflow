@@ -10,7 +10,6 @@ import mlflow.tensorflow
 from mlflow.models import Model, infer_signature
 
 
-# pylint: disable=abstract-method
 class ToyModel(tf.Module):
     def __init__(self, w, b):
         super().__init__()
@@ -88,9 +87,7 @@ def test_model_log_with_signature_inference(tf2_toy_model):
     example = tf2_toy_model.inference_data
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf2_toy_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.tensorflow.log_model(tf2_toy_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

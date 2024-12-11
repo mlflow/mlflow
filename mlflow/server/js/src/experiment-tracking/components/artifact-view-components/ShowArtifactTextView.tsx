@@ -1,13 +1,17 @@
 import React, { Component } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import {
-  coy as style,
-  atomDark as darkStyle,
-} from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { coy as style, atomDark as darkStyle } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { getLanguage } from '../../../common/utils/FileUtils';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -16,7 +20,7 @@ type Props = DesignSystemHocProps & {
   path: string;
   size?: number;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
 type State = {
   loading?: boolean;
@@ -54,14 +58,10 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className='artifact-text-view-loading'>Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
     }
     if (this.state.error) {
-      return (
-        <div className='artifact-text-view-error'>
-          Oops we couldn't load your file because of an error.
-        </div>
-      );
+      return <ArtifactViewErrorState className="artifact-text-view-error" />;
     } else {
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
       const language = isLargeFile ? 'text' : getLanguage(this.props.path);
@@ -76,18 +76,17 @@ class ShowArtifactTextView extends Component<Props, State> {
         height: '100%',
         padding: theme.spacing.xs,
         borderColor: theme.colors.borderDecorative,
+        border: 'none',
       };
-      const renderedContent = this.state.text
-        ? prettifyArtifactText(language, this.state.text)
-        : this.state.text;
+      const renderedContent = this.state.text ? prettifyArtifactText(language, this.state.text) : this.state.text;
 
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
       return (
-        <div className='ShowArtifactPage'>
-          <div className='text-area-border-box'>
+        <div className="ShowArtifactPage">
+          <div className="text-area-border-box">
             <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
-              {renderedContent}
+              {renderedContent ?? ''}
             </SyntaxHighlighter>
           </div>
         </div>
@@ -98,7 +97,13 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     this.setState({ loading: true });
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
+
+    const artifactLocation =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+
     this.props
       .getArtifact?.(artifactLocation)
       .then((text: string) => {
@@ -123,4 +128,4 @@ export function prettifyArtifactText(language: string, rawText: string) {
   }
   return rawText;
 }
-export default WithDesignSystemThemeHoc(ShowArtifactTextView);
+export default React.memo(WithDesignSystemThemeHoc(ShowArtifactTextView));

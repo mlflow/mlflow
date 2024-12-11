@@ -1,19 +1,42 @@
 import inspect
+import re
 import types
 import warnings
 from functools import wraps
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
 C = TypeVar("C", bound=Callable[..., Any])
 
 
-def experimental(api_or_type: Union[C, str]) -> C:
+def _get_min_indent_of_docstring(docstring_str: str) -> str:
     """
-    Decorator / decorator creator for marking APIs experimental in the docstring.
+    Get the minimum indentation string of a docstring, based on the assumption
+    that the closing triple quote for multiline comments must be on a new line.
+    Note that based on ruff rule D209, the closing triple quote for multiline
+    comments must be on a new line.
 
-    :param api_or_type: An API to mark, or an API typestring for which to generate a decorator.
-    :return: Decorated API (if a ``api_or_type`` is an API) or a function that decorates
-             the specified API type (if ``api_or_type`` is a typestring).
+    Args:
+        docstring_str: string with docstring
+
+    Returns:
+        Whitespace corresponding to the indent of a docstring.
+    """
+
+    if not docstring_str or "\n" not in docstring_str:
+        return ""
+
+    return re.match(r"^\s*", docstring_str.rsplit("\n", 1)[-1]).group()
+
+
+def experimental(api_or_type: Union[C, str]) -> C:
+    """Decorator / decorator creator for marking APIs experimental in the docstring.
+
+    Args:
+        api_or_type: An API to mark, or an API typestring for which to generate a decorator.
+
+    Returns:
+        Decorated API (if a ``api_or_type`` is an API) or a function that decorates
+        the specified API type (if ``api_or_type`` is a typestring).
     """
     if isinstance(api_or_type, str):
 
@@ -32,9 +55,10 @@ def experimental(api_or_type: Union[C, str]) -> C:
 
 
 def _experimental(api: C, api_type: str) -> C:
+    indent = _get_min_indent_of_docstring(api.__doc__) if api.__doc__ else ""
     notice = (
-        f"    .. Note:: Experimental: This {api_type} may change or "
-        + "be removed in a future release without warning.\n\n"
+        indent + f".. Note:: Experimental: This {api_type} may change or "
+        "be removed in a future release without warning.\n\n"
     )
     if api_type == "property":
         api.__doc__ = api.__doc__ + "\n\n" + notice if api.__doc__ else notice
@@ -70,48 +94,92 @@ def developer_stable(func):
     return func
 
 
-def deprecated(alternative=None, since=None, impact=None):
+_DEPRECATED_MARK_ATTR_NAME = "__deprecated"
+
+
+def mark_deprecated(func):
     """
-    Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
+    Mark a function as deprecated by setting a private attribute on it.
+    """
+    setattr(func, _DEPRECATED_MARK_ATTR_NAME, True)
+
+
+def is_marked_deprecated(func):
+    """
+    Is the function marked as deprecated.
+    """
+    return getattr(func, _DEPRECATED_MARK_ATTR_NAME, False)
+
+
+def deprecated(
+    alternative: Optional[str] = None, since: Optional[str] = None, impact: Optional[str] = None
+):
+    """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
-    :param alternative: (Optional string) The name of a superseded replacement function, method,
-                        or class to use in place of the deprecated one.
-    :param since: (Optional string) A version designator defining during which release the function,
-                  method, or class was marked as deprecated.
-    :param impact: (Optional boolean) Indication of whether the method, function, or class will be
-                   removed in a future release.
-    :return: Decorated function.
+
+    Args:
+        alternative: The name of a superseded replacement function, method,
+            or class to use in place of the deprecated one.
+        since: A version designator defining during which release the function,
+            method, or class was marked as deprecated.
+        impact: Indication of whether the method, function, or class will be
+            removed in a future release.
+
+    Returns:
+        Decorated function or class.
     """
 
-    def deprecated_decorator(func):
+    def deprecated_decorator(obj):
         since_str = f" since {since}" if since else ""
         impact_str = impact if impact else "This method will be removed in a future release."
 
-        notice = "``{qual_function_name}`` is deprecated{since_string}. {impact}".format(
-            qual_function_name=".".join([func.__module__, func.__qualname__]),
-            since_string=since_str,
-            impact=impact_str,
-        )
-        if alternative is not None and alternative.strip():
+        qual_name = f"{obj.__module__}.{obj.__qualname__}"
+        notice = f"``{qual_name}`` is deprecated{since_str}. {impact_str}"
+        if alternative and alternative.strip():
             notice += f" Use ``{alternative}`` instead."
 
-        @wraps(func)
-        def deprecated_func(*args, **kwargs):
-            warnings.warn(notice, category=FutureWarning, stacklevel=2)
-            return func(*args, **kwargs)
+        if inspect.isclass(obj):
+            original_init = obj.__init__
 
-        if func.__doc__ is not None:
-            deprecated_func.__doc__ = ".. Warning:: " + notice + "\n" + func.__doc__
+            @wraps(original_init)
+            def new_init(self, *args, **kwargs):
+                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+                original_init(self, *args, **kwargs)
 
-        return deprecated_func
+            obj.__init__ = new_init
+
+            if obj.__doc__:
+                obj.__doc__ = f".. Warning:: {notice}\n{obj.__doc__}"
+            else:
+                obj.__doc__ = f".. Warning:: {notice}"
+
+            mark_deprecated(obj)
+            return obj
+
+        elif isinstance(obj, (types.FunctionType, types.MethodType)):
+
+            @wraps(obj)
+            def deprecated_func(*args, **kwargs):
+                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+                return obj(*args, **kwargs)
+
+            if obj.__doc__:
+                indent = _get_min_indent_of_docstring(obj.__doc__)
+                deprecated_func.__doc__ = f"{indent}.. Warning:: {notice}\n{obj.__doc__}"
+            else:
+                deprecated_func.__doc__ = f".. Warning:: {notice}"
+
+            mark_deprecated(deprecated_func)
+            return deprecated_func
+
+        else:
+            return obj
 
     return deprecated_decorator
 
 
 def keyword_only(func):
-    """
-    A decorator that forces keyword arguments in the wrapped method.
-    """
+    """A decorator that forces keyword arguments in the wrapped method."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -119,6 +187,8 @@ def keyword_only(func):
             raise TypeError(f"Method {func.__name__} only takes keyword arguments.")
         return func(**kwargs)
 
-    notice = ".. Note:: This method requires all argument be specified by keyword.\n"
+    indent = _get_min_indent_of_docstring(wrapper.__doc__) if wrapper.__doc__ else ""
+    notice = indent + ".. note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
+
     return wrapper

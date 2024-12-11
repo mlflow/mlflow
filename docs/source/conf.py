@@ -11,8 +11,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import sys
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -20,11 +20,11 @@ import os
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
+import languagesections
 from docutils.nodes import Text
 from sphinx.addnodes import pending_xref
 
 import mlflow
-import languagesections
 
 # -- General configuration ------------------------------------------------
 
@@ -39,9 +39,23 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
+    "sphinx_tabs.tabs",
     "testcode_block",
     "nbsphinx",
+    "sphinx_reredirects",
 ]
+
+# Redirects definition in the form of ``("source", "target")``.
+# Note that the target is relative to the path of the source and that the
+# target must define the final url (i.e. no trailing slash).
+redirects = {
+    "registry": "model-registry.html",
+    "llms/gateway": "../deployments",
+    "llms/gateway/index.html": "../deployments/index.html",
+    "llms/gateway/guides/index.html": "../../deployments/guides/index.html",
+    "llms/gateway/guides/step1-create-gateway.html": "../../deployments/guides/step1-create-deployments.html",
+    "llms/gateway/guides/step2-query-gateway.html": "../../deployments/guides/step2-query-deployments.html",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -163,7 +177,7 @@ html_favicon = "_static/favicon.ico"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-
+html_js_files = ["runllm.js"]
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
@@ -229,7 +243,12 @@ html_permalinks_icon = " "
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
+# Ref: https://sphinx-tabs.readthedocs.io/en/latest/#sphinx-configuration
 htmlhelp_basename = "MLflowdoc"
+
+# Disable closing tab for sphinx-tab extension.
+sphinx_tabs_disable_tab_closing = True
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -326,6 +345,7 @@ nitpick_ignore = [
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
     # Suppress warnings for missing references in type annotations
+    ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),
@@ -337,28 +357,64 @@ nitpick_ignore = [
     ("py:class", "plotly.graph_objects.Figure"),
     ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
+    ("py:class", "Endpoint"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
+    ("py:class", "opentelemetry.trace.span.Span"),
+    ("py:class", "opentelemetry.trace.status.Status"),
+    ("py:class", "opentelemetry.trace.status.StatusCode"),
+    ("py:class", "opentelemetry.sdk.trace.ReadableSpan"),
+    ("py:class", "mlflow.entities.trace_status.TraceStatus"),
+    ("py:class", "ModelSignature"),
+    ("py:class", "ModelInputExample"),
+    ("py:class", "abc.ABC"),
+    ("py:class", "Model"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "mlflow.models.resources.Resource"),
+    ("py:class", "mlflow.models.resources.ResourceType"),
+    ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
+    ("py:class", "mlflow.models.evaluation.base.EvaluationResult"),
+    ("py:class", "mlflow.models.evaluation.validation.MetricThreshold"),
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),
+    ("py:class", "datetime.datetime"),
     ("py:class", "scipy.sparse.csr.csr_matrix"),
     ("py:class", "scipy.sparse.csc.csc_matrix"),
     ("py:class", "scipy.sparse._csr.csr_matrix"),
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
     ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "re.Pattern"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
-    ("py:class", "keras_core.src.callbacks.callback.Callback"),
+    ("py:class", "ComputedFieldInfo"),
+    ("py:class", "keras.src.callbacks.callback.Callback"),
+    ("py:class", "keras.callbacks.Callback"),
+    ("py:class", "keras.src.callbacks.Callback"),
+    ("py:class", "pytorch_lightning.callbacks.callback.Callback"),
+    ("py:class", "pytorch_lightning.trainer.trainer.Trainer"),
+    ("py:class", "pytorch_lightning.core.module.LightningModule"),
+    ("py:class", "pytorch_lightning.core.LightningModule"),
+    ("py:class", "torch.dtype"),
+    ("py:class", "function"),
+    ("py:class", "string"),
+    ("py:class", "number"),
+    ("py:class", "integer"),
+    ("py:class", "object"),
+    ("py:class", "array"),
+    ("py:class", "boolean"),
+    ("py:class", "null"),
+    # for docstring of mlflow.models.update_model_requirements
+    ("py:class", "add"),
+    ("py:class", "remove"),
 ]
 
 
@@ -391,14 +447,14 @@ def _get_reference_map():
     for entity_name in mlflow.entities.__all__:
         entity_cls = getattr(mlflow.entities, entity_name)
         invalid_ref = entity_cls.__module__ + "." + entity_name
-        valid_ref = "mlflow.entities.{}".format(entity_name)
+        valid_ref = f"mlflow.entities.{entity_name}"
         ref_map[invalid_ref] = valid_ref
 
     # Model registry entities
     for entity_name in mlflow.entities.model_registry.__all__:
         entity_cls = getattr(mlflow.entities.model_registry, entity_name)
         invalid_ref = entity_cls.__module__ + "." + entity_name
-        valid_ref = "mlflow.entities.model_registry.{}".format(entity_name)
+        valid_ref = f"mlflow.entities.model_registry.{entity_name}"
         ref_map[invalid_ref] = valid_ref
 
     return ref_map

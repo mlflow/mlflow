@@ -1,6 +1,6 @@
 import warnings
 
-import entrypoints
+from mlflow.utils.plugins import get_entry_points
 
 REQUEST_AUTH_PROVIDER_ENTRYPOINT = "mlflow.request_auth_provider"
 
@@ -13,7 +13,7 @@ class RequestAuthProviderRegistry:
         self._registry.append(request_auth_provider())
 
     def register_entrypoints(self):
-        for entrypoint in entrypoints.get_group_all(REQUEST_AUTH_PROVIDER_ENTRYPOINT):
+        for entrypoint in get_entry_points(REQUEST_AUTH_PROVIDER_ENTRYPOINT):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -33,15 +33,19 @@ _request_auth_provider_registry.register_entrypoints()
 
 
 def fetch_auth(request_auth):
-    """Find the request auth from registered providers based on the auth provider's name.
+    """
+    Find the request auth from registered providers based on the auth provider's name.
     The auth provider's name can be provided through environment variable `MLFLOW_TRACKING_AUTH`.
 
     This function iterates through all request auth providers in the registry. Additional context
     providers can be registered as described in
     :py:class:`mlflow.tracking.request_auth.RequestAuthProvider`.
 
-    :param request_auth: The name of request auth provider.
-    :return: The auth object.
+    Args:
+        request_auth: The name of request auth provider.
+
+    Returns:
+        The auth object.
     """
 
     for auth_provider in _request_auth_provider_registry:

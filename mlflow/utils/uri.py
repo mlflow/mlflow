@@ -1,9 +1,10 @@
+import os
 import pathlib
 import posixpath
 import re
 import urllib.parse
 import uuid
-from typing import Any, Tuple
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -18,19 +19,21 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
-_UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_uc_volume_URI_PREFIX = "/Volumes/"
+_uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+_OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
-    """
-    Returns true if the specified URI is a local file path (/foo or file:/foo).
+    """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
-    :param uri: The URI.
-    :param is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
-                            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
-                            filesystem paths, etc.
+    Args:
+        uri: The URI.
+        is_tracking_or_registry_uri: Whether or not the specified URI is an MLflow Tracking or
+            MLflow Model Registry URI. Examples of other URIs are MLflow artifact URIs,
+            filesystem paths, etc.
     """
     if uri == "databricks" and is_tracking_or_registry_uri:
         return False
@@ -40,16 +43,26 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.hostname and not (
+    scheme = parsed_uri.scheme
+    if scheme == "":
+        return True
+
+    is_remote_hostname = parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
         or parsed_uri.hostname.startswith("127.0.0.1")
-    ):
-        return False
-
-    scheme = parsed_uri.scheme
-    if scheme == "" or scheme == "file":
+    )
+    if scheme == "file":
+        if is_remote_hostname:
+            raise MlflowException(
+                f"{uri} is not a valid remote uri. For remote access "
+                "on windows, please consider using a different scheme "
+                "such as SMB (e.g. smb://<hostname>/<path>)."
+            )
         return True
+
+    if is_remote_hostname:
+        return False
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
         return True
@@ -58,7 +71,8 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
 
 def is_file_uri(uri):
-    return urllib.parse.urlparse(uri).scheme == "file"
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "file"
 
 
 def is_http_uri(uri):
@@ -79,24 +93,45 @@ def is_fuse_or_uc_volumes_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.
     Multiple directory paths are collapsed into a single designator for root path validation.
-    example:
-    "////Volumes/" will resolve to "/Volumes/" for validation purposes.
+    For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
-    resolved_uri = re.sub("/+", "/", uri)
+    resolved_uri = re.sub("/+", "/", uri).lower()
     return any(
-        resolved_uri.startswith(x)
+        resolved_uri.startswith(x.lower())
         for x in [
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
-            _UC_VOLUMES_URI_PREFIX,
+            _uc_volume_URI_PREFIX,
+            _uc_model_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
+    )
+
+
+def _is_uc_volumes_path(path: str) -> bool:
+    return re.match(r"^/[vV]olumes?/", path) is not None
+
+
+def is_uc_volumes_uri(uri: str) -> bool:
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and _is_uc_volumes_path(parsed_uri.path)
+
+
+def is_valid_uc_volumes_uri(uri: str) -> bool:
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and bool(
+        re.match(r"^/[vV]olumes?/[^/]+/[^/]+/[^/]+/[^/]+", parsed_uri.path)
     )
 
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+
+
+def is_oss_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "uc"
 
 
 def construct_db_uri_from_profile(profile):
@@ -240,26 +275,34 @@ def extract_and_normalize_path(uri):
 
 
 def append_to_uri_path(uri, *paths):
-    """
-    Appends the specified POSIX `paths` to the path component of the specified `uri`.
+    """Appends the specified POSIX `paths` to the path component of the specified `uri`.
 
-    :param uri: The input URI, represented as a string.
-    :param paths: The POSIX paths to append to the specified `uri`'s path component.
-    :return: A new URI with a path component consisting of the specified `paths` appended to
-             the path component of the specified `uri`.
+    Args:
+        uri: The input URI, represented as a string.
+        paths: The POSIX paths to append to the specified `uri`'s path component.
 
-    >>> uri1 = "s3://root/base/path?param=value"
-    >>> uri1 = append_to_uri_path(uri1, "some/subpath", "/anotherpath")
-    >>> assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
-    >>> uri2 = "a/posix/path"
-    >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
-    >>> assert uri2 == "a/posixpath/some/subpath"
+    Returns:
+        A new URI with a path component consisting of the specified `paths` appended to
+        the path component of the specified `uri`.
+
+        .. code-block:: python
+          uri1 = "s3://root/base/path?param=value"
+          uri1 = append_to_uri_path(uri1, "some/subpath", "/anotherpath")
+          assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
+          uri2 = "a/posix/path"
+          uri2 = append_to_uri_path(uri2, "/some", "subpath")
+          assert uri2 == "a/posixpath/some/subpath"
     """
     path = ""
     for subpath in paths:
         path = _join_posixpaths_and_append_absolute_suffixes(path, subpath)
 
     parsed_uri = urllib.parse.urlparse(uri)
+
+    # Validate query string not to contain any traversal path (../) before appending
+    # to the end of the path, otherwise they will be resolved as part of the path.
+    validate_query_string(parsed_uri.query)
+
     if len(parsed_uri.scheme) == 0:
         # If the input URI does not define a scheme, we assume that it is a POSIX path
         # and join it with the specified input paths
@@ -279,13 +322,13 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
-def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
-    """
-    Appends the specified query parameters to an existing URI.
+def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
+    """Appends the specified query parameters to an existing URI.
 
-    :param uri: The URI to which to append query parameters.
-    :param query_params: Query parameters to append. Each parameter should
-                         be a 2-element tuple. For example, ``("key", "value")``.
+    Args:
+        uri: The URI to which to append query parameters.
+        query_params: Query parameters to append. Each parameter should
+            be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
     parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
@@ -306,7 +349,9 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
+    ...     "/absolutepath1", "/absolutepath2"
+    ... )
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
@@ -343,12 +388,16 @@ def is_valid_dbfs_uri(uri):
 
 
 def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
-    """
-    Converts the provided DBFS URI into a DBFS FUSE path
-    :param dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
-                     "/my-directory" if running in an environment where the default HDFS filesystem
-                     is "dbfs:/" (e.g. Databricks)
-    :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+    """Converts the provided DBFS URI into a DBFS FUSE path
+
+    Args:
+        dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
+            "/my-directory" if running in an environment where the default HDFS filesystem
+            is "dbfs:/" (e.g. Databricks)
+
+    Returns:
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+
     """
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
@@ -367,9 +416,11 @@ def resolve_uri_if_local(local_uri):
     if `local_uri` is passed in as a relative local path, this function
     resolves it to absolute path relative to current working directory.
 
-    :param local_uri: Relative or absolute path or local file uri
+    Args:
+        local_uri: Relative or absolute path or local file uri
 
-    :return: a fully-formed absolute uri path or an absolute filesystem path
+    Returns:
+        a fully-formed absolute uri path or an absolute filesystem path
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -405,3 +456,78 @@ def resolve_uri_if_local(local_uri):
 
 def generate_tmp_dfs_path(dfs_tmp):
     return posixpath.join(dfs_tmp, str(uuid.uuid4()))
+
+
+def join_paths(*paths: str) -> str:
+    stripped = (p.strip("/") for p in paths)
+    return "/" + posixpath.normpath(posixpath.join(*stripped))
+
+
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+
+
+def validate_path_is_safe(path):
+    """
+    Validates that the specified path is safe to join with a trusted prefix. This is a security
+    measure to prevent path traversal attacks.
+    A valid path should:
+        not contain separators other than '/'
+        not contain .. to navigate to parent dir in path
+        not be an absolute path
+    """
+    from mlflow.utils.file_utils import local_file_uri_to_path
+
+    # We must decode path before validating it
+    path = _decode(path)
+
+    exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    if "#" in path:
+        raise exc
+
+    if is_file_uri(path):
+        path = local_file_uri_to_path(path)
+    if (
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split("/")
+        or pathlib.PureWindowsPath(path).is_absolute()
+        or pathlib.PurePosixPath(path).is_absolute()
+        or (is_windows() and len(path) >= 2 and path[1] == ":")
+    ):
+        raise exc
+
+    return path
+
+
+def validate_query_string(query):
+    query = _decode(query)
+    # Block query strings contain any traversal path (../) because they
+    # could be resolved as part of the path and allow path traversal.
+    if ".." in query:
+        raise MlflowException("Invalid query string", error_code=INVALID_PARAMETER_VALUE)
+
+
+def _decode(url):
+    # Keep decoding until the url stops changing (with a max of 10 iterations)
+    for _ in range(10):
+        decoded = urllib.parse.unquote(url)
+        parsed = urllib.parse.urlunparse(urllib.parse.urlparse(decoded))
+        if parsed == url:
+            return url
+        url = parsed
+
+    raise ValueError("Failed to decode url")
+
+
+def strip_scheme(uri: str) -> str:
+    """
+    Strips the scheme from the specified URI.
+
+    Example:
+
+    >>> strip_scheme("http://example.com")
+    '//example.com'
+    """
+    parsed = urllib.parse.urlparse(uri)
+    # `_replace` looks like a private method, but it's actually part of the public API:
+    # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
+    return urllib.parse.urlunparse(parsed._replace(scheme=""))

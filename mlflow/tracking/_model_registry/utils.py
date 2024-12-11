@@ -1,18 +1,6 @@
-import logging
 from functools import partial
 
-from mlflow.environment_variables import (
-    MLFLOW_REGISTRY_URI,
-    MLFLOW_TRACKING_AUTH,
-    MLFLOW_TRACKING_AWS_SIGV4,
-    MLFLOW_TRACKING_CLIENT_CERT_PATH,
-    MLFLOW_TRACKING_INSECURE_TLS,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_SERVER_CERT_PATH,
-    MLFLOW_TRACKING_TOKEN,
-    MLFLOW_TRACKING_USERNAME,
-)
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
@@ -24,15 +12,14 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     get_tracking_uri,
 )
-from mlflow.utils import rest_utils
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
     get_databricks_host_creds,
+    is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-
-_logger = logging.getLogger(__name__)
-
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -53,19 +40,16 @@ _registry_uri = None
 
 
 def set_registry_uri(uri: str) -> None:
-    """
-    Set the registry server URI. This method is especially useful if you have a registry server
+    """Set the registry server URI. This method is especially useful if you have a registry server
     that's different from the tracking server.
 
-    :param uri:
-
-                - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
-                  locally at the provided file (or ``./mlruns`` if empty).
-                - An HTTP URI like ``https://my-tracking-server:5000``.
-                - A Databricks workspace, provided as the string "databricks" or, to use a
-                  Databricks CLI
-                  `profile <https://github.com/databricks/databricks-cli#installation>`_,
-                  "databricks://<profileName>".
+    Args:
+        uri: An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+            locally at the provided file (or ``./mlruns`` if empty). An HTTP URI like
+            ``https://my-tracking-server:5000`` or ``http://my-oss-uc-server:8080``. A Databricks
+            workspace, provided as the string "databricks" or, to use a Databricks CLI
+            `profile <https://github.com/databricks/databricks-cli#installation>`_,
+            "databricks://<profileName>".
 
     .. code-block:: python
         :caption: Example
@@ -88,29 +72,43 @@ def set_registry_uri(uri: str) -> None:
 
         Current registry uri: sqlite:////tmp/registry.db
         Current tracking uri: file:///.../mlruns
+
     """
     global _registry_uri
     _registry_uri = uri
+    if uri:
+        # Set 'MLFLOW_REGISTRY_URI' environment variable
+        # so that subprocess can inherit it.
+        MLFLOW_REGISTRY_URI.set(_registry_uri)
+
+
+def _get_registry_uri_from_spark_session():
+    session = _get_active_spark_session()
+    if session is None:
+        return None
+
+    if is_in_databricks_serverless_runtime():
+        # Connected to Serverless
+        return "databricks-uc"
+
+    return session.conf.get("spark.mlflow.modelRegistryUri", None)
 
 
 def _get_registry_uri_from_context():
-    global _registry_uri
-    # in the future, REGISTRY_URI env var support can go here
     if _registry_uri is not None:
         return _registry_uri
-    elif uri := MLFLOW_REGISTRY_URI.get():
+    elif (uri := MLFLOW_REGISTRY_URI.get()) or (uri := _get_registry_uri_from_spark_session()):
         return uri
     return _registry_uri
 
 
 def get_registry_uri() -> str:
-    """
-    Get the current registry URI. If none has been specified, defaults to the tracking URI.
+    """Get the current registry URI. If none has been specified, defaults to the tracking URI.
 
-    :return: The registry URI.
+    Returns:
+        The registry URI.
 
     .. code-block:: python
-        :caption: Example
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
@@ -124,10 +122,10 @@ def get_registry_uri() -> str:
         assert mr_uri == tracking_uri
 
     .. code-block:: text
-        :caption: Output
 
         Current model registry uri: file:///.../mlruns
         Current tracking uri: file:///.../mlruns
+
     """
     return _get_registry_uri_from_context() or get_tracking_uri()
 
@@ -140,20 +138,6 @@ def _get_sqlalchemy_store(store_uri):
     from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
     return SqlAlchemyStore(store_uri)
-
-
-def get_default_host_creds(store_uri):
-    return rest_utils.MlflowHostCreds(
-        host=store_uri,
-        username=MLFLOW_TRACKING_USERNAME.get(),
-        password=MLFLOW_TRACKING_PASSWORD.get(),
-        token=MLFLOW_TRACKING_TOKEN.get(),
-        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        auth=MLFLOW_TRACKING_AUTH.get(),
-        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
-        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
-        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
-    )
 
 
 def _get_rest_store(store_uri, **_):
@@ -176,6 +160,9 @@ def _get_file_store(store_uri, **_):
 
 def _get_store_registry():
     global _model_registry_store_registry
+    from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+    from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
+
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry
 
@@ -184,6 +171,7 @@ def _get_store_registry():
     # Register a placeholder function that raises if users pass a registry URI with scheme
     # "databricks-uc"
     _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore)
+    _model_registry_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, UnityCatalogOssStore)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)

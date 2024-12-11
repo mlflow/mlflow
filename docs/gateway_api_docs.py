@@ -21,7 +21,7 @@ API_HTML = """
       rel="shortcut icon"
       href="../_static/favicon.ico"
     />
-    <title>MLflow Gateway API - Swagger UI</title>
+    <title>MLflow AI Gateway - Swagger UI</title>
   </head>
   <body>
     <div id="swagger-ui"></div>
@@ -55,7 +55,7 @@ routes:
     route_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: key
 
@@ -63,7 +63,7 @@ routes:
     route_type: llm/v1/completions
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: key
 
@@ -80,7 +80,7 @@ routes:
         config_path.write_text(config)
 
         app = create_app_from_path(config_path)
-        docs_build = Path("build/html/gateway")
+        docs_build = Path("build/html/llms/deployments")
         docs_build.mkdir(parents=True, exist_ok=True)
         with docs_build.joinpath("openapi.json").open("w") as f:
             json.dump(app.openapi(), f)

@@ -26,7 +26,7 @@ jobs:
       issues: write # harupy/auto-labeling
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: harupy/auto-labeling@master

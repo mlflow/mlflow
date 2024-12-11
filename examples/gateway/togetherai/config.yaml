@@ -1,0 +1,24 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: togetherai
+      name: mistralai/Mixtral-8x7B-v0.1
+      config:
+        togetherai_api_key: $TOGETHERAI_API_KEY
+
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: togetherai
+      name: mistralai/Mixtral-8x7B-Instruct-v0.1
+      config:
+        togetherai_api_key: $TOGETHERAI_API_KEY
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: togetherai
+      name: togethercomputer/m2-bert-80M-8k-retrieval
+      config:
+        togetherai_api_key: $TOGETHERAI_API_KEY

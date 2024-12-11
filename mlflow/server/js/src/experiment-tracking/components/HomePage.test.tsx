@@ -1,71 +1,125 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
+import { render, screen } from '../../common/utils/TestUtils.react17';
+import HomePage from './HomePage';
 
-/* eslint react/prop-types:0 */
-import React from 'react';
+import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { shallow } from 'enzyme';
-import configureStore from 'redux-mock-store';
-import { HomePageImpl } from './HomePage';
-import HomeView from './HomeView';
+import { MemoryRouter, Navigate, Route, Routes } from '../../common/utils/RoutingUtils';
+import { searchExperimentsApi } from '../actions';
+import { DeepPartial } from 'redux';
+import { ReduxState } from '../../redux-types';
+import { ExperimentView } from './experiment-page/ExperimentView';
+import { ExperimentPage } from './experiment-page/ExperimentPage';
+
+jest.mock('./experiment-page/ExperimentView', () => ({
+  ExperimentView: jest.fn(() => <div />),
+}));
+
+jest.mock('./experiment-page/ExperimentPage', () => ({
+  ExperimentPage: jest.fn(() => <div />),
+}));
+
+jest.mock('./ExperimentListView', () => jest.fn(() => <div />));
+
+jest.mock('../actions', () => ({
+  searchExperimentsApi: jest.fn(() => ({ type: 'searchExperimentsApi' })),
+}));
+
+jest.mock('../../common/utils/RoutingUtils', () => ({
+  ...jest.requireActual('../../common/utils/RoutingUtils'),
+  Navigate: jest.fn(() => <div />),
+}));
+
+jest.mock('../../common/utils/ActionUtils', () => ({
+  getUUID: jest.fn(() => 'action_id'),
+}));
 
 describe('HomePage', () => {
-  let wrapper;
-  let minimalProps: any;
-  let minimalStore: any;
-
-  const mockStore = configureStore([thunk, promiseMiddleware()]);
-
+  const createMockStore = configureStore([thunk, promiseMiddleware()]);
+  const defaultMockState = {
+    entities: { experimentsById: {} },
+    apis: { action_id: { active: false } },
+  };
+  const renderPage = (initialPath = '/', state?: DeepPartial<ReduxState>) => {
+    return render(
+      <Provider store={createMockStore({ ...defaultMockState, ...state })}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/:experimentId" element={<HomePage />} />
+            <Route path="*" element={<HomePage />} />
+          </Routes>
+        </MemoryRouter>
+      </Provider>,
+    );
+  };
   beforeEach(() => {
-    minimalProps = {
-      history: {},
-      dispatchSearchExperimentsApi: jest.fn(),
-    };
-    minimalStore = mockStore({
+    jest.mocked(Navigate).mockClear();
+    jest.mocked(ExperimentView).mockClear();
+  });
+  test('Displays proper message when there are no experiments', () => {
+    renderPage();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(screen.getByText('No Experiments Exist')).toBeInTheDocument();
+  });
+  test('Fetches experiments on page load', () => {
+    renderPage();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(searchExperimentsApi).toBeCalled();
+  });
+  test('Navigates to the first active experiment if experiment ID is not provided', () => {
+    renderPage('/', {
+      entities: {
+        experimentsById: {
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
+        },
+      },
+    });
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(Navigate).toHaveBeenCalledWith({ replace: true, to: '/experiments/200' }, {});
+  });
+
+  test('Displays experiment view when experiment ID is provided', () => {
+    renderPage('/100', {
+      entities: {
+        experimentsById: {
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
+        },
+      },
+    });
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(Navigate).not.toHaveBeenCalled();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(ExperimentView).toHaveBeenCalled();
+  });
+
+  test('Displays experiment view when experiments are compared', () => {
+    renderPage('/?experiments=[100,200]', {
+      entities: {
+        experimentsById: {
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
+        },
+      },
+    });
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(Navigate).not.toHaveBeenCalled();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(ExperimentView).toHaveBeenCalled();
+  });
+
+  test('Display loading state and no content while the request is still active', () => {
+    renderPage('/', {
       entities: {},
-      apis: jest.fn((key) => {
-        return {};
-      }),
+      apis: {},
     });
-  });
-
-  test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<HomePageImpl {...minimalProps} />, {
-      wrappingComponent: (props: any) => {
-        const { children } = props;
-        return (
-          <Provider store={minimalStore}>
-            <MemoryRouter>{children}</MemoryRouter>
-          </Provider>
-        );
-      },
-    });
-    expect(wrapper.length).toBe(1);
-  });
-
-  test('should render HomeView', () => {
-    const props = {
-      ...minimalProps,
-      experimentId: '0',
-    };
-
-    wrapper = shallow(<HomePageImpl {...props} />, {
-      wrappingComponent: (wrappingProps: any) => {
-        const { children } = wrappingProps;
-        return (
-          <Provider store={minimalStore}>
-            <MemoryRouter>{children}</MemoryRouter>
-          </Provider>
-        );
-      },
-    });
-    expect(wrapper.find(HomeView).length).toBe(1);
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(screen.getByRole('img')).toBeInTheDocument();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(Navigate).not.toHaveBeenCalled();
+    // eslint-disable-next-line jest/no-standalone-expect
+    expect(ExperimentView).not.toHaveBeenCalled();
   });
 });

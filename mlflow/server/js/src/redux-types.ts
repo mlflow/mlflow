@@ -47,25 +47,25 @@ type AsyncActionResult<A> = A extends AsyncAction<infer R> ? R : never;
 /**
  * Type denoting an action after transforming into result fulfilled shape
  */
-export type AsyncFulfilledAction<
-  A extends AsyncAction,
-  Type extends string = Fulfilled<A['type']>,
-> = Omit<A, 'type' | 'payload'> & {
+export type AsyncFulfilledAction<A extends AsyncAction, Type extends string = Fulfilled<A['type']>> = Omit<
+  A,
+  'type' | 'payload'
+> & {
   type: Type;
   payload: AsyncActionResult<A>;
 };
 
-export type AsyncPendingAction<
-  A extends AsyncAction,
-  Type extends string = Pending<A['type']>,
-> = Omit<A, 'type' | 'payload'> & {
+export type AsyncPendingAction<A extends AsyncAction, Type extends string = Pending<A['type']>> = Omit<
+  A,
+  'type' | 'payload'
+> & {
   type: Type;
 };
 
-export type AsyncRejectedAction<
-  A extends AsyncAction,
-  Type extends string = Rejected<A['type']>,
-> = Omit<A, 'type' | 'payload'> & {
+export type AsyncRejectedAction<A extends AsyncAction, Type extends string = Rejected<A['type']>> = Omit<
+  A,
+  'type' | 'payload'
+> & {
   type: Type;
   payload: Error;
 };
@@ -78,9 +78,7 @@ type FulfilledDispatchResult<A extends AsyncAction> = {
 /**
  * Result type of the async, thunked dispatch
  */
-export type AsyncDispatchReturns<T> = T extends AsyncAction
-  ? Promise<FulfilledDispatchResult<T>>
-  : T;
+export type AsyncDispatchReturns<T> = T extends AsyncAction ? Promise<FulfilledDispatchResult<T>> : T;
 
 export type ThunkDispatchReturns<S, E, A> = A extends ThunkAction<infer R, S, E> ? R : A;
 
@@ -94,8 +92,4 @@ export interface ThunkDispatch<S = ReduxState, E = any> {
 /**
  * Type of thunked action compatible with the promise-middleware and redux-thunk
  */
-export type ThunkAction<R, S, E = null> = (
-  dispatch: ThunkDispatch<S, E>,
-  getState: () => S,
-  extraArgument: E,
-) => R;
+export type ThunkAction<R, S, E = null> = (dispatch: ThunkDispatch<S, E>, getState: () => S, extraArgument: E) => R;

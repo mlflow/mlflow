@@ -2,6 +2,11 @@ name: MLflow tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - master
@@ -27,42 +32,9 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PYTHONUTF8: "1"
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-        id: setup-python
-      - name: Add problem matchers
-        run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/black.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/cache-pip
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          pip install -r requirements/lint-requirements.txt
-      - uses: ./.github/actions/pipdeptree
-      - name: Install pre-commit hooks
-        run: |
-          source .venv/bin/activate
-          pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
-        id: pre-commit
-        env:
-          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
-        run: |
-          source .venv/bin/activate
-          pre-commit run --all-files
-
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
   # The python skinny tests cover the subset of mlflow functionality
@@ -72,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -95,7 +67,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -109,6 +81,9 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
@@ -120,28 +95,50 @@ jobs:
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            tests
+            --ignore tests/deployments/server tests
+
+  py310:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.10"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/cache-pip
+      - name: Install dependencies
+        run: |
+          pip install .
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+          docker images
+          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
       - name: Run tests
         run: |
           set +e
           err=0
           trap 'err=1' ERR
 
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
@@ -176,7 +173,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -185,6 +182,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -196,7 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -209,6 +207,11 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras uvicorn
+          # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
+          pip install "litellm>=1.52.9"
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -232,7 +235,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -243,7 +246,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          pip install pyspark langchain langchain-community '.[mlserver]'
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -257,8 +261,14 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -268,11 +278,15 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/evaluate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+      - name: Run tests with delta
+        run: |
+          pytest tests/evaluate/test_default_evaluator_delta.py
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -285,7 +299,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -297,21 +311,27 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow 'pyspark[connect]'
+          pip install typing_extensions -U
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
-          # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
+          # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
+      - name: Run tests on pydantic v1
+        run: |
+          pip install 'pydantic<2'
+          pytest tests/types
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -320,6 +340,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
@@ -336,7 +357,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -348,17 +369,20 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/Scripts/activate
-          pip install -r requirements/test-requirements.txt
+          python -m pip install -U pip
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
+          pip install '.[extras,genai]'
           pip install pyspark
-          pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
           # Install torch and transformers to test metrics
           pip install torch transformers
+          pip install -r requirements/test-requirements.txt
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
@@ -377,8 +401,8 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server \
             tests
-          # MLeap is incompatible on Windows with PySpark3.4 release. 
+          # MLeap is incompatible on Windows with PySpark3.4 release.
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap

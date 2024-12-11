@@ -6,14 +6,9 @@
  */
 
 import { Form } from 'antd';
-import { Checkbox, Tooltip } from '@databricks/design-system';
+import { Checkbox, LegacyTooltip } from '@databricks/design-system';
 import React from 'react';
-import {
-  ACTIVE_STAGES,
-  archiveExistingVersionToolTipText,
-  Stages,
-  StageTagComponents,
-} from '../constants';
+import { ACTIVE_STAGES, archiveExistingVersionToolTipText, Stages, StageTagComponents } from '../constants';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 type Props = {
@@ -29,29 +24,27 @@ export class DirectTransitionFormImpl extends React.Component<Props> {
     const { toStage, innerRef } = this.props;
 
     return (
-      <Form ref={innerRef} className='model-version-update-form'>
+      <Form ref={innerRef} className="model-version-update-form" data-testid="model-version-update-form">
         {/* prettier-ignore */}
         {toStage && ACTIVE_STAGES.includes(toStage) && (
-          <Form.Item
-            name='archiveExistingVersions'
-            initialValue='true'
-            valuePropName='checked'
-            preserve={false}
-          >
-            <Checkbox>
-              <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
+          <Form.Item name="archiveExistingVersions" initialValue="true" valuePropName="checked" preserve={false}>
+            <Checkbox
+              componentId="codegen_mlflow_app_src_model-registry_components_directtransitionform.tsx_56"
+              data-testid="direct-transition-form-check-box"
+            >
+              <LegacyTooltip title={archiveExistingVersionToolTipText(toStage)}>
                 <FormattedMessage
-                  defaultMessage='Transition existing {currentStage} model versions to
-                    {archivedStage}'
-                  description='Description text for checkbox for archiving existing model versions
-                    in the toStage for model version stage transition'
+                  defaultMessage="Transition existing {currentStage} model versions to
+                    {archivedStage}"
+                  description="Description text for checkbox for archiving existing model versions
+                    in the toStage for model version stage transition"
                   values={{
                     currentStage: StageTagComponents[toStage],
                     archivedStage: StageTagComponents[Stages.ARCHIVED],
                   }}
                 />
                 &nbsp;
-              </Tooltip>
+              </LegacyTooltip>
             </Checkbox>
           </Form.Item>
         )}

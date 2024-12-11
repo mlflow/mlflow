@@ -1,5 +1,3 @@
-# pylint: disable=abstract-method
-
 import argparse
 
 import torch
@@ -34,8 +32,8 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output
+        x = F.log_softmax(x, dim=1)
+        return x
 
 
 def train(args, model, device, train_loader, optimizer, epoch):

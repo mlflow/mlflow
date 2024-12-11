@@ -16,10 +16,11 @@ jobs:
     permissions:
       pull-requests: write # advice.js comments on PRs
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          submodules: recursive
-      - uses: actions/github-script@v6
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@v7
         with:
           script: |
             const script = require(

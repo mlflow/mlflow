@@ -12,11 +12,12 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
+
 import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ import mlflow.tracking
 from mlflow import pyfunc
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -58,14 +60,17 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "fastai"
 
+_MODEL_DATA_SUBPATH = "model.fastai"
+
 _logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("fastai")]
     if include_cloudpickle:
@@ -74,10 +79,11 @@ def get_default_pip_requirements(include_cloudpickle=False):
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):  # pylint: disable=unused-argument
+def get_default_conda_env(include_cloudpickle=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -96,40 +102,34 @@ def save_model(
     metadata=None,
     **kwargs,
 ):
-    """
-    Save a fastai Learner to a path on the local file system.
+    """Save a fastai Learner to a path on the local file system.
 
-    :param fastai_learner: fastai Learner to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: MLflow model config this flavor is being added to.
+    Args:
+        fastai_learner: fastai Learner to be saved.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: MLflow model config this flavor is being added to.
+        signature: Describes model input and output Schema. The model signature can be inferred
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-
-    :param kwargs: kwargs to pass to ``Learner.save`` method.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
+        kwargs: kwargs to pass to ``Learner.save`` method.
 
     .. code-block:: python
         :caption: Example
@@ -158,17 +158,20 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.fastai"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+    if signature is None and saved_example is not None:
+        wrapped_model = _FastaiModelWrapper(fastai_learner)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -246,48 +249,43 @@ def log_model(
     metadata=None,
     **kwargs,
 ):
-    """
-    Log a fastai model as an MLflow artifact for the current run.
+    """Log a fastai model as an MLflow artifact for the current run.
 
-    :param fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    Args:
+        fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: Describes model input and output Schema. The model signature can be inferred
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+              from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+              train = df.drop_column("target_label")
+              predictions = ...  # compute model predictions
+              signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: {{ metadata }}
+        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
 
-    :param kwargs: kwargs to pass to `fastai.Learner.export`_ method.
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns:
+        A ModelInfo instance that contains the metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -300,21 +298,17 @@ def log_model(
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
             path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
-
             # Prepare, transform, and normalize the data
             data = vis.ImageDataBunch.from_folder(
                 path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64
             )
             data.normalize(vis.imagenet_stats)
-
             # Create the CNN Learner model
             model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
-
             # Start MLflow session and log model
             with mlflow.start_run() as run:
                 model.fit(epochs, learning_rate)
                 mlflow.fastai.log_model(model, "model")
-
             # fetch the logged model artifacts
             artifacts = [
                 f.path for f in MlflowClient().list_artifacts(run.info.run_id, "model")
@@ -356,17 +350,24 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.learner
+
     def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        dataframe,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            dataframe: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
@@ -374,33 +375,35 @@ class _FastaiModelWrapper:
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``fastai`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``fastai`` flavor.
+
     """
     return _FastaiModelWrapper(_load_model(path))
 
 
 def load_model(model_uri, dst_path=None):
-    """
-    Load a fastai model from a local file or a run.
+    """Load a fastai model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A fastai model (an instance of `fastai.Learner`_).
+    Returns:
+        A fastai model (an instance of `fastai.Learner`_).
 
     .. code-block:: python
         :caption: Example
@@ -438,36 +441,38 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enable automatic logging from Fastai to MLflow.
-    Logs loss and any other metrics specified in the fit
-    function, and optimizer data as parameters. Model checkpoints
-    are logged as artifacts to a 'models' directory.
+
+    Logs loss and any other metrics specified in the fit function, and optimizer data as parameters.
+    Model checkpoints are logged as artifacts to a 'models' directory.
 
     MLflow will also log the parameters of the
     `EarlyStoppingCallback <https://docs.fast.ai/callback.tracker.html#EarlyStoppingCallback>`_
     and `OneCycleScheduler <https://docs.fast.ai/callback.schedule.html#ParamScheduler>`_ callbacks
 
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the Fastai autologging integration. If ``False``,
-                    enables the Fastai autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      fastai that have not been tested against this version of the MLflow client
-                      or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
-                   autologging. If ``False``, show all events and warnings during Fastai
-                   autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_models: If ``True``, trained models are logged as MLflow model artifacts. If ``False``,
+            trained models are not logged.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking. If ``False``,
+            dataset information is not logged.
+        disable: If ``True``, disables the Fastai autologging integration. If ``False``, enables
+            the Fastai autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs. If
+            ``False``, autologged content is logged to the active fluent run, which may
+            be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of fastai
+            that have not been tested against this version of the MLflow client or are
+            incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
+            autologging. If ``False``, show all events and warnings during Fastai autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a new
+            model version of the registered model with this name. The registered model is created
+            if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by
+            autologging.
+
 
     .. code-block:: python
         :caption: Example
@@ -628,9 +633,7 @@ def autolog(
                 # Add the new callback
                 self.add_cb(mlflowFastaiCallback)
 
-            result = original(self, *args, **kwargs)
-
-        return result
+            return original(self, *args, **kwargs)
 
     def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]

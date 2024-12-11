@@ -6,7 +6,7 @@
  */
 
 import type { Dispatch, Action } from 'redux';
-import { AsyncAction, ThunkDispatch } from '../redux-types';
+import { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
@@ -16,8 +16,9 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { EvaluationArtifactTable } from './types';
+import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
+import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
@@ -41,11 +42,7 @@ export const getExperimentApi = (experimentId: any, id = getUUID()) => {
 };
 
 export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
-export const createExperimentApi = (
-  experimentName: any,
-  artifactPath = undefined,
-  id = getUUID(),
-) => {
+export const createExperimentApi = (experimentName: any, artifactPath = undefined, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
       type: CREATE_EXPERIMENT_API,
@@ -191,10 +188,7 @@ export const restoreRunApi = (runUuid: any, id = getUUID()) => {
 };
 
 export const SET_COMPARE_EXPERIMENTS = 'SET_COMPARE_EXPERIMENTS';
-export const setCompareExperiments = ({
-  comparedExperimentIds,
-  hasComparedExperimentsBefore,
-}: any) => {
+export const setCompareExperiments = ({ comparedExperimentIds, hasComparedExperimentsBefore }: any) => {
   return {
     type: SET_COMPARE_EXPERIMENTS,
     payload: { comparedExperimentIds, hasComparedExperimentsBefore },
@@ -222,18 +216,60 @@ export const getParentRunIdsToFetch = (runs: any) => {
   return Array.from(parentsToFetch);
 };
 
-// this function takes a response of runs and returns them along with their missing parents
+/**
+ * This function takes a response of runs and returns them along with their missing parents.
+ * @deprecated Use fetchMissingParentsWithSearchRuns instead
+ */
 export const fetchMissingParents = (searchRunsResponse: any) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
     ? Promise.all(
         getParentRunIdsToFetch(searchRunsResponse.runs).map((runId) =>
           MlflowService.getRun({ run_id: runId })
             .then((value) => {
-              searchRunsResponse.runs.push((value as any).run);
+              searchRunsResponse.runs.push(value.run);
               // Additional parent runs should be always visible
               // marked as those matching filter
               if (searchRunsResponse.runsMatchingFilter) {
-                searchRunsResponse.runsMatchingFilter.push((value as any).run);
+                searchRunsResponse.runsMatchingFilter.push(value.run);
+              }
+            })
+            .catch((error) => {
+              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+                // NB: The parent run may have been deleted, in which case attempting to fetch the
+                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
+                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
+                // encountered when fetching parent runs because they are unexpected
+                throw error;
+              }
+            }),
+        ),
+      ).then((_) => {
+        return searchRunsResponse;
+      })
+    : searchRunsResponse;
+
+/**
+ * Fetches missing parent runs for the given search runs response in a set of experimentIds. Returns
+ * the original runs along with their parents.
+ */
+export const fetchMissingParentsWithSearchRuns = (searchRunsResponse: any, experimentIds: any) =>
+  searchRunsResponse.runs && searchRunsResponse.runs.length
+    ? Promise.all(
+        getParentRunIdsToFetch(searchRunsResponse.runs).map((parentRunId) =>
+          MlflowService.searchRuns({
+            experiment_ids: experimentIds,
+            filter: `run_id = '${parentRunId}'`,
+            max_results: 1,
+          })
+            .then((parentSearchRunsResponse) => {
+              const parentRun = parentSearchRunsResponse.runs?.[0];
+              if (parentRun) {
+                searchRunsResponse.runs.push(parentRun);
+                // Additional parent runs should be always visible
+                // marked as those matching filter
+                if (searchRunsResponse.runsMatchingFilter) {
+                  searchRunsResponse.runsMatchingFilter.push(parentRun);
+                }
               }
             })
             .catch((error) => {
@@ -325,7 +361,7 @@ export const searchRunsPayload = ({
       throw new Error(`Invalid format of the runs search response: ${String(response)}`);
     }
 
-    // Place aside ans save runs that matched filter naturally (not the pinned ones):
+    // Place aside and save runs that matched filter naturally (not the pinned ones):
     (response as any).runsMatchingFilter = (baseSearchResponse as any).runs?.slice() || [];
 
     // If we get pinned rows from the additional response, merge them into the base run list:
@@ -338,7 +374,8 @@ export const searchRunsPayload = ({
     }
 
     // If there are any pending parents to fetch, do it before returning the response
-    return shouldFetchParents ? fetchMissingParents(response) : response;
+    const fetchParents = () => fetchMissingParents(response);
+    return shouldFetchParents ? fetchParents() : response;
   });
 };
 
@@ -370,15 +407,53 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
   };
 };
 
+/**
+ * Redux action to list artifacts for a logged model.
+ * TODO: discard redux, refactor into hooks
+ */
+export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
+export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: MlflowService.listArtifactsLoggedModel({
+      loggedModelId,
+      path,
+    }),
+    meta: { id: id, loggedModelId, path: path },
+  };
+};
+
+/**
+ * Run this action only after verifying that the /images directory exists
+ * Reducer will populate image keys.
+ */
+export const LIST_IMAGES_API = 'LIST_IMAGES_API';
+export interface ListImagesAction
+  extends AsyncAction<ArtifactListFilesResponse, { id: string; runUuid: string; path?: string }> {
+  type: 'LIST_IMAGES_API';
+}
+export const listImagesApi = (runUuid: string, autorefresh = false, id = getUUID()) => {
+  return (dispatch: ThunkDispatch, getState: () => ReduxState) => {
+    const getExistingDataForRunUuid = getState().entities.imagesByRunUuid[runUuid];
+    // If the images for this runUuid already exists, return the existing data
+    if (!autorefresh && getExistingDataForRunUuid) {
+      return Promise.resolve();
+    }
+
+    return dispatch({
+      type: LIST_IMAGES_API,
+      payload: MlflowService.listArtifacts({
+        run_uuid: runUuid,
+        path: MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
+      }),
+      meta: { id: id, runUuid: runUuid, path: MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH },
+    });
+  };
+};
+
 // TODO: run_uuid is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
-export const getMetricHistoryApi = (
-  runUuid: any,
-  metricKey: any,
-  maxResults: any,
-  pageToken: any,
-  id = getUUID(),
-) => {
+export const getMetricHistoryApi = (runUuid: any, metricKey: any, maxResults: any, pageToken: any, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: MlflowService.getMetricHistory({
@@ -461,13 +536,46 @@ export const deleteTagApi = (runUuid: any, tagName: any, id = getUUID()) => {
   };
 };
 
-export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
-export const setExperimentTagApi = (
-  experimentId: any,
-  tagName: any,
-  tagValue: any,
+export const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+/**
+ * Given lists of existing and new tags, creates and calls
+ * multiple requests for setting/deleting tags in a experiment run
+ */
+export const setRunTagsBulkApi = (
+  run_uuid: string,
+  existingTags: KeyValueEntity[],
+  newTags: KeyValueEntity[],
   id = getUUID(),
 ) => {
+  // First, determine new aliases to be added
+  const addedOrModifiedTags = newTags.filter(
+    ({ key: newTagKey, value: newTagValue }) =>
+      !existingTags.some(
+        ({ key: existingTagKey, value: existingTagValue }) =>
+          existingTagKey === newTagKey && newTagValue === existingTagValue,
+      ),
+  );
+
+  // Next, determine those to be deleted
+  const deletedTags = existingTags.filter(
+    ({ key: existingTagKey }) => !newTags.some(({ key: newTagKey }) => existingTagKey === newTagKey),
+  );
+
+  // Fire all requests at once
+  const updateRequests = Promise.all([
+    ...addedOrModifiedTags.map(({ key, value }) => MlflowService.setTag({ run_uuid, key, value })),
+    ...deletedTags.map(({ key }) => MlflowService.deleteTag({ run_id: run_uuid, key })),
+  ]);
+
+  return {
+    type: SET_RUN_TAGS_BULK,
+    payload: updateRequests,
+    meta: { id, runUuid: run_uuid, existingTags, newTags },
+  };
+};
+
+export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
+export const setExperimentTagApi = (experimentId: any, tagName: any, tagValue: any, id = getUUID()) => {
   return {
     type: SET_EXPERIMENT_TAG_API,
     payload: MlflowService.setExperimentTag({
@@ -546,6 +654,7 @@ export const createPromptLabRunApi = ({
   modelInput,
   modelOutput,
   modelOutputParameters,
+  tags = [],
 }: {
   experimentId: string;
   runName?: string;
@@ -556,24 +665,20 @@ export const createPromptLabRunApi = ({
   modelOutput: string;
   modelParameters: Record<string, string | number | string[] | undefined>;
   modelOutputParameters: Record<string, string | number>;
+  tags?: { key: string; value: string }[];
 }) => {
-  const tupleToKeyValue = <T>(dict: Record<string, T>) =>
-    Object.entries(dict).map(([key, value]) => ({ key, value }));
+  const tupleToKeyValue = <T>(dict: Record<string, T>) => Object.entries(dict).map(([key, value]) => ({ key, value }));
 
-  const tupleToKeyValueFlattenArray = (
-    dict: Record<string, string | number | string[] | undefined>,
-  ) =>
+  const tupleToKeyValueFlattenArray = (dict: Record<string, string | number | string[] | undefined>) =>
     Object.entries(dict).map(([key, value]) => {
-      const scalarValue: string | number | undefined = Array.isArray(value)
-        ? `[${value.join(', ')}]`
-        : value;
+      const scalarValue: string | number | undefined = Array.isArray(value) ? `[${value.join(', ')}]` : value;
       return { key, value: scalarValue };
     });
 
   const payload = {
     experiment_id: experimentId,
     run_name: runName || undefined,
-    tags: [],
+    tags,
     prompt_template: promptTemplate,
     prompt_parameters: tupleToKeyValue(promptParameters),
     model_route: modelRouteName,

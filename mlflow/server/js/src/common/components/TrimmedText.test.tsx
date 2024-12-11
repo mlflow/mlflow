@@ -1,51 +1,53 @@
 import React from 'react';
 import { TrimmedText } from './TrimmedText';
-import { shallow } from 'enzyme';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+
+const trimmedTextDataTestId = 'trimmed-text';
+const trimmedTextButtonDataTestId = 'trimmed-text-button';
 
 const getDefaultTrimmedTextProps = (overrides = {}) => ({
   text: '0123456789',
   maxSize: 10,
   className: 'some class',
   allowShowMore: false,
+  dataTestId: trimmedTextDataTestId,
   ...overrides,
 });
 
 describe('TrimmedText', () => {
-  test('render normal text if length is less than or equal to max size', () => {
-    [true, false].forEach((allowShowMore) => {
-      const wrapper = shallow(
-        <TrimmedText {...getDefaultTrimmedTextProps({ allowShowMore: allowShowMore })} />,
-      );
-      expect(wrapper.text()).toEqual('0123456789');
-    });
-  });
+  test.each([true, false])(
+    'render normal text if length is less than or equal to max size when allowShowMore is %s',
+    (allowShowMore) => {
+      renderWithIntl(<TrimmedText {...getDefaultTrimmedTextProps({ allowShowMore: allowShowMore })} />);
+      expect(screen.getByTestId(trimmedTextDataTestId)).toHaveTextContent('0123456789');
+    },
+  );
 
   test('render trimmed text if length is greater than max size', () => {
-    const wrapper = shallow(<TrimmedText {...getDefaultTrimmedTextProps({ maxSize: 5 })} />);
-    expect(wrapper.text()).toEqual('01234...');
-    expect(wrapper.find('[data-test-id="trimmed-text-button"]').length).toEqual(0);
+    renderWithIntl(<TrimmedText {...getDefaultTrimmedTextProps({ maxSize: 5 })} />);
+    expect(screen.getByTestId(trimmedTextDataTestId)).toHaveTextContent('01234...');
+    expect(screen.queryByTestId(trimmedTextButtonDataTestId)).not.toBeInTheDocument();
   });
 
-  test('render show more button if configured', () => {
-    const wrapper = shallow(
-      <TrimmedText {...getDefaultTrimmedTextProps({ maxSize: 5, allowShowMore: true })} />,
-    );
-    expect(wrapper.find('[data-test-id="trimmed-text-button"]').length).toEqual(1);
-    expect(wrapper.text().includes('01234...')).toBe(true);
-    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
-      'expand',
-    );
-    wrapper.find('[data-test-id="trimmed-text-button"]').simulate('click');
-    wrapper.update();
-    expect(wrapper.text().includes('0123456789')).toBe(true);
-    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
-      'collapse',
-    );
-    wrapper.find('[data-test-id="trimmed-text-button"]').simulate('click');
-    wrapper.update();
-    expect(wrapper.text().includes('01234...')).toBe(true);
-    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
-      'expand',
-    );
+  test('render show more button if configured', async () => {
+    renderWithIntl(<TrimmedText {...getDefaultTrimmedTextProps({ maxSize: 5, allowShowMore: true })} />);
+
+    const trimmedText = screen.getByTestId(trimmedTextDataTestId);
+    const button = screen.getByTestId(trimmedTextButtonDataTestId);
+
+    expect(trimmedText).toHaveTextContent('01234...');
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveTextContent('expand');
+
+    await userEvent.click(button);
+
+    expect(trimmedText).toHaveTextContent('0123456789');
+    expect(button).toHaveTextContent('collapse');
+
+    await userEvent.click(button);
+
+    expect(trimmedText).toHaveTextContent('01234...');
+    expect(button).toHaveTextContent('expand');
   });
 });

@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import DeleteRunModal from '../../../modals/DeleteRunModal';
 import { RenameRunModal } from '../../../modals/RenameRunModal';
 import RestoreRunModal from '../../../modals/RestoreRunModal';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
 
 export interface ExperimentViewModalsProps {
   showDeleteRunModal: boolean;
@@ -13,6 +12,7 @@ export interface ExperimentViewModalsProps {
   onCloseRestoreRunModal: () => void;
   onCloseRenameRunModal: () => void;
   renamedRunName: string;
+  refreshRuns: () => void;
 }
 
 /**
@@ -28,27 +28,11 @@ export const ExperimentViewRunModals = ({
   onCloseRestoreRunModal,
   onCloseRenameRunModal,
   renamedRunName,
+  refreshRuns,
 }: ExperimentViewModalsProps) => {
-  const { updateSearchFacets } = useFetchExperimentRuns();
-
   const selectedRunIds = Object.entries(runsSelected)
     .filter(([, selected]) => selected)
     .map(([key]) => key);
-
-  /**
-   * Function used to refresh the list after renaming the run
-   */
-  const refreshRuns = useCallback(
-    () =>
-      updateSearchFacets(
-        {},
-        {
-          forceRefresh: true,
-          preservePristine: true,
-        },
-      ),
-    [updateSearchFacets],
-  );
 
   return (
     <>
@@ -56,19 +40,26 @@ export const ExperimentViewRunModals = ({
         isOpen={showDeleteRunModal}
         onClose={onCloseDeleteRunModal}
         selectedRunIds={selectedRunIds}
+        onSuccess={() => {
+          refreshRuns();
+        }}
       />
       <RestoreRunModal
         isOpen={showRestoreRunModal}
         onClose={onCloseRestoreRunModal}
         selectedRunIds={selectedRunIds}
+        onSuccess={() => {
+          refreshRuns();
+        }}
       />
       <RenameRunModal
-        // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; runN... Remove this comment to see the full error message
         runUuid={selectedRunIds[0]}
         onClose={onCloseRenameRunModal}
         runName={renamedRunName}
         isOpen={showRenameRunModal}
-        onSuccess={() => refreshRuns()}
+        onSuccess={() => {
+          refreshRuns();
+        }}
       />
     </>
   );

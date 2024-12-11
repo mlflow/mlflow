@@ -6,7 +6,7 @@ import sys
 import warnings
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -47,7 +47,7 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str) -> None:
+    def __init__(self, step_config: dict[str, Any], recipe_root: str) -> None:
         super().__init__(step_config, recipe_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
@@ -264,11 +264,12 @@ class EvaluateStep(BaseStep):
         Constructs data profiles of predictions and errors and a step card instance corresponding
         to the current evaluate step state.
 
-        :param run_id: The ID of the MLflow Run to which to log model evaluation results.
-        :param model_uri: The URI of the model being evaluated.
-        :param eval_metrics: the evaluation result keyed by dataset name from `mlflow.evaluate`.
-        :param validation_results: a list of `MetricValidationResult` instances
-        :param output_directory: output directory used by the evaluate step.
+        Args:
+            run_id: The ID of the MLflow Run to which to log model evaluation results.
+            model_uri: The URI of the model being evaluated.
+            eval_metrics: The evaluation result keyed by dataset name from `mlflow.evaluate`.
+            validation_results: A list of `MetricValidationResult` instances.
+            output_directory: Output directory used by the evaluate step.
         """
         import pandas as pd
 

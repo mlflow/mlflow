@@ -1,5 +1,7 @@
+import contextlib
 import logging
 import logging.config
+import re
 import sys
 
 # Logging format example:
@@ -56,6 +58,45 @@ def enable_logging():
     MLFLOW_LOGGING_STREAM.enabled = True
 
 
+class MlflowFormatter(logging.Formatter):
+    """
+    Custom Formatter Class to support colored log
+    ANSI characters might not work natively on older Windows, so disabling the feature for win32.
+    See https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L16C8-L16C31
+    """
+
+    # Copied from color log package https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L33-L50
+    COLORS = {
+        "black": 30,
+        "red": 31,
+        "green": 32,
+        "yellow": 33,
+        "blue": 34,
+        "purple": 35,
+        "cyan": 36,
+        "white": 37,
+        "light_black": 90,
+        "light_red": 91,
+        "light_green": 92,
+        "light_yellow": 93,
+        "light_blue": 94,
+        "light_purple": 95,
+        "light_cyan": 96,
+        "light_white": 97,
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        if color := getattr(record, "color", None):
+            if color in self.COLORS and sys.platform != "win32":
+                color_code = self._escape(self.COLORS[color])
+                return f"{color_code}{super().format(record)}{self.RESET}"
+        return super().format(record)
+
+    def _escape(self, code: int) -> str:
+        return f"\033[{code}m"
+
+
 def _configure_mlflow_loggers(root_module_name):
     logging.config.dictConfig(
         {
@@ -63,6 +104,7 @@ def _configure_mlflow_loggers(root_module_name):
             "disable_existing_loggers": False,
             "formatters": {
                 "mlflow_formatter": {
+                    "()": MlflowFormatter,
                     "format": LOGGING_LINE_FORMAT,
                     "datefmt": LOGGING_DATETIME_FORMAT,
                 },
@@ -86,4 +128,32 @@ def _configure_mlflow_loggers(root_module_name):
 
 
 def eprint(*args, **kwargs):
-    print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)  # pylint: disable=print-function
+    print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
+
+
+class LoggerMessageFilter(logging.Filter):
+    def __init__(self, module: str, filter_regex: re.Pattern):
+        super().__init__()
+        self._pattern = filter_regex
+        self._module = module
+
+    def filter(self, record):
+        if record.name == self._module and self._pattern.search(record.msg):
+            return False
+        return True
+
+
+@contextlib.contextmanager
+def suppress_logs(module: str, filter_regex: re.Pattern):
+    """
+    Context manager that suppresses log messages from the specified module that match the specified
+    regular expression. This is useful for suppressing expected log messages from third-party
+    libraries that are not relevant to the current test.
+    """
+    logger = logging.getLogger(module)
+    filter = LoggerMessageFilter(module=module, filter_regex=filter_regex)
+    logger.addFilter(filter)
+    try:
+        yield
+    finally:
+        logger.removeFilter(filter)

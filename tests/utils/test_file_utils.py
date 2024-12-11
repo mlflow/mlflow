@@ -41,7 +41,7 @@ def spark_session():
 def test_yaml_read_and_write(tmp_path):
     temp_dir = str(tmp_path)
     yaml_file = random_file("yaml")
-    long_value = 1  # pylint: disable=undefined-variable
+    long_value = 1
     data = {
         "a": random_int(),
         "B": random_int(),
@@ -67,9 +67,9 @@ def test_yaml_read_and_write(tmp_path):
 
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
     with safe_edit_yaml(temp_dir, yaml_file, edit_func):
-        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
-        assert "more_text" in editted_dict
-        assert editted_dict["more_text"] == "西班牙语"
+        edited_dict = file_utils.read_yaml(temp_dir, yaml_file)
+        assert "more_text" in edited_dict
+        assert edited_dict["more_text"] == "西班牙语"
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
@@ -340,7 +340,6 @@ def test_handle_readonly_on_windows(tmp_path):
 @pytest.mark.parametrize(
     ("input_uri", "expected_path"),
     [
-        ("file://my_server/my_path/my_sub_path", r"\\my_server\my_path\my_sub_path"),
         (r"\\my_server\my_path\my_sub_path", r"\\my_server\my_path\my_sub_path"),
     ],
 )

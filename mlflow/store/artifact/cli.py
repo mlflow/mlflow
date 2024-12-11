@@ -18,7 +18,6 @@ def commands():
     To manage artifacts for a run associated with a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
     """
-    pass
 
 
 @commands.command("log-artifact")

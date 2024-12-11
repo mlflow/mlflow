@@ -1,19 +1,24 @@
-from mlflow.gateway import query, set_gateway_uri
+from mlflow.deployments import get_deploy_client
 
 
 def main():
-    set_gateway_uri("http://localhost:5000")
+    client = get_deploy_client("http://localhost:7000")
+
+    print(f"Hugging Face TGI endpoints: {client.list_endpoints()}\n")
+    print(
+        f"Hugging Face completions endpoint info: {client.get_endpoint(endpoint='completions')}\n"
+    )
 
     # Completions request
-    response_completions = query(
-        route="completions",
-        data={
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
             "prompt": ("What is Deep Learning?"),
             "temperature": 0.1,
         },
     )
 
-    print(f"Huggingface TGI response for completions: {response_completions}")
+    print(f"Hugging Face TGI response for completions: {response_completions}")
 
 
 if __name__ == "__main__":

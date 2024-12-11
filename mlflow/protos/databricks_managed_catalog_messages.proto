@@ -1,0 +1,53 @@
+syntax = "proto2";
+
+package mlflow.managedcatalog;
+
+import "scalapb/scalapb.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+message TableInfo {
+
+  // Output-only fields (modified to include only what mlflow needs):
+
+  // [Create,Update:IGN BROWSABLE] Full name of Table, in form of <catalog_name>.<schema_name>.<table_name>
+  optional string full_name = 15;
+  // [Create,Update:IGN] Id of the table.
+  optional string table_id = 22;
+}
+
+message GetTable {
+  // Required. Full name of the Table (from URL).
+  optional string full_name_arg = 1;
+
+  // Optional. Whether to omit the columns of the table from the response or not.
+  optional bool omit_columns = 5;
+
+  // Optional. Whether to omit the properties of the table from the response or not.
+  optional bool omit_properties = 6;
+
+  // Optional. Whether to omit the constraints of the table from the response or not.
+  optional bool omit_constraints = 7;
+
+  // Optional. Whether to omit the dependencies of the table from the response or not.
+  optional bool omit_dependencies = 8;
+
+  // Optional. Whether to get usernames in response, including owner, created_by, updated_by.
+  optional bool omit_username = 11;
+
+  // Optional. Whether to omit the storage credential name of tables from the response or not.
+  optional bool omit_storage_credential_name = 12;
+}
+
+message GetTableResponse {
+  // Output-only fields (modified to include only what mlflow needs):
+
+  // [Create,Update:IGN BROWSABLE] Full name of Table, in form of <catalog_name>.<schema_name>.<table_name>
+  optional string full_name = 15;
+  // [Create,Update:IGN] Id of the table.
+  optional string table_id = 22;
+}

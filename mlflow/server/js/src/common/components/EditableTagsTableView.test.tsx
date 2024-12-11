@@ -6,18 +6,21 @@
  */
 
 import React from 'react';
-import { EditableTagsTableView, EditableTagsTableViewImpl } from './EditableTagsTableView';
-import { mountWithIntl } from '../utils/TestUtils';
-import { BrowserRouter } from '../../common/utils/RoutingUtils';
+import { EditableTagsTableView } from './EditableTagsTableView';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+import { BrowserRouter } from '../utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+const editableTableDataTestId = 'editable-table';
+const tagNameInputDataTestId = 'tags-form-input-name';
+const addTagButtonDataTestId = 'add-tag-button';
+
 describe('unit tests', () => {
-  let wrapper;
-  let instance;
   const minimalProps = {
     tags: {
-      tag1: { getKey: () => 'tag1', getValue: () => 'value1' },
-      tag2: { getKey: () => 'tag2', getValue: () => 'value2' },
+      tag1: { key: 'tag1', value: 'value1' },
+      tag2: { key: 'tag2', value: 'value2' },
     },
     // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },
@@ -27,8 +30,8 @@ describe('unit tests', () => {
     isRequestPending: false,
   };
 
-  const createComponentInstance = () =>
-    mountWithIntl(
+  const renderTestComponent = () =>
+    renderWithIntl(
       <DesignSystemProvider>
         <BrowserRouter>
           <EditableTagsTableView {...minimalProps} />
@@ -37,15 +40,16 @@ describe('unit tests', () => {
     );
 
   test('should render with minimal props without exploding', () => {
-    wrapper = createComponentInstance();
-    expect(wrapper.length).toBe(1);
+    renderTestComponent();
+    expect(screen.getByTestId(editableTableDataTestId)).toBeInTheDocument();
   });
 
-  test('should validate tag name properly', () => {
-    wrapper = createComponentInstance();
-    instance = wrapper.find(EditableTagsTableViewImpl).instance();
-    const validationCallback = jest.fn();
-    instance.tagNameValidator(undefined, 'tag1', validationCallback);
-    expect(validationCallback).toBeCalledWith('Tag "tag1" already exists.');
+  test('should validate tag name properly', async () => {
+    renderTestComponent();
+
+    await userEvent.type(screen.getByTestId(tagNameInputDataTestId), 'tag1');
+    await userEvent.click(screen.getByTestId(addTagButtonDataTestId));
+    const validateText = await screen.findByText('Tag "tag1" already exists.');
+    expect(validateText).toBeInTheDocument();
   });
 });

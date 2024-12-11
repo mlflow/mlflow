@@ -1,3 +1,4 @@
+export declare const DEFAULT_SPACING_UNIT = 8;
 export declare const MODAL_PADDING = 40;
 declare const spacing: {
     xs: number;

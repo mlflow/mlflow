@@ -1,12 +1,5 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
-import { mount } from 'enzyme';
+import { render, screen } from '../utils/TestUtils.react18';
 import { DesignSystemContainer } from './DesignSystemContainer';
 import { message } from 'antd';
 
@@ -23,10 +16,7 @@ jest.mock('@databricks/design-system', () => ({
     mockGetPopupContainerFn = getPopupContainer;
     return children;
   },
-}));
-
-jest.mock('@databricks/web-shared/design-system', () => ({
-  SupportsDuBoisThemes: ({ children }: any) => {
+  DesignSystemThemeProvider: ({ children }: any) => {
     return children;
   },
 }));
@@ -41,12 +31,12 @@ describe('DesignSystemContainer', () => {
         this._shadowRoot = this.attachShadow({ mode: 'open' });
       }
       connectedCallback() {
-        mount(
+        render(
           <DesignSystemContainer>
             <span>hello in shadow dom</span>
           </DesignSystemContainer>,
           {
-            attachTo: this._shadowRoot,
+            baseElement: this._shadowRoot,
           },
         );
       }
@@ -54,16 +44,13 @@ describe('DesignSystemContainer', () => {
   );
 
   test('should not attach additional container while in document.body', () => {
-    const wrapper = mount(
-      <body>
-        <DesignSystemContainer>
-          <span>hello</span>
-        </DesignSystemContainer>
-      </body>,
-      { attachTo: document.documentElement },
+    render(
+      <DesignSystemContainer>
+        <span>hello</span>
+      </DesignSystemContainer>,
     );
     expect(message.config).toBeCalledTimes(0);
-    expect(wrapper.length).toBe(1);
+    expect(screen.getByText('hello')).toBeInTheDocument();
     expect(mockGetPopupContainerFn()).toBe(document.body);
   });
 

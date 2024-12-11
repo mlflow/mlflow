@@ -5,4 +5,3 @@ mlflow.spark
     :members:
     :undoc-members:
     :show-inheritance:
-

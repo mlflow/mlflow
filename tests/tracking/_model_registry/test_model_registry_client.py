@@ -109,7 +109,6 @@ def test_rename_registered_model(mock_store):
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
-    # pylint: disable=unused-argument
     with pytest.raises(MlflowException, match="The name must not be an empty string"):
         newModelRegistryClient().rename_registered_model("Model 1", " ")
 
@@ -303,11 +302,11 @@ def test_update_model_version(mock_store):
     description = "new description"
     expected_result = ModelVersion(name, version, creation_timestamp=123, description=description)
     mock_store.update_model_version.return_value = expected_result
-    actal_result = newModelRegistryClient().update_model_version(name, version, "new description")
+    actual_result = newModelRegistryClient().update_model_version(name, version, "new description")
     mock_store.update_model_version.assert_called_once_with(
         name=name, version=version, description="new description"
     )
-    assert expected_result == actal_result
+    assert expected_result == actual_result
 
 
 def test_transition_model_version_stage(mock_store):
@@ -324,7 +323,6 @@ def test_transition_model_version_stage(mock_store):
 
 
 def test_transition_model_version_stage_validation_errors(mock_store):
-    # pylint: disable=unused-argument
     with pytest.raises(MlflowException, match="The stage must not be an empty string"):
         newModelRegistryClient().transition_model_version_stage("Model 1", "12", stage=" ")
 

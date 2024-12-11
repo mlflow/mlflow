@@ -3,13 +3,26 @@ version: 2.1
 orbs:
   win: circleci/windows@5.0.0
 
+commands:
+  fetch_merge_ref:
+    description: "Fetch the merge ref for a pull request"
+    steps:
+      - run:
+          name: Fetch merge ref
+          command: |
+            if [ -n "$CIRCLE_PR_NUMBER" ]; then
+              git fetch origin refs/pull/$CIRCLE_PR_NUMBER/merge
+              git checkout FETCH_HEAD
+            fi
+
 jobs:
   build_doc_r:
     machine:
-      image: ubuntu-2004:202111-01
+      image: default
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Build documentation
           working_directory: docs
@@ -21,11 +34,11 @@ jobs:
 
   build_doc:
     docker:
-      # Pin to 3.8.16 to avoid https://github.com/mlflow/mlflow/issues/8635
-      - image: cimg/python:3.8.16
+      - image: cimg/python:3.9
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Install Java
           command: |
@@ -45,6 +58,10 @@ jobs:
           environment:
             PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
       - run:
+          name: Show package release dates
+          command: |
+            python dev/show_package_release_dates.py
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
@@ -52,6 +69,12 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+            python changed_pages.py
+      - run:
+          name: Check for broken links
+          working_directory: docs
+          command: |
+            python broken_links.py
       - run:
           name: Test examples
           working_directory: docs
@@ -62,10 +85,11 @@ jobs:
 
   mlflow-recipes:
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.9
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Pull submodule
           command: |
@@ -73,7 +97,7 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            pip install -e .
+            pip install .
             pip install nbconvert ipykernel
       - run:
           name: Run CLI

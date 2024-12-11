@@ -2,15 +2,15 @@
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 ## Test-only dependencies
-pytest
+pytest==8.1.1
+pytest-repeat
 pytest-cov
 pytest-timeout
 pytest-localserver==0.5.0
-moto!=2.0.7,<=4.2.4
+moto>=4.2.0,<5,!=4.2.5
 azure-storage-blob>=12.0.0
 azure-storage-file-datalake>=12.9.1
 azure-identity>=1.6.1
-databricks-cli@git+https://github.com/databricks/databricks-cli.git
 pillow
 plotly
 kaleido
@@ -20,13 +20,6 @@ hyperopt
 ipython
 # Required by automl tests
 flaml[automl]
-# Required by transformers tests
-# Note: other requirements for transformers are defined in cross-version-tests.yml
-# they are not installed here due to their size and stability implications for other test suites
-huggingface_hub
-# Pinned due to protobuf requirement pinning in 1.3.0 of ml-server that is incompatible
-mlserver>=1.2.0,!=1.3.1
-mlserver-mlflow>=1.2.0,!=1.3.1
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
@@ -38,9 +31,17 @@ tiktoken
 # Required by progress bar tests
 ipywidgets
 tqdm
-databricks-sdk
 # Required for LLM eval in `mlflow.evaluate`
-# TODO: Unpin once we support openai 1.0
-openai<1.0
+openai
 # Required for showing pytest stats
 psutil
+# SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
+typing_extensions>=4.6.0
+# Required for importing boto3 ClientError directly for testing
+botocore>=1.34
+pyspark
+# Required for testing the opentelemetry exporter of tracing
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-http
+# TODO: remove this once XGBoost releases >2.1.3
+scikit-learn<1.6

@@ -13,6 +13,7 @@ import { MLFlowRoot } from './app';
 ReactDOM.render(<MLFlowRoot />, document.getElementById('root'));
 
 const windowOnError = (message: any, source: any, lineno: any, colno: any, error: any) => {
+  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
   console.error(error, message);
   // returning false allows the default handler to fire as well
   return false;

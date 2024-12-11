@@ -1,11 +1,13 @@
 import logging
+import re
 import sys
+from io import StringIO
 
 import pytest
 
 import mlflow
 from mlflow.utils import logging_utils
-from mlflow.utils.logging_utils import eprint
+from mlflow.utils.logging_utils import eprint, suppress_logs
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -32,7 +34,7 @@ def reset_logging_level():
     logger.setLevel(level_before)
 
 
-class TestStream:
+class SampleStream:
     def __init__(self):
         self.content = None
         self.flush_count = 0
@@ -50,8 +52,8 @@ class TestStream:
 
 @pytest.mark.parametrize("logging_fn", LOGGING_FNS_TO_TEST)
 def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
-    stream1 = TestStream()
-    stream2 = TestStream()
+    stream1 = SampleStream()
+    stream2 = SampleStream()
     message_content = "test message"
 
     sys.stderr = stream1
@@ -70,7 +72,7 @@ def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
 
 @pytest.mark.parametrize("logging_fn", LOGGING_FNS_TO_TEST)
 def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
     message_content = "test message"
 
@@ -91,7 +93,7 @@ def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
 
 
 def test_event_logging_stream_flushes_properly():
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
 
     eprint("foo", flush=True)
@@ -100,9 +102,28 @@ def test_event_logging_stream_flushes_properly():
 
 
 def test_debug_logs_emitted_correctly_when_configured():
-    stream = TestStream()
+    stream = SampleStream()
     sys.stderr = stream
 
     logger.setLevel(logging.DEBUG)
     logger.debug("test debug")
     assert "test debug" in stream.content
+
+
+def test_suppress_logs():
+    module = "test_logger"
+    logger = logging.getLogger(module)
+
+    message = "This message should be suppressed."
+
+    capture_stream = StringIO()
+    stream_handler = logging.StreamHandler(capture_stream)
+    logger.addHandler(stream_handler)
+
+    logger.error(message)
+    assert message in capture_stream.getvalue()
+
+    capture_stream.truncate(0)
+    with suppress_logs(module, re.compile("This .* be suppressed.")):
+        logger.error(message)
+    assert len(capture_stream.getvalue()) == 0

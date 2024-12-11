@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState } from 'react';
 
-import { Alert, Button, Form, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, LegacyForm, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
 import { ModelEntity } from '../../experiment-tracking/types';
 import { ModelVersionAliasSelect } from '../components/aliases/ModelVersionAliasSelect';
@@ -25,7 +25,7 @@ export const useEditRegisteredModelAliasesModal = ({
   onSuccess?: () => void;
 }) => {
   const [showModal, setShowModal] = useState(false);
-  const [form] = Form.useForm();
+  const [form] = LegacyForm.useForm();
 
   const [errorMessage, setErrorMessage] = useState<string>('');
   const { theme } = useDesignSystemTheme();
@@ -49,9 +49,7 @@ export const useEditRegisteredModelAliasesModal = ({
       }
 
       const modelVersionAliases =
-        model.aliases
-          ?.filter(({ version }) => version === versionNumber)
-          .map(({ alias }) => alias) || [];
+        model.aliases?.filter(({ version }) => version === versionNumber).map(({ alias }) => alias) || [];
 
       if (versionNumber) {
         setExistingAliases(modelVersionAliases);
@@ -73,9 +71,7 @@ export const useEditRegisteredModelAliasesModal = ({
         if (!aliasMap.some(({ version }) => version === aliasEntry.version)) {
           return [...aliasMap, { version: aliasEntry.version, aliases: [aliasEntry.alias] }];
         }
-        aliasMap
-          .find(({ version }) => version === aliasEntry.version)
-          ?.aliases.push(aliasEntry.alias);
+        aliasMap.find(({ version }) => version === aliasEntry.version)?.aliases.push(aliasEntry.alias);
         return aliasMap;
       },
       [],
@@ -107,16 +103,13 @@ export const useEditRegisteredModelAliasesModal = ({
       return;
     }
     setErrorMessage('');
-    dispatch(
-      setModelVersionAliasesApi(model.name, currentlyEditedVersion, existingAliases, draftAliases),
-    )
+    dispatch(setModelVersionAliasesApi(model.name, currentlyEditedVersion, existingAliases, draftAliases))
       .then(() => {
         setShowModal(false);
         onSuccess?.();
       })
       .catch((e: ErrorWrapper) => {
-        const extractedErrorMessage =
-          e.getMessageField() || e.getUserVisibleError().toString() || e.text;
+        const extractedErrorMessage = e.getMessageField() || e.getUserVisibleError().toString() || e.text;
         setErrorMessage(extractedErrorMessage);
       });
   };
@@ -129,19 +122,29 @@ export const useEditRegisteredModelAliasesModal = ({
 
   const EditAliasesModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_127"
       visible={showModal}
       footer={
         <div>
-          <Button onClick={() => setShowModal(false)}>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_131"
+            onClick={() => setShowModal(false)}
+          >
             <FormattedMessage
-              defaultMessage='Cancel'
-              description='Model registry > model version alias editor > Cancel editing aliases'
+              defaultMessage="Cancel"
+              description="Model registry > model version alias editor > Cancel editing aliases"
             />
           </Button>
-          <Button loading={false} type='primary' disabled={isInvalid} onClick={save}>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_137"
+            loading={false}
+            type="primary"
+            disabled={isInvalid}
+            onClick={save}
+          >
             <FormattedMessage
-              defaultMessage='Save aliases'
-              description='Model registry > model version alias editor > Confirm change of aliases'
+              defaultMessage="Save aliases"
+              description="Model registry > model version alias editor > Confirm change of aliases"
             />
           </Button>
         </div>
@@ -149,8 +152,8 @@ export const useEditRegisteredModelAliasesModal = ({
       destroyOnClose
       title={
         <FormattedMessage
-          defaultMessage='Add/Edit alias for model version {version}'
-          description='Model registry > model version alias editor > Title of the update alias modal'
+          defaultMessage="Add/Edit alias for model version {version}"
+          description="Model registry > model version alias editor > Title of the update alias modal"
           values={{ version: currentlyEditedVersion }}
         />
       }
@@ -159,19 +162,19 @@ export const useEditRegisteredModelAliasesModal = ({
     >
       <Typography.Paragraph>
         <FormattedMessage
-          defaultMessage='Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>'
-          description='Explanation of registered model aliases'
+          defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
+          description="Explanation of registered model aliases"
           values={{
             link: (chunks) => (
-              <a href={mlflowAliasesLearnMoreLink} rel='noreferrer' target='_blank'>
+              <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
                 {chunks}
               </a>
             ),
           }}
         />
       </Typography.Paragraph>
-      <Form form={form} layout='vertical'>
-        <Form.Item>
+      <LegacyForm form={form} layout="vertical">
+        <LegacyForm.Item>
           <ModelVersionAliasSelect
             disabled={false}
             renderKey={conflictedAliases} // todo
@@ -181,42 +184,50 @@ export const useEditRegisteredModelAliasesModal = ({
             existingAliases={existingAliases}
             setDraftAliases={setDraftAliases}
           />
-        </Form.Item>
+        </LegacyForm.Item>
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           {isExceedingLimit && (
             <Alert
-              role='alert'
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_192"
+              role="alert"
               message={
                 <FormattedMessage
-                  defaultMessage='You are exceeding a limit of {limit} aliases assigned to the single model version'
-                  description='Model registry > model version alias editor > Warning about exceeding aliases limit'
+                  defaultMessage="You are exceeding a limit of {limit} aliases assigned to the single model version"
+                  description="Model registry > model version alias editor > Warning about exceeding aliases limit"
                   values={{ limit: MAX_ALIASES_PER_MODEL_VERSION }}
                 />
               }
-              type='error'
+              type="error"
               closable={false}
             />
           )}
           {conflictedAliases.map(({ alias, otherVersion }) => (
             <Alert
-              role='alert'
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_206"
+              role="alert"
               key={alias}
               message={
                 <FormattedMessage
                   defaultMessage='The "{alias}" alias is also being used on version {otherVersion}. Adding it to this version will remove it from version {otherVersion}.'
-                  description='Model registry > model version alias editor > Warning about reusing alias from the other version'
+                  description="Model registry > model version alias editor > Warning about reusing alias from the other version"
                   values={{ otherVersion: otherVersion?.version, alias }}
                 />
               }
-              type='info'
+              type="info"
               closable={false}
             />
           ))}
           {errorMessage && (
-            <Alert role='alert' message={errorMessage} type='error' closable={false} />
+            <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_220"
+              role="alert"
+              message={errorMessage}
+              type="error"
+              closable={false}
+            />
           )}
         </div>
-      </Form>
+      </LegacyForm>
     </Modal>
   );
 

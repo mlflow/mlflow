@@ -156,9 +156,7 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
         // If the visible row set takes only portion of the table height-wise (leftColContainerHeight < colContainerHeight),
         // let's contract our CTA a little so "load more" button will fit in. If it takes whole area, do not reduce its height.
         const calculatedHeight =
-          leftColContainerHeight < colContainerHeight
-            ? leftColContainerHeight - loadMoreRowHeight
-            : colContainerHeight;
+          leftColContainerHeight < colContainerHeight ? leftColContainerHeight - loadMoreRowHeight : colContainerHeight;
 
         /**
          * If the available height is too low, add a class that indicates
@@ -217,12 +215,17 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
     <div ref={ctaRef} css={styles.columnContainer} className={visible ? '' : CLASS_IS_HIDDEN}>
       {visible && (
         <div css={styles.buttonContainer}>
-          <Button css={styles.button} type='link' onClick={onClick}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunstableaddcolumncta.tsx_218"
+            css={styles.button}
+            type="link"
+            onClick={onClick}
+          >
             <PlusCircleIcon css={styles.buttonIcon} />
             <div css={styles.caption}>
               <FormattedMessage
-                defaultMessage='Show more columns {count, select, 0 {} other {({count} total)}}'
-                description='Label for a CTA button in experiment runs table which invokes column management dropdown'
+                defaultMessage="Show more columns {count, select, 0 {} other {({count} total)}}"
+                description="Label for a CTA button in experiment runs table which invokes column management dropdown"
                 values={{
                   count: moreAvailableRunsTableColumnCount,
                 }}

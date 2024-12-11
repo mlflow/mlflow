@@ -65,7 +65,7 @@ def _validate_user_code_output(transformer_fn):
 
 
 class TransformStep(BaseStep):
-    def __init__(self, step_config, recipe_root):  # pylint: disable=useless-super-delegation
+    def __init__(self, step_config, recipe_root):
         super().__init__(step_config, recipe_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 

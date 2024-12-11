@@ -1,9 +1,10 @@
 """Chain for wrapping a retriever."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
@@ -16,7 +17,6 @@ from mlflow.utils.annotations import experimental
 
 @experimental
 class _RetrieverChain(Chain):
-
     """
     Chain that wraps a retriever for use with MLflow.
 
@@ -30,7 +30,8 @@ class _RetrieverChain(Chain):
 
     See :ref:`log-retriever-chain` for how to log the ``_RetrieverChain``.
 
-    :param retriever: The retriever to wrap.
+    Args:
+        retriever: The retriever to wrap.
     """
 
     input_key: str = "query"
@@ -44,53 +45,59 @@ class _RetrieverChain(Chain):
         arbitrary_types_allowed = True
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Return the input keys."""
         return [self.input_key]
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Return the output keys."""
         return [self.output_key]
 
-    def _get_docs(self, question: str) -> List[Document]:
+    def _get_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return self.retriever.get_relevant_documents(question)
 
     def _call(
         self,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         run_manager: Optional[CallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
+
         Example:
+
         .. code-block:: python
-        chain = _RetrieverChain(retriever=...)
-        res = chain({'query': 'This is my query'})
-        docs = res['source_documents']
+
+            chain = _RetrieverChain(retriever=...)
+            res = chain({"query": "This is my query"})
+            docs = res["source_documents"]
         """
         question = inputs[self.input_key]
         docs = self._get_docs(question)
         list_of_str_page_content = [doc.page_content for doc in docs]
         return {self.output_key: json.dumps(list_of_str_page_content)}
 
-    async def _aget_docs(self, question: str) -> List[Document]:
+    async def _aget_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return await self.retriever.aget_relevant_documents(question)
 
     async def _acall(
         self,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
+
         Example:
+
         .. code-block:: python
-        chain = _RetrieverChain(retriever=...)
-        res = chain({'query': 'This is my query'})
-        docs = res['source_documents']
+
+            chain = _RetrieverChain(retriever=...)
+            res = chain({"query": "This is my query"})
+            docs = res["source_documents"]
         """
         question = inputs[self.input_key]
         docs = await self._aget_docs(question)
@@ -113,7 +120,14 @@ class _RetrieverChain(Chain):
                 config = json.load(f)
         elif file_path.suffix in (".yaml", ".yml"):
             with open(file_path) as f:
-                config = yaml.safe_load(f)
+                # This is to ignore certain tags that are not supported
+                # with pydantic >= 2.0
+                yaml.add_multi_constructor(
+                    "tag:yaml.org,2002:python/object",
+                    lambda loader, suffix, node: None,
+                    Loader=yaml.SafeLoader,
+                )
+                config = yaml.load(f, yaml.SafeLoader)
         else:
             raise ValueError("File type must be json or yaml")
 
@@ -133,6 +147,8 @@ class _RetrieverChain(Chain):
         retriever = kwargs.pop("retriever", None)
         if retriever is None:
             raise ValueError("`retriever` must be present.")
+
+        config.pop("retriever", None)
 
         return cls(
             retriever=retriever,

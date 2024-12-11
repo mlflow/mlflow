@@ -9,6 +9,7 @@ import {
 import Utils from '../../../common/utils/Utils';
 import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext';
 import { ExperimentView } from './ExperimentView';
+import { PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
 
 /**
  * Concrete actions for GetExperiments context
@@ -26,6 +27,7 @@ const getExperimentActions = {
  */
 export const ExperimentPage = () => {
   const { formatMessage } = useIntl();
+  const { theme } = useDesignSystemTheme();
 
   useEffect(() => {
     const pageTitle = formatMessage({
@@ -36,9 +38,11 @@ export const ExperimentPage = () => {
   }, [formatMessage]);
 
   return (
-    <GetExperimentsContextProvider actions={getExperimentActions}>
-      <ExperimentView />
-    </GetExperimentsContextProvider>
+    <PageWrapper css={{ height: '100%', paddingTop: theme.spacing.md }}>
+      <GetExperimentsContextProvider actions={getExperimentActions}>
+        <ExperimentView />
+      </GetExperimentsContextProvider>
+    </PageWrapper>
   );
 };
 

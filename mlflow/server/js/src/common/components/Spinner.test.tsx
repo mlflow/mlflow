@@ -1,12 +1,10 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { Spinner } from './Spinner';
 
 describe('Spinner', () => {
-  let wrapper;
-
   test('should render with no props without exploding', () => {
-    wrapper = shallow(<Spinner />);
-    expect(wrapper.length).toBe(1);
+    renderWithIntl(<Spinner />);
+    expect(screen.getByAltText('Page loading...')).toBeInTheDocument();
   });
 });

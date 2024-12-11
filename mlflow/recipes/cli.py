@@ -23,7 +23,6 @@ def commands():
     """
     Run MLflow Recipes and inspect recipe results.
     """
-    pass
 
 
 @commands.command(short_help="Run the full recipe or a particular recipe step.")

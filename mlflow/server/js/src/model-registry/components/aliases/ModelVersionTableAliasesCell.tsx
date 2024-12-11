@@ -9,10 +9,7 @@ interface ModelVersionTableAliasesCellProps {
   onAddEdit: () => void;
 }
 
-export const ModelVersionTableAliasesCell = ({
-  aliases = [],
-  onAddEdit,
-}: ModelVersionTableAliasesCellProps) => {
+export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelVersionTableAliasesCellProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -30,22 +27,28 @@ export const ModelVersionTableAliasesCell = ({
       }}
     >
       {aliases.length < 1 ? (
-        <Button size='small' type='link' onClick={onAddEdit}>
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_30"
+          size="small"
+          type="link"
+          onClick={onAddEdit}
+        >
           <FormattedMessage
-            defaultMessage='Add'
+            defaultMessage="Add"
             description="Model registry > model version table > aliases column > 'add' button label"
           />
         </Button>
       ) : (
         <>
           {aliases.map((alias) => (
-            <ModelVersionAliasTag
-              value={alias}
-              key={alias}
-              css={{ marginTop: theme.spacing.xs / 2 }}
-            />
+            <ModelVersionAliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
           ))}
-          <Button size='small' icon={<PencilIcon />} onClick={onAddEdit} />
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_41"
+            size="small"
+            icon={<PencilIcon />}
+            onClick={onAddEdit}
+          />
         </>
       )}
     </div>

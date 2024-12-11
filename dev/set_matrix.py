@@ -24,15 +24,20 @@ python dev/set_matrix.py --flavors sklearn
 python dev/set_matrix.py --versions 1.1.1
 ```
 """
+
 import argparse
 import functools
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
-import typing as t
+import warnings
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Iterator, Optional, TypeVar
 
 import requests
 import yaml
@@ -45,6 +50,8 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
+
+T = TypeVar("T")
 
 
 class Version(OriginalVersion):
@@ -60,36 +67,57 @@ class Version(OriginalVersion):
         return cls(DEV_VERSION)
 
 
-class PackageInfo(BaseModel):
+class PackageInfo(BaseModel, extra="forbid"):
     pip_release: str
-    install_dev: t.Optional[str] = None
+    install_dev: Optional[str] = None
+    module_name: Optional[str] = None
 
 
-class TestConfig(BaseModel):
+class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: t.Optional[t.List[Version]] = None
-    requirements: t.Optional[t.Dict[str, t.List[str]]] = None
+    unsupported: Optional[list[Version]] = None
+    requirements: Optional[dict[str, list[str]]] = None
+    python: Optional[dict[str, str]] = None
+    runs_on: Optional[dict[str, str]] = None
+    java: Optional[dict[str, str]] = None
     run: str
-    allow_unreleased_max_version: t.Optional[bool] = None
+    allow_unreleased_max_version: Optional[bool] = None
+    pre_test: Optional[str] = None
+    test_every_n_versions: int = 1
 
     class Config:
         arbitrary_types_allowed = True
 
     @validator("minimum", pre=True)
-    def validate_minimum(cls, v):  # pylint: disable=no-self-argument
+    def validate_minimum(cls, v):
         return Version(v)
 
     @validator("maximum", pre=True)
-    def validate_maximum(cls, v):  # pylint: disable=no-self-argument
+    def validate_maximum(cls, v):
         return Version(v)
 
     @validator("unsupported", pre=True)
-    def validate_unsupported(cls, v):  # pylint: disable=no-self-argument
+    def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
 
 
-class MatrixItem(BaseModel):
+class FlavorConfig(BaseModel, extra="forbid"):
+    package_info: PackageInfo
+    models: Optional[TestConfig] = None
+    autologging: Optional[TestConfig] = None
+
+    @property
+    def categories(self) -> list[tuple[str, TestConfig]]:
+        cs = []
+        if self.models:
+            cs.append(("models", self.models))
+        if self.autologging:
+            cs.append(("autologging", self.autologging))
+        return cs
+
+
+class MatrixItem(BaseModel, extra="forbid"):
     name: str
     flavor: str
     category: str
@@ -98,7 +126,12 @@ class MatrixItem(BaseModel):
     run: str
     package: str
     version: Version
+    python: str
+    java: str
     supported: bool
+    free_disk_space: bool
+    runs_on: str
+    pre_test: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -112,10 +145,11 @@ def read_yaml(location, if_error=None):
         if re.match(r"^https?://", location):
             resp = requests.get(location)
             resp.raise_for_status()
-            return yaml.safe_load(resp.text)
+            yaml_dict = yaml.safe_load(resp.text)
         else:
             with open(location) as f:
-                return yaml.safe_load(f)
+                yaml_dict = yaml.safe_load(f)
+        return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
     except Exception as e:
         if if_error is not None:
             print(f"Failed to read '{location}' due to: `{e}`")
@@ -123,15 +157,23 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache
-def get_released_versions(package_name):
-    url = f"https://pypi.org/pypi/{package_name}/json"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
-    versions = []
+def uploaded_recently(dist: dict[str, Any]) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    return False
+
+
+def get_released_versions(package_name: str) -> list[Version]:
+    data = pypi_json(package_name)
+    versions: list[Version] = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+            continue
+
+        # Ignore versions that were uploaded recently to avoid testing unstable
+        # versions. Newly released versions often contain undiscovered bugs
+        # (example: https://github.com/huggingface/transformers/issues/34370).
+        if any(map(uploaded_recently, distributions)):
             continue
 
         try:
@@ -163,7 +205,7 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -173,9 +215,15 @@ def filter_versions(
     """
     unsupported = unsupported or []
     # Prevent specifying non-existent versions
-    assert min_ver in versions
-    assert max_ver in versions or allow_unreleased_max_version
-    assert all(v in versions for v in unsupported)
+    assert (
+        min_ver in versions
+    ), f"Minimum version {min_ver} is not in the list of versions for {flavor}"
+    assert (
+        max_ver in versions or allow_unreleased_max_version
+    ), f"Minimum version {max_ver} is not in the list of versions for {flavor}"
+    assert all(
+        v in versions for v in unsupported
+    ), f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
 
     def _is_not_unsupported(v):
         return v not in unsupported
@@ -226,6 +274,74 @@ def get_matched_requirements(requirements, version=None):
         if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
             reqs = reqs.union(packages)
     return sorted(reqs)
+
+
+def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
+    if java and (match := next(_find_matches(java, version), None)):
+        return match
+
+    return "11"
+
+
+@functools.lru_cache(maxsize=128)
+def pypi_json(package: str) -> dict[str, Any]:
+    resp = requests.get(f"https://pypi.org/pypi/{package}/json")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _requires_python(package: str, version: str) -> Optional[str]:
+    package_json = pypi_json(package)
+    for ver, dist in package_json.get("releases", {}).items():
+        if ver != version:
+            continue
+
+        for d in dist:
+            if rp := d.get("requires_python"):
+                return rp
+    return None
+
+
+def infer_python_version(package: str, version: str) -> str:
+    """
+    Infer the minimum Python version required by the package.
+    """
+    candidates = ("3.9", "3.10")
+    if rp := _requires_python(package, version):
+        spec = SpecifierSet(rp)
+        return next(filter(spec.contains, candidates), candidates[0])
+
+    return candidates[0]
+
+
+def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
+    """
+    Args:
+        spec: A dictionary with key as version specifier and value as the corresponding value.
+            For example, {"< 1.0.0": "numpy<2.0", ">= 1.0.0": "numpy>=2.0"}.
+        version: The version to match against the specifiers.
+
+    Returns:
+        An iterator of values that match the version.
+    """
+    for specifier, val in spec.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            yield val
+
+
+def get_python_version(python: Optional[dict[str, str]], package: str, version: str) -> str:
+    if python and (match := next(_find_matches(python, version), None)):
+        return match
+
+    return infer_python_version(package, version)
+
+
+def get_runs_on(runs_on: Optional[dict[str, str]], version: str) -> str:
+    if runs_on and (match := next(_find_matches(runs_on, version), None)):
+        return match
+
+    return "ubuntu-latest"
 
 
 def remove_comments(s):
@@ -317,15 +433,132 @@ def get_flavor(name):
     return {"pytorch-lightning": "pytorch"}.get(name, name)
 
 
-def expand_config(config):
+def validate_test_coverage(flavor: str, config: FlavorConfig):
+    """
+    Validate that all test files for the flavor are executed in the cross-version tests.
+
+    This is done by parsing `run` commands in the `ml-package-versions.yml` to get the list
+    of executed test files, and then comparing it with the actual test files in the directory.
+    """
+    test_dir = os.path.join("tests", flavor)
+    tested_files = set()
+
+    for category, cfg in config.categories:
+        if not cfg.run:
+            continue
+
+        # Consolidate multi-line commands with "\" to a single line
+        commands = []
+        curr = ""
+        for cmd in cfg.run.split("\n"):
+            if cmd.endswith("\\"):
+                curr += cmd.rstrip("\\")
+            else:
+                commands.append(curr + cmd)
+                curr = ""
+
+        # Parse pytest commands to get the executed test files
+        for cmd in commands:
+            cmd = cmd.strip().rstrip(";")
+            if cmd.startswith("pytest"):
+                tested_files |= _get_test_files_from_pytest_command(cmd, test_dir)
+
+    if untested_files := _get_test_files(test_dir) - tested_files:
+        # TODO: Update this after fixing ml-package-versions.yml to
+        # have all test files in the matrix.
+        warnings.warn(
+            f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
+            + "\n".join(f"\033[91m - {t}\033[0m" for t in untested_files)
+            + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files. Note that this "
+            "check does not handle complex syntax in test commands e.g. loop. It is generally "
+            "recommended to use simple commands as we cannot test the test commands themselves."
+        )
+
+
+PYTEST_FILE_PATTERN = re.compile(r"^test_.*\.py$")
+
+
+def _get_test_files(test_dir_or_path: str) -> set[Path]:
+    """List all test files in the given directory or file path."""
+    path = Path(test_dir_or_path)
+    if path.is_dir():
+        return set(path.rglob("test_*.py"))
+
+    if PYTEST_FILE_PATTERN.match(path.name):
+        return {path}
+
+    return set()
+
+
+def _get_test_files_from_pytest_command(cmd, test_dir):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ignore", action="append")
+    parser.add_argument("paths", nargs="*")
+    args = parser.parse_known_args(shlex.split(cmd))[0]
+
+    executed_files = set()
+    ignore_files = set()
+    for path in args.paths:
+        if path.startswith(test_dir):
+            executed_files |= _get_test_files(path)
+    for ignore_path in args.ignore or []:
+        if ignore_path.startswith(test_dir):
+            ignore_files |= _get_test_files(ignore_path)
+    return executed_files - ignore_files
+
+
+def validate_requirements(
+    requirements: dict[str, list[str]],
+    name: str,
+    category: str,
+    package_info: PackageInfo,
+    versions: list[Version],
+) -> None:
+    """
+    Validate that the requirements specified in the config don't contain unused items.
+    Here's an example of invalid requirements:
+
+    ```
+    sklearn:
+        package_info:
+            pip_release: "scikit-learn"
+        autologging:
+            minimum: "1.3.0"
+            maximum: "1.5.0"
+            requirements:
+                "< 1.0.0": ["numpy<2.0"]    # Unused
+                ">= 1.4.0": ["numpy>=2.0"]  # Used
+    ```
+    """
+    for specifier in requirements:
+        if "dev" in specifier and package_info.install_dev:
+            continue
+
+        # Does this version specifier (e.g. '< 1.0.0') match at least one version?
+        # If not, raise an error.
+        spec_set = SpecifierSet(specifier)
+        if not any(map(spec_set.contains, versions)):
+            raise ValueError(
+                f"Found unused requirements {specifier!r} for {name} / {category}. "
+                "Please remove it or adjust the version specifier."
+            )
+
+
+def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
-    for name, cfgs in config.items():
+    for name, flavor_config in config.items():
         flavor = get_flavor(name)
-        package_info = PackageInfo(**cfgs.pop("package_info"))
+        package_info = flavor_config.package_info
         all_versions = get_released_versions(package_info.pip_release)
-        for category, cfg in cfgs.items():
-            cfg = TestConfig(**cfg)
+        free_disk_space = package_info.pip_release in (
+            "transformers",
+            "sentence-transformers",
+            "torch",
+        )
+        validate_test_coverage(name, flavor_config)
+        for category, cfg in flavor_config.categories:
             versions = filter_versions(
+                flavor,
                 all_versions,
                 cfg.minimum,
                 cfg.maximum,
@@ -334,15 +567,25 @@ def expand_config(config):
             )
             versions = get_latest_micro_versions(versions)
 
+            # Test every n minor versions if specified
+            if cfg.test_every_n_versions > 1:
+                versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
+
             # Always test the minimum version
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
+
+            if not is_ref and cfg.requirements:
+                validate_requirements(cfg.requirements, name, category, package_info, versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
+                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                runs_on = get_runs_on(cfg.runs_on, ver)
+                java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
                     MatrixItem(
@@ -354,7 +597,12 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=ver,
+                        python=python,
+                        java=java,
                         supported=ver <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        runs_on=runs_on,
+                        pre_test=cfg.pre_test,
                     )
                 )
 
@@ -365,6 +613,9 @@ def expand_config(config):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
+                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
+                java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
                 dev_version = Version.create_dev()
@@ -378,7 +629,12 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=dev_version,
+                        python=python,
+                        java=java,
                         supported=False,
+                        free_disk_space=free_disk_space,
+                        runs_on=runs_on,
+                        pre_test=cfg.pre_test,
                     )
                 )
     return matrix
@@ -392,6 +648,11 @@ def apply_changed_files(changed_files, matrix):
         if (__file__ in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
+
+    # Run langchain tests if any tracing files have been changed
+    if any(f.startswith("mlflow/tracing/") for f in changed_files):
+        changed_flavors.add("langchain")
+
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
@@ -406,7 +667,7 @@ def generate_matrix(args):
 
         if args.ref_versions_yaml:
             ref_config = read_yaml(args.ref_versions_yaml, if_error={})
-            ref_matrix = expand_config(ref_config)
+            ref_matrix = expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:
@@ -434,7 +695,7 @@ def generate_matrix(args):
 class CustomEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, MatrixItem):
-            return dict(o)
+            return o.model_dump(exclude_none=True)
         elif isinstance(o, Version):
             return str(o)
         return super().default(o)
@@ -445,21 +706,62 @@ def set_action_output(name, value):
         f.write(f"{name}={value}\n")
 
 
+def split(matrix, n):
+    grouped_by_name = defaultdict(list)
+    for item in matrix:
+        grouped_by_name[item.name].append(item)
+
+    num = len(matrix) // n
+    chunk = []
+    for group in grouped_by_name.values():
+        chunk.extend(group)
+        if len(chunk) >= num:
+            yield chunk
+            chunk = []
+
+    if chunk:
+        yield chunk
+
+
+def validate_action_config(num_jobs: int):
+    with open(".github/workflows/cross-version-tests.yml") as f:
+        s = f.read()
+    s = re.sub(
+        r"needs\.set-matrix\.outputs\.matrix\d",
+        "needs.set-matrix.outputs.matrix",
+        s,
+    )
+    s = re.sub(
+        r"needs\.set-matrix\.outputs\.is_matrix\d_empty",
+        "needs.set-matrix.outputs.is_matrix_empty",
+        s,
+    )
+    jobs = yaml.safe_load(s)["jobs"]
+    jobs = [v for name, v in jobs.items() if name.startswith("test")]
+    assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
+    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
+
+
 def main(args):
+    # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
+    # > A job matrix can generate a maximum of 256 jobs per workflow run.
+    MAX_ITEMS = 256
+    NUM_JOBS = 2
+    validate_action_config(NUM_JOBS)
+
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
-
-    print(divider("Matrix"))
-    print(json.dumps(matrix, indent=2, cls=CustomEncoder))
-
-    if "GITHUB_ACTIONS" in os.environ:
-        set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
+    matrix = [x for x in matrix if x.flavor != "mleap"]
+    assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
+    for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
+        mat = {"include": mat, "job_name": [x.job_name for x in mat]}
+        print(divider(f"Matrix {idx}"))
+        print(json.dumps(mat, indent=2, cls=CustomEncoder))
+        if "GITHUB_ACTIONS" in os.environ:
+            set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
+            set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,8 @@
 import { Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
-import { uniq } from 'lodash';
-import {
-  canEvaluateOnRun,
-  extractRequiredInputParamsForRun,
-} from '../../prompt-engineering/PromptEngineering.utils';
+import { uniq, compact } from 'lodash';
+import { canEvaluateOnRun, extractRequiredInputParamsForRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { FormattedMessage } from 'react-intl';
 
 const MAX_RUN_NAMES = 5;
@@ -25,9 +22,9 @@ export const useEvaluationAddNewInputsModal = () => {
     [inputValues, requiredInputKeys],
   );
 
-  const [successCallback, setSuccessCallback] = useState<
-    (providedParamValues: Record<string, string>) => void
-  >(async () => {});
+  const [successCallback, setSuccessCallback] = useState<(providedParamValues: Record<string, string>) => void>(
+    async () => {},
+  );
 
   const setInputValue = useCallback((key: string, value: string) => {
     setInputValues((values) => ({ ...values, [key]: value }));
@@ -39,14 +36,14 @@ export const useEvaluationAddNewInputsModal = () => {
         runName: run.runName,
         params: extractRequiredInputParamsForRun(run),
       }));
-      const inputValuesWithRunNames = uniq(
-        requiredInputsForRuns.map(({ params }) => params).flat(),
-      ).map((inputName) => ({
-        inputName,
-        runNames: requiredInputsForRuns
-          .filter((r) => r.params.includes(inputName))
-          .map(({ runName }) => runName),
-      }));
+      const inputValuesWithRunNames = uniq(requiredInputsForRuns.map(({ params }) => params).flat()).map(
+        (inputName) => ({
+          inputName,
+          runNames: compact(
+            requiredInputsForRuns.filter((r) => r.params.includes(inputName)).map(({ runName }) => runName),
+          ),
+        }),
+      );
       setModalVisible(true);
       setRequiredInputKeys(inputValuesWithRunNames);
       setInputValues({});
@@ -58,9 +55,10 @@ export const useEvaluationAddNewInputsModal = () => {
 
   const AddNewInputsModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationaddnewinputsmodal.tsx_57"
       title={
         <FormattedMessage
-          defaultMessage='Add row'
+          defaultMessage="Add row"
           description='Experiment page > artifact compare view > "add new row" modal title'
         />
       }
@@ -68,13 +66,13 @@ export const useEvaluationAddNewInputsModal = () => {
       okText={
         <FormattedMessage
           // TODO(ML-32664): Implement "Submit and evaluate" that evaluates entire row
-          defaultMessage='Submit'
+          defaultMessage="Submit"
           description='Experiment page > artifact compare view > "add new row" modal submit button label'
         />
       }
       cancelText={
         <FormattedMessage
-          defaultMessage='Cancel'
+          defaultMessage="Cancel"
           description='Experiment page > artifact compare view > "add new row" modal cancel button label'
         />
       }
@@ -88,12 +86,10 @@ export const useEvaluationAddNewInputsModal = () => {
       {requiredInputKeys.map(({ inputName, runNames }) => (
         <div key={inputName} css={{ marginBottom: theme.spacing.md }}>
           <Typography.Text bold>{inputName}</Typography.Text>
-          <Typography.Hint
-            css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
+          <Typography.Hint css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             <FormattedMessage
-              defaultMessage='Used by {runNames} {hasMore, select, true {and other runs} other {}}'
-              description='Experiment page > artifact compare view > label indicating which runs are using particular input field'
+              defaultMessage="Used by {runNames} {hasMore, select, true {and other runs} other {}}"
+              description="Experiment page > artifact compare view > label indicating which runs are using particular input field"
               values={{
                 runNames: runNames.slice(0, MAX_RUN_NAMES).join(', '),
                 hasMore: runNames.length > MAX_RUN_NAMES,
@@ -102,6 +98,7 @@ export const useEvaluationAddNewInputsModal = () => {
           </Typography.Hint>
           <div css={{ marginTop: theme.spacing.sm }}>
             <Input.TextArea
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationaddnewinputsmodal.tsx_99"
               value={inputValues[inputName]}
               onChange={(e) => setInputValue(inputName, e.target.value)}
             />

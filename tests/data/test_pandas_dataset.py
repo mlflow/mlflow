@@ -6,16 +6,16 @@ import pytest
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +36,7 @@ def spark_session():
 
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
 
     dataset = PandasDataset(
         df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
@@ -59,7 +59,7 @@ def test_conversion_to_json():
 
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     dataset = PandasDataset(
         df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
         source=source,
@@ -71,7 +71,7 @@ def test_digest_property_has_expected_value():
 
 def test_df_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset = PandasDataset(
         df=df,
@@ -83,7 +83,7 @@ def test_df_property():
 
 def test_targets_property():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df_no_targets = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset_no_targets = PandasDataset(
         df=df_no_targets,
@@ -103,7 +103,7 @@ def test_targets_property():
 
 def test_with_invalid_targets():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     with pytest.raises(
         MlflowException,
@@ -119,7 +119,7 @@ def test_with_invalid_targets():
 
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
     dataset = PandasDataset(
         df=df,
@@ -131,7 +131,7 @@ def test_to_pyfunc():
 
 def test_to_pyfunc_with_outputs():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     dataset = PandasDataset(
         df=df,
@@ -227,7 +227,7 @@ def test_to_evaluation_dataset():
     import numpy as np
 
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     dataset = PandasDataset(
         df=df,
@@ -243,7 +243,7 @@ def test_to_evaluation_dataset():
 
 def test_df_hashing_with_strings():
     source_uri = "test:/my/test/uri"
-    source = TestDatasetSource._resolve(source_uri)
+    source = SampleDatasetSource._resolve(source_uri)
 
     dataset1 = PandasDataset(
         df=pd.DataFrame([["a", 2, 3], ["a", 2, 3]], columns=["text_column", "b", "c"]),
@@ -258,3 +258,24 @@ def test_df_hashing_with_strings():
     )
 
     assert dataset1.digest != dataset2.digest
+
+
+def test_df_hashing_with_dicts():
+    source_uri = "test:/my/test/uri"
+    source = SampleDatasetSource._resolve(source_uri)
+
+    df = pd.DataFrame(
+        [
+            {"a": [1, 2, 3], "b": {"b": "b", "c": {"c": "c"}}, "c": 3, "d": "d"},
+            {"a": [2, 3], "b": {"b": "b"}, "c": 3, "d": "d"},
+        ]
+    )
+    dataset1 = PandasDataset(df=df, source=source, name="testname")
+    dataset2 = PandasDataset(df=df, source=source, name="testname")
+    assert dataset1.digest == dataset2.digest
+
+    evaluation_dataset = dataset1.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df)
+    evaluation_dataset2 = dataset2.to_evaluation_dataset()
+    assert evaluation_dataset.hash == evaluation_dataset2.hash

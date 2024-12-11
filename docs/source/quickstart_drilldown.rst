@@ -112,4 +112,3 @@ which returns::
     [1, 0]
 
 For more information, see :doc:`models`.
-

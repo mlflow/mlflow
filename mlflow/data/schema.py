@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -24,11 +24,12 @@ class TensorDatasetSchema:
         self.features = features
         self.targets = targets
 
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serialize into a 'jsonable' dictionary.
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize into a 'jsonable' dictionary.
 
-        :return: dictionary representation of the schema's features and targets (if defined).
+        Returns:
+            dictionary representation of the schema's features and targets (if defined).
+
         """
 
         return {
@@ -39,15 +40,16 @@ class TensorDatasetSchema:
         }
 
     @classmethod
-    def from_dict(cls, schema_dict: Dict[str, Any]):
-        """
-        Deserialize from dictionary representation.
+    def from_dict(cls, schema_dict: dict[str, Any]):
+        """Deserialize from dictionary representation.
 
-        :param schema_dict: Dictionary representation of model signature.
-                            Expected dictionary format:
-                            `{'features': <json string>, 'targets': <json string>" }`
+        Args:
+            schema_dict: Dictionary representation of model signature. Expected dictionary format:
+                `{'features': <json string>, 'targets': <json string>" }`
 
-        :return: TensorDatasetSchema populated with the data from the dictionary.
+        Returns:
+            TensorDatasetSchema populated with the data from the dictionary.
+
         """
         if "mlflow_tensorspec" not in schema_dict:
             raise MlflowException(

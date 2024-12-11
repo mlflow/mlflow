@@ -3,29 +3,24 @@ import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataRedu
 import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import { SearchExperimentRunsViewState } from '../experiment-page/models/SearchExperimentRunsViewState';
-import { renderWithIntl, act, within, screen } from '../../../common/utils/TestUtils';
+import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
+import { renderWithIntl, act, within, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
 import { getEvaluationTableArtifact } from '../../actions';
-import {
-  MLFLOW_LOGGED_ARTIFACTS_TAG,
-  MLFLOW_RUN_SOURCE_TYPE_TAG,
-  MLflowRunSourceType,
-} from '../../constants';
+import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
 import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import userEvent from '@testing-library/user-event';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
 import { useState } from 'react';
+
+// Disable pointer events check for DialogCombobox which masks the elements we want to click
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 jest.mock('../../actions', () => ({
   getEvaluationTableArtifact: jest
     .fn()
     .mockReturnValue({ type: 'GETEVALUATIONTABLEARTIFACT', payload: Promise.resolve() }),
-}));
-jest.mock('../../actions/ModelGatewayActions', () => ({
-  searchModelGatewayRoutesApi: jest
-    .fn()
-    .mockReturnValue({ type: 'SEARCHMODELGATEWAYROUTESAPI', payload: Promise.resolve() }),
 }));
 
 jest.mock('./components/EvaluationArtifactCompareTable', () => ({
@@ -35,12 +30,12 @@ jest.mock('./components/EvaluationArtifactCompareTable', () => ({
     groupByColumns,
     onCellClick,
   }: EvaluationArtifactCompareTableProps) => (
-    <div data-testid='mock-compare-table'>
+    <div data-testid="mock-compare-table">
       {/* Render a super simple but functional variant of results table */}
       {resultList.map((result) => (
         <div key={result.key}>
           {groupByColumns.map((groupByCol) => (
-            <div key={`groupby-${groupByCol}-${result.key}`} data-testid='group-by-cell'>
+            <div key={`groupby-${groupByCol}-${result.key}`} data-testid="group-by-cell">
               {result.groupByCellValues[groupByCol]}
             </div>
           ))}
@@ -48,11 +43,9 @@ jest.mock('./components/EvaluationArtifactCompareTable', () => ({
             <button
               key={`result-${runUuid}-${result.key}`}
               data-testid={`result-${runUuid}-${result.key}`}
-              onClick={() => onCellClick?.(result.cellValues[runUuid], runUuid)}
+              onClick={() => onCellClick?.(result.cellValues[runUuid].toString(), runUuid)}
             >
-              {`row ${result.key}, run ${runUuid}, result ${
-                result.cellValues[runUuid] || '(empty)'
-              }`}
+              {`row ${result.key}, run ${runUuid}, result ${result.cellValues[runUuid] || '(empty)'}`}
             </button>
           ))}
         </div>
@@ -133,19 +126,57 @@ const SAMPLE_STATE = {
   evaluationArtifactsLoadingByRunUuid: {},
 };
 
+const IMAGE_JSON = {
+  type: 'image',
+  filepath: 'fakePathUncompressed',
+  compressed_filepath: 'fakePath',
+};
+
+const SAMPLE_STATE_WITH_IMAGES = {
+  evaluationArtifactsBeingUploaded: {},
+  evaluationArtifactsByRunUuid: {
+    run_a: {
+      '/table.json': {
+        columns: ['col_group', 'col_group_2', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_group_2: 'question_1', col_output: IMAGE_JSON },
+          { col_group: 'question_2', col_group_2: 'question_2', col_output: IMAGE_JSON },
+        ],
+      },
+    },
+    run_b: {
+      '/table.json': {
+        columns: ['col_group', 'col_output'],
+        path: '/table.json',
+        entries: [
+          { col_group: 'question_1', col_group_2: 'question_1', col_output: IMAGE_JSON },
+          { col_group: 'question_2', col_group_2: 'question_2', col_output: IMAGE_JSON },
+        ],
+      },
+    },
+  },
+
+  evaluationDraftInputValues: [],
+  evaluationPendingDataByRunUuid: {},
+  evaluationPendingDataLoadingByRunUuid: {},
+  evaluationArtifactsErrorByRunUuid: {},
+  evaluationArtifactsLoadingByRunUuid: {},
+};
+
 describe('EvaluationArtifactCompareView', () => {
   const mountTestComponent = ({
     comparedRuns = SAMPLE_COMPARED_RUNS,
     mockState = SAMPLE_STATE,
-    viewState = new SearchExperimentRunsViewState(),
+    viewState = new ExperimentPageViewState(),
   }: {
-    viewState?: SearchExperimentRunsViewState;
+    viewState?: ExperimentPageViewState;
     mockState?: EvaluationDataReduxState;
     comparedRuns?: RunRowType[];
   } = {}) => {
     const mockStore = configureStore([thunk, promiseMiddleware()])({
       evaluationData: mockState,
-      modelGateway: {},
+      modelGateway: { modelGatewayRoutesLoading: {} },
     });
     const updateSearchFacetsMock = jest.fn();
     const updateViewStateMock = jest.fn();
@@ -157,7 +188,6 @@ describe('EvaluationArtifactCompareView', () => {
         <Provider store={mockStore}>
           <EvaluationArtifactCompareView
             comparedRuns={visibleRuns}
-            updateSearchFacets={updateSearchFacetsMock}
             updateViewState={updateViewStateMock}
             viewState={viewState}
             onDatasetSelected={() => {}}
@@ -174,11 +204,6 @@ describe('EvaluationArtifactCompareView', () => {
     };
   };
 
-  const openCombobox = (element: HTMLElement) =>
-    act(async () => {
-      userEvent.click(element);
-    });
-
   test('checks if the initial tables are properly fetched', async () => {
     mountTestComponent();
 
@@ -188,13 +213,9 @@ describe('EvaluationArtifactCompareView', () => {
   test('checks if the newly selected table is being fetched', async () => {
     const { renderResult } = mountTestComponent();
 
-    await act(async () => {
-      userEvent.click(renderResult.getByTestId('dropdown-tables'));
-    });
+    await userEvent.click(renderResult.getByTestId('dropdown-tables'));
 
-    await act(async () => {
-      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_c.json'));
-    });
+    await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_c.json'));
 
     expect(getEvaluationTableArtifact).toBeCalledWith('run_c', '/table_c.json', false);
   });
@@ -223,13 +244,8 @@ describe('EvaluationArtifactCompareView', () => {
       ] as any,
     });
 
-    await act(async () => {
-      userEvent.click(renderResult.getByTestId('dropdown-tables'));
-    });
-
-    await act(async () => {
-      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_a.json'));
-    });
+    await userEvent.click(renderResult.getByTestId('dropdown-tables'));
+    await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_a.json'));
 
     expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table_a.json', false);
     expect(getEvaluationTableArtifact).not.toBeCalledWith('run_a', '/table_b.json', false);
@@ -241,12 +257,8 @@ describe('EvaluationArtifactCompareView', () => {
     mountTestComponent();
 
     // Check if the table "group by" column cells were properly populated
-    expect(
-      screen.getByText('question_1', { selector: '[data-testid="group-by-cell"]' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('question_2', { selector: '[data-testid="group-by-cell"]' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('question_1', { selector: '[data-testid="group-by-cell"]' })).toBeInTheDocument();
+    expect(screen.getByText('question_2', { selector: '[data-testid="group-by-cell"]' })).toBeInTheDocument();
 
     // Check if the table output cells were properly populated
     [
@@ -265,7 +277,7 @@ describe('EvaluationArtifactCompareView', () => {
 
   test('checks if the preview sidebar renders proper details', async () => {
     const { renderResult } = mountTestComponent({
-      viewState: Object.assign(new SearchExperimentRunsViewState(), { previewPaneVisible: true }),
+      viewState: Object.assign(new ExperimentPageViewState(), { previewPaneVisible: true }),
     });
 
     const previewSidebar = renderResult.getByTestId('preview-sidebar-content');
@@ -274,10 +286,10 @@ describe('EvaluationArtifactCompareView', () => {
     const run_a_question_1 = renderResult.getByTestId('result-run_a-question_1');
     const run_b_question_2 = renderResult.getByTestId('result-run_b-question_2');
 
-    userEvent.click(run_a_question_1);
+    await userEvent.click(run_a_question_1);
     expect(previewSidebar).toHaveTextContent(/answer_1_run_a/);
 
-    userEvent.click(run_b_question_2);
+    await userEvent.click(run_b_question_2);
     expect(previewSidebar).toHaveTextContent(/answer_2_run_b/);
   });
 
@@ -305,9 +317,7 @@ describe('EvaluationArtifactCompareView', () => {
       comparedRuns: [
         {
           runUuid: 'run_a',
-          params: [
-            { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
-          ],
+          params: [{ key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' }],
           tags: {
             [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
               key: MLFLOW_RUN_SOURCE_TYPE_TAG,
@@ -337,9 +347,7 @@ describe('EvaluationArtifactCompareView', () => {
       ] as any,
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByLabelText('Select "group by" columns'));
-    });
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
 
     expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
     expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
@@ -375,9 +383,7 @@ describe('EvaluationArtifactCompareView', () => {
       comparedRuns: [
         {
           runUuid: 'run_a',
-          params: [
-            { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
-          ],
+          params: [{ key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' }],
           tags: {
             [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
               key: MLFLOW_RUN_SOURCE_TYPE_TAG,
@@ -407,9 +413,7 @@ describe('EvaluationArtifactCompareView', () => {
       ] as any,
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByLabelText('Select "group by" columns'));
-    });
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
 
     // Expect two "group by" columns to be initially selected
     expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
@@ -418,10 +422,8 @@ describe('EvaluationArtifactCompareView', () => {
     expect(screen.queryByText('No group by columns selected')).not.toBeInTheDocument();
 
     // Deselect both columns
-    await act(async () => {
-      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_a'));
-      userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_b'));
-    });
+    await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_a'));
+    await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('input_b'));
 
     // Expect proper message to appear
     expect(screen.getByText('No group by columns selected')).toBeInTheDocument();
@@ -431,9 +433,7 @@ describe('EvaluationArtifactCompareView', () => {
     const comparedRuns = [
       {
         runUuid: 'run_a',
-        params: [
-          { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
-        ],
+        params: [{ key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' }],
         tags: {
           [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
             key: MLFLOW_RUN_SOURCE_TYPE_TAG,
@@ -484,9 +484,7 @@ describe('EvaluationArtifactCompareView', () => {
       comparedRuns: comparedRuns as any,
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByLabelText('Select "group by" columns'));
-    });
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
 
     expect(within(screen.getByRole('listbox')).queryByLabelText('input_a')).not.toBeInTheDocument();
     expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
@@ -507,39 +505,6 @@ describe('EvaluationArtifactCompareView', () => {
   });
 
   test('checks if relevant empty message is displayed when there are no logged evaluation tables', async () => {
-    const comparedRuns = [
-      {
-        runUuid: 'run_a',
-        params: [
-          { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
-        ],
-        tags: {
-          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
-            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
-            value: MLflowRunSourceType.PROMPT_ENGINEERING,
-          },
-          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
-            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
-            value: '[{"path":"/eval_results_table.json","type":"table"}]',
-          },
-        },
-        hidden: true,
-      },
-      {
-        runUuid: 'run_b',
-        params: [{ key: 'prompt_template', value: 'prompt template with {{input_b}}' }],
-        tags: {
-          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
-            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
-            value: MLflowRunSourceType.PROMPT_ENGINEERING,
-          },
-          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
-            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
-            value: '[{"path":"/eval_results_table.json","type":"table"}]',
-          },
-        },
-      },
-    ];
     const { renderResult } = mountTestComponent({
       mockState: {
         ...SAMPLE_STATE,
@@ -564,5 +529,21 @@ describe('EvaluationArtifactCompareView', () => {
 
     expect(renderResult.getByTestId('dropdown-tables')).toBeDisabled();
     expect(renderResult.getByText(/No evaluation tables logged/)).toBeInTheDocument();
+  });
+
+  test('checks that image columns are correctly assigned to only be output columns', async () => {
+    mountTestComponent({ mockState: SAMPLE_STATE_WITH_IMAGES });
+
+    expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table.json', false);
+    expect(getEvaluationTableArtifact).toBeCalledWith('run_b', '/table.json', false);
+
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
+
+    // Check that the group by columns are properly populated and recognizes image columns as non-groupable
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group')).toBeChecked();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group')).toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group_2')).toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_group_2')).not.toBeChecked();
+    expect(within(screen.getByRole('listbox')).queryByLabelText('col_output')).not.toBeInTheDocument();
   });
 });

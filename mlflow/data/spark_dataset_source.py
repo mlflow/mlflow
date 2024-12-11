@@ -1,12 +1,10 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class SparkDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored in a spark table.
@@ -31,10 +29,12 @@ class SparkDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "spark"
 
-    def load(self, **kwargs):  # pylint: disable=unused-argument
-        """
-        Loads the dataset source as a Spark Dataset Source.
-        :return: An instance of ``pyspark.sql.DataFrame``.
+    def load(self, **kwargs):
+        """Loads the dataset source as a Spark Dataset Source.
+
+        Returns:
+            An instance of ``pyspark.sql.DataFrame``.
+
         """
         from pyspark.sql import SparkSession
 
@@ -55,7 +55,7 @@ class SparkDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "SparkDatasetSource":
         raise NotImplementedError
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         info = {}
         if self._path is not None:
             info["path"] = self._path
@@ -66,7 +66,7 @@ class SparkDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "SparkDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "SparkDatasetSource":
         return cls(
             path=source_dict.get("path"),
             table_name=source_dict.get("table_name"),

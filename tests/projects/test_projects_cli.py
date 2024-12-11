@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow import MlflowClient, cli
-from mlflow.utils import insecure_hash, process
+from mlflow.utils import process
 
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import (
@@ -47,7 +48,7 @@ def test_run_local_params(name):
 
 
 @skip_if_skinny
-def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
+def test_run_local_with_docker_args(docker_example_base_image):
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
     invoke_cli_runner(cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"])
@@ -89,8 +90,8 @@ def clean_mlruns_dir():
 def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
-    expected_env_name = (
-        "mlflow-%s" % insecure_hash.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    expected_env_name = "mlflow-{}".format(
+        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
     )
     try:
         process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])

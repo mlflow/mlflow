@@ -2,27 +2,28 @@ import json
 import time
 from enum import Enum
 
-import boto3
-import botocore.config
-import botocore.exceptions
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
-from mlflow.gateway.config import AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
-from mlflow.gateway.exceptions import AIGatewayConfigException
+from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 
-class AWSBedrockAnthropicAdapter(AnthropicAdapter):
+class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        payload = super().chat_to_model(payload, config)
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
+        return payload
+
     @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
@@ -34,6 +35,9 @@ class AWSBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
         return payload
 
     @classmethod
@@ -46,6 +50,16 @@ class AWSTitanAdapter(ProviderAdapter):
     # TODO handle top_p, top_k, etc.
     @classmethod
     def completions_to_model(cls, payload, config):
+        n = payload.pop("n", 1)
+        if n != 1:
+            raise AIGatewayException(
+                status_code=422,
+                detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
+            )
+
+        # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
@@ -56,16 +70,22 @@ class AWSTitanAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
-            **{
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-                "candidates": [
-                    {"text": candidate.get("outputText"), "metadata": {}}
-                    for candidate in resp.get("results", [])
-                ],
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=candidate.get("outputText"),
+                    finish_reason=None,
+                )
+                for idx, candidate in enumerate(resp.get("results", []))
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
@@ -85,7 +105,7 @@ class AI21Adapter(ProviderAdapter):
             payload,
             {
                 "stop": "stopSequences",
-                "candidate_count": "numResults",
+                "n": "numResults",
                 "max_tokens": "maxTokens",
             },
         )
@@ -93,18 +113,22 @@ class AI21Adapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
-            **{
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-                "candidates": [
-                    # second .get ensures item only has key "text",
-                    # but might be redundant/undesirable
-                    {"text": candidate.get("data", {}).get("text"), "metadata": {}}
-                    for candidate in resp.get("completions", [])
-                ],
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=candidate.get("data", {}).get("text"),
+                    finish_reason=None,
+                )
+                for idx, candidate in enumerate(resp.get("completions", []))
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
@@ -116,14 +140,14 @@ class AI21Adapter(ProviderAdapter):
         raise NotImplementedError
 
 
-class AWSBedrockModelProvider(Enum):
+class AmazonBedrockModelProvider(Enum):
     AMAZON = "amazon"
     COHERE = "cohere"
     AI21 = "ai21"
     ANTHROPIC = "anthropic"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AWS_MODEL_PROVIDER_TO_ADAPTER.get(self)
 
     @classmethod
@@ -136,20 +160,23 @@ class AWSBedrockModelProvider(Enum):
 
 
 AWS_MODEL_PROVIDER_TO_ADAPTER = {
-    AWSBedrockModelProvider.COHERE: CohereAdapter,
-    AWSBedrockModelProvider.ANTHROPIC: AWSBedrockAnthropicAdapter,
-    AWSBedrockModelProvider.AMAZON: AWSTitanAdapter,
-    AWSBedrockModelProvider.AI21: AI21Adapter,
+    AmazonBedrockModelProvider.COHERE: CohereAdapter,
+    AmazonBedrockModelProvider.ANTHROPIC: AmazonBedrockAnthropicAdapter,
+    AmazonBedrockModelProvider.AMAZON: AWSTitanAdapter,
+    AmazonBedrockModelProvider.AI21: AI21Adapter,
 }
 
 
-class AWSBedrockProvider(BaseProvider):
+class AmazonBedrockProvider(BaseProvider):
+    NAME = "Amazon Bedrock"
+    CONFIG_TYPE = AmazonBedrockConfig
+
     def __init__(self, config: RouteConfig):
         super().__init__(config)
 
-        if config.model.config is None or not isinstance(config.model.config, AWSBedrockConfig):
+        if config.model.config is None or not isinstance(config.model.config, AmazonBedrockConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
-        self.bedrock_config: AWSBedrockConfig = config.model.config
+        self.bedrock_config: AmazonBedrockConfig = config.model.config
         self._client = None
         self._client_created = 0
 
@@ -163,6 +190,9 @@ class AWSBedrockProvider(BaseProvider):
         )
 
     def get_bedrock_client(self):
+        import boto3
+        import botocore.exceptions
+
         if self._client is not None and not self._client_expired():
             return self._client
 
@@ -179,10 +209,10 @@ class AWSBedrockProvider(BaseProvider):
             return self._client
         except botocore.exceptions.UnknownServiceError as e:
             raise AIGatewayConfigException(
-                "Cannot create AWS Bedrock client; ensure boto3/botocore "
-                "linked from the AWS Bedrock user guide are installed. "
+                "Cannot create Amazon Bedrock client; ensure boto3/botocore "
+                "linked from the Amazon Bedrock user guide are installed. "
                 "Otherwise likely missing credentials or accessing account without to "
-                "AWS Bedrock Private Preview"
+                "Amazon Bedrock Private Preview"
             ) from e
 
     def _construct_session_args(self):
@@ -220,25 +250,27 @@ class AWSBedrockProvider(BaseProvider):
         if (not self.config.model.name) or "." not in self.config.model.name:
             return None
         provider = self.config.model.name.split(".")[0]
-        return AWSBedrockModelProvider.of_str(provider)
+        return AmazonBedrockModelProvider.of_str(provider)
 
     @property
-    def underlying_provider_adapter(self) -> ProviderAdapter:
+    def adapter_class(self) -> type[ProviderAdapter]:
         provider = self._underlying_provider
         if not provider:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
-                detail=f"Unknown AWS Bedrock model type {self._underlying_provider}",
+                detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
-        adapter = provider.adapter
+        adapter = provider.adapter_class
         if not adapter:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
-                detail=f"Don't know how to handle {self._underlying_provider} for AWS Bedrock",
+                detail=f"Don't know how to handle {self._underlying_provider} for Amazon Bedrock",
             )
         return adapter
 
     def _request(self, body):
+        import botocore.exceptions
+
         try:
             response = self.get_bedrock_client().invoke_model(
                 body=json.dumps(body).encode(),
@@ -255,23 +287,13 @@ class AWSBedrockProvider(BaseProvider):
         #     raise HTTPException(status_code=422, detail=str(e)) from e
 
         except botocore.exceptions.ReadTimeoutError as e:
-            raise HTTPException(status_code=408) from e
+            raise AIGatewayException(status_code=408) from e
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
+        payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
-        return self.underlying_provider_adapter.model_to_completions(response, self.config)
-
-    async def chat(self, payload: chat.RequestPayload) -> None:
-        # AWS Bedrock does not have a chat endpoint
-        raise HTTPException(
-            status_code=404, detail="The chat route is not available for AWS Bedrock models."
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> None:
-        # AWS Bedrock does not have an embeddings endpoint
-        raise HTTPException(
-            status_code=404, detail="The embeddings route is not available for AWS Bedrock models."
-        )
+        return self.adapter_class.model_to_completions(response, self.config)

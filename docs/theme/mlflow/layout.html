@@ -1,17 +1,9 @@
 {# TEMPLATE VAR SETTINGS #}
 {%- set url_root = pathto('', 1) %}
 {%- if url_root == '#' %}{% set url_root = '' %}{% endif %}
-{%- if not embedded and docstitle %}
-  {%- set titlesuffix = " &mdash; "|safe + docstitle|e %}
-  {# Add version number suffix to legacy spark documentation page titles #}
-  {%- if 'spark/1.6' in pagename %}
-    {%- set titlesuffix = ' (Spark 1.6)' ~ titlesuffix %}
-  {%- endif %}
-{%- else %}
-  {%- set titlesuffix = "" %}
-{%- endif %}
 
 <!DOCTYPE html>
+<!-- source: docs/source/{{ pagename }}{{ page_source_suffix }} -->
 <!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
 <head>
@@ -19,7 +11,7 @@
   {{ metatags }}
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   {% block htmltitle %}
-  <title>{{ title|striptags|e }}{{ titlesuffix }}</title>
+  <title>{{ title|striptags|e }}</title>
   {% endblock %}
   {# CANONICAL #} 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -61,7 +53,9 @@
     <link rel="stylesheet" href="{{ pathto('_static/css/custom.css', 1) }}" type="text/css" />
     <link rel="stylesheet" href="{{ pathto('_static/css/cards.css', 1) }}" type="text/css" />
     <link rel="stylesheet" href="{{ pathto('_static/css/grids.css', 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('_static/css/mobile.css', 1) }}" type="text/css" />
     <link rel="stylesheet" href="{{ pathto('_static/css/simple-cards.css', 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('_static/css/tabs.css', 1) }}" type="text/css" />
     {% if target_cloud == 'azure' %}
       <link rel="stylesheet" href="{{ pathto('_static/css/custom-azure.css', 1) }}" type="text/css" />
     {% endif %}

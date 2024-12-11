@@ -13,7 +13,7 @@ import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
@@ -83,7 +83,10 @@ class RunOperations:
 # of CPU cores available on the system (whichever is smaller)
 num_cpus = os.cpu_count() or 4
 num_logging_workers = min(num_cpus * 2, 8)
-_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(
+    max_workers=num_logging_workers,
+    thread_name_prefix="MlflowAutologgingQueueingClient",
+)
 
 
 class MlflowAutologgingQueueingClient:
@@ -113,7 +116,7 @@ class MlflowAutologgingQueueingClient:
         """
         return self
 
-    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+    def __exit__(self, exc_type, exc, traceback):
         """
         Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
         synchronous flushing upon exit, removing the need to call `flush()` for use cases
@@ -138,7 +141,7 @@ class MlflowAutologgingQueueingClient:
         self,
         experiment_id: str,
         start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_name: Optional[str] = None,
     ) -> PendingRunId:
         """
@@ -146,8 +149,9 @@ class MlflowAutologgingQueueingClient:
         instance that can be used as input to other client logging APIs (e.g. `log_metrics`,
         `log_params`, ...).
 
-        :return: A `PendingRunId` that can be passed as the `run_id` parameter to other client
-                 logging APIs, such as `log_params` and `log_metrics`.
+        Returns:
+            A `PendingRunId` that can be passed as the `run_id` parameter to other client
+            logging APIs, such as `log_params` and `log_metrics`.
         """
         tags = tags or {}
         tags = _truncate_dict(
@@ -178,7 +182,7 @@ class MlflowAutologgingQueueingClient:
             set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: Dict[str, Any]) -> None:
+    def log_params(self, run_id: Union[str, PendingRunId], params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -189,7 +193,7 @@ class MlflowAutologgingQueueingClient:
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
     def log_inputs(
-        self, run_id: Union[str, PendingRunId], datasets: Optional[List[DatasetInput]]
+        self, run_id: Union[str, PendingRunId], datasets: Optional[list[DatasetInput]]
     ) -> None:
         """
         Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
@@ -201,7 +205,7 @@ class MlflowAutologgingQueueingClient:
     def log_metrics(
         self,
         run_id: Union[str, PendingRunId],
-        metrics: Dict[str, float],
+        metrics: dict[str, float],
         step: Optional[int] = None,
     ) -> None:
         """
@@ -215,7 +219,7 @@ class MlflowAutologgingQueueingClient:
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: Dict[str, Any]) -> None:
+    def set_tags(self, run_id: Union[str, PendingRunId], tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """
@@ -230,15 +234,18 @@ class MlflowAutologgingQueueingClient:
         Flushes all queued run operations, resulting in the creation or mutation of runs
         and run data.
 
-        :param synchronous: If `True`, run operations are performed synchronously, and a
-                            `RunOperations` result object is only returned once all operations
-                            are complete. If `False`, run operations are performed asynchronously,
-                            and an `RunOperations` object is returned that represents the ongoing
-                            run operations.
-        :return: A `RunOperations` instance representing the flushed operations. These operations
-                 are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
-                 operations may still be inflight. Operation completion can be synchronously waited
-                 on via `RunOperations.await_completion()`.
+        Args:
+            synchronous: If `True`, run operations are performed synchronously, and a
+                `RunOperations` result object is only returned once all operations
+                are complete. If `False`, run operations are performed asynchronously,
+                and an `RunOperations` object is returned that represents the ongoing
+                run operations.
+
+        Returns:
+            A `RunOperations` instance representing the flushed operations. These operations
+            are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
+            operations may still be inflight. Operation completion can be synchronously waited
+            on via `RunOperations.await_completion()`.
         """
         logging_futures = []
         for pending_operations in self._pending_ops_by_run_id.values():
@@ -256,8 +263,9 @@ class MlflowAutologgingQueueingClient:
 
     def _get_pending_operations(self, run_id):
         """
-        :return: A `_PendingRunOperations` containing all pending operations for the
-                 specified `run_id`.
+        Returns:
+            A `_PendingRunOperations` containing all pending operations for the
+            specified `run_id`.
         """
         if run_id not in self._pending_ops_by_run_id:
             self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)

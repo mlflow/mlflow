@@ -1,16 +1,35 @@
+import base64
+import datetime
 import os
 import posixpath
 import re
 import urllib.parse
+from typing import Union
 
 from mlflow.entities import FileInfo
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+)
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
+from mlflow.utils.credentials import get_default_host_creds
 
 
-class AzureBlobArtifactRepository(ArtifactRepository):
+def encode_base64(data: Union[str, bytes]) -> str:
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    encoded = base64.b64encode(data)
+    return encoded.decode("utf-8")
+
+
+def decode_base64(encoded: str) -> str:
+    decoded_bytes = base64.b64decode(encoded)
+    return decoded_bytes.decode("utf-8")
+
+
+class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """
     Stores artifacts on Azure Blob Storage.
 
@@ -39,14 +58,14 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = f"https://{account}.{api_uri_suffix}"
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
         else:
             try:
@@ -61,7 +80,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=DefaultAzureCredential(),
-                connection_verify=_get_default_host_creds(artifact_uri).verify,
+                connection_verify=get_default_host_creds(artifact_uri).verify,
             )
 
     @staticmethod
@@ -173,8 +192,68 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         (container, _, remote_root_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
+        blob = container_client.download_blob(remote_full_path)
         with open(local_path, "wb") as file:
-            container_client.download_blob(remote_full_path).readinto(file)
+            blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
+
+    def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        # Put Block: https://learn.microsoft.com/en-us/rest/api/storageservices/put-block?tabs=microsoft-entra-id
+        # SDK: https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python#azure-storage-blob-blobclient-stage-block
+        blob_url = posixpath.join(self.client.url, container, dest_path)
+        sas_token = generate_blob_sas(
+            account_name=self.client.account_name,
+            container_name=container,
+            blob_name=dest_path,
+            account_key=self.client.credential.account_key,
+            permission=BlobSasPermissions(read=True, write=True),
+            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        )
+        credentials = []
+        for i in range(1, num_parts + 1):
+            block_id = f"mlflow_block_{i}"
+            # see https://github.com/Azure/azure-sdk-for-python/blob/18a66ef98c6f2153491489d3d7d2fe4a5849e4ac/sdk/storage/azure-storage-blob/azure/storage/blob/_blob_client.py#L2468
+            safe_block_id = urllib.parse.quote(encode_base64(block_id), safe="")
+            url = f"{blob_url}?comp=block&blockid={safe_block_id}&{sas_token}"
+            credentials.append(
+                MultipartUploadCredential(
+                    url=url,
+                    part_number=i,
+                    headers={},
+                )
+            )
+        return CreateMultipartUploadResponse(
+            credentials=credentials,
+            upload_id=None,
+        )
+
+    def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        block_ids = []
+        for part in parts:
+            qs = urllib.parse.urlparse(part.url).query
+            block_id = urllib.parse.parse_qs(qs)["blockid"][0]
+            block_id = decode_base64(urllib.parse.unquote(block_id))
+            block_ids.append(block_id)
+        blob_client = self.client.get_blob_client(container, dest_path)
+        blob_client.commit_block_list(block_ids)
+
+    def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+        # There is no way to delete uncommitted blocks in Azure Blob Storage.
+        # Instead, they are garbage collected within 7 days.
+        # See https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list#remarks
+        # The blob may already exist so we cannot delete it either.
+        pass

@@ -141,13 +141,14 @@ def register_generic_import_hook(hook, name, hook_dict, overwrite):
 @synchronized(_import_error_hooks_lock)
 def register_import_error_hook(hook, name, overwrite=True):
     """
-    :param hook: A function or string entrypoint to invoke when the specified module is imported
-                 and an error occurs.
-    :param name: The name of the module for which to fire the hook at import error detection time.
-    :param overwrite: Specifies the desired behavior when a preexisting hook for the same
-                      function / entrypoint already exists for the specified module. If `True`,
-                      all preexisting hooks matching the specified function / entrypoint will be
-                      removed and replaced with a single instance of the specified `hook`.
+    Args:
+        hook: A function or string entrypoint to invoke when the specified module is imported
+            and an error occurs.
+        name: The name of the module for which to fire the hook at import error detection time.
+        overwrite: Specifies the desired behavior when a preexisting hook for the same
+            function / entrypoint already exists for the specified module. If `True`,
+            all preexisting hooks matching the specified function / entrypoint will be
+            removed and replaced with a single instance of the specified `hook`.
     """
     register_generic_import_hook(hook, name, _import_error_hooks, overwrite)
 
@@ -155,14 +156,20 @@ def register_import_error_hook(hook, name, overwrite=True):
 @synchronized(_post_import_hooks_lock)
 def register_post_import_hook(hook, name, overwrite=True):
     """
-    :param hook: A function or string entrypoint to invoke when the specified module is imported.
-    :param name: The name of the module for which to fire the hook at import time.
-    :param overwrite: Specifies the desired behavior when a preexisting hook for the same
-                      function / entrypoint already exists for the specified module. If `True`,
-                      all preexisting hooks matching the specified function / entrypoint will be
-                      removed and replaced with a single instance of the specified `hook`.
+    Args:
+        hook: A function or string entrypoint to invoke when the specified module is imported.
+        name: The name of the module for which to fire the hook at import time.
+        overwrite: Specifies the desired behavior when a preexisting hook for the same
+            function / entrypoint already exists for the specified module. If `True`,
+            all preexisting hooks matching the specified function / entrypoint will be
+            removed and replaced with a single instance of the specified `hook`.
     """
     register_generic_import_hook(hook, name, _post_import_hooks, overwrite)
+
+
+@synchronized(_post_import_hooks_lock)
+def get_post_import_hooks(name):
+    return _post_import_hooks.get(name)
 
 
 # Register post import hooks defined as package entry points.
@@ -182,7 +189,7 @@ def _create_import_hook_from_entrypoint(entrypoint):
 def discover_post_import_hooks(group):
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import files  # pylint: disable=lazy-builtin-import
+        from importlib.resources import files  # clint: disable=lazy-builtin-import
 
         for entrypoint in (
             resource.name for resource in files(group).iterdir() if resource.is_file()
@@ -190,7 +197,7 @@ def discover_post_import_hooks(group):
             callback = _create_import_hook_from_entrypoint(entrypoint)
             register_post_import_hook(callback, entrypoint.name)
     else:
-        from importlib.resources import contents  # pylint: disable=lazy-builtin-import
+        from importlib.resources import contents  # clint: disable=lazy-builtin-import
 
         for entrypoint in contents(group):
             callback = _create_import_hook_from_entrypoint(entrypoint)
@@ -206,7 +213,7 @@ def discover_post_import_hooks(group):
 @synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
     name = getattr(module, "__name__", None)
-    hooks = _post_import_hooks.get(name, None)
+    hooks = _post_import_hooks.get(name)
 
     if hooks:
         _post_import_hooks[name] = []
@@ -217,7 +224,7 @@ def notify_module_loaded(module):
 
 @synchronized(_import_error_hooks_lock)
 def notify_module_import_error(module_name):
-    hooks = _import_error_hooks.get(module_name, None)
+    hooks = _import_error_hooks.get(module_name)
 
     if hooks:
         # Error hooks differ from post import hooks, in that we don't clear the
@@ -284,14 +291,14 @@ class ImportHookFinder:
             # real loader to import the module and invoke the
             # post import hooks.
             try:
-                import importlib.util  # pylint: disable=lazy-builtin-import
+                import importlib.util  # clint: disable=lazy-builtin-import
 
                 loader = importlib.util.find_spec(fullname).loader
             # If an ImportError (or AttributeError) is encountered while finding the module,
             # notify the hooks for import errors
             except (ImportError, AttributeError):
                 notify_module_import_error(fullname)
-                loader = importlib.find_loader(fullname, path)  # pylint: disable=deprecated-method
+                loader = importlib.find_loader(fullname, path)
             if loader:
                 return _ImportHookChainedLoader(loader)
         finally:
@@ -299,7 +306,7 @@ class ImportHookFinder:
 
     @synchronized(_post_import_hooks_lock)
     @synchronized(_import_error_hooks_lock)
-    def find_spec(self, fullname, path, target=None):  # pylint: disable=unused-argument
+    def find_spec(self, fullname, path, target=None):
         # If the module being imported is not one we have registered
         # import hooks for, we can return immediately. We will
         # take no further part in the importing of this module.
@@ -322,7 +329,7 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            import importlib.util  # pylint: disable=lazy-builtin-import
+            import importlib.util  # clint: disable=lazy-builtin-import
 
             spec = importlib.util.find_spec(fullname)
             # Replace the module spec's loader with a wrapped version that executes import

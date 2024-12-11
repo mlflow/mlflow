@@ -9,7 +9,7 @@ from mlflow.utils.rest_utils import (
 
 
 @experimental
-class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
+class BaseRestStore(AbstractStore):
     """
     Base class client for a remote model registry server accessed via REST API calls
     """

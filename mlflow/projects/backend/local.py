@@ -44,6 +44,7 @@ from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databri
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.utils.os import is_windows
 from mlflow.utils.virtualenv import (
     _PYENV_ROOT_DIR,
     _VIRTUALENV_ENVS_DIR,
@@ -51,7 +52,6 @@ from mlflow.utils.virtualenv import (
     _get_mlflow_virtualenv_root,
     _get_virtualenv_extra_env_vars,
     _get_virtualenv_name,
-    _install_python,
 )
 
 _logger = logging.getLogger(__name__)
@@ -150,19 +150,23 @@ class LocalBackend(AbstractBackend):
             if is_in_databricks_runtime():
                 nfs_tmp_dir = get_or_create_nfs_tmp_dir()
                 env_root = Path(nfs_tmp_dir) / "envs"
-                pyenv_root = env_root / _PYENV_ROOT_DIR
+                pyenv_root_dir = str(env_root / _PYENV_ROOT_DIR)
                 virtualenv_root = env_root / _VIRTUALENV_ENVS_DIR
                 env_vars = _get_virtualenv_extra_env_vars(str(env_root))
             else:
-                pyenv_root = None
+                pyenv_root_dir = None
                 virtualenv_root = Path(_get_mlflow_virtualenv_root())
                 env_vars = None
-            python_bin_path = _install_python(python_env.python, pyenv_root=pyenv_root)
             work_dir_path = Path(work_dir)
             env_name = _get_virtualenv_name(python_env, work_dir_path)
             env_dir = virtualenv_root / env_name
             activate_cmd = _create_virtualenv(
-                work_dir_path, python_bin_path, env_dir, python_env, extra_env=env_vars
+                local_model_path=work_dir_path,
+                python_env=python_env,
+                env_dir=env_dir,
+                pyenv_root_dir=pyenv_root_dir,
+                env_manager=env_manager,
+                extra_env=env_vars,
             )
             command_args += [activate_cmd]
         elif env_manager == _EnvManager.CONDA:
@@ -256,13 +260,15 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):
+def _run_entry_point(command, work_dir, experiment_id, run_id):  # noqa: D417
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
-    :param command: Entry point command to run
-    :param work_dir: Working directory in which to run the command
-    :param run_id: MLflow run ID associated with the entry point execution.
+
+    Args:
+        command: Entry point command to run
+        work_dir: Working directory in which to run the command
+        run_id: MLflow run ID associated with the entry point execution.
     """
     env = os.environ.copy()
     env.update(get_run_env_vars(run_id, experiment_id))
@@ -270,7 +276,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
-    if os.name != "nt":
+    if not is_windows():
         process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     else:
         # process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)
@@ -349,7 +355,6 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     if platform.system() == "Windows":
         win_user_dir = os.environ["USERPROFILE"]
         aws_path = os.path.join(win_user_dir, ".aws")
@@ -370,7 +375,6 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
@@ -380,7 +384,6 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_gcs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {}
 
@@ -392,7 +395,6 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
 
 
 def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
-    # pylint: disable=unused-argument
     cmds = []
     envs = {
         "MLFLOW_KERBEROS_TICKET_CACHE": MLFLOW_KERBEROS_TICKET_CACHE.get(),

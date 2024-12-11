@@ -10,12 +10,7 @@ import qs from 'qs';
 import { connect } from 'react-redux';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import {
-  getRegisteredModelApi,
-  getModelVersionApi,
-  getModelVersionArtifactApi,
-  parseMlModelFile,
-} from '../actions';
+import { getRegisteredModelApi, getModelVersionApi, getModelVersionArtifactApi, parseMlModelFile } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
 import _ from 'lodash';
@@ -84,12 +79,7 @@ export class CompareModelVersionsPageImpl extends Component<
         this.props
           .getModelVersionArtifactApi(modelName, modelVersion)
           .then((content: any) =>
-            this.props.parseMlModelFile(
-              modelName,
-              modelVersion,
-              content.value,
-              this.getMlModelFileRequestId,
-            ),
+            this.props.parseMlModelFile(modelName, modelVersion, content.value, this.getMlModelFileRequestId),
           )
           .catch(() => {
             // Failure of this call chain should not block the page. Here we remove
@@ -110,10 +100,7 @@ export class CompareModelVersionsPageImpl extends Component<
           requestIds={this.state.requestIds}
           requestIdsWith404sToIgnore={this.state.requestIdsWith404ErrorsToIgnore}
         >
-          <CompareModelVersionsView
-            modelName={this.props.modelName}
-            versionsToRuns={this.props.versionsToRuns}
-          />
+          <CompareModelVersionsView modelName={this.props.modelName} versionsToRuns={this.props.versionsToRuns} />
         </RequestStateWrapper>
       </PageContainer>
     );
@@ -146,3 +133,5 @@ export const CompareModelVersionsPage = withErrorBoundary(
   ErrorUtils.mlflowServices.MODEL_REGISTRY,
   CompareModelVersionsPageWithRouter,
 );
+
+export default CompareModelVersionsPage;

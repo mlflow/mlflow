@@ -3,7 +3,7 @@ import click
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
-from mlflow.utils.annotations import experimental
+from mlflow.utils.os import is_windows
 
 
 def validate_config_path(_ctx, _param, value):
@@ -19,7 +19,6 @@ def commands():
     pass
 
 
-@experimental
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
@@ -44,4 +43,6 @@ def commands():
     help="The number of workers.",
 )
 def start(config_path: str, host: str, port: str, workers: int):
+    if is_windows():
+        raise click.ClickException("MLflow AI Gateway does not support Windows.")
     run_app(config_path=config_path, host=host, port=port, workers=workers)

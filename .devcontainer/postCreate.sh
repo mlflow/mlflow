@@ -5,4 +5,6 @@ git config --add oh-my-zsh.hide-status 1
 git config --add oh-my-zsh.hide-dirty 1
 git config --global --add safe.directory /workspaces/mlflow
 pre-commit install -t pre-commit -t prepare-commit-msg
-pip install --no-deps -e .
+pip install --no-deps \
+  -e . \
+  -e ./dev/clint

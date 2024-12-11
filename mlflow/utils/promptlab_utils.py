@@ -3,14 +3,13 @@ import os
 import tempfile
 import time
 from datetime import datetime
-from typing import List
 
 from mlflow.entities.param import Param
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.utils.file_utils import make_containing_dirs, write_to
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS, MLFLOW_RUN_SOURCE_TYPE
-from mlflow.version import VERSION as __version__  # noqa: F401
+from mlflow.version import VERSION as __version__
 
 
 def create_eval_results_json(prompt_parameters, model_input, model_output_parameters, model_output):
@@ -29,13 +28,13 @@ def _create_promptlab_run_impl(
     store,
     experiment_id: str,
     run_name: str,
-    tags: List[RunTag],
+    tags: list[RunTag],
     prompt_template: str,
-    prompt_parameters: List[Param],
+    prompt_parameters: list[Param],
     model_route: str,
-    model_parameters: List[Param],
+    model_parameters: list[Param],
     model_input: str,
-    model_output_parameters: List[Param],
+    model_output_parameters: list[Param],
     model_output: str,
     mlflow_version: str,
     user_id: str,
@@ -98,7 +97,7 @@ def _create_promptlab_run_impl(
                 outputs=Schema(outputs_colspecs),
             )
 
-        from mlflow._promptlab import save_model
+        from mlflow.promptlab import save_model
         from mlflow.server.handlers import (
             _get_artifact_repo_mlflow_artifacts,
             _get_proxied_run_artifact_destination_path,

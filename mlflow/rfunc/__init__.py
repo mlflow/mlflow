@@ -38,3 +38,5 @@ Example:
       model: r_model.bin
 
 """
+
+FLAVOR_NAME = "crate"

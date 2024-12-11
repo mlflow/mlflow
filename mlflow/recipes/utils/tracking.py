@@ -4,7 +4,7 @@ import pathlib
 import shutil
 import tempfile
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
@@ -60,20 +60,20 @@ class TrackingConfig:
         artifact_location: Optional[str] = None,
     ):
         """
-        :param tracking_uri: The MLflow Tracking URI.
-        :param experiment_name: The MLflow Experiment name. At least one of ``experiment_name`` or
-                                ``experiment_id`` must be specified. If both are specified, they
-                                must be consistent with Tracking server state. Note that this
-                                Experiment may not exist prior to recipe execution.
-        :param experiment_id: The MLflow Experiment ID. At least one of ``experiment_name`` or
-                              ``experiment_id`` must be specified. If both are specified, they
-                              must be consistent with Tracking server state. Note that this
-                              Experiment may not exist prior to recipe execution.
-        :param run_name: The MLflow Run Name. If the run name is not specified, then a random
-                                name is set for the run.
-        :param artifact_location: The artifact location to use for the Experiment, if the Experiment
-                                  does not already exist. If the Experiment already exists, this
-                                  location is ignored.
+        Args:
+            tracking_uri: The MLflow Tracking URI.
+            experiment_name: The MLflow Experiment name. At least one of ``experiment_name`` or
+                ``experiment_id`` must be specified. If both are specified, they must be consistent
+                with Tracking server state. Note that this Experiment may not exist prior to recipe
+                execution.
+            experiment_id: The MLflow Experiment ID. At least one of ``experiment_name`` or
+                ``experiment_id`` must be specified. If both are specified, they must be consistent
+                with Tracking server state. Note that this Experiment may not exist prior to recipe
+                execution.
+            run_name: The MLflow Run Name. If the run name is not specified, then a random name is
+                set for the run.
+            artifact_location: The artifact location to use for the Experiment, if the Experiment
+                does not already exist. If the Experiment already exists, this location is ignored.
         """
         if tracking_uri is None:
             raise MlflowException(
@@ -92,11 +92,12 @@ class TrackingConfig:
         self.run_name = run_name
         self.artifact_location = artifact_location
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """
         Obtains a dictionary representation of the MLflow Tracking configuration.
 
-        :return: A dictionary representation of the MLflow Tracking configuration.
+        Returns:
+            A dictionary representation of the MLflow Tracking configuration.
         """
         config_dict = {
             TrackingConfig._KEY_TRACKING_URI: self.tracking_uri,
@@ -117,12 +118,15 @@ class TrackingConfig:
         return config_dict
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, str]) -> "TrackingConfig":
+    def from_dict(cls, config_dict: dict[str, str]) -> "TrackingConfig":
         """
         Creates a ``TrackingConfig`` instance from a dictionary representation.
 
-        :param config_dict: A dictionary representation of the MLflow Tracking configuration.
-        :return: A ``TrackingConfig`` instance.
+        Args:
+            config_dict: A dictionary representation of the MLflow Tracking configuration.
+
+        Returns:
+            A ``TrackingConfig`` instance.
         """
         return TrackingConfig(
             tracking_uri=config_dict.get(TrackingConfig._KEY_TRACKING_URI),
@@ -134,16 +138,19 @@ class TrackingConfig:
 
 
 def get_recipe_tracking_config(
-    recipe_root_path: str, recipe_config: Dict[str, Any]
+    recipe_root_path: str, recipe_config: dict[str, Any]
 ) -> TrackingConfig:
     """
     Obtains the MLflow Tracking configuration for the specified recipe.
 
-    :param recipe_root_path: The absolute path of the recipe root directory on the local
-                               filesystem.
-    :param recipe_config: The configuration of the specified recipe.
-    :return: A ``TrackingConfig`` instance containing MLflow Tracking information for the
-             specified recipe, including Tracking URI, Experiment name, and more.
+    Args:
+        recipe_root_path: The absolute path of the recipe root directory on the local
+            filesystem.
+        recipe_config: The configuration of the specified recipe.
+
+    Returns:
+        A ``TrackingConfig`` instance containing MLflow Tracking information for the
+        specified recipe, including Tracking URI, Experiment name, and more.
     """
     if is_in_databricks_runtime():
         default_tracking_uri = "databricks"
@@ -199,7 +206,8 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
     MLflow Tracking URI (via ``mlflow.set_tracking_uri()``) and setting the associated MLflow
     Experiment (via ``mlflow.set_experiment()``), creating it if necessary.
 
-    :param tracking_config: The MLflow Recipe ``TrackingConfig`` to apply.
+    Args:
+        tracking_config: The MLflow Recipe ``TrackingConfig`` to apply.
     """
     mlflow.set_tracking_uri(uri=tracking_config.tracking_uri)
 
@@ -222,7 +230,7 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
                 raise MlflowException(
                     f"Could not create an MLflow Experiment with "
                     f"name {tracking_config.experiment_name}. Please create an "
-                    f"MLflow Experiment for this recipe and specify its name in the"
+                    f"MLflow Experiment for this recipe and specify its name in the "
                     f'"name" field of the "experiment" section in your profile configuration.'
                 )
 
@@ -231,15 +239,18 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
     )
 
 
-def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
+def get_run_tags_env_vars(recipe_root_path: str) -> dict[str, str]:
     """
     Returns environment variables that should be set during step execution to ensure that MLflow
     Run Tags from the current context are applied to any MLflow Runs that are created during
     recipe execution.
 
-    :param recipe_root_path: The absolute path of the recipe root directory on the local
-                               filesystem.
-    :return: A dictionary of environment variable names and values.
+    Args:
+        recipe_root_path: The absolute path of the recipe root directory on the local
+            filesystem.
+
+    Returns:
+        A dictionary of environment variable names and values.
     """
     run_context_tags = resolve_tags()
 
@@ -263,15 +274,16 @@ def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
-    recipe_config: Optional[Dict[str, Any]] = None,
+    recipe_config: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Logs a recipe code snapshot as mlflow artifacts.
 
-    :param recipe_root_path: String file path to the directory where the recipe is defined.
-    :param run_id: Run ID to which the code snapshot is logged.
-    :param artifact_path: Directory within the run's artifact director (default: "snapshots").
-    :param recipe_config: Dict containing the full recipe configuration at runtime.
+    Args:
+        recipe_root: String file path to the directory where the recipe is defined.
+        run_id: Run ID to which the code snapshot is logged.
+        artifact_path: Directory within the run's artifact director (default: "snapshots").
+        recipe_config: Dict containing the full recipe configuration at runtime.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)

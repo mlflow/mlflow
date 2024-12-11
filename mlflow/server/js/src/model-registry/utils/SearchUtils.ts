@@ -18,7 +18,8 @@ export function getModelNameFilter(query: any) {
 
 export function getCombinedSearchFilter({
   query = '',
-  // eslint-disable-nextline
+}: {
+  query?: string;
 } = {}) {
   const filters = [];
   const initialFilter = query.includes('tags.') ? query : getModelNameFilter(query);

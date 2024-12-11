@@ -1,12 +1,15 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
@@ -41,30 +44,32 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "max_tokens": 1000,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "This is a test",
-                    "metadata": {},
-                }
-            ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "mpt-7b-instruct",
-                "route_type": "llm/v1/completions",
-            },
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "mpt-7b-instruct",
+            "choices": [{"text": "This is a test", "index": 0, "finish_reason": None}],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://models.hosted-on.mosaicml.hosting/mpt-7b-instruct/v1/predict",
+            json={
+                "inputs": ["This is a test"],
+                "parameters": {"temperature": 0.0, "n": 1, "max_new_tokens": 1000},
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def chat_config():
@@ -91,58 +96,110 @@ def chat_response():
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_llm_input"),
     [
-        {"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-            ]
-        },
-        {
-            "messages": [{"role": "user", "content": "Tell me a joke"}],
-            "temperature": 0.5,
-            "max_tokens": 1000,
-        },
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-                {"role": "assistant", "content": "Haha"},
-                {"role": "user", "content": "That was a bad joke"},
-            ]
-        },
+        (
+            {"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            {
+                "inputs": ["<s>[INST] Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                ]
+            },
+            {
+                "inputs": ["<s>[INST] <<SYS>> You're funny <</SYS>> Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [{"role": "user", "content": "Tell me a joke"}],
+                "temperature": 0.5,
+                "max_tokens": 1000,
+            },
+            {
+                "inputs": ["<s>[INST] Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.5,
+                    "n": 1,
+                    "max_new_tokens": 1000,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                    {"role": "assistant", "content": "Haha"},
+                    {"role": "user", "content": "That was a bad joke"},
+                ]
+            },
+            {
+                "inputs": [
+                    (
+                        "<s>[INST] <<SYS>> You're funny <</SYS>>"
+                        " Tell me a joke [/INST] Haha </s><s>[INST]"
+                        " That was a bad joke [/INST]"
+                    )
+                ],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_chat(payload):
+async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = MosaicMLProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "llama2-70b-chat",
+            "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "This is a test",
+                        "tool_calls": None,
                     },
-                    "metadata": {"finish_reason": None},
+                    "finish_reason": None,
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
                 "total_tokens": None,
-                "model": "llama2-70b-chat",
-                "route_type": "llm/v1/chat",
             },
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://models.hosted-on.mosaicml.hosting/llama2-70b-chat/v1/predict",
+            json=expected_llm_input,
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embeddings_config():
@@ -175,6 +232,30 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "outputs": [
+            [
+                3.25,
+                0.7685547,
+                2.65625,
+                -0.30126953,
+                -2.3554688,
+                1.2597656,
+            ],
+            [
+                7.25,
+                0.7685547,
+                4.65625,
+                -0.30126953,
+                -2.3554688,
+                8.2597656,
+            ],
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.asyncio
 async def test_embeddings():
     resp = embeddings_response()
@@ -183,26 +264,70 @@ async def test_embeddings():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
-        payload = {"text": "This is a test"}
+        payload = {"input": ["This is a", "batch test"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    3.25,
-                    0.7685547,
-                    2.65625,
-                    -0.30126953,
-                    -2.3554688,
-                    1.2597656,
-                ]
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "instructor-large",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "instructor-large",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_batch_embeddings():
+    resp = embeddings_batch_response()
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {"input": "This is a test"}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        7.25,
+                        0.7685547,
+                        4.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        8.2597656,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "instructor-large",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_post.assert_called_once()
 
@@ -216,7 +341,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422

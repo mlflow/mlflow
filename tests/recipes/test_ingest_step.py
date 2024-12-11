@@ -94,7 +94,7 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-def custom_load_csv(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_csv(file_path, file_format):
     return pd.read_csv(file_path, index_col=0)
 
 
@@ -182,7 +182,7 @@ def test_ingests_csv_successfully(
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_wine_csv(file_path, file_format):
     return pd.read_csv(file_path, sep=";")
 
 
@@ -213,7 +213,7 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
         assert reloaded_df.count()[0] == 6497
 
 
-def custom_load_file_as_dataframe(file_path, file_format):  # pylint: disable=unused-argument
+def custom_load_file_as_dataframe(file_path, file_format):
     return pd.read_csv(file_path, sep="#", index_col=0)
 
 
@@ -659,11 +659,15 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
 
-    with mock.patch(
-        "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
-        side_effect=Exception("Spark unavailable"),
-    ), pytest.raises(
-        MlflowException, match="Encountered an error while searching for an active Spark session"
+    with (
+        mock.patch(
+            "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
+            side_effect=Exception("Spark unavailable"),
+        ),
+        pytest.raises(
+            MlflowException,
+            match="Encountered an error while searching for an active Spark session",
+        ),
     ):
         IngestStep.from_recipe_config(
             recipe_config={

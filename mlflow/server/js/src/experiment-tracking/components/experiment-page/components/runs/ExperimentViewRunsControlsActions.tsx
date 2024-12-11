@@ -1,48 +1,39 @@
-import {
-  Button,
-  Checkbox,
-  FullscreenExitIcon,
-  FullscreenIcon,
-  SidebarIcon,
-} from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
-import { Tooltip } from '@databricks/design-system';
-import { COLUMN_SORT_BY_ASC, LIFECYCLE_FILTER, SORT_DELIMITER_SYMBOL } from '../../../../constants';
+import { LegacyTooltip } from '@databricks/design-system';
+import { LIFECYCLE_FILTER } from '../../../../constants';
 import Routes from '../../../../routes';
-import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
-import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
-import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
-import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import {
-  shouldEnableArtifactBasedEvaluation,
-  shouldEnableExperimentDatasetTracking,
-} from '../../../../../common/utils/FeatureUtils';
-import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
-import { useExperimentIds } from '../../hooks/useExperimentIds';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { RunInfoEntity } from '../../../../types';
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { shouldEnableTaggingMultipleRuns } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
 
 export type ExperimentViewRunsControlsActionsProps = {
-  viewState: SearchExperimentRunsViewState;
-  searchFacetsState: SearchExperimentRunsFacetsState;
+  viewState: ExperimentPageViewState;
+  searchFacetsState: ExperimentPageSearchFacetsState;
   runsData: ExperimentRunsSelectorResult;
+  refreshRuns: () => void;
 };
 
 const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
-  ({ viewState, runsData, searchFacetsState }: ExperimentViewRunsControlsActionsProps) => {
+  ({ viewState, runsData, searchFacetsState, refreshRuns }: ExperimentViewRunsControlsActionsProps) => {
+    const usingTaggingMultipleRuns = shouldEnableTaggingMultipleRuns();
+
     const { runsSelected } = viewState;
-    const { runInfos } = runsData;
+    const { runInfos, tagsList } = runsData;
     const { lifecycleFilter } = searchFacetsState;
 
     const navigate = useNavigate();
+    const { theme } = useDesignSystemTheme();
 
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);
@@ -51,9 +42,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
     const renameButtonClicked = useCallback(() => {
       const runsSelectedList = Object.keys(runsSelected);
-      const selectedRun = runInfos.find((info) => info.run_uuid === runsSelectedList[0]);
+      const selectedRun = runInfos.find((info) => info.runUuid === runsSelectedList[0]);
       if (selectedRun) {
-        setRenamedRunName(selectedRun.run_name);
+        setRenamedRunName(selectedRun.runName);
         setShowRenameRunModal(true);
       }
     }, [runInfos, runsSelected]);
@@ -61,8 +52,8 @@ export const ExperimentViewRunsControlsActions = React.memo(
     const compareButtonClicked = useCallback(() => {
       const runsSelectedList = Object.keys(runsSelected);
       const experimentIds = runInfos
-        .filter(({ run_uuid }: any) => runsSelectedList.includes(run_uuid))
-        .map(({ experiment_id }: any) => experiment_id);
+        .filter(({ runUuid }: RunInfoEntity) => runsSelectedList.includes(runUuid))
+        .map(({ experimentId }: any) => experimentId);
 
       navigate(Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()));
     }, [navigate, runInfos, runsSelected]);
@@ -83,56 +74,71 @@ export const ExperimentViewRunsControlsActions = React.memo(
       <>
         <div css={styles.controlBar}>
           <Button
-            data-testid='run-rename-button'
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_110"
+            data-testid="run-rename-button"
             onClick={renameButtonClicked}
             disabled={!canRenameRuns}
           >
             <FormattedMessage
-              defaultMessage='Rename'
-              description='Label for the rename run button above the experiment runs table'
+              defaultMessage="Rename"
+              description="Label for the rename run button above the experiment runs table"
             />
           </Button>
           {lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
             <Button
-              data-testid='runs-delete-button'
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_117"
+              data-testid="runs-delete-button"
               disabled={!canRestoreRuns}
               onClick={onDeleteRun}
               danger
             >
               <FormattedMessage
-                defaultMessage='Delete'
+                defaultMessage="Delete"
                 // eslint-disable-next-line max-len
-                description='String for the delete button to delete a particular experiment run'
+                description="String for the delete button to delete a particular experiment run"
               />
             </Button>
           ) : null}
           {lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
             <Button
-              data-testid='runs-restore-button'
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_126"
+              data-testid="runs-restore-button"
               disabled={!canRestoreRuns}
               onClick={onRestoreRun}
             >
               <FormattedMessage
-                defaultMessage='Restore'
+                defaultMessage="Restore"
                 // eslint-disable-next-line max-len
-                description='String for the restore button to undo the experiments that were deleted'
+                description="String for the restore button to undo the experiments that were deleted"
               />
             </Button>
           ) : null}
           <div css={styles.buttonSeparator} />
           <CompareRunsButtonWrapper>
             <Button
-              data-testid='runs-compare-button'
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsactions.tsx_136"
+              data-testid="runs-compare-button"
               disabled={!canCompareRuns}
               onClick={compareButtonClicked}
             >
               <FormattedMessage
-                defaultMessage='Compare'
+                defaultMessage="Compare"
                 // eslint-disable-next-line max-len
-                description='String for the compare button to compare experiment runs to find an ideal model'
+                description="String for the compare button to compare experiment runs to find an ideal model"
               />
             </Button>
           </CompareRunsButtonWrapper>
+          {usingTaggingMultipleRuns && (
+            <>
+              <div css={styles.buttonSeparator} />
+              <ExperimentViewRunsControlsActionsSelectTags
+                runsSelected={runsSelected}
+                runInfos={runInfos}
+                tagsList={tagsList}
+                refreshRuns={refreshRuns}
+              />
+            </>
+          )}
         </div>
         <ExperimentViewRunModals
           runsSelected={runsSelected}
@@ -143,6 +149,7 @@ export const ExperimentViewRunsControlsActions = React.memo(
           showRestoreRunModal={showRestoreRunModal}
           showRenameRunModal={showRenameRunModal}
           renamedRunName={renamedRunName}
+          refreshRuns={refreshRuns}
         />
       </>
     );

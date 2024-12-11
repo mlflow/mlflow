@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+/* prettier-ignore */
 export const mockRegisteredModelDetailed = (
   name: any,
   latestVersions = [],
@@ -30,6 +31,7 @@ export const mockModelVersionDetailed = (
   run_link = undefined,
   run_id = 'b99a0fc567ae4d32994392c800c0b6ce',
   user_id = 'richard@example.com',
+  source = 'path/to/model',
 ) => {
   return {
     name,
@@ -40,7 +42,7 @@ export const mockModelVersionDetailed = (
     user_id: user_id,
     current_stage: stage,
     description: '',
-    source: 'path/to/model',
+    source: source,
     run_id: run_id,
     run_link: run_link,
     status,

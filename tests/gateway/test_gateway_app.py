@@ -82,6 +82,7 @@ def test_search_routes(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": None,
         },
         {
             "name": "chat-gpt4",
@@ -91,6 +92,7 @@ def test_search_routes(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": None,
         },
     ]
 
@@ -106,6 +108,7 @@ def test_get_route(client: TestClient):
             "name": "gpt-4",
             "provider": "openai",
         },
+        "limit": None,
     }
 
 
@@ -124,6 +127,7 @@ def test_dynamic_route():
                             "openai_api_base": "https://api.openai.com/v1",
                         },
                     },
+                    "limit": None,
                 }
             ]
         }
@@ -135,7 +139,7 @@ def test_dynamic_route():
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -163,24 +167,26 @@ def test_dynamic_route():
         mock_post.assert_called_once()
         assert resp.status_code == 200
         assert resp.json() == {
-            "candidates": [
+            "id": "chatcmpl-abc123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "gpt-4o-mini",
+            "usage": {
+                "prompt_tokens": 13,
+                "completion_tokens": 7,
+                "total_tokens": 20,
+            },
+            "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
+                        "tool_calls": None,
                     },
-                    "metadata": {
-                        "finish_reason": "stop",
-                    },
+                    "finish_reason": "stop",
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": 13,
-                "output_tokens": 7,
-                "total_tokens": 20,
-                "model": "gpt-3.5-turbo-0301",
-                "route_type": "llm/v1/chat",
-            },
         }
 
 

@@ -75,6 +75,11 @@ message DatabricksRpcOptions {
   optional string rpc_doc_title = 5;
 }
 
+// Defines the set of options needed for autogenerating graphql modules.
+// Will add more fields (batch loader, renaming) later.
+// Empty for now. The rpc will be visible for graphql module autogeneration if this field is set.
+message DatabricksGraphqlOptions {}
+
 // Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.MethodOptions {
   optional DatabricksRpcOptions rpc = 51310;
@@ -83,6 +88,9 @@ extend google.protobuf.MethodOptions {
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
   repeated DocumentationMetadata method_doc = 51314; // Same id everywhere
+
+  // If this is set, this rpc will be visible for graphql module autogeneration.
+  optional DatabricksGraphqlOptions graphql = 51399;
 }
 
 // Note: 51310 is the beginning of the range of proto extension values for use by applications.

@@ -5,8 +5,7 @@ import pandas as pd
 
 import mlflow
 from mlflow.metrics import make_metric
-from mlflow.metrics.base import MetricValue
-from mlflow.metrics.metric_definitions import standard_aggregations
+from mlflow.metrics.base import MetricValue, standard_aggregations
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
@@ -49,8 +48,8 @@ with mlflow.start_run() as run:
         "Generate code that is less than 50 characters. Return only python code and nothing else."
     )
     logged_model = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        model="gpt-4o-mini",
+        task=openai.chat.completions,
         artifact_path="model",
         messages=[
             {"role": "system", "content": system_prompt},

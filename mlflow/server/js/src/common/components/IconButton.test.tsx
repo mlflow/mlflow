@@ -1,48 +1,40 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
-import { shallow, mount } from 'enzyme';
-import { Button } from '@databricks/design-system';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { IconButton } from './IconButton';
+import userEvent from '@testing-library/user-event-14';
+
+const minimalProps = { icon: () => <span /> };
 
 describe('IconButton', () => {
-  let wrapper;
-  let mockOnClick;
-  let minimalProps: any;
-
-  beforeEach(() => {
-    minimalProps = { icon: () => <span /> };
-  });
-
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<IconButton {...minimalProps} />);
-    expect(wrapper.length).toBe(1);
+    renderWithIntl(<IconButton {...minimalProps} />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
   test('should not have padding', () => {
-    wrapper = shallow(<IconButton {...minimalProps} />);
-    expect(wrapper.find(Button).get(0).props.style).toHaveProperty('padding', 0);
+    renderWithIntl(<IconButton {...minimalProps} />);
+    expect(screen.getByRole('button')).toHaveStyle('padding: 0px');
   });
 
   test('should propagate props to Button', () => {
     const props = {
-      className: 'class',
+      className: 'dummy-class',
       style: { margin: 5 },
     };
-    wrapper = shallow(<IconButton {...{ ...minimalProps, ...props }} />);
-    expect(wrapper.find(Button).get(0).props).toHaveProperty('className', 'class');
-    expect(wrapper.find(Button).get(0).props.style).toHaveProperty('margin', 5);
+    renderWithIntl(<IconButton {...{ ...minimalProps, ...props }} />);
+
+    expect(screen.getByRole('button')).toHaveStyle('padding: 0px');
+    expect(screen.getByRole('button')).toHaveStyle('margin: 5px');
   });
 
-  test('should trigger onClick when clicked', () => {
-    mockOnClick = jest.fn();
-    wrapper = mount(<IconButton {...minimalProps} onClick={mockOnClick} />);
-    wrapper.find('button').simulate('click');
+  test('should trigger onClick when clicked', async () => {
+    const mockOnClick = jest.fn();
+    const props = {
+      ...minimalProps,
+      onClick: mockOnClick,
+    };
+    renderWithIntl(<IconButton {...props} />);
+    await userEvent.click(screen.getByRole('button'));
     expect(mockOnClick).toHaveBeenCalledTimes(1);
   });
 });

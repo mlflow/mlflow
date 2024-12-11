@@ -36,12 +36,12 @@ chances of LLMs producing misleading or incorrect information. Furthermore, it o
 businesses, as there's less need for continuous retraining of the model. With RAG, LLMs can provide answers that are not 
 only more accurate but also more trustworthy, paving the way for a new era of AI-driven insights and interactions.
 
-Explore the Tutorial
---------------------
+Explore RAG Tutorials
+---------------------
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the RAG Question Generation Tutorial</a><br/>
+    <a href="notebooks/index.html" class="download-btn">View RAG Tutorials</a><br/>
 
 .. toctree::
     :maxdepth: 1

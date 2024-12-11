@@ -1,15 +1,11 @@
+import { renderHook } from '@testing-library/react';
+
 import { ATTRIBUTE_COLUMN_SORT_LABEL } from '../../../constants';
 import { useRunSortOptions } from './useRunSortOptions';
 
-jest.mock('react', () => ({
-  ...jest.requireActual('react'),
-  // Mock useMemo() so we can use it outside React component
-  useMemo: (fn: any) => fn(),
-}));
-
 describe('useRunSortOptions', () => {
   test('tests useRunSortOptions without metrics nor params', () => {
-    const sortOptions = useRunSortOptions([], []);
+    const sortOptions = renderHook(() => useRunSortOptions([], [])).result.current;
 
     expect(sortOptions).toStrictEqual([
       {
@@ -60,13 +56,24 @@ describe('useRunSortOptions', () => {
       {
         label: ATTRIBUTE_COLUMN_SORT_LABEL.VERSION,
         value: 'tags.`mlflow.source.git.commit`***DESCENDING',
+        order: 'DESCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***ASCENDING',
+        order: 'ASCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***DESCENDING',
         order: 'DESCENDING',
       },
     ]);
   });
 
   test('creates RunSortOptions with metrics and params', () => {
-    const sortOptions = useRunSortOptions(['metric1', 'metric2'], ['param1', 'param2']);
+    const sortOptions = renderHook(() => useRunSortOptions(['metric1', 'metric2'], ['param1', 'param2'])).result
+      .current;
 
     expect(sortOptions).toStrictEqual([
       {
@@ -117,6 +124,16 @@ describe('useRunSortOptions', () => {
       {
         label: ATTRIBUTE_COLUMN_SORT_LABEL.VERSION,
         value: 'tags.`mlflow.source.git.commit`***DESCENDING',
+        order: 'DESCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***ASCENDING',
+        order: 'ASCENDING',
+      },
+      {
+        label: ATTRIBUTE_COLUMN_SORT_LABEL.DESCRIPTION,
+        value: 'tags.`mlflow.note.content`***DESCENDING',
         order: 'DESCENDING',
       },
       {

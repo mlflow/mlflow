@@ -7,8 +7,7 @@
 
 import React, { Component } from 'react';
 
-import { Form } from 'antd';
-import { Input } from '@databricks/design-system';
+import { LegacyForm, Input } from '@databricks/design-system';
 import { ModelRegistryDocUrl } from '../../common/constants';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
@@ -30,8 +29,9 @@ class CreateModelFormImpl extends Component<Props> {
   render() {
     const learnMoreLinkUrl = CreateModelFormImpl.getLearnMoreLinkUrl();
     return (
-      <Form ref={this.props.innerRef} layout='vertical' data-testid='create-model-form-modal'>
-        <Form.Item
+      // @ts-expect-error TS(2322)
+      <LegacyForm ref={this.props.innerRef} layout="vertical" data-testid="create-model-form-modal">
+        <LegacyForm.Item
           name={MODEL_NAME_FIELD}
           label={this.props.intl.formatMessage({
             defaultMessage: 'Model name',
@@ -42,29 +42,28 @@ class CreateModelFormImpl extends Component<Props> {
               required: true,
               message: this.props.intl.formatMessage({
                 defaultMessage: 'Please input a name for the new model.',
-                description:
-                  'Error message for having no input for creating models in the model registry',
+                description: 'Error message for having no input for creating models in the model registry',
               }),
             },
             { validator: this.props.validator },
           ]}
         >
-          <Input autoFocus />
-        </Form.Item>
-        <p className='create-modal-explanatory-text'>
+          <Input componentId="codegen_mlflow_app_src_model-registry_components_createmodelform.tsx_62" autoFocus />
+        </LegacyForm.Item>
+        <p className="create-modal-explanatory-text">
           <FormattedMessage
-            defaultMessage='After creation, you can register logged models as new versions.&nbsp;'
-            description='Text for form description on creating model in the model registry'
+            defaultMessage="After creation, you can register logged models as new versions.&nbsp;"
+            description="Text for form description on creating model in the model registry"
           />
           <FormattedMessage
-            defaultMessage='<link>Learn more</link>'
-            description='Learn more link on the form for creating model in the model registry'
+            defaultMessage="<link>Learn more</link>"
+            description="Learn more link on the form for creating model in the model registry"
             values={{
               link: (
                 chunks: any, // Reported during ESLint upgrade
               ) => (
                 // eslint-disable-next-line react/jsx-no-target-blank
-                <a href={learnMoreLinkUrl} target='_blank'>
+                <a href={learnMoreLinkUrl} target="_blank">
                   {chunks}
                 </a>
               ),
@@ -72,7 +71,7 @@ class CreateModelFormImpl extends Component<Props> {
           />
           .
         </p>
-      </Form>
+      </LegacyForm>
     );
   }
 }

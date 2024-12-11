@@ -31,16 +31,14 @@ declare module '*.webp' {
 declare module '*.svg' {
   import React from 'react';
 
-  export const ReactComponent: React.FunctionComponent<
-    React.SVGProps<SVGSVGElement> & { title?: string }
-  >;
+  export const ReactComponent: React.FunctionComponent<React.SVGProps<SVGSVGElement> & { title?: string }>;
 
   const src: string;
   export default src;
 }
 
 declare module '*.gql' {
-  import type { DocumentNode } from 'graphql';
+  import type { DocumentNode } from '@mlflow/mlflow/src/graphql';
   const value: DocumentNode;
   export default value;
 }

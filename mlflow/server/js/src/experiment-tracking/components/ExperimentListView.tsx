@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { css } from '@emotion/react';
+import { css, Theme } from '@emotion/react';
 import {
   Checkbox,
   CaretDownSquareIcon,
@@ -15,28 +15,25 @@ import {
   PencilIcon,
   Typography,
   WithDesignSystemThemeHoc,
+  DesignSystemHocProps,
 } from '@databricks/design-system';
 import { List } from 'antd';
 import { List as VList, AutoSizer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
-import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
 import { withRouterNext } from '../../common/utils/withRouterNext';
+import { ExperimentEntity } from '../types';
 
 type Props = {
   activeExperimentIds: string[];
-  designSystemThemeApi: {
-    theme?: any;
-  };
-  // @ts-expect-error TS(2749): 'Experiment' refers to a value, but is being used ... Remove this comment to see the full error message
-  experiments: Experiment[];
+  experiments: ExperimentEntity[];
   navigate: NavigateFunction;
-};
+} & DesignSystemHocProps;
 
 type State = any;
 
@@ -154,66 +151,61 @@ export class ExperimentListView extends Component<Props, State> {
   };
 
   // Avoid calling emotion for every list item
-  activeExperimentListItem = classNames.getExperimentListItemContainer(
-    true,
-    this.props.designSystemThemeApi.theme,
-  );
-  inactiveExperimentListItem = classNames.getExperimentListItemContainer(
-    false,
-    this.props.designSystemThemeApi.theme,
-  );
+  activeExperimentListItem = classNames.getExperimentListItemContainer(true, this.props.designSystemThemeApi.theme);
+  inactiveExperimentListItem = classNames.getExperimentListItemContainer(false, this.props.designSystemThemeApi.theme);
 
   renderListItem = ({ index, key, style, isScrolling, parent }: any) => {
     // Use the parents props to index.
     const item = parent.props.data[index];
     const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds.includes(item.experiment_id);
+    const isActive = activeExperimentIds.includes(item.experimentId);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     // Clicking the link removes all checks and marks other experiments
     // as not active.
     return (
       <div
         css={isActive ? this.activeExperimentListItem : this.inactiveExperimentListItem}
-        data-test-id={dataTestId}
+        data-testid={dataTestId}
         key={key}
         style={style}
       >
         <List.Item
-          key={item.experiment_id}
+          key={item.experimentId}
           // @ts-expect-error TS(2322): Type '{ key: any; bordered: string; prefixCls: str... Remove this comment to see the full error message
-          bordered='false'
-          prefixCls={'experiment-list-meta'}
+          bordered="false"
+          prefixCls="experiment-list-meta"
           css={classNames.experimentListItem}
           actions={[
             <Checkbox
-              id={item.experiment_id}
-              key={item.experiment_id}
-              onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
-              checked={isActive}
-              data-test-id={`${dataTestId}-check-box`}
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experimentlistview.tsx_180"
+              id={item.experimentId}
+              key={item.experimentId}
+              onChange={(isChecked) => this.handleCheck(isChecked, item.experimentId)}
+              isChecked={isActive}
+              data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
-              className={'experiment-link'}
-              to={Routes.getExperimentPageRoute(item.experiment_id)}
-              onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
+              className="experiment-link"
+              to={Routes.getExperimentPageRoute(item.experimentId)}
+              onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
               title={item.name}
-              data-test-id={`${dataTestId}-link`}
+              data-testid={`${dataTestId}-link`}
             >
               {item.name}
             </Link>,
             <IconButton
               icon={<PencilIcon />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; "data-... Remove this comment to see the full error message
-              onClick={this.handleRenameExperiment(item.experiment_id, item.name)}
-              data-test-id='rename-experiment-button'
+              onClick={this.handleRenameExperiment(item.experimentId, item.name)}
+              data-testid="rename-experiment-button"
               css={classNames.renameExperiment}
             />,
             <IconButton
-              icon={<i className='far fa-trash-o' />}
+              icon={<i className="far fa-trash-o" />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; css: {... Remove this comment to see the full error message
-              onClick={this.handleDeleteExperiment(item.experiment_id, item.name)}
+              onClick={this.handleDeleteExperiment(item.experimentId, item.name)}
               css={classNames.deleteExperiment}
-              data-test-id='delete-experiment-button'
+              data-testid="delete-experiment-button"
             />,
           ]}
         ></List.Item>
@@ -230,23 +222,25 @@ export class ExperimentListView extends Component<Props, State> {
 
   render() {
     const { hidden } = this.state;
+    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { theme } = designSystemThemeApi;
+
     if (hidden) {
       return (
         <CaretDownSquareIcon
           rotate={-90}
           onClick={this.unHide}
-          css={{ fontSize: '24px' }}
-          title='Show experiment list'
+          css={classNames.icon(theme)}
+          title="Show experiment list"
         />
       );
     }
 
     const { searchInput } = this.state;
-    const { activeExperimentIds } = this.props;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
-      <div id='experiment-list-outer-container' css={classNames.experimentListOuterContainer}>
+      <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer}>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
@@ -268,28 +262,28 @@ export class ExperimentListView extends Component<Props, State> {
           <Typography.Title level={2} style={{ margin: 0 }}>
             Experiments
           </Typography.Title>
-          <PlusCircleIcon
-            onClick={this.handleCreateExperiment}
-            css={{
-              fontSize: '24px',
-              marginLeft: 'auto',
-            }}
-            title='New Experiment'
-            data-test-id='create-experiment-button'
-          />
-          <CaretDownSquareIcon
-            onClick={this.hide}
-            rotate={90}
-            css={{ fontSize: '24px' }}
-            title='Hide experiment list'
-          />
+          <div>
+            <PlusCircleIcon
+              onClick={this.handleCreateExperiment}
+              css={classNames.icon(theme)}
+              title="New Experiment"
+              data-testid="create-experiment-button"
+            />
+            <CaretDownSquareIcon
+              onClick={this.hide}
+              rotate={90}
+              css={classNames.icon(theme)}
+              title="Hide experiment list"
+            />
+          </div>
         </div>
         <Input
-          placeholder='Search Experiments'
-          aria-label='search experiments'
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experimentlistview.tsx_280"
+          placeholder="Search Experiments"
+          aria-label="search experiments"
           value={searchInput}
           onChange={this.handleSearchInputChange}
-          data-test-id='search-experiment-input'
+          data-testid="search-experiment-input"
         />
         <div>
           <AutoSizer>
@@ -392,7 +386,11 @@ const classNames = {
     justifySelf: 'end',
     marginRight: '10px',
   },
+  icon: (theme: Theme) => ({
+    color: theme.colors.actionDefaultTextDefault,
+    fontSize: theme.general.iconSize,
+    marginLeft: theme.spacing.xs,
+  }),
 };
 
-// @ts-expect-error TS(2345): Argument of type '(props: Props) => ReactElement<a... Remove this comment to see the full error message
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));

@@ -1,25 +1,27 @@
-from mlflow.gateway import query, set_gateway_uri
+from mlflow.deployments import get_deploy_client
 
 
 def main():
-    # Set the URI for the MLflow AI Gateway
-    set_gateway_uri("http://localhost:5000")
+    client = get_deploy_client("http://localhost:7000")
+
+    print(f"OpenAI endpoints: {client.list_endpoints()}\n")
+    print(f"OpenAI endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
     # Completions example
-    response_completions = query(
-        route="completions",
-        data={
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
             "prompt": "How many patties could be stacked on a cheeseburger before issues arise?",
             "max_tokens": 200,
             "temperature": 0.25,
         },
     )
-    print(f"Fluent API completions response: {response_completions}")
+    print(f"OpenAI completions response: {response_completions}")
 
     # Chat example
-    response_chat = query(
-        route="chat",
-        data={
+    response_chat = client.predict(
+        endpoint="chat",
+        inputs={
             "messages": [
                 {
                     "role": "user",
@@ -29,12 +31,14 @@ def main():
             ]
         },
     )
-    print(f"Fluent API completions response: {response_chat}")
+    print(f"OpenAI completions response: {response_chat}")
 
     # Embeddings example
-    response_embeddings = query(
-        route="embeddings",
-        data={"text": "When you say 'enriched', what exactly are you enriching the cereal with?"},
+    response_embeddings = client.predict(
+        endpoint="embeddings",
+        inputs={
+            "input": "When you say 'enriched', what exactly are you enriching the cereal with?"
+        },
     )
     print(f"OpenAI response for embeddings: {response_embeddings}")
 

@@ -1,8 +1,8 @@
-## Example route configuration for MosaicML
+## Example endpoint configuration for MosaicML
 
-To see an example of specifying both the completions and the embeddings routes for MosaicML, see [the configuration](config.yaml) YAML file.
+To see an example of specifying both the completions and the embeddings endpoints for MosaicML, see [the configuration](config.yaml) YAML file.
 
-This configuration file specifies three routes: 'completions', 'embeddings', and 'chat', using MosaicML's models 'mpt-7b-instruct', 'instructor-xl', and 'llama2-70b-chat', respectively.
+This configuration file specifies three endpoints: 'completions', 'embeddings', and 'chat', using MosaicML's models 'mpt-7b-instruct', 'instructor-xl', and 'llama2-70b-chat', respectively.
 
 ## Setting a MosaicML API Key
 

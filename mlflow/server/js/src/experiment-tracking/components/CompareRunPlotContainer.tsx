@@ -1,13 +1,10 @@
-import { Select } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
 interface CompareRunPlotContainerProps {
   controls: React.ReactNode;
 }
 
-export const CompareRunPlotContainer = (
-  props: React.PropsWithChildren<CompareRunPlotContainerProps>,
-) => (
+export const CompareRunPlotContainer = (props: React.PropsWithChildren<CompareRunPlotContainerProps>) => (
   <div css={styles.wrapper}>
     <div css={styles.controls}>{props.controls}</div>
     <div css={styles.plotWrapper}>{props.children}</div>
@@ -27,6 +24,5 @@ const styles = {
   },
   controls: (theme: Theme) => ({
     padding: `0 ${theme.spacing.xs}px`,
-    [Select.toString()]: '100%',
   }),
 };

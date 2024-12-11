@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
+from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -33,7 +34,6 @@ from tests.helper_functions import (
     random_str,
 )
 
-# pylint: disable=no-name-in-module,reimported
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow.keras.layers import Concatenate, Dense, Input
     from tensorflow.keras.models import Model
@@ -45,6 +45,90 @@ else:
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+
+def build_and_save_sklearn_model(model_path):
+    from sklearn.datasets import load_iris
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression().fit(X, y)
+
+    mlflow.sklearn.save_model(model, path=model_path)
+
+
+class MyChatLLM(PythonModel):
+    def predict(self, context, model_input, params=None):
+        # If (and only-if) we define model signature, input is converted
+        # to pandas DataFrame in _enforce_schema applied in Pyfunc.predict.
+        # TODO: Confirm if this is ok, for me it sounds confusing.
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
+        messages = model_input["messages"]
+        ret = " ".join([m["content"] for m in messages])
+
+        return {
+            "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            "object": "chat.completion",
+            "created": 1698916461,
+            "model": "llama-2-70b-chat-hf",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": ret,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 47, "completion_tokens": 49, "total_tokens": 96},
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
+        }
+
+
+class MyCompletionsLLM(PythonModel):
+    # Example model that takes "prompt" as model input
+    def predict(self, context, model_input, params=None):
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
+        ret = model_input["prompt"]
+
+        return {
+            "choices": [
+                {
+                    "index": 0,
+                    "text": ret,
+                    "finish_reason": "stop",
+                }
+            ],
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
+        }
+
+
+class MyEmbeddingsLLM(PythonModel):
+    # Example model that takes "input" as model input
+    def predict(self, context, model_input, params=None):
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
+        return {
+            "data": [
+                {
+                    "index": 0,
+                    "embedding": [0.1, 0.2, 0.3],
+                }
+            ],
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
+        }
 
 
 @pytest.fixture
@@ -129,9 +213,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_mes
     response_json = json.loads(response.content)
     assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
     message = response_json.get("message")
-    expected_message = (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON formatted string."
-    )
+    expected_message = "Invalid input. Ensure that input is a valid JSON formatted string."
     assert expected_message in message
 
 
@@ -679,7 +761,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     server_proc = None
     try:
         server_proc = get_flavor_backend(
-            model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
+            model_path, env_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=port,
@@ -701,3 +783,309 @@ def test_scoring_server_client(sklearn_model, model_path):
     finally:
         if server_proc is not None:
             os.kill(server_proc.pid, signal.SIGTERM)
+
+
+_LLM_CHAT_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            Array(
+                Object(
+                    [
+                        Property("role", DataType.string),
+                        Property("content", DataType.string),
+                    ]
+                ),
+            ),
+            name="messages",
+        )
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "messages": [{"role": "user", "content": "hello!"}],
+                "max_tokens": 20,
+                "temperature": 0.5,
+            },
+            {},
+        ),
+        # Test case: signature with params, split params and data
+        (
+            ModelSignature(
+                inputs=_LLM_CHAT_INPUT_SCHEMA,
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                        ParamSpec("max_tokens", DataType.integer, default=20),
+                        ParamSpec("top_p", DataType.double, default=0.9),
+                    ]
+                ),
+            ),
+            {
+                "messages": [{"role": "user", "content": "hello!"}],
+            },
+            {
+                "temperature": 0.5,
+                "max_tokens": 20,
+                "top_p": 0.9,  # filled with the default value
+            },
+        ),
+        # Test case: if some params are not defined in either input and params schema,
+        # they will be dropped
+        (
+            ModelSignature(
+                inputs=_LLM_CHAT_INPUT_SCHEMA,
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                    ]
+                ),
+            ),
+            {
+                "messages": [{"role": "user", "content": "hello!"}],
+            },
+            {
+                # only params defined in the schema are passed
+                "temperature": 0.5,
+            },
+        ),
+        # Test case: params can be defined in the input schema
+        (
+            ModelSignature(
+                inputs=Schema(
+                    [
+                        *_LLM_CHAT_INPUT_SCHEMA.inputs,
+                        ColSpec(DataType.long, "max_tokens", required=False),
+                        ColSpec(DataType.double, "temperature", required=False),
+                    ]
+                ),
+            ),
+            {
+                "messages": [{"role": "user", "content": "hello!"}],
+                "temperature": 0.5,
+                "max_tokens": 20,
+            },
+            {},
+        ),
+    ],
+)
+def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
+    mlflow.pyfunc.save_model(model_path, python_model=MyChatLLM(), signature=signature)
+
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "hello!"}],
+            "temperature": 0.5,
+            "max_tokens": 20,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
+
+
+_LLM_COMPLETIONS_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            DataType.string,
+            name="prompt",
+        )
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "prompt": "hello!",
+                "max_tokens": 20,
+                "temperature": 0.5,
+            },
+            {},
+        ),
+        # Test case: signature with params, split params and data
+        (
+            ModelSignature(
+                inputs=_LLM_COMPLETIONS_INPUT_SCHEMA,
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                        ParamSpec("max_tokens", DataType.integer, default=20),
+                        ParamSpec("top_p", DataType.double, default=0.9),
+                    ]
+                ),
+            ),
+            {
+                "prompt": "hello!",
+            },
+            {
+                "temperature": 0.5,
+                "max_tokens": 20,
+                "top_p": 0.9,  # filled with the default value
+            },
+        ),
+    ],
+)
+def test_scoring_server_allows_payloads_with_llm_completions_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
+    mlflow.pyfunc.save_model(model_path, python_model=MyCompletionsLLM(), signature=signature)
+
+    payload = json.dumps(
+        {
+            "prompt": "hello!",
+            "temperature": 0.5,
+            "max_tokens": 20,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["text"] == "hello!"
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
+
+
+_LLM_EMBEDDINGS_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            DataType.string,
+            name="input",
+        )
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "input": "hello!",
+                "random": "test",
+            },
+            {},
+        ),
+        # Test case: signature with no params accepted, ignores params
+        (
+            ModelSignature(
+                inputs=_LLM_EMBEDDINGS_INPUT_SCHEMA,
+            ),
+            {
+                "input": "hello!",
+            },
+            {},
+        ),
+    ],
+)
+def test_scoring_server_allows_payloads_with_llm_embeddings_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
+    mlflow.pyfunc.save_model(model_path, python_model=MyEmbeddingsLLM(), signature=signature)
+
+    payload = json.dumps(
+        {
+            "input": "hello!",
+            "random": "test",
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["data"][0]["embedding"] == [0.1, 0.2, 0.3]
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
+
+
+def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_path):
+    sklearn_path = model_path + "-sklearn"
+    build_and_save_sklearn_model(sklearn_path)
+
+    # wrapped pyfuncs count as pyfuncs (sklearn is not present in model.metadata.flavors)
+    class WrappedSklearn(PythonModel):
+        def load_context(self, context):
+            self.model = mlflow.pyfunc.load_model(context.artifacts["model_path"])
+
+        # note: model_input is the value of "messages", not a dict
+        def predict(self, context, model_input):
+            weird_but_valid_parse = [json.loads(model_input["messages"][0]["content"])]
+            return self.model.predict(weird_but_valid_parse)
+
+    mlflow.pyfunc.save_model(
+        model_path, python_model=WrappedSklearn(), artifacts={"model_path": sklearn_path}
+    )
+
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "[2,2,2,2]"}],
+            "max_tokens": 20,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+
+
+@pytest.mark.parametrize(
+    ("dict_input", "param_schema", "expected"),
+    [
+        (
+            # no param signature, everything should go
+            # to data no params should get dropped
+            {"messages": ["test"], "max_tokens": 20, "random": "test"},
+            None,
+            ({"messages": ["test"], "max_tokens": 20, "random": "test"}, {}),
+        ),
+        (
+            # params defined in the param schema should go to params
+            # rest should go to data
+            {"messages": ["test"], "max_tokens": 20, "random": "test"},
+            ParamSchema(
+                [
+                    ParamSpec("max_tokens", DataType.integer, default=20),
+                ]
+            ),
+            ({"messages": ["test"], "random": "test"}, {"max_tokens": 20}),
+        ),
+    ],
+)
+def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected):
+    data, params = pyfunc_scoring_server._split_data_and_params_for_llm_input(
+        dict_input, param_schema
+    )
+    expected_data, expected_params = expected
+    assert data == expected_data
+    assert params == expected_params

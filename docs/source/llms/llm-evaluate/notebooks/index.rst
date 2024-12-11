@@ -5,7 +5,9 @@ The notebooks listed below contain step-by-step tutorials on how to use MLflow t
 The first notebook is centered around evaluating an LLM for question-answering with a 
 prompt engineering approach. The second notebook is centered around evaluating a RAG system. 
 Both notebooks will demonstrate how to use MLflow's builtin metrics such as token_count and 
-toxicity as well as LLM-judged intelligent metrics such as answer_relevance. 
+toxicity as well as LLM-judged intelligent metrics such as answer_relevance. The third notebook 
+is the same as the second notebook, but uses Databricks's served llama2-70b as the judge instead 
+of gpt-4.
 
 .. toctree::
     :maxdepth: 1
@@ -13,36 +15,65 @@ toxicity as well as LLM-judged intelligent metrics such as answer_relevance.
 
     question-answering-evaluation.ipynb
     rag-evaluation.ipynb
+    rag-evaluation-llama2.ipynb
+    huggingface-evaluation.ipynb
 
-QA Evaluation Notebook
-------------------------------------
-
-If you would like a copy of this notebook to execute in your environment, download the notebook here:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/llm-evaluate/notebooks/question-answering-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
-
-To follow along and see the sections of the notebook guide, click below:
+QA Evaluation Tutorial
+----------------------
 
 .. raw:: html
 
-    <a href="question-answering-evaluation.html" class="download-btn">View the Notebook</a><br/>
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="question-answering-evaluation.html">
+                    <div class="header">
+                        LLM Question Answering Evaluation with MLflow
+                    </div>
+                    <p>
+                        Learn how to evaluate various LLMs and RAG systems with MLflow, leveraging simple metrics such as toxicity, as well as LLM-judged metrics as relevance, and even custom LLM-judged metrics such as professionalism.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="huggingface-evaluation.html">
+                    <div class="header">
+                        Evaluating a 🤗 Hugging Face LLMs with MLflow
+                    </div>
+                    <p>
+                        Learn how to evaluate various Open-Source LLMs available in Hugging Face, leveraging MLflow's built-in LLM metrics and experiment tracking to manage models and evaluation results.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
-
-RAG Evaluation Notebook
-------------------------------------
-
-If you would like a copy of this notebook to execute in your environment, download the notebook here:
+RAG Evaluation Tutorials
+------------------------
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/llm-evaluate/notebooks/rag-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
-
-To follow along and see the sections of the notebook guide, click below:
-
-.. raw:: html
-
-    <a href="rag-evaluation.html" class="download-btn">View the Notebook</a><br/>
-
-
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="rag-evaluation.html">
+                    <div class="header">
+                        RAG Evaluation with MLflow and GPT-4 as Judge
+                    </div>
+                    <p>
+                        Learn how to evaluate RAG systems with MLflow, leveraging <b>OpenAI GPT-4</b> model as a judge.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="rag-evaluation-llama2.html">
+                    <div class="header">
+                        RAG Evaluation with MLflow and Llama-2-70B as Judge
+                    </div>
+                    <p>
+                        Learn how to evaluate RAG systems with MLflow, leveraging <b>Llama 2 70B model</b> hosted on Databricks serving endpoint.
+                    </p>
+                </a>
+            </div>
+      </article>
+    </section>

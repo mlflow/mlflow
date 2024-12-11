@@ -32,8 +32,8 @@ Single variable
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             artifact_path="model",
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            model="gpt-4o-mini",
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "user",
@@ -73,7 +73,7 @@ Payload sent to OpenAI chat completion API:
 .. code-block:: python
 
     {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
@@ -94,8 +94,8 @@ Multiple variables
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             artifact_path="model",
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            model="gpt-4o-mini",
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "user",
@@ -134,7 +134,7 @@ Payload sent to OpenAI chat completion API:
 .. code-block:: python
 
     {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
@@ -155,8 +155,8 @@ with ``role = user``.
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             artifact_path="model",
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            model="gpt-4o-mini",
+            task=openai.chat.completions,
             messages=[
                 {
                     "role": "system",
@@ -187,7 +187,7 @@ Payload sent to OpenAI chat completion API:
 .. code-block:: python
 
     {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "system",
@@ -215,8 +215,8 @@ sent to the OpenAI chat completion API as-is with ``role = user``.
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             artifact_path="model",
-            model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            model="gpt-4o-mini",
+            task=openai.chat.completions,
         )
 
     model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -246,7 +246,7 @@ Payload sent to OpenAI chat completion API:
 .. code-block:: python
 
     {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
@@ -254,5 +254,3 @@ Payload sent to OpenAI chat completion API:
             }
         ],
     }
-
-

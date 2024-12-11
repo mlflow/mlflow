@@ -20,7 +20,7 @@ from mlflow.utils.time import get_current_time_millis
 _DEFAULT_USER_ID = "unknown"
 
 
-class MLflowTrackingRestApi:
+class MlflowTrackingRestApi:
     def __init__(self, hostname, port, experiment_id):
         self.base_url = "http://" + hostname + ":" + str(port) + "/api/2.0/mlflow"
         self.experiment_id = experiment_id
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    mlflow_rest = MLflowTrackingRestApi(args.hostname, args.port, args.experiment_id)
+    mlflow_rest = MlflowTrackingRestApi(args.hostname, args.port, args.experiment_id)
     # Parameter is a key/val pair (str types)
     param = {"key": "alpha", "value": "0.1980"}
     status_code = mlflow_rest.log_param(param)

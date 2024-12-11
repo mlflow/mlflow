@@ -1,63 +1,53 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React from 'react';
-import { Select } from '@databricks/design-system';
+import { select } from '@databricks/design-system/test-utils/rtl';
+import userEvent from '@testing-library/user-event-14';
+import { renderWithIntl, screen } from '../../common/utils/TestUtils.react18';
+import { RunInfoEntity } from '../types';
 import { CompareRunBox } from './CompareRunBox';
-import { RunInfo } from '../sdk/MlflowMessages';
-import { mountWithIntl } from '../../common/utils/TestUtils';
-import { LazyPlot } from './LazyPlot';
+
+jest.setTimeout(30000); // Larger timeout for integration testing (plotly rendering)
 
 describe('CompareRunBox', () => {
-  let wrapper;
   const runUuids = ['1', '2', '3'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map((run_uuid) =>
-      (RunInfo as any).fromJs({
-        run_uuid,
-        experiment_id: '0',
-      }),
+    runInfos: runUuids.map(
+      (runUuid) =>
+        ({
+          runUuid,
+          experimentId: '0',
+        } as RunInfoEntity),
     ),
     runDisplayNames: runUuids,
   };
-  test('should render with minimal props without exploding', () => {
+
+  it('renders a chart with the correct x and y axes', async () => {
     const props = {
       ...commonProps,
-      paramLists: [
-        [{ key: 'param', value: 1 }],
-        [{ key: 'param', value: 2 }],
-        [{ key: 'param', value: 3 }],
-      ],
-      metricLists: [
-        [{ key: 'metric', value: 4 }],
-        [{ key: 'metric', value: 5 }],
-        [{ key: 'metric', value: 6 }],
-      ],
+      paramLists: [[{ key: 'param-1', value: 1 }], [{ key: 'param-2', value: 2 }], [{ key: 'param-3', value: 3 }]],
+      metricLists: [[{ key: 'metric-4', value: 4 }], [{ key: 'metric-5', value: 5 }], [{ key: 'metric-6', value: 6 }]],
     };
-    wrapper = mountWithIntl(<CompareRunBox {...props} />);
-    expect(wrapper.find(LazyPlot).isEmpty()).toBe(true);
-    expect(wrapper.text()).toContain('Select parameters/metrics to plot.');
-    const selectors = wrapper.find(Select);
-    expect(selectors.length).toBe(2);
-    // Set x-axis to 'param'
-    const xAxisSelector = selectors.at(0);
-    xAxisSelector.find('input[type="search"]').simulate('mouseDown');
-    // `wrapper.find` can't find the selector options because they appear in the top level of the
-    // document.
-    (document.querySelectorAll('[data-test-id="axis-option"]')[0] as any).click();
-    expect(xAxisSelector.text()).toContain('param');
-    // Set y-axis to 'metric'
-    const yAxisSelector = selectors.at(1);
-    yAxisSelector.find('input[type="search"]').simulate('mouseDown');
-    (document.querySelectorAll('[data-test-id="axis-option"]')[3] as any).click();
-    expect(yAxisSelector.text()).toContain('metric');
-    wrapper.update();
-    expect(wrapper.find(LazyPlot).exists()).toBe(true);
-    expect(wrapper.text()).not.toContain('Select parameters/metrics to plot.');
+
+    renderWithIntl(<CompareRunBox {...props} />);
+    expect(screen.queryByText('Select parameters/metrics to plot.')).toBeInTheDocument();
+
+    // Select x axis value
+    const xAxisSelector = screen.getByRole('combobox', { name: /X-axis/ });
+    await userEvent.click(xAxisSelector);
+    const xOptionNames = select.getOptionNames(xAxisSelector);
+    const xAxisIdx = xOptionNames.indexOf('param-3');
+    await userEvent.click(select.getOptions(xAxisSelector)[xAxisIdx]);
+
+    expect(select.getDisplayLabel(xAxisSelector)).toBe('param-3');
+
+    // Select y axis value
+    const yAxisSelector = screen.getByRole('combobox', { name: /Y-axis/ });
+    await userEvent.click(yAxisSelector);
+    const yOptionNames = select.getOptionNames(yAxisSelector);
+    const yAxisIdx = yOptionNames.indexOf('metric-4');
+    await userEvent.click(select.getOptions(yAxisSelector)[yAxisIdx]);
+
+    expect(select.getDisplayLabel(yAxisSelector)).toBe('metric-4');
+
+    expect(screen.queryByText('Select parameters/metrics to plot.')).not.toBeInTheDocument();
   });
 });

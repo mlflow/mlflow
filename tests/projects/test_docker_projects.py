@@ -2,7 +2,6 @@ import os
 from unittest import mock
 
 import pytest
-from databricks_cli.configure.provider import DatabricksConfig
 
 import docker
 import mlflow
@@ -10,6 +9,7 @@ from mlflow import MlflowClient
 from mlflow.entities import ViewType
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.projects.docker import _get_docker_image_uri
@@ -34,9 +34,7 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_docker_project_execution(
-    use_start_run, docker_example_base_image
-):  # pylint: disable=unused-argument
+def test_docker_project_execution(use_start_run, docker_example_base_image):
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
@@ -80,7 +78,7 @@ def test_docker_project_execution(
 
 def test_docker_project_execution_async_docker_args(
     docker_example_base_image,
-):  # pylint: disable=unused-argument
+):
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
@@ -107,14 +105,14 @@ def test_docker_project_execution_async_docker_args(
         ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks "),
     ],
 )
-@mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
+@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
 def test_docker_project_tracking_uri_propagation(
     ProfileConfigProvider,
     tmp_path,
     tracking_uri,
     expected_command_segment,
     docker_example_base_image,
-):  # pylint: disable=unused-argument
+):
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         "host", "user", "pass", insecure=True
@@ -138,7 +136,7 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(docker_example_base_image):
     with pytest.raises(ExecutionException, match="When running on Databricks"):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks", backend_config={})
 
@@ -200,7 +198,7 @@ def test_docker_mount_local_artifact_uri(
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
-@mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
+@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
 def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
@@ -292,7 +290,7 @@ def test_docker_build_image_local(tmp_path):
     dockerfile = tmp_path.joinpath("Dockerfile")
     dockerfile.write_text(
         """
-FROM python:3.8
+FROM python:3.9
 RUN pip --version
 """
     )
@@ -317,7 +315,7 @@ def test_docker_build_image_remote(tmp_path):
         """
 name: test
 docker_env:
-  image: python:3.8
+  image: python:3.9
 entry_points:
   main:
     command: python --version
@@ -325,4 +323,4 @@ entry_points:
     )
     submitted_run = mlflow.projects.run(str(tmp_path))
     run = mlflow.get_run(submitted_run.run_id)
-    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.8"
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.9"

@@ -12,48 +12,63 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { CreateModelButton } from './CreateModelButton';
-import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
-import { mountWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import userEvent from '@testing-library/user-event-14';
+
+const minimalProps = {};
+
+const mockStore = configureStore([thunk, promiseMiddleware()]);
+const minimalStore = mockStore({});
+
+const buttonDataTestId = 'create-model-button';
+const inputModelDataTestId = 'mlflow-input-modal';
 
 describe('CreateModelButton', () => {
-  let wrapper: any;
-  let minimalProps;
-  let minimalStore: any;
-  const mockStore = configureStore([thunk, promiseMiddleware()]);
-
-  beforeEach(() => {
-    minimalProps = {};
-    minimalStore = mockStore({});
-    wrapper = mountWithIntl(
+  test('should render with minimal props and store without exploding', () => {
+    renderWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
           <CreateModelButton {...minimalProps} />
         </MemoryRouter>
       </Provider>,
     );
-  });
-
-  test('should render with minimal props and store without exploding', () => {
-    expect(wrapper.find(CreateModelButton).length).toBe(1);
+    expect(screen.getByTestId(buttonDataTestId)).toBeInTheDocument();
   });
 
   test('should render button type link correctly', () => {
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
-          <CreateModelButton buttonType={'link'} />
+          <CreateModelButton buttonType="link" />
         </MemoryRouter>
       </Provider>,
     );
-    expect(wrapper.find('.ant-btn-link').length).toBe(1);
+
+    expect(container.querySelector('.ant-btn-link')).toBeInTheDocument();
   });
 
   test('should hide modal by default', () => {
-    expect(wrapper.find(GenericInputModal).prop('isOpen')).toBe(false);
+    renderWithIntl(
+      <Provider store={minimalStore}>
+        <MemoryRouter>
+          <CreateModelButton buttonType="link" />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.queryByTestId(inputModelDataTestId)).not.toBeInTheDocument();
   });
 
-  test('should show modal after button click', () => {
-    wrapper.find('button.create-model-btn').simulate('click');
-    expect(wrapper.find(GenericInputModal).prop('isOpen')).toBe(true);
+  test('should show modal after button click', async () => {
+    renderWithIntl(
+      <Provider store={minimalStore}>
+        <MemoryRouter>
+          <CreateModelButton buttonType="link" />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    await userEvent.click(screen.getByTestId(buttonDataTestId));
+    expect(screen.getByTestId(inputModelDataTestId)).toBeVisible();
   });
 });

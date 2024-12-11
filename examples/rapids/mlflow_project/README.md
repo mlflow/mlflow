@@ -21,11 +21,11 @@ MLflow to log models and deploy them as local REST API endpoints for real-time i
 
 #### CLI Based Workflow
 
-1. Download data
+1. Create data
    1. `cd examples/rapids/mlflow_project`
       ```shell script
-      # Download the file
-      wget -N https://rapidsai-cloud-ml-sample-data.s3-us-west-2.amazonaws.com/airline_small.parquet
+      # Create iris.csv
+      python -c "from sklearn.datasets import load_iris; d = load_iris(as_frame=True); d.frame.to_csv('iris.csv', index=False)"
       ```
 1. Set MLflow tracking uri
    1. ```shell script
@@ -38,7 +38,7 @@ MLflow to log models and deploy them as local REST API endpoints for real-time i
                --experiment-name RAPIDS-CLI \
                -P max_depth=10 -P max_features=0.75 -P n_estimators=500 \
                -P conda-env=$PWD/envs/conda.yaml \
-               -P fpath=airline_small.parquet
+               -P fpath=iris.csv
       ```
 1. Train the model with Hyperopt
 
@@ -47,7 +47,7 @@ MLflow to log models and deploy them as local REST API endpoints for real-time i
       mlflow run . -e hyperopt \
                --experiment-name RAPIDS-CLI \
                -P conda-env=$PWD/envs/conda.yaml \
-               -P fpath=airline_small.parquet
+               -P fpath=iris.csv
       ```
    1. In the output, note: "Created version '[VERSION]' of model 'rapids_mlflow'"
 

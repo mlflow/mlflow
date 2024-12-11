@@ -3,7 +3,7 @@ import os
 from pyspark.sql import SparkSession
 
 import mlflow
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 def _get_mlflow_spark_jar_path():
@@ -26,7 +26,8 @@ def _get_expected_table_info_row(path, data_format, version=None):
 def _assert_spark_data_logged(run, path, data_format, version=None):
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
-    assert table_info_tag == _get_expected_table_info_row(path, data_format, version)
+    expected_tag = _get_expected_table_info_row(path, data_format, version)
+    assert table_info_tag == expected_tag, f"Got: {table_info_tag} Expected: {expected_tag}"
 
 
 def _assert_spark_data_not_logged(run):

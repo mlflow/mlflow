@@ -48,10 +48,7 @@ export const getEntityNamesFromRunsData = (
 
   const metricNames = mergeDedup(existingNames.metricNames, newRunsData.metricKeyList);
   const paramNames = mergeDedup(existingNames.paramNames, newRunsData.paramKeyList);
-  const tagNames = mergeDedup(
-    getTagNames(existingNames.tagNames),
-    getTagNames(newRunsData.tagsList),
-  );
+  const tagNames = mergeDedup(getTagNames(existingNames.tagNames), getTagNames(newRunsData.tagsList));
   // Filter out internal tag names and wrap names that include control characters in backticks.
   const tagNamesCleaned = tagNames
     .filter((s: string) => !s.startsWith('mlflow.'))
@@ -154,9 +151,7 @@ export const getFilteredOptionsFromEntityName = (
   return baseOptions
     .map((group) => {
       const newOptions = group.options
-        .filter((option) =>
-          option.value.toLowerCase().includes(entityBeingEdited.name.toLowerCase().trim()),
-        )
+        .filter((option) => option.value.toLowerCase().includes(entityBeingEdited.name.toLowerCase().trim()))
         .map((match) => ({
           value: match.value,
           label: boldedText(match.value, entityBeingEdited.name.trim()),
@@ -164,9 +159,7 @@ export const getFilteredOptionsFromEntityName = (
       const limitForGroup = (suggestionLimits as any)[group.label];
       const ellipsized = [
         ...newOptions.slice(0, limitForGroup),
-        ...(newOptions.length > limitForGroup
-          ? [{ label: '...', value: `..._${group.label}` }]
-          : []),
+        ...(newOptions.length > limitForGroup ? [{ label: '...', value: `..._${group.label}` }] : []),
       ];
       return {
         label: group.label,

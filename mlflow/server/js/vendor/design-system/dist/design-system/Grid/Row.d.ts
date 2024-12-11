@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { RowProps as AntDRowProps } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export interface RowProps extends AntDRowProps, DangerouslySetAntdProps<AntDRowProps>, HTMLDataAttributes {

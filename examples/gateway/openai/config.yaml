@@ -1,22 +1,25 @@
-routes:
+endpoints:
   - name: chat
-    route_type: llm/v1/chat
+    endpoint_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: $OPENAI_API_KEY
+    limit:
+      renewal_period: minute
+      calls: 10
 
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: $OPENAI_API_KEY
 
   - name: embeddings
-    route_type: llm/v1/embeddings
+    endpoint_type: llm/v1/embeddings
     model:
       provider: openai
       name: text-embedding-ada-002

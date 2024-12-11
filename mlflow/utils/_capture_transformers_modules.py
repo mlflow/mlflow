@@ -1,12 +1,14 @@
 """
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
+
 import json
 import os
 import sys
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._capture_modules import (
     _CaptureImportedModules,
     parse_args,
@@ -21,8 +23,8 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
     Used for 'transformers' flavor only.
     """
 
-    def __init__(self, module_to_throw):
-        super().__init__()
+    def __init__(self, module_to_throw, record_full_module=False):
+        super().__init__(record_full_module=record_full_module)
         self.module_to_throw = module_to_throw
 
     def _record_imported_module(self, full_module_name):
@@ -31,16 +33,6 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         ):
             raise ImportError(f"Disabled package {full_module_name}")
         return super()._record_imported_module(full_module_name)
-
-    def __enter__(self):
-        # Patch the environment variables to disable module_to_throw
-        # https://github.com/huggingface/transformers/blob/3658488ff77ff8d45101293e749263acf437f4d5/src/transformers/utils/import_utils.py#L60-L62
-        if self.module_to_throw == "tensorflow":
-            os.environ["USE_TORCH"] = "TRUE"
-        elif self.module_to_throw == "torch":
-            os.environ["USE_TF"] = "TRUE"
-
-        return super().__enter__()
 
 
 def main():
@@ -60,7 +52,22 @@ def main():
 
     if module_to_throw == "":
         raise MlflowException("Please specify the module to throw.")
-    cap_cm = _CaptureImportedModulesForHF(module_to_throw)
+    elif module_to_throw == "tensorflow":
+        if os.environ.get("USE_TORCH", None) != "TRUE":
+            raise MlflowException(
+                "The environment variable USE_TORCH has to be set to TRUE to disable Tensorflow.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif module_to_throw == "torch":
+        if os.environ.get("USE_TF", None) != "TRUE":
+            raise MlflowException(
+                "The environment variable USE_TF has to be set to TRUE to disable Pytorch.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    cap_cm = _CaptureImportedModulesForHF(
+        module_to_throw, record_full_module=args.record_full_module
+    )
     store_imported_modules(cap_cm, model_path, flavor, output_file)
 
 

@@ -3,9 +3,9 @@ import os
 import tempfile
 from functools import partial
 
-import matplotlib.pyplot as plt
 import numpy as np
 from fastai.callback.core import Callback
+from matplotlib.figure import Figure
 
 import mlflow.tracking
 from mlflow.fastai import log_model
@@ -98,14 +98,14 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                     mlflow.log_param(self.freeze_prefix + param + "_final", values[-1])
 
                     # Plot and save image of scheduling
-                    fig = plt.figure()
-                    plt.plot(values)
-                    plt.ylabel(param)
+                    fig = Figure()
+                    ax = fig.subplots()
+                    ax.plot(values)
+                    ax.set_ylabel(param)
 
                     with tempfile.TemporaryDirectory() as tempdir:
                         scheds_file = os.path.join(tempdir, self.freeze_prefix + param + ".png")
-                        plt.savefig(scheds_file)
-                        plt.close(fig)
+                        fig.savefig(scheds_file)
                         mlflow.log_artifact(local_path=scheds_file)
                 break
 
@@ -139,6 +139,4 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
             registered_model_name = get_autologging_config(
                 mlflow.fastai.FLAVOR_NAME, "registered_model_name", None
             )
-            log_model(
-                self.learn, artifact_path="model", registered_model_name=registered_model_name
-            )
+            log_model(self.learn, "model", registered_model_name=registered_model_name)

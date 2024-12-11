@@ -1,24 +1,29 @@
 import inspect
+from logging import Logger
 
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.plugin_manager import DeploymentPlugins
-from mlflow.deployments.utils import parse_target_uri
+from mlflow.deployments.utils import get_deployments_target, parse_target_uri
+from mlflow.exceptions import MlflowException
 
 plugin_store = DeploymentPlugins()
 plugin_store.register("sagemaker", "mlflow.sagemaker")
 
+_logger = Logger(__name__)
 
-def get_deploy_client(target_uri):
-    """
-    Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard
+
+def get_deploy_client(target_uri=None):
+    """Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard
     APIs for deploying models to the specified target. See available deployment APIs
     by calling ``help()`` on the returned object or viewing docs for
     :py:class:`mlflow.deployments.BaseDeploymentClient`. You can also run
     ``mlflow deployments help -t <target-uri>`` via the CLI for more details on target-specific
     configuration options.
 
-    :param target_uri: URI of target to deploy to.
-
+    Args:
+        target_uri: Optional URI of target to deploy to. If no target URI is provided, then
+            MLflow will attempt to get the deployments target set via `get_deployments_target()` or
+            `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
 
     .. code-block:: python
         :caption: Example
@@ -41,6 +46,16 @@ def get_deploy_client(target_uri):
         # Delete our deployment
         client.delete_deployment("spamDetector")
     """
+    if not target_uri:
+        try:
+            target_uri = get_deployments_target()
+        except MlflowException:
+            _logger.info(
+                "No deployments target has been set. Please either set the MLflow deployments "
+                "target via `mlflow.deployments.set_deployments_target()` or set the environment "
+                "variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
+            )
+            return None
     target = parse_target_uri(target_uri)
     plugin = plugin_store[target]
     for _, obj in inspect.getmembers(plugin):
@@ -50,18 +65,20 @@ def get_deploy_client(target_uri):
 
 
 def run_local(target, name, model_uri, flavor=None, config=None):
-    """
-    Deploys the specified model locally, for testing. Note that models deployed locally cannot
+    """Deploys the specified model locally, for testing. Note that models deployed locally cannot
     be managed by other deployment APIs (e.g. ``update_deployment``, ``delete_deployment``, etc).
 
-    :param target: Target to deploy to.
-    :param name:  Name to use for deployment
-    :param model_uri: URI of model to deploy
-    :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
-                   will be chosen.
-    :param config: (optional) Dict containing updated target-specific configuration for
-                   the deployment
-    :return: None
+    Args:
+        target: Target to deploy to.
+        name: Name to use for deployment
+        model_uri: URI of model to deploy
+        flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
+            will be chosen.
+        config: (optional) Dict containing updated target-specific configuration for
+            the deployment
+
+    Returns:
+        None
     """
     return plugin_store[target].run_local(name, model_uri, flavor, config)
 
@@ -79,6 +96,7 @@ def _target_help(target):
       CLI profile https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
     * Any other target-specific details.
 
-    :param target: Which target to use. This information is used to call the appropriate plugin
+    Args:
+        target: Which target to use. This information is used to call the appropriate plugin.
     """
     return plugin_store[target].target_help()

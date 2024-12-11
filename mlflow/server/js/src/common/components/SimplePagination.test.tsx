@@ -1,50 +1,49 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
-import { mount } from 'enzyme';
 import { SimplePagination } from './SimplePagination';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
+const minimalProps = {
+  currentPage: 3,
+  isLastPage: false,
+  onClickNext: jest.fn(),
+  onClickPrev: jest.fn(),
+  getSelectedPerPageSelection: () => 25,
+};
+
+const paginationSectionDataTestId = 'pagination-section';
+const previousPageButtonTitle = 'Previous Page';
+const nextPageButtonTitle = 'Next Page';
 
 describe('SimplePagination', () => {
-  let wrapper;
-  let minimalProps: any;
+  test('prev and next buttons are rendered and not disabled when the current page is in the middle', () => {
+    renderWithIntl(<SimplePagination {...minimalProps} />);
+    expect(screen.getByTestId(paginationSectionDataTestId)).toBeInTheDocument();
 
-  beforeEach(() => {
-    minimalProps = {
-      currentPage: 3,
-      isLastPage: false,
-      onClickNext: jest.fn(),
-      onClickPrev: jest.fn(),
-      getSelectedPerPageSelection: () => 25,
-    };
+    expect(screen.getByTitle(previousPageButtonTitle)).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByTitle(nextPageButtonTitle)).toHaveAttribute('aria-disabled', 'false');
   });
 
-  test('should render button in disabled state based on page', () => {
-    // TODO: wrap this with DesignSystemProvider (consider rerendering instead of setProps)
-    wrapper = mount(<SimplePagination {...minimalProps} />);
-    expect(wrapper.length).toBe(1);
-    // prev and next buttons are rendered and not disabled
-    expect(wrapper.find('[title="Previous Page"]').prop('aria-disabled')).toBe(false);
-    expect(wrapper.find('[title="Next Page"]').prop('aria-disabled')).toBe(false);
+  test('prev button is disabled when the current page is first page', () => {
+    renderWithIntl(<SimplePagination {...minimalProps} currentPage={1} />);
+    expect(screen.getByTestId(paginationSectionDataTestId)).toBeInTheDocument();
 
-    // first page => prev button is disabled
-    wrapper.setProps({ currentPage: 1, isLastPage: false });
-    expect(wrapper.find('[title="Previous Page"]').prop('aria-disabled')).toBe(true);
-    expect(wrapper.find('[title="Next Page"]').prop('aria-disabled')).toBe(false);
+    expect(screen.getByTitle(previousPageButtonTitle)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTitle(nextPageButtonTitle)).toHaveAttribute('aria-disabled', 'false');
+  });
 
-    // first and last page => both buttons are disabled
-    wrapper.setProps({ currentPage: 1, isLastPage: true });
-    // check that 1 disabled shows up for next page btn
-    expect(wrapper.find('[title="Previous Page"]').prop('aria-disabled')).toBe(true);
-    expect(wrapper.find('[title="Next Page"]').prop('aria-disabled')).toBe(true);
+  test('next button is disabled when the current page is the last page', () => {
+    renderWithIntl(<SimplePagination {...minimalProps} currentPage={2} isLastPage />);
+    expect(screen.getByTestId(paginationSectionDataTestId)).toBeInTheDocument();
 
-    // last page => next button is disabled
-    wrapper.setProps({ currentPage: 2, isLastPage: true });
-    expect(wrapper.find('[title="Previous Page"]').prop('aria-disabled')).toBe(false);
-    expect(wrapper.find('[title="Next Page"]').prop('aria-disabled')).toBe(true);
+    expect(screen.getByTitle(previousPageButtonTitle)).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByTitle(nextPageButtonTitle)).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('both buttons are disabled when there is only one page', () => {
+    renderWithIntl(<SimplePagination {...minimalProps} currentPage={1} isLastPage />);
+    expect(screen.getByTestId(paginationSectionDataTestId)).toBeInTheDocument();
+
+    expect(screen.getByTitle(previousPageButtonTitle)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTitle(nextPageButtonTitle)).toHaveAttribute('aria-disabled', 'true');
   });
 });

@@ -3,7 +3,8 @@ import os
 import subprocess
 import sys
 
-_IS_UNIX = os.name != "nt"
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.os import is_windows
 
 
 class ShellCommandException(Exception):
@@ -28,6 +29,16 @@ class ShellCommandException(Exception):
         return cls("\n".join(lines))
 
 
+def _remove_inaccessible_python_path(env):
+    """
+    Remove inaccessible path from PYTHONPATH environment variable.
+    """
+    if python_path := env.get("PYTHONPATH"):
+        paths = [p for p in python_path.split(":") if os.access(p, os.R_OK)]
+        env["PYTHONPATH"] = ":".join(paths)
+    return env
+
+
 def _exec_cmd(
     cmd,
     *,
@@ -38,25 +49,29 @@ def _exec_cmd(
     stream_output=False,
     **kwargs,
 ):
-    """
-    A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
+    """A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
 
-    :param cmd: The command to run, as a string or a list of strings
-    :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
-    :param extra_env: Extra environment variables to be defined when running the child process.
-                      If this argument is specified, `kwargs` cannot contain `env`.
-    :param capture_output: If True, stdout and stderr will be captured and included in an exception
-                           message on failure; if False, these streams won't be captured.
-    :param synchronous: If True, wait for the command to complete and return a CompletedProcess
-                        instance, If False, does not wait for the command to complete and return
-                        a Popen instance, and ignore the `throw_on_error` argument.
-    :param stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
-                          as a unified stream during execution.
-                          If False, do not stream the command's stdout and stderr to `sys.stdout`.
-    :param kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
-    :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
-              otherwise return a Popen instance.
+    Args:
+        cmd: The command to run, as a string or a list of strings.
+        throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
+        extra_env: Extra environment variables to be defined when running the child process.
+            If this argument is specified, `kwargs` cannot contain `env`.
+        capture_output: If True, stdout and stderr will be captured and included in an exception
+            message on failure; if False, these streams won't be captured.
+        synchronous: If True, wait for the command to complete and return a CompletedProcess
+            instance, If False, does not wait for the command to complete and return
+            a Popen instance, and ignore the `throw_on_error` argument.
+        stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
+            as a unified stream during execution.
+            If False, do not stream the command's stdout and stderr to `sys.stdout`.
+        kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
+
+    Returns:
+        If synchronous is True, return a `subprocess.CompletedProcess` instance,
+        otherwise return a Popen instance.
+
     """
+
     illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
@@ -70,7 +85,16 @@ def _exec_cmd(
             "`capture_output=True` and `stream_output=True` cannot be specified at the same time"
         )
 
-    env = env if extra_env is None else {**os.environ, **extra_env}
+    # Copy current `os.environ` or passed in `env` to avoid mutating it.
+    env = env or os.environ.copy()
+    if extra_env is not None:
+        env.update(extra_env)
+
+    if is_in_databricks_runtime():
+        # in databricks runtime, the PYTHONPATH might contain inaccessible path
+        # which causes virtualenv python environment creation subprocess failure.
+        # as a workaround, we remove inaccessible path out of python path.
+        env = _remove_inaccessible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
@@ -119,8 +143,8 @@ def _exec_cmd(
 
 
 def _join_commands(*commands):
-    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
-    sep = " && " if _IS_UNIX else " & "
+    entry_point = ["bash", "-c"] if not is_windows() else ["cmd", "/c"]
+    sep = " && " if not is_windows() else " & "
     return [*entry_point, sep.join(map(str, commands))]
 
 

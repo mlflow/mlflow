@@ -1,14 +1,17 @@
 import json
 import os
 import posixpath
+import re
 import shutil
 import subprocess
 import sys
+import threading
 
 import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 from tests.helper_functions import get_safe_port
@@ -52,10 +55,17 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    # Register markers to suppress `PytestUnknownMarkWarning`
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+    config.addinivalue_line(
+        "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
+    )
+    config.addinivalue_line("markers", "classification")
+
+    labels = fetch_pr_labels() or []
+    if "fail-fast" in labels:
+        config.option.maxfail = 1
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -115,12 +125,6 @@ def fetch_pr_labels():
         return [label["name"] for label in pr_data["pull_request"]["labels"]]
 
 
-def pytest_configure(config):
-    labels = fetch_pr_labels() or []
-    if "fail-fast" in labels:
-        config.option.maxfail = 1
-
-
 @pytest.hookimpl(hookwrapper=True)
 def pytest_report_teststatus(report, config):
     outcome = yield
@@ -151,7 +155,7 @@ def pytest_report_teststatus(report, config):
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_ignore_collect(path, config):
+def pytest_ignore_collect(collection_path, config):
     outcome = yield
     if not outcome.get_result() and config.getoption("ignore_flavors"):
         # If not ignored by the default hook and `--ignore-flavors` specified
@@ -159,23 +163,30 @@ def pytest_ignore_collect(path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/anthropic",
+            "tests/autogen",
             "tests/azureml",
             "tests/catboost",
+            "tests/crewai",
             "tests/diviner",
+            "tests/dspy",
             "tests/fastai",
-            "tests/gluon",
+            "tests/gemini",
             "tests/h2o",
             "tests/johnsnowlabs",
             "tests/keras",
             "tests/keras_core",
+            "tests/llama_index",
             "tests/langchain",
             "tests/lightgbm",
+            "tests/litellm",
             "tests/mleap",
             "tests/models",
             "tests/onnx",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
+            "tests/promptflow",
             "tests/prophet",
             "tests/pyfunc",
             "tests/pytorch",
@@ -206,7 +217,7 @@ def pytest_ignore_collect(path, config):
             "tests/gateway",
         ]
 
-        relpath = os.path.relpath(str(path))
+        relpath = os.path.relpath(str(collection_path))
         relpath = relpath.replace(os.sep, posixpath.sep)  # for Windows
 
         if relpath in model_flavors:
@@ -214,7 +225,7 @@ def pytest_ignore_collect(path, config):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(session, config, items):  # pylint: disable=unused-argument
+def pytest_collection_modifyitems(session, config, items):
     # Executing `tests.server.test_prometheus_exporter` after `tests.server.test_handlers`
     # results in an error because Flask >= 2.2.0 doesn't allow calling setup method such as
     # `before_request` on the application after the first request. To avoid this issue,
@@ -227,9 +238,7 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_terminal_summary(
-    terminalreporter, exitstatus, config
-):  # pylint: disable=unused-argument
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
@@ -261,20 +270,53 @@ def pytest_terminal_summary(
                 )
                 break
 
+    main_thread = threading.main_thread()
+    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+        terminalreporter.section("Remaining threads", yellow=True)
+        for idx, thread in enumerate(threads, start=1):
+            terminalreporter.write(f"{idx}: {thread}\n")
+
+        # Uncomment this block to print tracebacks of non-daemon threads
+        # if non_daemon_threads := [t for t in threads if not t.daemon]:
+        #     frames = sys._current_frames()
+        #     terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+        #     for thread in non_daemon_threads:
+        #         thread.join(timeout=1)
+        #         if thread.is_alive() and (frame := frames.get(thread.ident)):
+        #             terminalreporter.section(repr(thread), sep="~")
+        #             terminalreporter.write("".join(traceback.format_stack(frame)))
+
+    try:
+        import psutil
+    except ImportError:
+        pass
+    else:
+        current_process = psutil.Process()
+        if children := current_process.children(recursive=True):
+            terminalreporter.section("Remaining child processes", yellow=True)
+            for idx, child in enumerate(children, start=1):
+                terminalreporter.write(f"{idx}: {child}\n")
+
 
 @pytest.fixture(scope="module", autouse=True)
 def clean_up_envs():
+    """
+    Clean up virtualenvs and conda environments created during tests to save disk space.
+    """
     yield
 
     if "GITHUB_ACTIONS" in os.environ:
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        if os.name != "nt":
+        if not is_windows():
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
+            regex = re.compile(r"mlflow-\w{32,}")
             for env in conda_info["envs"]:
-                if env != root_prefix:
+                if env == root_prefix:
+                    continue
+                if regex.fullmatch(os.path.basename(env)):
                     shutil.rmtree(env, ignore_errors=True)
 
 
@@ -338,10 +380,14 @@ def serve_wheel(request, tmp_path_factory):
         ],
         cwd=root,
     ) as prc:
-        url = f"http://localhost:{port}"
-        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-            url = f"{existing_url} {url}"
-        os.environ["PIP_EXTRA_INDEX_URL"] = url
-
-        yield
-        prc.terminate()
+        try:
+            url = f"http://localhost:{port}"
+            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+                url = f"{existing_url} {url}"
+            os.environ["PIP_EXTRA_INDEX_URL"] = url
+            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+            # url when using `uv` as environment manager
+            os.environ["UV_INDEX"] = f"mlflow={url}"
+            yield
+        finally:
+            prc.terminate()

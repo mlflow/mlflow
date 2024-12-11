@@ -1,4 +1,6 @@
 import json
+from dataclasses import asdict, dataclass
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -8,10 +10,18 @@ from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature, set_signature
+from mlflow.models import Model, ModelSignature, infer_signature, rag_signatures, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types.schema import (
+    Array,
+    ColSpec,
+    ParamSchema,
+    ParamSpec,
+    Schema,
+    TensorSpec,
+    convert_dataclass_to_schema,
+)
 
 
 def test_model_signature_with_colspec():
@@ -65,7 +75,7 @@ def test_model_signature_with_tensorspec():
     # Name mismatch
     signature4 = ModelSignature(
         inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
-        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "mismatch")]),
     )
     assert signature3 != signature4
     as_json = json.dumps(signature1.to_dict())
@@ -130,6 +140,31 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
+def test_infer_signature_on_nested_array():
+    signature = infer_signature(
+        model_input=[{"queries": [["a", "b", "c"], ["d", "e"], []]}],
+        model_output=[{"answers": [["f", "g"], ["h"]]}],
+    )
+    assert signature.inputs == Schema([ColSpec(Array(Array(DataType.string)), name="queries")])
+    assert signature.outputs == Schema([ColSpec(Array(Array(DataType.string)), name="answers")])
+
+    signature = infer_signature(
+        model_input=[
+            {
+                "inputs": [
+                    np.array([["a", "b"], ["c", "d"]]),
+                    np.array([["e", "f"], ["g", "h"]]),
+                ]
+            }
+        ],
+        model_output=[{"outputs": [np.int32(5), np.int32(6)]}],
+    )
+    assert signature.inputs == Schema(
+        [ColSpec(Array(Array(Array(DataType.string))), name="inputs")]
+    )
+    assert signature.outputs == Schema([ColSpec(Array(DataType.integer), name="outputs")])
+
+
 def test_infer_signature_on_list_of_dictionaries():
     signature = infer_signature(
         model_input=[{"query": "test query"}],
@@ -145,8 +180,8 @@ def test_infer_signature_on_list_of_dictionaries():
     assert signature.outputs == Schema(
         [
             ColSpec(DataType.string, name="output"),
-            ColSpec(DataType.string, name="candidate_ids"),
-            ColSpec(DataType.string, name="candidate_sources"),
+            ColSpec(Array(DataType.string), name="candidate_ids"),
+            ColSpec(Array(DataType.string), name="candidate_sources"),
         ]
     )
 
@@ -176,7 +211,7 @@ def test_signature_inference_infers_datime_types_as_expected():
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+        mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
     signature = infer_signature(np.array([1]))
     run_id = run.info.run_id
     model_uri = f"runs:/{run_id}/{artifact_path}"
@@ -201,8 +236,8 @@ def test_set_signature_overwrite():
     artifact_path = "regr-model"
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(
-            sk_model=RandomForestRegressor(),
-            artifact_path=artifact_path,
+            RandomForestRegressor(),
+            artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
@@ -224,7 +259,7 @@ def test_cannot_set_signature_on_models_scheme_uris():
 def test_signature_construction():
     signature = ModelSignature(inputs=Schema([ColSpec(DataType.binary)]))
     assert signature.to_dict() == {
-        "inputs": '[{"type": "binary"}]',
+        "inputs": '[{"type": "binary", "required": true}]',
         "outputs": None,
         "params": None,
     }
@@ -232,7 +267,7 @@ def test_signature_construction():
     signature = ModelSignature(outputs=Schema([ColSpec(DataType.double)]))
     assert signature.to_dict() == {
         "inputs": None,
-        "outputs": '[{"type": "double"}]',
+        "outputs": '[{"type": "double", "required": true}]',
         "params": None,
     }
 
@@ -246,7 +281,8 @@ def test_signature_construction():
 
 def test_signature_with_errors():
     with pytest.raises(
-        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+        TypeError,
+        match=r"inputs must be either None, mlflow.models.signature.Schema, or a dataclass",
     ):
         ModelSignature(inputs=1)
 
@@ -254,3 +290,87 @@ def test_signature_with_errors():
         ValueError, match=r"At least one of inputs, outputs or params must be provided"
     ):
         ModelSignature()
+
+
+def test_signature_for_rag():
+    signature = ModelSignature(
+        inputs=rag_signatures.ChatCompletionRequest(),
+        outputs=rag_signatures.ChatCompletionResponse(),
+    )
+    signature_dict = signature.to_dict()
+    assert signature_dict == {
+        "inputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}}, '
+            '"name": "messages", "required": true}]'
+        ),
+        "outputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"finish_reason": {"type": "string", "required": true}, '
+            '"index": {"type": "long", "required": true}, '
+            '"message": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}, '
+            '"required": true}}}, "name": "choices", "required": true}, '
+            '{"type": "string", "name": "object", "required": true}]'
+        ),
+        "params": None,
+    }
+
+
+def test_infer_signature_and_convert_dataclass_to_schema_for_rag():
+    inferred_signature = infer_signature(
+        asdict(rag_signatures.ChatCompletionRequest()),
+        asdict(rag_signatures.ChatCompletionResponse()),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+def test_infer_signature_with_dataclass():
+    inferred_signature = infer_signature(
+        rag_signatures.ChatCompletionRequest(),
+        rag_signatures.ChatCompletionResponse(),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: Optional[CustomInput] = None
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: Optional[CustomOutput] = None
+
+
+def test_infer_signature_with_optional_and_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+    assert "id" in custom_input_schema["properties"]
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )

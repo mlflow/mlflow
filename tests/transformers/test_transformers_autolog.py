@@ -3,12 +3,18 @@ import random
 import numpy as np
 import optuna
 import pytest
+import setfit
 import sklearn
 import sklearn.cluster
+import sklearn.datasets
 import torch
+import transformers
 from datasets import load_dataset
+from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
-from setfit import SetFitModel, SetFitTrainer, sample_dataset
+from setfit import SetFitModel, sample_dataset
+from setfit import Trainer as SetFitTrainer
+from setfit import TrainingArguments as SetFitTrainingArguments
 from transformers import (
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
@@ -18,7 +24,6 @@ from transformers import (
 )
 
 import mlflow
-from mlflow import MlflowException
 
 
 @pytest.fixture
@@ -34,19 +39,41 @@ def setfit_trainer():
     train_dataset = sample_dataset(dataset["train"], label_column="label", num_samples=8)
     eval_dataset = dataset["validation"]
 
-    model = SetFitModel.from_pretrained("sentence-transformers/paraphrase-mpnet-base-v2")
+    model = SetFitModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
-    return SetFitTrainer(
+    training_args = SetFitTrainingArguments(
+        loss=CosineSimilarityLoss,
+        batch_size=16,
+        num_iterations=5,
+        num_epochs=1,
+        report_to="none",
+    )
+
+    # TODO: Remove this once https://github.com/huggingface/setfit/issues/512
+    #   is resolved. This is a workaround during the deprecation of the
+    #   evaluation_strategy argument is being addressed in the SetFit library.
+    training_args.eval_strategy = training_args.evaluation_strategy
+
+    trainer = SetFitTrainer(
         model=model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        loss_class=CosineSimilarityLoss,
         metric="accuracy",
-        batch_size=16,
-        num_iterations=20,
-        num_epochs=1,
         column_mapping={"sentence": "text", "label": "label"},
+        args=training_args,
     )
+
+    # setfit >= 1.1.0 defines an internal BCSentenceTransformersTrainer
+    # which directly uses transformers.Trainer, and the default callbacks
+    # include MLflowCallback, so it produces extra runs no matter autologging
+    # is on or off
+    # ref: https://github.com/huggingface/transformers/blob/11c27dd331151e7d2ac20016cce11d9d7c4b1756/src/transformers/integrations/integration_utils.py#L2138
+    if Version(setfit.__version__) >= Version("1.1.0"):
+        from transformers.integrations.integration_utils import MLflowCallback
+
+        trainer.remove_callback(MLflowCallback)
+
+    return trainer
 
 
 @pytest.fixture
@@ -256,6 +283,13 @@ def transformers_hyperparameter_functional(tmp_path):
     )
 
 
+skip_setfit = pytest.mark.skipif(
+    Version(transformers.__version__) >= Version("4.46.0"),
+    reason="fails due to issue: https://github.com/huggingface/setfit/issues/564",
+)
+
+
+@skip_setfit
 def test_setfit_does_not_autolog(setfit_trainer):
     mlflow.autolog()
 
@@ -269,6 +303,7 @@ def test_setfit_does_not_autolog(setfit_trainer):
     assert len(preds) == 3
 
 
+@skip_setfit
 def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
     mlflow.sklearn.autolog()
 
@@ -292,13 +327,12 @@ def test_transformers_trainer_does_not_autolog_sklearn(transformers_trainer):
     assert len(runs) == 1
 
 
+@skip_setfit
 def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_trainer):
     mlflow.transformers.autolog(disable=False)
 
     setfit_trainer.train()
-    # setfit does not have an MLflow callback. There should be no active run.
-    with pytest.raises(MlflowException, match="Run with id"):
-        mlflow.last_active_run()
+    assert len(mlflow.search_runs()) == 0
     preds = setfit_trainer.model(["Jim, I'm a doctor, not an archaeologist!"])
     assert len(preds) == 1
 
@@ -328,6 +362,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transform
     assert len(runs) == 1
 
 
+@skip_setfit
 def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog(
     iris_data, setfit_trainer
 ):
@@ -403,6 +438,7 @@ def test_active_autolog_allows_subsequent_sklearn_autolog(iris_data, transformer
     assert sklearn_run[0].info == logged_sklearn_data.info
 
 
+@skip_setfit
 def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     iris_data, setfit_trainer
 ):
@@ -440,7 +476,7 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     client = mlflow.MlflowClient()
     runs = client.search_runs([exp.experiment_id])
 
-    assert len(runs) == 1  # SetFit should not create a run in the experiment
+    assert len(runs) == 1
     assert runs[0].info == logged_sklearn_data.info
 
 
@@ -451,6 +487,7 @@ def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, tra
     exp = mlflow.set_experiment(experiment_name="trainer_with_sklearn")
 
     transformers_trainer.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0
@@ -495,6 +532,7 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer")
 
     transformers_hyperparameter_trainer.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 3.0
@@ -521,6 +559,7 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     exp = mlflow.set_experiment(experiment_name="hyperparam_trainer_functional")
 
     transformers_hyperparameter_functional.train()
+    mlflow.flush_async_logging()
 
     last_run = mlflow.last_active_run()
     assert last_run.data.metrics["epoch"] == 1.0

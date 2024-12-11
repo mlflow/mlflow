@@ -1,3 +1,3 @@
-import type { getColors } from '../theme/colors';
-export declare const ColorVars: Record<string, keyof ReturnType<typeof getColors>>;
+import { ValidSemanticColors } from '../theme/_generated/ValidSemanticColors';
+export declare const ColorVars: Record<string, ValidSemanticColors>;
 //# sourceMappingURL=constants.d.ts.map

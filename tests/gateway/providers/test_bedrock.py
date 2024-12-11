@@ -3,8 +3,14 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import AWSBaseConfig, AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
-from mlflow.gateway.providers.bedrock import AWSBedrockModelProvider, AWSBedrockProvider
+from mlflow.gateway.config import (
+    AmazonBedrockConfig,
+    AWSBaseConfig,
+    AWSIdAndKey,
+    AWSRole,
+    RouteConfig,
+)
+from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
 
 from tests.gateway.providers.test_anthropic import (
@@ -84,20 +90,24 @@ def ai21_completion_response():
 
 def ai21_parsed_completion_response(mdl):
     return {
-        "candidates": [{"metadata": {}, "text": "\nIt looks like"}],
-        "metadata": {
-            "model": mdl,
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": mdl,
+        "choices": [
+            {
+                "text": "\nIt looks like",
+                "index": 0,
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
 
 bedrock_model_provider_fixtures = [
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -116,7 +126,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -135,7 +145,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -154,7 +164,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.AMAZON,
+        "provider": AmazonBedrockModelProvider.AMAZON,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -165,6 +175,10 @@ bedrock_model_provider_fixtures = [
         },
         "request": {
             "prompt": "This is a test",
+            "n": 1,
+            "temperature": 0.5,
+            "stop": ["foobar"],
+            "max_tokens": 1000,
         },
         "response": {
             "results": [
@@ -177,19 +191,30 @@ bedrock_model_provider_fixtures = [
             "inputTextTokenCount": 4,
         },
         "expected": {
-            "candidates": [{"metadata": {}, "text": "\nThis is a test"}],
-            "metadata": {
-                "model": "amazon.titan-tg1-large",
-                "route_type": "llm/v1/completions",
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "amazon.titan-tg1-large",
+            "choices": [
+                {
+                    "text": "\nThis is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+        },
+        "model_request": {
+            "inputText": "This is a test",
+            "textGenerationConfig": {
+                "temperature": 0.25,
+                "stopSequences": ["foobar"],
+                "maxTokenCount": 1000,
             },
         },
-        "model_request": {"inputText": "This is a test", "textGenerationConfig": {}},
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -206,7 +231,7 @@ bedrock_model_provider_fixtures = [
         "model_request": {"prompt": "This is a test"},
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -215,15 +240,18 @@ bedrock_model_provider_fixtures = [
                 "name": "ai21.j2-mid",
             },
         },
-        "request": {
-            "prompt": "This is a test",
-        },
+        "request": {"prompt": "This is a test", "n": 2, "max_tokens": 1000, "stop": ["foobar"]},
         "response": ai21_completion_response(),
         "expected": ai21_parsed_completion_response("ai21.j2-mid"),
-        "model_request": {"prompt": "This is a test"},
+        "model_request": {
+            "prompt": "This is a test",
+            "stopSequences": ["foobar"],
+            "maxTokens": 1000,
+            "numResults": 2,
+        },
     },
     {
-        "provider": AWSBedrockModelProvider.COHERE,
+        "provider": AmazonBedrockModelProvider.COHERE,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -288,7 +316,9 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
-    assert isinstance(AWSBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected)
+    assert isinstance(
+        AmazonBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -305,7 +335,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
         mock_session.return_value.client = mock_client
         mock_client.return_value.assume_role = mock_assume_role
 
-        provider = AWSBedrockProvider(
+        provider = AmazonBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         provider.get_bedrock_client()
@@ -343,8 +373,8 @@ def test_bedrock_aws_client(provider, config, aws_config):
             fix["expected"],
             fix["model_request"],
             marks=[]
-            if fix["provider"] is not AWSBedrockModelProvider.COHERE
-            else pytest.mark.skip("Cohere isn't availabe on AWS Bedrock yet"),
+            if fix["provider"] is not AmazonBedrockModelProvider.COHERE
+            else pytest.mark.skip("Cohere isn't available on Amazon Bedrock yet"),
         )
         for fix in bedrock_model_provider_fixtures
     ],
@@ -352,15 +382,18 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch(
-        "mlflow.gateway.providers.bedrock.AWSBedrockProvider._request", return_value=response
-    ) as mock_request:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
+        ) as mock_request,
+    ):
         if not expected:
             pytest.skip("no expected value")
 
-        expected["metadata"]["model"] = config["model"]["name"]
+        expected["model"] = config["model"]["name"]
 
-        provider = AWSBedrockProvider(
+        provider = AmazonBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         response = await provider.completions(completions.RequestPayload(**payload))

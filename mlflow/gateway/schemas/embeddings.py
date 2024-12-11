@@ -1,53 +1,97 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import RouteType
+from mlflow.gateway.config import IS_PYDANTIC_V2
+
+_REQUEST_PAYLOAD_EXTRA_SCHEMA = {
+    "example": {
+        "input": ["hello", "world"],
+    }
+}
 
 
 class RequestPayload(RequestModel):
-    text: Union[str, List[str]]
+    input: Union[str, list[str], list[int], list[list[int]]]
 
     class Config:
-        schema_extra = {
-            "example": {
-                "text": ["hello", "world"],
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
-class Metadata(ResponseModel):
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
+class EmbeddingObject(ResponseModel):
+    object: str = "embedding"
+    embedding: Union[list[float], str]
+    index: int
+
+
+class EmbeddingsUsage(ResponseModel):
+    prompt_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
-    model: str
-    route_type: RouteType
+
+
+_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
+    "object": "list",
+    "data": [
+        {
+            "object": "embedding",
+            "index": 0,
+            "embedding": [
+                0.017291732,
+                -0.017291732,
+                0.014577783,
+                -0.02902633,
+                -0.037271563,
+                0.019333655,
+                -0.023055641,
+                -0.007359971,
+                -0.015818445,
+                -0.030654699,
+                0.008348623,
+                0.018312693,
+                -0.017149571,
+                -0.0044424757,
+                -0.011165961,
+                0.01018377,
+            ],
+        },
+        {
+            "object": "embedding",
+            "index": 1,
+            "embedding": [
+                0.0060126893,
+                -0.008691099,
+                -0.0040095365,
+                0.019889368,
+                0.036211833,
+                -0.0013270887,
+                0.013401738,
+                -0.0036735237,
+                -0.0049594184,
+                0.035229642,
+                -0.03435084,
+                0.019798903,
+                -0.0006110424,
+                0.0073793563,
+                0.005657291,
+                0.022487005,
+            ],
+        },
+    ],
+    "model": "text-embedding-ada-002-v2",
+    "usage": {"prompt_tokens": 400, "total_tokens": 400},
+}
 
 
 class ResponsePayload(ResponseModel):
-    embeddings: List[List[float]]
-    metadata: Metadata
+    object: str = "list"
+    data: list[EmbeddingObject]
+    model: str
+    usage: EmbeddingsUsage
 
     class Config:
-        schema_extra = {
-            "example": {
-                "embeddings": [
-                    [
-                        0.1,
-                        0.2,
-                        0.3,
-                    ],
-                    [
-                        0.4,
-                        0.5,
-                        0.6,
-                    ],
-                ],
-                "metadata": {
-                    "input_tokens": 1,
-                    "output_tokens": 0,
-                    "total_tokens": 1,
-                    "model": "gpt-3.5-turbo",
-                    "route_type": "llm/v1/embeddings",
-                },
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA

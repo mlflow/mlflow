@@ -17,7 +17,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -47,7 +47,8 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 def lgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+        iris.data[:, :2],
+        columns=iris.feature_names[:2],  # we only take the first two features.
     )
     y = iris.target
 
@@ -73,7 +74,8 @@ def lgb_model_signature():
 def lgb_sklearn_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+        iris.data[:, :2],
+        columns=iris.feature_names[:2],  # we only take the first two features.
     )
     y = iris.target
     model = lgb.LGBMClassifier(n_estimators=10)
@@ -178,9 +180,7 @@ def test_model_log(lgb_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
-                model_info = mlflow.lightgbm.log_model(
-                    lgb_model=model, artifact_path=artifact_path, conda_env=conda_env
-                )
+                model_info = mlflow.lightgbm.log_model(model, artifact_path, conda_env=conda_env)
                 model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
                 assert model_info.model_uri == model_uri
                 reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
@@ -207,8 +207,8 @@ def test_log_model_calls_register_model(lgb_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm"])
         mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model,
-            artifact_path=artifact_path,
+            lgb_model.model,
+            artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
@@ -226,9 +226,7 @@ def test_log_model_no_registered_model_name(lgb_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm"])
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=conda_env
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, conda_env=conda_env)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -344,9 +342,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=lgb_custom_env
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, conda_env=lgb_custom_env)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -365,9 +361,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lgb_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=lgb_custom_env
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, conda_env=lgb_custom_env)
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -397,12 +391,14 @@ def test_pyfunc_serve_and_score(lgb_model):
     model, inference_dataframe = lgb_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.lightgbm.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -424,12 +420,12 @@ def test_pyfunc_serve_and_score_sklearn(model):
     model.fit(X, y)
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path="model")
-        model_uri = mlflow.get_artifact_uri("model")
+        model_info = mlflow.sklearn.log_model(model, "model", input_example=X.head(3))
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        X.head(3),
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -486,9 +482,10 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(lgb_model,
 
 def test_log_model_with_code_paths(lgb_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.lightgbm._add_code_from_conf_to_system_path"
-    ) as add_mock:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.lightgbm._add_code_from_conf_to_system_path") as add_mock,
+    ):
         mlflow.lightgbm.log_model(lgb_model.model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.lightgbm.FLAVOR_NAME)
@@ -519,7 +516,7 @@ def test_model_log_with_metadata(lgb_model):
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
             lgb_model.model,
-            artifact_path=artifact_path,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -534,9 +531,7 @@ def test_model_log_with_signature_inference(lgb_model):
     example = X.head(3)
 
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model.model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)

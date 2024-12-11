@@ -6,9 +6,6 @@ from mlflow.entities import SourceType
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_USER
 
-# pylint: disable=unused-argument
-
-
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 
 

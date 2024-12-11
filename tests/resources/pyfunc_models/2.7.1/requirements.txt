@@ -1,0 +1,2 @@
+mlflow==2.7.1
+cloudpickle==2.2.1

@@ -49,7 +49,8 @@ class RegisteredModel(_ModelRegistryEntity):
     @property
     def last_updated_timestamp(self):
         """Integer. Timestamp of last update for this model version (milliseconds since the Unix
-        epoch)."""
+        epoch).
+        """
         return self._last_updated_timestamp
 
     @last_updated_timestamp.setter
@@ -68,7 +69,8 @@ class RegisteredModel(_ModelRegistryEntity):
     @property
     def latest_versions(self):
         """List of the latest :py:class:`mlflow.entities.model_registry.ModelVersion` instances
-        for each stage"""
+        for each stage.
+        """
         return self._latest_version
 
     @latest_versions.setter

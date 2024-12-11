@@ -21,14 +21,15 @@ def force_dbfs_fuse_repo(artifact_dir):
     in_databricks_mock_path = "mlflow.utils.databricks_utils.is_dbfs_fuse_available"
     local_artifact_repo_package = "mlflow.store.artifact.local_artifact_repo"
     artifact_dir_mock_path = local_artifact_repo_package + ".LocalArtifactRepository.artifact_dir"
-    with mock.patch(in_databricks_mock_path, return_value=True), mock.patch(
-        artifact_dir_mock_path, new_callable=PropertyMock, return_value=artifact_dir
+    with (
+        mock.patch(in_databricks_mock_path, return_value=True),
+        mock.patch(artifact_dir_mock_path, new_callable=PropertyMock, return_value=artifact_dir),
     ):
         yield
 
 
 @pytest.fixture
-def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):  # pylint: disable=unused-argument
+def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):
     return get_artifact_repository("dbfs:/unused/path/replaced/by/mock")
 
 

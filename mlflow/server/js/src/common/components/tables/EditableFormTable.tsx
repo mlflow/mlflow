@@ -9,7 +9,7 @@ import React from 'react';
 import {
   Input,
   Button,
-  Form,
+  LegacyForm,
   Modal,
   LegacyTable,
   PencilIcon,
@@ -53,15 +53,16 @@ class EditableCell extends React.Component<EditableCellProps> {
           <div className={editing ? 'editing-cell' : ''}>
             {editing ? (
               // @ts-expect-error TS(2322): Type '{ children: Element; ref: any; }' is not ass... Remove this comment to see the full error message
-              <Form ref={formRef}>
+              <LegacyForm ref={formRef}>
                 {/* @ts-expect-error TS(2322): Type '{ children: Element; style: { margin: number... Remove this comment to see the full error message */}
-                <Form.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
+                <LegacyForm.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
                   <Input
+                    componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_50"
                     onKeyDown={this.handleKeyPress}
-                    data-testid='editable-table-edited-input'
+                    data-testid="editable-table-edited-input"
                   />
-                </Form.Item>
-              </Form>
+                </LegacyForm.Item>
+              </LegacyForm>
             ) : (
               children
             )}
@@ -116,8 +117,8 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
     {
       title: (
         <FormattedMessage
-          defaultMessage='Actions'
-          description='Column title for actions column in editable form table in MLflow'
+          defaultMessage="Actions"
+          description="Column title for actions column in editable form table in MLflow"
         />
       ),
       dataIndex: 'operation',
@@ -125,46 +126,50 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
         const { editingKey, isRequestPending } = this.state;
         const editing = this.isEditing(record);
         if (editing && isRequestPending) {
-          return <Spinner size='small' />;
+          return <Spinner size="small" />;
         }
         return editing ? (
           <span>
             <Button
-              type='link'
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_120"
+              type="link"
               onClick={() => this.save(record.key)}
               style={{ marginRight: 10 }}
-              data-testid='editable-table-button-save'
+              data-testid="editable-table-button-save"
             >
               <FormattedMessage
-                defaultMessage='Save'
-                description='Text for saving changes on rows in editable form table in MLflow'
+                defaultMessage="Save"
+                description="Text for saving changes on rows in editable form table in MLflow"
               />
             </Button>
             <Button
-              type='link'
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_131"
+              type="link"
               // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
               onClick={() => this.cancel(record.key)}
-              data-testid='editable-table-button-cancel'
+              data-testid="editable-table-button-cancel"
             >
               <FormattedMessage
-                defaultMessage='Cancel'
-                description='Text for canceling changes on rows in editable form table in MLflow'
+                defaultMessage="Cancel"
+                description="Text for canceling changes on rows in editable form table in MLflow"
               />
             </Button>
           </span>
         ) : (
           <span>
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_145"
               icon={<PencilIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
-              data-testid='editable-table-button-edit'
+              data-testid="editable-table-button-edit"
             />
             <Button
+              componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_151"
               icon={<TrashIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.setState({ deletingKey: record.key })}
-              data-testid='editable-table-button-delete'
+              data-testid="editable-table-button-delete"
             />
           </span>
         );
@@ -212,46 +217,47 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
     return (
       <EditableContext.Provider value={{ formRef: this.form }}>
         <LegacyTable
-          className='editable-table'
-          data-testid='editable-table'
+          className="editable-table"
+          data-testid="editable-table"
           dataSource={data}
           columns={this.columns}
-          size='middle'
-          tableLayout='fixed'
+          size="middle"
+          tableLayout="fixed"
           pagination={false}
           locale={{
             emptyText: (
               <FormattedMessage
-                defaultMessage='No tags found.'
-                description='Text for no tags found in editable form table in MLflow'
+                defaultMessage="No tags found."
+                description="Text for no tags found in editable form table in MLflow"
               />
             ),
           }}
           scroll={{ y: 280 }}
         />
         <Modal
-          data-testid='editable-form-table-remove-modal'
+          componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_228"
+          data-testid="editable-form-table-remove-modal"
           title={
             <FormattedMessage
-              defaultMessage='Are you sure you want to delete this tag？'
-              description='Title text for confirmation pop-up to delete a tag from table
-                     in MLflow'
+              defaultMessage="Are you sure you want to delete this tag？"
+              description="Title text for confirmation pop-up to delete a tag from table
+                     in MLflow"
             />
           }
           // @ts-expect-error TS(4111): Property 'deletingKey' comes from an index signatu... Remove this comment to see the full error message
           visible={this.state.deletingKey}
           okText={
             <FormattedMessage
-              defaultMessage='Confirm'
-              description='OK button text for confirmation pop-up to delete a tag from table
-                     in MLflow'
+              defaultMessage="Confirm"
+              description="OK button text for confirmation pop-up to delete a tag from table
+                     in MLflow"
             />
           }
           cancelText={
             <FormattedMessage
-              defaultMessage='Cancel'
-              description='Cancel button text for confirmation pop-up to delete a tag from
-                     table in MLflow'
+              defaultMessage="Cancel"
+              description="Cancel button text for confirmation pop-up to delete a tag from
+                     table in MLflow"
             />
           }
           // @ts-expect-error TS(4111): Property 'isRequestPending' comes from an index si... Remove this comment to see the full error message

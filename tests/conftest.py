@@ -2,11 +2,18 @@ import inspect
 import os
 import shutil
 import subprocess
+import uuid
 from unittest import mock
 
 import pytest
+from opentelemetry import trace as trace_api
 
 import mlflow
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
@@ -17,7 +24,7 @@ from tests.autologging.fixtures import enable_test_mode
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmp_path, request):
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
+        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri
     else:
@@ -28,6 +35,60 @@ def tracking_uri_mock(tmp_path, request):
 def reset_active_experiment_id():
     yield
     mlflow.tracking.fluent._active_experiment_id = None
+    os.environ.pop("MLFLOW_EXPERIMENT_ID", None)
+
+
+@pytest.fixture(autouse=True)
+def reset_mlflow_uri():
+    yield
+    os.environ.pop("MLFLOW_TRACKING_URI", None)
+    os.environ.pop("MLFLOW_REGISTRY_URI", None)
+
+
+@pytest.fixture(autouse=True)
+def reset_tracing():
+    """
+    Reset the global state of the tracing feature.
+
+    This fixture is auto-applied for cleaning up the global state between tests
+    to avoid side effects.
+    """
+    yield
+
+    # Reset OpenTelemetry and MLflow tracer setup
+    reset_tracer_setup()
+
+    # Clear other global state and singletons
+    TRACE_BUFFER.clear()
+    _TRACE_BUFFER.clear()
+    InMemoryTraceManager._instance = None
+    IPythonTraceDisplayHandler._instance = None
+
+
+def _is_span_active():
+    span = trace_api.get_current_span()
+    return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
+
+
+@pytest.fixture(autouse=True)
+def validate_trace_finish():
+    """
+    Validate all spans are finished and detached from the context by the end of the each test.
+
+    Leaked span is critical problem and also hard to find without an explicit check.
+    """
+    # When the span is leaked, it causes confusing test failure in the subsequent tests. To avoid
+    # this and make the test failure more clear, we fail first here.
+    if _is_span_active():
+        pytest.skip(reason="A leaked active span is found before starting the test.")
+
+    yield
+
+    assert not _is_span_active(), (
+        "A span is still active at the end of the test. All spans must be finished "
+        "and detached from the context before the test ends. The leaked span context "
+        "may cause other subsequent tests to fail."
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -73,10 +134,10 @@ def prevent_infer_pip_requirements_fallback(request):
     Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
     unless explicitly disabled via `pytest.mark.allow_infer_pip_requirements_fallback`.
     """
-    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE
+    from mlflow.utils.environment import _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE
 
     def new_exception(msg, *_, **__):
-        if msg == _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE and _called_in_save_model():
+        if msg == _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE and _called_in_save_model():
             raise Exception(
                 "`mlflow.models.infer_pip_requirements` should not fall back in"
                 "`mlflow.*.save_model` during test"
@@ -105,7 +166,7 @@ def clean_up_mlruns_directory(request):
         try:
             shutil.rmtree(mlruns_dir)
         except OSError:
-            if os.name == "nt":
+            if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
@@ -116,7 +177,8 @@ def mock_s3_bucket():
     """
     Creates a mock S3 bucket using moto
 
-    :return: The name of the mock bucket
+    Returns:
+        The name of the mock bucket.
     """
     import boto3
     import moto
@@ -151,3 +213,17 @@ def monkeypatch():
 def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()
     return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+
+
+@pytest.fixture
+def mock_databricks_serving_with_tracing_env(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+
+
+@pytest.fixture(params=[True, False])
+def mock_is_in_databricks(request):
+    with mock.patch(
+        "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
+    ) as mock_databricks:
+        yield mock_databricks
