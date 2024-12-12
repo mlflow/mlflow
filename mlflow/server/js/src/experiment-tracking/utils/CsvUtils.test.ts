@@ -39,7 +39,7 @@ describe('CsvUtils', () => {
 
     // Assert that it's just the header and nothing else
     expect(resultCsv.trim()).toEqual(
-      'Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,param_1,param_2,metric_1,metric_2,tag_1',
+      '"Start Time","Duration","Run ID","Name","Source Type","Source Name","User","Status","param_1","param_2","metric_1","metric_2","tag_1"',
     );
   });
 
@@ -53,7 +53,7 @@ describe('CsvUtils', () => {
 
     // Assert header contents
     expect(csvStrings[0]).toEqual(
-      'Start Time,Duration,Run ID,Name,Source Type,Source Name,User,Status,param_1,param_2,metric_1,metric_2,tag_1',
+      '"Start Time","Duration","Run ID","Name","Source Type","Source Name","User","Status","param_1","param_2","metric_1","metric_2","tag_1"',
     );
 
     const PARAM_1_INDEX_POS = 8;
@@ -62,41 +62,41 @@ describe('CsvUtils', () => {
     const METRIC_2_INDEX_POS = 11;
     const TAG_1_INDEX_POS = 12;
 
-    expect(run1csv).toContain('2022-12-01 12:00:00');
-    expect(run2csv).toContain('2022-12-01 12:01:00');
-    expect(run3csv).toContain('2022-12-01 12:02:00');
+    expect(run1csv).toContain('"2022-12-01 12:00:00"');
+    expect(run2csv).toContain('"2022-12-01 12:01:00"');
+    expect(run3csv).toContain('"2022-12-01 12:02:00"');
 
-    expect(run1csv).toContain('1.0s');
-    expect(run2csv).toContain('1.0s');
-    expect(run3csv).toContain('1.0s');
+    expect(run1csv).toContain('"1.0s"');
+    expect(run2csv).toContain('"1.0s"');
+    expect(run3csv).toContain('"1.0s"');
 
-    expect(run1csv).toContain('uuid-for-run-1');
-    expect(run2csv).toContain('uuid-for-run-2');
-    expect(run3csv).toContain('uuid-for-run-3');
+    expect(run1csv).toContain('"uuid-for-run-1"');
+    expect(run2csv).toContain('"uuid-for-run-2"');
+    expect(run3csv).toContain('"uuid-for-run-3"');
 
-    expect(run1csv).toContain('run-1');
-    expect(run2csv).toContain('run-2');
-    expect(run3csv).toContain('run-3');
+    expect(run1csv).toContain('"run-1"');
+    expect(run2csv).toContain('"run-2"');
+    expect(run3csv).toContain('"run-3"');
 
-    expect(run1csv[PARAM_1_INDEX_POS]).toEqual('param_1_for_run-1');
-    expect(run2csv[PARAM_1_INDEX_POS]).toEqual('param_1_for_run-2');
-    expect(run3csv[PARAM_1_INDEX_POS]).toEqual('param_1_for_run-3');
+    expect(run1csv[PARAM_1_INDEX_POS]).toEqual('"param_1_for_run-1"');
+    expect(run2csv[PARAM_1_INDEX_POS]).toEqual('"param_1_for_run-2"');
+    expect(run3csv[PARAM_1_INDEX_POS]).toEqual('"param_1_for_run-3"');
 
-    expect(run1csv[PARAM_2_INDEX_POS]).toEqual('param_2_for_run-1');
-    expect(run2csv[PARAM_2_INDEX_POS]).toEqual('param_2_for_run-2');
-    expect(run3csv[PARAM_2_INDEX_POS]).toEqual('param_2_for_run-3');
+    expect(run1csv[PARAM_2_INDEX_POS]).toEqual('"param_2_for_run-1"');
+    expect(run2csv[PARAM_2_INDEX_POS]).toEqual('"param_2_for_run-2"');
+    expect(run3csv[PARAM_2_INDEX_POS]).toEqual('"param_2_for_run-3"');
 
-    expect(run1csv[METRIC_1_INDEX_POS].toString()).toEqual('11');
-    expect(run2csv[METRIC_1_INDEX_POS].toString()).toEqual('21');
-    expect(run3csv[METRIC_1_INDEX_POS].toString()).toEqual('31');
+    expect(run1csv[METRIC_1_INDEX_POS].toString()).toEqual('"11"');
+    expect(run2csv[METRIC_1_INDEX_POS].toString()).toEqual('"21"');
+    expect(run3csv[METRIC_1_INDEX_POS].toString()).toEqual('"31"');
 
-    expect(run1csv[METRIC_2_INDEX_POS].toString()).toEqual('12');
-    expect(run2csv[METRIC_2_INDEX_POS].toString()).toEqual('22');
-    expect(run3csv[METRIC_2_INDEX_POS].toString()).toEqual('32');
+    expect(run1csv[METRIC_2_INDEX_POS].toString()).toEqual('"12"');
+    expect(run2csv[METRIC_2_INDEX_POS].toString()).toEqual('"22"');
+    expect(run3csv[METRIC_2_INDEX_POS].toString()).toEqual('"32"');
 
-    expect(run1csv[TAG_1_INDEX_POS]).toEqual('tag_1_for_run-1');
-    expect(run2csv[TAG_1_INDEX_POS]).toEqual('tag_1_for_run-2');
-    expect(run3csv[TAG_1_INDEX_POS]).toEqual('tag_1_for_run-3');
+    expect(run1csv[TAG_1_INDEX_POS]).toEqual('"tag_1_for_run-1"');
+    expect(run2csv[TAG_1_INDEX_POS]).toEqual('"tag_1_for_run-2"');
+    expect(run3csv[TAG_1_INDEX_POS]).toEqual('"tag_1_for_run-3"');
   });
 
   it('generates proper metric history CSV for run traces', () => {
