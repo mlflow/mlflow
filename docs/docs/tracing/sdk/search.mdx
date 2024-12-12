@@ -17,7 +17,7 @@ MLflow provides two APIs for searching and retrieving traces:
 
 - **<APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink>**: Query traces using experiment IDs, filter strings, and other parameters. This API returns **a list of <APILink fn="mlflow.entities.Trace">`Trace`</APILink> objects** that matches with the given search criteria.
 
-- **<APILink fn="mlflow.search_traces" />**: A higher-level fluent API that supports same filtering functionalities, but returns a pre-formatted **Pandas DataFrame**, with each row representing a trace, aiding with building an evaluation dataset for [MLflow LLM Evaluation](../../llms/llm-evaluate.mdx).
+- **<APILink fn="mlflow.search_traces" />**: A higher-level fluent API that supports same filtering functionalities, but returns a pre-formatted **Pandas DataFrame**, with each row representing a trace, aiding with building an evaluation dataset for [MLflow LLM Evaluation](llms/llm-evaluate).
 
 The following screenshot shows example of the returned traces from these APIs:
 
@@ -233,7 +233,7 @@ The output Pandas DataFrame contains the additional columns for the extracted sp
 0   053adf2f5f5e4ad68d432e06e254c8a4        ...     'Tom'                          'Good morning Tom.'
 ```
 
-This feature is particularly useful for building an evaluation dataset for your application. You can convert the returned Pandas DataFrame into an MLflow LLM evaluation dataset format by renaming fields, and evaluate your language model using the [mlflow.evaluate()](../../llms/llm-evaluate.mdx) API.
+This feature is particularly useful for building an evaluation dataset for your application. You can convert the returned Pandas DataFrame into an MLflow LLM evaluation dataset format by renaming fields, and evaluate your language model using the [mlflow.evaluate()](llms/llm-evaluate) API.
 
 ```python
 eval_data = traces.rename(

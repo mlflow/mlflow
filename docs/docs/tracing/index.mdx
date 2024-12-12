@@ -72,7 +72,7 @@ Traces empowers your throughout the end-to-end lifecycle of a machine learning p
 
         Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset can be challenging. Traces serve as a rich data source, helping you build high-quality datasets with precise metrics for internal components like retrievers and tools.
 
-        When combined with [MLflow LLM Evaluation](../llms/evaluate.mdx), MLflow offers a seamless experience for assessing and improving your application’s performance.
+        When combined with [MLflow LLM Evaluation](/llms/evaluate), MLflow offers a seamless experience for assessing and improving your application’s performance.
 
         </div>
 
@@ -89,7 +89,7 @@ Traces empowers your throughout the end-to-end lifecycle of a machine learning p
 
         #### Root Cause Analysis for Improved Quality
 
-        After evaluating your model using [MLflow LLM Evaluation](../llms/evaluate.mdx), you can explore auto-generated traces during the evaluation run to identify root causes of quality issues — for instance, insufficiently retrieved documents.
+        After evaluating your model using [MLflow LLM Evaluation](/llms/evaluate), you can explore auto-generated traces during the evaluation run to identify root causes of quality issues — for instance, insufficiently retrieved documents.
 
         Traces empower you to analyze issues in detail and iterate quickly to enhance the quality of your application.
 
@@ -184,8 +184,8 @@ you code and manipulating traces.
 
 1. [Instrument a function with `@mlflow.trace` decorator.](sdk/manual-instrumentation.mdx#decorator)
 2. [Instrument any block of code using `mlflow.start_span` context manager.](sdk/manual-instrumentation.mdx#context-manager)
-3. [Grouping or annotating traces using a tag.](sdk/how-to.mdx#trace-tags)
-4. [Disabling trace globally.](sdk/how-to.mdx#disabling-traces)
+3. [Grouping or annotating traces using a tag.](sdk/how-to#trace-tags)
+4. [Disabling trace globally.](sdk/how-to#disabling-traces)
 
 Refer to the [Tracing How To Guide](sdk/how-to) for more details about the SDK.
 
