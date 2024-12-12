@@ -694,13 +694,19 @@ class MlflowClient:
 
         self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
 
-    def _log_trace(self, trace: Trace):
+    def _log_trace(self, trace: Trace) -> str:
         """
         Log the complete Trace object to the backend store.
 
         This is currently used for allowing integrators to log a trace object generated in a
         different context to the backend store directly. The proper way to create a trace is
         to use the `start_trace` and `end_trace` methods.
+
+        Args:
+            trace: The trace object to log.
+
+        Returns:
+            The request ID of the logged trace.
         """
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
@@ -723,6 +729,8 @@ class MlflowClient:
         # Upload trace data
         self._upload_trace_spans_as_tag(new_info, trace.data)
         self._upload_trace_data(new_info, trace.data)
+
+        return new_info.request_id
 
     def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
         # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API

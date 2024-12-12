@@ -813,12 +813,12 @@ def test_log_trace(tracking_uri):
     assert client.search_traces(experiment_ids=[experiment_id]) == []
 
     # Log the trace manually
-    client._log_trace(trace)
+    new_request_id = client._log_trace(trace)
 
     # Validate the trace is added to the backend
     backend_traces = client.search_traces(experiment_ids=[experiment_id])
     assert len(backend_traces) == 1
-    assert backend_traces[0].info.request_id != trace.info.request_id  # new request ID is assigned
+    assert backend_traces[0].info.request_id == new_request_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
