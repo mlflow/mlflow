@@ -35,11 +35,6 @@ class InputAudio(BaseModel):
     format: Literal["wav", "mp3"]
 
 
-class InputAudio(BaseModel):
-    data: str
-    format: Literal["wav", "mp3"]
-
-
 class AudioContentPart(BaseModel):
     type: Literal["input_audio"]
     input_audio: InputAudio
