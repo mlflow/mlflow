@@ -15,23 +15,39 @@ def health():
     return {"status": "healthy"}
 
 
-class TextContentBlock(BaseModel):
+class TextContentPart(BaseModel):
     type: Literal["text"]
     text: str
 
 
 class ImageUrl(BaseModel):
     url: str
+    detail: Literal["auto", "low", "high"]
 
 
-class ImageContentBlock(BaseModel):
+class ImageContentPart(BaseModel):
     type: Literal["image_url"]
     image_url: ImageUrl
 
 
+class InputAudio(BaseModel):
+    data: str
+    format: Literal["wav", "mp3"]
+
+
+class InputAudio(BaseModel):
+    data: str
+    format: Literal["wav", "mp3"]
+
+
+class AudioContentPart(BaseModel):
+    type: Literal["input_audio"]
+    input_audio: InputAudio
+
+
 class Message(BaseModel):
     role: str
-    content: Union[str, list[Union[TextContentBlock, ImageContentBlock]]] = Field(
+    content: Union[str, list[Union[TextContentPart, ImageContentPart, AudioContentPart]]] = Field(
         union_mode="left_to_right"
     )
 
