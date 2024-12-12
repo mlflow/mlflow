@@ -843,7 +843,6 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
     ]
 )
 
-
 CHAT_MODEL_OUTPUT_SCHEMA = Schema(
     [
         ColSpec(name="id", type=DataType.string),
