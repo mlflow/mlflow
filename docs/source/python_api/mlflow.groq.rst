@@ -1,7 +1,7 @@
-mlflow.anthropic
+mlflow.groq
 ================
 
-.. automodule:: mlflow.anthropic
+.. automodule:: mlflow.groq
     :members:
     :undoc-members:
     :show-inheritance:
