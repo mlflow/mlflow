@@ -15,8 +15,11 @@ const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
  * Escapes a string for safe inclusion in a CSV file to prevent CSV injection attacks.
  * See https://owasp.org/www-community/attacks/CSV_Injection for more information.
  */
-const csvEscape = (str: string | undefined) => {
-  let sanitized = str || '';
+const csvEscape = (x: any) => {
+  if (x === null || x === undefined) {
+    return '';
+  }
+  let sanitized = typeof x === 'string' ? x : x.toString();
 
   // Escape double quotes by doubling them
   sanitized = sanitized.replace(/"/g, '""');
