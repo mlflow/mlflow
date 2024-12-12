@@ -52,9 +52,9 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 
 _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO = (
-    "Since MLflow 2.20.0, `context` parameter can be dropped from `<FUNCTION_NAME>` function "
-    "signature if it's not used. `def <FUNCTION_NAME>(self, model_input, params=None)` is a "
-    "valid <FUNCTION_NAME> function."
+    "Since MLflow 2.20.0, `context` parameter can be removed from `{func_name}` function "
+    "signature if it's not used. `def {func_name}(self, model_input, params=None)` is a "
+    "valid {func_name} function."
 )
 
 _logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
 
         .. warning::
-            Since MLflow 2.20.0, `context` parameter can be dropped from `predict` function
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
             signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
 
@@ -147,7 +147,7 @@ class PythonModel:
             params: Additional parameters to pass to the model for inference.
 
         .. warning::
-            Since MLflow 2.20.0, `context` parameter can be dropped from `predict_stream` function
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
             signature if it's not used.
             `def predict_stream(self, model_input, params=None)` is valid.
         """
@@ -259,7 +259,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         .. warning::
-            Since MLflow 2.20.0, `context` parameter can be dropped from `predict` function
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
             signature if it's not used.
             `def predict(self, messages: list[ChatMessage], params: ChatParams)` is valid.
 
@@ -287,7 +287,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 inference.
 
         .. warning::
-            Since MLflow 2.20.0, `context` parameter can be dropped from `predict_stream` function
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
             signature if it's not used.
             `def predict_stream(self, messages: list[ChatMessage], params: ChatParams)` is valid.
 
@@ -675,9 +675,7 @@ class _PythonModelPyfuncWrapper:
             "context" in parameters
             or len([param for param in parameters if param != "params"]) == 2
         ):
-            _logger.info(
-                _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
-            )
+            _logger.info(_DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.format(func_name="predict"))
             return self.python_model.predict(
                 self.context, self._convert_input(model_input), **kwargs
             )
@@ -704,9 +702,7 @@ class _PythonModelPyfuncWrapper:
             or len([param for param in parameters if param != "params"]) == 2
         ):
             _logger.info(
-                _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.replace(
-                    "<FUNCTION_NAME>", "predict_stream"
-                )
+                _DROP_CONTEXT_IN_PYTHON_MODEL_PREDICT_INFO.format(func_name="predict_stream")
             )
             return self.python_model.predict_stream(
                 self.context, self._convert_input(model_input), **kwargs

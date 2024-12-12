@@ -12,10 +12,10 @@ from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMe
 from mlflow.utils.annotations import experimental
 
 _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO = (
-    "Since MLflow 2.20.0, `context` parameter can be dropped from `<FUNCTION_NAME>` function "
+    "Since MLflow 2.20.0, `context` parameter can be removed from `{func_name}` function "
     "signature if it's not used. "
-    "`def <FUNCTION_NAME>(self, messages: list[ChatMessage], params: ChatParams)` is a valid "
-    "<FUNCTION_NAME> function."
+    "`def {func_name}(self, messages: list[ChatMessage], params: ChatParams)` is a valid "
+    "{func_name} function."
 )
 _logger = logging.getLogger(__name__)
 
@@ -86,9 +86,7 @@ class _ChatModelPyfuncWrapper:
         messages, params = self._convert_input(model_input)
         parameters = inspect.signature(self.chat_model.predict).parameters
         if "context" in parameters or len(parameters) == 3:
-            _logger.info(
-                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
-            )
+            _logger.info(_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict"))
             response = self.chat_model.predict(self.context, messages, params)
         else:
             response = self.chat_model.predict(messages, params)
@@ -129,12 +127,11 @@ class _ChatModelPyfuncWrapper:
         parameters = inspect.signature(self.chat_model.predict_stream).parameters
         if "context" in parameters or len(parameters) == 3:
             _logger.info(
-                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace(
-                    "<FUNCTION_NAME>", "predict_stream"
-                )
+                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict_stream")
             )
-            for response in self.chat_model.predict_stream(self.context, messages, params):
-                yield self._streaming_response_to_dict(response)
+            stream = self.chat_model.predict_stream(self.context, messages, params)
         else:
-            for response in self.chat_model.predict_stream(messages, params):
-                yield self._streaming_response_to_dict(response)
+            stream = self.chat_model.predict_stream(messages, params)
+
+        for response in stream:
+            yield self._streaming_response_to_dict(response)

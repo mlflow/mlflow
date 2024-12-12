@@ -2965,7 +2965,7 @@ def save_model(
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
             if "context" in inspect.signature(python_model.predict).parameters:
-                _logger.info(_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO)
+                _logger.info(_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict"))
                 output = python_model.predict(context, messages, params)
             else:
                 output = python_model.predict(messages, params)
