@@ -49,6 +49,7 @@ CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
+_DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 
 
 _logger = logging.getLogger(__name__)
