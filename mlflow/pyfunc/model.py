@@ -130,7 +130,7 @@ class PythonModel:
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
 
-        .. warning::
+        .. tip::
             Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
             signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
@@ -146,7 +146,7 @@ class PythonModel:
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
 
-        .. warning::
+        .. tip::
             Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
             signature if it's not used.
             `def predict_stream(self, model_input, params=None)` is valid.
@@ -181,7 +181,7 @@ class _FunctionPythonModel(PythonModel):
         Returns:
             Model predictions.
         """
-        if inspect.signature(self.func).parameters.get("params"):
+        if "params" in inspect.signature(self.func).parameters:
             return self.func(model_input, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
@@ -258,7 +258,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 containing various parameters used to modify model behavior during
                 inference.
 
-        .. warning::
+        .. tip::
             Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
             signature if it's not used.
             `def predict(self, messages: list[ChatMessage], params: ChatParams)` is valid.
@@ -286,7 +286,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 containing various parameters used to modify model behavior during
                 inference.
 
-        .. warning::
+        .. tip::
             Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
             signature if it's not used.
             `def predict_stream(self, messages: list[ChatMessage], params: ChatParams)` is valid.
@@ -667,7 +667,7 @@ class _PythonModelPyfuncWrapper:
         """
         parameters = inspect.signature(self.python_model.predict).parameters
         kwargs = {}
-        if parameters.get("params"):
+        if "params" in parameters:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -693,7 +693,7 @@ class _PythonModelPyfuncWrapper:
         """
         parameters = inspect.signature(self.python_model.predict_stream).parameters
         kwargs = {}
-        if parameters.get("params"):
+        if "params" in parameters:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)

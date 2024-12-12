@@ -857,7 +857,7 @@ class PyFuncModel:
                 )
             data = data[0]
 
-        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
+        if "params" in inspect.signature(self._predict_stream_fn).parameters:
             return self._predict_stream_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -1117,7 +1117,7 @@ class _ServedPyFuncModel(PyFuncModel):
         Returns:
             Model predictions.
         """
-        if inspect.signature(self._client.invoke).parameters.get("params"):
+        if "params" in inspect.signature(self._client.invoke).parameters:
             result = self._client.invoke(data, params=params).get_predictions()
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -2502,7 +2502,7 @@ Compound types:
                     raise MlflowException(err_msg) from e
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(client.invoke).parameters.get("params"):
+                    if "params" in inspect.signature(client.invoke).parameters:
                         return client.invoke(pdf, params=params).get_predictions()
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return client.invoke(pdf).get_predictions()
@@ -2535,7 +2535,7 @@ Compound types:
                     )
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(loaded_model.predict).parameters.get("params"):
+                    if "params" in inspect.signature(loaded_model.predict).parameters:
                         return loaded_model.predict(pdf, params=params)
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return loaded_model.predict(pdf)
