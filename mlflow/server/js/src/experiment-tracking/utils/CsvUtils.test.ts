@@ -133,15 +133,15 @@ describe('CsvUtils', () => {
 
     const metricKeys = ['metric1', 'metric2'];
 
-    const expectedCsv = `Run,Run ID,metric,step,timestamp,value
-Run 1,uuid-1,metric1,1,1000,10
-Run 1,uuid-1,metric1,2,2000,20
-Run 2,uuid-2,metric1,1,1000,30
-Run 2,uuid-2,metric1,2,2000,40
-Run 1,uuid-1,metric2,1,1000,100
-Run 1,uuid-1,metric2,2,2000,200
-Run 2,uuid-2,metric2,1,1000,300
-Run 2,uuid-2,metric2,2,2000,400`;
+    const expectedCsv = `"Run","Run ID","metric","step","timestamp","value"
+"Run 1","uuid-1","metric1","1","1000","10"
+"Run 1","uuid-1","metric1","2","2000","20"
+"Run 2","uuid-2","metric1","1","1000","30"
+"Run 2","uuid-2","metric1","2","2000","40"
+"Run 1","uuid-1","metric2","1","1000","100"
+"Run 1","uuid-1","metric2","2","2000","200"
+"Run 2","uuid-2","metric2","1","1000","300"
+"Run 2","uuid-2","metric2","2","2000","400"`;
 
     const resultCsv = chartMetricHistoryToCsv(traces, metricKeys);
 
@@ -179,9 +179,9 @@ Run 2,uuid-2,metric2,2,2000,400`;
     const metricKeys = ['metric1', 'metric2'];
     const paramKeys = ['param1', 'param2'];
 
-    const expectedCsv = `Run,Run ID,metric1,metric2,param1,param2
-Run 1,uuid-1,10,100,value1,value2
-Run 2,uuid-2,20,200,value3,value4`;
+    const expectedCsv = `"Run","Run ID","metric1","metric2","param1","param2"
+"Run 1","uuid-1","10","100","value1","value2"
+"Run 2","uuid-2","20","200","value3","value4"`;
 
     const resultCsv = chartDataToCsv(traces, metricKeys, paramKeys);
 
