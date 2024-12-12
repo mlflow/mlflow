@@ -1,11 +1,15 @@
-# Multi-turn Conversation
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
-
-
-
-### Q. How to group multiple traces within a single conversation session?
+# Tracing Multi-turn Conversation
 
 In conversational AI applications, it is common that users interact with the model multiple times within a single conversation session. Since each interaction generates a trace in the typical MLflow setup, it is useful to group these traces together to analyze the conversation as a whole. You can achieve this by attaching the session ID as a **tag** to each trace.
+
+![Traces with session IDs](/images/llms/tracing/trace-session-id.gif)
+
 
 The following example shows how to use session ID in a chat model that has been implemented using the <APILink fn="mlflow.pyfunc.ChatModel" /> class. Refer to the [Trace Tags](#trace-tags) section for more information on how to set tags on traces.
 
@@ -58,9 +62,8 @@ response = model.predict(
 
 The above code creates two new traces with the same session ID tag. Within the MLflow UI, you can search for these traces that have this defined session ID using ``tag.session_id = '123'``.
 
-![Traces with session IDs](/images/llms/tracing/trace-session-id.gif)
 
-Alternatively, you can use the <APILink fn="mlflow.search_traces" /> function to get these traces programmatically.
+Alternatively, you can use the <APILink fn="mlflow.search_traces" /> function to get these traces programmatically. Refer to [Searching and Retrieving Traces](sdk/search.mdx) for more details.
 
 ```python
 traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")

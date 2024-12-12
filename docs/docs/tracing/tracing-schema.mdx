@@ -450,6 +450,87 @@ The sections below provide a detailed view of the structure of a span.
   </tbody>
 </table>
 
+## Span Types
+
+Span types are a way to categorize spans within a trace. By default, the span type is set to `"UNKNOWN"` when using the trace decorator. MLflow provides a set of predefined span types for common use cases, while also allowing you to setting custom span types.
+
+The following span types are available:
+
+<table>
+  <thead>
+    <tr>
+      <th>**Span Type**</th>
+      <th>**Description**</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`"LLM"`</td>
+      <td>Represents a call to an LLM endpoint or a local model.</td>
+    </tr>
+    <tr>
+      <td>`"CHAT_MODEL"`</td>
+      <td>Represents a query to a chat model. This is a special case of an LLM interaction.</td>
+    </tr>
+    <tr>
+      <td>`"CHAIN"`</td>
+      <td>Represents a chain of operations.</td>
+    </tr>
+    <tr>
+      <td>`"AGENT"`</td>
+      <td>Represents an autonomous agent operation.</td>
+    </tr>
+    <tr>
+      <td>`"TOOL"`</td>
+      <td>Represents a tool execution (typically by an agent), such as querying a search engine.</td>
+    </tr>
+    <tr>
+      <td>`"EMBEDDING"`</td>
+      <td>Represents a text embedding operation.</td>
+    </tr>
+    <tr>
+      <td>`"RETRIEVER"`</td>
+      <td>Represents a context retrieval operation, such as querying a vector database.</td>
+    </tr>
+    <tr>
+      <td>`"PARSER"`</td>
+      <td>Represents a parsing operation, transforming text into a structured format.</td>
+    </tr>
+    <tr>
+      <td>`"RERANKER"`</td>
+      <td>Represents a re-ranking operation, ordering the retrieved contexts based on relevance.</td>
+    </tr>
+    <tr>
+      <td>`"UNKNOWN"`</td>
+      <td>A default span type that is used when no other span type is specified.</td>
+    </tr>
+  </tbody>
+</table>
+
+To set a span type, you can pass the `span_type` parameter to the <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator or <APILink fn="mlflow.start_span" />
+context manager. When you are using [automatic tracing](#automatic-tracing), the span type is automatically set by MLflow.
+
+```python
+import mlflow
+from mlflow.entities import SpanType
+
+
+# Using a built-in span type
+@mlflow.trace(span_type=SpanType.RETRIEVER)
+def retrieve_documents(query: str):
+    ...
+
+
+# Setting a custom span type
+with mlflow.start_span(name="add", span_type="MATH") as span:
+    span.set_inputs({"x": z, "y": y})
+    z = x + y
+    span.set_outputs({"z": z})
+
+    print(span.span_type)
+    # Output: MATH
+```
+
 ## Schema for specific span types
 
 MLflow has a set of 10 predefined types of spans (see <APILink fn="mlflow.entities.SpanType">mlflow.entities.SpanType</APILink>), and

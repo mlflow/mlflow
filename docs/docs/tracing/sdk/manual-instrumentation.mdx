@@ -6,7 +6,7 @@ import TabItem from "@theme/TabItem";
 
 # Manual Tracing
 
-In addition to the [Auto Tracing] integrations, you can instrument your Python code with MLflow Tracing SDK.
+In addition to the [Auto Tracing](..#automatic-tracing) integrations, you can instrument your Python code with MLflow Tracing SDK. This is useful when you want to instrument your custom Python code.
 
 ## Decorator
 
@@ -19,28 +19,32 @@ The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator allows you to
 
 ### Example
 
-The following example 
+The following code is a minimum example of using the decorator for tracing Python functions.
 
 ```python
 import mlflow
 
-# Mark any function with the trace decorator to automatically capture input(s) and output(s)
-@mlflow.trace
-def parent(x):
-    x = pow(x)
-    x = pow(x, 3)
-    return x
+
+@mlflow.trace(span_type="func", attributes={"key": "value"})
+def add_1(x):
+    return x + 1
 
 
-@mlflow.trace
-def pow(x, p=2):
-    return x**p
+@mlflow.trace(span_type="func", attributes={"key1": "value1"})
+def minus_1(x):
+    return x - 1
 
 
-# Invoking the function will generate a trace that is logged to the active experiment
-parent(2)
+@mlflow.trace(name="Trace Test")
+def trace_test(x):
+    step1 = add_1(x)
+    return minus_1(step1)
+
+
+trace_test(4)
 ```
 
+![Tracing Decorator](/images/llms/tracing/trace-decorator.png)
 
 :::note
 
@@ -53,37 +57,35 @@ When a trace contains multiple spans with same name, MLflow appends an auto-incr
 The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator creates 
 
 * `name` parameter to override the span name from the default (the name of decorated function)
-* `span_type` parameter to set the type of span. Set either one of built-in <APILink fn="mlflow.entities.SpanType">`SpanType`</APILink>s or a string.
+* `span_type` parameter to set the type of span. Set either one of built-in [Span Types](../tracing-schema#span-types) or a string.
 * `attributes` parameter to add custom attributes to the span.
 
 ```python
-
 @mlflow.trace(
     name="call-local-llm",
     span_type=SpanType.LLM,
     attributes={"model": "gpt-4o-mini"}
 ):
 def invoke(prompt: str):
-    return {
-        
-    }
+    return client.invoke(messages=[{"role": "user", "content": prompt}, model="gpt-4o-mini"])
 ```
 
 Alternatively, you can update the span dynamically inside the function by using <APILink fn="mlflow.get_current_active_span">`mlflow.get_current_active_span`</APILink> API.
 
 ```python
-@mlflow.trace
-def custom():
-    
+@mlflow.trace(span_type=SpanType.LLM)
+def invoke(prompt: str):
+    model_id = "gpt-4o-mini"
+    # Get the current span (created by the @mlflow.trace decorator)
     span = mlflow.get_current_active_span()
-    span.set_attributes()
-
-    return
+    # Set the attribute to the span
+    span.set_attributes({"model": model_id})
+    return client.invoke(messages=[{"role": "user", "content": prompt}, model=model_id])
 ```
 
 ### Adding Trace Tags
 
-Tags can be added to traces to provide additional metadata at the trace level. 
+Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](sdk/how-to.md#setting-trace-tags) for the other methods.
 
 ```
 @mlflow.trace
@@ -135,8 +137,9 @@ def parse_response(response):
 run("What is MLflow?")
 ```
 
-:TODO: Add picture
+Running this code generates the following single trace:
 
+![](/images/llms/tracing/tracing-auto-manual-mix.png)
 
 
 ### Function Wrapping
@@ -208,9 +211,15 @@ start_session()
 ```
 
 
-## (Advanced) Low-level Client APIs.
+## (Advanced) Low-level Client APIs
 
+When the decorator or context manager does not meet your requirements, you can use the low-level client APIs. For example, you might need to start and end a span from different functions. The client API is designed as a thin wrapper over the MLflow REST APIs, giving you more control over the trace lifecycle. For more details, please refer to the [MLflow Tracing Client APIs](client.mdx) guide.
 
-* Parent-child relationship is NOT captured automatically. You need to pass the ID of the parent span manually.
-* Spans created from client API does not combine with auto-tracing spans.
+:::warning
 
+When using client APIs, please be aware of the following limitations:
+* The parent-child relationship is NOT captured automatically. You need to manually pass the ID of the parent span.
+* Spans created using the client API do NOT combine with auto-tracing spans.
+* Low-level APIs marked as experimental are subject to change based on backend implementation updates.
+
+:::

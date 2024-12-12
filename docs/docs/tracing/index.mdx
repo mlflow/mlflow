@@ -11,8 +11,6 @@ import TabItem from "@theme/TabItem";
 
 # MLflow Tracing for LLM Observability
 
-
-
 **MLflow Tracing** is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
 Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
@@ -40,14 +38,90 @@ If you are new to the tracing or observability concepts, we recommend starting w
 
 :::
 
-Modern Generative AI applications often involve complex pipelines with multiple steps, APIs, and integrations. Observability provides visibility into these workflows, making it easier to:
+Traces empowers your throughout the end-to-end lifecycle of a machine learning project. Click on the tabs below to see how it helps you at each step of the workflow in more details.
 
-- **Debugging bugs**: Identify the root cause of errors in your application.
-- **Inspect quality**: Analyze inputs and outputs for unexpected behaviors.
-- **Evaluate models**: Assess intermediate outputs to refine LLM workflows.
-- **Monitor production**: Track performance and ensure reliability at scale.
+<Tabs>
+  <TabItem value="debugging" label="Debugging" default>
+    <div class="flex-column">
 
-MLflow Tracing automatically logs this data, enabling efficient monitoring, debugging, and optimization of your LLM applications.
+      <div class="flex-row">
+        <div class="flex-item">
+
+          #### Comprehensive Debugging Experience in Your IDE or Notebook
+
+          MLflow's tracing capabilities provide deep insights into what happens beneath the abstractions of GenAI libraries, helping you precisely identify where issues occur.
+
+          You can navigate traces seamlessly **within** your preferred IDE or notebook, eliminating the hassle of switching between multiple tabs or searching through an overwhelming list of traces.
+
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Error](/images/llms/tracing/trace-exception.gif)
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem value="dataset" label="Evaluation Dataset">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Building a High-Quality Evaluation Dataset
+
+        Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset can be challenging. Traces serve as a rich data source, helping you build high-quality datasets with precise metrics for internal components like retrievers and tools.
+
+        When combined with [MLflow LLM Evaluation](../llms/evaluate.mdx), MLflow offers a seamless experience for assessing and improving your application’s performance.
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Error](/images/llms/tracing/trace-exception.gif)
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem value="inspect-quality" label="Inspect Quality">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Root Cause Analysis for Improved Quality
+
+        After evaluating your model using [MLflow LLM Evaluation](../llms/evaluate.mdx), you can explore auto-generated traces during the evaluation run to identify root causes of quality issues — for instance, insufficiently retrieved documents.
+
+        Traces empower you to analyze issues in detail and iterate quickly to enhance the quality of your application.
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Error](/images/llms/tracing/trace-exception.gif)
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem value="online-monitoring" label="Production Monitoring">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Monitor Applications with Your Favorite Observability Stack
+
+        Machine learning projects don’t end with the first launch. Continuous monitoring and incremental improvement are critical to long-term success.
+
+        You can put MLflow into your existing observability stack as well. MLflow can export traces to any **OpenTelemetry**-compatible storage, including Grafana, Prometheus, Datadog, and more.
+        Refer to [Export Traces to Other Services] for more details.
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Error](/images/llms/tracing/trace-exception.gif)
+        </div>
+      </div>
+    </div>
+  </TabItem>
+</Tabs>
+
 
 ## Automatic Tracing
 
@@ -109,21 +183,18 @@ you code and manipulating traces.
 
 1. [Instrument a function with `@mlflow.trace` decorator.](sdk/manual-instrumentation.mdx#decorator)
 2. [Instrument any block of code using `mlflow.start_span` context manager.](sdk/manual-instrumentation.mdx#context-manager)
-3. [Setting a tag to an active trace]
-4. [Enabling and disabling trace globally]
+3. [Grouping or annotating traces using a tag.](sdk/how-to.mdx#trace-tags)
+4. [Disabling trace globally.](sdk/how-to.mdx#disabling-traces)
 
-Please continue to the [MLflow Tracing SDK guide](sdk) for mode details.
+Refer to the [Tracing How To Guide](sdk/how-to) for more details about the SDK.
 
 ## Query Traces
 
-Trace data are useful for various downstream tasks, such as creating an evaluation dataset for offline evaluation and production monitoring.
-
-MLflow provides several APIs to search and retrieve recorded traces programmatically. See [Searching and Retrieving Traces](sdk/search.mdx) for more details.
+Trace data are useful for various downstream tasks, such as creating an evaluation dataset for offline evaluation and production monitoring. MLflow provides several APIs to search and retrieve recorded traces programmatically. See [Searching and Retrieving Traces](sdk/search.mdx) for more details.
 
 ## Tracing in Production
 
 MLflow Tracing is production ready. Read [Production Tracing](production.mdx) for the guidance to use it for monitoring models in production and various backend options.
-
 
 :::note
 MLflow Tracing support is available with the **MLflow 2.14.0** release.
