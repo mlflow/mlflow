@@ -672,7 +672,7 @@ class _PythonModelPyfuncWrapper:
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
         if (
-            parameters.get("context")
+            "context" in parameters
             or len([param for param in parameters if param != "params"]) == 2
         ):
             _logger.info(
@@ -700,7 +700,7 @@ class _PythonModelPyfuncWrapper:
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
         if (
-            parameters.get("context")
+            "context" in parameters
             or len([param for param in parameters if param != "params"]) == 2
         ):
             _logger.info(

@@ -85,7 +85,7 @@ class _ChatModelPyfuncWrapper:
         """
         messages, params = self._convert_input(model_input)
         parameters = inspect.signature(self.chat_model.predict).parameters
-        if parameters.get("context") or len(parameters) == 3:
+        if "context" in parameters or len(parameters) == 3:
             _logger.info(
                 _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace("<FUNCTION_NAME>", "predict")
             )
@@ -127,7 +127,7 @@ class _ChatModelPyfuncWrapper:
         """
         messages, params = self._convert_input(model_input)
         parameters = inspect.signature(self.chat_model.predict_stream).parameters
-        if parameters.get("context") or len(parameters) == 3:
+        if "context" in parameters or len(parameters) == 3:
             _logger.info(
                 _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.replace(
                     "<FUNCTION_NAME>", "predict_stream"
