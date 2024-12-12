@@ -423,6 +423,35 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     }
 
 
+def test_chat_model_logs_default_metadata_task(tmp_path):
+    model = SimpleChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ],
+        **params_subset,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    assert model_info.metadata["task"] == "agent/v1/chat"
+
+    with mlflow.start_run():
+        model_info_with_override = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, metadata={"task": None}
+        )
+    assert model_info_with_override.metadata["task"] is None
+
+
 def test_chat_model_works_with_chat_message_input_example(tmp_path):
     model = SimpleChatModel()
     input_example = [

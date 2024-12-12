@@ -482,6 +482,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    _DEFAULT_CHAT_MODEL_METADATA_TASK,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -567,6 +568,7 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+TASK = "task"
 
 _MODEL_DATA_SUBPATH = "data"
 _CHAT_PARAMS_WARNING_MESSAGE = (
@@ -2916,6 +2918,10 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
+            # For ChatModel we set default metadata to indicate its task
+            default_metadata = {TASK: _DEFAULT_CHAT_MODEL_METADATA_TASK}
+            mlflow_model.metadata = {**default_metadata, **(mlflow_model.metadata or {})}
+
             if input_example:
                 input_example, input_params = _split_input_data_and_params(input_example)
                 valid_params = {}
