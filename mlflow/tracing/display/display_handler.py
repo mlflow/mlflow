@@ -40,7 +40,7 @@ IFRAME_HTML = """
 const isCollapsed = display === 'none';
 this.nextElementSibling.style.display = isCollapsed ? null : 'none';
 const verb = isCollapsed ? 'Collapse' : 'Expand';
-this.innerText = `${{verb}} Mlflow Trace`;"
+this.innerText = `${{verb}} MLflow Trace`;"
   >Collapse MLflow Trace</button>
   <iframe
     id="trace-renderer"
