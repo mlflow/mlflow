@@ -1,3 +1,8 @@
+---
+sidebar_position: 4
+sidebar_label: Low-level Client APIs
+---
+
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
@@ -11,11 +16,6 @@ The <APILink fn="mlflow.client.MlflowClient">`MlflowClient`</APILink> class prov
 :::warning
 
 We recommend using the client APIs ONLY when the high-level APIs like `@mlflow.trace` and `mlflow.start_span` do not satisfy your requirements. See [this page](./manual-instrumentation.mdx) for the usage of those high-level APIs.
-
-When using client APIs, please be aware of the following limitations:
-* The parent-child relationship is NOT captured automatically. You need to manually pass the ID of the parent span.
-* Spans created using the client API do NOT combine with auto-tracing spans.
-* Low-level APIs marked as experimental are subject to change based on backend implementation updates.
 
 :::
 

@@ -1,3 +1,8 @@
+---
+sidebar_position: 1
+sidebar_label: Manual Tracing
+---
+
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
@@ -6,16 +11,16 @@ import TabItem from "@theme/TabItem";
 
 # Manual Tracing
 
-In addition to the [Auto Tracing](..#automatic-tracing) integrations, you can instrument your Python code with MLflow Tracing SDK. This is useful when you want to instrument your custom Python code.
+In addition to the [Auto Tracing](..#automatic-tracing) integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.
 
 ## Decorator
 
-The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator allows you to create a span for any function. This approach is simple yet effective way to adding tracing to your code with minimum effort:
+The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
 
-* MLflow detects the **parent-child relationship** of the functions. Can also be used with the auto-tracing integrations.
-* Captures an **exception** during the function execution and record it a span events.
-* Automatically records the function **name, inputs, outputs, and execution time** of the traced function.
-* Can be used together with **auto tracing** e.g., `mlflow.openai.autolog`.
+- MLflow detects the **parent-child relationships** between functions, making it compatible with auto-tracing integrations.
+- Captures **exceptions** during function execution and records them as span events.
+- Automatically logs the function’s **name, inputs, outputs, and execution time**.
+- Can be used alongside **auto-tracing** features, such as `mlflow.openai.autolog`.
 
 ### Example
 
@@ -62,12 +67,12 @@ The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator creates
 
 ```python
 @mlflow.trace(
-    name="call-local-llm",
-    span_type=SpanType.LLM,
-    attributes={"model": "gpt-4o-mini"}
-):
+    name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"}
+)
 def invoke(prompt: str):
-    return client.invoke(messages=[{"role": "user", "content": prompt}, model="gpt-4o-mini"])
+    return client.invoke(
+        messages=[{"role": "user", "content": prompt}], model="gpt-4o-mini"
+    )
 ```
 
 Alternatively, you can update the span dynamically inside the function by using <APILink fn="mlflow.get_current_active_span">`mlflow.get_current_active_span`</APILink> API.
@@ -80,14 +85,14 @@ def invoke(prompt: str):
     span = mlflow.get_current_active_span()
     # Set the attribute to the span
     span.set_attributes({"model": model_id})
-    return client.invoke(messages=[{"role": "user", "content": prompt}, model=model_id])
+    return client.invoke(messages=[{"role": "user", "content": prompt}], model=model_id)
 ```
 
 ### Adding Trace Tags
 
 Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](sdk/how-to#setting-trace-tags) for the other methods.
 
-```
+```python
 @mlflow.trace
 def my_func(x):
     mlflow.update_current_trace(tags={"fruit": "apple"})
@@ -112,6 +117,7 @@ import openai
 
 mlflow.openai.autolog()
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def run(question):
     messages = build_messages()
@@ -123,16 +129,19 @@ def run(question):
     )
     return parse_response(response)
 
+
 @mlflow.trace
 def build_messages(question):
     return [
         {"role": "system", "content": "You are a helpful chatbot."},
-        {"role": "user": "content": question},
+        {"role": "user", "content": question},
     ]
+
 
 @mlflow.trace
 def parse_response(response):
     return response.choices[0].message.content
+
 
 run("What is MLflow?")
 ```
@@ -150,6 +159,7 @@ Function wrapping provides a flexible way to add tracing to existing functions w
 import math
 import mlflow
 
+
 def invocation(x, y, exp=2):
     # Wrap an external function from the math library
     traced_pow = mlflow.trace(math.pow)
@@ -158,6 +168,7 @@ def invocation(x, y, exp=2):
     traced_factorial = mlflow.trace(math.factorial)
     factorial = traced_factorial(int(raised))
     return response
+
 
 invocation(4)
 ```
@@ -182,6 +193,7 @@ Below is a bit more complex example that uses the <APILink fn="mlflow.start_span
 import mlflow
 from mlflow.entities import SpanType
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def start_session():
     messages = [{"role": "system", "content": "You are a friendly chat bot"}]
@@ -205,6 +217,7 @@ def start_session():
         print(f"🤖: {answer}")
 
         messages.append({"role": "assistant", "content": answer})
+
 
 mlflow.openai.autolog()
 start_session()

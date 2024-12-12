@@ -1,3 +1,7 @@
+---
+sidebar_position: 2
+sidebar_label: Query Traces
+---
 
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
@@ -33,6 +37,7 @@ import time
 import mlflow
 from mlflow.entities import SpanType
 
+
 # Define methods to be traced
 @mlflow.trace(span_type=SpanType.TOOL, attributes={"time": "morning"})
 def morning_greeting(name: str):
@@ -40,15 +45,18 @@ def morning_greeting(name: str):
     mlflow.update_current_trace(tags={"person": name})
     return f"Good morning {name}."
 
+
 @mlflow.trace(span_type=SpanType.TOOL, attributes={"time": "evening"})
 def evening_greeting(name: str):
     time.sleep(1)
     mlflow.update_current_trace(tags={"person": name})
     return f"Good evening {name}."
 
+
 @mlflow.trace(span_type=SpanType.TOOL)
 def goodbye():
     raise Exception("Cannot say goodbye")
+
 
 # Execute the methods within different experiments
 morning_experiment = mlflow.set_experiment("Morning Experiment")
@@ -218,7 +226,7 @@ traces = mlflow.search_traces(
         # Extract the "name" field in the "morning_greeting" span inputs.
         "morning_greeting.inputs.name",
         # Extract the all output fields in the "morning_greeting" span.
-        "morning_greeting.outputs"
+        "morning_greeting.outputs",
     ],
     experiment_ids=[morning_experiment.experiment_id],
 )
