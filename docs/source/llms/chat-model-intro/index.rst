@@ -567,8 +567,6 @@ Some of the biggest differences come up when it's time to log the model:
 
 .. code-block:: python
 
-    from mlflow.models import infer_signature
-
     code_path = "ollama_pyfunc_model.py"
 
     params = {
@@ -580,17 +578,15 @@ Some of the biggest differences come up when it's time to log the model:
     }
     request = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
 
-    signature = infer_signature(model_input=request, params=params)
-
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "ollama_pyfunc_model",
             python_model=code_path,
-            signature=signature,
             input_example=(request, params),
         )
 
-With a custom :py:class:`~mlflow.pyfunc.PythonModel`, we need to manually define the model signature and input example. This is a significant difference from the ChatModel API, which automatically configured the signature to conform to the standardized OpenAI-compatible input/output/parameter schemas.
+With a custom :py:class:`~mlflow.pyfunc.PythonModel`, we need to manually define the input example so that a model signature can be inferred using the example. This is a significant difference from the ChatModel API, which automatically configures a signature that conforms to the standard OpenAI-compatible input/output/parameter schemas.
+To learn more about auto inference of model signature based on an input example, see the :ref:`GenAI model signature example <genai_model_signature_example>` section for details.
 
 There is also one notable difference in how we call the loaded model's ``predict`` method: parameters are passed as a dictionary via the ``params`` keyword argument, rather than in the dictionary containing the messages.
 

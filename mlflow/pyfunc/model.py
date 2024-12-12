@@ -60,6 +60,7 @@ CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
+_DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 
 
 _logger = logging.getLogger(__name__)
@@ -384,7 +385,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
             defines how the model loads artifacts and how it performs inference.
         artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
             are resolved to absolute filesystem paths, producing a dictionary of
-            ``<name, absolute_path>`` entries, (e.g. {"file": "aboslute_path"}).
+            ``<name, absolute_path>`` entries, (e.g. {"file": "absolute_path"}).
             ``python_model`` can reference these resolved entries as the ``artifacts`` property
             of the ``context`` attribute. If ``<artifact_name, 'hf:/repo_id'>``(e.g.
             {"bert-tiny-model": "hf:/prajjwal1/bert-tiny"}) is provided, then the model can be
@@ -698,8 +699,7 @@ class _PythonModelPyfuncWrapper:
                 ):
                     first_string_column = _get_first_string_column(model_input)
                     return model_input[[first_string_column]].to_dict(orient="records")
-                columns = [x.name for x in self.signature.inputs]
-                return model_input[columns].to_dict(orient="records")
+                return model_input.to_dict(orient="records")
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]

@@ -1,5 +1,4 @@
 ruff==0.7.4
-rstcheck==6.1.1
 black[jupyter]==23.7.0
 blacken-docs==1.18.0
 pre-commit==4.0.1

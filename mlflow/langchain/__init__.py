@@ -58,7 +58,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
-from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -683,13 +682,6 @@ class _LangChainModelWrapper:
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
-        elif (context := get_prediction_context()) and context.is_evaluate:
-            # NB: We enable traces automatically for the model evaluation. Note that we have to
-            #   manually pass the context instance to callback, because LangChain callback may be
-            #   invoked asynchronously and it doesn't correctly propagate the thread-local context.
-            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
-            callbacks = [MlflowLangchainTracer(prediction_context=context)]
         else:
             callbacks = None
 

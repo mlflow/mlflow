@@ -403,7 +403,6 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": input_example["messages"],
-        **DEFAULT_PARAMS,
         **params_subset,
     }
 
@@ -424,6 +423,35 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     }
 
 
+def test_chat_model_logs_default_metadata_task(tmp_path):
+    model = SimpleChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ],
+        **params_subset,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    assert model_info.metadata["task"] == "agent/v1/chat"
+
+    with mlflow.start_run():
+        model_info_with_override = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, metadata={"task": None}
+        )
+    assert model_info_with_override.metadata["task"] is None
+
+
 def test_chat_model_works_with_chat_message_input_example(tmp_path):
     model = SimpleChatModel()
     input_example = [
@@ -439,7 +467,6 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": [message.to_dict() for message in input_example],
-        **DEFAULT_PARAMS,
     }
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -483,7 +510,6 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
         "messages": input_example["messages"],
-        **DEFAULT_PARAMS,
         **params_subset,
     }
 
@@ -524,10 +550,7 @@ def test_chat_model_predict_stream(tmp_path):
 def test_chat_model_can_receive_and_return_metadata():
     messages = [{"role": "user", "content": "Hello!"}]
     params = {
-        "custom_inputs": {
-            "image_url": "example",
-            "detail": "high",
-        },
+        "custom_inputs": {"image_url": "example", "detail": "high", "other_dict": {"key": "value"}},
     }
     input_example = {
         "messages": messages,

@@ -180,9 +180,10 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
     supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
-        from pyspark.sql import DataFrame as SparkDataFrame
+        from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-        supported_dataframe_types.append(SparkDataFrame)
+        spark_df_type = get_spark_dataframe_type()
+        supported_dataframe_types.append(spark_df_type)
 
     if predictions is not None:
         _validate_dataset_type_supports_predictions(
@@ -201,7 +202,7 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
-    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+    elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
         return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
     else:
         # Cannot convert to mlflow dataset, return original data.
@@ -277,10 +278,11 @@ class EvaluationDataset:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
-                from pyspark.sql import DataFrame as SparkDataFrame
+                from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-                self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                self._spark_df_type = SparkDataFrame
+                spark_df_type = get_spark_dataframe_type()
+                self._supported_dataframe_types = (pd.DataFrame, spark_df_type)
+                self._spark_df_type = spark_df_type
         except ImportError:
             pass
 

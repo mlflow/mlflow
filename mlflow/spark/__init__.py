@@ -233,7 +233,7 @@ def log_model(
                         signature=signature,
                     )
 
-                # The following signature is outputed:
+                # The following signature is outputted:
                 # inputs:
                 #   ['features': SparkML vector (required)]
                 # outputs:

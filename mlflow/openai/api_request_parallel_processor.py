@@ -61,7 +61,7 @@ class StatusTracker:
 
 
 def call_api(
-    index: int, results: list[tuple[int, any]], task: Callable, status_tracker: StatusTracker
+    index: int, results: list[tuple[int, Any]], task: Callable, status_tracker: StatusTracker
 ):
     import openai
 
@@ -94,7 +94,7 @@ def process_api_requests(
     # initialize trackers
     status_tracker = StatusTracker()  # single instance to track a collection of variables
 
-    results: list[tuple[int, any]] = []
+    results: list[tuple[int, Any]] = []
     request_tasks_iter = enumerate(request_tasks)
     _logger.debug(f"Request pool executor will run {len(request_tasks)} requests")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

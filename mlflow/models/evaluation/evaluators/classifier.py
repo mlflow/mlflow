@@ -344,7 +344,7 @@ def _is_categorical(values):
 def _is_continuous(values):
     """
     Infer whether input values is continuous on best effort.
-    Return True represent they are continous, return False represent we cannot determine result.
+    Return True represent they are continuous, return False represent we cannot determine result.
     """
     dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
     return dtype_name.startswith("float")

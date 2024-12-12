@@ -12,16 +12,25 @@ const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
   params.reduce((result, entity) => ({ ...result, [entity.key]: entity }), {} as Record<string, T>);
 
 /**
- * Format a string for insertion into a CSV file.
+ * Escapes a string for safe inclusion in a CSV file to prevent CSV injection attacks.
+ * See https://owasp.org/www-community/attacks/CSV_Injection for more information.
  */
-const csvEscape = (str: string) => {
-  if (str === undefined) {
+const csvEscape = (x: any) => {
+  if (x === null || x === undefined) {
     return '';
   }
-  if (/[,"\r\n]/.test(str)) {
-    return '"' + str.replace(/"/g, '""') + '"';
+  let sanitized = typeof x === 'string' ? x : x.toString();
+
+  // Escape double quotes by doubling them
+  sanitized = sanitized.replace(/"/g, '""');
+
+  // If the string starts with a character that could be interpreted as a formula, escape it
+  // by prepending a single quote
+  if (/^[=+\-@\r\t]/.test(sanitized)) {
+    sanitized = `'${sanitized}`;
   }
-  return str;
+
+  return `"${sanitized}"`;
 };
 
 /**

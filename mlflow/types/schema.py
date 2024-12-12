@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import datetime as dt
-import importlib.util
 import json
 import string
 from abc import ABC, abstractmethod
@@ -21,12 +20,20 @@ OBJECT_TYPE = "object"
 MAP_TYPE = "map"
 ANY_TYPE = "any"
 SPARKML_VECTOR_TYPE = "sparkml_vector"
-ALOWWED_DTYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
+ALLOWED_DTYPES = Union["Array", "DataType", "Map", "Object", "AnyType", str]
 EXPECTED_TYPE_MESSAGE = (
     "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
     "mlflow.types.schema.Object, mlflow.types.schema.Map, mlflow.types.schema.AnyType "
     "or str for the '{arg_name}' argument, but got {passed_type}"
 )
+COLSPEC_TYPES = Union["Array", "DataType", "Map", "Object", "AnyType"]
+
+try:
+    import pyspark  # noqa: F401
+
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
 
 
 class DataType(Enum):
@@ -96,48 +103,21 @@ class DataType(Enum):
         return self._python_type
 
     @classmethod
-    def is_boolean(cls, value):
-        return type(value) in DataType.boolean.get_all_types()
-
-    @classmethod
-    def is_integer(cls, value):
-        return type(value) in DataType.integer.get_all_types()
-
-    @classmethod
-    def is_long(cls, value):
-        return type(value) in DataType.long.get_all_types()
-
-    @classmethod
-    def is_float(cls, value):
-        return type(value) in DataType.float.get_all_types()
-
-    @classmethod
-    def is_double(cls, value):
-        return type(value) in DataType.double.get_all_types()
-
-    @classmethod
-    def is_string(cls, value):
-        return type(value) in DataType.string.get_all_types()
-
-    @classmethod
-    def is_binary(cls, value):
-        return type(value) in DataType.binary.get_all_types()
-
-    @classmethod
-    def is_datetime(cls, value):
-        return type(value) in DataType.datetime.get_all_types()
-
-    def get_all_types(self):
-        types = [self.to_numpy(), self.to_pandas(), self.to_python()]
-        if importlib.util.find_spec("pyspark") is not None:
-            types.append(self.to_spark())
-        if self.name == "datetime":
+    def check_type(cls, data_type, value):
+        types = [data_type.to_numpy(), data_type.to_pandas(), data_type.to_python()]
+        if data_type.name == "datetime":
             types.extend([np.datetime64, dt.datetime])
-        if self.name == "binary":
-            # This is to support identifying bytearrays as binary data
-            # for pandas DataFrame schema inference
-            types.extend([bytearray])
-        return types
+        if data_type.name == "binary":
+            types.append(bytearray)
+        if type(value) in types:
+            return True
+        if HAS_PYSPARK:
+            return isinstance(value, type(data_type.to_spark()))
+        return False
+
+    @classmethod
+    def all_types(cls):
+        return list(DataType.__members__.values())
 
     @classmethod
     def get_spark_types(cls):
@@ -182,7 +162,7 @@ class Property(BaseType):
     def __init__(
         self,
         name: str,
-        dtype: ALOWWED_DTYPES,
+        dtype: ALLOWED_DTYPES,
         required: bool = True,
     ) -> None:
         """
@@ -491,7 +471,7 @@ class Array(BaseType):
 
     def __init__(
         self,
-        dtype: ALOWWED_DTYPES,
+        dtype: ALLOWED_DTYPES,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -609,7 +589,7 @@ class Map(BaseType):
     Specification used to represent a json-convertible map with string type keys.
     """
 
-    def __init__(self, value_type: ALOWWED_DTYPES):
+    def __init__(self, value_type: ALLOWED_DTYPES):
         try:
             self._value_type = DataType[value_type] if isinstance(value_type, str) else value_type
         except KeyError:
@@ -692,7 +672,7 @@ class Map(BaseType):
 
 
 @experimental
-class AnyType:
+class AnyType(BaseType):
     def __init__(self):
         """
         AnyType can store any json-serializable data including None values.
@@ -722,18 +702,18 @@ class AnyType:
     def to_dict(self):
         return {"type": ANY_TYPE}
 
-    def _merge(self, another_type: BaseType) -> BaseType:
-        if self == another_type:
+    def _merge(self, other: BaseType) -> BaseType:
+        if self == other:
             return deepcopy(self)
-        if isinstance(another_type, DataType):
-            return another_type
-        if not isinstance(another_type, BaseType):
+        if isinstance(other, DataType):
+            return other
+        if not isinstance(other, BaseType):
             raise MlflowException(
-                f"Can't merge AnyType with {type(another_type).__name__}, "
+                f"Can't merge AnyType with {type(other).__name__}, "
                 "it must be a BaseType or DataType"
             )
         # Merging AnyType with another type makes the other type optional
-        return another_type._merge(self)
+        return other._merge(self)
 
 
 class ColSpec:
@@ -743,7 +723,7 @@ class ColSpec:
 
     def __init__(
         self,
-        type: ALOWWED_DTYPES,
+        type: ALLOWED_DTYPES,
         name: Optional[str] = None,
         required: bool = True,
     ):
@@ -1225,19 +1205,22 @@ class ParamSpec:
             )
 
         # Always convert to python native type for params
-        if getattr(DataType, f"is_{dtype.name}")(value):
-            return DataType[dtype.name].to_python()(value)
+        if DataType.check_type(dtype, value):
+            return dtype.to_python()(value)
 
         if (
             (
-                DataType.is_integer(value)
+                DataType.check_type(DataType.integer, value)
                 and dtype in (DataType.long, DataType.float, DataType.double)
             )
-            or (DataType.is_long(value) and dtype in (DataType.float, DataType.double))
-            or (DataType.is_float(value) and dtype == DataType.double)
+            or (
+                DataType.check_type(DataType.long, value)
+                and dtype in (DataType.float, DataType.double)
+            )
+            or (DataType.check_type(DataType.float, value) and dtype == DataType.double)
         ):
             try:
-                return DataType[dtype.name].to_python()(value)
+                return dtype.to_python()(value)
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value {value} from type {type(value).__name__} "

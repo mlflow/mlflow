@@ -48,15 +48,14 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.langchain._langchain_autolog import (
-    UNSUPPORT_LOG_MODEL_MESSAGE,
+    UNSUPPORTED_LOG_MODEL_MESSAGE,
     _resolve_tags,
 )
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
@@ -357,36 +356,6 @@ def test_loaded_llmchain_autolog():
 
 
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
-@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
-def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, async_logging_enabled):
-    # Disable autolog here as it is enabled in other tests.
-    mlflow.langchain.autolog(disable=True)
-
-    model = create_openai_runnable()
-    model_path = tmp_path / "model"
-    mlflow.langchain.save_model(model, path=model_path)
-    loaded_model = mlflow.pyfunc.load_model(model_path)
-
-    request_id = "eval-123"
-    with mlflow.start_run(run_name="eval-run") as run:
-        run_id = run.info.run_id
-        with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
-            response = loaded_model.predict({"product": "MLflow"})
-
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
-
-    assert response == '[{"role": "user", "content": "What is MLflow?"}]'
-    trace = mlflow.get_trace(request_id)
-    assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id
-    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-
-    # Trace should not be displayed in the notebook cell if it is in evaluation
-    mock_display_handler = mock_get_display.return_value
-    mock_display_handler.display_traces.assert_not_called()
-
-
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
     reason="ToolCall message is not available in older versions",
@@ -492,7 +461,7 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
     ):
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
-        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
@@ -530,7 +499,7 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         mock.patch("mlflow.langchain.log_model") as log_model_mock,
     ):
         assert retrieval_chain.invoke(question) == TEST_CONTENT
-        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
 
 

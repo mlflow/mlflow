@@ -1113,7 +1113,7 @@ def test_text2text_generation_pipeline_with_params_success(
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    # parameteres saved with ModelSignature is applied by default
+    # parameters saved with ModelSignature is applied by default
     res = pyfunc_loaded.predict(data)
     res2 = pyfunc_loaded.predict(data, parameters)
     assert res == res2
@@ -1395,7 +1395,7 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
         signature=signature,
     )
 
-    # just test that it doens't blow up when performing inference
+    # just test that it doesn't blow up when performing inference
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     pyfunc_pred = pyfunc_loaded.predict(data)
     assert isinstance(pyfunc_pred[0][0], float)
