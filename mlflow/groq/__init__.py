@@ -4,12 +4,7 @@ The ``mlflow.groq`` module provides an API for logging and loading Groq models.
 
 import importlib.metadata
 
-from packaging.version import Version
-
-from mlflow.exceptions import MlflowException
-from mlflow.groq._groq_autolog import (
-    patched_call,
-)
+from mlflow.groq._groq_autolog import patched_call
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -38,9 +33,6 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during Groq
             autologging. If ``False``, show all events and warnings.
     """
-
-    if Version(_get_groq_package_version()) < Version("0.13.0"):
-        raise MlflowException("Groq autologging is only supported for groq >= 0.13.0")
 
     from groq.resources.audio.transcriptions import Transcriptions
     from groq.resources.audio.translations import Translations

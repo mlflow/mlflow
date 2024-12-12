@@ -914,3 +914,14 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
+
+groq:
+  package_info:
+    pip_release: "groq"
+    install_dev: |
+      pip install git+https://github.com/groq/groq-python
+  autologging:
+    minimum: "0.13.0"
+    maximum: "0.13.0"
+    requirements:
+    run: pytest tests/groq

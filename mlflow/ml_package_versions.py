@@ -364,6 +364,15 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "1.52.9",
             "maximum": "1.53.1"
         }
+    },
+    "groq": {
+        "package_info": {
+            "pip_release": "groq"
+        },
+        "autologging": {
+            "minimum": "0.13.0",
+            "maximum": "0.13.0"
+        }
     }
 }
 
@@ -392,5 +401,6 @@ FLAVOR_TO_MODULE_NAME = {
     "anthropic": "anthropic",
     "crewai": "crewai",
     "litellm": "litellm",
+    "groq": "groq",
     "pyspark.ml": "pyspark"
 }
