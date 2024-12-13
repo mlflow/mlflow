@@ -794,6 +794,40 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
 
 
+def test_log_trace(tracking_uri):
+    client = MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("test_experiment")
+
+    span = client.start_trace(
+        name="test",
+        span_type=SpanType.LLM,
+        experiment_id=experiment_id,
+        tags={"custom_tag": "tag_value"},
+    )
+    client.end_trace(span.request_id, status="OK")
+
+    trace = mlflow.get_last_active_trace()
+
+    # Purge all traces in the backend once
+    client.delete_traces(experiment_id=experiment_id, request_ids=[trace.info.request_id])
+    assert client.search_traces(experiment_ids=[experiment_id]) == []
+
+    # Log the trace manually
+    new_request_id = client._log_trace(trace)
+
+    # Validate the trace is added to the backend
+    backend_traces = client.search_traces(experiment_ids=[experiment_id])
+    assert len(backend_traces) == 1
+    assert backend_traces[0].info.request_id == new_request_id  # new request ID is assigned
+    assert backend_traces[0].info.experiment_id == experiment_id
+    assert backend_traces[0].info.status == trace.info.status
+    assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
+    assert backend_traces[0].data.request == trace.data.request
+    assert backend_traces[0].data.response == trace.data.response
+    assert len(backend_traces[0].data.spans) == len(trace.data.spans)
+    assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
+
+
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
     client = MlflowClient()
