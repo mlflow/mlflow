@@ -9,11 +9,9 @@ import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-
 # Query Traces
 
 This page describes how to query traces logged to MLflow.
-
 
 ## Client vs High-Level API
 
@@ -26,7 +24,6 @@ MLflow provides two APIs for searching and retrieving traces:
 The following screenshot shows example of the returned traces from these APIs:
 
 ![Search Traces Output](/images/llms/tracing/search-traces.png)
-
 
 ## Example Usage of Search Traces
 
@@ -73,12 +70,11 @@ goodbye()
 
 The code above creates the following traces:
 
-| Experiment          | Name              | Tags.person | Status |
-|---------------------|-------------------|-------------|--------|
-| Morning Experiment  | `morning_greeting`| `Tom`       | `OK`   |
-| Evening Experiment  | `evening_greeting`| `Mary`      | `OK`   |
-| Evening Experiment  | `goodbye`         | `N/A`       | `ERROR`|
-
+| Experiment         | Name               | Tags.person | Status  |
+| ------------------ | ------------------ | ----------- | ------- |
+| Morning Experiment | `morning_greeting` | `Tom`       | `OK`    |
+| Evening Experiment | `evening_greeting` | `Mary`      | `OK`    |
+| Evening Experiment | `goodbye`          | `N/A`       | `ERROR` |
 
 Searching the traces with <APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> gives you a list of <APILink fn="mlflow.entities.Trace">`Trace`</APILink> objects.
 
@@ -128,16 +124,12 @@ The pandas DataFrame returned by the <APILink fn="mlflow.search_traces" /> API c
 
 Furthermore, you can extract span fields into additional columns using the [extract_fields](#extract-specific-fields) parameter.
 
-
 ## Filtering Traces
 
 The `filter_string` argument in the search APIs provides a flexible way to query traces using a SQL-like Domain-Specific Language (DSL). The syntax supports searching traces with various metadata and allows for combining multiple conditions.
 
-
 :::note
-
-    The `filter_string` argument is supported in both client and fluent APIs and there is no syntax difference. The example below uses client API for demonstration purpose only.
-
+The `filter_string` argument is supported in both client and fluent APIs and there is no syntax difference. The example below uses client API for demonstration purpose only.
 :::
 
 ### Filter Traces by Name
