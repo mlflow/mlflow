@@ -39,9 +39,6 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -130,6 +127,7 @@ jobs:
     if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
@@ -176,6 +174,7 @@ jobs:
     if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}

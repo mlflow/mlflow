@@ -13,9 +13,6 @@ on:
     paths:
       - .devcontainer/**
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

@@ -16,9 +16,6 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -39,6 +36,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -68,6 +66,7 @@ jobs:
   recipe:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -88,6 +87,7 @@ jobs:
           cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
   recipe-windows:
     runs-on: windows-latest
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

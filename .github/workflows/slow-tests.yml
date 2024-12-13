@@ -26,9 +26,6 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -46,6 +43,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     strategy:
       fail-fast: false

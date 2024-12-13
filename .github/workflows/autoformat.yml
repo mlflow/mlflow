@@ -5,9 +5,6 @@ on:
   issue_comment:
     types: [created, edited]
 
-permissions:
-  contents: read
-
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -159,6 +156,7 @@ jobs:
     timeout-minutes: 5
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:

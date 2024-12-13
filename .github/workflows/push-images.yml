@@ -6,9 +6,6 @@ on:
       - published
       - edited
 
-permissions:
-  contents: read
-
 jobs:
   push-images:
     runs-on: ubuntu-latest
