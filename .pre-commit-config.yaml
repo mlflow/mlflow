@@ -47,6 +47,14 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-notebooks
+        name: check-notebooks
+        entry: dev/check-notebooks.sh
+        language: system
+        files: '\.ipynb$'
+        stages: [pre-commit]
+        require_serial: true
+
       - id: custom-python-lint
         name: custom-python-lint
         entry: clint
