@@ -12,7 +12,7 @@ deny[msg] {
 deny[msg] {
     input.permissions
 
-    msg := "Do not use top-level permissions"
+    msg := "Do not use top-level permissions. Set permissions on the job level."
 }
 
 ###########################   RULE HELPERS   ##################################
