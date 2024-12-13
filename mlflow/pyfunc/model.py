@@ -666,7 +666,9 @@ class _PythonModelPyfuncWrapper:
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
         if (
+            # predict(self, context, model_input, ...)
             "context" in parameters
+            # predict(self, ctx, model_input, ...) ctx can be any parameter name
             or len([param for param in parameters if param != "params"]) == 2
         ):
             return self.python_model.predict(
@@ -691,7 +693,9 @@ class _PythonModelPyfuncWrapper:
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
         if (
+            # predict_stream(self, context, model_input, ...)
             "context" in parameters
+            # predict_stream(self, ctx, model_input, ...) ctx can be any parameter name
             or len([param for param in parameters if param != "params"]) == 2
         ):
             return self.python_model.predict_stream(
