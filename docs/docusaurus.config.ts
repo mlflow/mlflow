@@ -109,6 +109,20 @@ const config: Config = {
       darkTheme: prismThemes.dracula,
     },
   } satisfies Preset.ThemeConfig,
+
+  plugins: [
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            to: "/tracing",
+            from: ["/llms/tracing"],
+          },
+        ],
+      },
+    ],
+  ],
 };
 
 export default config;
