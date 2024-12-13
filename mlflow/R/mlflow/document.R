@@ -39,7 +39,7 @@ rst_header <- ".. _R-api:
 R API
 ========
 
-The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow `Tracking <../tracking/index.html>`_, `Projects <../projects/index.html>`_ and `Models <../models/index.html>`_.
 
 Prerequisites
 =============
