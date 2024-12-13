@@ -146,3 +146,11 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: conftest
+        name: conftest
+        entry: conftest test --policy .github/policy.rego
+        files: '^\.github/workflows/.*\.yml$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
