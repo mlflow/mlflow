@@ -481,7 +481,6 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     archive_directory,
     extract_archive_to_dir,
 )
-from mlflow.pyfunc.loaders.chat_model import _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO
 from mlflow.pyfunc.model import (
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
     ChatModel,
@@ -2965,7 +2964,6 @@ def save_model(
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
             if "context" in inspect.signature(python_model.predict).parameters:
-                _logger.info(_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict"))
                 output = python_model.predict(context, messages, params)
             else:
                 output = python_model.predict(messages, params)

@@ -11,12 +11,6 @@ from mlflow.pyfunc.model import (
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.utils.annotations import experimental
 
-_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO = (
-    "Since MLflow 2.20.0, `context` parameter can be removed from `{func_name}` function "
-    "signature if it's not used. "
-    "`def {func_name}(self, messages: list[ChatMessage], params: ChatParams)` is a valid "
-    "{func_name} function."
-)
 _logger = logging.getLogger(__name__)
 
 
@@ -86,7 +80,6 @@ class _ChatModelPyfuncWrapper:
         messages, params = self._convert_input(model_input)
         parameters = inspect.signature(self.chat_model.predict).parameters
         if "context" in parameters or len(parameters) == 3:
-            _logger.info(_DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict"))
             response = self.chat_model.predict(self.context, messages, params)
         else:
             response = self.chat_model.predict(messages, params)
@@ -126,9 +119,6 @@ class _ChatModelPyfuncWrapper:
         messages, params = self._convert_input(model_input)
         parameters = inspect.signature(self.chat_model.predict_stream).parameters
         if "context" in parameters or len(parameters) == 3:
-            _logger.info(
-                _DROP_CONTEXT_IN_CHAT_MODEL_PREDICT_INFO.format(func_name="predict_stream")
-            )
             stream = self.chat_model.predict_stream(self.context, messages, params)
         else:
             stream = self.chat_model.predict_stream(messages, params)
