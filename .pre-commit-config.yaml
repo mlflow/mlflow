@@ -51,7 +51,7 @@ repos:
         name: check-notebooks
         entry: dev/check-notebooks.sh
         language: system
-        types_or: [jupyter]
+        files: '\.ipynb$'
         stages: [pre-commit]
         require_serial: true
 
