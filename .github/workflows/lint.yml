@@ -48,6 +48,7 @@ jobs:
           uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
+          mkdir -p /tmp/conftest/bin
           curl -s -L "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz" | tar xvz /tmp/conftest/bin/conftest
           echo "/tmp/conftest/bin" >> $GITHUB_PATH
       - uses: ./.github/actions/show-versions
