@@ -59,7 +59,7 @@ When a trace contains multiple spans with same name, MLflow appends an auto-incr
 
 ### Customizing Spans
 
-The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator creates 
+The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator accepts following arguments to customize the span to be created:
 
 * `name` parameter to override the span name from the default (the name of decorated function)
 * `span_type` parameter to set the type of span. Set either one of built-in [Span Types](../tracing-schema#span-types) or a string.
@@ -109,7 +109,7 @@ within ``Events`` of the partially completed span, further aiding the identifica
 
 ### Combining with Auto-Tracing
 
-The `@mlflow.trace` decorator can be used in conjunction with auto tracing. For example, the following code combines OpenAI auto tracing.
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing. For example, the following code combines OpenAI auto-tracing with manually defined spans in a single cohesive and integrated trace.
 
 ```python
 import mlflow
@@ -176,9 +176,9 @@ invocation(4)
 
 ## Context Manager
 
-In addition to the decorator, MLflow allow creating a span with arbitral code block using the <APILink fn="mlflow.start_span" /> context manager. It can be useful for capturing complex interactions within your code beyond the scope of a function.
+In addition to the decorator, MLflow allows for creating a span that can then be accessed within any encapsulated  arbitrary code block using the <APILink fn="mlflow.start_span" /> context manager. It can be useful for capturing complex interactions within your code in finer detail than what is possible by capturing the boundaries of a single function.
 
-Similarly to the decorator, the context manager automatically captures parent-child relationship, exceptions, execution time, and work with auto-tracing. However, the name, inputs, and outputs of the span must be given manually. You can set them via the <APILink fn="mlflow.entities.Span">Span</APILink> object returned from the context manager.
+Similarly to the decorator, the context manager automatically captures parent-child relationship, exceptions, execution time, and works with auto-tracing. However, the name, inputs, and outputs of the span must be provided  manually. You can set them via the <APILink fn="mlflow.entities.Span">Span</APILink> object that is returned from the context manager.
 
 ```python
 with mlflow.start_span(name="my_span") as span:
@@ -187,7 +187,7 @@ with mlflow.start_span(name="my_span") as span:
     span.set_outputs(z)
 ```
 
-Below is a bit more complex example that uses the <APILink fn="mlflow.start_span" /> context manager in conjunction with the decorator and auto tracing for OpenAI.
+Below is a slightly more complex example that uses the <APILink fn="mlflow.start_span" /> context manager in conjunction with both the decorator and auto-tracing for OpenAI.
 
 ```python
 import mlflow

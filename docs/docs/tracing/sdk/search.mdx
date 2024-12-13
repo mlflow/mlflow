@@ -15,13 +15,13 @@ import TabItem from "@theme/TabItem";
 This page describes how to query traces logged to MLflow.
 
 
-## Client vs Fluent API
+## Client vs High-Level API
 
 MLflow provides two APIs for searching and retrieving traces:
 
 - **<APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink>**: Query traces using experiment IDs, filter strings, and other parameters. This API returns **a list of <APILink fn="mlflow.entities.Trace">`Trace`</APILink> objects** that matches with the given search criteria.
 
-- **<APILink fn="mlflow.search_traces" />**: A higher-level fluent API that supports same filtering functionalities, but returns a pre-formatted **Pandas DataFrame**, with each row representing a trace, aiding with building an evaluation dataset for [MLflow LLM Evaluation](llms/llm-evaluate).
+- **<APILink fn="mlflow.search_traces" />**: A higher-level API that supports the same filtering functionalities as the client APIs, but instead returns a pre-formatted **Pandas DataFrame** with each row representing a trace, simplifying the process of creating an evaluation dataset for [MLflow LLM Evaluation](llms/llm-evaluate).
 
 The following screenshot shows example of the returned traces from these APIs:
 
@@ -218,7 +218,7 @@ client.search_traces(
 
 ## Extract Specific Fields
 
-The fluent API <APILink fn="mlflow.search_traces" /> allows you to extract specific fields from spans with `extract_fields` argument. The span fields can be specifie in the format of `span_name.[inputs|outputs]` or `span_name.[inputs|outputs].field_name`:
+The <APILink fn="mlflow.search_traces" /> API allows you to extract specific fields from spans with `extract_fields` argument. The span fields can be specifie in the format of `span_name.[inputs|outputs]` or `span_name.[inputs|outputs].field_name`:
 
 ```python
 traces = mlflow.search_traces(
