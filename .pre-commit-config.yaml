@@ -19,7 +19,7 @@ repos:
         name: ruff
         entry: python dev/ruff.py
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -27,7 +27,7 @@ repos:
         name: format
         entry: python dev/format.py
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -35,7 +35,7 @@ repos:
         name: taplo
         entry: dev/taplo.sh
         language: system
-        types: [toml]
+        files: '\.toml$'
         stages: [pre-commit]
         require_serial: true
 
@@ -43,7 +43,7 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        types_or: [rst, markdown]
+        files: '\.(rst|md)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -59,7 +59,7 @@ repos:
         name: custom-python-lint
         entry: clint
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
