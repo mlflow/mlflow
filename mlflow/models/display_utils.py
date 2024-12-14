@@ -37,6 +37,10 @@ def _is_output_string_response(outputs: list[dict]) -> bool:
     return True
 
 
+def _is_output_string(outputs: list[dict]) -> bool:
+    return len(outputs) == 1 and outputs[0].get("type") == "string"
+
+
 def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
     choices = next(filter(lambda col: col.get("name") == "choices", outputs), None)
     if not choices:
@@ -67,7 +71,11 @@ def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
 
 
 def _is_output_agent_compatible(outputs: list[dict]) -> bool:
-    return _is_output_string_response(outputs) or _is_output_chat_completion_response(outputs)
+    return (
+        _is_output_string_response(outputs)
+        or _is_output_string(outputs)
+        or _is_output_chat_completion_response(outputs)
+    )
 
 
 def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
