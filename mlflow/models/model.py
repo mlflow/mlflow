@@ -899,7 +899,7 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
-        from mlflow.models.utils import maybe_render_agent_eval_recipe
+        from mlflow.models.display_utils import maybe_render_agent_eval_recipe
 
         maybe_render_agent_eval_recipe(model_info)
 
