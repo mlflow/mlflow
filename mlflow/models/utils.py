@@ -22,9 +22,7 @@ import pandas as pd
 import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
-from mlflow.models.model import ModelInfo
 from mlflow.models.model_config import _set_model_config
-from mlflow.models.signature import ModelSignature
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -1937,14 +1935,14 @@ def _is_output_agent_compatible(outputs: list[dict]) -> bool:
     return True
 
 
-def _is_signature_agent_compatible(signature: ModelSignature):
+def _is_signature_agent_compatible(signature):
     signature = signature.to_dict()
     inputs = json.loads(signature.get("inputs") or "[]")
     outputs = json.loads(signature.get("outputs") or "[]")
     return _is_input_agent_compatible(inputs) and _is_output_agent_compatible(outputs)
 
 
-def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
+def _should_render_agent_eval_template(signature) -> bool:
     if not databricks_utils.is_in_databricks_runtime():
         return False
     try:
@@ -1959,7 +1957,7 @@ def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
         return False
 
 
-def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
+def maybe_render_agent_eval_recipe(model_info) -> None:
     if not _should_render_agent_eval_template(model_info.signature):
         return
     # Create a Jinja2 environment and load the template
