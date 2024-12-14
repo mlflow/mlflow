@@ -27,6 +27,7 @@ def _is_input_agent_compatible(inputs: list[dict]) -> bool:
         return False
     return True
 
+
 def _is_output_string_response(outputs: list[dict]) -> bool:
     content = next(filter(lambda col: col.get("name") == "content", outputs), None)
     if not content:
@@ -34,6 +35,7 @@ def _is_output_string_response(outputs: list[dict]) -> bool:
     if content.get("type") != "string":
         return False
     return True
+
 
 def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
     choices = next(filter(lambda col: col.get("name") == "choices", outputs), None)
@@ -62,6 +64,7 @@ def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
     if message_properties.get("role", {}).get("type") != "string":
         return False
     return True
+
 
 def _is_output_agent_compatible(outputs: list[dict]) -> bool:
     return _is_output_string_response(outputs) or _is_output_chat_completion_response(outputs)
