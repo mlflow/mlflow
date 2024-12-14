@@ -1968,5 +1968,4 @@ def maybe_render_agent_eval_recipe(model_info) -> None:
     template = env.get_template("agent_evaluation_template.html")
     model_uri = model_info.model_uri
     rendered_html = template.render({"modelUri": model_uri})
-    if "displayHTML" in globals():
-        displayHTML(rendered_html)  # noqa: F821
+    displayHTML(rendered_html)  # noqa: F821
