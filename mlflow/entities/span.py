@@ -4,6 +4,7 @@ from dataclasses import asdict
 from functools import lru_cache
 from typing import Any, Optional, Union
 
+import pydantic
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -13,6 +14,7 @@ import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.schemas.chat import FunctionTool, RequestMessage
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
@@ -307,6 +309,28 @@ class LiveSpan(Span):
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+
+    def set_chat_messages(self, messages: list[RequestMessage]):
+        """Set the messages attribute on the span."""
+        try:
+            for message in messages:
+                RequestMessage.model_validate(message)
+        except pydantic.ValidationError as e:
+            raise MlflowException.invalid_parameter_value(
+                "Chat messages must be a list of valid messages."
+            ) from e
+        self.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
+
+    def set_chat_tools(self, tools: list[FunctionTool]):
+        """Set the tools attribute on the span."""
+        try:
+            for tool in tools:
+                FunctionTool.model_validate(tool)
+        except pydantic.ValidationError as e:
+            raise MlflowException.invalid_parameter_value(
+                "Chat tools must be a list of valid tool definitions."
+            ) from e
+        self.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)
 
     def set_attributes(self, attributes: dict[str, Any]):
         """

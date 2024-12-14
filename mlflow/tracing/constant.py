@@ -20,6 +20,8 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
+    CHAT_MESSAGES = "mlflow.chat.messages"
+    CHAT_TOOLS = "mlflow.chat.tools"
 
 
 # All storage backends are guaranteed to support key values up to 250 characters

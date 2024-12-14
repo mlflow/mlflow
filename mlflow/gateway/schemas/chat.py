@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from pydantic import Field
 
@@ -6,12 +6,69 @@ from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import IS_PYDANTIC_V2
 
 
+class TextContentPart(RequestModel):
+    type: Literal["text"]
+    text: str
+
+
+class ImageUrl(RequestModel):
+    url: str  # either URL of an image, or bas64 encoded data
+    detail: Literal["auto", "low", "high"]
+
+
+class ImageContentPart(RequestModel):
+    type: Literal["image_url"]
+    image_url: ImageUrl
+
+
+class InputAudio(RequestModel):
+    data: str  # base64 encoded data
+    format: Literal["wav", "mp3"]
+
+
+class AudioContentPart(RequestModel):
+    type: Literal["input_audio"]
+    input_audio: InputAudio
+
+
 class RequestMessage(RequestModel):
     role: str
-    content: str
+    content: Union[str, list[Union[TextContentPart, ImageContentPart, AudioContentPart]]] = Field(
+        union_mode="left_to_right"
+    )
+
+
+class ParamType(RequestModel):
+    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
+
+
+class ParamProperty(ParamType):
+    description: Optional[str] = None
+    enum: Optional[list[str]] = None
+    items: Optional[ParamType] = None
+
+
+class FunctionParams(RequestModel):
+    properties: dict[str, ParamProperty]
+    type: Literal["object"] = "object"
+    required: Optional[list[str]] = None
+    additionalProperties: Optional[bool] = None
+
+
+class FunctionToolDefinition(RequestModel):
+    name: str
+    description: Optional[str] = None
+    parameters: Optional[FunctionParams] = None
+    strict: bool = False
+
+
+class FunctionTool(RequestModel):
+    type: Literal["function"] = "function"
+    function: FunctionToolDefinition
 
 
 class BaseRequestPayload(RequestModel):
+    tools: Optional[list[FunctionTool]] = None
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: Optional[list[str]] = Field(None, min_items=1)
