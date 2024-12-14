@@ -27,8 +27,15 @@ def _is_input_agent_compatible(inputs: list[dict]) -> bool:
         return False
     return True
 
+def _is_output_string_response(outputs: list[dict]) -> bool:
+    content = next(filter(lambda col: col.get("name") == "content", outputs), None)
+    if not content:
+        return False
+    if content.get("type") != "string":
+        return False
+    return True
 
-def _is_output_agent_compatible(outputs: list[dict]) -> bool:
+def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
     choices = next(filter(lambda col: col.get("name") == "choices", outputs), None)
     if not choices:
         return False
@@ -56,6 +63,9 @@ def _is_output_agent_compatible(outputs: list[dict]) -> bool:
         return False
     return True
 
+def _is_output_agent_compatible(outputs: list[dict]) -> bool:
+    return _is_output_string_response(outputs) or _is_output_chat_completion_response(outputs)
+
 
 def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
     signature = signature.to_dict()
@@ -64,7 +74,7 @@ def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
     return _is_input_agent_compatible(inputs) and _is_output_agent_compatible(outputs)
 
 
-def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
+def should_render_agent_eval_template(signature: ModelSignature) -> bool:
     if not databricks_utils.is_in_databricks_runtime():
         return False
     try:
@@ -80,7 +90,7 @@ def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
 
 
 def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
-    if not _should_render_agent_eval_template(model_info.signature):
+    if not should_render_agent_eval_template(model_info.signature):
         return
     # Create a Jinja2 environment and load the template
     env = jinja2.Environment(
