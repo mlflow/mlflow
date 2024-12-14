@@ -21,8 +21,10 @@ import pandas as pd
 
 import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
-from mlflow.models import Model, ModelInfo, ModelSignature
+from mlflow.models import Model
+from mlflow.models.model import ModelInfo
 from mlflow.models.model_config import _set_model_config
+from mlflow.models.signature import ModelSignature
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
