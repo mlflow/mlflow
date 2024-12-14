@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from functools import lru_cache
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pydantic
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -14,7 +14,6 @@ import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.chat import FunctionTool, RequestMessage
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
@@ -24,6 +23,9 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+
+if TYPE_CHECKING:
+    from mlflow.gateway.schemas.chat import FunctionTool, RequestMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -310,8 +312,9 @@ class LiveSpan(Span):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def set_chat_messages(self, messages: list[RequestMessage]):
+    def set_chat_messages(self, messages: list["RequestMessage"]):
         """Set the messages attribute on the span."""
+        from mlflow.gateway.schemas.chat import RequestMessage
         try:
             for message in messages:
                 RequestMessage.model_validate(message)
@@ -321,8 +324,9 @@ class LiveSpan(Span):
             ) from e
         self.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
 
-    def set_chat_tools(self, tools: list[FunctionTool]):
+    def set_chat_tools(self, tools: list["FunctionTool"]):
         """Set the tools attribute on the span."""
+        from mlflow.gateway.schemas.chat import FunctionTool
         try:
             for tool in tools:
                 FunctionTool.model_validate(tool)
