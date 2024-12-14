@@ -64,7 +64,7 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
     #### Span Structure
 
     The Span object within MLflow's tracing feature provides detailed information about the individual steps of the trace.
-    It complies to the [OpenTelemetry Span spec](https://opentelemetry.io/docs/concepts/signals/traces/#spans).
+    It complies to the [OpenTelemetry Span spec](https://opentelemetry.io/docs/concepts/signals/traces#spans).
     Each Span object contains information about the step being instrumented, including the span_id, name, start_time, parent_id, status,
     inputs, outputs, attributes, and events.
 
@@ -92,7 +92,7 @@ Trace Info is a dataclass object that contains metadata about the trace. This me
 various other data that aids in retrieving and filtering traces when used with <APILink fn="mlflow.client.MlflowClient.search_traces" /> and for
 navigation of traces within the MLflow UI.
 
-To learn more about how `TraceInfo` metadata is used for searching, you can see examples [here](./#searching-and-retrieving-traces).
+To learn more about how `TraceInfo` metadata is used for searching, you can see examples [here](/llms/tracing#searching-and-retrieving-traces).
 
 The data that is contained in the `TraceInfo` object is used to populate the trace view page within the MLflow tracking UI, as shown below.
 
@@ -205,8 +205,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
       <td>**tags**</td>
       <td>
         User-defined key-value pairs that can be applied to a trace for applying
-        additional context, aid in [search
-        functionality](./#searching-and-retrieving-traces), or to
+        additional context, aid in [search functionality](/llms/tracing#searching-and-retrieving-traces), or to
         provide additional information during the creation or after the
         successful logging of a trace.
       </td>
@@ -235,19 +234,8 @@ This object contains the following elements:
   <tbody>
     <tr>
       <td>**request**</td>
-      <td>
-        The `request` property is the input data for the entire trace. The input
-        `str` is a JSON-serialized string that contains the input data for the
-        trace, typically the end-user request that was submitted as a call to
-        the application.
-      </td>
-      <td>
-        Due to the varied structures of inputs that could go to a given
-        application that is being instrumented by MLflow Tracing, all inputs are
-        JSON serialized for compatibility’s sake. This allows for the input data
-        to be stored in a consistent format, regardless of the input data’s
-        structure.
-      </td>
+      <td>The `request` property is the input data for the entire trace. The input `str` is a JSON-serialized string that contains the input data for the trace, typically the end-user request that was submitted as a call to the application.</td>
+      <td>Due to the varied structures of inputs that could go to a given application that is being instrumented by MLflow Tracing, all inputs are JSON serialized for compatibility’s sake. This allows for the input data to be stored in a consistent format, regardless of the input data’s structure.</td>
     </tr>
     <tr>
       <td>**spans**</td>
@@ -256,21 +244,12 @@ This object contains the following elements:
         <APILink fn="mlflow.entities.Span">{"Span"}</APILink>
         {" objects that represent the individual steps of the trace."}
       </td>
-      <td>
-        For further information on the structure of Span objects, see the
-        section below.
-      </td>
+      <td>For further information on the structure of Span objects, see the section below.</td>
     </tr>
     <tr>
       <td>**response**</td>
-      <td>
-        The response property is the final output data that will be returned to
-        the caller of the invocation of the application.
-      </td>
-      <td>
-        Similar to the request property, this value is a JSON-serialized string
-        to maximize compatibility of disparate formats.
-      </td>
+      <td>The response property is the final output data that will be returned to the caller of the invocation of the application.</td>
+      <td>Similar to the request property, this value is a JSON-serialized string to maximize compatibility of disparate formats.</td>
     </tr>
   </tbody>
 </table>

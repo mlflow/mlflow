@@ -43,7 +43,7 @@ To use MLflow deployment, you must first create a model.
 
 Container plays a critical role for simplifying and standardizing the model deployment process. MLflow uses Docker containers to package models with
 their dependencies, enabling deployment to various destinations without environment compatibility issues. See
-[Building a Docker Image for MLflow Model](deploy-model-to-kubernetes#build-docker-for-deployment) for more details on how
+[Building a Docker Image for MLflow Model](/deployment/deploy-model-to-kubernetes#build-docker-for-deployment) for more details on how
 to deploy your model as a container. If you're new to Docker, you can start learning at ["What is a Container"](https://www.docker.com/resources/what-container).
 
 ### Deployment Target
@@ -56,7 +56,7 @@ cloud services (AWS, Azure), Kubernetes clusters, and others.
 An [MLflow Model](/models) already packages your model and its dependencies, hence MLflow can create either a virtual environment (for local deployment)
 or a Docker container image containing everything needed to run your model. Subsequently, MLflow launches an inference server with REST endpoints using
 frameworks like [Flask](https://flask.palletsprojects.com/en/1.1.x), preparing it for deployment to various destinations to handle inference requests.
-Detailed information about the server and endpoints is available in [Inference Server Specification](deploy-model-locally#local-inference-server-spec).
+Detailed information about the server and endpoints is available in [Inference Server Specification](/deployment/deploy-model-locally#local-inference-server-spec).
 
 MLflow provides [CLI commands](#deployment-cli) and [Python APIs](#deployment-python-api) to facilitate the deployment process.
 The required commands differ based on the deployment target, so please continue reading to the next section for more details about your specific target.
@@ -72,11 +72,11 @@ MLflow offers support for a variety of deployment targets. For detailed informat
         Deploying a model locally as an inference server is straightforward with MLflow, requiring just a single command <code>mlflow models serve</code>.
       </>
     }
-    link="deploy-model-locally"
+    link="/deployment/deploy-model-locally"
   >
     <span>Deploying a Model Locally</span>
   </LogoCard>
-  <LogoCard description="Amazon SageMaker is a fully managed service for scaling ML inference containers. MLflow simplifies the deployment process with easy-to-use commands, eliminating the need to write container definitions." link="deploy-model-to-sagemaker">
+  <LogoCard description="Amazon SageMaker is a fully managed service for scaling ML inference containers. MLflow simplifies the deployment process with easy-to-use commands, eliminating the need to write container definitions." link="/deployment/deploy-model-to-sagemaker">
     <span>![Amazon SageMaker Logo](/images/logos/amazon-sagemaker-logo.png)</span>
   </LogoCard>
   <LogoCard description="MLflow integrates seamlessly with Azure ML. You can deploy MLflow Model to the Azure ML managed online/batch endpoints, or to Azure Container Instances (ACI) / Azure Kubernetes Service (AKS)." link="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models">
@@ -85,7 +85,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
   <LogoCard description="Databricks Model Serving offers a fully managed service for serving MLflow models at scale, with added benefits of performance optimizations and monitoring capabilities." link="https://docs.databricks.com/en/mlflow/models.html">
     <span>![Databricks Logo](/images/logos/databricks-logo.png)</span>
   </LogoCard>
-  <LogoCard description="MLflow Deployment integrates with Kubernetes-native ML serving frameworks such as Seldon Core and KServe (formerly KFServing)." link="deploy-model-to-kubernetes">
+  <LogoCard description="MLflow Deployment integrates with Kubernetes-native ML serving frameworks such as Seldon Core and KServe (formerly KFServing)." link="/deployment/deploy-model-to-kubernetes">
     <span>![Kubernetes Logo](/images/logos/kubernetes-logo.png)</span>
   </LogoCard>
   <LogoCard description="MLflow also supports more deployment targets such as Ray Serve, Redis AI, Torch Serve, Oracle Cloud Infrastructure (OCI), through community-supported plugins." link="/plugins#deployment-plugins">
