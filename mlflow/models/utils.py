@@ -1966,6 +1966,7 @@ def maybe_render_agent_eval_recipe(model_info) -> None:
         autoescape=jinja2.select_autoescape(["html"]),
     )
     template = env.get_template("agent_evaluation_template.html")
-    model_uri = model_info.model_uri
-    rendered_html = template.render({"modelUri": model_uri})
-    displayHTML(rendered_html)  # noqa: F821
+    rendered_html = template.render({"modelUri": model_info.model_uri})
+    from IPython.display import HTML, display
+
+    display(HTML(rendered_html))
