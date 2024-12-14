@@ -54,6 +54,7 @@ def test_should_render_eval_template_with_string_response(enable_databricks_env)
     signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
     assert should_render_agent_eval_template(signature)
 
+
 def test_should_render_eval_template_with_vanilla_string(enable_databricks_env):
     signature = infer_signature(_CHAT_REQUEST, "A vanilla string response")
     assert should_render_agent_eval_template(signature)
