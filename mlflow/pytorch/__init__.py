@@ -733,9 +733,6 @@ class _PyTorchWrapper:
     """
 
     def __init__(self, pytorch_model: "Module", device: str):
-        import torch
-
-        self.torch = torch
         self.pytorch_model = pytorch_model
         self.device = device
 
@@ -761,6 +758,7 @@ class _PyTorchWrapper:
         Returns:
             Model predictions as numpy arrays or pandas DataFrames.
         """
+        import torch
 
         if params and "device" in params:
             raise ValueError(
@@ -773,7 +771,7 @@ class _PyTorchWrapper:
         input_tensor = self._preprocess_input(data)
 
         # Perform inference
-        with self.torch.no_grad():
+        with torch.no_grad():
             preds = self.pytorch_model(input_tensor)
 
         return self._postprocess_output(preds, data)
@@ -790,25 +788,27 @@ class _PyTorchWrapper:
         Returns:
             Torch tensor or dictionary of torch tensors suitable for model input.
         """
+        import torch
+
         device = self.device
 
         if isinstance(data, np.ndarray):
             # Convert ndarray to tensor
-            return self.torch.from_numpy(data).to(device)
+            return torch.from_numpy(data).to(device)
 
         if isinstance(data, pd.DataFrame):
-            tensor = self.torch.from_numpy(data.values).to(device)
+            tensor = torch.from_numpy(data.values).to(device)
             # check if dtype is float and convert to float32.
             # since it is the most common dtype for torch models.
             # For other dtypes we can not support this conversion
             # as the pandas dataframes only support lists of floats
-            if self.torch.is_floating_point(tensor):
+            if torch.is_floating_point(tensor):
                 tensor = tensor.float()
             return tensor
 
         if isinstance(data, dict) and all(isinstance(v, np.ndarray) for v in data.values()):
             # Convert each value in the dict to tensor
-            return {k: self.torch.from_numpy(v).to(device) for k, v in data.items()}
+            return {k: torch.from_numpy(v).to(device) for k, v in data.items()}
         elif isinstance(data, dict):
             raise TypeError(
                 "Input data must be a dict of numpy arrays. Remember to define the input signature "
@@ -836,16 +836,15 @@ class _PyTorchWrapper:
         Returns:
             Predictions in the same format as the input data.
         """
+        import torch
 
         # check types and convert to numpy arrays or dict of numpy arrays
-        if isinstance(preds, self.torch.Tensor):
+        if isinstance(preds, torch.Tensor):
             if self.device != _TORCH_CPU_DEVICE_NAME:
                 preds = preds.to(_TORCH_CPU_DEVICE_NAME)
             preds = preds.detach().numpy()
 
-        elif isinstance(preds, dict) and all(
-            isinstance(v, self.torch.Tensor) for v in preds.values()
-        ):
+        elif isinstance(preds, dict) and all(isinstance(v, torch.Tensor) for v in preds.values()):
             if self.device != _TORCH_CPU_DEVICE_NAME:
                 preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
             preds = {k: v.detach().numpy() for k, v in preds.items()}
