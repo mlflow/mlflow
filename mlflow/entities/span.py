@@ -149,6 +149,16 @@ class Span:
         return self.get_attribute(SpanAttributeKey.OUTPUTS)
 
     @property
+    def messages(self) -> str:
+        """The chat messages of the span, if any"""
+        return self.get_attribute(SpanAttributeKey.CHAT_MESSAGES)
+
+    @property
+    def tools(self) -> str:
+        """The chat tools of the span, if any"""
+        return self.get_attribute(SpanAttributeKey.CHAT_TOOLS)
+
+    @property
     def span_type(self) -> str:
         """The type of the span."""
         return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
@@ -315,6 +325,7 @@ class LiveSpan(Span):
     def set_chat_messages(self, messages: list["RequestMessage"]):
         """Set the messages attribute on the span."""
         from mlflow.gateway.schemas.chat import RequestMessage
+
         try:
             for message in messages:
                 RequestMessage.model_validate(message)
@@ -327,6 +338,7 @@ class LiveSpan(Span):
     def set_chat_tools(self, tools: list["FunctionTool"]):
         """Set the tools attribute on the span."""
         from mlflow.gateway.schemas.chat import FunctionTool
+
         try:
             for tool in tools:
                 FunctionTool.model_validate(tool)
