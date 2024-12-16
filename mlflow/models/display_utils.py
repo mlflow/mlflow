@@ -32,9 +32,7 @@ def _is_output_string_response(outputs: list[dict]) -> bool:
     content = next(filter(lambda col: col.get("name") == "content", outputs), None)
     if not content:
         return False
-    if content.get("type") != "string":
-        return False
-    return True
+    return content.get("type") == "string"
 
 
 def _is_output_string(outputs: list[dict]) -> bool:
