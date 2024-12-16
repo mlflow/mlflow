@@ -158,13 +158,23 @@ jobs:
     if: ${{ needs.format.outputs.reformatted == 'true' }}
     permissions: {}
     steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
+          # for how to rotate the private key
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
-          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          # As reported in https://github.com/orgs/community/discussions/25702, if an action pushes
+          # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
+          # A personal access token is required to trigger new workflow runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Merge base branch
         run: |
