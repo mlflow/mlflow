@@ -126,6 +126,7 @@ if IS_PYDANTIC_V2:
     - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
     """
 else:
+
     class RequestMessage(BaseModel):
         __root__: Annotated[
             Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
