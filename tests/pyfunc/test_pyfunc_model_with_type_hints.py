@@ -53,6 +53,7 @@ class CustomExample2(pydantic.BaseModel):
             [["a", "b"], ["c"]],
         ),
         (List[List[str]], Schema([ColSpec(type=Array(Array(DataType.string)))]), [["a"], ["b"]]),  # noqa: UP006
+        (list[dict[str, str]], Schema([ColSpec(type=Array(Map(DataType.string)))]), [{"a": "b"}]),
         # dictionaries
         (dict[str, int], Schema([ColSpec(type=Map(DataType.long))]), {"a": 1}),
         (Dict[str, int], Schema([ColSpec(type=Map(DataType.long))]), {"a": 1, "b": 2}),  # noqa: UP006
@@ -191,7 +192,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         kwargs["input_example"] = input_example
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
-    assert model_info.valid_type_hint is True
+    assert model_info.signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict(input_example) == input_example
@@ -240,8 +241,8 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
     assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
     assert model_info1.signature == model_info2.signature
-    assert model_info1.valid_type_hint is True
-    assert model_info2.valid_type_hint is True
+    assert model_info1.signature_from_type_hint is True
+    assert model_info2.signature_from_type_hint is True
 
 
 def save_model_file_for_code_based_logging(
@@ -339,7 +340,46 @@ def test_pyfunc_model_with_type_hints_code_based_logging(
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
 
-    assert model_info.valid_type_hint is True
+    assert model_info.signature_from_type_hint is True
     assert model_info.signature is not None
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict(input_example) == input_example
+
+
+def test_functional_python_model_only_input_type_hints():
+    def python_model(x: list[str]):
+        return x
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=python_model, input_example=["a"]
+        )
+    assert model_info.signature.inputs == Schema([ColSpec(type=Array(DataType.string))])
+    assert model_info.signature.outputs is None
+
+
+def test_functional_python_model_only_output_type_hints():
+    def python_model(x) -> list[str]:
+        return x
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=python_model, input_example=["a"]
+        )
+    assert model_info.signature is None
+
+
+class CallableObject:
+    def __call__(self, x: list[str]) -> list[str]:
+        return x
+
+
+def test_functional_python_model_callable_object():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=CallableObject(), input_example=["a"]
+        )
+    assert model_info.signature.inputs == Schema([ColSpec(type=Array(DataType.string))])
+    assert model_info.signature.outputs == Schema([ColSpec(type=Array(DataType.string))])
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(["a", "b"]) == ["a", "b"]

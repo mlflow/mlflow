@@ -799,7 +799,7 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        if self.metadata.valid_type_hint and isinstance(
+        if self.metadata.signature_from_type_hint and isinstance(
             self._model_impl, _PythonModelPyfuncWrapper
         ):
             from mlflow.types.type_hints import _validate_example_against_type_hint
@@ -2905,8 +2905,7 @@ def save_model(
         mlflow_model = Model()
     saved_example = None
 
-    # TODO: if signature is provided, we should validate input_example and type hint
-    # against the signature, to make sure they're consistent
+    # TODO: if signature is provided, we should validate input_example against it
     if signature is not None:
         if isinstance(python_model, ChatModel):
             raise MlflowException(
@@ -2923,7 +2922,7 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
-                mlflow_model.valid_type_hint = True
+                mlflow_model.signature_from_type_hint = True
         elif isinstance(python_model, ChatModel):
             mlflow_model.signature = ModelSignature(
                 CHAT_MODEL_INPUT_SCHEMA,
@@ -2994,7 +2993,7 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
-                mlflow_model.valid_type_hint = True
+                mlflow_model.signature_from_type_hint = True
             elif saved_example is not None:
                 try:
                     context = PythonModelContext(artifacts, model_config)
