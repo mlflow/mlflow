@@ -387,5 +387,5 @@ def test_type_hint_for_python_3_10():
         tool_choice: str | ToolDef
 
     assert _infer_schema_from_type_hint(Tool) == Schema(
-        [ColSpec(type=AnyType(), name="tool_choice")]
+        [ColSpec(type=Object([Property(name="tool_choice", dtype=AnyType())]))]
     )
