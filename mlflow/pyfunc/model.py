@@ -671,6 +671,7 @@ class _PythonModelPyfuncWrapper:
                 _INVALID_SIGNATURE_ERROR_MSG.format(
                     func_name="predict", invalid_params=invalid_params
                 ),
+                FutureWarning,
                 stacklevel=2,
             )
         kwargs = {}
@@ -705,6 +706,7 @@ class _PythonModelPyfuncWrapper:
                 _INVALID_SIGNATURE_ERROR_MSG.format(
                     func_name="predict_stream", invalid_params=invalid_params
                 ),
+                FutureWarning,
                 stacklevel=2,
             )
         kwargs = {}
