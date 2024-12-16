@@ -2171,3 +2171,33 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
     assert model_info.env_vars is None
+
+
+def test_pyfunc_model_without_context_in_predict():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input, params=None):
+            return model_input
+
+        def predict_stream(self, model_input, params=None):
+            yield model_input
+
+    m = Model()
+    assert m.predict("abc") == "abc"
+    assert next(iter(m.predict_stream("abc"))) == "abc"
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=m, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict("abc") is not None
+    assert next(iter(pyfunc_model.predict_stream("abc"))) is not None
+
+
+def test_callable_python_model_without_context_in_predict():
+    def predict(model_input):
+        return model_input
+
+    assert predict("abc") == "abc"
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=predict, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict("abc") is not None

@@ -362,7 +362,7 @@ def invocations(data, content_type, model, input_schema):
     # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
-        if inspect.signature(model.predict).parameters.get("params"):
+        if "params" in inspect.signature(model.predict).parameters:
             raw_predictions = model.predict(data, params=params)
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -497,7 +497,7 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
-    if inspect.signature(pyfunc_model.predict).parameters.get("params"):
+    if "params" in inspect.signature(pyfunc_model.predict).parameters:
         raw_predictions = pyfunc_model.predict(df, params=params)
     else:
         _log_warning_if_params_not_in_predict_signature(_logger, params)
