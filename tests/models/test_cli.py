@@ -785,7 +785,7 @@ def test_env_manager_unsupported_value():
 
 def test_host_invalid_value():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input):
+        def predict(self, context, model_input):
             return model_input
 
     with mlflow.start_run():
