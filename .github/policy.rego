@@ -15,12 +15,16 @@ deny_top_level_permissions[msg] {
 }
 
 deny_unsafe_checkout[msg] {
+    # The "on" key gets transformed by conftest into "true" due to some legacy
+    # YAML standards, see https://stackoverflow.com/q/42283732/2148786 - so
+    # "on.push" becomes "true.push" which is why below statements use "true"
+    # instead of "on".
     input["true"]["pull_request_target"]
     some job in input["jobs"]
     some step in job["steps"]
     startswith(step["uses"], "actions/checkout@")
     step["with"]["ref"]
-    msg := "An explicit checkout in a pull_request_target workflow is unsafe. See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/ for more information."
+    msg := "Explicit checkout in a pull_request_target workflow is unsafe. See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/ for more information."
 }
 
 ###########################   RULE HELPERS   ##################################
