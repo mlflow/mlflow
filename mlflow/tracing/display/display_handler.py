@@ -81,6 +81,15 @@ def _get_query_string_for_traces(traces: list["Trace"]):
     return urlencode(query_params)
 
 
+def is_jupyter():
+    try:
+        from IPython import get_ipython
+
+        return get_ipython() is not None
+    except ImportError:
+        return False
+
+
 def is_using_tracking_server():
     return is_http_uri(mlflow.get_tracking_uri())
 
@@ -89,7 +98,7 @@ def validate_environment():
     # the notebook display feature only works in
     # Databricks notebooks, or in Jupyter notebooks
     # with a tracking server
-    return is_in_databricks_runtime() or is_using_tracking_server()
+    return is_jupyter() and (is_in_databricks_runtime() or is_using_tracking_server())
 
 
 class IPythonTraceDisplayHandler:
@@ -114,12 +123,11 @@ class IPythonTraceDisplayHandler:
 
     def __init__(self):
         self.traces_to_display = {}
+        if not is_jupyter():
+            return
+
         try:
             from IPython import get_ipython
-
-            if get_ipython() is None:
-                return
-
             # Register a post-run cell display hook to display traces
             # after the cell has executed. We don't validate that the
             # user is using a tracking server at this step, because
@@ -137,13 +145,8 @@ class IPythonTraceDisplayHandler:
             self.traces_to_display = {}
             return
 
-        # this should do nothing if not in an IPython environment
         try:
-            from IPython import get_ipython
             from IPython.display import HTML, display
-
-            if get_ipython() is None:
-                return
 
             MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
@@ -184,11 +187,8 @@ class IPythonTraceDisplayHandler:
         if self.disabled or not validate_environment():
             return
 
-        # this should do nothing if not in an IPython environment
         try:
-            from IPython import get_ipython
-
-            if len(traces) == 0 or get_ipython() is None:
+            if len(traces) == 0:
                 return
 
             traces_dict = {trace.info.request_id: trace for trace in traces}
