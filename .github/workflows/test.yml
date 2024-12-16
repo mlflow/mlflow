@@ -12,4 +12,14 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 300
           token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Push
+        run: |
+          git config user.name 'mlflow-automation'
+          git config user.email 'mlflow-automation@users.noreply.github.com'
+          echo test >> README.md
+          git commit -am "test"
+          git push --dry-run
