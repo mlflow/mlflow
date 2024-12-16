@@ -1,6 +1,7 @@
 from typing import Literal, Optional, Union
 
 from pydantic import Field
+from typing_extensions import Annotated
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import IS_PYDANTIC_V2
@@ -31,11 +32,80 @@ class AudioContentPart(RequestModel):
     input_audio: InputAudio
 
 
-class RequestMessage(RequestModel):
-    role: str
-    content: Union[str, list[Union[TextContentPart, ImageContentPart, AudioContentPart]]] = Field(
-        union_mode="left_to_right"
-    )
+ContentPartsList = Annotated[
+    list[
+        Annotated[
+            Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
+        ]
+    ],
+    Field(min_items=1),
+]
+"""
+An array of content parts, conforming to the OpenAI spec. A content part is one of:
+
+  - :py:class:`TextContentPart <mlflow.gateway.schemas.chat.TextContentPart>`
+  - :py:class:`ImageContentPart <mlflow.gateway.schemas.chat.ImageContentPart>`
+  - :py:class:`AudioContentPart <mlflow.gateway.schemas.chat.AudioContentPart>`
+"""
+
+
+ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
+"""
+The type of the `content` field in system/user/tool/assistant messages. One of:
+
+  - str
+  - :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
+"""
+
+
+class SystemMessage(RequestModel):
+    role: Literal["system"]
+    content: ContentType
+    """
+    The content of the message. Can be a string, or a
+    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
+    """
+
+
+class UserMessage(RequestModel):
+    role: Literal["user"]
+    content: ContentType
+    """
+    The content of the message. Can be a string, or a
+    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
+    """
+
+
+class FunctionCallArguments(RequestModel):
+    name: str
+    arguments: str
+
+
+class FunctionCall(RequestModel):
+    id: str
+    function: FunctionCallArguments
+    type: Literal["function"]
+
+
+class ToolMessage(RequestModel):
+    role: Literal["tool"]
+    content: ContentType
+    """
+    The content of the message. Can be a string, or a
+    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
+    """
+    tool_call_id: str
+
+
+class AssistantMessage(RequestModel):
+    role: Literal["assistant"]
+    content: Optional[ContentType] = None
+    """
+    The content of the message. Can be a string, or a
+    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
+    """
+    tool_calls: Optional[list[FunctionCall]] = Field(None, min_items=1)
+    refusal: Optional[str] = None
 
 
 class ParamType(RequestModel):
@@ -91,7 +161,19 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(BaseRequestPayload):
-    messages: list[RequestMessage] = Field(..., min_items=1)
+    messages: list[
+        Annotated[
+            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
+            Field(discriminator="role"),
+        ]
+    ] = Field(..., min_items=1)
+    """A list of one of the following types of messages:
+
+    - :py:class:`SystemMessage <mlflow.gateway.schemas.chat.SystemMessage>`
+    - :py:class:`UserMessage <mlflow.gateway.schemas.chat.UserMessage>`
+    - :py:class:`AssistantMessage <mlflow.gateway.schemas.chat.AssistantMessage>`
+    - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
+    """
 
     class Config:
         if IS_PYDANTIC_V2:
@@ -111,15 +193,9 @@ class ToolCall(ResponseModel):
     function: Function
 
 
-class ResponseMessage(ResponseModel):
-    role: str
-    content: Optional[str]
-    tool_calls: Optional[list[ToolCall]] = None
-
-
 class Choice(ResponseModel):
     index: int
-    message: ResponseMessage
+    message: AssistantMessage
     finish_reason: Optional[str] = None
 
 

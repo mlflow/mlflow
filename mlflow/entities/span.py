@@ -23,9 +23,16 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.utils import IS_PYDANTIC_V1
 
 if TYPE_CHECKING:
-    from mlflow.gateway.schemas.chat import FunctionTool, RequestMessage
+    from mlflow.gateway.schemas.chat import (
+        AssistantMessage,
+        SystemMessage,
+        ToolMessage,
+        UserMessage,
+    )
+    from mlflow.gateway.schemas.chat import FunctionTool as FunctionToolType
 
 _logger = logging.getLogger(__name__)
 
@@ -322,26 +329,34 @@ class LiveSpan(Span):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def set_chat_messages(self, messages: list["RequestMessage"]):
-        """Set the messages attribute on the span."""
-        from mlflow.gateway.schemas.chat import RequestMessage
+    def set_chat_messages(
+        self,
+        messages: list[Union["SystemMessage", "UserMessage", "AssistantMessage", "ToolMessage"]],
+    ):
+        """Set the `mlflow.chat.messages` attribute on the span."""
+        from mlflow.gateway.schemas.chat import RequestPayload
 
         try:
-            for message in messages:
-                RequestMessage.model_validate(message)
+            if IS_PYDANTIC_V1:
+                RequestPayload.parse_obj({"messages": messages})
+            else:
+                RequestPayload.model_validate({"messages": messages})
         except pydantic.ValidationError as e:
             raise MlflowException.invalid_parameter_value(
                 "Chat messages must be a list of valid messages."
             ) from e
         self.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
 
-    def set_chat_tools(self, tools: list["FunctionTool"]):
-        """Set the tools attribute on the span."""
+    def set_chat_tools(self, tools: list["FunctionToolType"]):
+        """Set the `mlflow.chat.tools` attribute on the span."""
         from mlflow.gateway.schemas.chat import FunctionTool
 
         try:
             for tool in tools:
-                FunctionTool.model_validate(tool)
+                if IS_PYDANTIC_V1:
+                    FunctionTool.parse_obj(tool)
+                else:
+                    FunctionTool.model_validate(tool)
         except pydantic.ValidationError as e:
             raise MlflowException.invalid_parameter_value(
                 "Chat tools must be a list of valid tool definitions."

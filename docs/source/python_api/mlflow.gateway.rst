@@ -16,3 +16,8 @@ mlflow.gateway
     :members:
     :undoc-members:
     :exclude-members: model_computed_fields
+
+.. automodule:: mlflow.gateway.schemas.chat
+    :members:
+    :undoc-members:
+    :exclude-members: model_config

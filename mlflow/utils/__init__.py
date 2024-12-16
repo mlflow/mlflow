@@ -6,10 +6,15 @@ from contextlib import closing
 from itertools import islice
 from sys import version_info
 
+import pydantic
+from packaging.version import Version
+
 _logger = logging.getLogger(__name__)
 
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
+
+IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
 
 
 _logger = logging.getLogger(__name__)

@@ -7,17 +7,15 @@ import pydantic
 from langchain.agents import AgentExecutor
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
-from packaging.version import Version
 
 from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
+from mlflow.utils import IS_PYDANTIC_V1
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
 
 
 # NB: Even though _ChatMessage is only referenced in one method within this module

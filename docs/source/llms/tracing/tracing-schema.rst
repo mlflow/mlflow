@@ -331,3 +331,45 @@ documents from a vector store). The ``RETRIEVER`` span type has the following sc
 
 \* For example, both ``[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]`` and
 ``[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]`` are valid outputs for a ``RETRIEVER`` span.
+
+Chat Completion Spans
+^^^^^^^^^^^^^^^^^^^^^
+
+Spans of type ``CHAT_MODEL`` or ``LLM`` are used to represent interactions with a chat completions API
+(for example, OpenAI's `chat completions <https://platform.openai.com/docs/api-reference/chat/create>`_,
+or Anthropic's `messages <https://docs.anthropic.com/en/api/messages>`_ API). As providers can have
+different schemas for their API, there are no restrictions on the format of the span's inputs and
+outputs.
+
+However, it is still important to have a common schema in order to enable certain UI features (e.g. rich
+conversation display), and to make authoring evaluation functions easier. To support this, we specify some
+custom attributes for standardized chat messages and tool defintions:
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - **Attribute Name**
+      - **Description**
+      - **Note**
+
+    * - **mlflow.chat.messages**
+      - This attribute represents the system/user/assistant messages involved in the
+        conversation with the chat model. It enables rich conversation rendering in the UI,
+        and will also be used in MLflow evaluation in the future. 
+        
+        The type should be ``List[`` :py:class:`RequestMessage <mlflow.gateway.schemas.chat.RequestMessage>` ``]``,
+        following the standardized chat message format from `MLflow AI Gateway <https://mlflow.org/docs/latest/llms/deployments/index.html>`_
+      - This attribute can be conveniently set using the :py:class:`span.set_chat_messages() <mlflow.entities.LiveSpan.set_chat_messages>`
+        function
+    
+    * - **mlflow.chat.tools**
+      - This attribute represents the tools that were available for the chat model to call. In the OpenAI
+        context, this would be equivalent to the `tools <https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>`_ 
+        param in the Chat Completions API.
+
+        The type should be a ``List[`` :py:class:`FunctionTool <mlflow.gateway.schemas.chat.FunctionTool>` ``]``.
+        following the standardized tool definition format from MLflow AI Gateway.
+      - This attribute can be conveniently set using the :py:class:`span.set_chat_tools() <mlflow.entities.LiveSpan.set_chat_messages>`
+        function

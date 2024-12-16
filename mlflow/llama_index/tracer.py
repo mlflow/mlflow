@@ -40,10 +40,9 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import IS_PYDANTIC_V1
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
 
 
 def _get_llama_index_version() -> Version:
