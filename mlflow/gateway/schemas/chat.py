@@ -57,22 +57,21 @@ The type of the `content` field in system/user/tool/assistant messages. One of:
   - :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
 """
 
-
-class FunctionCallArguments(RequestModel):
+class Function(ResponseModel):
     name: str
     arguments: str
 
 
-class FunctionCall(RequestModel):
+class ToolCall(ResponseModel):
     id: str
-    function: FunctionCallArguments
     type: Literal["function"]
+    function: Function
 
 
 class RequestMessage(BaseModel):
     role: str
     content: Optional[ContentType] = None
-    tool_calls: Optional[list[FunctionCall]] = Field(None, min_items=1)
+    tool_calls: Optional[list[ToolCall]] = Field(None, min_items=1)
     tool_call_id: Optional[str] = None
     refusal: Optional[str] = None
 
@@ -146,17 +145,6 @@ class RequestPayload(BaseRequestPayload):
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-
-
-class Function(ResponseModel):
-    name: str
-    arguments: str
-
-
-class ToolCall(ResponseModel):
-    id: str
-    type: Literal["function"]
-    function: Function
 
 
 class ResponseMessage(ResponseModel):
