@@ -40,22 +40,10 @@ ContentPartsList = Annotated[
     ],
     Field(min_items=1),
 ]
-"""
-An array of content parts, conforming to the OpenAI spec. A content part is one of:
-
-  - :py:class:`TextContentPart <mlflow.gateway.schemas.chat.TextContentPart>`
-  - :py:class:`ImageContentPart <mlflow.gateway.schemas.chat.ImageContentPart>`
-  - :py:class:`AudioContentPart <mlflow.gateway.schemas.chat.AudioContentPart>`
-"""
 
 
 ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
-"""
-The type of the `content` field in system/user/tool/assistant messages. One of:
 
-  - str
-  - :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
-"""
 
 class Function(ResponseModel):
     name: str
@@ -69,6 +57,16 @@ class ToolCall(ResponseModel):
 
 
 class RequestMessage(BaseModel):
+    """
+    A chat request. ``content`` can be a string, or an array of content parts.
+
+    A content part is one of the following:
+
+    - :py:class:`TextContentPart <mlflow.gateway.schemas.chat.TextContentPart>`
+    - :py:class:`ImageContentPart <mlflow.gateway.schemas.chat.ImageContentPart>`
+    - :py:class:`AudioContentPart <mlflow.gateway.schemas.chat.AudioContentPart>`
+    """
+
     role: str
     content: Optional[ContentType] = None
     tool_calls: Optional[list[ToolCall]] = Field(None, min_items=1)

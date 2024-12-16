@@ -487,17 +487,9 @@ def resolve_missing_references(app, doctree):
             text_node.parent.replace(text_node, Text(text_to_render, ""))
 
 
-
-def skip_builtins(app, what, name, obj, skip, options):
-    if "builtins" in name:
-        return True
-    return skip
-
-
 def setup(app):
     languagesections.setup(app)
     app.connect("doctree-read", resolve_missing_references)
-    app.connect("autodoc-skip-member", skip_builtins)
 
 
 linkcheck_ignore = [
