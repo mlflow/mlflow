@@ -18,6 +18,8 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
     ChatCompletionChunk,
     ChatCompletionResponse,
     ChatMessage,
@@ -627,3 +629,31 @@ def test_chat_model_can_use_tool_calls():
         "city": "some_value",
         "unit": "some_value",
     }
+
+
+def test_chat_model_without_context_in_predict():
+    response = ChatCompletionResponse(
+        choices=[ChatChoice(message=ChatMessage(role="assistant", content="hi"))]
+    )
+    chunk_response = ChatCompletionChunk(
+        choices=[ChatChunkChoice(delta=ChatChoiceDelta(role="assistant", content="hi"))]
+    )
+
+    class Model(mlflow.pyfunc.ChatModel):
+        def predict(self, messages: list[ChatMessage], params: ChatParams):
+            return response
+
+        def predict_stream(self, messages: list[ChatMessage], params: ChatParams):
+            yield chunk_response
+
+    model = Model()
+    messages = [ChatMessage(role="user", content="hello?", name="chat")]
+    assert model.predict(messages, ChatParams()) == response
+    assert next(iter(model.predict_stream(messages, ChatParams()))) == chunk_response
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=model, input_example=messages)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    assert pyfunc_model.predict(input_data) == response.to_dict()
+    assert next(iter(pyfunc_model.predict_stream(input_data))) == chunk_response.to_dict()
