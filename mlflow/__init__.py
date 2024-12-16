@@ -34,6 +34,7 @@ from mlflow.version import VERSION
 
 __version__ = VERSION
 from mlflow import (
+    # test
     artifacts,  # noqa: F401
     client,  # noqa: F401
     config,  # noqa: F401
