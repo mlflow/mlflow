@@ -184,6 +184,7 @@ async def test_chat(payload, expected_llm_input):
                         "role": "assistant",
                         "content": "This is a test",
                         "tool_calls": None,
+                        "tool_call_id": None,
                         "refusal": None,
                     },
                     "finish_reason": None,
@@ -477,6 +478,26 @@ def test_valid_parsing(messages, expected_output):
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages=messages)
         == expected_output
     )
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [RequestMessage(role="invalid_role", content="Test")],
+        [RequestMessage(role="another_invalid_role", content="Test")],
+        [
+            RequestMessage(role="system", content="Test"),
+            RequestMessage(role="user", content="Test"),
+            RequestMessage(role="invalid_role", content="Test"),
+        ],
+    ],
+)
+def test_invalid_role_submitted_raises(messages):
+    route_config = RouteConfig(**chat_config())
+    with pytest.raises(
+        MlflowException, match=".*Must be one of 'system', 'user', or 'assistant'.*"
+    ):
+        MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages)
 
 
 def unsupported_mosaic_chat_model_config():

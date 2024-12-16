@@ -7,7 +7,7 @@ from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.utils import IS_PYDANTIC_V2
 
 if IS_PYDANTIC_V2:
-    from pydantic import RootModel
+    pass
 
 
 class TextContentPart(RequestModel):
@@ -61,24 +61,6 @@ The type of the `content` field in system/user/tool/assistant messages. One of:
 """
 
 
-class SystemMessage(RequestModel):
-    role: Literal["system"]
-    content: ContentType
-    """
-    The content of the message. Can be a string, or a
-    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
-    """
-
-
-class UserMessage(RequestModel):
-    role: Literal["user"]
-    content: ContentType
-    """
-    The content of the message. Can be a string, or a
-    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
-    """
-
-
 class FunctionCallArguments(RequestModel):
     name: str
     arguments: str
@@ -90,53 +72,12 @@ class FunctionCall(RequestModel):
     type: Literal["function"]
 
 
-class ToolMessage(RequestModel):
-    role: Literal["tool"]
-    content: ContentType
-    """
-    The content of the message. Can be a string, or a
-    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
-    """
-    tool_call_id: str
-
-
-class AssistantMessage(RequestModel):
-    role: Literal["assistant"]
+class RequestMessage(BaseModel):
+    role: str
     content: Optional[ContentType] = None
-    """
-    The content of the message. Can be a string, or a
-    :py:class:`ContentPartsList <mlflow.gateway.schemas.chat.ContentPartsList>`
-    """
     tool_calls: Optional[list[FunctionCall]] = Field(None, min_items=1)
+    tool_call_id: Optional[str] = None
     refusal: Optional[str] = None
-
-
-if IS_PYDANTIC_V2:
-    RequestMessage = RootModel[
-        Annotated[
-            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
-            Field(discriminator="role"),
-        ]
-    ]
-    """One of the following types of messages:
-
-    - :py:class:`SystemMessage <mlflow.gateway.schemas.chat.SystemMessage>`
-    - :py:class:`UserMessage <mlflow.gateway.schemas.chat.UserMessage>`
-    - :py:class:`AssistantMessage <mlflow.gateway.schemas.chat.AssistantMessage>`
-    - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
-    """
-else:
-    # root models in pydantic v1 don't have the same construction interface
-    # as pydantic v2. i.e. it's possible to do RequestMessage(role=..., content=...)
-    # in v2, but in v1 we have to do RequestMessage.parse_obj({role: ..., content: ...}).
-    # due to the incompatibility, RequestMessage in v1 is a combination of all types
-    # rather than an explicit union
-    class RequestMessage(BaseModel):
-        role: Literal["system", "user", "assistant", "tool"]
-        content: Optional[ContentType] = None
-        tool_calls: Optional[list[FunctionCall]] = Field(None, min_items=1)
-        tool_call_id: Optional[str] = None
-        refusal: Optional[str] = None
 
 
 class ParamType(RequestModel):
@@ -212,8 +153,11 @@ class ToolCall(ResponseModel):
     function: Function
 
 
-# for backwards compatibility
-ResponseMessage = AssistantMessage
+class ResponseMessage(ResponseModel):
+    role: str
+    content: Optional[str]
+    tool_calls: Optional[list[ToolCall]] = None
+    refusal: Optional[str] = None
 
 
 class Choice(ResponseModel):
