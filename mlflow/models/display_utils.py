@@ -5,70 +5,77 @@ import jinja2
 from mlflow.models.model import ModelInfo
 from mlflow.models.signature import ModelSignature
 from mlflow.utils import databricks_utils
+from mlflow.types import schema
 
 
-def _is_input_agent_compatible(inputs: list[dict]) -> bool:
-    messages = next(filter(lambda col: col.get("name") == "messages", inputs), None)
+def _is_input_agent_compatible(inputs: schema.Schema) -> bool:
+    if not inputs.has_input_names():
+        return False
+    messages = inputs.input_dict().get("messages")
     if not messages:
         return False
-    if not messages.get("type") == "array":
+    if not isinstance(messages.type, schema.Array):
         return False
-    items = messages.get("items")
-    if not items:
+    items = messages.type.dtype
+    if not isinstance(items, schema.Object):
         return False
-    if items.get("type") != "object":
-        return False
-    properties = items.get("properties")
-    if not properties:
-        return False
-    if properties.get("content", {}).get("type") != "string":
-        return False
-    if properties.get("role", {}).get("type") != "string":
-        return False
-    return True
+    properties = items.properties
+    content = next(filter(lambda prop: prop.name == "content", properties), None)
+    role = next(filter(lambda prop: prop.name == "role", properties), None)
+    return (
+        content
+        and content.dtype == schema.DataType.string
+        and role
+        and role.dtype == schema.DataType.string
+    )
 
 
-def _is_output_string_response(outputs: list[dict]) -> bool:
-    content = next(filter(lambda col: col.get("name") == "content", outputs), None)
+def _is_output_string_response(outputs: schema.Schema) -> bool:
+    if not outputs.has_input_names():
+        return False
+    content = outputs.input_dict().get("content")
     if not content:
         return False
-    return content.get("type") == "string"
+    return content.type == schema.DataType.string
 
 
-def _is_output_string(outputs: list[dict]) -> bool:
-    return len(outputs) == 1 and outputs[0].get("type") == "string"
+def _is_output_string(outputs: schema.Schema) -> bool:
+    return (
+        not outputs.has_input_names()
+        and len(outputs.input_types()) == 1
+        and outputs.input_types()[0] == schema.DataType.string
+    )
 
 
-def _is_output_chat_completion_response(outputs: list[dict]) -> bool:
-    choices = next(filter(lambda col: col.get("name") == "choices", outputs), None)
+def _is_output_chat_completion_response(outputs: schema.Schema) -> bool:
+    if not outputs.has_input_names():
+        return False
+    choices = outputs.input_dict().get("choices")
     if not choices:
         return False
-    if not choices.get("type") == "array":
+    if not isinstance(choices.type, schema.Array):
         return False
-    items = choices.get("items")
-    if not items:
+    items = choices.type.dtype
+    if not isinstance(items, schema.Object):
         return False
-    if items.get("type") != "object":
-        return False
-    properties = items.get("properties")
-    if not properties:
-        return False
-    message = properties.get("message")
+    properties = items.properties
+    message = next(filter(lambda prop: prop.name == "message", properties), None)
     if not message:
         return False
-    if message.get("type") != "object":
+    if not isinstance(message.dtype, schema.Object):
         return False
-    message_properties = message.get("properties")
-    if not message_properties:
-        return False
-    if message_properties.get("content", {}).get("type") != "string":
-        return False
-    if message_properties.get("role", {}).get("type") != "string":
-        return False
-    return True
+    message_properties = message.dtype.properties
+    content = next(filter(lambda prop: prop.name == "content", message_properties), None)
+    role = next(filter(lambda prop: prop.name == "role", message_properties), None)
+    return (
+        content
+        and content.dtype == schema.DataType.string
+        and role
+        and role.dtype == schema.DataType.string
+    )
 
 
-def _is_output_agent_compatible(outputs: list[dict]) -> bool:
+def _is_output_agent_compatible(outputs: schema.Schema) -> bool:
     return (
         _is_output_string_response(outputs)
         or _is_output_string(outputs)
@@ -77,10 +84,9 @@ def _is_output_agent_compatible(outputs: list[dict]) -> bool:
 
 
 def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
-    signature = signature.to_dict()
-    inputs = json.loads(signature.get("inputs") or "[]")
-    outputs = json.loads(signature.get("outputs") or "[]")
-    return _is_input_agent_compatible(inputs) and _is_output_agent_compatible(outputs)
+    return _is_input_agent_compatible(signature.inputs) and _is_output_agent_compatible(
+        signature.outputs
+    )
 
 
 def should_render_agent_eval_template(signature: ModelSignature) -> bool:
