@@ -152,7 +152,7 @@ class ToolCall(ResponseModel):
 
 class ResponseMessage(ResponseModel):
     role: str
-    content: Optional[str]
+    content: Optional[ContentType] = None
     tool_calls: Optional[list[ToolCall]] = None
     refusal: Optional[str] = None
 
