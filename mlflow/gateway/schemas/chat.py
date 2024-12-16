@@ -126,12 +126,17 @@ if IS_PYDANTIC_V2:
     - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
     """
 else:
-
+    # root models in pydantic v1 don't have the same construction interface
+    # as pydantic v2. i.e. it's possible to do RequestMessage(role=..., content=...)
+    # in v2, but in v1 we have to do RequestMessage.parse_obj({role: ..., content: ...}).
+    # due to the incompatibility, RequestMessage in v1 is a combination of all types
+    # rather than an explicit union
     class RequestMessage(BaseModel):
-        __root__: Annotated[
-            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
-            Field(discriminator="role"),
-        ]
+        role: Literal["system", "user", "assistant", "tool"]
+        content: Optional[ContentType] = None
+        tool_calls: Optional[list[FunctionCall]] = Field(None, min_items=1)
+        tool_call_id: Optional[str] = None
+        refusal: Optional[str] = None
 
 
 class ParamType(RequestModel):
