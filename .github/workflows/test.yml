@@ -22,4 +22,4 @@ jobs:
           git config user.email 'mlflow-automation@users.noreply.github.com'
           echo test >> README.md
           git commit -am "test"
-          git push --dry-run
+          git push
