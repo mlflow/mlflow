@@ -82,6 +82,12 @@ def _is_output_agent_compatible(outputs: schema.Schema) -> bool:
 
 
 def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
+    """Determines whether the given signature is compatible with the agent eval schema.
+
+    See https://docs.databricks.com/en/generative-ai/agent-evaluation/evaluation-schema.html.
+    The schema accepts the OpenAI spec, as well as simpler formats such as vanilla string response
+    and `StringResponse`.
+    """
     return _is_input_agent_compatible(signature.inputs) and _is_output_agent_compatible(
         signature.outputs
     )
