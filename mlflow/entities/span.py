@@ -23,7 +23,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
-from mlflow.utils import IS_PYDANTIC_V1
+from mlflow.utils import IS_PYDANTIC_V2
 
 if TYPE_CHECKING:
     from mlflow.gateway.schemas.chat import (
@@ -334,13 +334,14 @@ class LiveSpan(Span):
         messages: list[Union["SystemMessage", "UserMessage", "AssistantMessage", "ToolMessage"]],
     ):
         """Set the `mlflow.chat.messages` attribute on the span."""
-        from mlflow.gateway.schemas.chat import RequestPayload
+        from mlflow.gateway.schemas.chat import RequestMessage
 
         try:
-            if IS_PYDANTIC_V1:
-                RequestPayload.parse_obj({"messages": messages})
-            else:
-                RequestPayload.model_validate({"messages": messages})
+            for message in messages:
+                if IS_PYDANTIC_V2:
+                    RequestMessage.model_validate(message)
+                else:
+                    RequestMessage.parse_obj(message)
         except pydantic.ValidationError as e:
             raise MlflowException.invalid_parameter_value(
                 "Chat messages must be a list of valid messages."
@@ -353,10 +354,10 @@ class LiveSpan(Span):
 
         try:
             for tool in tools:
-                if IS_PYDANTIC_V1:
-                    FunctionTool.parse_obj(tool)
-                else:
+                if IS_PYDANTIC_V2:
                     FunctionTool.model_validate(tool)
+                else:
+                    FunctionTool.parse_obj(tool)
         except pydantic.ValidationError as e:
             raise MlflowException.invalid_parameter_value(
                 "Chat tools must be a list of valid tool definitions."

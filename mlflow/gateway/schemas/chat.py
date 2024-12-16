@@ -1,10 +1,13 @@
 from typing import Literal, Optional, Union
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
+from mlflow.utils import IS_PYDANTIC_V2
+
+if IS_PYDANTIC_V2:
+    from pydantic import RootModel
 
 
 class TextContentPart(RequestModel):
@@ -108,6 +111,28 @@ class AssistantMessage(RequestModel):
     refusal: Optional[str] = None
 
 
+if IS_PYDANTIC_V2:
+    RequestMessage = RootModel[
+        Annotated[
+            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
+            Field(discriminator="role"),
+        ]
+    ]
+    """One of the following types of messages:
+
+    - :py:class:`SystemMessage <mlflow.gateway.schemas.chat.SystemMessage>`
+    - :py:class:`UserMessage <mlflow.gateway.schemas.chat.UserMessage>`
+    - :py:class:`AssistantMessage <mlflow.gateway.schemas.chat.AssistantMessage>`
+    - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
+    """
+else:
+    class RequestMessage(BaseModel):
+        __root__: Annotated[
+            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
+            Field(discriminator="role"),
+        ]
+
+
 class ParamType(RequestModel):
     type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
 
@@ -161,19 +186,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(BaseRequestPayload):
-    messages: list[
-        Annotated[
-            Union[SystemMessage, UserMessage, AssistantMessage, ToolMessage],
-            Field(discriminator="role"),
-        ]
-    ] = Field(..., min_items=1)
-    """A list of one of the following types of messages:
-
-    - :py:class:`SystemMessage <mlflow.gateway.schemas.chat.SystemMessage>`
-    - :py:class:`UserMessage <mlflow.gateway.schemas.chat.UserMessage>`
-    - :py:class:`AssistantMessage <mlflow.gateway.schemas.chat.AssistantMessage>`
-    - :py:class:`ToolMessage <mlflow.gateway.schemas.chat.ToolMessage>`
-    """
+    messages: list[RequestMessage] = Field(..., min_items=1)
 
     class Config:
         if IS_PYDANTIC_V2:

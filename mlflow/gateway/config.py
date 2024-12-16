@@ -8,7 +8,6 @@ from typing import Any, Optional, Union
 
 import pydantic
 import yaml
-from packaging import version
 from packaging.version import Version
 from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
@@ -27,10 +26,9 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
+from mlflow.utils import IS_PYDANTIC_V2
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
 if IS_PYDANTIC_V2:
     from pydantic import SerializeAsAny

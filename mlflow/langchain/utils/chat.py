@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
-from mlflow.utils import IS_PYDANTIC_V1
+from mlflow.utils import IS_PYDANTIC_V2
 
 _logger = logging.getLogger(__name__)
 
@@ -154,10 +154,10 @@ def try_transform_response_to_chat_format(response):
         ),
     )
 
-    if IS_PYDANTIC_V1:
-        return json.loads(transformed_response.json())
-    else:
+    if IS_PYDANTIC_V2:
         return transformed_response.model_dump(mode="json")
+    else:
+        return json.loads(transformed_response.json())
 
 
 def try_transform_response_iter_to_chat_format(chunk_iter):
@@ -180,10 +180,10 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
             ],
         )
 
-        if IS_PYDANTIC_V1:
-            return json.loads(transformed_response.json())
-        else:
+        if IS_PYDANTIC_V2:
             return transformed_response.model_dump(mode="json")
+        else:
+            return json.loads(transformed_response.json())
 
     def _convert(chunk):
         if isinstance(chunk, str):
@@ -216,10 +216,10 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict):
-    if IS_PYDANTIC_V1:
-        model = _ChatRequest.parse_obj(chat_request)
-    else:
+    if IS_PYDANTIC_V2:
         model = _ChatRequest.model_validate(chat_request)
+    else:
+        model = _ChatRequest.parse_obj(chat_request)
 
     return [message.to_langchain_message() for message in model.messages]
 
