@@ -1,11 +1,9 @@
-import json
-
 import jinja2
 
 from mlflow.models.model import ModelInfo
 from mlflow.models.signature import ModelSignature
-from mlflow.utils import databricks_utils
 from mlflow.types import schema
+from mlflow.utils import databricks_utils
 
 
 def _is_input_agent_compatible(inputs: schema.Schema) -> bool:
