@@ -56,7 +56,7 @@ def _get_notebook_iframe_html(traces: list["Trace"]):
     uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
     query_string = _get_query_string_for_traces(traces)
 
-    # include mlflow version to invalidate cache when mlflow updates
+    # include mlflow version to invalidate browser cache when mlflow updates
     src = f"{uri}?{query_string}&version={mlflow.__version__}"
     return IFRAME_HTML.format(src=src)
 
