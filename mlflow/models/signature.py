@@ -26,9 +26,9 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.type_hints import (
+    InvalidTypeHintException,
     _infer_schema_from_type_hint,
     _validate_example_against_type_hint,
-    InvalidTypeHintException,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path

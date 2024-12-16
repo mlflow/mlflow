@@ -22,7 +22,6 @@ import sklearn.neighbors
 import yaml
 
 import mlflow
-from mlflow.types.type_hints import _infer_schema_from_type_hint
 import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -54,6 +53,7 @@ from mlflow.tracking.artifact_utils import (
     get_artifact_uri as utils_get_artifact_uri,
 )
 from mlflow.types.schema import Array, ColSpec, Map, Schema
+from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
