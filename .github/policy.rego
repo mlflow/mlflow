@@ -24,7 +24,7 @@ deny_unsafe_checkout[msg] {
     some step in job["steps"]
     startswith(step["uses"], "actions/checkout@")
     step["with"]["ref"]
-    msg := "Explicit checkout in a pull_request_target workflow is unsafe. See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/ for more information."
+    msg := "Explicit checkout in a pull_request_target workflow is unsafe. See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information."
 }
 
 ###########################   RULE HELPERS   ##################################
