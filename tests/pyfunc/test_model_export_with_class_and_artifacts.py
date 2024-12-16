@@ -22,6 +22,7 @@ import sklearn.neighbors
 import yaml
 
 import mlflow
+from mlflow.types.type_hints import _infer_schema_from_type_hint
 import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -1340,10 +1341,7 @@ def test_list_dict_with_signature_override():
             python_model=CustomModel(),
             signature=signature,
         )
-    assert model_info.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string", "required": True},
-        {"name": "b", "type": "string", "required": False},
-    ]
+    assert model_info.signature.inputs == _infer_schema_from_type_hint(list[dict[str, str]])
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([{"a": "z"}]) == [{"a": "z"}]
 
@@ -1451,13 +1449,10 @@ def test_class_python_model_type_hints(tmp_path):
 
 
 def test_python_model_predict_with_params():
-    signature = infer_signature(["input1", "input2"], params={"foo": [8]})
-
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "test_model",
             python_model=AnnotatedPythonModel(),
-            signature=signature,
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1466,6 +1461,23 @@ def test_python_model_predict_with_params():
         "a",
         "b",
     ]
+
+
+def test_python_model_with_type_hint_errors_with_different_signature():
+    signature = infer_signature(["input1", "input2"], params={"foo": [8]})
+
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                "test_model",
+                python_model=AnnotatedPythonModel(),
+                signature=signature,
+            )
+        assert warn_mock.call_count == 1
+        assert (
+            "Provided signature does not match the signature inferred from"
+            in warn_mock.call_args[0][0]
+        )
 
 
 def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):

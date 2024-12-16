@@ -28,6 +28,7 @@ from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_d
 from mlflow.types.type_hints import (
     _infer_schema_from_type_hint,
     _validate_example_against_type_hint,
+    InvalidTypeHintException,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
@@ -354,10 +355,13 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if _contains_params(input_example):
         input_example, params = input_example
 
-    input_schema = _infer_schema_from_type_hint(hints.input)
+    try:
+        input_schema = _infer_schema_from_type_hint(hints.input)
+    except InvalidTypeHintException:
+        input_schema = None
     params_schema = _infer_param_schema(params) if params else None
     input_arg_name = _get_arg_names(func)[input_arg_index]
-    if input_example:
+    if input_schema and input_example:
         try:
             _validate_example_against_type_hint(example=input_example, type_hint=hints.input)
         except Exception as e:
@@ -376,8 +380,11 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
         output_example = func(**inputs)
     else:
         output_example = None
-    output_schema = _infer_schema_from_type_hint(hints.output) if hints.output else None
-    if hints.output and output_example:
+    try:
+        output_schema = _infer_schema_from_type_hint(hints.output) if hints.output else None
+    except InvalidTypeHintException:
+        output_schema = None
+    if output_schema and output_example:
         try:
             _validate_example_against_type_hint(example=output_example, type_hint=hints.output)
         except Exception:

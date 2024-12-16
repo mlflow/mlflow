@@ -130,8 +130,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                     "against its internal types."
                 )
                 return ColSpecType(dtype=AnyType(), required=True)
-    else:
-        _invalid_type_hint_error(type_hint)
+    _invalid_type_hint_error(type_hint)
 
 
 def _invalid_type_hint_error(type_hint: type[Any]) -> None:
@@ -287,8 +286,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
             # Union type with all valid types is matched as AnyType
             # no validation needed for AnyType
             return example
-    else:
-        _invalid_type_hint_error(type_hint)
+    _invalid_type_hint_error(type_hint)
 
 
 class ValidationResult(NamedTuple):
