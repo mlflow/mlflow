@@ -136,6 +136,7 @@ mlflow = [
   "recipes/resources/**/*",
   "recipes/cards/templates/**/*",
   "models/container/**/*",
+  "models/resources/**/*",
   "server/js/build/**/*",
 ]
 

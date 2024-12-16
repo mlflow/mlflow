@@ -86,28 +86,27 @@ def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
 def should_render_agent_eval_template(signature: ModelSignature) -> bool:
     if not databricks_utils.is_in_databricks_runtime():
         return False
-    try:
-        from IPython import get_ipython
+    from IPython import get_ipython
 
-        if get_ipython() is None:
-            return False
-        # For safety, we do this in try/catch to make sure we don't break
-        # `mlflow.*.log_model`.
-        return _is_signature_agent_compatible(signature)
-    except Exception:
+    if get_ipython() is None:
         return False
+    return _is_signature_agent_compatible(signature)
 
 
 def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
-    if not should_render_agent_eval_template(model_info.signature):
-        return
-    # Create a Jinja2 environment and load the template
-    env = jinja2.Environment(
-        loader=jinja2.PackageLoader("mlflow.recipes", "resources"),
-        autoescape=jinja2.select_autoescape(["html"]),
-    )
-    template = env.get_template("agent_evaluation_template.html")
-    rendered_html = template.render({"modelUri": model_info.model_uri})
-    from IPython.display import HTML, display
+    # For safety, we wrap in try/catch to make sure we don't break `mlflow.*.log_model`.
+    try:
+        if not should_render_agent_eval_template(model_info.signature):
+            return
+        # Create a Jinja2 environment and load the template
+        env = jinja2.Environment(
+            loader=jinja2.PackageLoader("mlflow.models", "resources"),
+            autoescape=jinja2.select_autoescape(["html"]),
+        )
+        template = env.get_template("agent_evaluation_template.html")
+        rendered_html = template.render({"modelUri": model_info.model_uri})
+        from IPython.display import HTML, display
 
-    display(HTML(rendered_html))
+        display(HTML(rendered_html))
+    except Exception:
+        pass
