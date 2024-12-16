@@ -392,11 +392,6 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
     ("py:class", "pydantic.main.BaseModel"),
-    # nitpick_ignore_regex is only available in Sphinx 4.1, but we are using 3.5.4
-    (
-        "py:class",
-        "pydantic.root_model.RootModel[Annotated[Union[mlflow.gateway.schemas.chat.SystemMessage, mlflow.gateway.schemas.chat.UserMessage, mlflow.gateway.schemas.chat.AssistantMessage, mlflow.gateway.schemas.chat.ToolMessage], FieldInfo(annotation=NoneType, required=True, discriminator='role')]]",
-    ),
     ("py:class", "re.Pattern"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
