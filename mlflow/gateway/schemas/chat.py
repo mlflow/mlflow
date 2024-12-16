@@ -207,9 +207,13 @@ class ToolCall(ResponseModel):
     function: Function
 
 
+# for backwards compatibility
+ResponseMessage = AssistantMessage
+
+
 class Choice(ResponseModel):
     index: int
-    message: AssistantMessage
+    message: ResponseMessage
     finish_reason: Optional[str] = None
 
 
