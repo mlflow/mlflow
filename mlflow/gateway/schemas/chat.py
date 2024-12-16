@@ -106,8 +106,17 @@ class FunctionTool(RequestModel):
     function: FunctionToolDefinition
 
 
+class UnityCatalogFunctionToolDefinition(RequestModel):
+    name: str
+
+
+class UnityCatalogFunctionTool(RequestModel):
+    type: Literal["uc_function"] = "uc_function"
+    uc_function: UnityCatalogFunctionToolDefinition
+
+
 class BaseRequestPayload(RequestModel):
-    tools: Optional[list[FunctionTool]] = None
+    tools: Optional[list[Union[FunctionTool, UnityCatalogFunctionTool]]] = None
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: Optional[list[str]] = Field(None, min_items=1)
