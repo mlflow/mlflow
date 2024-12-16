@@ -6,9 +6,6 @@ from typing_extensions import Annotated
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.utils import IS_PYDANTIC_V2
 
-if IS_PYDANTIC_V2:
-    pass
-
 
 class TextContentPart(RequestModel):
     type: Literal["text"]
