@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Literal, NamedTuple, Optional, Union, get_args, get_origin
+from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
 import pydantic.fields
@@ -70,8 +70,8 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
     if datatype := TYPE_HINTS_TO_DATATYPE_MAPPING.get(type_hint):
         return ColSpecType(dtype=datatype, required=True)
     elif _is_pydantic_type_hint(type_hint):
-        properties = _infer_fields_from_pydantic_model(type_hint, "Property")
-        return ColSpecType(dtype=Object(properties=properties), required=True)
+        dtype = _infer_type_from_pydantic_model(type_hint)
+        return ColSpecType(dtype=dtype, required=True)
     elif origin_type := get_origin(type_hint):
         args = get_args(type_hint)
         if origin_type is list:
@@ -150,27 +150,16 @@ def _invalid_type_hint_error(type_hint: type[Any]) -> None:
     raise InvalidTypeHintException(type_hint=type_hint)
 
 
-def _infer_fields_from_pydantic_model(
-    model: pydantic.BaseModel, field_type: Literal["Property", "ColSpec"]
-) -> list[Union[Property, ColSpec]]:
+def _infer_type_from_pydantic_model(model: pydantic.BaseModel) -> Object:
     """
-    Infer the fields from a pydantic model.
-    If field_type is "Property", the model is seen as an Object, and output fields
-    are inferred as Properties.
-    If field_type is "ColSpec", the model is seen as a schema, and output fields
-    are inferred as ColSpecs.
+    Infer the object schema from a pydantic model.
     """
     if _is_pydantic_type_hint(model):
         fields = model_fields(model)
     else:
         raise TypeError(f"model must be a Pydantic model class, but got {type(model)}")
 
-    if field_type not in ["Property", "ColSpec"]:
-        raise MlflowException.invalid_parameter_value(
-            f"field_type must be 'Property' or 'ColSpec', but got {field_type}"
-        )
-
-    output_fields = []
+    properties = []
     invalid_fields = []
     for field_name, field_info in fields.items():
         annotation = field_info.annotation
@@ -185,29 +174,20 @@ def _infer_fields_from_pydantic_model(
                 f"Optional field `{field_name}` in Pydantic model `{model.__name__}` "
                 "doesn't have a default value. Please set default value to None for this field."
             )
-        if field_type == "Property":
-            output_fields.append(
-                Property(
-                    name=field_name,
-                    dtype=colspec_type.dtype,
-                    required=colspec_type.required,
-                )
+        properties.append(
+            Property(
+                name=field_name,
+                dtype=colspec_type.dtype,
+                required=colspec_type.required,
             )
-        elif field_type == "ColSpec":
-            output_fields.append(
-                ColSpec(
-                    type=colspec_type.dtype,
-                    name=field_name,
-                    required=colspec_type.required,
-                )
-            )
+        )
     if invalid_fields:
         raise MlflowException.invalid_parameter_value(
             "The following fields in the Pydantic model do not have type annotations: "
             f"{invalid_fields}. Please add type annotations to these fields."
         )
 
-    return output_fields
+    return Object(properties=properties)
 
 
 def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
@@ -242,41 +222,49 @@ def field_required(field: type[FIELD_TYPE]) -> bool:
 
 
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
-    if _is_pydantic_type_hint(type_hint):
-        col_specs = _infer_fields_from_pydantic_model(type_hint, "ColSpec")
-        return Schema(inputs=col_specs)
-    else:
-        col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
-        # Creating Schema with unnamed optional inputs is not supported
-        if col_spec_type.required is False:
-            raise MlflowException.invalid_parameter_value(
-                "If you would like to use Optional types, use a Pydantic-based type hint "
-                "definition."
-            )
-        return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
+    col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
+    # Creating Schema with unnamed optional inputs is not supported
+    if col_spec_type.required is False:
+        raise MlflowException.invalid_parameter_value(
+            "If you would like to use Optional types, use a Pydantic-based type hint definition."
+        )
+    return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
 
-def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> None:
+def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> Any:
+    """
+    Validate the example against provided type hint.
+    The allowed conversions are:
+        dictionary example with Pydantic model type hint -> Pydantic model instance
+
+    Args:
+        example: The example to validate
+        type_hint: The type hint to validate against
+    """
     if _is_pydantic_type_hint(type_hint):
         # if example is a pydantic model instance, convert it to a dictionary for validation
         if isinstance(example, pydantic.BaseModel):
-            example = example.model_dump()
-        elif not isinstance(example, dict):
+            example_dict = example.model_dump()
+        elif isinstance(example, dict):
+            example_dict = example
+        else:
             raise MlflowException.invalid_parameter_value(
                 "Expecting example to be a dictionary or pydantic model instance for "
                 f"Pydantic type hint, got {type(example)}"
             )
         try:
-            model_validate(type_hint, example)
+            model_validate(type_hint, example_dict)
         except pydantic.ValidationError as e:
             raise MlflowException.invalid_parameter_value(
                 message=f"Input example is not valid for Pydantic model `{type_hint.__name__}`",
             ) from e
+        else:
+            return type_hint(**example_dict) if isinstance(example, dict) else example
     elif type_hint == Any:
-        return
+        return example
     elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
         if isinstance(example, type_hint):
-            return
+            return example
         raise MlflowException.invalid_parameter_value(
             f"Expected type {type_hint}, but got {type(example).__name__}"
         )
@@ -290,7 +278,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> N
             # Optional type
             if NONE_TYPE in args:
                 if example is None:
-                    return
+                    return example
                 if len(args) == 2:
                     effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
                     return _validate_example_against_type_hint(
@@ -298,43 +286,58 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> N
                     )
             # Union type with all valid types is matched as AnyType
             # no validation needed for AnyType
-            return
+            return example
     else:
         _invalid_type_hint_error(type_hint)
 
 
-def _get_example_validation_error_message(example: Any, type_hint: type[Any]) -> Optional[str]:
+class ValidationResult(NamedTuple):
+    value: Optional[Any] = None
+    error_message: Optional[str] = None
+
+
+def _get_example_validation_result(example: Any, type_hint: type[Any]) -> ValidationResult:
     try:
-        _validate_example_against_type_hint(example=example, type_hint=type_hint)
+        value = _validate_example_against_type_hint(example=example, type_hint=type_hint)
+        return ValidationResult(value=value)
     except MlflowException as e:
-        return e.message
+        return ValidationResult(error_message=e.message)
 
 
-def _validate_list_elements(element_type: type[Any], example: Any) -> None:
+def _validate_list_elements(element_type: type[Any], example: Any) -> list[Any]:
     if not isinstance(example, list):
         raise MlflowException.invalid_parameter_value(
             f"Expected list, but got {type(example).__name__}"
         )
     invalid_elems = {}
+    result = []
     for elem in example:
-        if message := _get_example_validation_error_message(example=elem, type_hint=element_type):
-            invalid_elems[str(elem)] = message
+        validation_result = _get_example_validation_result(example=elem, type_hint=element_type)
+        if validation_result.error_message:
+            invalid_elems[str(elem)] = validation_result.error_message
+        else:
+            result.append(validation_result.value)
     if invalid_elems:
         raise MlflowException.invalid_parameter_value(f"Invalid elements in list: {invalid_elems}")
+    return result
 
 
-def _validate_dict_elements(element_type: type[Any], example: Any) -> None:
+def _validate_dict_elements(element_type: type[Any], example: Any) -> dict[str, Any]:
     if not isinstance(example, dict):
         raise MlflowException.invalid_parameter_value(
             f"Expected dict, but got {type(example).__name__}"
         )
     invalid_elems = {}
+    result = {}
     for key, value in example.items():
         if not isinstance(key, str):
             invalid_elems[str(key)] = f"Key must be a string, got {type(key).__name__}"
-        elif message := _get_example_validation_error_message(
-            example=value, type_hint=element_type
-        ):
-            invalid_elems[key] = message
+            continue
+        validation_result = _get_example_validation_result(example=value, type_hint=element_type)
+        if validation_result.error_message:
+            invalid_elems[key] = validation_result.error_message
+        else:
+            result[key] = validation_result.value
     if invalid_elems:
         raise MlflowException.invalid_parameter_value(f"Invalid elements in dict: {invalid_elems}")
+    return result

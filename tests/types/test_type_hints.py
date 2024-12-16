@@ -1,6 +1,6 @@
 import datetime
 import sys
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, get_args
 
 import pydantic
 import pytest
@@ -44,14 +44,22 @@ class CustomModel2(pydantic.BaseModel):
             CustomModel,
             Schema(
                 [
-                    ColSpec(type=DataType.long, name="long_field"),
-                    ColSpec(type=DataType.string, name="str_field"),
-                    ColSpec(type=DataType.boolean, name="bool_field"),
-                    ColSpec(type=DataType.double, name="double_field"),
-                    ColSpec(type=DataType.binary, name="binary_field"),
-                    ColSpec(type=DataType.datetime, name="datetime_field"),
-                    ColSpec(type=AnyType(), name="any_field"),
-                    ColSpec(type=DataType.string, name="optional_str", required=False),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property(name="long_field", dtype=DataType.long),
+                                Property(name="str_field", dtype=DataType.string),
+                                Property(name="bool_field", dtype=DataType.boolean),
+                                Property(name="double_field", dtype=DataType.double),
+                                Property(name="binary_field", dtype=DataType.binary),
+                                Property(name="datetime_field", dtype=DataType.datetime),
+                                Property(name="any_field", dtype=AnyType()),
+                                Property(
+                                    name="optional_str", dtype=DataType.string, required=False
+                                ),
+                            ]
+                        )
+                    )
                 ]
             ),
         ),
@@ -84,19 +92,25 @@ class CustomModel2(pydantic.BaseModel):
             CustomModel2,
             Schema(
                 [
-                    ColSpec(type=Map(AnyType()), name="custom_field"),
                     ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property(name="role", dtype=DataType.string),
-                                    Property(name="content", dtype=DataType.string),
-                                ]
-                            )
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(type=DataType.long, name="optional_int", required=False),
+                        type=Object(
+                            [
+                                Property(name="custom_field", dtype=Map(AnyType())),
+                                Property(
+                                    name="messages",
+                                    dtype=Array(
+                                        Object(
+                                            [
+                                                Property(name="role", dtype=DataType.string),
+                                                Property(name="content", dtype=DataType.string),
+                                            ]
+                                        )
+                                    ),
+                                ),
+                                Property(name="optional_int", dtype=DataType.long, required=False),
+                            ]
+                        )
+                    )
                 ]
             ),
         ),
@@ -222,6 +236,18 @@ def test_infer_schema_from_type_hints_errors():
             },
         ),
         (
+            CustomModel,
+            CustomModel(
+                long_field=1,
+                str_field="a",
+                bool_field=True,
+                double_field=1.0,
+                datetime_field=datetime.datetime.now(),
+                binary_field=b"abc",
+                any_field="a",
+            ),
+        ),
+        (
             list[CustomModel],
             [
                 {
@@ -263,7 +289,19 @@ def test_infer_schema_from_type_hints_errors():
     ],
 )
 def test_pydantic_model_validation(type_hint, example):
-    _validate_example_against_type_hint(example=example, type_hint=type_hint)
+    if isinstance(example, dict):
+        assert _validate_example_against_type_hint(
+            example=example, type_hint=type_hint
+        ) == type_hint(**example)
+    elif isinstance(example, list):
+        assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == [
+            get_args(type_hint)[0](**item) for item in example
+        ]
+    else:
+        assert (
+            _validate_example_against_type_hint(example=example.dict(), type_hint=type_hint)
+            == example
+        )
 
 
 @pytest.mark.parametrize(
@@ -289,7 +327,7 @@ def test_pydantic_model_validation(type_hint, example):
     ],
 )
 def test_python_type_hints_validation(type_hint, example):
-    _validate_example_against_type_hint(example=example, type_hint=type_hint)
+    assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == example
 
 
 def test_type_hints_validation_errors():
