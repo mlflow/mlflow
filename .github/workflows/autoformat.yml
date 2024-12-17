@@ -157,6 +157,8 @@ jobs:
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
     permissions: {}
+    outputs:
+      head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
       - uses: actions/create-github-app-token@v1
         id: app-token
@@ -191,9 +193,11 @@ jobs:
           path: /tmp
 
       - name: Apply patch and push
+        id: push
         run: |
           git apply /tmp/${{ github.run_id }}.diff
           git commit -sam "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "head_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           git push
 
   update-status:
@@ -202,7 +206,8 @@ jobs:
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
-      statuses: write # autoformat.updateStatus
+      statuses: write # To update the check status
+      actions: write # To approve workflow runs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -215,4 +220,12 @@ jobs:
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
             const autoformat = require('./.github/workflows/autoformat.js');
+            const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+            if (push_head_sha) {
+              try {
+                await autoformat.approveWorkflowRuns(context, github, push_head_sha);
+              } catch (error) {
+                core.warning(`Failed to approve workflow runs: ${error}`);
+              }
+            }
             await autoformat.updateStatus(context, github, head_sha, needs);
