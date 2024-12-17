@@ -10,9 +10,6 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
-permissions:
-  contents: read
-
 jobs:
   closing-pr:
     runs-on: ubuntu-latest

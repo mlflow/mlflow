@@ -1,3 +1,5 @@
+import inspect
+import logging
 from typing import Any, Generator, Optional
 
 from mlflow.exceptions import MlflowException
@@ -8,6 +10,8 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
@@ -74,7 +78,11 @@ class _ChatModelPyfuncWrapper:
             Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict(self.context, messages, params)
+        parameters = inspect.signature(self.chat_model.predict).parameters
+        if "context" in parameters or len(parameters) == 3:
+            response = self.chat_model.predict(self.context, messages, params)
+        else:
+            response = self.chat_model.predict(messages, params)
         return self._response_to_dict(response)
 
     def _response_to_dict(self, response: ChatCompletionResponse) -> dict[str, Any]:
@@ -109,5 +117,11 @@ class _ChatModelPyfuncWrapper:
             Generator over model predictions in :py:class:`~ChatCompletionChunk` format.
         """
         messages, params = self._convert_input(model_input)
-        for response in self.chat_model.predict_stream(self.context, messages, params):
+        parameters = inspect.signature(self.chat_model.predict_stream).parameters
+        if "context" in parameters or len(parameters) == 3:
+            stream = self.chat_model.predict_stream(self.context, messages, params)
+        else:
+            stream = self.chat_model.predict_stream(messages, params)
+
+        for response in stream:
             yield self._streaming_response_to_dict(response)

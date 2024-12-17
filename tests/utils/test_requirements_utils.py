@@ -456,7 +456,7 @@ def test_capture_imported_modules_include_deps_by_params():
 )
 def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, _, inputs, params=None):
+        def predict(self, context, inputs, params=None):
             importlib.import_module(module_to_import)
 
             return inputs
@@ -477,10 +477,10 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
 def test_gateway_extra_not_captured_when_importing_deployment_client_only():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, _, inputs, params=None):
+        def predict(self, context, model_input, params=None):
             from mlflow.deployments import get_deploy_client  # noqa: F401
 
-            return inputs
+            return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(

@@ -8,7 +8,7 @@ import mlflow
 from mlflow.models.evaluation import evaluate
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
+from tests.tracing.helper import get_traces, purge_traces, reset_autolog_state  # noqa: F401
 
 _EVAL_DATA = pd.DataFrame(
     {
@@ -36,7 +36,7 @@ def client(monkeypatch, mock_openai):
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config",
+    "config",
     [
         None,
         {"log_traces": False},
@@ -45,9 +45,12 @@ def client(monkeypatch, mock_openai):
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_openai_evaluate(client, original_autolog_config):
-    if original_autolog_config:
-        mlflow.openai.autolog(**original_autolog_config)
+def test_openai_evaluate(client, config):
+    if config:
+        mlflow.openai.autolog(**config)
+
+    is_trace_disabled = config and not config.get("log_traces", True)
+    is_trace_enabled = config and config.get("log_traces", True)
 
     def model(inputs):
         return [
@@ -71,8 +74,14 @@ def test_openai_evaluate(client, original_autolog_config):
             )
         log_model_mock.assert_not_called()
 
-    assert len(get_traces()) == 2
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+    # Traces should not be logged when disabled explicitly
+    if is_trace_disabled:
+        assert len(get_traces()) == 0
+    else:
+        assert len(get_traces()) == 2
+        assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+    purge_traces()
 
     # Test original autolog configs is restored
     with mock.patch("mlflow.openai.log_model") as log_model_mock:
@@ -80,13 +89,10 @@ def test_openai_evaluate(client, original_autolog_config):
             messages=[{"role": "user", "content": "hi"}], model="gpt-4o-mini"
         )
 
-        if original_autolog_config and original_autolog_config.get("log_models", False):
+        if config and config.get("log_models", False):
             log_model_mock.assert_called_once()
 
-        if original_autolog_config and original_autolog_config.get("log_traces", True):
-            assert len(get_traces()) == 3
-        else:
-            assert len(get_traces()) == 2
+        assert len(get_traces()) == (1 if is_trace_enabled else 0)
 
 
 @pytest.mark.usefixtures("reset_autolog_state")

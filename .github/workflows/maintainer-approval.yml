@@ -3,12 +3,11 @@ name: Maintainer approval
 on:
   pull_request:
 
-permissions:
-  pull-requests: read
-
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
