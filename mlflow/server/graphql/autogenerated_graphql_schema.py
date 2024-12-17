@@ -27,6 +27,11 @@ class MlflowViewType(graphene.Enum):
     ALL = 3
 
 
+class MlflowModelParam(graphene.ObjectType):
+    name = graphene.String()
+    value = graphene.String()
+
+
 class MlflowModelVersionTag(graphene.ObjectType):
     key = graphene.String()
     value = graphene.String()
@@ -48,6 +53,7 @@ class MlflowModelVersion(graphene.ObjectType):
     run_link = graphene.String()
     aliases = graphene.List(graphene.String)
     model_id = graphene.String()
+    model_params = graphene.List(graphene.NonNull(MlflowModelParam))
 
 
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
