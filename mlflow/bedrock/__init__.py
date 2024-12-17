@@ -1,8 +1,9 @@
-import gc
-import inspect
+import logging
 
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+
+_logger = logging.getLogger(__name__)
 
 FLAVOR_NAME = "bedrock"
 
@@ -27,7 +28,7 @@ def autolog(
     """
     from botocore.client import ClientCreator
 
-    from mlflow.bedrock._autolog import patch_bedrock_runtime_client, patched_create_client
+    from mlflow.bedrock._autolog import patched_create_client
 
     # NB: In boto3, the client class for each service is dynamically created at
     # runtime via the ClientCreator factory class. Therefore, we cannot patch
@@ -35,13 +36,10 @@ def autolog(
     # a patched client class.
     safe_patch(FLAVOR_NAME, ClientCreator, "create_client", patched_create_client)
 
-    # If the boto3 client has already been created, we need to patch them as well.
-    # This is a bit hacky, but since the class is generated dynamically, we need to
-    # check all existing objects to find the client class.
-    for obj in gc.get_objects():
-        try:
-            if inspect.isclass(obj) and obj.__name__ == "BedrockRuntime":
-                patch_bedrock_runtime_client(obj)
-                break
-        except Exception:
-            pass
+    # Since we patch the ClientCreator factory, it only takes effect for new client instances.
+    if log_traces:
+        _logger.info(
+            "Enabled auto-tracing for Bedrock. Note that MLflow can only trace boto3 "
+            "service clients that are created after this call. If you have already "
+            "created one, please recreate the client by calling `boto3.client`."
+        )

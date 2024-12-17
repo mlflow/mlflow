@@ -293,31 +293,6 @@ def test_bedrock_autolog_invoke_model_capture_exception():
     assert span.events[0].attributes["exception.message"].startswith("Unable to locate credentials")
 
 
-def test_bedrock_autolog_patch_already_created_client():
-    client = boto3.client("bedrock-runtime", region_name="us-west-2")
-
-    # Call autolog after the client is created
-    mlflow.bedrock.autolog()
-
-    request_body = json.dumps(_ANTHROPIC_REQUEST)
-
-    # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call",
-        return_value=_create_dummy_invoke_model_response(_ANTHROPIC_RESPONSE),
-    ):
-        response = client.invoke_model(
-            body=request_body, modelId="anthropic.claude-3-5-sonnet-20241022-v2:0"
-        )
-
-    response_body = json.loads(response["body"].read())
-    assert response_body == _ANTHROPIC_RESPONSE
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.status == "OK"
-
-
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
 def test_bedrock_autolog_trace_disabled(config):
     mlflow.bedrock.autolog(**config)
