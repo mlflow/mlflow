@@ -83,21 +83,29 @@ const updateStatus = async (context, github, sha, needs) => {
 
 const fetchWorkflowRuns = async ({ context, github, head_sha }) => {
   const { owner, repo } = context.repo;
-  for (const _ of Array(5).keys()) {
+  const SLEEP_DURATION_MS = 5000;
+  const MAX_RETRIES = 5;
+  let prevRuns = [];
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    console.log(`Attempt ${i + 1} to fetch workflow runs`);
     const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
       owner,
       repo,
       head_sha,
       status: "action_required",
+      actor: "mlflow-app[bot]",
     });
 
-    if (runs.length > 0) {
+    // If the number of runs has not changed since the last attempt,
+    // we can assume that all the workflow runs have been created.
+    if (runs.length > 0 && runs.length === prevRuns.length) {
       return runs;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1000 * 5)); // sleep 5 seconds
+    prevRuns = runs;
+    await new Promise((resolve) => setTimeout(resolve, SLEEP_DURATION_MS));
   }
-  return [];
+  return prevRuns;
 };
 
 const approveWorkflowRuns = async (context, github, head_sha) => {
