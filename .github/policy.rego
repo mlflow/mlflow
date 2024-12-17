@@ -27,6 +27,14 @@ deny_unsafe_checkout[msg] {
     msg := "Explicit checkout in a pull_request_target workflow is unsafe. See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information."
 }
 
+deny_unnecessary_github_token[msg] {
+    some job in input["jobs"]
+    some step in job["steps"]
+    startswith(step["uses"], "actions/github-script@")
+    regex.match("\\$\\{\\{\\s*(secrets\\.GITHUB_TOKEN|github\\.token)\\s*\\}\\}", step["with"]["github-token"])
+    msg := "Unnecessary use of github-token for actions/github-script."
+}
+
 ###########################   RULE HELPERS   ##################################
 get_jobs_without_permissions(jobs) = jobs_without_permissions {
     jobs_without_permissions := { job_id |
