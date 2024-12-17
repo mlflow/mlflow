@@ -206,7 +206,7 @@ jobs:
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
-      statuses: write # To update the check status
+      statuses: write # To update check statuses
       actions: write # To approve workflow runs
     steps:
       - uses: actions/checkout@v4
