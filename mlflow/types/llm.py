@@ -399,6 +399,11 @@ class ChatParams(_BaseDataclass):
             to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     temperature: float = 1.0
@@ -484,6 +489,11 @@ class ChatCompletionRequest(ChatParams):
             to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     messages: list[ChatMessage] = field(default_factory=list)

@@ -492,6 +492,8 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         store.DEFAULT_EXPERIMENT_ID,
     ]
 
+    # To avoid that the creation_time equals `now`, we wait one additional millisecond.
+    time.sleep(0.001)
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time >= {now}")
     assert experiments == []
