@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -301,6 +302,9 @@ class _Example:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
         model_input = deepcopy(self._inference_data)
 
+        if isinstance(model_input, pydantic.BaseModel):
+            model_input = model_input.model_dump()
+
         is_unified_llm_input = False
         if isinstance(model_input, dict):
             """
@@ -383,6 +387,7 @@ class _Example:
                 "- list\n"
                 "- scalars\n"
                 "- datetime.datetime\n"
+                "- pydantic model instance\n"
                 f"but got '{type(model_input)}'",
             )
 
