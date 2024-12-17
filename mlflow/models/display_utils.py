@@ -113,8 +113,25 @@ def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
             loader=jinja2.PackageLoader("mlflow.models", "resources"),
             autoescape=jinja2.select_autoescape(["html"]),
         )
-        template = env.get_template("agent_evaluation_template.html")
-        rendered_html = template.render({"modelUri": model_info.model_uri})
+        eval_with_synthetic_code = env.get_template("eval_with_synthetic_example.py").render(
+            {"modelUri": model_info.model_uri}
+        )
+        eval_with_dataset_code = env.get_template("eval_with_dataset_example.py").render(
+            {"modelUri": model_info.model_uri}
+        )
+
+        # Remove the ruff noqa comments.
+        eval_with_synthetic_code = eval_with_synthetic_code.replace("# ruff: noqa: F821\n", "")
+        eval_with_dataset_code = eval_with_dataset_code.replace("# ruff: noqa: F821\n", "")
+
+        rendered_html = env.get_template("agent_evaluation_template.html").render(
+            {
+                # The pip install command is outside the python file to avoid ruff syntax error.
+                "pip_install": "%pip install -U databricks-agents",
+                "eval_with_synthetic_code": eval_with_synthetic_code,
+                "eval_with_dataset_code": eval_with_dataset_code,
+            }
+        )
         from IPython.display import HTML, display
 
         display(HTML(rendered_html))

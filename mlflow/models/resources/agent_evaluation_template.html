@@ -180,54 +180,12 @@
       <div class="tab active" onclick="tabClicked(0)">Using synthetic data</div>
       <div class="tab" onclick="tabClicked(1)">Using your own dataset</div>
     </div>
-    <div style="height: 436px">
-      <pre
-        class="active"
-      ><code class="language-python">%pip install -U databricks-agents
-dbutils.library.restartPython()
-## Run the above in a separate cell ##
+    <div style="height: 472px">
+      <pre class="active"><code class="language-python">{{ pip_install }}
+{{ eval_with_synthetic_code }}</code></pre>
 
-from databricks.agents.evals import generate_evals_df
-agent_description = "A chatbot that answers questions about Databricks."
-question_guidelines = """
-# User personas
-- A developer new to the Databricks platform
-# Example questions
-- What API lets me parallelize operations over rows of a delta table?
-"""
-
-# TODO: Spark/Pandas DataFrame with "content" and "doc_uri" columns.
-docs=spark.table("catalog.schema.my_table_of_docs")
-
-evals = generate_evals_df(
-  docs=docs, num_evals=25, agent_description=agent_description, question_guidelines=question_guidelines)
-
-eval_result = mlflow.evaluate(
-    data=evals,
-    model="{{ modelUri }}",
-    model_type="databricks-agent")</code></pre>
-
-      <pre><code class="language-python">%pip install -U databricks-agents
-dbutils.library.restartPython()
-## Run the above in a separate cell ##
-
-import pandas as pd
-
-evals =  [{
-  "request": {
-    "messages": [{
-      "role": "user",
-      "content": "How do I convert a Spark DataFrame to Pandas?"
-    }],
-  },
-  # Optional, needed for judging correctness.
-  "expected_facts": ["To convert a Spark DataFrame to Pandas, you can use the toPandas() method."]
-}]
-
-eval_result = mlflow.evaluate(
-    data=pd.DataFrame.from_records(evals),
-    model="{{ modelUri }}",
-    model_type="databricks-agent")</code></pre>
+      <pre><code class="language-python">{{ pip_install }}
+{{ eval_with_dataset_code }}</code></pre>
     </div>
   </div>
   <script>
