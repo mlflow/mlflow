@@ -177,12 +177,15 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Merge base branch
+        env:
+          BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
+          BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
-          git fetch base ${{ needs.check-comment.outputs.base_ref }}
-          git merge base/${{ needs.check-comment.outputs.base_ref }}
+          git remote add base https://github.com/${BASE_REPO}.git
+          git fetch base $BASE_REF
+          git merge base/${BASE_REF}
 
       - name: Download patch
         uses: actions/download-artifact@v4
@@ -191,9 +194,12 @@ jobs:
           path: /tmp
 
       - name: Apply patch and push
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          git apply /tmp/${{ github.run_id }}.diff
-          git commit -sam "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git apply /tmp/${RUN_ID}.diff
+          git commit -sam "Autoformat: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
           git push
 
   update-status:
