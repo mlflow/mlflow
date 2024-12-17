@@ -1,3 +1,4 @@
+import html
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -57,7 +58,7 @@ def _get_notebook_iframe_html(traces: list["Trace"]):
     query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate browser cache when mlflow updates
-    src = f"{uri}?{query_string}&version={mlflow.__version__}"
+    src = html.escape(f"{uri}?{query_string}&version={mlflow.__version__}")
     return IFRAME_HTML.format(src=src)
 
 
@@ -128,6 +129,7 @@ class IPythonTraceDisplayHandler:
 
         try:
             from IPython import get_ipython
+
             # Register a post-run cell display hook to display traces
             # after the cell has executed. We don't validate that the
             # user is using a tracking server at this step, because
