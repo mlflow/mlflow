@@ -358,6 +358,9 @@ message ModelVersion {
 
   // Optional `model_id` for model version that is used to link the registered model to the source logged model
   optional string model_id = 15;
+
+  // Optional parameters for the model.
+  repeated ModelParam model_params = 16;
 }
 
 message CreateRegisteredModel {
@@ -493,8 +496,11 @@ message CreateModelVersion {
   // Optional description for model version.
   optional string description = 6;
 
-    // Optional `model_id` for model version that is used to link the registered model to the source logged model
+  // Optional `model_id` for model version that is used to link the registered model to the source logged model
   optional string model_id = 7;
+
+  // Optional parameters for the model.
+  repeated ModelParam model_params = 8;
 
   message Response {
     // Return new version number generated for this model in registry.
@@ -620,6 +626,15 @@ message ModelVersionTag {
   // The tag key.
   optional string key = 1;
   // The tag value.
+  optional string value = 2;
+}
+
+// Param for a model version.
+message ModelParam {
+  // Name of the param.
+  optional string name = 1;
+
+  // Value of the param associated with the key, could be empty
   optional string value = 2;
 }
 
