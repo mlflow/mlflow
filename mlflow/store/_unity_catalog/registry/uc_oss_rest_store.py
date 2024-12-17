@@ -2,6 +2,7 @@ import functools
 import os
 import shutil
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -265,6 +266,7 @@ class UnityCatalogOssStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             [catalog_name, schema_name, model_name] = name.split(".")

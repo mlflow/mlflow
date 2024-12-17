@@ -1,5 +1,6 @@
 import contextlib
 import json
+import logging
 import os
 import shutil
 import sys
@@ -27,6 +28,8 @@ from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_all_flavor_configurations(model_path):
