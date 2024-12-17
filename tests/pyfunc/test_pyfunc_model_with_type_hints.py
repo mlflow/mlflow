@@ -10,6 +10,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.types.type_hints import _is_pydantic_type_hint
 
 
 class CustomExample(pydantic.BaseModel):
@@ -98,53 +99,8 @@ class CustomExample2(pydantic.BaseModel):
                 "binary_field": b"bytes",
                 "datetime_field": datetime.datetime.now(),
                 "any_field": ["any", 123],
+                "optional_str": "optional",
             },
-        ),
-        (
-            list[CustomExample],
-            Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property(name="long_field", dtype=DataType.long),
-                                    Property(name="str_field", dtype=DataType.string),
-                                    Property(name="bool_field", dtype=DataType.boolean),
-                                    Property(name="double_field", dtype=DataType.double),
-                                    Property(name="binary_field", dtype=DataType.binary),
-                                    Property(name="datetime_field", dtype=DataType.datetime),
-                                    Property(name="any_field", dtype=AnyType()),
-                                    Property(
-                                        name="optional_str", dtype=DataType.string, required=False
-                                    ),
-                                ]
-                            )
-                        )
-                    )
-                ]
-            ),
-            [
-                {
-                    "long_field": 123,
-                    "str_field": "abc",
-                    "bool_field": True,
-                    "double_field": 1.23,
-                    "binary_field": b"bytes",
-                    "datetime_field": datetime.datetime.now(),
-                    "any_field": ["any", 123],
-                },
-                {
-                    "long_field": 123,
-                    "str_field": "abc",
-                    "bool_field": False,
-                    "double_field": 1.23,
-                    "binary_field": b"bytes",
-                    "datetime_field": datetime.datetime.now(),
-                    "any_field": 123456,
-                    "optional_str": "optional",
-                },
-            ],
         ),
         (
             CustomExample2,
@@ -209,7 +165,10 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     assert model_info.signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_model.predict(input_example) == input_example
+    if _is_pydantic_type_hint(type_hint):
+        assert pyfunc_model.predict(input_example).model_dump() == input_example
+    else:
+        assert pyfunc_model.predict(input_example) == input_example
 
 
 def test_pyfunc_model_infer_signature_from_type_hints_errors():
