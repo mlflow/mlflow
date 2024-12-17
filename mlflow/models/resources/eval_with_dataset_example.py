@@ -1,6 +1,5 @@
 # ruff: noqa: F821
-dbutils.library.restartPython()
-## Run the above in a separate cell ##
+{{pipInstall}}
 
 import pandas as pd
 
@@ -19,7 +18,6 @@ evals = [
         ],
     }
 ]
-
 eval_result = mlflow.evaluate(
     data=pd.DataFrame.from_records(evals), model="{{ modelUri }}", model_type="databricks-agent"
 )
