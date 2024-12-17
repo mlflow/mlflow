@@ -802,10 +802,14 @@ class PyFuncModel:
         if self.metadata.signature_from_type_hint and isinstance(
             self._model_impl, _PythonModelPyfuncWrapper
         ):
-            from mlflow.types.type_hints import _validate_example_against_type_hint
+            from mlflow.types.type_hints import (
+                _maybe_convert_data_for_type_hint,
+                _validate_example_against_type_hint,
+            )
 
             type_hints = self._model_impl.python_model._get_type_hints()
-            _validate_example_against_type_hint(data, type_hints.input)
+            data = _maybe_convert_data_for_type_hint(data, type_hints.input)
+            data = _validate_example_against_type_hint(data, type_hints.input)
             params = _enforce_params_schema(params, self.params_schema)
         else:
             data, params = _validate_prediction_input(

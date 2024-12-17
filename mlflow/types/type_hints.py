@@ -339,3 +339,47 @@ def _validate_dict_elements(element_type: type[Any], example: Any) -> dict[str, 
     if invalid_elems:
         raise MlflowException.invalid_parameter_value(f"Invalid elements in dict: {invalid_elems}")
     return result
+
+
+def _get_origin_type(type_hint: type[Any]) -> Any:
+    """
+    Get the origin type of a type hint.
+    If the type hint is Union type, return the origin type of the effective type.
+    If the type hint is Union type with multiple effective types, return Any.
+    """
+    origin_type = get_origin(type_hint)
+    if origin_type in UNION_TYPES:
+        args = get_args(type_hint)
+        if NONE_TYPE in args and len(args) == 2:
+            effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
+            return _get_origin_type(effective_type)
+        else:
+            # Union types match Any
+            return Any
+    return origin_type
+
+
+def _maybe_convert_data_for_type_hint(data: Any, type_hint: type[Any]) -> Any:
+    """
+    Convert data to the expected format based on the type hint.
+    This function should only used with limited situations such as mlflow.evaluate.
+    Supported conversions:
+        - pandas DataFrame with a single column + list[...] type hint -> list
+    """
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame) and type_hint != pd.DataFrame:
+        if len(data.columns) != 1:
+            raise MlflowException(
+                "`predict` function with type hints only supports pandas DataFrame "
+                f"with a single column. But got {len(data.columns)} columns. "
+            )
+        origin_type = _get_origin_type(type_hint)
+        if type_hint != Any and origin_type != Any and origin_type is not list:
+            raise MlflowException(
+                "Only `list[...]` or `Any` type hint supports pandas DataFrame input "
+                f"with a single column. But got {type_hint}."
+            )
+        return data.iloc[:, 0].tolist()
+
+    return data
