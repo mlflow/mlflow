@@ -72,14 +72,22 @@ class CustomExample2(pydantic.BaseModel):
             CustomExample,
             Schema(
                 [
-                    ColSpec(type=DataType.long, name="long_field"),
-                    ColSpec(type=DataType.string, name="str_field"),
-                    ColSpec(type=DataType.boolean, name="bool_field"),
-                    ColSpec(type=DataType.double, name="double_field"),
-                    ColSpec(type=DataType.binary, name="binary_field"),
-                    ColSpec(type=DataType.datetime, name="datetime_field"),
-                    ColSpec(type=AnyType(), name="any_field"),
-                    ColSpec(type=DataType.string, name="optional_str", required=False),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property(name="long_field", dtype=DataType.long),
+                                Property(name="str_field", dtype=DataType.string),
+                                Property(name="bool_field", dtype=DataType.boolean),
+                                Property(name="double_field", dtype=DataType.double),
+                                Property(name="binary_field", dtype=DataType.binary),
+                                Property(name="datetime_field", dtype=DataType.datetime),
+                                Property(name="any_field", dtype=AnyType()),
+                                Property(
+                                    name="optional_str", dtype=DataType.string, required=False
+                                ),
+                            ]
+                        )
+                    ),
                 ]
             ),
             {
@@ -142,19 +150,25 @@ class CustomExample2(pydantic.BaseModel):
             CustomExample2,
             Schema(
                 [
-                    ColSpec(type=Map(AnyType()), name="custom_field"),
                     ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property(name="role", dtype=DataType.string),
-                                    Property(name="content", dtype=DataType.string),
-                                ]
-                            )
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(type=DataType.long, name="optional_int", required=False),
+                        type=Object(
+                            [
+                                Property(name="custom_field", dtype=Map(AnyType())),
+                                Property(
+                                    name="messages",
+                                    dtype=Array(
+                                        Object(
+                                            [
+                                                Property(name="role", dtype=DataType.string),
+                                                Property(name="content", dtype=DataType.string),
+                                            ]
+                                        )
+                                    ),
+                                ),
+                                Property(name="optional_int", dtype=DataType.long, required=False),
+                            ]
+                        )
+                    )
                 ]
             ),
             {

@@ -2904,7 +2904,7 @@ def save_model(
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
-
+    signature_from_type_hints = None
     if isinstance(python_model, ChatModel):
         if signature is not None:
             raise MlflowException(
@@ -2974,7 +2974,6 @@ def save_model(
                 "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
             )
     else:
-        signature_from_type_hints = None
         if python_model is not None:
             if callable(python_model):
                 input_arg_index = 0  # first argument

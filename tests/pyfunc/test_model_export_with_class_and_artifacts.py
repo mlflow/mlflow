@@ -1317,12 +1317,10 @@ def test_functional_python_model_list_dict_to_list_dict():
         )
 
     assert model_info.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string", "required": True},
-        {"name": "b", "type": "string", "required": True},
+        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True}
     ]
     assert model_info.signature.outputs.to_dict() == [
-        {"name": "x", "type": "string", "required": True},
-        {"name": "y", "type": "string", "required": True},
+        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True}
     ]
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1358,12 +1356,10 @@ def test_functional_python_model_list_dict_to_list_dict_with_example_pep585(tmp_
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "a", "type": "string", "required": True},
-        {"name": "b", "type": "string", "required": True},
+        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"name": "x", "type": "string", "required": True},
-        {"name": "y", "type": "string", "required": True},
+        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True},
     ]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
@@ -1442,8 +1438,12 @@ class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
 def test_class_python_model_type_hints(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=AnnotatedPythonModel())
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
-    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.inputs.to_dict() == [
+        {"type": "array", "items": {"type": "string"}, "required": True}
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "array", "items": {"type": "string"}, "required": True}
+    ]
     model = mlflow.pyfunc.load_model(tmp_path)
     assert model.predict(["a", "b"]) == ["a", "b"]
 
