@@ -40,9 +40,11 @@ _STRING_RESPONSE = StringResponse(
 
 @pytest.fixture
 def enable_databricks_env():
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
-        with mock.patch("IPython.get_ipython", return_value=True):
-            yield
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True),
+        mock.patch("IPython.get_ipython", return_value=True),
+    ):
+        yield
 
 
 def test_should_render_eval_template_when_signature_is_chat_completion(enable_databricks_env):
