@@ -808,7 +808,7 @@ def set_span_chat_messages(
     Args:
         span: The LiveSpan to add the attribute to
         messages: A list of standardized chat messages (refer to the
-                 `spec <llms/tracing/tracing-schema.html#chat-completion-spans>`_
+                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
                  for details)
 
     Example:
@@ -851,7 +851,7 @@ def set_span_chat_tools(span: LiveSpan, tools: list[FunctionTool]):
     Args:
         span: The LiveSpan to add the attribute to
         tools: A list of standardized chat tool definitions (refer to the
-              `spec <llms/tracing/tracing-schema.html#chat-completion-spans>`_
+              `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
               for details)
 
     Example:
