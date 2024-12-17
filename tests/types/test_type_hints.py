@@ -1,7 +1,9 @@
 import datetime
 import sys
 from typing import Any, Dict, List, Optional, Union, get_args
+from unittest import mock
 
+import pandas as pd
 import pydantic
 import pytest
 
@@ -11,6 +13,7 @@ from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
     _infer_schema_from_type_hint,
+    _maybe_convert_data_for_type_hint,
     _validate_example_against_type_hint,
 )
 
@@ -389,3 +392,47 @@ def test_type_hint_for_python_3_10():
     assert _infer_schema_from_type_hint(Tool) == Schema(
         [ColSpec(type=Object([Property(name="tool_choice", dtype=AnyType())]))]
     )
+
+
+@pytest.mark.parametrize(
+    ("data", "type_hint", "expected_data"),
+    [
+        ("a", str, "a"),
+        (["a", "b"], list[str], ["a", "b"]),
+        ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
+        (1, Optional[int], 1),
+        (None, Optional[int], None),
+        (pd.DataFrame([["a", "b"]]), Any, pd.DataFrame([["a", "b"]])),
+        (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
+        (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
+        # This is a temp workaround for evaluate
+        (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
+        (["x", "y"], Any, ["x", "y"]),
+        ([1, "a", None], Optional[Any], [1, "a", None]),
+    ],
+)
+def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
+    if isinstance(expected_data, pd.DataFrame):
+        pd.testing.assert_frame_equal(
+            _maybe_convert_data_for_type_hint(data, type_hint), expected_data
+        )
+    else:
+        assert _maybe_convert_data_for_type_hint(data, type_hint) == expected_data
+
+
+def test_maybe_convert_data_for_type_hint_errors():
+    with mock.patch("mlflow.types.type_hints._logger.warning") as mock_warning:
+        _maybe_convert_data_for_type_hint(
+            pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str]
+        )
+        assert mock_warning.call_count == 1
+        assert (
+            "The data will be converted to a list of the first column."
+            in mock_warning.call_args[0][0]
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
+    ):
+        _maybe_convert_data_for_type_hint(pd.DataFrame([["a", "b"]]), str)

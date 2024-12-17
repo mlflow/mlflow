@@ -369,13 +369,17 @@ def _maybe_convert_data_for_type_hint(data: Any, type_hint: type[Any]) -> Any:
     import pandas as pd
 
     if isinstance(data, pd.DataFrame) and type_hint != pd.DataFrame:
+        origin_type = _get_origin_type(type_hint)
+        if type_hint == Any or origin_type == Any:
+            return data
         if len(data.columns) != 1:
-            raise MlflowException(
+            # TODO: remove the warning and raise Exception once the bug [ML-48554] is fixed
+            _logger.warning(
                 "`predict` function with type hints only supports pandas DataFrame "
                 f"with a single column. But got {len(data.columns)} columns. "
+                "The data will be converted to a list of the first column."
             )
-        origin_type = _get_origin_type(type_hint)
-        if type_hint != Any and origin_type != Any and origin_type is not list:
+        if origin_type is not list:
             raise MlflowException(
                 "Only `list[...]` or `Any` type hint supports pandas DataFrame input "
                 f"with a single column. But got {type_hint}."
