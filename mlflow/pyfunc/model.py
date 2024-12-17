@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
@@ -50,6 +51,11 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
+_INVALID_SIGNATURE_ERROR_MSG = (
+    "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
+    "Only the following parameter names are allowed: context, model_input, and params. "
+    "Note that invalid parameters will no longer be permitted in future versions."
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -660,6 +666,14 @@ class _PythonModelPyfuncWrapper:
             dict or string. Chunk dict fields are determined by the model implementation.
         """
         parameters = inspect.signature(self.python_model.predict).parameters
+        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
+            warnings.warn(
+                _INVALID_SIGNATURE_ERROR_MSG.format(
+                    func_name="predict", invalid_params=invalid_params
+                ),
+                FutureWarning,
+                stacklevel=2,
+            )
         kwargs = {}
         if "params" in parameters:
             kwargs["params"] = params
@@ -687,6 +701,14 @@ class _PythonModelPyfuncWrapper:
             Streaming predictions.
         """
         parameters = inspect.signature(self.python_model.predict_stream).parameters
+        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
+            warnings.warn(
+                _INVALID_SIGNATURE_ERROR_MSG.format(
+                    func_name="predict_stream", invalid_params=invalid_params
+                ),
+                FutureWarning,
+                stacklevel=2,
+            )
         kwargs = {}
         if "params" in parameters:
             kwargs["params"] = params

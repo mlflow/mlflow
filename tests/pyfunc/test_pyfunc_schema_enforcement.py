@@ -1295,7 +1295,7 @@ def test_enforce_params_schema_with_success():
 
 def test_enforce_params_schema_add_default_values():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params):
+        def predict(self, context, model_input, params):
             return list(params.values())
 
     params = {"str_param": "string", "int_array": [1, 2, 3]}
@@ -1420,7 +1420,7 @@ def test_enforce_params_schema_errors():
 
 def test_enforce_params_schema_warns_with_model_without_params():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params=None):
+        def predict(self, context, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
 
     params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
@@ -1442,7 +1442,7 @@ def test_enforce_params_schema_warns_with_model_without_params():
 
 def test_enforce_params_schema_errors_with_model_with_params():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params=None):
+        def predict(self, context, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
 
     params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
@@ -1723,7 +1723,7 @@ def test_python_model_serving_compatible(tmp_path):
     from mlflow.models import infer_signature
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input):
+        def predict(self, context, model_input):
             return model_input
 
     with mlflow.start_run():
@@ -1773,7 +1773,7 @@ cloudpickle==2.2.1
     )
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input):
+        def predict(self, context, model_input):
             return model_input
 
     python_model = MyModel()

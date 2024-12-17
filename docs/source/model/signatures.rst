@@ -341,7 +341,7 @@ within a model signature and demonstrates their application in model inference.
 
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params):
+        def predict(self, context, model_input, params):
             return list(params.values())
 
 

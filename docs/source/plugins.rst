@@ -360,7 +360,7 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
 
 
         class Mod(mlflow.pyfunc.PythonModel):
-            def predict(self, ctx, inp, params=None):
+            def predict(self, context, model_input, params=None):
                 return 7
 
 
@@ -396,7 +396,7 @@ To use XetHub as an artifact store, an XetHub URI of the form ``xet://<username>
 
 
         class Mod(mlflow.pyfunc.PythonModel):
-            def predict(self, ctx, inp, params=None):
+            def predict(self, context, model_input, params=None):
                 return 7
 
 

@@ -361,8 +361,8 @@ def test_mlflow_evaluate_logs_traces():
 def test_pyfunc_evaluate_logs_traces():
     class Model(mlflow.pyfunc.PythonModel):
         @mlflow.trace()
-        def predict(self, _, inputs):
-            return self.add(inputs, inputs)
+        def predict(self, context, model_input):
+            return self.add(model_input, model_input)
 
         @mlflow.trace()
         def add(self, x, y):

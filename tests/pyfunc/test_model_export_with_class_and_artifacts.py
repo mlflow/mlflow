@@ -2201,3 +2201,31 @@ def test_callable_python_model_without_context_in_predict():
         model_info = mlflow.pyfunc.log_model("model", python_model=predict, input_example="abc")
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict("abc") is not None
+
+
+def test_pyfunc_model_with_wrong_predict_signature_warning():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params=None):
+            return model_input
+
+        def predict_stream(self, _, model_input, params=None):
+            yield model_input
+
+    m = Model()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=m, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mock.patch("mlflow.pyfunc.model.warnings.warn") as warn_mock:
+        pyfunc_model.predict("abc")
+        assert warn_mock.call_count == 1
+        assert (
+            "The underlying model's `predict` method contains invalid parameters: {'ctx'}"
+            in warn_mock.call_args[0][0]
+        )
+
+        pyfunc_model.predict_stream("abc")
+        assert warn_mock.call_count == 2
+        assert (
+            "The underlying model's `predict_stream` method contains invalid parameters: {'_'}"
+            in warn_mock.call_args[0][0]
+        )
