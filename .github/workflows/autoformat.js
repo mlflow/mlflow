@@ -96,6 +96,8 @@ const fetchWorkflowRuns = async ({ context, github, head_sha }) => {
       actor: "mlflow-app[bot]",
     });
 
+    // If the number of runs has not changed since the last attempt,
+    // we can assume that all the workflow runs have been created.
     if (runs.length > 0 && runs.length === prevRuns.length) {
       return runs;
     }
