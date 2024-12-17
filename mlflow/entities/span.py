@@ -2,9 +2,8 @@ import json
 import logging
 from dataclasses import asdict
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
-import pydantic
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -23,16 +22,6 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
-from mlflow.utils import IS_PYDANTIC_V2
-
-if TYPE_CHECKING:
-    from mlflow.gateway.schemas.chat import (
-        AssistantMessage,
-        SystemMessage,
-        ToolMessage,
-        UserMessage,
-    )
-    from mlflow.gateway.schemas.chat import FunctionTool as FunctionToolType
 
 _logger = logging.getLogger(__name__)
 
@@ -154,16 +143,6 @@ class Span:
     def outputs(self) -> Any:
         """The output values of the span."""
         return self.get_attribute(SpanAttributeKey.OUTPUTS)
-
-    @property
-    def messages(self) -> str:
-        """The chat messages of the span, if any"""
-        return self.get_attribute(SpanAttributeKey.CHAT_MESSAGES)
-
-    @property
-    def tools(self) -> str:
-        """The chat tools of the span, if any"""
-        return self.get_attribute(SpanAttributeKey.CHAT_TOOLS)
 
     @property
     def span_type(self) -> str:
@@ -328,41 +307,6 @@ class LiveSpan(Span):
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
-
-    def set_chat_messages(
-        self,
-        messages: list[Union["SystemMessage", "UserMessage", "AssistantMessage", "ToolMessage"]],
-    ):
-        """Set the `mlflow.chat.messages` attribute on the span."""
-        from mlflow.gateway.schemas.chat import RequestMessage
-
-        try:
-            for message in messages:
-                if IS_PYDANTIC_V2:
-                    RequestMessage.model_validate(message)
-                else:
-                    RequestMessage.parse_obj(message)
-        except pydantic.ValidationError as e:
-            raise MlflowException.invalid_parameter_value(
-                "Chat messages must be a list of valid messages."
-            ) from e
-        self.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
-
-    def set_chat_tools(self, tools: list["FunctionToolType"]):
-        """Set the `mlflow.chat.tools` attribute on the span."""
-        from mlflow.gateway.schemas.chat import FunctionTool
-
-        try:
-            for tool in tools:
-                if IS_PYDANTIC_V2:
-                    FunctionTool.model_validate(tool)
-                else:
-                    FunctionTool.parse_obj(tool)
-        except pydantic.ValidationError as e:
-            raise MlflowException.invalid_parameter_value(
-                "Chat tools must be a list of valid tool definitions."
-            ) from e
-        self.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)
 
     def set_attributes(self, attributes: dict[str, Any]):
         """

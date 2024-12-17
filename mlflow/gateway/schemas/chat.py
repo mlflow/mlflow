@@ -3,31 +3,31 @@ from typing import Literal, Optional, Union
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.base_models import ResponseModel
 from mlflow.utils import IS_PYDANTIC_V2
 
 
-class TextContentPart(RequestModel):
+class TextContentPart(BaseModel):
     type: Literal["text"]
     text: str
 
 
-class ImageUrl(RequestModel):
+class ImageUrl(BaseModel):
     url: str  # either URL of an image, or bas64 encoded data
     detail: Literal["auto", "low", "high"]
 
 
-class ImageContentPart(RequestModel):
+class ImageContentPart(BaseModel):
     type: Literal["image_url"]
     image_url: ImageUrl
 
 
-class InputAudio(RequestModel):
+class InputAudio(BaseModel):
     data: str  # base64 encoded data
     format: Literal["wav", "mp3"]
 
 
-class AudioContentPart(RequestModel):
+class AudioContentPart(BaseModel):
     type: Literal["input_audio"]
     input_audio: InputAudio
 
@@ -45,12 +45,12 @@ ContentPartsList = Annotated[
 ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
 
 
-class Function(ResponseModel):
+class Function(BaseModel):
     name: str
     arguments: str
 
 
-class ToolCall(ResponseModel):
+class ToolCall(BaseModel):
     id: str
     type: Literal["function"]
     function: Function
@@ -74,7 +74,7 @@ class RequestMessage(BaseModel):
     refusal: Optional[str] = None
 
 
-class ParamType(RequestModel):
+class ParamType(BaseModel):
     type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
 
 
@@ -84,35 +84,35 @@ class ParamProperty(ParamType):
     items: Optional[ParamType] = None
 
 
-class FunctionParams(RequestModel):
+class FunctionParams(BaseModel):
     properties: dict[str, ParamProperty]
     type: Literal["object"] = "object"
     required: Optional[list[str]] = None
     additionalProperties: Optional[bool] = None
 
 
-class FunctionToolDefinition(RequestModel):
+class FunctionToolDefinition(BaseModel):
     name: str
     description: Optional[str] = None
     parameters: Optional[FunctionParams] = None
     strict: bool = False
 
 
-class FunctionTool(RequestModel):
+class FunctionTool(BaseModel):
     type: Literal["function"] = "function"
     function: FunctionToolDefinition
 
 
-class UnityCatalogFunctionToolDefinition(RequestModel):
+class UnityCatalogFunctionToolDefinition(BaseModel):
     name: str
 
 
-class UnityCatalogFunctionTool(RequestModel):
+class UnityCatalogFunctionTool(BaseModel):
     type: Literal["uc_function"] = "uc_function"
     uc_function: UnityCatalogFunctionToolDefinition
 
 
-class BaseRequestPayload(RequestModel):
+class BaseRequestPayload(BaseModel):
     tools: Optional[list[Union[FunctionTool, UnityCatalogFunctionTool]]] = None
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)

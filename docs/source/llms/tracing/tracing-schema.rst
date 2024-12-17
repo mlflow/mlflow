@@ -361,8 +361,7 @@ custom attributes for standardized chat messages and tool defintions:
         
         The type should be ``List[`` :py:class:`RequestMessage <mlflow.gateway.schemas.chat.RequestMessage>` ``]``,
         following the standardized chat message format from `MLflow AI Gateway <https://mlflow.org/docs/latest/llms/deployments/index.html>`_
-      - This attribute can be conveniently set using the :py:class:`span.set_chat_messages() <mlflow.entities.LiveSpan.set_chat_messages>`
-        function
+      - This attribute can be conveniently set using the :py:func:`mlflow.set_span_chat_messages` function
     
     * - **mlflow.chat.tools**
       - This attribute represents the tools that were available for the chat model to call. In the OpenAI
@@ -371,5 +370,70 @@ custom attributes for standardized chat messages and tool defintions:
 
         The type should be a ``List[`` :py:class:`FunctionTool <mlflow.gateway.schemas.chat.FunctionTool>` ``]``.
         following the standardized tool definition format from MLflow AI Gateway.
-      - This attribute can be conveniently set using the :py:class:`span.set_chat_tools() <mlflow.entities.LiveSpan.set_chat_messages>`
-        function
+      - This attribute can be conveniently set using the :py:func:`mlflow.set_span_chat_tools` function
+
+Please refer to the example below for a quick demonstration of how to use the utility functions described above, as well as
+how to retrieve them using the :py:class:`span.get_attribute() <mlflow.entities.Span.get_attribute>` function:
+
+.. code-block:: python
+
+  import mlflow
+  from mlflow.entities.span import SpanType
+  from mlflow.tracing.constant import SpanAttributeKey
+
+  # example messages and tools
+  messages = [
+      {
+          "role": "system",
+          "content": "please use the provided tool to answer the user's questions",
+      },
+      {"role": "user", "content": "what is 1 + 1?"},
+  ]
+
+  tools = [
+      {
+          "type": "function",
+          "function": {
+              "name": "add",
+              "description": "Add two numbers",
+              "parameters": {
+                  "type": "object",
+                  "properties": {
+                      "a": {"type": "number"},
+                      "b": {"type": "number"},
+                  },
+                  "required": ["a", "b"],
+              },
+          },
+      }
+  ]
+
+
+  @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+  def call_chat_model(messages, tools):
+      # mocking a response
+      response = {
+          "role": "assistant",
+          "tool_calls": [
+              {
+                  "id": "123",
+                  "function": {"arguments": '{"a": 1,"b": 2}', "name": "add"},
+                  "type": "function",
+              }
+          ],
+      }
+
+      span = mlflow.get_current_active_span()
+      mlflow.set_span_chat_messages(span, messages + [response])
+      mlflow.set_span_chat_tools(span, tools)
+
+      return response
+
+
+  call_chat_model(messages, tools)
+
+  trace = mlflow.get_last_active_trace()
+  span = trace.data.spans[0]
+
+  print("Messages: ", span.get_attribute(SpanAttributeKey.CHAT_MESSAGES))
+  print("Tools: ", span.get_attribute(SpanAttributeKey.CHAT_TOOLS))
