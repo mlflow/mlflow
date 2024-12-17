@@ -99,8 +99,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     if should_trace:
         tracer = MlflowLangchainTracer(
-            model_id=model_id,
-            set_span_in_context=should_attach_span_to_context(func_name, self)
+            model_id=model_id, set_span_in_context=should_attach_span_to_context(func_name, self)
         )
         args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, model_id, args, kwargs)
 
