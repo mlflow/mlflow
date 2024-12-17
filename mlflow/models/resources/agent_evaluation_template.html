@@ -180,10 +180,12 @@
       <div class="tab active" onclick="tabClicked(0)">Using synthetic data</div>
       <div class="tab" onclick="tabClicked(1)">Using your own dataset</div>
     </div>
-    <div style="height: 400px">
+    <div style="height: 436px">
       <pre
         class="active"
       ><code class="language-python">%pip install -U databricks-agents
+dbutils.library.restartPython()
+## Run the above in a separate cell ##
 
 from databricks.agents.evals import generate_evals_df
 agent_description = "A chatbot that answers questions about Databricks."
@@ -206,6 +208,8 @@ eval_result = mlflow.evaluate(
     model_type="databricks-agent")</code></pre>
 
       <pre><code class="language-python">%pip install -U databricks-agents
+dbutils.library.restartPython()
+## Run the above in a separate cell ##
 
 import pandas as pd
 
