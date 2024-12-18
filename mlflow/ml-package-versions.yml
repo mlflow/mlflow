@@ -406,8 +406,7 @@ prophet:
       sudo add-apt-repository ppa:ubuntu-toolchain-r/test
       sudo apt update
       sudo apt install gcc-9 g++-9
-      update-alternatives --set gcc "/usr/bin/gcc-9"
-      update-alternatives --set g++ "/usr/bin/g++-9"
+      sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 1000 --slave /usr/bin/g++ g++ /usr/bin/g++-9
       git clone --depth 1 --branch tbb44u4 https://github.com/wjakob/tbb.git
       cd tbb/build
       cmake ..
