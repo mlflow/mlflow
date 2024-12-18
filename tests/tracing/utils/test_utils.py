@@ -4,13 +4,12 @@ import mlflow
 from mlflow.entities import LiveSpan
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
-    set_span_chat_messages,
-    set_span_chat_tools,
 )
 
 from tests.tracing.helper import create_mock_otel_span

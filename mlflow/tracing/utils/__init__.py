@@ -257,7 +257,7 @@ def set_span_chat_messages(
         :test:
 
         import mlflow
-        from mlflow.tracing.utils import set_span_chat_messages
+        from mlflow.tracing import set_span_chat_messages
 
 
         @mlflow.trace
@@ -304,7 +304,7 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
         :test:
 
         import mlflow
-        from mlflow.tracing.utils import set_span_chat_tools
+        from mlflow.tracing import set_span_chat_tools
 
         tools = [
             {

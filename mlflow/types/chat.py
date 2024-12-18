@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
-from typing_extensions import Annotated
 
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 class BaseModel(_BaseModel):
     @classmethod
-    def validate(cls, obj: any):
+    def validate(cls, obj: Any):
         if IS_PYDANTIC_V2_OR_NEWER:
             return cls.model_validate(obj)
         else:
@@ -43,13 +42,10 @@ class AudioContentPart(BaseModel):
     input_audio: InputAudio
 
 
-ContentPartsList = Annotated[
-    list[
-        Annotated[
-            Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
-        ]
-    ],
-    Field(min_items=1),
+ContentPartsList = list[
+    Annotated[
+        Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
+    ]
 ]
 
 

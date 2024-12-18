@@ -359,9 +359,8 @@ custom attributes for standardized chat messages and tool defintions:
         conversation with the chat model. It enables rich conversation rendering in the UI,
         and will also be used in MLflow evaluation in the future. 
         
-        The type should be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.RequestMessage>` ``]``,
-        following the standardized chat message format from `MLflow AI Gateway <https://mlflow.org/docs/latest/llms/deployments/index.html>`_
-      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.utils.set_span_chat_messages` function. This function
+        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.RequestMessage>` ``]``
+      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_messages` function. This function
         will throw a validation error if the data does not conform to the spec.
     
     * - **mlflow.chat.tools**
@@ -369,12 +368,12 @@ custom attributes for standardized chat messages and tool defintions:
         context, this would be equivalent to the `tools <https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>`_ 
         param in the Chat Completions API.
 
-        The type should be a list of valid tools. At the moment, the available tool types are:
+        The type must be a list of valid tools. At the moment, the available tool types are:
 
         * :py:class:`FunctionTool <mlflow.types.chat.FunctionTool>`
         * :py:class:`UnityCatalogFunctionTool <mlflow.types.chat.UnityCatalogFunctionTool>`
 
-      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.utils.set_span_chat_tools` function. This function
+      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_tools` function. This function
         will throw a validation error if the data does not conform to the spec.
 
 Please refer to the example below for a quick demonstration of how to use the utility functions described above, as well as
@@ -385,7 +384,7 @@ how to retrieve them using the :py:class:`span.get_attribute() <mlflow.entities.
   import mlflow
   from mlflow.entities.span import SpanType
   from mlflow.tracing.constant import SpanAttributeKey
-  from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+  from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 
   # example messages and tools
   messages = [
