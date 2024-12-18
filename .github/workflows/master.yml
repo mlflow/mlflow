@@ -112,11 +112,13 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          source ./dev/install-common-deps.sh
           pip install .
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
+          pytest tests/types/test_type_hints.py
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
