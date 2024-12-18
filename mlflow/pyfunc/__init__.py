@@ -2507,8 +2507,17 @@ Compound types:
                     return client.invoke(pdf).get_predictions()
 
             elif env_manager == _EnvManager.LOCAL:
-
-                def load_mlflow_model(model_uri, model_path, model_config):
+                if use_dbconnect_artifact:
+                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                    loaded_model = mlflow.pyfunc.load_model(model_path, model_path, model_config)
+                elif is_spark_connect and not should_spark_connect_use_nfs:
+                    model_path = os.path.join(
+                        tempfile.gettempdir(),
+                        "mlflow",
+                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
+                        # Use pid to avoid conflict when multiple spark UDF tasks
+                        str(os.getpid()),
+                    )
                     try:
                         loaded_model = mlflow.pyfunc.load_model(
                             model_path, model_config=model_config
@@ -2518,20 +2527,6 @@ Compound types:
                         loaded_model = mlflow.pyfunc.load_model(
                             model_uri, dst_path=model_path, model_config=model_config
                         )
-                    return loaded_model
-
-                if use_dbconnect_artifact:
-                    model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
-                    loaded_model = load_mlflow_model(model_uri, model_path, model_config)
-                elif is_spark_connect and not should_spark_connect_use_nfs:
-                    model_path = os.path.join(
-                        tempfile.gettempdir(),
-                        "mlflow",
-                        hashlib.sha1(model_uri.encode(), usedforsecurity=False).hexdigest(),
-                        # Use pid to avoid conflict when multiple spark UDF tasks
-                        str(os.getpid()),
-                    )
-                    loaded_model = load_mlflow_model(model_uri, model_path, model_config)
                 elif should_use_spark_to_broadcast_file:
                     loaded_model, _ = SparkModelCache.get_or_load(archive_path)
                 else:
