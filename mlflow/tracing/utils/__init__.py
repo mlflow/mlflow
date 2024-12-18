@@ -8,7 +8,7 @@ import uuid
 from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -176,7 +176,7 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
             span._span._name = f"{span.name}_{count}"
 
 
-def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
+def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
     """
     Get the attribute value from the OpenTelemetry span in a decoded format.
 
@@ -205,7 +205,7 @@ def _try_get_prediction_context():
     return get_prediction_context()
 
 
-def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
+def maybe_get_request_id(is_evaluate=False) -> str | None:
     """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
     context = _try_get_prediction_context()
     if not context or (is_evaluate and not context.is_evaluate):
@@ -221,7 +221,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> dict | None:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas

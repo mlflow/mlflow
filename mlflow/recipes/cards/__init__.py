@@ -10,7 +10,6 @@ import random
 import re
 import string
 from io import StringIO
-from typing import Optional, Union
 
 from packaging.version import Version
 
@@ -83,8 +82,8 @@ class CardTab:
         self,
         name: str,
         image_file_path: str,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        width: int | None = None,
+        height: int | None = None,
     ) -> None:
         if not os.path.exists(image_file_path):
             self.add_html(name, "Image Unavailable")
@@ -166,7 +165,7 @@ class BaseCard:
         self._tabs.append((name, tab))
         return tab
 
-    def get_tab(self, name) -> Union[CardTab, None]:
+    def get_tab(self, name) -> CardTab | None:
         """
         Returns an existing tab with the specified name. Returns None if not found.
 

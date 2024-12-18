@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -121,7 +121,7 @@ class Trace(_MlflowObject):
             return value
 
     def search_spans(
-        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
+        self, span_type: SpanType | None = None, name: str | re.Pattern | None = None
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.

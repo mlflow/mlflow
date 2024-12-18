@@ -19,7 +19,7 @@ import string
 import sys
 from collections import namedtuple
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -274,21 +274,21 @@ def save_model(
     transformers_model,
     path: str,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    example_no_conversion: bool | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -794,22 +794,22 @@ def log_model(
     transformers_model,
     artifact_path: str,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    example_no_conversion: bool | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
     **kwargs,
 ):
@@ -1051,7 +1051,7 @@ def log_model(
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
-    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+    model_uri: str, dst_path: str | None = None, return_type="pipeline", device=None, **kwargs
 ):
     """
     Load a ``transformers`` object from a local file or a run.
@@ -1473,7 +1473,7 @@ def _get_supported_pretrained_model_types():
     return supported_model_types
 
 
-def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: Optional[str]) -> Pipeline:
+def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | None) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
@@ -1647,7 +1647,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Loads the model as pyfunc model
     """
@@ -1831,7 +1831,7 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -2783,8 +2783,8 @@ class _TransformersWrapper:
         return input_data
 
     def _convert_audio_input(
-        self, data: Union[AudioInput, list[dict[int, list[AudioInput]]]]
-    ) -> Union[AudioInput, list[AudioInput]]:
+        self, data: AudioInput | list[dict[int, list[AudioInput]]]
+    ) -> AudioInput | list[AudioInput]:
         """
         Convert the input data into the format that the Transformers pipeline expects.
 

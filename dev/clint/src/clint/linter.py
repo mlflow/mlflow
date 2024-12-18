@@ -8,7 +8,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Union
+from typing import Any, Iterator
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
@@ -373,7 +373,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
-        self, node: Union[ast.Import, ast.ImportFrom], module: str
+        self, node: ast.Import | ast.ImportFrom, module: str
     ) -> None:
         for file_pat, libs in self.config.forbidden_top_level_imports.items():
             if fnmatch.fnmatch(str(self.path), file_pat) and module in libs:

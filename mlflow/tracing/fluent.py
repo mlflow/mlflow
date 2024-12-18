@@ -6,7 +6,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -55,10 +55,10 @@ TRACE_BUFFER = TTLCache(
 
 
 def trace(
-    func: Optional[Callable] = None,
-    name: Optional[str] = None,
+    func: Callable | None = None,
+    name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
-    attributes: Optional[dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -182,8 +182,8 @@ def trace(
 @contextlib.contextmanager
 def start_span(
     name: str = "span",
-    span_type: Optional[str] = SpanType.UNKNOWN,
-    attributes: Optional[dict[str, Any]] = None,
+    span_type: str | None = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -281,7 +281,7 @@ def start_span(
             )
 
 
-def get_trace(request_id: str) -> Optional[Trace]:
+def get_trace(request_id: str) -> Trace | None:
     """
     Get a trace by the given request ID if it exists.
 
@@ -326,12 +326,12 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
 @experimental
 def search_traces(
-    experiment_ids: Optional[list[str]] = None,
-    filter_string: Optional[str] = None,
-    max_results: Optional[int] = None,
-    order_by: Optional[list[str]] = None,
-    extract_fields: Optional[list[str]] = None,
-    run_id: Optional[str] = None,
+    experiment_ids: list[str] | None = None,
+    filter_string: str | None = None,
+    max_results: int | None = None,
+    order_by: list[str] | None = None,
+    extract_fields: list[str] | None = None,
+    run_id: str | None = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -473,7 +473,7 @@ def search_traces(
     return traces_df
 
 
-def get_current_active_span() -> Optional[LiveSpan]:
+def get_current_active_span() -> LiveSpan | None:
     """
     Get the current active span in the global context.
 
@@ -512,7 +512,7 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-def get_last_active_trace() -> Optional[Trace]:
+def get_last_active_trace() -> Trace | None:
     """
     Get the last active trace in the same process if exists.
 
@@ -573,7 +573,7 @@ def get_last_active_trace() -> Optional[Trace]:
 
 @experimental
 def update_current_trace(
-    tags: Optional[dict[str, str]] = None,
+    tags: dict[str, str] | None = None,
 ):
     """
     Update the current active trace with the given tags.
@@ -617,7 +617,7 @@ def update_current_trace(
 
 
 @experimental
-def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
+def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
     """
     Add a completed trace object into another trace.
 
