@@ -18,10 +18,7 @@ class BaseModel(_BaseModel):
             else:
                 return cls.parse_obj(obj)
         except ValidationError as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Received invalid input for {cls.__name__}. Please "
-                "see the pydantic error above for more details"
-            ) from e
+            raise MlflowException.invalid_parameter_value(e) from e
 
 
 class TextContentPart(BaseModel):
@@ -112,21 +109,14 @@ class FunctionToolDefinition(BaseModel):
     strict: Optional[bool] = None
 
 
-class FunctionTool(BaseModel):
-    type: Literal["function"] = "function"
-    function: FunctionToolDefinition
-
-
 class UnityCatalogFunctionToolDefinition(BaseModel):
     name: str
 
 
-class UnityCatalogFunctionTool(BaseModel):
-    type: Literal["uc_function"] = "uc_function"
-    uc_function: UnityCatalogFunctionToolDefinition
-
-
-ChatTool = Annotated[Union[FunctionTool, UnityCatalogFunctionTool], Field(discriminator="type")]
+class ChatTool(BaseModel):
+    type: Literal["function", "uc_function"]
+    function: Optional[FunctionToolDefinition] = None
+    uc_function: Optional[UnityCatalogFunctionToolDefinition] = None
 
 
 class ChatTools(BaseModel):
