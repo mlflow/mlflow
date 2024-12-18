@@ -1,6 +1,9 @@
 import datetime
-from typing import Any, Dict, List, Optional, Union
+import sys
+from typing import Any, Dict, List, Optional, Union, get_args
+from unittest import mock
 
+import pandas as pd
 import pydantic
 import pytest
 
@@ -8,7 +11,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
+    InvalidTypeHintException,
     _infer_schema_from_type_hint,
+    _maybe_convert_data_for_type_hint,
     _validate_example_against_type_hint,
 )
 
@@ -42,14 +47,22 @@ class CustomModel2(pydantic.BaseModel):
             CustomModel,
             Schema(
                 [
-                    ColSpec(type=DataType.long, name="long_field"),
-                    ColSpec(type=DataType.string, name="str_field"),
-                    ColSpec(type=DataType.boolean, name="bool_field"),
-                    ColSpec(type=DataType.double, name="double_field"),
-                    ColSpec(type=DataType.binary, name="binary_field"),
-                    ColSpec(type=DataType.datetime, name="datetime_field"),
-                    ColSpec(type=AnyType(), name="any_field"),
-                    ColSpec(type=DataType.string, name="optional_str", required=False),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property(name="long_field", dtype=DataType.long),
+                                Property(name="str_field", dtype=DataType.string),
+                                Property(name="bool_field", dtype=DataType.boolean),
+                                Property(name="double_field", dtype=DataType.double),
+                                Property(name="binary_field", dtype=DataType.binary),
+                                Property(name="datetime_field", dtype=DataType.datetime),
+                                Property(name="any_field", dtype=AnyType()),
+                                Property(
+                                    name="optional_str", dtype=DataType.string, required=False
+                                ),
+                            ]
+                        )
+                    )
                 ]
             ),
         ),
@@ -82,19 +95,25 @@ class CustomModel2(pydantic.BaseModel):
             CustomModel2,
             Schema(
                 [
-                    ColSpec(type=Map(AnyType()), name="custom_field"),
                     ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property(name="role", dtype=DataType.string),
-                                    Property(name="content", dtype=DataType.string),
-                                ]
-                            )
-                        ),
-                        name="messages",
-                    ),
-                    ColSpec(type=DataType.long, name="optional_int", required=False),
+                        type=Object(
+                            [
+                                Property(name="custom_field", dtype=Map(AnyType())),
+                                Property(
+                                    name="messages",
+                                    dtype=Array(
+                                        Object(
+                                            [
+                                                Property(name="role", dtype=DataType.string),
+                                                Property(name="content", dtype=DataType.string),
+                                            ]
+                                        )
+                                    ),
+                                ),
+                                Property(name="optional_int", dtype=DataType.long, required=False),
+                            ]
+                        )
+                    )
                 ]
             ),
         ),
@@ -187,7 +206,7 @@ def test_infer_schema_from_type_hints_errors():
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_type_hint(dict)
 
-    with pytest.raises(MlflowException, match=r"Unsupported type hint"):
+    with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
         _infer_schema_from_type_hint(object)
 
 
@@ -218,6 +237,18 @@ def test_infer_schema_from_type_hints_errors():
                 "datetime_field": datetime.datetime.now(),
                 "any_field": "a",
             },
+        ),
+        (
+            CustomModel,
+            CustomModel(
+                long_field=1,
+                str_field="a",
+                bool_field=True,
+                double_field=1.0,
+                datetime_field=datetime.datetime.now(),
+                binary_field=b"abc",
+                any_field="a",
+            ),
         ),
         (
             list[CustomModel],
@@ -261,7 +292,19 @@ def test_infer_schema_from_type_hints_errors():
     ],
 )
 def test_pydantic_model_validation(type_hint, example):
-    _validate_example_against_type_hint(example=example, type_hint=type_hint)
+    if isinstance(example, dict):
+        assert _validate_example_against_type_hint(
+            example=example, type_hint=type_hint
+        ) == type_hint(**example)
+    elif isinstance(example, list):
+        assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == [
+            get_args(type_hint)[0](**item) for item in example
+        ]
+    else:
+        assert (
+            _validate_example_against_type_hint(example=example.dict(), type_hint=type_hint)
+            == example
+        )
 
 
 @pytest.mark.parametrize(
@@ -287,7 +330,7 @@ def test_pydantic_model_validation(type_hint, example):
     ],
 )
 def test_python_type_hints_validation(type_hint, example):
-    _validate_example_against_type_hint(example=example, type_hint=type_hint)
+    assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == example
 
 
 def test_type_hints_validation_errors():
@@ -328,7 +371,68 @@ def test_type_hints_validation_errors():
         _validate_example_against_type_hint("a", Optional[int])
 
     with pytest.raises(
-        MlflowException,
+        InvalidTypeHintException,
         match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
     ):
         _validate_example_against_type_hint(["a"], list)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+def test_type_hint_for_python_3_10():
+    assert _infer_schema_from_type_hint(bool | int | str) == Schema([ColSpec(type=AnyType())])
+    assert _infer_schema_from_type_hint(list[int | str]) == Schema([ColSpec(type=Array(AnyType()))])
+
+    class ToolDef(pydantic.BaseModel):
+        type: str
+        function: dict[str, str]
+
+    class Tool(pydantic.BaseModel):
+        tool_choice: str | ToolDef
+
+    assert _infer_schema_from_type_hint(Tool) == Schema(
+        [ColSpec(type=Object([Property(name="tool_choice", dtype=AnyType())]))]
+    )
+
+
+@pytest.mark.parametrize(
+    ("data", "type_hint", "expected_data"),
+    [
+        ("a", str, "a"),
+        (["a", "b"], list[str], ["a", "b"]),
+        ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
+        (1, Optional[int], 1),
+        (None, Optional[int], None),
+        (pd.DataFrame([["a", "b"]]), Any, pd.DataFrame([["a", "b"]])),
+        (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
+        (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
+        # This is a temp workaround for evaluate
+        (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
+        (["x", "y"], Any, ["x", "y"]),
+        ([1, "a", None], Optional[Any], [1, "a", None]),
+    ],
+)
+def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
+    if isinstance(expected_data, pd.DataFrame):
+        pd.testing.assert_frame_equal(
+            _maybe_convert_data_for_type_hint(data, type_hint), expected_data
+        )
+    else:
+        assert _maybe_convert_data_for_type_hint(data, type_hint) == expected_data
+
+
+def test_maybe_convert_data_for_type_hint_errors():
+    with mock.patch("mlflow.types.type_hints._logger.warning") as mock_warning:
+        _maybe_convert_data_for_type_hint(
+            pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str]
+        )
+        assert mock_warning.call_count == 1
+        assert (
+            "The data will be converted to a list of the first column."
+            in mock_warning.call_args[0][0]
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
+    ):
+        _maybe_convert_data_for_type_hint(pd.DataFrame([["a", "b"]]), str)
