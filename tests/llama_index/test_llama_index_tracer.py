@@ -307,7 +307,12 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[0].span_type == SpanType.RETRIEVER
     assert spans[0].inputs == {"str_or_query_bundle": "apple"}
     assert len(spans[0].outputs) == 1
-    assert spans[0].outputs[0]["page_content"] == retrieved[0].text
+
+    if Version(llama_index.core.__version__) >= Version("0.12.5"):
+        retrieved_text = retrieved[0].node.text
+    else:
+        retrieved_text = retrieved[0].text
+    assert spans[0].outputs[0]["page_content"] == retrieved_text
 
     assert spans[1].name.startswith("VectorIndexRetriever")
     assert spans[1].span_type == SpanType.RETRIEVER
