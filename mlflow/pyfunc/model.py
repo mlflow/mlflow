@@ -311,7 +311,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     @abstractmethod
     def predict(
-        self, context, messages: list[ChatAgentMessage], params: ChatAgentParams
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> ChatAgentResponse:
         """
         Evaluates a chat input and produces a chat output.
@@ -322,8 +322,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
 
         Args:
-            context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                can use to perform inference.
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
                 A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
                 objects representing chat history.
@@ -338,7 +336,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         """
 
     def predict_stream(
-        self, context, messages: list[ChatAgentMessage], params: ChatAgentParams
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> Generator[ChatAgentResponse, None, None]:
         """
         Evaluates a chat input and produces a chat output.
@@ -353,7 +351,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             ``ChatResponse`` generator entry.
 
         Args:
-            context: A :class:`~PythonModelContext` instance containing artifacts that
         """
         raise NotImplementedError(
             "Streaming implementation not provided. Please override the "
