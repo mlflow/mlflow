@@ -3016,11 +3016,9 @@ def save_model(
                 **params.to_dict(),
                 **(input_params or {}),
             }
-            # call load_context() first, as predict may depend on it
+            # TODO removed context
             _logger.info("Predicting on input example to validate output")
-            context = PythonModelContext(artifacts, model_config)
-            python_model.load_context(context)
-            output = python_model.predict(context, messages, params)
+            output = python_model.predict(messages, params)
             if not isinstance(output, ChatAgentResponse):
                 raise MlflowException(
                     "Failed to save ChatAgent. Please ensure that the model's predict() method "
