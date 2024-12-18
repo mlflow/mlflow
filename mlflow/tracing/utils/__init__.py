@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
+from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
@@ -270,18 +270,10 @@ def set_span_chat_messages(
 
         f()
     """
-    from pydantic import ValidationError
-
     from mlflow.types.chat import RequestMessage
 
-    try:
-        for message in messages:
-            RequestMessage.validate(message)
-    except ValidationError as e:
-        raise MlflowException.invalid_parameter_value(
-            "Received invalid chat messages. Please see the pydantic "
-            "error message above for more details"
-        ) from e
+    for message in messages:
+        RequestMessage.validate(message)
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
 
@@ -334,15 +326,7 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
 
         f()
     """
-    from pydantic import ValidationError
-
     from mlflow.types.chat import ChatTools
 
-    try:
-        ChatTools.validate({"tools": tools})
-    except ValidationError as e:
-        raise MlflowException.invalid_parameter_value(
-            "Received invalid chat tools. Please see the pydantic "
-            "error message above for more details"
-        ) from e
+    ChatTools.validate({"tools": tools})
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)
