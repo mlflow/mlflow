@@ -448,6 +448,7 @@ from mlflow.models.model import (
 )
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
+    _extract_type_hints,
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
 )
@@ -2980,16 +2981,16 @@ def save_model(
             )
     elif python_model is not None:
         if callable(python_model):
-            input_arg_index = 0  # first argument
+            # first argument is the model input
+            type_hints = _extract_type_hints(python_model, input_arg_index=0)
             signature_from_type_hints = _infer_signature_from_type_hints(
-                python_model, input_arg_index, input_example=input_example
+                func=python_model, type_hints=type_hints, input_example=input_example
             )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
-            input_arg_index = 1  # second argument
             signature_from_type_hints = _infer_signature_from_type_hints(
-                python_model.predict,
-                input_arg_index=input_arg_index,
+                func=python_model.predict,
+                type_hints=python_model._get_type_hints(),
                 input_example=input_example,
             )
             # only infer signature based on input example when signature

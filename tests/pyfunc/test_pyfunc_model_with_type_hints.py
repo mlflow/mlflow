@@ -138,7 +138,13 @@ class CustomExample2(pydantic.BaseModel):
 @pytest.mark.parametrize(
     ("model_type", "has_input_example"),
     # if python_model is callable, input_example should be provided
-    [("callable", True), ("python_model", True), ("python_model", False)],
+    [
+        ("callable", True),
+        ("python_model", True),
+        ("python_model", False),
+        ("python_model_no_context", True),
+        ("python_model_no_context", False),
+    ],
 )
 def test_pyfunc_model_infer_signature_from_type_hints(
     type_hint, expected_schema, input_example, has_input_example, model_type
@@ -154,6 +160,13 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 
         class TestModel(mlflow.pyfunc.PythonModel):
             def predict(self, context, model_input: type_hint, params=None) -> type_hint:
+                return model_input
+
+        kwargs["python_model"] = TestModel()
+    elif model_type == "python_model_no_context":
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(self, model_input: type_hint, params=None) -> type_hint:
                 return model_input
 
         kwargs["python_model"] = TestModel()

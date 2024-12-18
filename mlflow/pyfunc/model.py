@@ -22,7 +22,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
-from mlflow.models.signature import _extract_type_hints
+from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
@@ -115,7 +115,10 @@ class PythonModel:
         """
 
     def _get_type_hints(self):
-        return _extract_type_hints(self.predict, input_arg_index=1)
+        if _is_context_in_predict_function_signature(func=self.predict):
+            return _extract_type_hints(self.predict, input_arg_index=1)
+        else:
+            return _extract_type_hints(self.predict, input_arg_index=0)
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
@@ -635,12 +638,7 @@ class _PythonModelPyfuncWrapper:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if (
-            # predict(self, context, model_input, ...)
-            "context" in parameters
-            # predict(self, ctx, model_input, ...) ctx can be any parameter name
-            or len([param for param in parameters if param != "params"]) == 2
-        ):
+        if _is_context_in_predict_function_signature(parameters=parameters):
             return self.python_model.predict(
                 self.context, self._convert_input(model_input), **kwargs
             )
@@ -670,12 +668,7 @@ class _PythonModelPyfuncWrapper:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if (
-            # predict_stream(self, context, model_input, ...)
-            "context" in parameters
-            # predict_stream(self, ctx, model_input, ...) ctx can be any parameter name
-            or len([param for param in parameters if param != "params"]) == 2
-        ):
+        if _is_context_in_predict_function_signature(parameters=parameters):
             return self.python_model.predict_stream(
                 self.context, self._convert_input(model_input), **kwargs
             )

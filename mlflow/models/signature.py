@@ -345,9 +345,21 @@ def _extract_type_hints(f, input_arg_index):
     return _TypeHints(hints.get(arg_name), hints.get("return"))
 
 
-def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
-    hints = _extract_type_hints(func, input_arg_index)
-    if hints.input is None:
+def _is_context_in_predict_function_signature(*, func=None, parameters=None):
+    if parameters is None:
+        if func is None:
+            raise ValueError("Either `func` or `parameters` must be provided.")
+        parameters = inspect.signature(func).parameters
+    return (
+        # predict(self, context, model_input, ...)
+        "context" in parameters
+        # predict(self, ctx, model_input, ...) ctx can be any parameter name
+        or len([param for param in parameters if param != "params"]) == 2
+    )
+
+
+def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example=None):
+    if type_hints.input is None:
         return None
 
     params = None
@@ -356,41 +368,45 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
         input_example, params = input_example
 
     try:
-        input_schema = _infer_schema_from_type_hint(hints.input)
+        input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException:
         input_schema = None
     params_schema = _infer_param_schema(params) if params else None
-    input_arg_name = _get_arg_names(func)[input_arg_index]
+    # input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_schema and input_example:
         try:
-            _validate_example_against_type_hint(example=input_example, type_hint=hints.input)
+            _validate_example_against_type_hint(example=input_example, type_hint=type_hints.input)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 "Input example is not compatible with the type hint of the `predict` function. "
-                f"Type hint: {hints.input}."
+                f"Type hint: {type_hints.input}."
             ) from e
-        inputs = {input_arg_name: input_example}
+        kwargs = {}
         if params and params_key in inspect.signature(func).parameters:
-            inputs[params_key] = params
+            kwargs[params_key] = params
         # This is for PythonModel's predict function
-        if input_arg_index == 1:
-            inputs["context"] = None
+        if _is_context_in_predict_function_signature(func=func):
+            inputs = [None, input_example]
+        else:
+            inputs = [input_example]
         # Note: This has the assumption that input data is not converted at all
         # TODO: should we catch exception here?
-        output_example = func(**inputs)
+        output_example = func(*inputs, **kwargs)
     else:
         output_example = None
     try:
-        output_schema = _infer_schema_from_type_hint(hints.output) if hints.output else None
+        output_schema = (
+            _infer_schema_from_type_hint(type_hints.output) if type_hints.output else None
+        )
     except InvalidTypeHintException:
         output_schema = None
     if output_schema and output_example:
         try:
-            _validate_example_against_type_hint(example=output_example, type_hint=hints.output)
+            _validate_example_against_type_hint(example=output_example, type_hint=type_hints.output)
         except Exception:
             _logger.warning(
-                f"Failed to validate output `{output_example}` against type hint `{hints.output}`. "
-                "Set the logging level to DEBUG to see the full traceback.",
+                f"Failed to validate output `{output_example}` against type hint "
+                f"`{type_hints.output}`. Set the logging level to DEBUG to see the full traceback.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
             output_schema = None
