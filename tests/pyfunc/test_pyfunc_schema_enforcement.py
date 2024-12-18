@@ -1152,6 +1152,7 @@ def test_enforce_params_schema_with_success():
         "datetime_param": np.datetime64("2023-06-26 00:00:00"),
         "str_list": ["a", "b", "c"],
         "bool_list": [True, False],
+        "object": {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
     }
     test_schema = ParamSchema(
         [
@@ -1166,6 +1167,18 @@ def test_enforce_params_schema_with_success():
             ),
             ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+            ParamSpec(
+                "object",
+                Object(
+                    [
+                        Property("a", DataType.long),
+                        Property("b", Array(DataType.string)),
+                        Property("c", Object([Property("d", DataType.long)])),
+                    ]
+                ),
+                {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
+                None,
+            ),
         ]
     )
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
