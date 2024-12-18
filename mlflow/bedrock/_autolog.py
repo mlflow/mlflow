@@ -15,22 +15,6 @@ _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
 _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
 
 
-def _skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
-    """
-    A decorator to apply the function only if trace autologging is enabled.
-    This decorator is used to skip the test if the trace autologging is disabled.
-    """
-
-    def wrapper(original, self, *args, **kwargs):
-        config = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
-        if not config.log_traces:
-            return original(self, *args, **kwargs)
-
-        return func(original, self, *args, **kwargs)
-
-    return wrapper
-
-
 def patched_create_client(original, self, *args, **kwargs):
     """
     Patched version of the boto3 ClientCreator.create_client method that returns
@@ -57,6 +41,22 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
         # with the consistent chat format.
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
         safe_patch(FLAVOR_NAME, client_class, "converse", _patched_converse)
+
+
+def _skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    A decorator to apply the function only if trace autologging is enabled.
+    This decorator is used to skip the test if the trace autologging is disabled.
+    """
+
+    def wrapper(original, self, *args, **kwargs):
+        config = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
+        if not config.log_traces:
+            return original(self, *args, **kwargs)
+
+        return func(original, self, *args, **kwargs)
+
+    return wrapper
 
 
 @_skip_if_trace_disabled

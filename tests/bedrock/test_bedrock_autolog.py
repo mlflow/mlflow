@@ -131,6 +131,18 @@ _META_LLAMA_RESPONSE = {
 }
 
 
+# https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html
+_AMAZON_EMBEDDING_REQUEST = {
+    "inputText": "Hi",
+    "dimensions": 8,
+}
+
+_AMAZON_EMBEDDING_RESPONSE = {
+    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+    "inputTextTokenCount": 15,
+}
+
+
 def _create_dummy_invoke_model_response(llm_response):
     llm_response_encoded = json.dumps(llm_response).encode("utf-8")
     return {
@@ -205,18 +217,6 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response):
         "ResponseMetadata": response["ResponseMetadata"],
         "contentType": "application/json",
     }
-
-
-# https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html
-_AMAZON_EMBEDDING_REQUEST = {
-    "inputText": "Hi",
-    "dimensions": 8,
-}
-
-_AMAZON_EMBEDDING_RESPONSE = {
-    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
-    "inputTextTokenCount": 15,
-}
 
 
 def test_bedrock_autolog_invoke_model_embeddings():

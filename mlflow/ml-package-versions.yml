@@ -923,8 +923,6 @@ bedrock:
   package_info:
     pip_release: "boto3"
     module_name: "boto3"
-    install_dev: |
-      pip install git+https://github.com/boto/boto3
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
