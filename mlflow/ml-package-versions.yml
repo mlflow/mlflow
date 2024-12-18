@@ -400,7 +400,15 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
-      sudo apt-get -y install libtbbmalloc2
+      # build and install libtbb2 library from source,
+      # this library can't be installed in Ubuntu >= 24.04 by `apt install` command.
+      pushd /tmp
+      git clone --depth 1 --branch tbb44u4 https://github.com/wjakob/tbb.git
+      cd tbb/build
+      cmake ..
+      make -j
+      sudo make install
+      popd
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
