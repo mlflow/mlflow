@@ -44,6 +44,12 @@ def test_messages_autolog():
     assert span.name == "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
+    original_usage = span.outputs["usage"]
+    # Only keep input_tokens / output_tokens fields in usage dict.
+    span.outputs["usage"] = {
+        "input_tokens": original_usage["input_tokens"],
+        "output_tokens": original_usage["output_tokens"],
+    }
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     with patch("anthropic.resources.Messages.create", new=create):
