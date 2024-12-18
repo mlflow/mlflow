@@ -400,7 +400,6 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
-      sudo apt-get -y install libtbb2
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
