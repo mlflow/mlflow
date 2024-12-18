@@ -257,13 +257,14 @@ def set_span_chat_messages(
         :test:
 
         import mlflow
+        from mlflow.tracing.utils import set_span_chat_messages
 
 
         @mlflow.trace
         def f():
             messages = [{"role": "user", "content": "hello"}]
             span = mlflow.get_current_active_span()
-            mlflow.set_span_chat_messages(span, messages)
+            set_span_chat_messages(span, messages)
             return 0
 
 
@@ -319,7 +320,7 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
         @mlflow.trace
         def f():
             span = mlflow.get_current_active_span()
-            mlflow.set_span_chat_tools(span, tools)
+            set_span_chat_tools(span, tools)
             return 0
 
 

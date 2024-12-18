@@ -13,9 +13,9 @@ class BaseModel(_BaseModel):
     @classmethod
     def validate(cls, obj: any):
         if IS_PYDANTIC_V2_OR_NEWER:
-            cls.model_validate(obj)
+            return cls.model_validate(obj)
         else:
-            cls.parse_obj(obj)
+            return cls.parse_obj(obj)
 
 
 class TextContentPart(BaseModel):
