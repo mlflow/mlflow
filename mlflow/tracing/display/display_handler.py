@@ -37,11 +37,14 @@ IFRAME_HTML = """
   }}
   </style>
   <button
-    onclick="const display = this.nextElementSibling.style.display;
-const isCollapsed = display === 'none';
-this.nextElementSibling.style.display = isCollapsed ? null : 'none';
-const verb = isCollapsed ? 'Collapse' : 'Expand';
-this.innerText = `${{verb}} MLflow Trace`;"
+    onclick="
+        const display = this.nextElementSibling.style.display;
+        const isCollapsed = display === 'none';
+        this.nextElementSibling.style.display = isCollapsed ? null : 'none';
+
+        const verb = isCollapsed ? 'Collapse' : 'Expand';
+        this.innerText = `${{verb}} MLflow Trace`;
+    "
   >Collapse MLflow Trace</button>
   <iframe
     id="trace-renderer"
@@ -52,7 +55,7 @@ this.innerText = `${{verb}} MLflow Trace`;"
 """
 
 
-def _get_notebook_iframe_html(traces: list["Trace"]):
+def get_notebook_iframe_html(traces: list["Trace"]):
     # fetch assets from tracking server
     uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
     query_string = _get_query_string_for_traces(traces)
@@ -82,7 +85,7 @@ def _get_query_string_for_traces(traces: list["Trace"]):
     return urlencode(query_params)
 
 
-def is_jupyter():
+def _is_jupyter():
     try:
         from IPython import get_ipython
 
@@ -95,11 +98,11 @@ def is_using_tracking_server():
     return is_http_uri(mlflow.get_tracking_uri())
 
 
-def validate_environment():
+def is_trace_ui_available():
     # the notebook display feature only works in
     # Databricks notebooks, or in Jupyter notebooks
     # with a tracking server
-    return is_jupyter() and (is_in_databricks_runtime() or is_using_tracking_server())
+    return _is_jupyter() and (is_in_databricks_runtime() or is_using_tracking_server())
 
 
 class IPythonTraceDisplayHandler:
@@ -124,7 +127,7 @@ class IPythonTraceDisplayHandler:
 
     def __init__(self):
         self.traces_to_display = {}
-        if not is_jupyter():
+        if not _is_jupyter():
             return
 
         try:
@@ -143,12 +146,12 @@ class IPythonTraceDisplayHandler:
             _logger.debug("Failed to register post-run cell display hook", exc_info=True)
 
     def _display_traces_post_run(self, result):
-        if self.disabled or not validate_environment():
+        if self.disabled or not is_trace_ui_available():
             self.traces_to_display = {}
             return
 
         try:
-            from IPython.display import HTML, display
+            from IPython.display import display
 
             MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
@@ -156,15 +159,7 @@ class IPythonTraceDisplayHandler:
                 self.traces_to_display = {}
                 return
 
-            if is_in_databricks_runtime():
-                display(
-                    self.get_databricks_mimebundle(traces_to_display),
-                    display_id=True,
-                    raw=True,
-                )
-            else:
-                html = HTML(_get_notebook_iframe_html(traces_to_display))
-                display(html)
+            display(self.get_mimebundle(traces_to_display), raw=True)
 
             # reset state
             self.traces_to_display = {}
@@ -176,17 +171,19 @@ class IPythonTraceDisplayHandler:
             _logger.error("Failed to display traces", exc_info=True)
             self.traces_to_display = {}
 
-    def get_databricks_mimebundle(self, traces: list["Trace"]):
+    def get_mimebundle(self, traces: list["Trace"]):
         if len(traces) == 1:
             return traces[0]._repr_mimebundle_()
         else:
-            return {
-                "application/databricks.mlflow.trace": _serialize_trace_list(traces),
-                "text/plain": repr(traces),
-            }
+            bundle = {"text/plain": repr(traces)}
+            if is_in_databricks_runtime():
+                bundle["application/databricks.mlflow.trace"] = _serialize_trace_list(traces)
+            else:
+                bundle["text/html"] = get_notebook_iframe_html(traces)
+            return bundle
 
     def display_traces(self, traces: list["Trace"]):
-        if self.disabled or not validate_environment():
+        if self.disabled or not is_trace_ui_available():
             return
 
         try:

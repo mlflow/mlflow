@@ -83,8 +83,8 @@ class Trace(_MlflowObject):
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
         from mlflow.tracing.display import (
-            _get_notebook_iframe_html,
             get_display_handler,
+            get_notebook_iframe_html,
             is_using_tracking_server,
         )
         from mlflow.utils.databricks_utils import is_in_databricks_runtime
@@ -95,7 +95,7 @@ class Trace(_MlflowObject):
             if is_in_databricks_runtime():
                 bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
             elif is_using_tracking_server():
-                bundle["text/html"] = _get_notebook_iframe_html([self])
+                bundle["text/html"] = get_notebook_iframe_html([self])
 
         return bundle
 

@@ -1,6 +1,6 @@
 from mlflow.tracing.display.display_handler import (
     IPythonTraceDisplayHandler,
-    _get_notebook_iframe_html,
+    get_notebook_iframe_html,
     is_using_tracking_server,
 )
 
@@ -8,7 +8,7 @@ __all__ = [
     "IPythonTraceDisplayHandler",
     "get_display_handler",
     "is_using_tracking_server",
-    "_get_notebook_iframe_html",
+    "get_notebook_iframe_html",
 ]
 
 

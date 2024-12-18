@@ -7,8 +7,8 @@ import pytest
 import mlflow
 from mlflow.tracing.display import (
     IPythonTraceDisplayHandler,
-    _get_notebook_iframe_html,
     get_display_handler,
+    get_notebook_iframe_html,
 )
 
 from tests.tracing.helper import create_trace
@@ -248,7 +248,7 @@ def test_mimebundle_in_oss():
     mlflow.set_tracking_uri("http://localhost:5000")
     assert trace._repr_mimebundle_() == {
         "text/plain": repr(trace),
-        "text/html": _get_notebook_iframe_html([trace]),
+        "text/html": get_notebook_iframe_html([trace]),
     }
 
     # disabling should remove this key, even if tracking server is used
@@ -283,4 +283,4 @@ def test_display_in_oss(monkeypatch):
     mock_ipython.mock_run_cell()
 
     assert mock_display.call_count == 1
-    assert "<iframe" in mock_display.call_args[0][0]
+    assert "<iframe" in mock_display.call_args[0][0]["text/html"]
