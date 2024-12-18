@@ -1,8 +1,7 @@
-# ruff: noqa: F821
+# ruff: noqa: F821, I001
 {{pipInstall}}
 
 import pandas as pd
-
 import mlflow
 
 evals = [

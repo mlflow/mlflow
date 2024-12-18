@@ -124,8 +124,9 @@ dbutils.library.restartPython()
         )
 
         # Remove the ruff noqa comments.
-        eval_with_synthetic_code = eval_with_synthetic_code.replace("# ruff: noqa: F821\n", "")
-        eval_with_dataset_code = eval_with_dataset_code.replace("# ruff: noqa: F821\n", "")
+        ruff_line = "# ruff: noqa: F821, I001\n"
+        eval_with_synthetic_code = eval_with_synthetic_code.replace(ruff_line, "")
+        eval_with_dataset_code = eval_with_dataset_code.replace(ruff_line, "")
 
         rendered_html = env.get_template("agent_evaluation_template.html").render(
             {

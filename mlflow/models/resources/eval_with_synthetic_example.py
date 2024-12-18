@@ -1,8 +1,7 @@
-# ruff: noqa: F821
+# ruff: noqa: F821, I001
 {{pipInstall}}
 
 from databricks.agents.evals import generate_evals_df
-
 import mlflow
 
 agent_description = "A chatbot that answers questions about Databricks."
