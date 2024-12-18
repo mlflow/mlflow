@@ -8,6 +8,9 @@ mlflow.types
 .. automodule:: mlflow.types.llm
     :members:
 
+.. automodule:: mlflow.types.chat
+    :members:
+
 .. automodule:: mlflow.types.schema
     :members: Array, Map, Object, Property, AnyType
     :undoc-members:

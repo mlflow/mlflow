@@ -1,11 +1,16 @@
 import pytest
 
+import mlflow
 from mlflow.entities import LiveSpan
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowTracingException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
+    set_span_chat_messages,
+    set_span_chat_tools,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -49,3 +54,55 @@ def test_maybe_get_request_id():
     with pytest.raises(MlflowTracingException, match="Missing request_id for context"):
         with set_prediction_context(Context(request_id=None, is_evaluate=True)):
             maybe_get_request_id(is_evaluate=True)
+
+
+def test_set_span_chat_messages_and_tools():
+    messages = [
+        {
+            "role": "system",
+            "content": "please use the provided tool to answer the user's questions",
+        },
+        {"role": "user", "content": "what is 1 + 1?"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "123",
+                    "function": {"arguments": '{"a": 1,"b": 2}', "name": "add"},
+                    "type": "function",
+                }
+            ],
+        },
+    ]
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "add",
+                "description": "Add two numbers",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "a": {"type": "number"},
+                        "b": {"type": "number"},
+                    },
+                    "required": ["a", "b"],
+                },
+            },
+        }
+    ]
+
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def dummy_call(messages, tools):
+        span = mlflow.get_current_active_span()
+        set_span_chat_messages(span, messages)
+        set_span_chat_tools(span, tools)
+        return None
+
+    dummy_call(messages, tools)
+
+    trace = mlflow.get_last_active_trace()
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
+    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools

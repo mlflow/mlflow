@@ -1,119 +1,13 @@
-from typing import Literal, Optional, Union
+from typing import Optional
 
-from pydantic import BaseModel, Field
-from typing_extensions import Annotated
+from pydantic import Field
 
-from mlflow.gateway.base_models import ResponseModel
-from mlflow.utils import IS_PYDANTIC_V2
-
-
-class TextContentPart(BaseModel):
-    type: Literal["text"]
-    text: str
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.types.chat import ChatTools, ContentType, RequestMessage, ToolCall
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
-class ImageUrl(BaseModel):
-    url: str  # either URL of an image, or bas64 encoded data
-    detail: Literal["auto", "low", "high"]
-
-
-class ImageContentPart(BaseModel):
-    type: Literal["image_url"]
-    image_url: ImageUrl
-
-
-class InputAudio(BaseModel):
-    data: str  # base64 encoded data
-    format: Literal["wav", "mp3"]
-
-
-class AudioContentPart(BaseModel):
-    type: Literal["input_audio"]
-    input_audio: InputAudio
-
-
-ContentPartsList = Annotated[
-    list[
-        Annotated[
-            Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
-        ]
-    ],
-    Field(min_items=1),
-]
-
-
-ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
-
-
-class Function(BaseModel):
-    name: str
-    arguments: str
-
-
-class ToolCall(BaseModel):
-    id: str
-    type: Literal["function"]
-    function: Function
-
-
-class RequestMessage(BaseModel):
-    """
-    A chat request. ``content`` can be a string, or an array of content parts.
-
-    A content part is one of the following:
-
-    - :py:class:`TextContentPart <mlflow.gateway.schemas.chat.TextContentPart>`
-    - :py:class:`ImageContentPart <mlflow.gateway.schemas.chat.ImageContentPart>`
-    - :py:class:`AudioContentPart <mlflow.gateway.schemas.chat.AudioContentPart>`
-    """
-
-    role: str
-    content: Optional[ContentType] = None
-    tool_calls: Optional[list[ToolCall]] = Field(None, min_items=1)
-    tool_call_id: Optional[str] = None
-    refusal: Optional[str] = None
-
-
-class ParamType(BaseModel):
-    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
-
-
-class ParamProperty(ParamType):
-    description: Optional[str] = None
-    enum: Optional[list[str]] = None
-    items: Optional[ParamType] = None
-
-
-class FunctionParams(BaseModel):
-    properties: dict[str, ParamProperty]
-    type: Literal["object"] = "object"
-    required: Optional[list[str]] = None
-    additionalProperties: Optional[bool] = None
-
-
-class FunctionToolDefinition(BaseModel):
-    name: str
-    description: Optional[str] = None
-    parameters: Optional[FunctionParams] = None
-    strict: bool = False
-
-
-class FunctionTool(BaseModel):
-    type: Literal["function"] = "function"
-    function: FunctionToolDefinition
-
-
-class UnityCatalogFunctionToolDefinition(BaseModel):
-    name: str
-
-
-class UnityCatalogFunctionTool(BaseModel):
-    type: Literal["uc_function"] = "uc_function"
-    uc_function: UnityCatalogFunctionToolDefinition
-
-
-class BaseRequestPayload(BaseModel):
-    tools: Optional[list[Union[FunctionTool, UnityCatalogFunctionTool]]] = None
+class BaseRequestPayload(ChatTools, RequestModel):
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: Optional[list[str]] = Field(None, min_items=1)
@@ -139,7 +33,7 @@ class RequestPayload(BaseRequestPayload):
     messages: list[RequestMessage] = Field(..., min_items=1)
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
@@ -191,7 +85,7 @@ class ResponsePayload(ResponseModel):
     usage: ChatUsage
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
@@ -233,7 +127,7 @@ class StreamResponsePayload(ResponseModel):
     choices: list[StreamChoice]
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA

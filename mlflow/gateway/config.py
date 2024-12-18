@@ -26,11 +26,11 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
-from mlflow.utils import IS_PYDANTIC_V2
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
 
-if IS_PYDANTIC_V2:
+if IS_PYDANTIC_V2_OR_NEWER:
     from pydantic import SerializeAsAny
 
 
@@ -158,7 +158,7 @@ class OpenAIConfig(ConfigModel):
 
         return info
 
-    if IS_PYDANTIC_V2:
+    if IS_PYDANTIC_V2_OR_NEWER:
         from pydantic import model_validator as _model_validator
 
         @_model_validator(mode="before")
@@ -274,7 +274,7 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
-    if IS_PYDANTIC_V2:
+    if IS_PYDANTIC_V2_OR_NEWER:
         config: Optional[SerializeAsAny[ConfigModel]] = None
     else:
         config: Optional[ConfigModel] = None
@@ -304,7 +304,7 @@ class Model(ConfigModel):
             "A provider must be provided for each gateway route."
         )
 
-    if IS_PYDANTIC_V2:
+    if IS_PYDANTIC_V2_OR_NEWER:
 
         @validator("config", pre=True)
         def validate_config(cls, info, values):
@@ -453,7 +453,7 @@ class Route(ConfigModel):
     limit: Optional[Limit] = None
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _ROUTE_EXTRA_SCHEMA
         else:
             schema_extra = _ROUTE_EXTRA_SCHEMA

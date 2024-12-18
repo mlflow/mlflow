@@ -11,3 +11,7 @@ mlflow.tracing
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. automodule:: mlflow.tracing.utils
+    :members: set_span_chat_messages, set_span_chat_tools
+    :show-inheritance:

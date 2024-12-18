@@ -8,7 +8,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
-import pydantic
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
@@ -21,7 +20,6 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.chat import FunctionTool, RequestMessage
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
@@ -37,7 +35,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils import IS_PYDANTIC_V2, get_results_from_paginated_fn
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
@@ -794,109 +792,3 @@ def _merge_trace(
             **trace.info.request_metadata,
             **parent_trace.info.request_metadata,
         }
-
-
-def set_span_chat_messages(
-    span: LiveSpan,
-    messages: list[RequestMessage],
-):
-    """
-    Set the `mlflow.chat.messages` attribute on the specified span. This
-    attribute is used in the UI, and also by downstream applications that
-    consume trace data, such as MLflow evaluate.
-
-    Args:
-        span: The LiveSpan to add the attribute to
-        messages: A list of standardized chat messages (refer to the
-                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
-                 for details)
-
-    Example:
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-
-
-        @mlflow.trace
-        def f():
-            messages = [{"role": "user", "content": "hello"}]
-            span = mlflow.get_current_active_span()
-            mlflow.set_span_chat_messages(span, messages)
-            return 0
-
-
-        f()
-    """
-    try:
-        for message in messages:
-            if IS_PYDANTIC_V2:
-                RequestMessage.model_validate(message)
-            else:
-                RequestMessage.parse_obj(message)
-    except pydantic.ValidationError as e:
-        raise MlflowException.invalid_parameter_value(
-            "Chat messages must be a list of valid messages."
-        ) from e
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
-
-
-def set_span_chat_tools(span: LiveSpan, tools: list[FunctionTool]):
-    """
-    Set the `mlflow.chat.tools` attribute on the specified span. This
-    attribute is used in the UI, and also by downstream applications that
-    consume trace data, such as MLflow evaluate.
-
-    Args:
-        span: The LiveSpan to add the attribute to
-        tools: A list of standardized chat tool definitions (refer to the
-              `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
-              for details)
-
-    Example:
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "add",
-                    "description": "Add two numbers",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "a": {"type": "number"},
-                            "b": {"type": "number"},
-                        },
-                        "required": ["a", "b"],
-                    },
-                },
-            }
-        ]
-
-
-        @mlflow.trace
-        def f():
-            span = mlflow.get_current_active_span()
-            mlflow.set_span_chat_tools(span, tools)
-            return 0
-
-
-        f()
-    """
-    try:
-        for tool in tools:
-            if IS_PYDANTIC_V2:
-                FunctionTool.model_validate(tool)
-            else:
-                FunctionTool.parse_obj(tool)
-    except pydantic.ValidationError as e:
-        raise MlflowException.invalid_parameter_value(
-            "Chat tools must be a list of valid tool definitions."
-        ) from e
-    span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)

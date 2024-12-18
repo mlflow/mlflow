@@ -428,6 +428,10 @@ nitpick_ignore = [
     # for docstring of mlflow.models.update_model_requirements
     ("py:class", "add"),
     ("py:class", "remove"),
+    # sphinx can't resolve TYPE_CHECKING imports
+    ("py:class", "LiveSpan"),
+    ("py:class", "RequestMessage"),
+    ("py:class", "ChatTool"),
 ]
 
 

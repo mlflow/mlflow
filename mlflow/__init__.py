@@ -121,8 +121,6 @@ from mlflow.tracing.fluent import (
     get_last_active_trace,
     get_trace,
     search_traces,
-    set_span_chat_messages,
-    set_span_chat_tools,
     start_span,
     trace,
     update_current_trace,
@@ -247,8 +245,6 @@ __all__ = [
     "trace",
     "add_trace",
     "update_current_trace",
-    "set_span_chat_messages",
-    "set_span_chat_tools",
 ]
 
 
