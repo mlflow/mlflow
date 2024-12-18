@@ -106,7 +106,7 @@ class FunctionToolDefinition(BaseModel):
     name: str
     description: Optional[str] = None
     parameters: Optional[FunctionParams] = None
-    strict: bool = False
+    strict: Optional[bool] = None
 
 
 class FunctionTool(BaseModel):

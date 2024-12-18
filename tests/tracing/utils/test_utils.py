@@ -3,7 +3,7 @@ import pytest
 import mlflow
 from mlflow.entities import LiveSpan
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowTracingException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
@@ -106,3 +106,36 @@ def test_set_span_chat_messages_and_tools():
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
+
+
+def test_set_chat_messages_validation():
+    messages = [{"invalid_field": "user", "content": "hello"}]
+
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def dummy_call(messages):
+        span = mlflow.get_current_active_span()
+        set_span_chat_messages(span, messages)
+        return None
+
+    with pytest.raises(MlflowException, match="Received invalid chat messages"):
+        dummy_call(messages)
+
+
+def test_set_chat_tools_validation():
+    tools = [
+        {
+            "type": "unsupported_function",
+            "unsupported_function": {
+                "name": "test",
+            },
+        }
+    ]
+
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def dummy_call(tools):
+        span = mlflow.get_current_active_span()
+        set_span_chat_tools(span, tools)
+        return None
+
+    with pytest.raises(MlflowException, match="Received invalid chat tools"):
+        dummy_call(tools)
