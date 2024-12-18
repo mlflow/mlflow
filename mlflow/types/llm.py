@@ -785,11 +785,15 @@ class ChatAgentResponse(_BaseDataclass):
     messages: list[ChatAgentMessage]
     custom_outputs: Optional[dict[str, str]] = None
     usage: Optional[TokenUsageStats] = None
+    finish_reason: Optional[str] = None
+    finish_reason_metadata: Optional[dict[str, str]] = None
 
     def __post_init__(self):
         self._convert_dataclass_list("messages", ChatAgentMessage)
         self._validate_field("custom_outputs", dict, False)
         self._convert_dataclass("usage", TokenUsageStats, False)
+        self._validate_field("finish_reason", str, False)
+        self._validate_field("finish_reason_metadata", dict, False)
 
 
 @dataclass
