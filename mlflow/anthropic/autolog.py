@@ -39,4 +39,3 @@ def patched_class_call(original, self, *args, **kwargs):
             outputs = original(self, *args, **kwargs)
             span.set_outputs(outputs)
             return outputs
-
