@@ -3,7 +3,7 @@ import json
 from typing import Any, Callable, Union
 
 from botocore.client import BaseClient
-from botocore.eventstream import EventStream
+from botocore.response import StreamingBody
 
 import mlflow
 from mlflow.bedrock import FLAVOR_NAME
@@ -81,7 +81,7 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         return result
 
 
-def _buffer_stream(raw_stream: EventStream) -> io.BytesIO:
+def _buffer_stream(raw_stream: StreamingBody) -> StreamingBody:
     """
     Create a buffered stream from the raw byte stream.
 
@@ -92,10 +92,10 @@ def _buffer_stream(raw_stream: EventStream) -> io.BytesIO:
     """
     buffered_response = io.BytesIO(raw_stream.read())
     buffered_response.seek(0)
-    return buffered_response
+    return StreamingBody(buffered_response, raw_stream._content_length)
 
 
-def _parse_invoke_model_response_body(response_body: dict[str, Any]) -> Union[dict[str, Any], str]:
+def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dict[str, Any], str]:
     content = response_body.read()
     try:
         return json.loads(content)
@@ -103,7 +103,12 @@ def _parse_invoke_model_response_body(response_body: dict[str, Any]) -> Union[di
         # When failed to parse the response body as JSON, return the raw response
         return content
     finally:
-        response_body.seek(0)
+        # Reset the stream position to the beginning
+        response_body._raw_stream.seek(0)
+        # Boto3 uses this attribute to validate the amount of data read from the stream matches
+        # the content length, so we need to reset it as well.
+        # https://github.com/boto/botocore/blob/f88e981cb1a6cd0c64bc89da262ab76f9bfa9b7d/botocore/response.py#L164C17-L164C32
+        response_body._amount_read = 0
 
 
 @_skip_if_trace_disabled
