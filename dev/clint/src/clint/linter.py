@@ -357,6 +357,14 @@ class Linter(ast.NodeVisitor):
                 if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
                     self._check(Location.from_node(node), rules.LazyBuiltinImport())
 
+                if (
+                    alias.name.split(".", 1)[0] == "typing_extensions"
+                    and alias.name not in rules.TypingExtensions.ALLOWLIST
+                ):
+                    self._check(
+                        Location.from_node(node), rules.TypingExtensions(full_name=alias.name)
+                    )
+
         if self._is_at_top_level():
             for alias in node.names:
                 self._check_forbidden_top_level_import(node, alias.name.split(".", 1)[0])
@@ -366,6 +374,15 @@ class Linter(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
+
+        if node.module and node.module.split(".", 1)[0] == "typing_extensions":
+            for alias in node.names:
+                full_name = f"{node.module}.{alias.name}"
+                if full_name not in rules.TypingExtensions.ALLOWLIST:
+                    self._check(
+                        Location.from_node(node),
+                        rules.TypingExtensions(full_name=full_name),
+                    )
 
         if self._is_at_top_level():
             self._check_forbidden_top_level_import(node, node.module)

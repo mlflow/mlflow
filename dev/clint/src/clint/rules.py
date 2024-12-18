@@ -302,3 +302,23 @@ class IncorrectTypeAnnotation(Rule):
         raise ValueError(
             f"Unexpected type: {self.type_hint}. It must be one of {list(self.MAPPING)}."
         )
+
+
+class TypingExtensions(Rule):
+    ALLOWLIST = [
+        # Reference: https://typing-extensions.readthedocs.io/en/latest/
+        "typing_extensions.Self",  # added in 4.0.0
+    ]
+
+    def __init__(self, full_name: str) -> None:
+        self.full_name = full_name
+
+    def _id(self) -> str:
+        return "MLF0017"
+
+    def _message(self) -> str:
+        return (
+            f"`{self.full_name}` is not allowed to use. Only {self.ALLOWLIST} are allowed. "
+            "You can extend the allowlist if needed but please make sure that the version "
+            "requirement for `typing-extensions` in pyproject.toml covers the added types."
+        )
