@@ -1,6 +1,6 @@
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import pandas as pd
 
@@ -54,7 +54,7 @@ def get_estimator_and_best_params(
 
 def _create_custom_metric_flaml(
     task: str, metric_name: str, coeff: int, eval_metric: EvaluationMetric
-) -> callable:
+) -> Callable:
     def calc_metric(X, y, estimator) -> dict[str, float]:
         y_pred = estimator.predict(X)
         builtin_metrics = (
@@ -89,7 +89,7 @@ def _create_custom_metric_flaml(
     return custom_metric
 
 
-def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binary") -> callable:
+def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binary") -> Callable:
     def sklearn_metric(
         X_val,
         y_val,
