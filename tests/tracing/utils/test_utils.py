@@ -116,7 +116,7 @@ def test_set_chat_messages_validation():
         set_span_chat_messages(span, messages)
         return None
 
-    with pytest.raises(MlflowException, match="Received invalid input for RequestMessage"):
+    with pytest.raises(MlflowException, match="validation error for RequestMessage"):
         dummy_call(messages)
 
 
@@ -136,5 +136,5 @@ def test_set_chat_tools_validation():
         set_span_chat_tools(span, tools)
         return None
 
-    with pytest.raises(MlflowException, match="Received invalid input for ChatTools"):
+    with pytest.raises(MlflowException, match="validation error for ChatTool"):
         dummy_call(tools)

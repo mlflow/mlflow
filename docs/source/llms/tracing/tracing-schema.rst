@@ -368,11 +368,7 @@ custom attributes for standardized chat messages and tool defintions:
         context, this would be equivalent to the `tools <https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>`_ 
         param in the Chat Completions API.
 
-        The type must be a list of valid tools. At the moment, the available tool types are:
-
-        * :py:class:`FunctionTool <mlflow.types.chat.FunctionTool>`
-        * :py:class:`UnityCatalogFunctionTool <mlflow.types.chat.UnityCatalogFunctionTool>`
-
+        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.ChatTool>` ``]``
       - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_tools` function. This function
         will throw a validation error if the data does not conform to the spec.
 
