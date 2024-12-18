@@ -434,7 +434,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_type_annotation(self, node: ast.AST) -> None:
         self.in_type_annotation = True
-        self.generic_visit(node)
+        self.visit(node)
         self.in_type_annotation = False
 
 
