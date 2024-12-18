@@ -412,6 +412,7 @@ prophet:
       cmake ..
       make -j
       sudo make install
+      sudo ldconfig
       popd
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
