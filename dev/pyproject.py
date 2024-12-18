@@ -198,6 +198,7 @@ def build(package_type: PackageType) -> None:
                         "server/auth/db/migrations/alembic.ini",
                         "recipes/resources/**/*",
                         "recipes/cards/templates/**/*",
+                        "models/resources/**/*",
                     ]
                     + extra_package_data
                 },
