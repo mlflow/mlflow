@@ -11,7 +11,7 @@ from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 class BaseModel(_BaseModel):
     @classmethod
-    def validate(cls, obj: Any):
+    def validate_compat(cls, obj: Any):
         try:
             if IS_PYDANTIC_V2_OR_NEWER:
                 return cls.model_validate(obj)

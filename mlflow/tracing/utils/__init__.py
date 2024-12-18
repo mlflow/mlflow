@@ -273,7 +273,7 @@ def set_span_chat_messages(
     from mlflow.types.chat import RequestMessage
 
     for message in messages:
-        RequestMessage.validate(message)
+        RequestMessage.validate_compat(message)
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
 
@@ -328,5 +328,5 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     """
     from mlflow.types.chat import ChatTools
 
-    ChatTools.validate({"tools": tools})
+    ChatTools.validate_compat({"tools": tools})
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)
