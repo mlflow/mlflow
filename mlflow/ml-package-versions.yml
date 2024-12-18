@@ -403,6 +403,9 @@ prophet:
       # build and install libtbb2 library from source,
       # this library can't be installed in Ubuntu >= 24.04 by `apt install` command.
       pushd /tmp
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      sudo apt update
+      sudo apt install gcc-9 g++-9
       git clone --depth 1 --branch tbb44u4 https://github.com/wjakob/tbb.git
       cd tbb/build
       cmake ..
