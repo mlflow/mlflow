@@ -104,7 +104,7 @@ const config: Config = {
     prism: {
       // There is an array of languages enabled by default.
       // @see https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9-L26
-      additionalLanguages: ["bash", "diff", "ini", "java", "r", "scala", "sql"],
+      additionalLanguages: ["bash", "diff", "ini", "java", "nginx", "r", "scala", "sql", "toml"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
