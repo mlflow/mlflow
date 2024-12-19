@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel as _BaseModel
