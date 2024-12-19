@@ -361,8 +361,8 @@ def test_mlflow_evaluate_logs_traces():
 def test_pyfunc_evaluate_logs_traces():
     class Model(mlflow.pyfunc.PythonModel):
         @mlflow.trace()
-        def predict(self, _, inputs):
-            return self.add(inputs, inputs)
+        def predict(self, context, model_input):
+            return self.add(model_input, model_input)
 
         @mlflow.trace()
         def add(self, x, y):
@@ -1679,7 +1679,15 @@ def test_binary_classification_missing_minority_class_exception_override(
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
-    assert saved_metrics == eval_result.metrics
+    for key, saved_val in saved_metrics.items():
+        eval_val = eval_result.metrics[key]
+        # some nan fields are due to the class imbalance.
+        # for example, the roc_auc_score metric will return
+        # nan since we override all classes to `1` here
+        if np.isnan(saved_val):
+            assert np.isnan(eval_val)
+        else:
+            assert eval_val == saved_val
 
 
 def test_multiclass_classification_missing_minority_class_exception_override(

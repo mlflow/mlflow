@@ -12,9 +12,6 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,6 +40,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,6 +58,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +100,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/untracked
@@ -112,16 +112,19 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
+          source ./dev/install-common-deps.sh
           pip install .
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
+          pytest tests/types/test_type_hints.py
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -172,6 +175,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -193,6 +197,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -228,6 +233,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -261,6 +267,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -292,6 +299,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -330,6 +338,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -350,6 +359,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:

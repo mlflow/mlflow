@@ -411,7 +411,7 @@ from mlflow.models import infer_signature
 
 
 class MyModel(mlflow.pyfunc.PythonModel):
-    def predict(self, ctx, model_input, params):
+    def predict(self, context, model_input, params):
         return list(params.values())
 
 
