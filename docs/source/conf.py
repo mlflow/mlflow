@@ -412,9 +412,26 @@ nitpick_ignore = [
     ("py:class", "array"),
     ("py:class", "boolean"),
     ("py:class", "null"),
+    ("py:class", "image_url"),
+    ("py:class", "auto"),
+    ("py:class", "low"),
+    ("py:class", "high"),
+    ("py:class", "text"),
+    ("py:class", "assistant"),
+    ("py:class", "user"),
+    ("py:class", "system"),
+    ("py:class", "tool"),
+    ("py:class", "input_audio"),
+    ("py:class", "wav"),
+    ("py:class", "mp3"),
+    ("py:class", "uc_function"),
     # for docstring of mlflow.models.update_model_requirements
     ("py:class", "add"),
     ("py:class", "remove"),
+    # sphinx can't resolve TYPE_CHECKING imports
+    ("py:class", "LiveSpan"),
+    ("py:class", "RequestMessage"),
+    ("py:class", "ChatTool"),
 ]
 
 

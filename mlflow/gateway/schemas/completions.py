@@ -1,8 +1,8 @@
 from typing import Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
 from mlflow.gateway.schemas.chat import BaseRequestPayload
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
@@ -20,7 +20,7 @@ class RequestPayload(BaseRequestPayload):
     model: Optional[str] = None
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
@@ -61,7 +61,7 @@ class ResponsePayload(ResponseModel):
     usage: CompletionsUsage
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
@@ -103,7 +103,7 @@ class StreamResponsePayload(ResponseModel):
     choices: list[StreamChoice]
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
