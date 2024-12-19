@@ -8,6 +8,7 @@ module.exports = async ({ github, context }) => {
   while ((match = pattern.exec(body)) !== null) {
     bodyLabels.push({ checked: match[1].trim().toLowerCase() === "x", name: match[2].trim() });
   }
+  console.log("Body labels:", bodyLabels);
 
   const events = await github.paginate(github.rest.issues.listEvents, {
     owner,
@@ -18,6 +19,7 @@ module.exports = async ({ github, context }) => {
   const userLabels = events
     .filter(({ event, actor }) => ["labeled", "unlabeled"].includes(event) && actor.type === "User")
     .map(({ label }) => label.name);
+  console.log("User labels:", userLabels);
 
   // Labels available in the repository
   const repoLabels = (
@@ -31,6 +33,7 @@ module.exports = async ({ github, context }) => {
   const labels = bodyLabels.filter(
     ({ name }) => repoLabels.includes(name) && !userLabels.includes(name)
   );
+  console.log("Labels to add/remove:", labels);
 
   const existingLabels = (
     await github.paginate(
