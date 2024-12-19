@@ -8,6 +8,7 @@ for more details on Schema and data types.
 import inspect
 import logging
 import re
+import warnings
 from copy import deepcopy
 from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
@@ -367,7 +368,11 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
     if _contains_params(input_example):
         input_example, params = input_example
 
-    input_schema = _infer_schema_from_type_hint(type_hints.input)
+    try:
+        input_schema = _infer_schema_from_type_hint(type_hints.input)
+    except InvalidTypeHintException as e:
+        warnings.warn(e.message, stacklevel=2)
+        return None
     params_schema = _infer_param_schema(params) if params else None
     # input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_schema and input_example:
