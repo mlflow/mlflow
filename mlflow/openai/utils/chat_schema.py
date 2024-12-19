@@ -20,7 +20,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
         messages.extend(inputs["messages"])
 
     if isinstance(output, ChatCompletion):
-        messages.append(output.choices[0].message)
+        messages.append(output.choices[0].message.to_dict(exclude_none=True))
     elif isinstance(output, str):
         messages.append({"role": "assistant", "content": output})
 
@@ -32,7 +32,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
             exc_info=True,
         )
 
-    if "tools" in inputs:
+    if "tools" in inputs and inputs["tools"] is not None:
         try:
             set_span_chat_tools(span, inputs["tools"])
         except MlflowException:
