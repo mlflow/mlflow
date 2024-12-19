@@ -152,13 +152,7 @@ def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict]:
     the retriever schemas. This code is now only useful for Databricks integration.
     """
     if model.metadata and "dependencies_schemas" in model.metadata:
-        dependencies_schemas = model.metadata["dependencies_schemas"]
-        return {
-            "dependencies_schemas": {
-                dependency: json.dumps(schema)
-                for dependency, schema in dependencies_schemas.items()
-            }
-        }
+        return {k: json.dumps(v) for k, v in model.metadata["dependencies_schemas"].items()}
     return None
 
 
