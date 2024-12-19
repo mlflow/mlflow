@@ -30,6 +30,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
+    tracing/notebooks/jupyter-trace-demo.ipynb
 
 
 .. raw:: html
