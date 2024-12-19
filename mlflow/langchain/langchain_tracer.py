@@ -3,9 +3,8 @@ import logging
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema.runnable import RunnableSequence
 from langchain_core.agents import AgentAction, AgentFinish
+from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.documents import Document
 from langchain_core.load.dump import dumps
 from langchain_core.messages import BaseMessage
@@ -14,6 +13,7 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
+from langchain_core.runnables import RunnableSequence
 from tenacity import RetryCallState
 
 import mlflow
