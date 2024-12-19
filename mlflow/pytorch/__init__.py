@@ -16,7 +16,7 @@ import posixpath
 import shutil
 import warnings
 from functools import partial
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -62,6 +62,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+if TYPE_CHECKING:
+    from torch import Tensor
+    from torch.nn import Module
 
 FLAVOR_NAME = "pytorch"
 
@@ -724,9 +728,11 @@ class _PyTorchWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
+    predict(data: np.ndarray) -> model's output as np.ndarray
+    predict(data: dict[str, np.ndarray]) -> model's output as dict
     """
 
-    def __init__(self, pytorch_model, device):
+    def __init__(self, pytorch_model: "Module", device: str):
         self.pytorch_model = pytorch_model
         self.device = device
 
@@ -736,56 +742,126 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(
+        self,
+        data: Union[np.ndarray, list["Tensor"], pd.DataFrame],
+        params: Optional[dict[str, Any]] = None,
+    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
         """
+        Overrides the predict method to handle dict and list of dict inputs.
+
         Args:
-            data: Model input data.
-            params: Additional parameters to pass to the model for inference.
+            data: Input data, which can be pandas DataFrame, numpy ndarray,
+                dict of numpy arrays, or list of dicts of numpy arrays.
+            params: Additional parameters for inference (currently not used).
 
         Returns:
-            Model predictions.
+            Model predictions as numpy arrays or pandas DataFrames.
         """
         import torch
 
         if params and "device" in params:
             raise ValueError(
-                "device' can no longer be specified as an inference parameter. "
+                "'device' can no longer be specified as an inference parameter. "
                 "It must be specified at load time. "
                 "Please specify the device at load time, for example: "
                 "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
             )
 
-        if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
-        elif isinstance(data, np.ndarray):
-            inp_data = data
-        elif isinstance(data, (list, dict)):
-            raise TypeError(
-                "The PyTorch flavor does not support List or Dict input types. "
-                "Please use a pandas.DataFrame or a numpy.ndarray"
-            )
-        else:
-            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+        input_tensor = self._preprocess_input(data)
+
+        # Perform inference
+        with torch.no_grad():
+            preds = self.pytorch_model(input_tensor)
+
+        return self._postprocess_output(preds, data)
+
+    def _preprocess_input(
+        self, data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]
+    ) -> Union["Tensor", dict[str, "Tensor"]]:
+        """
+        Preprocesses input data to convert it into torch.Tensors suitable for the model.
+
+        Args:
+            data: Input data.
+
+        Returns:
+            Torch tensor or dictionary of torch tensors suitable for model input.
+        """
+        import torch
 
         device = self.device
-        with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
-            preds = self.pytorch_model(input_tensor)
-            # if the predictions happened on a remote device, copy them back to
-            # the host CPU for processing
-            if device != _TORCH_CPU_DEVICE_NAME:
+
+        if isinstance(data, np.ndarray):
+            # Convert ndarray to tensor
+            return torch.from_numpy(data).to(device)
+
+        if isinstance(data, pd.DataFrame):
+            tensor = torch.from_numpy(data.values).to(device)
+            # check if dtype is float and convert to float32.
+            # since it is the most common dtype for torch models.
+            # For other dtypes we can not support this conversion
+            # as the pandas dataframes only support lists of floats
+            if torch.is_floating_point(tensor):
+                tensor = tensor.float()
+            return tensor
+
+        if isinstance(data, dict) and all(isinstance(v, np.ndarray) for v in data.values()):
+            # Convert each value in the dict to tensor
+            return {k: torch.from_numpy(v).to(device) for k, v in data.items()}
+        elif isinstance(data, dict):
+            raise TypeError(
+                "Input data must be a dict of numpy arrays. Remember to define the input signature "
+                "in order to cast your input data to the correct format."
+            )
+
+        raise TypeError("Input data must be a pd.DataFrame, np.ndarray, dict[str, np.ndarray]")
+
+    def _postprocess_output(
+        self,
+        preds: Union["Tensor", dict[str, "Tensor"]],
+        data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]],
+    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
+        """
+        Converts model outputs to numpy arrays or pandas DataFrames as appropriate.
+
+        If the input data is a pandas DataFrame, the output will be a pandas DataFrame.
+        When the output is a dictionary, the output can be either a dictionary of numpy arrays
+        or a pandas DataFrame depending on the input data type. Note that, for a pandas DataFrame
+
+        Args:
+            preds: Model predictions.
+            data: Original input data.
+
+        Returns:
+            Predictions in the same format as the input data.
+        """
+        import torch
+
+        # check types and convert to numpy arrays or dict of numpy arrays
+        if isinstance(preds, torch.Tensor):
+            if self.device != _TORCH_CPU_DEVICE_NAME:
                 preds = preds.to(_TORCH_CPU_DEVICE_NAME)
-            if not isinstance(preds, torch.Tensor):
-                raise TypeError(
-                    "Expected PyTorch model to output a single output tensor, "
-                    f"but got output of type '{type(preds)}'"
-                )
-            if isinstance(data, pd.DataFrame):
-                predicted = pd.DataFrame(preds.numpy())
-                predicted.index = data.index
-            else:
-                predicted = preds.numpy()
-            return predicted
+            preds = preds.detach().numpy()
+
+        elif isinstance(preds, dict) and all(isinstance(v, torch.Tensor) for v in preds.values()):
+            if self.device != _TORCH_CPU_DEVICE_NAME:
+                preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
+            preds = {k: v.detach().numpy() for k, v in preds.items()}
+
+        else:
+            raise TypeError("Model output must be a torch.Tensor or a dict[str,torch.Tensor]")
+
+        # return either a pandas DataFrame, a named pandas Dataframe,
+        # a dict of numpy arrays, or a numpy array
+        if isinstance(data, pd.DataFrame):
+            # in the end, this ends up being passed through json,
+            # so the datatype of float is not preserved. This
+            # allows me to convert all to a list of floats
+            # I think we may need to revisit this if we end up supporting binary data
+            return pd.DataFrame(preds.tolist(), index=data.index)
+
+        return preds
 
 
 def log_state_dict(state_dict, artifact_path, **kwargs):
