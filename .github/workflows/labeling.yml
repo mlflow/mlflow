@@ -30,5 +30,5 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const script = require('./.github/workflows/protect.js');
+            const script = require('./.github/workflows/labeling.js');
             await script({ github, context });
