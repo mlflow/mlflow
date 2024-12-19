@@ -206,7 +206,7 @@ However, when the index uses external vector stores like `DatabricksVectorSearch
 To use model-from-code logging, you first need to create a separate Python file that defines the index. If you are on Jupyter notebook, you can use the `%%writefile` magic command to save the cell code to a Python file.
 
 ```python
-%%writefile index.py
+# %%writefile index.py
 
 # Create Qdrant client with your own settings.
 client = qdrant_client.QdrantClient(
