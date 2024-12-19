@@ -19,6 +19,10 @@ flask:
   pip_release: Flask
   max_major_version: 3
 
+flask-wtf:
+  pip_release: Flask-WTF
+  max_major_version: 1
+
 numpy:
   pip_release: numpy
   max_major_version: 2
