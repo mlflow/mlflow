@@ -8,6 +8,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     if: ${{ github.event.requested_reviewer.login == 'mlflow-automation'}}
+    timeout-minutes: 5
     permissions:
       pull-requests: write
     steps:
