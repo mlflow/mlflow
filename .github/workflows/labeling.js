@@ -36,13 +36,11 @@ module.exports = async ({ github, context }) => {
   console.log("Labels to add/remove:", labels);
 
   const existingLabels = (
-    await github.paginate(
-      github.rest.issues.listLabelsOnIssue({
-        owner,
-        repo,
-        issue_number,
-      })
-    )
+    await github.paginate(github.rest.issues.listLabelsOnIssue, {
+      owner,
+      repo,
+      issue_number,
+    })
   ).map(({ name }) => name);
   console.log("Existing labels:", existingLabels);
 
