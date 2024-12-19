@@ -1,0 +1,70 @@
+---
+sidebar_position: 8
+sidebar_label: Anthropic
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Anthropic
+
+![OpenAI Tracing via autolog](/images/llms/anthropic/anthropic-tracing.png)
+
+
+[MLflow Tracing](../) provides automatic tracing capability for Anthropic LLMs. By enabling auto tracing
+for Anthropic by calling the <APILink fn="mlflow.anthropic.autolog" /> function, MLflow will capture nested traces and logged them to the active MLflow Experiment upon invocation of Anthropic Python SDK.
+
+```python
+import mlflow
+
+mlflow.anthropic.autolog()
+```
+
+MLflow trace automatically captures the following information about Anthropic calls:
+
+* Prompts and completion responses
+* Latencies
+* Model name
+* Additional metadata such as `temperature`, `max_tokens`, if specified.
+* Function calling if returned in the response
+* Any exception if raised
+
+:::note
+
+Currently, MLflow Anthropic integration only support tracing for synchronous calls for text interactions. Async APIs are not traced, and full inputs cannot be recorded for multi-modal inputs.
+
+:::
+
+### Example Usage
+
+
+```python
+import anthropic
+import mlflow
+
+# Enable auto-tracing for Anthropic
+mlflow.anthropic.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Anthropic")
+
+# Configure your API key.
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+# Use the create method to create new message.
+message = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Hello, Claude"},
+    ],
+)
+```
+
+### Disable auto-tracing
+
+Auto tracing for Anthropic can be disabled globally by calling `mlflow.anthropic.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
