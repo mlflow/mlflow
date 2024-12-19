@@ -9,7 +9,7 @@ from dspy.evaluate import Evaluate
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
-from dspy.utils.dummies import DSPDummyLM, DummyLM
+from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
@@ -376,7 +376,7 @@ def test_disable_autolog():
 
 def test_autolog_set_retriever_schema():
     mlflow.dspy.autolog()
-    dspy.settings.configure(lm=DSPDummyLM(answers=["4", "6", "8", "10"]))
+    dspy.settings.configure(lm=DummyLM(answers=["4", "6", "8", "10"]))
 
     class CoT(dspy.Module):
         def __init__(self):
