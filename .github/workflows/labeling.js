@@ -48,30 +48,34 @@ module.exports = async ({ github, context }) => {
     .filter(({ name, checked }) => checked && !existingLabels.includes(name))
     .map(({ name }) => name);
   console.log("Labels to add:", labelsToAdd);
-  await github.rest.issues.addLabels({
-    owner,
-    repo,
-    issue_number,
-    labels: labelsToAdd,
-  });
+  if (labelsToAdd.length > 0) {
+    await github.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number,
+      labels: labelsToAdd,
+    });
+  }
 
   const labelsToRemove = labels
     .filter(({ name, checked }) => !checked && existingLabels.includes(name))
     .map(({ name }) => name);
   console.log("Labels to remove:", labelsToRemove);
-  const results = await Promise.allSettled(
-    labelsToRemove.map((name) =>
-      github.rest.issues.removeLabel({
-        owner,
-        repo,
-        issue_number,
-        name,
-      })
-    )
-  );
-  for (const { status, reason } of results) {
-    if (status === "rejected") {
-      console.error(reason);
+  if (labelsToRemove.length > 0) {
+    const results = await Promise.allSettled(
+      labelsToRemove.map((name) =>
+        github.rest.issues.removeLabel({
+          owner,
+          repo,
+          issue_number,
+          name,
+        })
+      )
+    );
+    for (const { status, reason } of results) {
+      if (status === "rejected") {
+        console.error(reason);
+      }
     }
   }
 };
