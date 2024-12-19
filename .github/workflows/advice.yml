@@ -24,5 +24,3 @@ jobs:
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/advice.js`
             );
             await script({ context, github });
-            
-
