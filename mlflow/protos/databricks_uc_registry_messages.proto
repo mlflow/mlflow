@@ -634,6 +634,12 @@ message EmitModelVersionLineageRequest {
 
   // Model version lineage info
   optional ModelVersionLineageInfo model_version_lineage_info = 3 [(validate_required) = true];
+
+  // Model name and version is source or target node.
+  // This "securable" is the other node.
+  // The model_version_lineage_info defines whether the securable is upstream or downstream
+  // of the model version.
+  optional Securable securable = 4;
 }
 
 message EmitModelVersionLineageResponse {}
