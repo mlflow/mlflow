@@ -19,12 +19,12 @@ depends_on = None
 def upgrade():
     tables = [SqlTraceTag.__tablename__, SqlTraceRequestMetadata.__tablename__]
     for table in tables:
-        fk_tag_constaint_name = f"fk_{table}_request_id"
+        fk_tag_constraint_name = f"fk_{table}_request_id"
         # We have to use batch_alter_table as SQLite does not support ALTER outside of a batch operation.
         with op.batch_alter_table(table, schema=None) as batch_op:
-            batch_op.drop_constraint(fk_tag_constaint_name, type_="foreignkey")
+            batch_op.drop_constraint(fk_tag_constraint_name, type_="foreignkey")
             batch_op.create_foreign_key(
-                fk_tag_constaint_name,
+                fk_tag_constraint_name,
                 SqlTraceInfo.__tablename__,
                 ["request_id"],
                 ["request_id"],

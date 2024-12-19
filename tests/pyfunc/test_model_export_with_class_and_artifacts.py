@@ -1019,7 +1019,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model("pyfunc_model", python_model=None, loader_module=None)
 
 
-def test_repr_can_be_called_withtout_run_id_or_artifact_path():
+def test_repr_can_be_called_without_run_id_or_artifact_path():
     model_meta = Model(
         artifact_path=None,
         run_id=None,
@@ -1372,21 +1372,45 @@ def list_dict_to_list_dict(x: list[dict[str, str]]) -> list[dict[str, str]]:
     return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
 
 
-def test_functional_python_model_list_dict_to_list_dict(tmp_path):
-    mlflow.pyfunc.save_model(
-        path=tmp_path,
-        python_model=list_dict_to_list_dict,
-        input_example=[{"a": "x", "b": "y"}],
-    )
-    model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [
+def test_functional_python_model_list_dict_to_list_dict():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=list_dict_to_list_dict,
+            input_example=[{"a": "x", "b": "y"}],
+        )
+
+    assert model_info.signature.inputs.to_dict() == [
         {"name": "a", "type": "string", "required": True},
         {"name": "b", "type": "string", "required": True},
     ]
-    assert model.signature.outputs.to_dict() == [
+    assert model_info.signature.outputs.to_dict() == [
         {"name": "x", "type": "string", "required": True},
         {"name": "y", "type": "string", "required": True},
     ]
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
+
+
+def test_list_dict_with_signature_override():
+    class CustomModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[dict[str, str]], params=None):
+            return model_input
+
+    signature = infer_signature([{"a": "x", "b": "y"}, {"a": "z"}])
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=CustomModel(),
+            signature=signature,
+        )
+    assert model_info.signature.inputs.to_dict() == [
+        {"name": "a", "type": "string", "required": True},
+        {"name": "b", "type": "string", "required": False},
+    ]
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([{"a": "z"}]) == [{"a": "z"}]
 
 
 def list_dict_to_list_dict_pep585(x: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -2147,3 +2171,61 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example="data")
     assert model_info.env_vars is None
+
+
+def test_pyfunc_model_without_context_in_predict():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input, params=None):
+            return model_input
+
+        def predict_stream(self, model_input, params=None):
+            yield model_input
+
+    m = Model()
+    assert m.predict("abc") == "abc"
+    assert next(iter(m.predict_stream("abc"))) == "abc"
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=m, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict("abc") is not None
+    assert next(iter(pyfunc_model.predict_stream("abc"))) is not None
+
+
+def test_callable_python_model_without_context_in_predict():
+    def predict(model_input):
+        return model_input
+
+    assert predict("abc") == "abc"
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=predict, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict("abc") is not None
+
+
+def test_pyfunc_model_with_wrong_predict_signature_warning():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params=None):
+            return model_input
+
+        def predict_stream(self, _, model_input, params=None):
+            yield model_input
+
+    m = Model()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=m, input_example="abc")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mock.patch("mlflow.pyfunc.model.warnings.warn") as warn_mock:
+        pyfunc_model.predict("abc")
+        assert warn_mock.call_count == 1
+        assert (
+            "The underlying model's `predict` method contains invalid parameters: {'ctx'}"
+            in warn_mock.call_args[0][0]
+        )
+
+        pyfunc_model.predict_stream("abc")
+        assert warn_mock.call_count == 2
+        assert (
+            "The underlying model's `predict_stream` method contains invalid parameters: {'_'}"
+            in warn_mock.call_args[0][0]
+        )

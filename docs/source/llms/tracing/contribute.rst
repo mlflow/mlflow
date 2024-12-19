@@ -69,7 +69,7 @@ From a tracing perspective, GenAI libraries can be categorized into two types:
 
 Libraries like **OpenAI**, **Anthropic**, **Ollama**, and **LiteLLM** focus on providing access to LLMs. These libraries often have simple client SDKs, therefore, we often simply use ad-hoc patching to trace those APIs.
 
-For this type of library, start with listing up the core APIs to instrument. For example, in OpenAI auto-tracing, we patch the ``create()`` method of the ``ChatCompletion``, ``Completion``, and ``Embedding`` classes. Refer to the `OpenAI auto-tracing implementation <https://github.com/mlflow/mlflow/blob/master/mlflow/openai/_openai_autolog.py#L123-L178>`_ as an example.
+For this type of library, start with listing up the core APIs to instrument. For example, in Anthropic auto-tracing, we patch the ``create()`` method of the ``Messages`` class. If the library has multiple APIs (e.g., embeddings, transcription) and you're not sure which ones to support, consult with the maintainers. Refer to the `Anthropic auto-tracing implementation <https://github.com/mlflow/mlflow/blob/master/mlflow/anthropic/autolog.py>`_ as an example.
 
 **⚙️ Orchestration Frameworks**
 
@@ -96,7 +96,7 @@ Step 5. Begin Implementation
 With the design approved, start implementation:
 
 1. **Create a New Module**: If the library isn't already integrated with MLflow, create a new directory under ``mlflow/`` (e.g., ``mlflow/llama_index``). Add an ``__init__.py`` file to initialize the module.
-2. **Develop the Tracing Hook**: Implement your chosen method (patch, callback, or decorator) for tracing. If you go with patching approach, use the ``safe_patch`` function to ensure stable patching (see `example <https://github.com/mlflow/mlflow/blob/master/mlflow/openai/__init__.py#L905>`_).
+2. **Develop the Tracing Hook**: Implement your chosen method (patch, callback, or decorator) for tracing. If you go with patching approach, use the ``safe_patch`` function to ensure stable patching (see `example <https://github.com/mlflow/mlflow/blob/master/mlflow/anthropic/__init__.py>`_).
 3. **Define `mlflow.xxx.autolog() function`**: This function will be the main entry point for the integration, which enables tracing when called (e.g., :py:func:`mlflow.llama_index.autolog()`).
 4. **Write Tests**: Cover edge cases like asynchronous calls, custom data types, and streaming outputs if the library supports them.
 

@@ -395,6 +395,7 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
+    @experimental
     def delete_traces(
         self,
         experiment_id: str,
@@ -452,6 +453,7 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
+    @experimental
     def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
@@ -477,6 +479,7 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
+    @experimental
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -520,6 +523,7 @@ class MlflowClient:
         get_display_handler().display_traces(traces)
         return traces
 
+    @experimental
     def start_trace(
         self,
         name: str,
@@ -636,6 +640,7 @@ class MlflowClient:
             )
             return NoOpSpan()
 
+    @experimental
     def end_trace(
         self,
         request_id: str,
@@ -689,6 +694,45 @@ class MlflowClient:
 
         self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
 
+    @experimental
+    def _log_trace(self, trace: Trace) -> str:
+        """
+        Log the complete Trace object to the backend store.
+
+        # NB: Since the backend API is used directly here, customization of request ID's
+        # are not possible with this internal API. A backend-generated ID will be generated
+        # directly with this invocation, instead of the one from the given trace object.
+
+        Args:
+            trace: The trace object to log.
+
+        Returns:
+            The request ID of the logged trace.
+        """
+        # Create trace info entry in the backend
+        # Note that the backend generates a new request ID for the trace. Currently there is
+        # no way to insert the trace with a specific request ID given by the user.
+        new_info = self._tracking_client.start_trace(
+            experiment_id=trace.info.experiment_id,
+            timestamp_ms=trace.info.timestamp_ms,
+            request_metadata={},
+            tags={},
+        )
+        self._tracking_client.end_trace(
+            request_id=new_info.request_id,
+            # Compute the end time of the original trace
+            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
+            status=trace.info.status,
+            request_metadata=trace.info.request_metadata,
+            tags=trace.info.tags,
+        )
+
+        # Upload trace data
+        self._upload_trace_spans_as_tag(new_info, trace.data)
+        self._upload_trace_data(new_info, trace.data)
+
+        return new_info.request_id
+
     def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
         # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
         # https://databricks.atlassian.net/browse/ML-40306
@@ -714,6 +758,7 @@ class MlflowClient:
             json.dumps(parsed_spans, ensure_ascii=False),
         )
 
+    @experimental
     def start_span(
         self,
         name: str,
@@ -879,6 +924,7 @@ class MlflowClient:
             )
             return NoOpSpan()
 
+    @experimental
     def end_span(
         self,
         request_id: str,
@@ -980,6 +1026,7 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
+    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1022,6 +1069,7 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
+    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
@@ -1852,6 +1900,10 @@ class MlflowClient:
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+
+        # Stringify the values of the params
+        params = [Param(key=param.key, value=str(param.value)) for param in params]
+
         return self._tracking_client.log_batch(
             run_id, metrics, params, tags, synchronous=synchronous
         )

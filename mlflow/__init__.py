@@ -40,6 +40,7 @@ from mlflow import (
     exceptions,  # noqa: F401
     models,  # noqa: F401
     projects,  # noqa: F401
+    tracing,  # noqa: F401
     tracking,  # noqa: F401
 )
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
@@ -47,13 +48,14 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
+crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
-gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
@@ -121,6 +123,7 @@ from mlflow.tracing.fluent import (
     search_traces,
     start_span,
     trace,
+    update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -241,6 +244,7 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "update_current_trace",
 ]
 
 

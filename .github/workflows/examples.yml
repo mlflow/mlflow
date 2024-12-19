@@ -26,9 +26,6 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -45,6 +42,7 @@ jobs:
   examples:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     strategy:
       fail-fast: false
@@ -100,6 +98,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v4

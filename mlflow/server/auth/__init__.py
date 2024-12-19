@@ -748,11 +748,11 @@ def signup():
   </div>
   <label for="username">Username:</label>
   <br>
-  <input type="text" id="username" name="username">
+  <input type="text" id="username" name="username" minlength="4">
   <br>
   <label for="password">Password:</label>
   <br>
-  <input type="password" id="password" name="password">
+  <input type="password" id="password" name="password" minlength="4">
   <br>
   <br>
   <input type="submit" value="Sign up">
@@ -770,6 +770,10 @@ def create_user():
         username = request.form["username"]
         password = request.form["password"]
 
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
+
         if store.has_user(username):
             flash(f"Username has already been taken: {username}")
             return alert(href=SIGNUP)
@@ -780,6 +784,10 @@ def create_user():
     elif content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
+
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
 
         user = store.create_user(username, password)
         return jsonify({"user": user.to_json()})

@@ -6,9 +6,6 @@ on:
     types:
       - closed
 
-permissions:
-  contents: read
-
 jobs:
   cancel:
     runs-on: ubuntu-latest

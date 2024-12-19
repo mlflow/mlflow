@@ -173,6 +173,17 @@ def test_model_log():
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
 
+def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
+    sig = ModelSignature(
+        inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+    input_example = {"x": 1, "y": 2}
+    with mock.patch("mlflow.models.display_utils.maybe_render_agent_eval_recipe") as render_mock:
+        _log_model_with_signature_and_example(tmp_path, sig, input_example)
+        render_mock.assert_called_once()
+
+
 def test_model_info():
     with TempDir(chdr=True) as tmp:
         sig = ModelSignature(

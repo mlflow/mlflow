@@ -62,7 +62,7 @@ def object_to_dict(o: object):
 
 
 def _construct_prompt_template_object(
-    constructor: Callable, kwargs: dict[str, any]
+    constructor: Callable, kwargs: dict[str, Any]
 ) -> PromptTemplate:
     """Construct a PromptTemplate object based on the constructor and kwargs.
 
@@ -114,7 +114,7 @@ def dict_to_object(object_representation: dict[str, Any]) -> object:
         return object_class.from_dict(kwargs)
 
 
-def _deserialize_dict_of_objects(path: str) -> dict[str, any]:
+def _deserialize_dict_of_objects(path: str) -> dict[str, Any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 

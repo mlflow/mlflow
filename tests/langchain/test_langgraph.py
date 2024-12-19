@@ -140,3 +140,56 @@ def test_langgraph_tracing_diy_graph():
 
     chat_spans = [span for span in traces[0].data.spans if span.name.startswith("ChatOpenAI")]
     assert len(chat_spans) == 3
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
+def test_langgraph_tracing_with_custom_span():
+    mlflow.langchain.autolog()
+
+    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            "tests/langchain/sample_code/langgraph_with_custom_span.py",
+            "langgraph",
+            input_example=input_example,
+        )
+
+    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
+
+    # No trace should be created for the first call
+    assert mlflow.get_last_active_trace() is None
+
+    loaded_graph.invoke(input_example)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "LangGraph"
+    assert traces[0].data.spans[0].inputs == input_example
+
+    spans = traces[0].data.spans
+
+    # Validate chat model spans
+    chat_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
+    assert len(chat_spans) == 3
+
+    # Validate tool span
+    tool_span = next(s for s in spans if s.span_type == SpanType.TOOL)
+    assert tool_span.name == "get_weather"
+    assert tool_span.inputs == {"city": "sf"}
+    assert tool_span.outputs["content"] == "It's always sunny in sf"
+    assert tool_span.outputs["status"] == "success"
+    assert tool_span.status.status_code == SpanStatusCode.OK
+
+    # Validate inner span
+    inner_span = next(s for s in spans if s.name == "get_weather_inner")
+    assert inner_span.parent_id == tool_span.span_id
+    assert inner_span.inputs == "sf"
+    assert inner_span.outputs == "It's always sunny in sf"
+
+    inner_runnable_span = next(s for s in spans if s.parent_id == inner_span.span_id)
+    assert inner_runnable_span.name == "RunnableSequence_2"

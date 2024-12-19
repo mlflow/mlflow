@@ -492,6 +492,8 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         store.DEFAULT_EXPERIMENT_ID,
     ]
 
+    # To avoid that the creation_time equals `now`, we wait one additional millisecond.
+    time.sleep(0.001)
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time >= {now}")
     assert experiments == []
@@ -777,7 +779,7 @@ def test_run_data_model(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         run_id = uuid.uuid4().hex
         m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
-        m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
+        m2 = models.SqlMetric(run_uuid=run_id, key="recall", value=0.89)
         p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
         p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
         run_data = models.SqlRun(run_uuid=run_id)

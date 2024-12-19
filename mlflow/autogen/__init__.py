@@ -29,12 +29,17 @@ def autolog(
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
     # us from running cleaning up logging when autologging is turned off. To workaround this, we
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     if log_traces and not disable:
         runtime_logging.start(logger=MlflowAutogenLogger())
     else:
         runtime_logging.stop()
 
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
 
 
 @autologging_integration(FLAVOR_NAME)

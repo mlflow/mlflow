@@ -864,13 +864,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         import matplotlib
 
-        with (
-            TempDir() as temp_dir,
-            matplotlib.rc_context(_matplotlib_config),
-            mlflow.utils.autologging_utils.disable_autologging(
-                exemptions=[mlflow.langchain.FLAVOR_NAME]
-            ),
-        ):
+        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.temp_dir = temp_dir
             return self._evaluate(model, extra_metrics, custom_artifacts)
 

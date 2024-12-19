@@ -10,6 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import (
+    HAS_PYSPARK,
+    AnyType,
     Array,
     ColSpec,
     Map,
@@ -22,6 +24,11 @@ from mlflow.types.schema import (
     TensorSpec,
 )
 
+MULTIPLE_TYPES_ERROR_MSG = (
+    "Expected all values in the list to be of the same type. To specify a model signature "
+    "with a list containing elements of multiple types, define the signature manually "
+    "using the Array(AnyType()) type from mlflow.models.schema."
+)
 _logger = logging.getLogger(__name__)
 
 
@@ -86,7 +93,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
+def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
     """
     Infer an MLflow Colspec type from the dataset.
 
@@ -98,24 +105,44 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     """
     dtype = _infer_datatype(data)
 
-    # Currently only input that gives None is nested list whose items are all empty e.g. [[], []],
-    # because flat empty list [] has special handlign logic in _infer_schema
     if dtype is None:
         raise MlflowException(
-            "A column of nested array type must include at least one non-empty array."
+            f"Numpy array must include at least one non-empty item. Invalid input `{data}`."
         )
 
     return dtype
 
 
-def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
+def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
+    """
+    Infer the datatype of input data.
+    Data type and inferred schema type mapping:
+        - dict -> Object
+        - list -> Array
+        - numpy.ndarray -> Array
+        - scalar -> DataType
+        - None, empty dictionary/list -> AnyType
+
+    .. Note::
+        Empty numpy arrays are inferred as None to keep the backward compatibility, as numpy
+        arrays are used by some traditional ML flavors.
+        e.g. numpy.array([]) -> None, numpy.array([[], []]) -> None
+        While empty lists are inferred as AnyType instead of None after the support of AnyType.
+        e.g. [] -> AnyType, [[], []] -> Array(Any)
+    """
+
+    if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
+        return AnyType()
+
     if isinstance(data, dict):
         properties = []
         for k, v in data.items():
             dtype = _infer_datatype(v)
             if dtype is None:
-                raise MlflowException("Dictionary value must not be an empty list.")
-            properties.append(Property(name=k, dtype=dtype))
+                raise MlflowException("Dictionary value must not be an empty numpy array.")
+            properties.append(
+                Property(name=k, dtype=dtype, required=not isinstance(dtype, AnyType))
+            )
         return Object(properties=properties)
 
     if isinstance(data, (list, np.ndarray)):
@@ -133,7 +160,9 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
         ["a", "b"] => Array(string)
         ["a", None] => Array(string)
         [["a", "b"], []] => Array(Array(string))
+        [["a", "b"], None] => Array(Array(string))
         [] => None
+        [None] => Array(Any)
 
     Args:
         data: data to infer from.
@@ -143,11 +172,6 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
     """
     result = None
     for item in data:
-        # We accept None in list to provide backward compatibility,
-        # but ignore them for type inference
-        if _is_none_or_nan(item):
-            continue
-
         dtype = _infer_datatype(item)
 
         # Skip item with undetermined type
@@ -156,18 +180,14 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
 
         if result is None:
             result = Array(dtype)
-        elif isinstance(result.dtype, (Array, Object, Map)):
+        elif isinstance(result.dtype, (Array, Object, Map, AnyType)):
             try:
                 result = Array(result.dtype._merge(dtype))
             except MlflowException as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                ) from e
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG) from e
         elif isinstance(result.dtype, DataType):
-            if dtype != result.dtype:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                )
+            if not isinstance(dtype, AnyType) and dtype != result.dtype:
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG)
         else:
             raise MlflowException.invalid_parameter_value(
                 f"{dtype} is not a valid type for an item of a list or numpy array."
@@ -175,27 +195,34 @@ def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
     return result
 
 
+# datetime is not included here
+SCALAR_TO_DATATYPE_MAPPING = {
+    bool: DataType.boolean,
+    np.bool_: DataType.boolean,
+    int: DataType.long,
+    np.int64: DataType.long,
+    np.int32: DataType.integer,
+    float: DataType.double,
+    np.float64: DataType.double,
+    np.float32: DataType.float,
+    str: DataType.string,
+    np.str_: DataType.string,
+    object: DataType.string,
+    bytes: DataType.binary,
+    np.bytes_: DataType.binary,
+    bytearray: DataType.binary,
+}
+
+
 def _infer_scalar_datatype(data) -> DataType:
-    if DataType.is_boolean(data):
-        return DataType.boolean
-    # Order of is_long & is_integer matters
-    # as both of their python_types are int
-    if DataType.is_long(data):
-        return DataType.long
-    if DataType.is_integer(data):
-        return DataType.integer
-    # Order of is_double & is_float matters
-    # as both of their python_types are float
-    if DataType.is_double(data):
-        return DataType.double
-    if DataType.is_float(data):
-        return DataType.float
-    if DataType.is_string(data):
-        return DataType.string
-    if DataType.is_binary(data):
-        return DataType.binary
-    if DataType.is_datetime(data):
+    if data_type := SCALAR_TO_DATATYPE_MAPPING.get(type(data)):
+        return data_type
+    if DataType.check_type(DataType.datetime, data):
         return DataType.datetime
+    if HAS_PYSPARK:
+        for data_type in DataType.all_types():
+            if isinstance(data, type(data_type.to_spark())):
+                return data_type
     raise MlflowException.invalid_parameter_value(
         f"Data {data} is not one of the supported DataType"
     )
@@ -287,7 +314,8 @@ def _infer_schema(data: Any) -> Schema:
                 col_data_mapping[k].append(v)
         requiredness = {}
         for col in col_data_mapping:
-            requiredness[col] = False if any(col not in item for item in data) else True
+            # if col exists in item but its value is None, then it is not required
+            requiredness[col] = all(item.get(col) is not None for item in data)
 
         schema = Schema(
             [
@@ -778,11 +806,11 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
             )
-        if all(DataType.is_datetime(v) for v in value):
+        if all(DataType.check_type(DataType.datetime, v) for v in value):
             return DataType.datetime, (-1,)
         value_type = _infer_numpy_dtype(np.array(value).dtype)
         return value_type, (-1,)
-    elif DataType.is_datetime(value):
+    elif DataType.check_type(DataType.datetime, value):
         return DataType.datetime, None
     elif np.isscalar(value):
         try:

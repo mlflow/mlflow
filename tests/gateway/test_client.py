@@ -212,7 +212,7 @@ def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
     assert isinstance(gateway_client.get_route("completions"), Route)
 
 
-def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
+def test_create_gateway_client_with_overridden_env_variable(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, "http://localhost:99999")
 
     # Pass a bad env variable config in

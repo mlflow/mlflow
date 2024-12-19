@@ -711,8 +711,25 @@ to a CSV or JSON file containing the input payload.
 
 3. Update the model metadata
 ****************************
-Once you find the correct dependencies, you can create a new model with the correct dependencies.
-To do so, specify the ``extra_pip_requirements`` option when logging the model.
+Once you find the correct dependencies, you can update the logged model's dependencies using :py:func:`mlflow.models.update_model_requirements` API.
+
+.. code:: python
+
+    import mlflow
+
+    mlflow.models.update_model_requirements(
+        model_uri="runs:/<run_id>/<model_path>",
+        operation="add",
+        requirement_list=["opencv-python==4.8.0"],
+    )
+
+Note that you can also leverage the CLI to update the model requirements:
+
+.. code:: bash
+
+    mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
+
+Alternatively, you can log a new model with the updated dependencies by specifying the ``extra_pip_requirements`` option when logging the model.
 
 .. code:: python
 
@@ -724,13 +741,6 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         extra_pip_requirements=["opencv-python==4.8.0"],
         input_example=input_data,
     )
-
-Note that you can also leverage the CLI to update model dependencies in-place and thereby avoid
-re-logging the model. 
-
-.. code:: bash
-
-    mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
 
 How to Migrate Anaconda Dependency for License Change
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
