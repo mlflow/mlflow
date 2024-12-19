@@ -4,6 +4,7 @@ This module defines environment variables used in MLflow.
 
 import os
 from pathlib import Path
+from typing import Literal
 
 
 class _EnvironmentVariable:
@@ -80,6 +81,19 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 #: Specifies the tracking URI.
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
+
+#: Specifies the default logging level for MLflow.
+#:
+#: Valid values include:
+#: - "DEBUG"
+#: - "INFO"
+#: - "WARNING"
+#: - "ERROR"
+#: - "CRITICAL"
+#:
+#: (default: ``"INFO"``)
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+MLFLOW_LOGGER_VERBOSITY_LEVEL = _EnvironmentVariable("MLFLOW_LOGGER_VERBOSITY_LEVEL", LogLevel, "INFO")
 
 #: Specifies the registry URI.
 #: (default: ``None``)
