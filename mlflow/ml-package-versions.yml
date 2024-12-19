@@ -918,3 +918,13 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
+
+bedrock:
+  package_info:
+    pip_release: "boto3"
+    module_name: "boto3"
+  autologging:
+    # BedrockRuntime client is added in boto3 1.33
+    minimum: "1.33.0"
+    maximum: "1.35.76"
+    run: pytest tests/bedrock

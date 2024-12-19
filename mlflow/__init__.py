@@ -52,6 +52,7 @@ from mlflow.utils.logging_utils import _configure_mlflow_loggers
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
+bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
