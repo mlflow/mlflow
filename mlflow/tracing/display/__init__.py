@@ -1,6 +1,15 @@
-from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.display.display_handler import (
+    IPythonTraceDisplayHandler,
+    get_notebook_iframe_html,
+    is_using_tracking_server,
+)
 
-__all__ = ["IPythonTraceDisplayHandler", "get_display_handler"]
+__all__ = [
+    "IPythonTraceDisplayHandler",
+    "get_display_handler",
+    "is_using_tracking_server",
+    "get_notebook_iframe_html",
+]
 
 
 def get_display_handler() -> IPythonTraceDisplayHandler:
