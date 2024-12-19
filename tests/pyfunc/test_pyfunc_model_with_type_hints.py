@@ -10,7 +10,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import _is_pydantic_type_hint
+from mlflow.types.type_hints import InvalidTypeHintException, _is_pydantic_type_hint
 
 
 class CustomExample(pydantic.BaseModel):
@@ -369,3 +369,13 @@ def test_functional_python_model_callable_object():
     assert model_info.signature.outputs == Schema([ColSpec(type=Array(DataType.string))])
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
+
+
+def test_invalid_type_hint_in_python_model():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[object], params=None) -> str:
+            return model_input[0]
+
+    with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model("model", python_model=MyModel(), input_example=["a"])

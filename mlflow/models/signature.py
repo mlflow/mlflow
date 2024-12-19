@@ -367,10 +367,7 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
     if _contains_params(input_example):
         input_example, params = input_example
 
-    try:
-        input_schema = _infer_schema_from_type_hint(type_hints.input)
-    except InvalidTypeHintException:
-        input_schema = None
+    input_schema = _infer_schema_from_type_hint(type_hints.input)
     params_schema = _infer_param_schema(params) if params else None
     # input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_schema and input_example:
