@@ -1,3 +1,4 @@
+import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 
 # MLflow AI Gateway (Experimental)
@@ -73,7 +74,7 @@ system restart.
 Next, you need to create a gateway server configuration file. This is a YAML file where you specify the
 endpoints that the MLflow AI Gateway should expose. Let's create a file with three endpoints using OpenAI as a provider: completions, chat, and embeddings.
 
-For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`deployments_configuration_details` section below.
+For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the [AI Gateway server Configuration Details](#deployments-configuration-details) section below.
 
 ```yaml
 endpoints:
@@ -181,7 +182,7 @@ If you no longer need an endpoint, you can delete it from the configuration YAML
 
 Now that you have created several gateway server endpoints, you can create MLflow Models that query these
 endpoints to build application-specific logic using techniques like prompt engineering. For more
-information, see [gateway server and MLflow Models](#deployments-mlflow-models)`.
+information, see [gateway server and MLflow Models](#deployments-mlflow-models).
 
 ## Concepts \{#deployments-concepts}
 
@@ -721,3 +722,937 @@ If using a configured endpoint purely for development or testing, utilizing an I
 while for production deployments, a standard long-expiry IAM role is recommended to ensure that the endpoint is capable of handling authentication for a long period.
 If the authentication expires and a new set of keys need to be supplied, the endpoint must be recreated in order to persist the new keys.
 :::
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**aws_region**</td>
+      <td>No</td>
+      <td>AWS_REGION/AWS_DEFAULT_REGION</td>
+      <td>The AWS Region to use for bedrock access.</td>
+    </tr>
+    <tr>
+      <td>**aws_secret_access_key**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>AWS secret access key for the IAM user/role authorized to use bedrock.</td>
+    </tr>
+    <tr>
+      <td>**aws_access_key_id**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>AWS access key ID for the IAM user/role authorized to use Bedrock.</td>
+    </tr>
+    <tr>
+      <td>**aws_session_token**</td>
+      <td>No</td>
+      <td>None</td>
+      <td>Optional session token, if required.</td>
+    </tr>
+  </tbody>
+</table>
+
+Alternatively, for role-based authentication, an Amazon Bedrock endpoint can be defined and initialized with an a IAM Role ARN that is authorized to access Bedrock.
+The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**aws_region**</td>
+      <td>No</td>
+      <td>AWS_REGION/AWS_DEFAULT_REGION</td>
+      <td>The AWS Region to use for bedrock access.</td>
+    </tr>
+    <tr>
+      <td>**aws_role_arn**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>An AWS role authorized to use Bedrock. The standard credential provider chain _must_ be able to find credentials authorized to assume this role.</td>
+    </tr>
+    <tr>
+      <td>**session_length_seconds**</td>
+      <td>No</td>
+      <td>900</td>
+      <td>The length of session to request.</td>
+    </tr>
+  </tbody>
+</table>
+
+###### MLflow Model Serving
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**model_server_url**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>This is the url of the MLflow Model Server.</td>
+    </tr>
+  </tbody>
+</table>
+
+Note that with MLflow model serving, the `name` parameter for the `model` definition is not used for validation and is only present for reference purposes. This alias can be
+useful for understanding a particular version or endpoint definition that was used that can be referenced back to a deployed model. You may choose any name that you wish, provided that
+it is JSON serializable.
+
+###### Azure OpenAI
+
+Azure provides two different mechanisms for integrating with OpenAI, each corresponding to a different type of security validation. One relies on an access token for validation,
+referred to as `azure`, while the other uses Azure Active Directory (Azure AD) integration for authentication, termed as `azuread`.
+
+To match your user's interaction and security access requirements, adjust the `openai_api_type` parameter to represent the preferred security validation model.
+This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**openai_api_key**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>This is the API key for the Azure OpenAI service.</td>
+    </tr>
+    <tr>
+      <td>**openai_api_type**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>This field must be either `azure` or `azuread` depending on the security access protocol.</td>
+    </tr>
+    <tr>
+      <td>**openai_api_base**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>This is the base URL for the Azure OpenAI API service provided by Azure.</td>
+    </tr>
+    <tr>
+      <td>**openai_api_version**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>The version of the Azure OpenAI service to utilize, specified by a date.</td>
+    </tr>
+    <tr>
+      <td>**openai_deployment_name**</td>
+      <td>Yes</td>
+      <td></td>
+      <td>This is the name of the deployment resource for the Azure OpenAI service.</td>
+    </tr>
+    <tr>
+      <td>**openai_organization**</td>
+      <td>No</td>
+      <td></td>
+      <td>This is an optional field to specify the organization in OpenAI.</td>
+    </tr>
+  </tbody>
+</table>
+
+###### Mistral
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**mistral_api_key**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>This is the API key for the Mistral service.</td>
+    </tr>
+  </tbody>
+</table>
+
+###### TogetherAI
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**togetherai_api_key**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>This is the API key for the TogetherAI service.</td>
+    </tr>
+  </tbody>
+</table>
+
+An example configuration for Azure OpenAI is:
+
+```yaml
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-35-turbo
+      config:
+        openai_api_type: "azuread"
+        openai_api_key: $AZURE_AAD_TOKEN
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"
+    limit:
+      renewal_period: minute
+      calls: 10
+```
+
+:::note
+Azure OpenAI has distinct features as compared with the direct OpenAI service. For an overview, please see [the comparison documentation](https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/how-to/switching-endpoints).
+:::
+
+For specifying an API key, there are three options:
+
+1. (Preferred) Use an environment variable to store the API key and reference it in the YAML configuration file. This is denoted by a `$` symbol before the name of the environment variable.
+2. (Preferred) Define the API key in a file and reference the location of that key-bearing file within the YAML configuration file.
+3. Directly include it in the YAML configuration file.
+
+:::warning important
+The use of environment variables or file-based keys is recommended for better security practices. If the API key is directly included in the configuration file, it should be ensured that the file is securely stored and appropriately access controlled.
+Please ensure that the configuration file is stored in a secure location as it contains sensitive API keys.
+:::
+
+## Querying the AI Gateway server \{#deployments-query}
+
+Once the MLflow AI Gateway has been configured and started, it is ready to receive traffic from users.
+
+### Standard Query Parameters \{#standard-deployments-parameters}
+
+The MLflow AI Gateway defines standard parameters for chat, completions, and embeddings that can be
+used when querying any endpoint regardless of its provider. Each parameter has a standard range and
+default value. When querying an endpoint with a particular provider, the MLflow AI Gateway automatically
+scales parameter values according to the provider's value ranges for that parameter.
+
+#### Completions
+
+The standard parameters for completions endpoints with type `llm/v1/completions` are:
+
+<table>
+  <thead>
+    <tr>
+      <th>Query Parameter</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**prompt**</td>
+      <td>string</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>The prompt for which to generate completions.</td>
+    </tr>
+    <tr>
+      <td>**n**</td>
+      <td>integer</td>
+      <td>No</td>
+      <td>1</td>
+      <td>The number of completions to generate for the specified prompt, between 1 and 5.</td>
+    </tr>
+    <tr>
+      <td>**temperature**</td>
+      <td>float</td>
+      <td>No</td>
+      <td>0.0</td>
+      <td>The sampling temperature to use, between 0 and 1. Higher values will make the output more random, and lower values will make the output more deterministic.</td>
+    </tr>
+    <tr>
+      <td>**max_tokens**</td>
+      <td>integer</td>
+      <td>No</td>
+      <td>None</td>
+      <td>The maximum completion length, between 1 and infinity (unlimited).</td>
+    </tr>
+    <tr>
+      <td>**stop**</td>
+      <td>array[string]</td>
+      <td>No</td>
+      <td>None</td>
+      <td>Sequences where the model should stop generating tokens and return the completion.</td>
+    </tr>
+  </tbody>
+</table>
+
+#### Chat
+
+The standard parameters for chat endpoints with type `llm/v1/chat` are:
+
+<table>
+  <thead>
+    <tr>
+      <th>Query Parameter</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**messages**</td>
+      <td>array[message]</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>A list of messages in a conversation from which to generate a new message (chat completion). For information about the message structure, see [Messages](#deployments-chat-message-structure).</td>
+    </tr>
+    <tr>
+      <td>**n**</td>
+      <td>integer</td>
+      <td>No</td>
+      <td>1</td>
+      <td>The number of chat completions to generate for the specified prompt, between 1 and 5.</td>
+    </tr>
+    <tr>
+      <td>**temperature**</td>
+      <td>float</td>
+      <td>No</td>
+      <td>0.0</td>
+      <td>The sampling temperature to use, between 0 and 1. Higher values will make the output more random, and lower values will make the output more deterministic.</td>
+    </tr>
+    <tr>
+      <td>**max_tokens**</td>
+      <td>integer</td>
+      <td>No</td>
+      <td>None</td>
+      <td>The maximum completion length, between 1 and infinity (unlimited).</td>
+    </tr>
+    <tr>
+      <td>**stop**</td>
+      <td>array[string]</td>
+      <td>No</td>
+      <td>None</td>
+      <td>Sequences where the model should stop generating tokens and return the chat completion.</td>
+    </tr>
+  </tbody>
+</table>
+
+##### Messages \{#deployments-chat-message-structure}
+
+Each chat message is a string dictionary containing the following fields:
+
+<table>
+  <thead>
+    <tr>
+      <th>Field Name</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**role**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>The role of the conversation participant who sent the message. Must be one of: `"system"`, `"user"`, or `"assistant"`.</td>
+    </tr>
+    <tr>
+      <td>**content**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>The message content.</td>
+    </tr>
+  </tbody>
+</table>
+
+#### Embeddings
+
+The standard parameters for completions endpoints with type `llm/v1/embeddings` are:
+
+<table>
+  <thead>
+    <tr>
+      <th>Query Parameter</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**input**</td>
+      <td>string or array[string]</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>A string or list of strings for which to generate embeddings.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Additional Query Parameters
+
+In addition to the [Standard Query Parameters](#standard-deployments-parameters), you can pass any additional parameters supported by the endpoint's provider as part of your query. For example:
+
+- `logit_bias` (supported by OpenAI, Cohere)
+- `top_k` (supported by MosaicML, Anthropic, PaLM, Cohere)
+- `frequency_penalty` (supported by OpenAI, Cohere, AI21 Labs)
+- `presence_penalty` (supported by OpenAI, Cohere, AI21 Labs)
+- `stream` (supported by OpenAI, Cohere)
+
+Below is an example of submitting a query request to an MLflow AI Gateway endpoint using additional parameters:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("http://my.deployments:8888")
+
+data = {
+    "prompt": (
+        "What would happen if an asteroid the size of "
+        "a basketball encountered the Earth traveling at 0.5c? "
+        "Please provide your answer in .rst format for the purposes of documentation."
+    ),
+    "temperature": 0.5,
+    "max_tokens": 1000,
+    "n": 1,
+    "frequency_penalty": 0.2,
+    "presence_penalty": 0.2,
+}
+
+client.predict(endpoint="completions-gpt4", inputs=data)
+```
+
+The results of the query are:
+
+```python
+{
+    "id": "chatcmpl-8Pr33fsCAtD2L4oZHlyfOkiYHLapc",
+    "object": "text_completion",
+    "created": 1701172809,
+    "model": "gpt-4-0613",
+    "choices": [
+        {
+            "index": 0,
+            "text": "If an asteroid the size of a basketball ...",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 43,
+        "completion_tokens": 592,
+        "total_tokens": 635,
+    },
+}
+```
+
+#### Streaming
+
+Some providers support streaming responses. Streaming responses are useful when you want to
+receive responses as they are generated, rather than waiting for the entire response to be
+generated before receiving it. Streaming responses are supported by the following providers:
+
+<table>
+  <thead>
+    <tr>
+      <th>Provider</th>
+      <th colSpan={2}>Endpoints</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>llm/v1/completions</th>
+      <th>llm/v1/completions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>OpenAI</td>
+      <td>✓</td>
+      <td>✓</td>
+    </tr>
+    <tr>
+      <td>Cohere</td>
+      <td>✓</td>
+      <td>✓</td>
+    </tr>
+    <tr>
+      <td>Anthropic</td>
+      <td>✘</td>
+      <td>✓</td>
+    </tr>
+  </tbody>
+</table>
+
+To enable streaming responses, set the `stream` parameter to `true` in your request. For example:
+
+```bash
+curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "hello"}], "stream": true}'
+```
+
+The results of the query follow the [OpenAI schema](https://platform.openai.com/docs/api-reference/chat/streaming).
+
+##### Chat
+
+```
+data: {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+data: {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+data: {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+data: {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+```
+
+##### Completions
+
+```
+data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+data: {"choices": [{"delta": {"role": null, "content": "If"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+data: {"choices": [{"delta": {"role": null, "content": " an"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+data: {"choices": [{"delta": {"role": null, "content": " asteroid"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": "length", "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+```
+
+### FastAPI Documentation ("/docs")
+
+FastAPI, the framework used for building the MLflow AI Gateway, provides an automatic interactive API
+documentation interface, which is accessible at the "/docs" endpoint (e.g., `http://my.deployments:9000/docs`).
+This interactive interface is very handy for exploring and testing the available API endpoints.
+
+As a convenience, accessing the root URL (e.g., `http://my.deployments:9000`) redirects to this "/docs" endpoint.
+
+### MLflow Python Client APIs
+
+<APILink fn="mlflow.deployments.MlflowDeploymentClient">`MlflowDeploymentClient`</APILink> is the user-facing client API that is used to interact with the MLflow AI Gateway. It abstracts the HTTP requests to the gateway server via a simple, easy-to-use Python API.
+
+#### Client API \{#deployments-client-api}
+
+To use the `MlflowDeploymentClient` API, see the below examples for the available API methods:
+
+1. Create an `MlflowDeploymentClient`
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("http://my.deployments:8888")
+```
+
+2. List all endpoints:
+
+   The <APILink fn="mlflow.deployments.MlflowDeploymentClient.list_endpoints">`list_endpoints()`</APILink> method returns a list of all endpoints.
+
+   ```python
+   endpoint = client.list_endpoints()
+   for endpoint in endpoints:
+       print(endpoint)
+   ```
+
+3. Query an endpoint:
+
+   The <APILink fn="mlflow.deployments.MlflowDeploymentClient.predict">`predict()`</APILink> method submits a query to a configured provider endpoint.
+   The data structure you send in the query depends on the endpoint.
+
+   ```python
+   response = client.predict(
+       endpoint="chat",
+       inputs={"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]},
+   )
+   print(response)
+   ```
+
+#### LangChain Integration
+
+[LangChain](https://github.com/langchain-ai/langchain) supports [an integration for MLflow Deployments](https://python.langchain.com/docs/integrations/providers/mlflow_tracking/).
+This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway server.
+
+```python title="Example"
+import mlflow
+from langchain import LLMChain, PromptTemplate
+from langchain.llms import Mlflow
+
+llm = Mlflow(target_uri="http://127.0.0.1:5000", endpoint="completions")
+llm_chain = LLMChain(
+    llm=llm,
+    prompt=PromptTemplate(
+        input_variables=["adjective"],
+        template="Tell me a {adjective} joke",
+    ),
+)
+result = llm_chain.run(adjective="funny")
+print(result)
+
+with mlflow.start_run():
+    model_info = mlflow.langchain.log_model(llm_chain, "model")
+
+model = mlflow.pyfunc.load_model(model_info.model_uri)
+print(model.predict([{"adjective": "funny"}]))
+```
+
+#### MLflow Models \{#deployments-mlflow-models}
+
+Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to a gateway server endpoint and used in a broader context within a model.
+Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the MLflow AI Gateway along with MLflow Models is to define a served MLflow model directly as
+an endpoint within a gateway server.
+
+##### Using the gateway server to Query a served MLflow Model
+
+For a full walkthrough and example of using the MLflow serving integration to query a model directly through the MLflow AI Gateway, please see [the full example](https://github.com/mlflow/mlflow/tree/master/examples/deployments/mlflow_serving/README.md).
+Within the guide, you will see the entire end-to-end process of serving multiple models from different servers and configuring an MLflow AI Gateway instance to provide a single unified point to handle queries from.
+
+##### Using an MLflow Model to Query the gateway server
+
+You can also build and deploy MLflow Models that call the MLflow AI Gateway.
+The example below demonstrates how to use a gateway server from within a custom `pyfunc` model.
+
+:::note
+The custom `Model` shown in the example below is utilizing environment variables for the gateway server's uri. These values can also be set manually within the
+definition or can be applied via <APILink fn="mlflow.deployments.get_deployments_target" /> after the uri has been set. For the example below, the value for `MLFLOW_DEPLOYMENTS_TARGET` is
+`http://127.0.0.1:5000/`. For an actual deployment use case, this value would be set to the configured and production deployment server.
+:::
+
+```python
+import os
+import pandas as pd
+import mlflow
+
+
+def predict(data):
+    from mlflow.deployments import get_deploy_client
+
+    client = get_deploy_client(os.environ["MLFLOW_DEPLOYMENTS_TARGET"])
+
+    payload = data.to_dict(orient="records")
+    return [
+        client.predict(endpoint="completions", inputs=query)["choices"][0]["text"]
+        for query in payload
+    ]
+
+
+input_example = pd.DataFrame.from_dict(
+    {"prompt": ["Where is the moon?", "What is a comet made of?"]}
+)
+signature = mlflow.models.infer_signature(
+    input_example, ["Above our heads.", "It's mostly ice and rocks."]
+)
+
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        python_model=predict,
+        registered_model_name="anthropic_completions",
+        artifact_path="anthropic_completions",
+        input_example=input_example,
+        signature=signature,
+    )
+
+df = pd.DataFrame.from_dict(
+    {
+        "prompt": ["Tell me about Jupiter", "Tell me about Saturn"],
+        "temperature": 0.6,
+        "max_records": 500,
+    }
+)
+
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+print(loaded_model.predict(df))
+```
+
+This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a `spark_udf`, used with <APILink fn="mlflow.evaluate" />, or [deploy](/models#built-in-deployment) like any other model.
+
+#### REST API \{#deployments-rest-api}
+
+The REST API allows you to send HTTP requests directly to the MLflow AI Gateway. This is useful if you're not using Python or if you prefer to interact with a gateway server using HTTP directly.
+
+Here are some examples for how you might use curl to interact with the MLflow AI Gateway:
+
+1. Get information about a particular endpoint: `GET /api/2.0/endpoints/{name}`
+
+   This route returns a serialized representation of the endpoint data structure.
+   This provides information about the name and type, as well as the model details for the requested endpoint.
+
+   ```bash
+   curl -X GET http://my.deployments:8888/api/2.0/endpoints/embeddings
+   ```
+
+2. List all endpoints: `GET /api/2.0/endpoints/`
+
+   This route returns a list of all endpoints.
+
+   ```bash
+   curl -X GET http://my.deployments:8888/api/2.0/endpoints/
+   ```
+
+3. Query an endpoint: `POST /endpoints/{name}/invocations`
+
+   This route allows you to submit a query to a configured provider endpoint. The data structure you send in the query depends on the endpoint. Here are examples for the "completions", "chat", and "embeddings" endpoints:
+
+   - `Completions`
+
+     ```bash
+     curl -X POST http://my.deployments:8888/endpoints/completions/invocations \
+       -H "Content-Type: application/json" \
+       -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
+     ```
+
+   - `Chat`
+
+     ```bash
+     curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
+       -H "Content-Type: application/json" \
+       -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
+     ```
+
+   - `Embeddings`
+
+     ```bash
+     curl -X POST http://my.deployments:8888/endpoints/embeddings/invocations \
+       -H "Content-Type: application/json" \
+       -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+     ```
+
+**Note:** Remember to replace `my.deployments:8888` with the URL of your actual MLflow AI Gateway.
+
+## Plugin LLM Provider (Experimental) \{#deployments-plugin}
+
+:::warning attention
+This feature is in active development and is marked as Experimental. It may change in a future release without warning.
+:::
+
+The MLflow AI Gateway supports the use of custom language model providers through the use of plugins.
+A plugin is a Python package that provides a custom implementation of a language model provider.
+This allows users to integrate their own language model services with the MLflow AI Gateway.
+
+To create a custom plugin, you need to implement a provider class that inherits from `mlflow.gateway.providers.BaseProvider`,
+and a config class that inherits from `mlflow.gateway.base_models.ConfigModel`.
+
+```python title="Example"
+import os
+from typing import AsyncIterable
+
+from pydantic import validator
+from mlflow.gateway.base_models import ConfigModel
+from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.providers import BaseProvider
+from mlflow.gateway.schemas import chat, completions, embeddings
+
+
+class MyLLMConfig(ConfigModel):
+    # This model defines the configuration for the provider such as API keys
+    my_llm_api_key: str
+
+    @validator("my_llm_api_key", pre=True)
+    def validate_my_llm_api_key(cls, value):
+        return os.environ[value.lstrip("$")]
+
+
+class MyLLMProvider(BaseProvider):
+    # Define the provider name. This will be displayed in log and error messages.
+    NAME = "my_llm"
+    # Define the config model for the provider.
+    # This must be a subclass of ConfigModel.
+    CONFIG_TYPE = MyLLMConfig
+
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(
+            config.model.config, MyLLMConfig
+        ):
+            raise TypeError(f"Unexpected config type {config.model.config}")
+        self.my_llm_config: MyLLMConfig = config.model.config
+
+    # You can implement one or more of the following methods
+    # depending on the capabilities of your provider.
+    # Implementing `completions`, `chat` and `embeddings` will enable the respective endpoints.
+    # Implementing `completions_stream` and `chat_stream` will enable the `stream=True`
+    # option for the respective endpoints.
+    # Unimplemented methods will return a 501 Not Implemented HTTP response upon invocation.
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        ...
+
+    async def completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
+        ...
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        ...
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        ...
+
+    async def embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
+        ...
+```
+
+Then, you need to create a Python package that contains the plugin implementation.
+You must specify an entry point under the `mlflow.gateway.providers` group, so that your plugin can be detected by MLflow.
+The entry point should be in the format `<name> = <module>:<class>`.
+
+```toml title="pyproject.toml"
+[project]
+name = "my_llm"
+version = "1.0"
+
+[project.entry-points."mlflow.gateway.providers"]
+my_llm = "my_llm.providers:MyLLMProvider"
+
+[tool.setuptools.packages.find]
+include = ["my_llm*"]
+namespaces = false
+```
+
+You can specify more than one entry point in the same package if you have multiple providers.
+Note that entry point names must be globally unique. If two plugins specify the same entry point name,
+MLflow will raise an error at startup time.
+
+MLflow already provides a number of providers by default. Your plugin name cannot be the same as any one
+of them. See [AI Gateway server Configuration Details](#deployments-configuration-details) for a complete list of default providers.
+
+Finally, you need to install the plugin package in the same environment as the MLflow AI Gateway.
+
+:::warning important
+Only install plugin packages from sources that you trust. Starting a server with a plugin provider will
+execute any arbitrary code that is defined within the plugin package.
+:::
+
+Then, you can specify the plugin provider according to the entry point name
+in the MLflow AI Gateway configuration file.
+
+```yaml
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: my_llm
+      name: my-model-0.1.2
+      config:
+        my_llm_api_key: $MY_LLM_API_KEY
+```
+
+### Example
+
+A working example can be found in the MLflow repository at
+[examples/deployments/deployments_server/plugin](https://github.com/mlflow/mlflow/tree/master/examples/deployments/deployments_server/plugin).
+
+## MLflow AI Gateway API Documentation
+
+[API documentation](/llms/deployments/api.html)
+
+## OpenAI Compatibility
+
+MLflow AI Gateway is compatible with OpenAI API and supports the `chat`, `completions`, and `embeddings` APIs.
+The OpenAI client can be used to query the server as shown in the example below:
+
+1. Create a configuration file:
+
+```yaml
+endpoints:
+  - name: my-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4o-mini
+      config:
+        openai_api_key: $OPENAI_API_KEY
+```
+
+2. Start the server with the configuration file:
+
+```shell
+mlflow gateway start --config-path /path/to/config.yaml --port 7000
+```
+
+3. Once the server is up and running, query the server using the OpenAI client:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:7000/v1")
+completion = client.chat.completions.create(
+    model="my-chat",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(completion.choices[0].message.content)
+```
+
+## Unity Catalog Integration
+
+See [Unity Catalog Integration](/llms/deployments/uc_integration) for how to integrate the MLflow AI Gateway with Unity Catalog.
+
+## gateway server Security Considerations \{#deployments-security}
+
+Remember to ensure secure access to the system that the MLflow AI Gateway is running in to protect access to these keys.
+
+An effective way to secure your gateway server is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow AI Gateway. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
+
+A popular choice for a reverse proxy is _Nginx_. In addition to handling the traffic to your application, _Nginx_ can also serve static files and load balance the traffic if you have multiple instances of your application running.
+
+Furthermore, to ensure the integrity and confidentiality of data between the client and the server, it's highly recommended to enable HTTPS on your reverse proxy.
+
+In addition to the reverse proxy, it's also recommended to add an authentication layer before the requests reach the MLflow AI Gateway. This could be HTTP Basic Authentication, OAuth, or any other method that suits your needs.
+
+For example, here's a simple configuration for Nginx with Basic Authentication:
+
+```nginx
+http {
+    server {
+        listen 80;
+
+        location / {
+            auth_basic "Restricted Content";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+
+            proxy_pass http://localhost:5000;  # Replace with the MLflow AI Gateway port
+        }
+    }
+}
+```
+
+In this example, _/etc/nginx/.htpasswd_ is a file that contains the username and password for authentication.
+
+These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
