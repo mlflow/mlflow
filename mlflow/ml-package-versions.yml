@@ -865,6 +865,7 @@ sentence_transformers:
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
         ]
+      "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
