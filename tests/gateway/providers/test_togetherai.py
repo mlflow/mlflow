@@ -422,6 +422,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "Its Artyom!",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                 }

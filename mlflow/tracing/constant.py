@@ -20,6 +20,12 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
+    # these attributes are for standardized chat messages and tool definitions
+    # in CHAT_MODEL and LLM spans. they are used for rendering the rich chat
+    # display in the trace UI, as well as downstream consumers of trace data
+    # such as evaluation
+    CHAT_MESSAGES = "mlflow.chat.messages"
+    CHAT_TOOLS = "mlflow.chat.tools"
 
 
 # All storage backends are guaranteed to support key values up to 250 characters

@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
@@ -49,7 +50,12 @@ CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
-
+_DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
+_INVALID_SIGNATURE_ERROR_MSG = (
+    "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
+    "Only the following parameter names are allowed: context, model_input, and params. "
+    "Note that invalid parameters will no longer be permitted in future versions."
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -123,6 +129,10 @@ class PythonModel:
                      can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
+            signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
 
     def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
@@ -135,6 +145,11 @@ class PythonModel:
                      can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
+            signature if it's not used.
+            `def predict_stream(self, model_input, params=None)` is valid.
         """
         raise NotImplementedError()
 
@@ -155,21 +170,18 @@ class _FunctionPythonModel(PythonModel):
 
     def predict(
         self,
-        context,
         model_input,
         params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
-            context: A instance containing artifacts that the model
-                can use to perform inference.
             model_input: A pyfunc-compatible input for the model to evaluate.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
             Model predictions.
         """
-        if inspect.signature(self.func).parameters.get("params"):
+        if "params" in inspect.signature(self.func).parameters:
             return self.func(model_input, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
@@ -272,6 +284,11 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 containing various parameters used to modify model behavior during
                 inference.
 
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
+            signature if it's not used.
+            `def predict(self, messages: list[ChatMessage], params: ChatParams)` is valid.
+
         Returns:
             A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
             object containing the model's response(s), as well as other metadata.
@@ -294,6 +311,11 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
                 A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
                 containing various parameters used to modify model behavior during
                 inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
+            signature if it's not used.
+            `def predict_stream(self, messages: list[ChatMessage], params: ChatParams)` is valid.
 
         Returns:
             A generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
@@ -669,12 +691,31 @@ class _PythonModelPyfuncWrapper:
             Model predictions as an iterator of chunks. The chunks in the iterator must be type of
             dict or string. Chunk dict fields are determined by the model implementation.
         """
-        if inspect.signature(self.python_model.predict).parameters.get("params"):
-            return self.python_model.predict(
-                self.context, self._convert_input(model_input), params=params
+        parameters = inspect.signature(self.python_model.predict).parameters
+        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
+            warnings.warn(
+                _INVALID_SIGNATURE_ERROR_MSG.format(
+                    func_name="predict", invalid_params=invalid_params
+                ),
+                FutureWarning,
+                stacklevel=2,
             )
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        return self.python_model.predict(self.context, self._convert_input(model_input))
+        kwargs = {}
+        if "params" in parameters:
+            kwargs["params"] = params
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if (
+            # predict(self, context, model_input, ...)
+            "context" in parameters
+            # predict(self, ctx, model_input, ...) ctx can be any parameter name
+            or len([param for param in parameters if param != "params"]) == 2
+        ):
+            return self.python_model.predict(
+                self.context, self._convert_input(model_input), **kwargs
+            )
+        else:
+            return self.python_model.predict(self._convert_input(model_input), **kwargs)
 
     def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
         """
@@ -685,12 +726,31 @@ class _PythonModelPyfuncWrapper:
         Returns:
             Streaming predictions.
         """
-        if inspect.signature(self.python_model.predict_stream).parameters.get("params"):
-            return self.python_model.predict_stream(
-                self.context, self._convert_input(model_input), params=params
+        parameters = inspect.signature(self.python_model.predict_stream).parameters
+        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
+            warnings.warn(
+                _INVALID_SIGNATURE_ERROR_MSG.format(
+                    func_name="predict_stream", invalid_params=invalid_params
+                ),
+                FutureWarning,
+                stacklevel=2,
             )
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        return self.python_model.predict_stream(self.context, self._convert_input(model_input))
+        kwargs = {}
+        if "params" in parameters:
+            kwargs["params"] = params
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if (
+            # predict_stream(self, context, model_input, ...)
+            "context" in parameters
+            # predict_stream(self, ctx, model_input, ...) ctx can be any parameter name
+            or len([param for param in parameters if param != "params"]) == 2
+        ):
+            return self.python_model.predict_stream(
+                self.context, self._convert_input(model_input), **kwargs
+            )
+        else:
+            return self.python_model.predict_stream(self._convert_input(model_input), **kwargs)
 
 
 def _get_pyfunc_loader_module(python_model):

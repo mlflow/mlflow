@@ -15,9 +15,6 @@ on:
     types:
       - checks_requested
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,6 +30,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +48,9 @@ jobs:
           uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
+          mkdir -p /tmp/conftest/bin
+          curl -s -L "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz" | tar -xz -C /tmp/conftest/bin
+          echo "/tmp/conftest/bin" >> $GITHUB_PATH
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks

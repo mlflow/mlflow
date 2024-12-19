@@ -482,6 +482,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    _DEFAULT_CHAT_MODEL_METADATA_TASK,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -567,8 +568,13 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+TASK = "task"
 
 _MODEL_DATA_SUBPATH = "data"
+_CHAT_PARAMS_WARNING_MESSAGE = (
+    "Default values for temperature, n and stream in ChatParams will be removed in the "
+    "next release. Specify them in the input example explicitly if needed."
+)
 
 
 class EnvType:
@@ -850,7 +856,7 @@ class PyFuncModel:
                 )
             data = data[0]
 
-        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
+        if "params" in inspect.signature(self._predict_stream_fn).parameters:
             return self._predict_stream_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -1110,7 +1116,7 @@ class _ServedPyFuncModel(PyFuncModel):
         Returns:
             Model predictions.
         """
-        if inspect.signature(self._client.invoke).parameters.get("params"):
+        if "params" in inspect.signature(self._client.invoke).parameters:
             result = self._client.invoke(data, params=params).get_predictions()
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -2495,7 +2501,7 @@ Compound types:
                     raise MlflowException(err_msg) from e
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(client.invoke).parameters.get("params"):
+                    if "params" in inspect.signature(client.invoke).parameters:
                         return client.invoke(pdf, params=params).get_predictions()
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return client.invoke(pdf).get_predictions()
@@ -2528,7 +2534,7 @@ Compound types:
                     )
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(loaded_model.predict).parameters.get("params"):
+                    if "params" in inspect.signature(loaded_model.predict).parameters:
                         return loaded_model.predict(pdf, params=params)
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return loaded_model.predict(pdf)
@@ -2912,6 +2918,10 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
+            # For ChatModel we set default metadata to indicate its task
+            default_metadata = {TASK: _DEFAULT_CHAT_MODEL_METADATA_TASK}
+            mlflow_model.metadata = {**default_metadata, **(mlflow_model.metadata or {})}
+
             if input_example:
                 input_example, input_params = _split_input_data_and_params(input_example)
                 valid_params = {}
@@ -2933,6 +2943,8 @@ def save_model(
                         for k, v in input_example.items()
                         if k != "messages" and k in ChatParams.keys()
                     }
+                if valid_params or input_params:
+                    _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
                 input_example = {
                     "messages": [m.to_dict() for m in messages],
                     **valid_params,
@@ -2940,6 +2952,7 @@ def save_model(
                 }
             else:
                 input_example = CHAT_MODEL_INPUT_EXAMPLE
+                _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
                 messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
             # extra params introduced by ChatParams will not be included in the
             # logged input example file to avoid confusion
@@ -2950,7 +2963,10 @@ def save_model(
             _logger.info("Predicting on input example to validate output")
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
-            output = python_model.predict(context, messages, params)
+            if "context" in inspect.signature(python_model.predict).parameters:
+                output = python_model.predict(context, messages, params)
+            else:
+                output = python_model.predict(messages, params)
             if not isinstance(output, ChatCompletionResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "

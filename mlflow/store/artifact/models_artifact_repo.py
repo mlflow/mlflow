@@ -80,12 +80,16 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Split 'models:/<name>/<version>/path/to/model' into
         ('models:/<name>/<version>', 'path/to/model').
+        Split 'models:/<name>@alias/path/to/model' into
+        ('models:/<name>@alias', 'path/to/model').
         """
+        uri = uri.rstrip("/")
         path = urllib.parse.urlparse(uri).path
-        if path.count("/") >= 3 and not path.endswith("/"):
+        if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)
-            model_name_and_version = splits[:3]
-            artifact_path = splits[-1]
+            cut_index = 2 if "@" in splits[1] else 3
+            model_name_and_version = splits[:cut_index]
+            artifact_path = "/".join(splits[cut_index:])
             return "models:" + "/".join(model_name_and_version), artifact_path
         return uri, ""
 
