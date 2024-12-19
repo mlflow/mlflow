@@ -1,7 +1,7 @@
 import logging
 import warnings
 from collections import defaultdict
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -651,6 +651,22 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
             "numeric values, the data must be enclosed in a numpy.ndarray. The following keys "
             f"in the input dictionary are invalid: {invalid_values}",
         )
+
+
+def _is_list_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[str],  # noqa: UP006
+        list[str],
+    ]
+
+
+def _is_list_dict_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[Dict[str, str]],  # noqa: UP006
+        list[Dict[str, str]],  # noqa: UP006
+        List[dict[str, str]],  # noqa: UP006
+        list[dict[str, str]],
+    ]
 
 
 def _get_array_depth(l: Any) -> int:
