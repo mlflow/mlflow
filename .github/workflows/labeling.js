@@ -44,6 +44,7 @@ module.exports = async ({ github, context }) => {
       })
     )
   ).map(({ name }) => name);
+  console.log("Existing labels:", existingLabels);
 
   const labelsToAdd = labels
     .filter(({ name, checked }) => checked && !existingLabels.includes(name))
