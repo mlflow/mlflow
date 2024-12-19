@@ -331,3 +331,112 @@ documents from a vector store). The ``RETRIEVER`` span type has the following sc
 
 \* For example, both ``[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]`` and
 ``[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]`` are valid outputs for a ``RETRIEVER`` span.
+
+Chat Completion Spans
+^^^^^^^^^^^^^^^^^^^^^
+
+Spans of type ``CHAT_MODEL`` or ``LLM`` are used to represent interactions with a chat completions API
+(for example, OpenAI's `chat completions <https://platform.openai.com/docs/api-reference/chat/create>`_,
+or Anthropic's `messages <https://docs.anthropic.com/en/api/messages>`_ API). As providers can have
+different schemas for their API, there are no restrictions on the format of the span's inputs and
+outputs.
+
+However, it is still important to have a common schema in order to enable certain UI features (e.g. rich
+conversation display), and to make authoring evaluation functions easier. To support this, we specify some
+custom attributes for standardized chat messages and tool defintions:
+
+.. list-table::
+    :widths: 20 40 40
+    :header-rows: 1
+    :class: wrap-table
+
+    * - **Attribute Name**
+      - **Description**
+      - **Note**
+
+    * - **mlflow.chat.messages**
+      - This attribute represents the system/user/assistant messages involved in the
+        conversation with the chat model. It enables rich conversation rendering in the UI,
+        and will also be used in MLflow evaluation in the future. 
+        
+        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.RequestMessage>` ``]``
+      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_messages` function. This function
+        will throw a validation error if the data does not conform to the spec.
+    
+    * - **mlflow.chat.tools**
+      - This attribute represents the tools that were available for the chat model to call. In the OpenAI
+        context, this would be equivalent to the `tools <https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>`_ 
+        param in the Chat Completions API.
+
+        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.ChatTool>` ``]``
+      - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_tools` function. This function
+        will throw a validation error if the data does not conform to the spec.
+
+Please refer to the example below for a quick demonstration of how to use the utility functions described above, as well as
+how to retrieve them using the :py:class:`span.get_attribute() <mlflow.entities.Span.get_attribute>` function:
+
+.. code-block:: python
+
+  import mlflow
+  from mlflow.entities.span import SpanType
+  from mlflow.tracing.constant import SpanAttributeKey
+  from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
+
+  # example messages and tools
+  messages = [
+      {
+          "role": "system",
+          "content": "please use the provided tool to answer the user's questions",
+      },
+      {"role": "user", "content": "what is 1 + 1?"},
+  ]
+
+  tools = [
+      {
+          "type": "function",
+          "function": {
+              "name": "add",
+              "description": "Add two numbers",
+              "parameters": {
+                  "type": "object",
+                  "properties": {
+                      "a": {"type": "number"},
+                      "b": {"type": "number"},
+                  },
+                  "required": ["a", "b"],
+              },
+          },
+      }
+  ]
+
+
+  @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+  def call_chat_model(messages, tools):
+      # mocking a response
+      response = {
+          "role": "assistant",
+          "tool_calls": [
+              {
+                  "id": "123",
+                  "function": {"arguments": '{"a": 1,"b": 2}', "name": "add"},
+                  "type": "function",
+              }
+          ],
+      }
+
+      combined_messages = messages + [response]
+
+      span = mlflow.get_current_active_span()
+      set_span_chat_messages(span, combined_messages)
+      set_span_chat_tools(span, tools)
+
+      return response
+
+
+  call_chat_model(messages, tools)
+
+  trace = mlflow.get_last_active_trace()
+  span = trace.data.spans[0]
+
+  print("Messages: ", span.get_attribute(SpanAttributeKey.CHAT_MESSAGES))
+  print("Tools: ", span.get_attribute(SpanAttributeKey.CHAT_TOOLS))

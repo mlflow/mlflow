@@ -145,7 +145,7 @@ def _call_llm_provider_api(
 
     payload = {
         k: v
-        for k, v in chat_request.model_dump().items()
+        for k, v in chat_request.model_dump(exclude_none=True).items()
         if (v is not None) and (k in filtered_keys)
     }
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)

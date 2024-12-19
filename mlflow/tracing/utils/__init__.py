@@ -14,6 +14,7 @@ from opentelemetry import trace as trace_api
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
+    from mlflow.types.chat import ChatTool, RequestMessage
 
 
 def capture_function_input_args(func, args, kwargs) -> dict[str, Any]:
@@ -232,3 +234,99 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
 
 def generate_request_id() -> str:
     return uuid.uuid4().hex
+
+
+def set_span_chat_messages(
+    span: LiveSpan,
+    messages: list[RequestMessage],
+):
+    """
+    Set the `mlflow.chat.messages` attribute on the specified span. This
+    attribute is used in the UI, and also by downstream applications that
+    consume trace data, such as MLflow evaluate.
+
+    Args:
+        span: The LiveSpan to add the attribute to
+        messages: A list of standardized chat messages (refer to the
+                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
+                 for details)
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+        from mlflow.tracing import set_span_chat_messages
+
+
+        @mlflow.trace
+        def f():
+            messages = [{"role": "user", "content": "hello"}]
+            span = mlflow.get_current_active_span()
+            set_span_chat_messages(span, messages)
+            return 0
+
+
+        f()
+    """
+    from mlflow.types.chat import RequestMessage
+
+    for message in messages:
+        RequestMessage.validate_compat(message)
+
+    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
+
+
+def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
+    """
+    Set the `mlflow.chat.tools` attribute on the specified span. This
+    attribute is used in the UI, and also by downstream applications that
+    consume trace data, such as MLflow evaluate.
+
+    Args:
+        span: The LiveSpan to add the attribute to
+        tools: A list of standardized chat tool definitions (refer to the
+              `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
+              for details)
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+        from mlflow.tracing import set_span_chat_tools
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "add",
+                    "description": "Add two numbers",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "a": {"type": "number"},
+                            "b": {"type": "number"},
+                        },
+                        "required": ["a", "b"],
+                    },
+                },
+            }
+        ]
+
+
+        @mlflow.trace
+        def f():
+            span = mlflow.get_current_active_span()
+            set_span_chat_tools(span, tools)
+            return 0
+
+
+        f()
+    """
+    from mlflow.types.chat import ChatTools
+
+    ChatTools.validate_compat({"tools": tools})
+    span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)

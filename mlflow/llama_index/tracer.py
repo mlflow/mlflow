@@ -40,10 +40,9 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
 
 
 def _get_llama_index_version() -> Version:
@@ -427,7 +426,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = raw.dict() if IS_PYDANTIC_V1 else raw.model_dump()
+                raw = raw.model_dump() if IS_PYDANTIC_V2_OR_NEWER else raw.dict()
 
             if usage := raw.get("usage"):
                 return usage

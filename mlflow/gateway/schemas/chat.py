@@ -1,17 +1,13 @@
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
+from mlflow.types.chat import ChatTools, ContentType, RequestMessage, ToolCall
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
-class RequestMessage(RequestModel):
-    role: str
-    content: str
-
-
-class BaseRequestPayload(RequestModel):
+class BaseRequestPayload(ChatTools, RequestModel):
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: Optional[list[str]] = Field(None, min_items=1)
@@ -37,27 +33,17 @@ class RequestPayload(BaseRequestPayload):
     messages: list[RequestMessage] = Field(..., min_items=1)
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
-class Function(ResponseModel):
-    name: str
-    arguments: str
-
-
-class ToolCall(ResponseModel):
-    id: str
-    type: Literal["function"]
-    function: Function
-
-
 class ResponseMessage(ResponseModel):
     role: str
-    content: Optional[str]
+    content: Optional[ContentType] = None
     tool_calls: Optional[list[ToolCall]] = None
+    refusal: Optional[str] = None
 
 
 class Choice(ResponseModel):
@@ -99,7 +85,7 @@ class ResponsePayload(ResponseModel):
     usage: ChatUsage
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
@@ -141,7 +127,7 @@ class StreamResponsePayload(ResponseModel):
     choices: list[StreamChoice]
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
