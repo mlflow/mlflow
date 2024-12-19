@@ -118,7 +118,7 @@ jobs:
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          pytest tests/types/test_type_hints.py
+          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
