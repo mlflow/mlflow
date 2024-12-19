@@ -4210,11 +4210,11 @@ print(f"\nPyfunc 'predict_interval':\n${response.json()}")
 After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.
 The <APILink fn="mlflow.models.predict" /> API provides a convenient way to test your model in a virtual environment, offering isolated execution and several advantages:
 
-* Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
+- Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
   For more details, refer to [Validating Environment for Prediction](/model/dependecies/#validating-environment-for-prediction>).
-* Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
+- Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
   Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
-* Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
+- Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
 ```python
@@ -4245,10 +4245,10 @@ mlflow.models.predict(
 
 The <APILink fn="mlflow.models.predict" /> API supports the following environment managers to create the virtual environment for prediction:
 
-* [virtualenv](https://virtualenv.pypa.io/en/latest/): The default environment manager.
-* [uv](https://docs.astral.sh/uv/): An **extremely fast** environment manager written in Rust. **This is an experimental feature since MLflow 2.20.0.**
-* [conda](https://docs.conda.io/projects/conda/): uses conda to create environment.
-* `local`: uses the current environment to run the model. Note that `pip_requirements_override` is not supported in this mode.
+- [virtualenv](https://virtualenv.pypa.io/en/latest/): The default environment manager.
+- [uv](https://docs.astral.sh/uv/): An **extremely fast** environment manager written in Rust. **This is an experimental feature since MLflow 2.20.0.**
+- [conda](https://docs.conda.io/projects/conda/): uses conda to create environment.
+- `local`: uses the current environment to run the model. Note that `pip_requirements_override` is not supported in this mode.
 
 :::tip
 Starting from MLflow 2.20.0, `uv` is available, and **it is extremely fast**.
@@ -4435,7 +4435,7 @@ pyfunc_udf = mlflow.pyfunc.spark_udf(
 ## Deployment to Custom Targets \{#deployment_plugin}
 
 In addition to the built-in deployment tools, MLflow provides a pluggable <APILink fn="mlflow.deployments" />
-and [mlflow deployments CLI](/cli#mlflow-deployments) for deploying models to custom targets and environments.
+and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments CLI</Link> for deploying models to custom targets and environments.
 To deploy to a custom target, you must first install an appropriate third-party Python plugin. See the list of
 known community-maintained plugins [here](/plugins#deployment-plugins).
 
@@ -4444,14 +4444,14 @@ known community-maintained plugins [here](/plugins#deployment-plugins).
 The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
 using the <APILink fn="mlflow.deployments">mlflow.deployments Python API</APILink>:
 
-- [Create](/cli#mlflow-deployments-create): Deploy an MLflow model to a specified custom target
-- [Delete](/cli#mlflow-deployments-delete): Delete a deployment
-- [Update](/cli#mlflow-deployments-update): Update an existing deployment, for example to
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-create" target="_blank">Create</Link>: Deploy an MLflow model to a specified custom target
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-delete" target="_blank">Delete</Link>: Delete a deployment
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-update" target="_blank">Update</Link>: Update an existing deployment, for example to
   deploy a new model version or change the deployment's configuration (e.g. increase replica count)
-- [List](/cli#mlflow-deployments-list): List IDs of all deployments
-- [Get](/cli#mlflow-deployments-get): Print a detailed description of a particular deployment
-- [Run Local](/cli#mlflow-deployments-run-local): Deploy the model locally for testing
-- [Help](/cli#mlflow-deployments-help): Show the help string for the specified target
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-list" target="_blank">List</Link>: List IDs of all deployments
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-get" target="_blank">Get</Link>: Print a detailed description of a particular deployment
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-run-local" target="_blank">Run Local</Link>: Deploy the model locally for testing
+- {""}<Link to="/api_reference/cli.html#mlflow-deployments-help" target="_blank">Help</Link>: Show the help string for the specified target
 
 For more info, see:
 
