@@ -25,6 +25,7 @@ from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessage
 from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
@@ -115,10 +116,22 @@ class PythonModel:
         """
 
     def _get_type_hints(self):
+        """
+        Internal method to get type hints from the predict function signature.
+        """
+        if hasattr(self, "_predict_type_hints"):
+            return self._predict_type_hints
         if _is_context_in_predict_function_signature(func=self.predict):
-            return _extract_type_hints(self.predict, input_arg_index=1)
+            self._predict_type_hints = _extract_type_hints(self.predict, input_arg_index=1)
         else:
-            return _extract_type_hints(self.predict, input_arg_index=0)
+            self._predict_type_hints = _extract_type_hints(self.predict, input_arg_index=0)
+        return self._predict_type_hints
+
+    def __getattribute__(self, name):
+        attr = super().__getattribute__(name)
+        if name == "predict" and callable(attr):
+            return pyfunc(attr)
+        return attr
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):

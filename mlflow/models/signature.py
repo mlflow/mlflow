@@ -32,6 +32,7 @@ from mlflow.types.type_hints import (
     _validate_example_against_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
+from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -359,6 +360,7 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
+@filter_user_warnings_once
 def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example=None):
     if type_hints.input is None:
         return None
@@ -371,7 +373,8 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
     try:
         input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
-        warnings.warn(e.message, stacklevel=2)
+        # stacklevel is 3 because we have a decorator
+        warnings.warn(e.message, stacklevel=3)
         return None
     params_schema = _infer_param_schema(params) if params else None
     if input_schema and input_example:
@@ -401,6 +404,7 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
         )
     except InvalidTypeHintException:
         output_schema = None
+    # TODO: set default output schema to AnyType to unblock model registry
     if output_schema and output_example:
         try:
             _validate_example_against_type_hint(example=output_example, type_hint=type_hints.output)

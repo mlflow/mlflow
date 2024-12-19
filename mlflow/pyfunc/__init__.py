@@ -803,15 +803,8 @@ class PyFuncModel:
         if self.metadata.is_signature_from_type_hint and isinstance(
             self._model_impl, _PythonModelPyfuncWrapper
         ):
-            from mlflow.types.type_hints import (
-                _maybe_convert_data_for_type_hint,
-                _validate_example_against_type_hint,
-            )
-
-            type_hints = self._model_impl.python_model._get_type_hints()
-            data = _maybe_convert_data_for_type_hint(data, type_hints.input)
-            # TODO: remove the validation here once we move the logic inside PythonModel
-            data = _validate_example_against_type_hint(data, type_hints.input)
+            # we don't need to validate on data as data validation
+            # will be done during PythonModel's predict call
             params = _enforce_params_schema(params, self.params_schema)
         else:
             data, params = _validate_prediction_input(
