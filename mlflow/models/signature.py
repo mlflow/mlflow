@@ -374,7 +374,6 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
         warnings.warn(e.message, stacklevel=2)
         return None
     params_schema = _infer_param_schema(params) if params else None
-    # input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_schema and input_example:
         try:
             _validate_example_against_type_hint(example=input_example, type_hint=type_hints.input)
