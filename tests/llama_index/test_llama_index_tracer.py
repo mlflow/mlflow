@@ -124,6 +124,8 @@ def test_trace_llm_complete_stream():
 
 def _get_llm_input_content_json(content):
     if Version(llama_index.core.__version__) >= Version("0.12.5"):
+        # in llama-index >= 0.12.5, the input content json format is changed to
+        # {"blocks": {"block_type": "text", "text": <content>} }
         return {
             "blocks": [
                 {
