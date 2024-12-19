@@ -634,9 +634,9 @@ The trace UI is also available within Jupyter notebooks!
     :width: 80%
     :align: center
 
-This feature requires using an `MLflow Tracking Server <../latest/tracking/server.html>`, as
+This feature requires using an `MLflow Tracking Server <../latest/tracking/server.html>`_, as
 this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
-Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+Tracking URI is set to your tracking server (e.g. ``mlflow.set_tracking_uri("http://localhost:5000")``).
 
 By default, the trace UI will automatically be displayed for the following events:
 
