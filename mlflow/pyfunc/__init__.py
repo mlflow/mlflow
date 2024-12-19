@@ -483,6 +483,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
 )
 from mlflow.pyfunc.model import (
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    ChatAgent,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -496,9 +497,15 @@ from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
+    CHAT_AGENT_INPUT_EXAMPLE,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
     ChatCompletionResponse,
     ChatMessage,
     ChatParams,
@@ -1033,7 +1040,9 @@ def load_model(
         lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     local_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
+        artifact_uri=model_uri,
+        output_path=dst_path,
+        lineage_header_info=lineage_header_info,
     )
 
     if not suppress_warnings:
@@ -2239,7 +2248,8 @@ def spark_udf(
             # message).
             if env_manager != _EnvManager.LOCAL:
                 pyfunc_backend.prepare_env(
-                    model_uri=local_model_path, capture_output=is_in_databricks_runtime()
+                    model_uri=local_model_path,
+                    capture_output=is_in_databricks_runtime(),
                 )
     else:
         # Broadcast local model directory to remote worker if needed.
@@ -2836,6 +2846,8 @@ def save_model(
                 python_model = _load_model_code_path(model_code_path, model_config)
 
             _validate_function_python_model(python_model)
+            _logger.info(python_model)
+            _logger.info(callable(python_model))
             if callable(python_model) and all(
                 a is None for a in (input_example, pip_requirements, extra_pip_requirements)
             ):
@@ -2891,29 +2903,33 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
+    _logger.info("first argument set" + str(first_argument_set))
+    _logger.info("second argument set" + str(second_argument_set))
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
 
     hints = None
     if signature is not None:
-        if isinstance(python_model, ChatModel):
+        if isinstance(python_model, ChatModel) or isinstance(python_model, ChatAgent):
             raise MlflowException(
-                "ChatModel subclasses have a standard signature that is set "
+                "ChatModel and ChatAgent subclasses have a standard signature that is set "
                 "automatically. Please remove the `signature` parameter from "
                 "the call to log_model() or save_model().",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         mlflow_model.signature = signature
     elif python_model is not None:
+        _logger.info("python_model not none")
         if callable(python_model):
+            _logger.info("python_model is callable")
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
         elif isinstance(python_model, ChatModel):
+            _logger.info("inside of chatmodel")
             mlflow_model.signature = ModelSignature(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
@@ -2970,6 +2986,45 @@ def save_model(
                     "returns a ChatCompletionResponse object. If your predict() method currently "
                     "returns a dict, you can instantiate a ChatCompletionResponse using "
                     "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
+                )
+        elif isinstance(python_model, ChatAgent):
+            _logger.info("inside of chatagent")
+            mlflow_model.signature = ModelSignature(
+                CHAT_AGENT_INPUT_SCHEMA,
+                CHAT_AGENT_OUTPUT_SCHEMA,
+            )
+            input_example = input_example or CHAT_AGENT_INPUT_EXAMPLE
+            input_example, input_params = _split_input_data_and_params(input_example)
+
+            if isinstance(input_example, list):
+                params = ChatAgentParams()
+                messages = []
+                for each_message in input_example:
+                    if isinstance(each_message, ChatAgentMessage):
+                        messages.append(each_message)
+                    else:
+                        messages.append(ChatAgentMessage.from_dict(each_message))
+            else:
+                # If the input example is a dictionary, convert it to ChatMessage format
+                messages = [
+                    ChatAgentMessage.from_dict(m) if isinstance(m, dict) else m
+                    for m in input_example["messages"]
+                ]
+                params = ChatAgentParams.from_dict(input_example)
+            input_example = {
+                "messages": [m.to_dict() for m in messages],
+                **params.to_dict(),
+                **(input_params or {}),
+            }
+            # TODO removed context
+            _logger.info("Predicting on input example to validate output")
+            output = python_model.predict(messages, params)
+            if not isinstance(output, ChatAgentResponse):
+                raise MlflowException(
+                    "Failed to save ChatAgent. Please ensure that the model's predict() method "
+                    "returns a ChatAgentResponse object. If your predict() method currently "
+                    "returns a dict, you can instantiate a ChatAgentResponse using "
+                    "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
