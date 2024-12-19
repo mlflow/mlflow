@@ -26,6 +26,7 @@ jobs:
   js:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions: {}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

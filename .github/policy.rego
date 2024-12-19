@@ -35,10 +35,24 @@ deny_unnecessary_github_token[msg] {
     msg := "Unnecessary use of github-token for actions/github-script."
 }
 
+deny_jobs_without_timeout[msg] {
+    jobs_without_timeout := get_jobs_without_timeout(input.jobs)
+    count(jobs_without_timeout) > 0
+    msg := sprintf("The following jobs are missing timeout-minutes: %s",
+        [concat(", ", jobs_without_timeout)])
+}
+
 ###########################   RULE HELPERS   ##################################
 get_jobs_without_permissions(jobs) = jobs_without_permissions {
     jobs_without_permissions := { job_id |
         job := jobs[job_id]
         not job["permissions"]
+    }
+}
+
+get_jobs_without_timeout(jobs) = jobs_without_timeout {
+    jobs_without_timeout := { job_id |
+        job := jobs[job_id]
+        not job["timeout-minutes"]
     }
 }
