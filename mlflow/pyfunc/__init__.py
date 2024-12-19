@@ -800,7 +800,7 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        if self.metadata.signature_from_type_hint and isinstance(
+        if self.metadata.is_signature_from_type_hint and isinstance(
             self._model_impl, _PythonModelPyfuncWrapper
         ):
             from mlflow.types.type_hints import (
@@ -3023,7 +3023,7 @@ def save_model(
                 extra={"color": "red"},
             )
         mlflow_model.signature = signature_from_type_hints
-        mlflow_model.signature_from_type_hint = True
+        mlflow_model.is_signature_from_type_hint = True
     # TODO: if signature is provided, we should validate input_example against it
     elif signature:
         mlflow_model.signature = signature

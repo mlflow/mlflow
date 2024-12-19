@@ -175,7 +175,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         kwargs["input_example"] = input_example
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
-    assert model_info.signature_from_type_hint is True
+    assert model_info.is_signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     if _is_pydantic_type_hint(type_hint):
@@ -227,8 +227,8 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
     assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
     assert model_info1.signature == model_info2.signature
-    assert model_info1.signature_from_type_hint is True
-    assert model_info2.signature_from_type_hint is True
+    assert model_info1.is_signature_from_type_hint is True
+    assert model_info2.is_signature_from_type_hint is True
 
 
 def save_model_file_for_code_based_logging(
@@ -326,7 +326,7 @@ def test_pyfunc_model_with_type_hints_code_based_logging(
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
 
-    assert model_info.signature_from_type_hint is True
+    assert model_info.is_signature_from_type_hint is True
     assert model_info.signature is not None
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict(input_example) == input_example

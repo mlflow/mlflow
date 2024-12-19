@@ -104,7 +104,7 @@ class ModelInfo:
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
-        signature_from_type_hint: bool = False,
+        is_signature_from_type_hint: bool = False,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -119,7 +119,7 @@ class ModelInfo:
         self._metadata = metadata
         self._registered_model_version = registered_model_version
         self._env_vars = env_vars
-        self._signature_from_type_hint = signature_from_type_hint
+        self._signature_from_type_hint = is_signature_from_type_hint
 
     @property
     def artifact_path(self) -> str:
@@ -329,14 +329,14 @@ class ModelInfo:
         self._registered_model_version = value
 
     @property
-    def signature_from_type_hint(self) -> bool:
+    def is_signature_from_type_hint(self) -> bool:
         """
         Whether the model signature was inferred from type hint.
         """
         return self._signature_from_type_hint
 
-    @signature_from_type_hint.setter
-    def signature_from_type_hint(self, value: bool) -> None:
+    @is_signature_from_type_hint.setter
+    def is_signature_from_type_hint(self, value: bool) -> None:
         self._signature_from_type_hint = value
 
 
@@ -360,7 +360,7 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
-        signature_from_type_hint: bool = False,
+        is_signature_from_type_hint: bool = False,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -376,7 +376,7 @@ class Model:
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
-        self.signature_from_type_hint = signature_from_type_hint
+        self.is_signature_from_type_hint = is_signature_from_type_hint
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -607,7 +607,7 @@ class Model:
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
             env_vars=self.env_vars,
-            signature_from_type_hint=self.signature_from_type_hint,
+            is_signature_from_type_hint=self.is_signature_from_type_hint,
         )
 
     def get_tags_dict(self) -> dict[str, Any]:
