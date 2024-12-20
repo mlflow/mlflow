@@ -1,0 +1,299 @@
+suite: Test MLflow tracking server deployment
+
+templates:
+  - deployment.yaml
+
+release:
+  name: mlflow
+
+tests:
+  - it: Should set image registry, repository, tag and pull policy
+    set:
+      image:
+        registry: my.registry.io
+        repository: mlflow/mlflow
+        tag: latest
+        pullPolicy: Always
+        pullSecrets:
+          - name: test-secret-1
+          - name: test-secret-2
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].image
+          value: my.registry.io/mlflow/mlflow:latest
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].imagePullPolicy
+          value: Always
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value:
+            - name: test-secret-1
+            - name: test-secret-2
+
+  - it: Should set mlflow server arguments properly if extra arguments are specified
+    set:
+      trackingServer:
+        mode: artifacts-only
+        host: 127.0.0.1
+        port: 8080
+        workers: 4
+        extraArgs:
+          - --static-prefix TEXT
+          - --gunicorn-opts "--timeout 900 --graceful-timeout 120"
+          - --waitress-opts TEXT
+          - --expose-prometheus /metrics
+          - --app-name [basic-auth]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --artifacts-only
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --host=127.0.0.1
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --port=8080
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --workers=4
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --static-prefix TEXT
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --gunicorn-opts "--timeout 900 --graceful-timeout 120"
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --waitress-opts TEXT
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --expose-prometheus /metrics
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --app-name [basic-auth]
+
+  - it: Should fail if mlflow server runs with invalid mode
+    set:
+      trackingServer:
+        mode: invalid-mode
+    asserts:
+      - failedTemplate:
+          errorMessage: "invalid mlflow tracking server running mode"
+
+  - it: Should enable basic authentication if basicAuth is enabled
+    set:
+      trackingServer:
+        enabled: true
+        basicAuth:
+          enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].args
+          content: --app-name=mlflow.server:app
+
+  - it: Should mount existing backend store secret
+    set:
+      backendStore:
+        existingSecret: existing-mlflow-backend-store-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: existing-mlflow-backend-store-secret
+          count: 1
+
+  - it: Should mount existing S3 artifact store secret
+    set:
+      artifactStore:
+        enabled: true
+        s3:
+          enabled: true
+          existingSecret: existing-s3-artifact-store-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: existing-s3-artifact-store-secret
+
+  - it: Should mount existing GCP artifact store secret
+    set:
+      artifactStore:
+        enabled: true
+        gcp:
+          enabled: true
+          existingSecret: existing-gcp-artifact-store-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: existing-gcp-artifact-store-secret
+
+  - it: Should mount existing Azure artifact store secret
+    set:
+      artifactStore:
+        enabled: true
+        azure:
+          enabled: true
+          existingSecret: existing-azure-artifact-store-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: existing-azure-artifact-store-secret
+
+  - it: Should mount existing OSS artifact store secret
+    set:
+      artifactStore:
+        enabled: true
+        oss:
+          enabled: true
+          existingSecret: existing-oss-artifact-store-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: existing-oss-artifact-store-secret
+
+  - it: Should contain extra init containers if set
+    set:
+      extraInitContainers:
+        - name: extra-init-container-name
+          image: extra-init-container-image
+          command:
+            - extra-init-container-command
+          args:
+            - extra-init-container-args
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers
+          content:
+            name: extra-init-container-name
+            image: extra-init-container-image
+            command:
+              - extra-init-container-command
+            args:
+              - extra-init-container-args
+
+  - it: Should contain extra containers if set
+    set:
+      extraContainers:
+        - name: extra-container-name
+          image: extra-container-image
+          command:
+            - extra-container-command
+          args:
+            - extra-container-args
+    asserts:
+      - contains:
+          path: spec.template.spec.containers
+          content:
+            name: extra-container-name
+            image: extra-container-image
+            command:
+              - extra-container-command
+            args:
+              - extra-container-args
+
+  - it: Should contain extra env if set
+    set:
+      extraEnv:
+        - name: extra-env-name-1
+          value: extra-env-value-1
+        - name: extra-env-name-2
+          valueFrom:
+            configMapKeyRef:
+              name: extra-env-configmap
+              key: extra-env-key-2
+        - name: extra-env-name-3
+          valueFrom:
+            secretKeyRef:
+              name: extra-env-secret
+              key: extra-env-key-3
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env
+          content:
+            name: extra-env-name-1
+            value: extra-env-value-1
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env
+          content:
+            name: extra-env-name-2
+            valueFrom:
+              configMapKeyRef:
+                name: extra-env-configmap
+                key: extra-env-key-2
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env
+          content:
+            name: extra-env-name-3
+            valueFrom:
+              secretKeyRef:
+                name: extra-env-secret
+                key: extra-env-key-3
+
+  - it: Should contain extra envFrom if set
+    set:
+      extraEnvFrom:
+        - configMapRef:
+            name: extra-env-configmap
+        - secretRef:
+            name: extra-env-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            configMapRef:
+              name: extra-env-configmap
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom
+          content:
+            secretRef:
+              name: extra-env-secret
+
+  - it: Should contain extra volumes if set
+    set:
+      extraVolumes:
+        - name: mlflow-volume
+          persistentVolumeClaim:
+            name: mlflow-pvc
+        - name: mlflow-configmap-volume
+          configMap:
+            name: mlflow-configmap
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: mlflow-volume
+            persistentVolumeClaim:
+              name: mlflow-pvc
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: mlflow-configmap-volume
+            configMap:
+              name: mlflow-configmap
+
+  - it: Should contain extra volumeMounts if set
+    set:
+      extraVolumeMounts:
+        - name: mlflow-volume
+          mountPath: /opt/mlflow
+        - name: mlflow-configmap-volume
+          mountPath: /etc/mlflow
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts
+          content:
+            name: mlflow-volume
+            mountPath: /opt/mlflow
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts
+          content:
+            name: mlflow-configmap-volume
+            mountPath: /etc/mlflow
