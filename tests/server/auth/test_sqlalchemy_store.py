@@ -426,8 +426,9 @@ def test_delete_registered_model_permission(store):
         store.get_registered_model_permission(name1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
+
 def test_rename_registered_model_permission(store):
-    # create 2 users and create 2 permission for the model registry with the same name 
+    # create 2 users and create 2 permission for the model registry with the same name
     model_registry_name = random_str()
     username1 = random_str()
     password1 = random_str()
@@ -440,7 +441,7 @@ def test_rename_registered_model_permission(store):
     _rmp_maker(store, model_registry_name, username2, MANAGE.name)
 
     model_registry_new_name = random_str()
-    
+
     store.rename_registered_model_permissions(model_registry_name, model_registry_new_name)
 
     # get permission by model registry new name and all user must have the same new name
