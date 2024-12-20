@@ -81,8 +81,11 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         dest_path = self.model_base_path
         if remote_file_path:
             dest_path = posixpath.join(dest_path, remote_file_path)
-
+        _logger.info(f"calling client.files.download({dest_path})...\n")
         resp = self.client.files.download(dest_path)
+        _logger.info("passed download call...printing response...\n")
+        for key, value in resp.as_dict().items():
+            _logger.info(f"{key}: {value}")
         contents = resp.contents
 
         with open(local_path, "wb") as f:
