@@ -55,6 +55,13 @@ def test_basic_save():
     assert isinstance(loaded_model, CoT)
 
 
+def get_dummy_model():
+    return DummyLM([
+        {"output": answer}
+        for answer in ["4", "6", "8", "10"]
+    ])
+
+
 def test_save_compiled_model():
     train_data = [
         "What is 2 + 2?",
@@ -71,8 +78,7 @@ def test_save_compiled_model():
     def dummy_metric(program):
         return 1.0
 
-    random_answers = ["4", "6", "8", "10"]
-    lm = DummyLM(answers=random_answers)
+    lm = get_dummy_model()
     dspy.settings.configure(lm=lm)
 
     dspy_model = CoT()
@@ -116,8 +122,7 @@ def test_dspy_save_preserves_object_state():
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    random_answers = ["4", "6", "8", "10"]
-    lm = DummyLM(answers=random_answers)
+    lm = get_dummy_model()
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=lm, rm=rm)
 
@@ -192,8 +197,8 @@ def test_load_logged_model_in_native_dspy():
         "What is 4 + 4?",
         "What is 5 + 5?",
     ]
-    random_answers = ["4", "6", "8", "10"]
-    lm = DummyLM(answers=random_answers)
+
+    lm = get_dummy_model()
     dspy.settings.configure(lm=lm)
 
     with mlflow.start_run() as run:
@@ -217,8 +222,7 @@ def test_serving_logged_model():
             return self.prog(question=question)
 
     dspy_model = CoT()
-    random_answers = ["4", "6", "8", "10"]
-    lm = DummyLM(answers=random_answers)
+    lm = get_dummy_model()
     dspy.settings.configure(lm=lm)
 
     input_examples = {"inputs": ["What is 2 + 2?"]}
@@ -267,8 +271,7 @@ def test_save_chat_model_with_string_output():
             return self.prog(question=inputs[0]["content"]).answer
 
     dspy_model = CoT()
-    random_answers = ["4", "4", "4", "4"]
-    lm = DummyLM(answers=random_answers)
+    lm = get_dummy_model()
     dspy.settings.configure(lm=lm)
 
     input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
@@ -302,8 +305,7 @@ def test_serve_chat_model():
             return self.prog(question=inputs[0]["content"])
 
     dspy_model = CoT()
-    random_answers = ["4", "6", "8", "10"]
-    lm = DummyLM(answers=random_answers)
+    lm = get_dummy_model()
     dspy.settings.configure(lm=lm)
 
     input_examples = {"messages": [{"role": "user", "content": "What is 2 + 2?"}]}
@@ -368,8 +370,7 @@ def test_additional_pip_requirements():
 def test_infer_signature_from_input_examples():
     artifact_path = "model"
     dspy_model = CoT()
-    random_answers = ["4", "6", "8", "10"]
-    dspy.settings.configure(lm=DummyLM(answers=random_answers))
+    dspy.settings.configure(lm=get_dummy_model())
     with mlflow.start_run():
         mlflow.dspy.log_model(dspy_model, artifact_path, input_example="what is 2 + 2?")
 
