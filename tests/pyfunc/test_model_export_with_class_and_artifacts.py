@@ -1466,14 +1466,14 @@ def test_python_model_predict_with_params():
 def test_python_model_with_type_hint_errors_with_different_signature():
     signature = infer_signature(["input1", "input2"], params={"foo": [8]})
 
-    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
-        with mlflow.start_run():
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
             mlflow.pyfunc.log_model(
                 "test_model",
                 python_model=AnnotatedPythonModel(),
                 signature=signature,
             )
-        assert warn_mock.call_count == 1
+        warn_mock.assert_called_once()
         assert (
             "Provided signature does not match the signature inferred from"
             in warn_mock.call_args[0][0]

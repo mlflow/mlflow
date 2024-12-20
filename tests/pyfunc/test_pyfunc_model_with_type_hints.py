@@ -187,8 +187,8 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
     def predict(model_input: int) -> int:
         return model_input
 
-    with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
-        with mlflow.start_run():
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model("test_model", python_model=predict, input_example="string")
         assert (
             "Input example is not compatible with the type hint of the `predict` function."
@@ -199,8 +199,8 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
         return model_input
 
     output_hints = _extract_type_hints(predict, 0).output
-    with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
-        with mlflow.start_run():
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
                 "test_model", python_model=predict, input_example=123
             )
@@ -375,8 +375,8 @@ def test_invalid_type_hint_in_python_model():
         def predict(self, model_input: list[object], params=None) -> str:
             return model_input[0]
 
-    with mock.patch("mlflow.models.signature.warnings.warn") as mock_warning:
-        with mlflow.start_run():
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.signature.warnings.warn") as mock_warning:
             mlflow.pyfunc.log_model("model", python_model=MyModel())
-        assert mock_warning.call_count == 1
+        mock_warning.assert_called_once()
         assert "Unsupported type hint" in mock_warning.call_args[0][0]
