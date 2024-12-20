@@ -1,4 +1,5 @@
 import base64
+import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -41,6 +42,7 @@ from mlflow.utils.uri import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_logger = logging.getLogger(__name__)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -127,7 +129,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         host_creds = get_databricks_host_creds(self.registry_uri)
+        _logger.info("UC_MAR: Attempting to check for files API env variable...\n")
         if is_databricks_sdk_models_artifact_repository_enabled(host_creds):
+            _logger.info("\tUC_MAR: Files API env variable found. Returning a DatabricksSDKModelsArtifactRepository...\n")
             entities = lineage_header_info.entities if lineage_header_info else []
             emit_model_version_lineage(
                 host_creds,
@@ -137,6 +141,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 ModelVersionLineageDirection.DOWNSTREAM,
             )
             return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
+        _logger.info("\tUC_MAR: NON-Files API artifact repo being returned...\n")
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(

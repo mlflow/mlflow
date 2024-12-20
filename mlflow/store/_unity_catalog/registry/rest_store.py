@@ -815,9 +815,11 @@ class UcModelRegistryStore(BaseRestStore):
                 name=model_version.name, version=model_version.version
             )
 
+        _logger.info("Attempting to check for files API env variable...\n")
         if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
+            _logger.info("\tFiles API env variable found. Returning a DatabricksSDKModelsArtifactRepository...\n")
             return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
-
+        _logger.info("\tNON-Files API artifact repo being returned...\n")
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(
