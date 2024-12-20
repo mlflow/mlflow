@@ -12,8 +12,8 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, 
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
+    _convert_pandas_dataframe_to_hinted_type,
     _infer_schema_from_type_hint,
-    _maybe_convert_data_for_type_hint,
     _validate_example_against_type_hint,
 )
 
@@ -414,15 +414,15 @@ def test_type_hint_for_python_3_10():
 def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
     if isinstance(expected_data, pd.DataFrame):
         pd.testing.assert_frame_equal(
-            _maybe_convert_data_for_type_hint(data, type_hint), expected_data
+            _convert_pandas_dataframe_to_hinted_type(data, type_hint), expected_data
         )
     else:
-        assert _maybe_convert_data_for_type_hint(data, type_hint) == expected_data
+        assert _convert_pandas_dataframe_to_hinted_type(data, type_hint) == expected_data
 
 
 def test_maybe_convert_data_for_type_hint_errors():
     with mock.patch("mlflow.types.type_hints._logger.warning") as mock_warning:
-        _maybe_convert_data_for_type_hint(
+        _convert_pandas_dataframe_to_hinted_type(
             pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str]
         )
         assert mock_warning.call_count == 1
@@ -435,4 +435,4 @@ def test_maybe_convert_data_for_type_hint_errors():
         MlflowException,
         match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
     ):
-        _maybe_convert_data_for_type_hint(pd.DataFrame([["a", "b"]]), str)
+        _convert_pandas_dataframe_to_hinted_type(pd.DataFrame([["a", "b"]]), str)
