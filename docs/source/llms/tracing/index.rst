@@ -621,6 +621,35 @@ for model/API invocations to the active MLflow Experiment.
             :align: center
 
 
+Jupyter Notebook integration
+----------------------------
+
+.. note::
+    Jupyter integration is available in **MLflow 2.20 and above**
+
+The trace UI is also available within Jupyter notebooks! 
+
+.. figure:: ../../_static/images/llms/tracing/jupyter-trace-ui.png
+    :alt: MLflow Trace UI in Jupyter Notebook
+    :width: 80%
+    :align: center
+
+This feature requires using an `MLflow Tracking Server <../../tracking/server.html>`_, as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. ``mlflow.set_tracking_uri("http://localhost:5000")``).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via  `automatic tracing <#automatic-tracing>`_, or by running a manually traced function)
+2. When :py:func:`mlflow.search_traces` is called
+3. When a :py:class:`mlflow.entities.Trace` object is displayed (e.g. via IPython's ``display`` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call :py:func:`mlflow.tracing.disable_notebook_display`, and rerun the cell
+containing the UI. To enable it again, call :py:func:`mlflow.tracing.enable_notebook_display`.
+
+For a more complete example, try running this `demo notebook <./notebooks/jupyter-trace-demo.html>`_!
+
+
 Tracing Fluent APIs
 -------------------
 
