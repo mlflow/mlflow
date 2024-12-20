@@ -23,7 +23,9 @@ import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Optional, Union
 
 import langchain.chains
@@ -37,11 +39,6 @@ from mlflow.langchain.utils.chat import (
     try_transform_response_to_chat_format,
 )
 from mlflow.langchain.utils.serialization import convert_to_serializable
-from mlflow.pyfunc.context import (
-    Context,
-    get_prediction_context,
-    maybe_set_prediction_context,
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -94,7 +91,6 @@ class APIRequest:
         did_perform_chat_conversion: Whether the input data was converted to chat format
             based on the model's type and input data.
         stream: Whether the request is a stream request
-        prediction_context: The prediction context to use for the request
     """
 
     index: int
@@ -106,7 +102,6 @@ class APIRequest:
     did_perform_chat_conversion: bool
     stream: bool
     params: dict[str, Any]
-    prediction_context: Optional[Context] = None
 
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
         config = kwargs.pop("config", {})
@@ -198,8 +193,7 @@ class APIRequest:
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            with maybe_set_prediction_context(self.prediction_context):
-                response = self.single_call_api(callback_handlers)
+            response = self.single_call_api(callback_handlers)
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
@@ -259,7 +253,6 @@ def process_api_requests(
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
-                    prediction_context=get_prediction_context(),
                     params=params,
                 )
                 status_tracker.start_task()
@@ -268,9 +261,16 @@ def process_api_requests(
 
             # if enough capacity available, call API
             if next_request:
+                context = copy_context()
+                task = partial(
+                    next_request.call_api,
+                    status_tracker=status_tracker,
+                    callback_handlers=callback_handlers,
+                )
                 # call API
                 executor.submit(
-                    next_request.call_api,
+                    context.run,
+                    task,
                     status_tracker=status_tracker,
                     callback_handlers=callback_handlers,
                 )
@@ -322,8 +322,6 @@ def process_stream_request(
         convert_chat_responses=convert_chat_responses,
         did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,
-        prediction_context=get_prediction_context(),
         params=params,
     )
-    with maybe_set_prediction_context(api_request.prediction_context):
-        return api_request.single_call_api(callback_handlers)
+    return api_request.single_call_api(callback_handlers)

@@ -21,7 +21,6 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -84,7 +83,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def __init__(
         self,
-        prediction_context: Optional[Context] = None,
         set_span_in_context: bool = True,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
@@ -93,7 +91,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._mlflow_client = MlflowClient()
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
-        self._prediction_context = prediction_context
         self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
@@ -111,35 +108,28 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        with maybe_set_prediction_context(self._prediction_context):
-            parent = self._get_parent_span(parent_run_id)
-            if parent:
-                span = self._mlflow_client.start_span(
-                    name=span_name,
-                    request_id=parent.request_id,
-                    parent_id=parent.span_id,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=attributes,
-                )
-            else:
-                # When parent_run_id is None, this is root component so start trace
-                dependencies_schemas = (
-                    self._prediction_context.dependencies_schemas
-                    if self._prediction_context
-                    else None
-                )
-                span = self._mlflow_client.start_trace(
-                    name=span_name,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=attributes,
-                    tags=dependencies_schemas,
-                )
+        parent = self._get_parent_span(parent_run_id)
+        if parent:
+            span = self._mlflow_client.start_span(
+                name=span_name,
+                request_id=parent.request_id,
+                parent_id=parent.span_id,
+                span_type=span_type,
+                inputs=inputs,
+                attributes=attributes,
+            )
+        else:
+            # When parent_run_id is None, this is root component so start trace
+            span = self._mlflow_client.start_trace(
+                name=span_name,
+                span_type=span_type,
+                inputs=inputs,
+                attributes=attributes,
+            )
 
-            # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span) if self._set_span_in_context else None
-            self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
+        # Attach the span to the current context to mark it "active"
+        token = set_span_in_context(span) if self._set_span_in_context else None
+        self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
@@ -165,14 +155,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     ):
         """Close MLflow Span (or Trace if it is root component)"""
         try:
-            with maybe_set_prediction_context(self._prediction_context):
-                self._mlflow_client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
-                    outputs=outputs,
-                    attributes=attributes,
-                    status=status,
-                )
+            self._mlflow_client.end_span(
+                request_id=span.request_id,
+                span_id=span.span_id,
+                outputs=outputs,
+                attributes=attributes,
+                status=status,
+            )
         finally:
             # Span should be detached from the context even when the client.end_span fails
             st = self._run_span_mapping.pop(str(run_id), None)
