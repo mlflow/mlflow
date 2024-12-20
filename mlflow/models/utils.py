@@ -1325,16 +1325,15 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True, enforce_param=F
         raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
     if enforce_param:
         return _enforce_param_datatype(data, dtype)
-    else:
-        # Reuse logic in _enforce_mlflow_datatype for type conversion
-        pd_series = pd.Series(data)
-        try:
-            pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
-        except MlflowException:
-            raise MlflowException(
-                f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
-            )
-        return pd_series[0]
+    # Reuse logic in _enforce_mlflow_datatype for type conversion
+    pd_series = pd.Series(data)
+    try:
+        pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
+    except MlflowException:
+        raise MlflowException(
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+        )
+    return pd_series[0]
 
 
 def _enforce_array(data: Any, arr: Array, required: bool = True, enforce_param: bool = False):
