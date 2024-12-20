@@ -43,7 +43,7 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        files: '\.(rst|md)$'
+        files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
         require_serial: true
 

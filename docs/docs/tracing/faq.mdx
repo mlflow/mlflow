@@ -1,0 +1,15 @@
+---
+sidebar_position: 7
+sidebar_label: FAQ
+---
+
+# FAQ
+
+### Q: I cannot open my trace in the MLflow UI. What should I do?
+
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI.
+
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+
