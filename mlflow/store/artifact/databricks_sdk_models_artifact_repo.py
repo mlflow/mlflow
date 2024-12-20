@@ -1,4 +1,6 @@
 import posixpath
+import logging
+
 from typing import Optional
 
 from databricks.sdk.errors.platform import NotFound
@@ -7,7 +9,7 @@ from mlflow.entities import FileInfo
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
 DOWNLOAD_CHUNK_SIZE = 1024 * 1024 * 1024
-
+_logger = logging.getLogger(__name__)
 
 def _get_databricks_workspace_client():
     from databricks.sdk import WorkspaceClient
@@ -75,6 +77,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         )
 
     def _download_from_cloud(self, remote_file_path, local_path):
+        _logger.info("Attempting to download_from_cloud...\n")
         dest_path = self.model_base_path
         if remote_file_path:
             dest_path = posixpath.join(dest_path, remote_file_path)
