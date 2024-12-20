@@ -409,7 +409,7 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
                 inputs = [None, input_example]
             else:
                 inputs = [input_example]
-            _logger.info("Running the predict function to infer output based on input example")
+            _logger.info("Running the predict function to generate output based on input example")
             try:
                 output_example = func(*inputs, **kwargs)
             except Exception:
