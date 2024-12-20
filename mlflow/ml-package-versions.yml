@@ -400,7 +400,20 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
-      sudo apt-get -y install libtbb2
+      # build and install libtbb2 library from source,
+      # this library can't be installed in Ubuntu >= 24.04 by `apt install` command.
+      pushd /tmp
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      sudo apt update
+      sudo apt install gcc-9 g++-9
+      sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 1000 --slave /usr/bin/g++ g++ /usr/bin/g++-9
+      git clone --depth 1 --branch tbb44u4 https://github.com/wjakob/tbb.git
+      cd tbb/build
+      cmake ..
+      make -j
+      sudo make install
+      sudo ldconfig
+      popd
       pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
