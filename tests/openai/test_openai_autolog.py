@@ -387,10 +387,13 @@ def test_autolog_use_active_run_id(client, log_models):
 def test_autolog_raw_response(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
         )
         resp = resp.parse()  # ensure the raw response is returned
 
@@ -402,15 +405,22 @@ def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
+    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
+        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
+    )
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 
 def test_autolog_raw_response_stream(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
             stream=True,
         )
         resp = resp.parse()  # ensure the raw response is returned
@@ -420,37 +430,7 @@ def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs == "Hello world"
-
-
-@pytest.mark.parametrize("tools", [None, MOCK_TOOLS])
-@pytest.mark.parametrize("stream", [True, False])
-def test_chat_schema_attributes_are_set(client, tools, stream):
-    mlflow.openai.autolog()
-
-    messages = [{"role": "user", "content": "test"}]
-
-    with mlflow.start_run():
-        resp = client.chat.completions.with_raw_response.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=tools,
-            stream=stream,
-        )
-        resp = resp.parse()
-        if stream:
-            list(resp)  # consume the stream to finish the trace
-            content = "Hello world"
-        else:
-            content = json.dumps(messages)
-
-    trace = mlflow.get_last_active_trace()
-    assert len(trace.data.spans) == 1
-    span = trace.data.spans[0]
     assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": content}]
+        messages + [{"role": "assistant", "content": "Hello world"}]
     )
-
-    if tools is not None:
-        assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == tools
-    else:
-        assert SpanAttributeKey.CHAT_TOOLS not in span.attributes
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
