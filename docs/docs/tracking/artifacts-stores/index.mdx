@@ -2,6 +2,7 @@
 sidebar_label: Artifact Store
 ---
 
+import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 
 # Artifact Stores
@@ -192,7 +193,7 @@ The HDFS artifact store is accessed using the `pyarrow.fs` module, refer to the
 ## Deletion Behavior
 
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The [mlflow gc](/cli) CLI is provided
+from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
 ## Multipart upload for proxied artifact access

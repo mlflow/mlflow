@@ -2,6 +2,7 @@
 sidebar_position: 17
 ---
 
+import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 
 # MLflow Plugins
@@ -439,7 +440,7 @@ and the conda.yaml file associated with the model.
 The following known plugins provide support for deploying models to custom serving tools using
 MLflow's [model deployment APIs](/models#deployment-plugin). See the individual plugin pages
 for installation instructions, and see the <APILink fn="mlflow.deployments">Python API docs</APILink>
-and [CLI docs](/cli#mlflow-deployments) for usage instructions and examples.
+and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">CLI docs</Link> for usage instructions and examples.
 
 - [mlflow-redisai](https://github.com/RedisAI/mlflow-redisai)
 - [mlflow-torchserve](https://github.com/mlflow/mlflow-torchserve)
