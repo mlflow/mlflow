@@ -17,6 +17,6 @@ def test_pyfunc_unpicklable_exception(tmp_path):
 
     with pytest.raises(
         MlflowException,
-        match="Please save the model as a python file and use code-based logging method instead",
+        match="Please save the model into a python file and use code-based logging method instead",
     ):
         mlflow.pyfunc.save_model(python_model=model, path=tmp_path / "model")

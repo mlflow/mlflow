@@ -113,7 +113,6 @@ class ModelSignature:
             "inputs": self.inputs.to_json() if self.inputs else None,
             "outputs": self.outputs.to_json() if self.outputs else None,
             "params": self.params.to_json() if self.params else None,
-            "_is_signature_from_type_hint": self._is_signature_from_type_hint,
         }
 
     @classmethod
@@ -134,11 +133,7 @@ class ModelSignature:
         inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
         params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
-        signature = cls(inputs, outputs, params)
-        signature._is_signature_from_type_hint = signature_dict.get(
-            "_is_signature_from_type_hint", False
-        )
-        return signature
+        return cls(inputs, outputs, params)
 
     def __eq__(self, other) -> bool:
         return (
