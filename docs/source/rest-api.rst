@@ -101,9 +101,9 @@ Search Experiments
 | ``2.0/mlflow/experiments/search`` | ``POST``    |
 +-----------------------------------+-------------+
 
-
-
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowSearchExperiments:
@@ -185,7 +185,9 @@ Get Experiment
 
 Get metadata for an experiment. This method works on deleted experiments.
 
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowGetExperiment:
@@ -1389,9 +1391,9 @@ Get RegisteredModel
 | ``2.0/mlflow/registered-models/get`` | ``GET``     |
 +--------------------------------------+-------------+
 
-
-
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowGetRegisteredModel:
@@ -1725,9 +1727,9 @@ Get ModelVersion
 | ``2.0/mlflow/model-versions/get`` | ``GET``     |
 +-----------------------------------+-------------+
 
-
-
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowGetModelVersion:
@@ -1888,9 +1890,9 @@ Search ModelVersions
 | ``2.0/mlflow/model-versions/search`` | ``GET``     |
 +--------------------------------------+-------------+
 
-
-
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowSearchModelVersions:
@@ -2084,9 +2086,9 @@ Search RegisteredModels
 | ``2.0/mlflow/registered-models/search`` | ``GET``     |
 +-----------------------------------------+-------------+
 
-
-
-
+.. note::
+   - **Case-sensitive**: The filters provided in the request must match the case of the stored experiment names and other attributes in the MLflow system.
+   - Ensure that the filter string is constructed with exact case matching to avoid unexpected results.
 
 
 .. _mlflowSearchRegisteredModels:
