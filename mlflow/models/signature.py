@@ -96,7 +96,15 @@ class ModelSignature:
         else:
             self.outputs = outputs
         self.params = params
-        self._is_signature_from_type_hint = False
+        self.__is_signature_from_type_hint = False
+
+    @property
+    def _is_signature_from_type_hint(self):
+        return self.__is_signature_from_type_hint
+
+    @_is_signature_from_type_hint.setter
+    def _is_signature_from_type_hint(self, value):
+        self.__is_signature_from_type_hint = value
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -396,9 +404,11 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
                 f"Error: {msg}"
             )
         else:
-            kwargs = {}
-            if params and params_key in inspect.signature(func).parameters:
-                kwargs[params_key] = params
+            kwargs = (
+                {params_key: params}
+                if params and params_key in inspect.signature(func).parameters
+                else {}
+            )
             # This is for PythonModel's predict function
             if _is_context_in_predict_function_signature(func=func):
                 inputs = [None, input_example]

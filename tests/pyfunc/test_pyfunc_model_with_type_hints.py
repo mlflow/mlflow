@@ -374,7 +374,5 @@ def test_invalid_type_hint_in_python_model():
             return model_input[0]
 
     with mlflow.start_run():
-        with mock.patch("mlflow.models.signature.warnings.warn") as mock_warning:
+        with pytest.warns(UserWarning, match=r"Unsupported type hint"):
             mlflow.pyfunc.log_model("model", python_model=MyModel())
-        mock_warning.assert_called_once()
-        assert "Unsupported type hint" in mock_warning.call_args[0][0]

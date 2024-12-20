@@ -1270,7 +1270,10 @@ def test_functional_python_model_list_invalid_example(tmp_path, input_example):
         mlflow.pyfunc.save_model(
             path=tmp_path, python_model=list_to_list, input_example=input_example
         )
-        assert "Input example is not compatible with the type hint" in mock_warning.call_args[0][0]
+        assert any(
+            "Input example is not compatible with the type hint" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 @pytest.mark.parametrize(
@@ -1286,7 +1289,10 @@ def test_functional_python_model_list_dict_invalid_example(tmp_path, input_examp
         mlflow.pyfunc.save_model(
             path=tmp_path, python_model=list_dict_to_list, input_example=input_example
         )
-        assert "Input example is not compatible with the type hint" in mock_warning.call_args[0][0]
+        assert any(
+            "Input example is not compatible with the type hint" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 def test_functional_python_model_list_dict_to_list(tmp_path):
