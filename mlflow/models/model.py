@@ -574,6 +574,9 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
+    def _is_signature_from_type_hint(self):
+        return self.signature._is_signature_from_type_hint if self.signature is not None else False
+
     def get_model_info(self) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

@@ -801,7 +801,7 @@ class PyFuncModel:
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
         # signature can only be inferred from type hints if the model is PythonModel
-        if self.metadata.signature._is_signature_from_type_hint:
+        if self.metadata._is_signature_from_type_hint():
             from mlflow.types.type_hints import (
                 _convert_pandas_dataframe_to_hinted_type,
                 _validate_example_against_type_hint,
