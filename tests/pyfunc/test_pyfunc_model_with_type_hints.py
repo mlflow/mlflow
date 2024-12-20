@@ -7,7 +7,6 @@ import pydantic
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import _is_pydantic_type_hint
@@ -175,7 +174,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         kwargs["input_example"] = input_example
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
-    assert model_info.is_signature_from_type_hint is True
+    assert model_info.signature._is_signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     if _is_pydantic_type_hint(type_hint):
@@ -188,12 +187,13 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
     def predict(model_input: int) -> int:
         return model_input
 
-    with pytest.raises(
-        MlflowException,
-        match=r"Input example is not compatible with the type hint of the `predict` function.",
-    ):
+    with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
         with mlflow.start_run():
             mlflow.pyfunc.log_model("test_model", python_model=predict, input_example="string")
+        assert (
+            "Input example is not compatible with the type hint of the `predict` function."
+            in mock_warning.call_args[0][0]
+        )
 
     def predict(model_input: int) -> str:
         return model_input
@@ -204,13 +204,12 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
             model_info = mlflow.pyfunc.log_model(
                 "test_model", python_model=predict, input_example=123
             )
-        mock_warning.assert_called_once_with(
-            f"Failed to validate output `123` against type hint `{output_hints}`. "
-            "Set the logging level to DEBUG to see the full traceback.",
-            exc_info=False,
+        assert (
+            f"Failed to validate output `123` against type hint `{output_hints}`"
+            in mock_warning.call_args[0][0]
         )
         assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long)])
-        assert model_info.signature.outputs is None
+        assert model_info.signature.outputs == Schema([ColSpec(AnyType())])
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
@@ -227,8 +226,8 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
     assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
     assert model_info1.signature == model_info2.signature
-    assert model_info1.is_signature_from_type_hint is True
-    assert model_info2.is_signature_from_type_hint is True
+    assert model_info1.signature._is_signature_from_type_hint is True
+    assert model_info2.signature._is_signature_from_type_hint is True
 
 
 def save_model_file_for_code_based_logging(
@@ -326,8 +325,8 @@ def test_pyfunc_model_with_type_hints_code_based_logging(
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
 
-    assert model_info.is_signature_from_type_hint is True
     assert model_info.signature is not None
+    assert model_info.signature._is_signature_from_type_hint is True
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict(input_example) == input_example
 

@@ -800,16 +800,15 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        if self.metadata.is_signature_from_type_hint and isinstance(
-            self._model_impl, _PythonModelPyfuncWrapper
-        ):
+        # signature can only be inferred from type hints if the model is PythonModel
+        if self.metadata.signature._is_signature_from_type_hint:
             from mlflow.types.type_hints import (
-                _maybe_convert_data_for_type_hint,
+                _convert_pandas_dataframe_to_hinted_type,
                 _validate_example_against_type_hint,
             )
 
             type_hints = self._model_impl.python_model._get_type_hints()
-            data = _maybe_convert_data_for_type_hint(data, type_hints.input)
+            data = _convert_pandas_dataframe_to_hinted_type(data, type_hints.input)
             # TODO: remove the validation here once we move the logic inside PythonModel
             data = _validate_example_against_type_hint(data, type_hints.input)
             params = _enforce_params_schema(params, self.params_schema)
@@ -3012,18 +3011,17 @@ def save_model(
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
-            # TODO: drop this support and raise exception in the next release since this
+            # TODO: drop this support and raise exception in the next minor release since this
             # is a behavior change
             _logger.warning(
                 "Provided signature does not match the signature inferred from the Python model's "
                 "`predict` function type hint. Signature inferred from type hint: "
                 f"`{signature_from_type_hints}`. Remove the `signature` parameter or ensure it "
-                "matches the inferred signature. Such behavior will not be allowed in a future "
-                "release. Using signature inferred from type hints for data validation.",
+                "matches the inferred signature. In a future release, this warning will become an "
+                "exception, and the signature must align with the type hint.",
                 extra={"color": "red"},
             )
         mlflow_model.signature = signature_from_type_hints
-        mlflow_model.is_signature_from_type_hint = True
     # TODO: if signature is provided, we should validate input_example against it
     elif signature:
         mlflow_model.signature = signature

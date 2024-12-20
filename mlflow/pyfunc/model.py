@@ -375,9 +375,9 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                 cloudpickle.dump(python_model, out)
         except Exception as e:
             raise MlflowException(
-                "Failed to serialize Python model. Please save the model as a python file "
-                "and use code-based logging method instead. For more information, see our "
-                "documentation at: https://mlflow.org/docs/latest/models.html#models-from-code"
+                "Failed to serialize Python model. Please save the model into a python file "
+                "and use code-based logging method instead. See"
+                "https://mlflow.org/docs/latest/models.html#models-from-code for more information."
             ) from e
 
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
