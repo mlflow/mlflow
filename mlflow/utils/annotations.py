@@ -192,3 +192,15 @@ def keyword_only(func):
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
 
     return wrapper
+
+
+def filter_user_warnings_once(func):
+    """A decorator that filter user warnings to only show once in the wrapped method."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("once", category=UserWarning)
+            return func(*args, **kwargs)
+
+    return wrapper

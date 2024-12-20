@@ -32,6 +32,7 @@ from mlflow.types.type_hints import (
     _infer_schema_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
+from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -359,9 +360,19 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
+@filter_user_warnings_once
 def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example=None):
     if type_hints.input is None:
         return None
+
+    _pyfunc_decorator_not_used = getattr(func, "_is_pyfunc", None) is not True
+    if _pyfunc_decorator_not_used:
+        # stacklevel is 3 because we have a decorator
+        warnings.warn(
+            "Decorate your callable with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
+            "data validation against model input type hints.",
+            stacklevel=3,
+        )
 
     params = None
     params_key = "params"
@@ -371,7 +382,7 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
     try:
         input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
-        warnings.warn(e.message, stacklevel=2)
+        warnings.warn(e.message, stacklevel=3)
         return None
     is_output_type_hint_valid = type_hints.output is not None
     try:
@@ -380,17 +391,19 @@ def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example
         )
     except InvalidTypeHintException as e:
         warnings.warn(
-            f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=2
+            f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=3
         )
         is_output_type_hint_valid = False
         output_schema = Schema([ColSpec(type=AnyType())])
     params_schema = _infer_param_schema(params) if params else None
     if input_example:
-        # TODO: we can remove input example validation here
-        # once we move the validation inside `predict` function
-        if msg := _get_example_validation_result(
-            example=input_example, type_hint=type_hints.input
-        ).error_message:
+        # only validate input example here if pyfunc decorator is not used
+        # otherwise func will validate the input
+        if _pyfunc_decorator_not_used and (
+            msg := _get_example_validation_result(
+                example=input_example, type_hint=type_hints.input
+            ).error_message
+        ):
             _logger.warning(
                 "Input example is not compatible with the type hint of the `predict` function. "
                 f"Error: {msg}"
