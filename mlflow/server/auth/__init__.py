@@ -622,12 +622,24 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def rename_registered_model_permission(resp: Response):
+    """
+    A model registry can be assigned to multiple users with different permissions.
+
+    Changing the model registry name must be propagated to all users.
+    """
+    # get registry model name before update
+    data = request.get_json(force=True, silent=True)
+    store.rename_registered_model_permissions(data.get("name"), data.get("new_name"))
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchRegisteredModels: filter_search_registered_models,
+    RenameRegisteredModel: rename_registered_model_permission,
 }
 
 
