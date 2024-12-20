@@ -856,17 +856,18 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
+# dtype -> possible value types mapping
 _ALLOWED_CONVERSIONS_FOR_PARAMS = {
-    DataType.integer: (DataType.long, DataType.float, DataType.double),
-    DataType.long: (DataType.float, DataType.double),
-    DataType.float: (DataType.double,),
+    DataType.long: (DataType.integer),
+    DataType.float: (DataType.integer, DataType.long),
+    DataType.double: (DataType.integer, DataType.long, DataType.float),
 }
 
 
 def _enforce_param_datatype(value: Any, dtype: DataType):
     """
     Enforce the value matches the data type. This is used to enforce params datatype.
-    The returned data type is a python native type.
+    The returned data is of python built-in type or a datetime object.
 
     The following type conversions are allowed:
 
@@ -908,9 +909,8 @@ def _enforce_param_datatype(value: Any, dtype: DataType):
     if DataType.check_type(dtype, value):
         return dtype.to_python()(value)
 
-    if any(
-        DataType.check_type(allowed_type, value) and dtype in expected_types
-        for allowed_type, expected_types in _ALLOWED_CONVERSIONS_FOR_PARAMS.items()
+    if dtype in _ALLOWED_CONVERSIONS_FOR_PARAMS and any(
+        DataType.check_type(t, value) for t in _ALLOWED_CONVERSIONS_FOR_PARAMS[dtype]
     ):
         try:
             return dtype.to_python()(value)
