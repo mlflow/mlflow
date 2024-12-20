@@ -230,9 +230,7 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     assert model_info2.signature._is_signature_from_type_hint is True
 
 
-def save_model_file_for_code_based_logging(
-    type_hint, tmp_path, model_type, extra_import="", extra_def=""
-):
+def save_model_file_for_code_based_logging(type_hint, tmp_path, model_type, extra_def=""):
     if model_type == "callable":
         model_def = f"""
 def predict(model_input: {type_hint}) -> {type_hint}:
@@ -251,7 +249,10 @@ set_model(TestModel())
     file_content = f"""
 import mlflow
 from mlflow.models import set_model
-{extra_import}
+
+import datetime
+import pydantic
+from typing import Any, Optional, Union
 
 {extra_def}
 {model_def}
@@ -264,7 +265,6 @@ from mlflow.models import set_model
 class TypeHintExample(NamedTuple):
     type_hint: str
     input_example: Any
-    extra_import: str = ""
     extra_def: str = ""
 
 
@@ -276,11 +276,11 @@ class TypeHintExample(NamedTuple):
         TypeHintExample("bool", True),
         TypeHintExample("float", 1.23),
         TypeHintExample("bytes", b"bytes"),
-        TypeHintExample("datetime.datetime", datetime.datetime.now(), "import datetime"),
-        TypeHintExample("Any", "any", "from typing import Any"),
+        TypeHintExample("datetime.datetime", datetime.datetime.now()),
+        TypeHintExample("Any", "any"),
         TypeHintExample("list[str]", ["a", "b"]),
         TypeHintExample("dict[str, int]", {"a": 1}),
-        TypeHintExample("Union[int, str]", 123, "from typing import Union"),
+        TypeHintExample("Union[int, str]", 123),
         TypeHintExample(
             "CustomExample2",
             CustomExample2(
@@ -288,7 +288,6 @@ class TypeHintExample(NamedTuple):
                 messages=[Message(role="admin", content="hello")],
                 optional_int=123,
             ),
-            "import pydantic\nfrom typing import Any, Optional",
             """
 class Message(pydantic.BaseModel):
     role: str
@@ -315,7 +314,6 @@ def test_pyfunc_model_with_type_hints_code_based_logging(
         type_hint_example.type_hint,
         tmp_path,
         model_type,
-        type_hint_example.extra_import,
         type_hint_example.extra_def,
     )
     input_example = type_hint_example.input_example
