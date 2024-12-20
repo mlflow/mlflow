@@ -803,12 +803,12 @@ class PyFuncModel:
         # signature can only be inferred from type hints if the model is PythonModel
         if self.metadata._is_signature_from_type_hint():
             from mlflow.types.type_hints import (
-                _convert_pandas_dataframe_to_hinted_type,
+                _convert_data_to_type_hint,
                 _validate_example_against_type_hint,
             )
 
             type_hints = self._model_impl.python_model._get_type_hints()
-            data = _convert_pandas_dataframe_to_hinted_type(data, type_hints.input)
+            data = _convert_data_to_type_hint(data, type_hints.input)
             # TODO: remove the validation here once we move the logic inside PythonModel
             data = _validate_example_against_type_hint(data, type_hints.input)
             params = _enforce_params_schema(params, self.params_schema)
@@ -2924,7 +2924,7 @@ def save_model(
         )
         # For ChatModel we set default metadata to indicate its task
         default_metadata = {TASK: _DEFAULT_CHAT_MODEL_METADATA_TASK}
-        mlflow_model.metadata = {**default_metadata, **(mlflow_model.metadata or {})}
+        mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
         if input_example:
             input_example, input_params = _split_input_data_and_params(input_example)

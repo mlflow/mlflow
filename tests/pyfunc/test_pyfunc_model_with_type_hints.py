@@ -9,7 +9,7 @@ import pytest
 import mlflow
 from mlflow.models.signature import _extract_type_hints
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import _is_pydantic_type_hint
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
 
 
 class CustomExample(pydantic.BaseModel):
@@ -178,7 +178,10 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     if _is_pydantic_type_hint(type_hint):
-        assert pyfunc_model.predict(input_example).model_dump() == input_example
+        if PYDANTIC_V1_OR_OLDER:
+            assert pyfunc_model.predict(input_example).dict() == input_example
+        else:
+            assert pyfunc_model.predict(input_example).model_dump() == input_example
     else:
         assert pyfunc_model.predict(input_example) == input_example
 

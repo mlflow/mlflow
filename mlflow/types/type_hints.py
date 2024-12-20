@@ -359,10 +359,10 @@ def _get_origin_type(type_hint: type[Any]) -> Any:
     return origin_type
 
 
-def _convert_pandas_dataframe_to_hinted_type(data: Any, type_hint: type[Any]) -> Any:
+def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
     """
     Convert data to the expected format based on the type hint.
-    This function should only used with limited situations such as mlflow.evaluate.
+    This function should only used in limited situations such as mlflow.evaluate.
     Supported conversions:
         - pandas DataFrame with a single column + list[...] type hint -> list
     """
