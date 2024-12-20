@@ -210,7 +210,6 @@ export const ExperimentViewRunsModeSwitch = ({
                 defaultMessage="Traces"
                 description="A button enabling traces mode on the experiment page"
               />
-              <PreviewBadge />
             </span>
           }
           key="TRACES"
