@@ -4,7 +4,6 @@ import git
 import pytest
 
 from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT
 
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 MOCK_COMMIT_HASH = "commit-hash"
@@ -23,6 +22,10 @@ def patch_git_repo():
     mock_repo = mock.Mock()
     mock_repo.head.commit.hexsha = MOCK_COMMIT_HASH
     mock_repo.ignored.return_value = []
+    mock_repo.active_branch.name = "branch-name"
+    mock_remote = mock.Mock()
+    mock_remote.url = "remote-url"
+    mock_repo.remotes = [mock_remote]
     with mock.patch("git.Repo", return_value=mock_repo):
         yield mock_repo
 
@@ -37,7 +40,13 @@ def test_git_run_context_in_context_false(patch_script_name):
 
 
 def test_git_run_context_tags(patch_script_name, patch_git_repo):
-    assert GitRunContext().tags() == {MLFLOW_GIT_COMMIT: MOCK_COMMIT_HASH}
+    assert GitRunContext().tags() == {
+        "mlflow.source.git.commit": "commit-hash",
+        "mlflow.gitBranchName": "branch-name",
+        "mlflow.source.git.branch": "branch-name",
+        "mlflow.source.git.repoURL": "remote-url",
+        "mlflow.gitRepoURL": "remote-url",
+    }
 
 
 def test_git_run_context_caching(patch_script_name):
