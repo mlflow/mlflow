@@ -8,6 +8,7 @@ from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 
 _logger = logging.getLogger(__name__)
 
+
 def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any):
     from openai.types.chat import ChatCompletion
 
