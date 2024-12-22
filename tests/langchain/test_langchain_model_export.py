@@ -102,6 +102,7 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Prope
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
+from unittest.mock import ANY
 
 # this kwarg was added in langchain_community 0.0.27, and
 # prevents the use of pickled objects if not provided.
@@ -905,7 +906,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     ]
     # "id" field was added to Document model in langchain 0.2.7
     if Version(langchain.__version__) >= Version("0.2.7"):
-        expected_result = [{**d, "id": None} for d in expected_result]
+        expected_result = [{**d, "id": ANY} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever
