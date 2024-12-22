@@ -29,7 +29,8 @@ def get_datasets_experiment_fk_name():
     )
 
     for constraint in datasets_table.foreign_key_constraints:
-        if constraint.referred_table.name == SqlExperiment.__tablename__:
+        if (constraint.referred_table.name == SqlExperiment.__tablename__ and
+            constraint.column_keys[0] == "experiment_id"):
             return constraint.name
     
     return None
