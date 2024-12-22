@@ -18,6 +18,23 @@ branch_labels = None
 depends_on = None
 
 
+def get_datasets_experiment_fk_name():
+    conn = op.get_bind()
+    metadata = sa.MetaData()
+    metadata.bind = conn
+    datasets_table = sa.Table(
+        SqlDataset.__tablename__,
+        metadata, 
+        autoload_with=conn,
+    )
+
+    for constraint in datasets_table.foreign_key_constraints:
+        if constraint.referred_table.name == SqlExperiment.__tablename__:
+            return constraint.name
+    
+    return None
+
+
 def upgrade():
     dialect_name = op.get_context().dialect.name
 
@@ -49,8 +66,10 @@ def upgrade():
         elif dialect_name == "mysql":
             fk_constraint_name = f"{SqlDataset.__tablename__}_ibfk_1"
         elif dialect_name == "mssql":
-            # mssql fk constraint name at f5a4f2784254
-            fk_constraint_name = f"FK__{SqlDataset.__tablename__}__experi__6477ECF3"
+            # mssql fk constraint name is nondeterministic.
+            # attempt to find the name by querying the table,
+            # otherwise use the specified name at rev f5a4f2784254
+            fk_constraint_name = get_datasets_experiment_fk_name() or f"FK__{SqlDataset.__tablename__}__experi__6477ECF3"
 
         op.drop_constraint(fk_constraint_name, SqlDataset.__tablename__, type_="foreignkey")
         op.create_foreign_key(
