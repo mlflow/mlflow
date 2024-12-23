@@ -59,13 +59,19 @@ from mlflow.deployments import get_deploy_client
 client = get_deploy_client("http://localhost:5000")
 name = "chat_3.5"
 data = dict(
-      messages=[
+    messages=[
         {"role": "system", "content": "You are the sorting hat from harry potter."},
-        {"role": "user", "content": "I am brave, hard-working, wise, and backstabbing."},
-        {"role": "user", "content": "Which harry potter house am I most likely to belong to?"}
+        {
+            "role": "user",
+            "content": "I am brave, hard-working, wise, and backstabbing.",
+        },
+        {
+            "role": "user",
+            "content": "Which harry potter house am I most likely to belong to?",
+        },
     ],
     n=3,
-    temperature=.5,
+    temperature=0.5,
 )
 
 response = client.predict(endpoint=name, inputs=data)
@@ -90,7 +96,7 @@ data = dict(
         "Gryffindor: Values bravery, courage, and leadership.",
         "Hufflepuff: Known for loyalty, a strong work ethic, and a grounded nature.",
         "Ravenclaw: A house for individuals who value wisdom, intellect, and curiosity.",
-        "Slytherin: Appreciates ambition, cunning, and resourcefulness."
+        "Slytherin: Appreciates ambition, cunning, and resourcefulness.",
     ],
 )
 
