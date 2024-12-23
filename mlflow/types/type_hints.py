@@ -243,7 +243,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
     if _is_pydantic_type_hint(type_hint):
         # if example is a pydantic model instance, convert it to a dictionary for validation
         if isinstance(example, pydantic.BaseModel):
-            example_dict = example.model_dump()
+            example_dict = example.dict() if PYDANTIC_V1_OR_OLDER else example.model_dump()
         elif isinstance(example, dict):
             example_dict = example
         else:
