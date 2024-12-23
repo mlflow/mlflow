@@ -67,7 +67,7 @@ class ToolCall(BaseModel):
     function: Function
 
 
-class RequestMessage(BaseModel):
+class ChatMessage(BaseModel):
     """
     A chat request. ``content`` can be a string, or an array of content parts.
 
@@ -121,3 +121,53 @@ class ChatTool(BaseModel):
 
 class ChatTools(BaseModel):
     tools: Optional[list[ChatTool]] = Field(None, min_items=1)
+
+
+class ChatCompletionRequest(ChatTool, BaseModel):
+    messages: list[ChatMessage] = Field(..., min_items=1)
+    temperature: float = Field(0.0, ge=0, le=2)
+    n: int = Field(1, ge=1)
+    stop: Optional[list[str]] = Field(None, min_items=1)
+    max_tokens: Optional[int] = Field(None, ge=1)
+    stream: Optional[bool] = None
+    model: Optional[str] = None
+
+
+class ChatChoice(BaseModel):
+    index: int
+    message: ChatMessage
+    finish_reason: Optional[str] = None
+
+
+class ChatUsage(BaseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class ChatCompletionResponse(BaseModel):
+    id: Optional[str] = None
+    object: str = "chat.completion"
+    created: int
+    model: str
+    choices: list[ChatChoice]
+    usage: ChatUsage
+
+
+class ChatChoiceDelta(BaseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ChatChunkChoice(BaseModel):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: ChatChoiceDelta
+
+
+class ChatCompletionChunk(BaseModel):
+    id: Optional[str] = None
+    object: str = "chat.completion.chunk"
+    created: int
+    model: str
+    choices: list[ChatChunkChoice]

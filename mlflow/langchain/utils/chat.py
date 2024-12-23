@@ -18,28 +18,26 @@ from langchain_core.outputs.generation import Generation
 
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.chat import (
+from mlflow.types.chat import (
+    ChatChoice,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
     ChatUsage,
-    Choice,
-    RequestPayload,
-    ResponseMessage,
-    ResponsePayload,
-    StreamChoice,
-    StreamDelta,
-    StreamResponsePayload,
 )
+from mlflow.types.llm import ChatChoiceDelta, ChatChunkChoice, ChatCompletionChunk
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
 
 
-def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ResponseMessage:
+def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMessage:
     """
     Convert LangChain's message format to the MLflow's standard chat message format.
     """
     if isinstance(lc_message, AIMessage):
         if tool_calls := _get_tool_calls_from_ai_message(lc_message):
-            return ResponseMessage(
+            return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string.
                 # Ref: https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/partners/openai/langchain_openai/chat_models/base.py#L116-L117
@@ -47,21 +45,21 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> Respon
                 tool_calls=tool_calls,
             )
         else:
-            return ResponseMessage(role="assistant", content=lc_message.content)
+            return ChatMessage(role="assistant", content=lc_message.content)
     elif isinstance(lc_message, ChatMessage):
-        return ResponseMessage(role=lc_message.role, content=lc_message.content)
+        return ChatMessage(role=lc_message.role, content=lc_message.content)
     elif isinstance(lc_message, FunctionMessage):
-        return ResponseMessage(role="function", content=lc_message.content)
+        return ChatMessage(role="function", content=lc_message.content)
     elif isinstance(lc_message, ToolMessage):
-        return ResponseMessage(
+        return ChatMessage(
             role="tool",
             content=lc_message.content,
             tool_call_id=lc_message.tool_call_id,
         )
     elif isinstance(lc_message, HumanMessage):
-        return ResponseMessage(role="user", content=lc_message.content)
+        return ChatMessage(role="user", content=lc_message.content)
     elif isinstance(lc_message, SystemMessage):
-        return ResponseMessage(role="system", content=lc_message.content)
+        return ChatMessage(role="system", content=lc_message.content)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unexpected message type: {type(lc_message)}. "
@@ -69,7 +67,7 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> Respon
         )
 
 
-def _chat_model_to_langchain_message(message: ResponseMessage) -> BaseMessage:
+def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
     """
     Convert the MLflow's standard chat message format to LangChain's message format.
     """
@@ -128,7 +126,7 @@ def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
     ]
 
 
-def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ResponseMessage:
+def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ChatMessage:
     """
     Convert LangChain's generation format to the MLflow's standard chat message format.
     """
@@ -142,7 +140,7 @@ def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ResponseMessage
                 exc_info=True,
             )
 
-    return ResponseMessage(role="assistant", content=lc_gen.text)
+    return ChatMessage(role="assistant", content=lc_gen.text)
 
 
 def try_transform_response_to_chat_format(response: Any) -> dict:
@@ -154,17 +152,17 @@ def try_transform_response_to_chat_format(response: Any) -> dict:
     if isinstance(response, (str, AIMessage)):
         if isinstance(response, str):
             message_id = None
-            message = ResponseMessage(role="assistant", content=response)
+            message = ChatMessage(role="assistant", content=response)
         else:
             message_id = getattr(response, "id", None)
             message = convert_lc_message_to_chat_message(response)
 
-        transformed_response = ResponsePayload(
+        transformed_response = ChatCompletionResponse(
             id=message_id,
             created=int(time.time()),
             model="",
             choices=[
-                Choice(
+                ChatChoice(
                     index=0,
                     message=message,
                     finish_reason=None,
@@ -188,14 +186,14 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     from langchain_core.messages.ai import AIMessageChunk
 
     def _gen_converted_chunk(message_content, message_id, finish_reason):
-        transformed_response = StreamResponsePayload(
+        transformed_response = ChatCompletionChunk(
             id=message_id,
             created=int(time.time()),
             model="",
             choices=[
-                StreamChoice(
+                ChatChunkChoice(
                     index=0,
-                    delta=StreamDelta(
+                    delta=ChatChoiceDelta(
                         role="assistant",
                         content=message_content,
                     ),
@@ -241,9 +239,9 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
     if IS_PYDANTIC_V2_OR_NEWER:
-        model = RequestPayload.model_validate(chat_request)
+        model = ChatCompletionRequest.model_validate(chat_request)
     else:
-        model = RequestPayload.parse_obj(chat_request)
+        model = ChatCompletionRequest.parse_obj(chat_request)
 
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 

@@ -21,7 +21,6 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.chat import ResponseMessage
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
@@ -30,6 +29,7 @@ from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.types.chat import ChatMessage
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -259,7 +259,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
 
-        mlflow_messages = [ResponseMessage(role="user", content=prompt) for prompt in prompts]
+        mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
         kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
 
         self._start_span(
@@ -326,6 +326,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
 
+        # Record the chat messages attribute
         input_messages = llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
         output_messages = [
             convert_lc_generation_to_chat_message(gen)
@@ -333,7 +334,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             for gen in gen_list
         ]
         llm_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, input_messages + output_messages)
-
         self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(

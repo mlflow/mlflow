@@ -23,7 +23,7 @@ SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
-    from mlflow.types.chat import ChatTool, RequestMessage
+    from mlflow.types.chat import ChatMessage, ChatTools
 
 
 def capture_function_input_args(func, args, kwargs) -> dict[str, Any]:
@@ -238,7 +238,7 @@ def generate_request_id() -> str:
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: list[RequestMessage],
+    messages: list[ChatMessage],
 ):
     """
     Set the `mlflow.chat.messages` attribute on the specified span. This
@@ -270,15 +270,15 @@ def set_span_chat_messages(
 
         f()
     """
-    from mlflow.types.chat import RequestMessage
+    from mlflow.types.chat import ChatMessage
 
     for message in messages:
-        RequestMessage.validate_compat(message)
+        ChatMessage.validate_compat(message)
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
 
 
-def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
+def set_span_chat_tools(span: LiveSpan, tools: list[ChatTools]):
     """
     Set the `mlflow.chat.tools` attribute on the specified span. This
     attribute is used in the UI, and also by downstream applications that

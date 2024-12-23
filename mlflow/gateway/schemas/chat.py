@@ -1,20 +1,10 @@
-from typing import Optional
-
-from pydantic import Field
-
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.types.chat import ChatTools, ContentType, RequestMessage, ToolCall
+from mlflow.types.chat import (
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+)
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-
-class BaseRequestPayload(ChatTools, RequestModel):
-    temperature: float = Field(0.0, ge=0, le=2)
-    n: int = Field(1, ge=1)
-    stop: Optional[list[str]] = Field(None, min_items=1)
-    max_tokens: Optional[int] = Field(None, ge=1)
-    stream: Optional[bool] = None
-    model: Optional[str] = None
-
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "messages": [
@@ -29,34 +19,12 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class RequestPayload(BaseRequestPayload):
-    messages: list[RequestMessage] = Field(..., min_items=1)
-
+class RequestPayload(ChatCompletionRequest, RequestModel):
     class Config:
         if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-
-
-class ResponseMessage(ResponseModel):
-    role: str
-    content: Optional[ContentType] = None
-    tool_calls: Optional[list[ToolCall]] = None
-    tool_call_id: Optional[str] = None
-    refusal: Optional[str] = None
-
-
-class Choice(ResponseModel):
-    index: int
-    message: ResponseMessage
-    finish_reason: Optional[str] = None
-
-
-class ChatUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -77,30 +45,12 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class ResponsePayload(ResponseModel):
-    id: Optional[str] = None
-    object: str = "chat.completion"
-    created: int
-    model: str
-    choices: list[Choice]
-    usage: ChatUsage
-
+class ResponsePayload(ChatCompletionResponse, ResponseModel):
     class Config:
         if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-
-
-class StreamDelta(ResponseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
-
-
-class StreamChoice(ResponseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: StreamDelta
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -120,13 +70,7 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class StreamResponsePayload(ResponseModel):
-    id: Optional[str] = None
-    object: str = "chat.completion.chunk"
-    created: int
-    model: str
-    choices: list[StreamChoice]
-
+class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
     class Config:
         if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
