@@ -222,11 +222,15 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
 
         try:
-            mlflow_messages = [convert_lc_message_to_chat_message(msg) for msg in messages]
+            mlflow_messages = [
+                convert_lc_message_to_chat_message(msg)
+                for message_list in messages
+                for msg in message_list
+            ]
             kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
         except Exception as e:
             _logger.debug(
-                "Failed to convert LangChain messages to MLflow chat messages.",
+                f"Failed to convert LangChain messages to MLflow chat messages: {e}",
                 exc_info=True,
             )
 
@@ -321,15 +325,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
-        outputs = response.dict()
 
-        if messages := llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES):
-            output_messages = [
-                convert_lc_generation_to_chat_message(gen) for gen in response.generations
-            ]
-            llm_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages + output_messages)
+        input_messages = llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
+        output_messages = [
+            convert_lc_generation_to_chat_message(gen)
+            for gen_list in response.generations
+            for gen in gen_list
+        ]
+        llm_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, input_messages + output_messages)
 
-        self._end_span(run_id, llm_span, outputs=outputs)
+        self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(
         self,

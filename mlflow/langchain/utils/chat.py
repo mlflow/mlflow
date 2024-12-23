@@ -4,30 +4,33 @@ import time
 from typing import Any, Union
 
 import pydantic
-
 from langchain_core.messages import (
     AIMessage,
-    AIMessageChunk,
     BaseMessage,
     ChatMessage,
     FunctionMessage,
     HumanMessage,
-    ToolMessage,
     SystemMessage,
+    ToolMessage,
 )
-from langchain_core.outputs.generation import Generation
 from langchain_core.outputs.chat_generation import ChatGeneration
+from langchain_core.outputs.generation import Generation
+
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.schemas.chat import ChatUsage, Choice, RequestPayload, ResponseMessage, ResponsePayload, StreamChoice, StreamDelta, StreamResponsePayload
+from mlflow.gateway.schemas.chat import (
+    ChatUsage,
+    Choice,
+    RequestPayload,
+    ResponseMessage,
+    ResponsePayload,
+    StreamChoice,
+    StreamDelta,
+    StreamResponsePayload,
+)
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
-
-
-    # @staticmethod
-    # def get_schema():
-    #     return Schema([ColSpec(DataType.string, "role"), ColSpec(DataType.string, "content")])
 
 
 def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ResponseMessage:
@@ -58,7 +61,7 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> Respon
     elif isinstance(lc_message, HumanMessage):
         return ResponseMessage(role="user", content=lc_message.content)
     elif isinstance(lc_message, SystemMessage):
-        return ResponseMessage(role="system", content=lc_message)
+        return ResponseMessage(role="system", content=lc_message.content)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unexpected message type: {type(lc_message)}. "
@@ -81,7 +84,9 @@ def _chat_model_to_langchain_message(message: ResponseMessage) -> BaseMessage:
     elif message.role == "function":
         return FunctionMessage(content=message.content)
     else:
-        raise MlflowException.invalid_parameter_value(f"Unrecognized chat message role: {message.role}")
+        raise MlflowException.invalid_parameter_value(
+            f"Unrecognized chat message role: {message.role}"
+        )
 
 
 def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
@@ -123,24 +128,26 @@ def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
     ]
 
 
-def convert_lc_generation_to_chat_message(lc_gen: Union[Generation, ChatGeneration]) -> ResponseMessage:
+def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ResponseMessage:
     """
     Convert LangChain's generation format to the MLflow's standard chat message format.
     """
     if isinstance(lc_gen, ChatGeneration):
         try:
             return convert_lc_message_to_chat_message(lc_gen.message)
-        except Exception:
+        except Exception as e:
             # When failed to convert the message, return as assistant message
-            pass
+            _logger.debug(
+                f"Failed to convert the message from ChatGeneration to ResponseMessage: {e}",
+                exc_info=True,
+            )
 
     return ResponseMessage(role="assistant", content=lc_gen.text)
 
 
-
 def try_transform_response_to_chat_format(response: Any) -> dict:
     """
-    Try to convert the response to the MLflow's standard chat format and return its dictionary representation.
+    Try to convert the response to the standard chat format and return its dict representation.
 
     If the response is not one of the supported types, return the response as-is.
     """
@@ -232,7 +239,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: dict) -> list[Union[AIMessage, HumanMessage, SystemMessage]]:
+def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
     if IS_PYDANTIC_V2_OR_NEWER:
         model = RequestPayload.model_validate(chat_request)
     else:

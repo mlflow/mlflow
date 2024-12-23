@@ -16,7 +16,13 @@ from langchain_core.callbacks.base import (
 )
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import SimpleChatModel
-from langchain_core.messages.base import BaseMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
@@ -55,7 +61,7 @@ from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
@@ -284,6 +290,22 @@ def test_llmchain_autolog(async_logging_enabled):
         attrs = spans[1].attributes
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
+        assert attrs[SpanAttributeKey.CHAT_MESSAGES] == [
+            {
+                "role": "user",
+                "content": "What is MLflow?",
+                "tool_calls": None,
+                "tool_call_id": None,
+                "refusal": None,
+            },
+            {
+                "role": "assistant",
+                "content": "What is MLflow?",
+                "tool_calls": None,
+                "tool_call_id": None,
+                "refusal": None,
+            },
+        ]
 
 
 def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path):
@@ -353,6 +375,79 @@ def test_loaded_llmchain_autolog():
 
         signature = mlflow_model.signature
         assert signature == infer_signature(question, [TEST_CONTENT])
+
+
+def test_chat_model_autolog():
+    mlflow.langchain.autolog()
+    model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
+    messages = [
+        SystemMessage(content="You are a helpful assistant."),
+        HumanMessage(content="What is MLflow?"),
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "GetWeather", "args": {"location": "San Francisco"}, "id": "123"}],
+        ),
+        ToolMessage(content="Weather in San Francisco is 70F.", tool_call_id="123"),
+    ]
+    response = model.invoke(messages)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 1
+
+    span = traces[0].data.spans[0]
+    assert span.name == "ChatOpenAI"
+    assert span.span_type == "CHAT_MODEL"
+    assert span.inputs == [[msg.model_dump() for msg in messages]]
+    assert span.outputs["generations"][0][0]["message"]["content"] == response.content
+    assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
+    assert span.get_attribute("invocation_params")["temperature"] == 0.9
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant.",
+            "tool_calls": None,
+            "tool_call_id": None,
+            "refusal": None,
+        },
+        {
+            "role": "user",
+            "content": "What is MLflow?",
+            "tool_calls": None,
+            "tool_call_id": None,
+            "refusal": None,
+        },
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "function": {
+                        "arguments": '{"location": "San Francisco"}',
+                        "name": "GetWeather",
+                    },
+                    "id": "123",
+                    "type": "function",
+                }
+            ],
+            "tool_call_id": None,
+            "refusal": None,
+        },
+        {
+            "role": "tool",
+            "content": "Weather in San Francisco is 70F.",
+            "tool_calls": None,
+            "tool_call_id": "123",
+            "refusal": None,
+        },
+        {
+            "role": "assistant",
+            "content": response.content,
+            "tool_calls": None,
+            "tool_call_id": None,
+            "refusal": None,
+        },
+    ]
 
 
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
