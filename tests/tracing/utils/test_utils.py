@@ -116,7 +116,7 @@ def test_set_chat_messages_validation():
         set_span_chat_messages(span, messages)
         return None
 
-    with pytest.raises(MlflowException, match="validation error for RequestMessage"):
+    with pytest.raises(MlflowException, match="validation error for ChatMessage"):
         dummy_call(messages)
 
 

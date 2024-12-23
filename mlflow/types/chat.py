@@ -123,7 +123,7 @@ class ChatTools(BaseModel):
     tools: Optional[list[ChatTool]] = Field(None, min_items=1)
 
 
-class ChatCompletionRequest(ChatTool, BaseModel):
+class ChatCompletionRequest(ChatTools, BaseModel):
     messages: list[ChatMessage] = Field(..., min_items=1)
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)

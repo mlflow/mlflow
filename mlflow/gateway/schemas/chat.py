@@ -4,6 +4,9 @@ from mlflow.types.chat import (
     ChatCompletionRequest,
     ChatCompletionResponse,
 )
+
+# Alias ChatMessage from mlflow.types.chat to RequestMessage for backwards compatibility
+from mlflow.types.chat import ChatMessage as RequestMessage  # noqa: F401
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
