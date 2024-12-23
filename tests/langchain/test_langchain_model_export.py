@@ -37,6 +37,8 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain_community.llms import HuggingFacePipeline
+from unittest.mock import ANY
+
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models.base import SimpleChatModel
 from langchain.llms.base import LLM
@@ -102,7 +104,6 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Prope
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
-from unittest.mock import ANY
 
 # this kwarg was added in langchain_community 0.0.27, and
 # prevents the use of pickled objects if not provided.
