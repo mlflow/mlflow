@@ -29,12 +29,6 @@ def get_datasets_experiment_fk_name():
         autoload_with=conn,
     )
 
-    print(
-        "@@@@ Unable to find the foreign key constraint name from datasets to experiments. "
-        "All foreign key constraints in datasets table: \n"
-        f"{datasets_table.foreign_key_constraints}"
-    )
-
     for constraint in datasets_table.foreign_key_constraints:
         if (constraint.referred_table.name == SqlExperiment.__tablename__ and
             constraint.column_keys[0] == "experiment_id"):
