@@ -1,3 +1,4 @@
+import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 
 # Prompt Engineering UI (Experimental)
@@ -34,7 +35,7 @@ Tracking Server. To connect the MLflow AI Gateway with the MLflow Tracking Serve
 `MLFLOW_DEPLOYMENTS_TARGET` environment variable in the environment where the server is running and
 restart the server. For example, if the MLflow AI Gateway is running at `http://localhost:7000`, you
 can start an MLflow Tracking Server in a shell on your local machine and connect it to the
-MLflow AI Gateway using the [mlflow server](/cli) command as follows:
+MLflow AI Gateway using the <Link to="/api_reference/cli.html" target="_blank">mlflow server</Link> command as follows:
 
 ```bash
 export MLFLOW_DEPLOYMENTS_TARGET="http://127.0.0.1:7000"
@@ -343,7 +344,7 @@ can deploy the corresponding MLflow Model for real-time serving as follows:
 
    - `MLFLOW_DEPLOYMENTS_TARGET`: The URL of the MLflow AI Gateway
 
-3. Use the [mlflow models serve](/cli) command to start the MLflow Model Server. For example,
+3. Use the <Link to="/api_reference/cli.html" target="_blank">mlflow models serve</Link> command to start the MLflow Model Server. For example,
    running the following command from a shell on your local machine will serve the model
    on port 8000:
 

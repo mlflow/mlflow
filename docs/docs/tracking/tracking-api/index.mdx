@@ -1,3 +1,4 @@
+import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 
 # MLflow Tracking APIs
@@ -127,7 +128,7 @@ If you specify both a timestamp and a step, metrics are recorded against both ax
 ### Organizing Runs in Experiments
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
-to tackle a particular task. You can create experiments via multiple way - MLflow UI, the [Command-Line Interface](/cli) (`mlflow experiments`),
+to tackle a particular task. You can create experiments via multiple way - MLflow UI, the <Link to="/api_reference/cli.html" target="_blank">Command-Line Interface</Link> (`mlflow experiments`),
 or the <APILink fn="mlflow.create_experiment" /> Python API. You can pass the experiment name for an individual run
 using the CLI (for example, `mlflow run ... --experiment-name [name]`) or the `MLFLOW_EXPERIMENT_NAME`
 environment variable. Alternatively, you can use the experiment ID instead, via the

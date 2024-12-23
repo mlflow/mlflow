@@ -1,3 +1,4 @@
+import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -14,7 +15,7 @@ This guide demonstrates how to use MLflow end-to-end for:
 - Training a linear regression model with [MLflow Tracking](/tracking).
 - Conducting hyper-parameter tuning to find the best model.
 - Packaging the model weights and dependencies as an [MLflow Model](/models).
-- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the [mlflow models serve](/cli#mlflow-models-serve) command.
+- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command.
 - Deploying the model to a Kubernetes cluster using [KServe](https://kserve.github.io/website/) with MLflow.
 
 We will cover an end-to-end model development process including model training and testing within this tutorial.

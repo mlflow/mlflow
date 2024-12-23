@@ -1,3 +1,4 @@
+import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -506,7 +507,7 @@ including sensitive data such as access keys or other authorization-based secret
 key defined directly in your script when logging your model, it is advisable to:
 
 1. Delete the MLflow run that contains the leaked key. You can do this via the UI or through <APILink fn="mlflow.client.MlflowClient.delete_run">the delete_run API</APILink>.
-2. Delete the artifacts associated with the run. You can do this via the [mlflow gc](/cli#mlflow-gc) cli command.
+2. Delete the artifacts associated with the run. You can do this via the <Link to="/api_reference/cli.html#mlflow-gc" target="_blank">mlflow gc</Link> cli command.
 3. Rotate your sensitive keys by generating a new key and deleting the leaked secret from the source system administration interface.
 4. Re-log the model to a new run, making sure to not set sensitive keys in your model definition script.
 
