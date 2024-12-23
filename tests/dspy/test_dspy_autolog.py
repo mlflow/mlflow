@@ -376,10 +376,7 @@ def test_disable_autolog():
 
 def test_autolog_set_retriever_schema():
     mlflow.dspy.autolog()
-    dspy.settings.configure(lm=DummyLM([
-        {"output": answer}
-        for answer in ["4", "6", "8", "10"]
-    ]))
+    dspy.settings.configure(lm=DummyLM([{"output": answer} for answer in ["4", "6", "8", "10"]]))
 
     class CoT(dspy.Module):
         def __init__(self):

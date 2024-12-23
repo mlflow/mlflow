@@ -4,8 +4,8 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils.dummies import dummy_rm
 from dspy.utils import DummyLM
+from dspy.utils.dummies import dummy_rm
 
 import mlflow
 from mlflow.models import Model, ModelSignature
@@ -56,10 +56,7 @@ def test_basic_save():
 
 
 def get_dummy_model():
-    return DummyLM([
-        {"output": answer}
-        for answer in ["4", "6", "8", "10"]
-    ])
+    return DummyLM([{"output": answer} for answer in ["4", "6", "8", "10"]])
 
 
 def test_save_compiled_model():
