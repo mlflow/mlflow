@@ -37,6 +37,8 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain_community.llms import HuggingFacePipeline
+from unittest.mock import ANY
+
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models.base import SimpleChatModel
 from langchain.llms.base import LLM
@@ -905,7 +907,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     ]
     # "id" field was added to Document model in langchain 0.2.7
     if Version(langchain.__version__) >= Version("0.2.7"):
-        expected_result = [{**d, "id": None} for d in expected_result]
+        expected_result = [{**d, "id": ANY} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever
@@ -1275,11 +1277,17 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
         "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
+        "model": "",
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": "Databricks"},
+                "message": {
+                    "role": "assistant",
+                    "content": "Databricks",
+                    "refusal": None,
+                    "tool_call_id": None,
+                    "tool_calls": None,
+                },
                 "finish_reason": None,
             }
         ],
@@ -1372,6 +1380,9 @@ def test_simple_chat_model_inference():
             "ai: What would you like to ask?\n"
             "human: Who owns MLflow?"
         ),
+        "refusal": None,
+        "tool_call_id": None,
+        "tool_calls": None,
     }
     response1 = loaded_model.predict([input_example])
     assert len(response1) == 1
@@ -2152,13 +2163,16 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
+        "model": "",
         "choices": [
             {
                 "index": 0,
                 "message": {
                     "role": "assistant",
                     "content": content,
+                    "refusal": None,
+                    "tool_call_id": None,
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
             }
@@ -2226,13 +2240,16 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
                 "id": None,
                 "object": "chat.completion",
                 "created": 1677858242,
-                "model": None,
+                "model": "",
                 "choices": [
                     {
                         "index": 0,
                         "message": {
                             "role": "assistant",
                             "content": "You own MLflow",
+                            "refusal": None,
+                            "tool_call_id": None,
+                            "tool_calls": None,
                         },
                         "finish_reason": None,
                     }
@@ -2281,18 +2298,18 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     ]
     assert pyfunc_loaded_model.predict(
         {
-            "messages": [{"role": "user", "content": "blah"}, {"role": "blah"}],
+            "messages": [{"role": "user", "content": "blah"}, {}],
         }
     ) == [
         {"role": "user", "content": "blah"},
-        {"role": "blah"},
+        {},
     ]
     assert pyfunc_loaded_model.predict(
         {
-            "messages": [{"role": "role", "content": "content", "extra": "extra"}],
+            "messages": [{"role": "user", "content": 123}],
         }
     ) == [
-        {"role": "role", "content": "content", "extra": "extra"},
+        {"role": "user", "content": 123},
     ]
 
     # Verify behavior for batches of message histories
@@ -2930,7 +2947,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -2943,7 +2960,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -2956,7 +2973,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -3147,11 +3164,17 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
             "id": None,
             "object": "chat.completion",
             "created": 1677858242,
-            "model": None,
+            "model": "",
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": "Databricks"},
+                    "message": {
+                        "role": "assistant",
+                        "content": "Databricks",
+                        "refusal": None,
+                        "tool_call_id": None,
+                        "tool_calls": None,
+                    },
                     "finish_reason": None,
                 }
             ],

@@ -21,7 +21,13 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.schemas.chat import ResponseMessage
+from mlflow.langchain.utils.chat import (
+    convert_lc_generation_to_chat_message,
+    convert_lc_message_to_chat_message,
+)
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -214,6 +220,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when a chat model starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+
+        try:
+            mlflow_messages = [convert_lc_message_to_chat_message(msg) for msg in messages]
+            kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
+        except Exception as e:
+            _logger.debug(
+                "Failed to convert LangChain messages to MLflow chat messages.",
+                exc_info=True,
+            )
+
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
@@ -238,6 +254,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+
+        mlflow_messages = [ResponseMessage(role="user", content=prompt) for prompt in prompts]
+        kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
+
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
             parent_run_id=parent_run_id,
@@ -302,6 +322,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
         outputs = response.dict()
+
+        if messages := llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES):
+            output_messages = [
+                convert_lc_generation_to_chat_message(gen) for gen in response.generations
+            ]
+            llm_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages + output_messages)
+
         self._end_span(run_id, llm_span, outputs=outputs)
 
     def on_llm_error(
