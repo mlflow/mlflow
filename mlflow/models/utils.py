@@ -858,7 +858,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
 
 # dtype -> possible value types mapping
 _ALLOWED_CONVERSIONS_FOR_PARAMS = {
-    DataType.long: (DataType.integer),
+    DataType.long: (DataType.integer,),
     DataType.float: (DataType.integer, DataType.long),
     DataType.double: (DataType.integer, DataType.long, DataType.float),
 }
