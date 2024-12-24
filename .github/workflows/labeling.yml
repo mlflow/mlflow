@@ -19,14 +19,16 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write # harupy/auto-labeling
-      issues: write # harupy/auto-labeling
-    timeout-minutes: 120
+      pull-requests: write
+      issues: write
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-      - uses: harupy/auto-labeling@master
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          label-pattern: '- \[(.*?)\] ?`(.+?)`'
+          script: |
+            const script = require('./.github/workflows/labeling.js');
+            await script({ github, context });
