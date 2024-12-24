@@ -411,7 +411,6 @@ import tempfile
 import threading
 import uuid
 import warnings
-from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -476,7 +475,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     LineageHeaderInfo,
     Notebook,
 )
-from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.pyfunc.context import Context, get_prediction_context, set_prediction_context
 from mlflow.pyfunc.dbconnect_artifact_cache import (
     DBConnectArtifactCache,
     archive_directory,
@@ -493,7 +492,6 @@ from mlflow.pyfunc.model import (
     get_default_pip_requirements,
 )
 from mlflow.tracing.provider import trace_disabled
-from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
@@ -754,19 +752,8 @@ class PyFuncModel:
         """
         return self.__model_impl
 
-    @contextmanager
-    def _try_get_or_generate_prediction_context(self):
-        # set context for prediction if it's not set
-        # NB: in model serving the prediction context must be set
-        # with a request_id
-        context = _try_get_prediction_context() or Context()
-        with set_prediction_context(context):
-            yield context
-
     def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
-        with self._try_get_or_generate_prediction_context() as context:
-            if schema := _get_dependencies_schema_from_model(self._model_meta):
-                context.update(**schema)
+        with set_prediction_context(self._updated_context_with_model_info()):
             return self._predict(data, params)
 
     def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
@@ -826,9 +813,7 @@ class PyFuncModel:
     def predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
-        with self._try_get_or_generate_prediction_context() as context:
-            if schema := _get_dependencies_schema_from_model(self._model_meta):
-                context.update(**schema)
+        with set_prediction_context(self._updated_context_with_model_info()):
             return self._predict_stream(data, params)
 
     def _predict_stream(
@@ -875,6 +860,19 @@ class PyFuncModel:
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_stream_fn(data)
+
+    def _updated_context_with_model_info(self) -> Context:
+        """
+        Propagate the dependencies schemas from the model metadata to the prediction context.
+        If the context is already set, update it, otherwise create a new one.
+        E.g., In Databricks model serving, the prediction context is set upstream with a request_id.
+        """
+        context = get_prediction_context() or Context()
+
+        if context.dependencies_schemas is None:
+            context.dependencies_schemas = _get_dependencies_schema_from_model(self._model_meta)
+
+        return context
 
     @experimental
     def unwrap_python_model(self):

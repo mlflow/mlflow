@@ -12,6 +12,14 @@ _PREDICTION_REQUEST_CTX = ContextVar("mlflow_prediction_request_context", defaul
 
 @dataclass
 class Context:
+    """
+    An context object to store the metadata of the current prediction request.
+
+    CAUTION: This MUST only be propagated via the set_prediction_context context manager.
+        Do not pass this object around in any other way e.g., set to an instance variable,
+        which will be a source of hard-to-debug issues.
+    """
+
     # A unique identifier for the current prediction request.
     request_id: Optional[str] = None
     # Whether the current prediction request is as a part of MLflow model evaluation.
@@ -32,6 +40,9 @@ def set_prediction_context(context: Optional[Context]):
     """
     Set the context for the current prediction request. The context will be set as a thread-local
     variable and will be accessible globally within the same thread.
+
+    CAUTION: Use this context manager carefully. If another context is already set, it will be
+    overridden and cause unexpected behavior for the upstream callers.
 
     Args:
         context: The context for the current prediction request.
@@ -55,16 +66,3 @@ def get_prediction_context() -> Optional[Context]:
         The context for the current prediction request, or None if no context is set.
     """
     return _PREDICTION_REQUEST_CTX.get()
-
-
-@contextlib.contextmanager
-def maybe_set_prediction_context(context: Optional[Context]):
-    """
-    Set the prediction context if the given context
-    is not None. Otherwise no-op.
-    """
-    if context:
-        with set_prediction_context(context):
-            yield
-    else:
-        yield

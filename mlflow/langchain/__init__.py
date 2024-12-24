@@ -45,7 +45,6 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
-    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
@@ -686,23 +685,6 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
-    def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
-        from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
-        if (
-            callback_handlers
-            and (
-                tracer := next(
-                    (c for c in callback_handlers if isinstance(c, MlflowLangchainTracer)), None
-                )
-            )
-            and self.model_path
-        ):
-            model = Model.load(self.model_path)
-            context = tracer._prediction_context
-            if schema := _get_dependencies_schema_from_model(model):
-                context.update(**schema)
-
     @experimental
     def _predict_with_callbacks(
         self,
@@ -724,7 +706,6 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -819,7 +800,6 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
-        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
