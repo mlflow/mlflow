@@ -28,9 +28,9 @@ from mlflow.langchain.utils.chat import (
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_messages
+from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
-from mlflow.types.chat import ChatMessage
+from mlflow.types.chat import ChatMessage, ChatTool
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -238,6 +238,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         ]
         set_span_chat_messages(span, mlflow_messages)
 
+        if tools := self._extract_tool_definitions(kwargs):
+            set_span_chat_tools(span, tools)
+
     def on_llm_start(
         self,
         serialized: dict[str, Any],
@@ -265,6 +268,23 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
         mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
         set_span_chat_messages(span, mlflow_messages)
+
+        if tools := self._extract_tool_definitions(kwargs):
+            set_span_chat_tools(span, tools)
+
+    def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
+        raw_tools = kwargs.get("invocation_params", {}).get("tools", [])
+        tools = []
+        for raw_tool in raw_tools:
+            # First, try to parse the raw tool dictionary as OpenAI-style tool
+            try:
+                tool = ChatTool.validate_compat(raw_tool)
+                tools.append(tool)
+            except MlflowException:
+                # If not OpenAI style, just try to extract the name and descriptions.
+                tool = ChatTool(name=raw_tool.get("name"), description=raw_tool.get("description"))
+                tools.append(tool)
+        return tools
 
     def on_llm_new_token(
         self,
