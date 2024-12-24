@@ -79,7 +79,7 @@ export const shouldEnableRelativeTimeDateAxis = () => false;
 export const shouldEnableNewDifferenceViewCharts = () => false;
 
 export const shouldEnableTracingUI = () => true;
-export const shouldEnableRunDetailsPageTracesTab = () => false;
+export const shouldEnableRunDetailsPageTracesTab = () => true;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
 export const shouldDeferLineChartRendering = () => true;
