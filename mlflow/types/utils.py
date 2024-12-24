@@ -1,6 +1,7 @@
 import logging
 import warnings
 from collections import defaultdict
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -820,6 +821,12 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Failed to infer schema for parameter {value}: {e!r}"
             )
+    elif isinstance(value, dict):
+        # reuse _infer_schema to infer schema for dict, wrapping it in a dictionary is
+        # necessary to make sure value is inferred as Object
+        schema = _infer_schema({"value": value})
+        object_type = schema.inputs[0].type
+        return object_type, None
     raise MlflowException.invalid_parameter_value(
         f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
     )
@@ -836,7 +843,9 @@ def _infer_param_schema(parameters: dict[str, Any]):
     for name, value in parameters.items():
         try:
             value_type, shape = _infer_type_and_shape(value)
-            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
+            param_specs.append(
+                ParamSpec(name=name, dtype=value_type, default=deepcopy(value), shape=shape)
+            )
         except Exception as e:
             invalid_params.append((name, value, e))
 
