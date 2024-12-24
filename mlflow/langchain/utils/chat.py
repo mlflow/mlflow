@@ -64,8 +64,7 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMe
         return ChatMessage(role="system", content=lc_message.content)
     else:
         raise MlflowException.invalid_parameter_value(
-            f"Unexpected message type: {type(lc_message)}. "
-            "Expected an AIMessage, a HumanMessage, or a SystemMessage object."
+            f"Unexpected message type. Expected a BaseMessage subclass, but got: {type(lc_message)}"
         )
 
 
@@ -90,6 +89,10 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
 
 
 def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
+    # AIMessage does not have tool_calls field in LangChain < 0.1.0.
+    if not hasattr(message, "tool_calls"):
+        return []
+
     tool_calls = [
         {
             "type": "function",

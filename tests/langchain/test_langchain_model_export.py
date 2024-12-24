@@ -2343,12 +2343,15 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
                 "messages": [{"role": "user", "content": "content"}],
             },
             {
-                "messages": [{"role": "user", "content": "content"}, {"role": "user"}],
+                "messages": [
+                    {"role": "user", "content": "content"},
+                    {"role": "user", "content": 123},
+                ],
             },
         ]
     ) == [
         [{"role": "user", "content": "content"}],
-        [{"role": "user", "content": "content"}, {"role": "user"}],
+        [{"role": "user", "content": "content"}, {"role": "user", "content": 123}],
     ]
 
 

@@ -24,8 +24,8 @@ from mlflow.types.chat import (
     FunctionToolDefinition,
 )
 from mlflow.types.chat import ChatCompletionRequest as _Function
-from mlflow.types.chat import ChatCompletionResponse as _ToolCall
 from mlflow.types.chat import ChatUsage as _ChatUsage
+from mlflow.types.chat import ToolCall as _ToolCall
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 

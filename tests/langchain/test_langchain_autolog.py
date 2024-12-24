@@ -377,6 +377,10 @@ def test_loaded_llmchain_autolog():
         assert signature == infer_signature(question, [TEST_CONTENT])
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Callback does not pass all messages in older versions",
+)
 def test_chat_model_autolog():
     mlflow.langchain.autolog()
     model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
@@ -398,7 +402,8 @@ def test_chat_model_autolog():
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
     assert span.span_type == "CHAT_MODEL"
-    if Version(langchain.__version__) >= Version("0.2.0"):
+    # LangChain uses pydantic V1 until LangChain v0.3.0
+    if Version(langchain.__version__) >= Version("0.3.0"):
         assert span.inputs == [[msg.model_dump() for msg in messages]]
     else:
         assert span.inputs == [[msg.dict() for msg in messages]]

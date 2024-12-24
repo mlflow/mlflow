@@ -92,8 +92,8 @@ class ChatMessage(BaseModel):
     #   system/user/assistant/tool, etc), and create a factory function to allow users
     #   to create them without worrying about the details.
     tool_calls: Optional[list[ToolCall]] = Field(None, min_items=1)
-    refusal: Optional[str] = Field(None)
-    tool_call_id: Optional[str] = Field(None)
+    refusal: Optional[str] = None
+    tool_call_id: Optional[str] = None
 
 
 class ParamType(BaseModel):
