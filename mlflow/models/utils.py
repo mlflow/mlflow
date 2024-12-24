@@ -1315,7 +1315,7 @@ def _enforce_pyspark_dataframe_schema(
     return new_pf_input.drop(*columns_to_drop)
 
 
-def _enforce_datatype(data: Any, dtype: DataType, required=True, enforce_param=False):
+def _enforce_datatype(data: Any, dtype: DataType, required=True):
     if not required and _is_none_or_nan(data):
         return None
 
@@ -1323,8 +1323,6 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True, enforce_param=F
         raise MlflowException(f"Expected dtype to be DataType, got {type(dtype).__name__}")
     if not np.isscalar(data):
         raise MlflowException(f"Expected data to be scalar, got {type(data).__name__}")
-    if enforce_param:
-        return _enforce_param_datatype(data, dtype)
     # Reuse logic in _enforce_mlflow_datatype for type conversion
     pd_series = pd.Series(data)
     try:
@@ -1336,7 +1334,7 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True, enforce_param=F
     return pd_series[0]
 
 
-def _enforce_array(data: Any, arr: Array, required: bool = True, enforce_param: bool = False):
+def _enforce_array(data: Any, arr: Array, required: bool = True):
     """
     Enforce data against an Array type.
     If the field is required, then the data must be provided.
@@ -1349,9 +1347,7 @@ def _enforce_array(data: Any, arr: Array, required: bool = True, enforce_param: 
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [
-        _enforce_type(x, arr.dtype, required=required, enforce_param=enforce_param) for x in data
-    ]
+    data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     # Keep input data type
     if isinstance(data, np.ndarray):
@@ -1360,15 +1356,11 @@ def _enforce_array(data: Any, arr: Array, required: bool = True, enforce_param: 
     return data_enforced
 
 
-def _enforce_property(data: Any, property: Property, enforce_param: bool = False):
-    return _enforce_type(
-        data, property.dtype, required=property.required, enforce_param=enforce_param
-    )
+def _enforce_property(data: Any, property: Property):
+    return _enforce_type(data, property.dtype, required=property.required)
 
 
-def _enforce_object(
-    data: dict[str, Any], obj: Object, required: bool = True, enforce_param: bool = False
-):
+def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
     if HAS_PYSPARK and isinstance(data, Row):
         data = None if len(data) == 0 else data.asDict(True)
     if not required and (data is None or data == {}):
@@ -1394,7 +1386,7 @@ def _enforce_object(
         )
     for k, v in data.items():
         try:
-            data[k] = _enforce_property(v, properties[k], enforce_param=enforce_param)
+            data[k] = _enforce_property(v, properties[k])
         except MlflowException as e:
             raise MlflowException(
                 f"Failed to enforce schema for key `{k}`. "
@@ -1404,7 +1396,7 @@ def _enforce_object(
     return data
 
 
-def _enforce_map(data: Any, map_type: Map, required: bool = True, enforce_param: bool = False):
+def _enforce_map(data: Any, map_type: Map, required: bool = True):
     if (not required or isinstance(map_type.value_type, AnyType)) and (data is None or data == {}):
         return data
 
@@ -1414,23 +1406,18 @@ def _enforce_map(data: Any, map_type: Map, required: bool = True, enforce_param:
     if not all(isinstance(k, str) for k in data):
         raise MlflowException("Expected all keys in the map type data are string type.")
 
-    return {
-        k: _enforce_type(v, map_type.value_type, required=required, enforce_param=enforce_param)
-        for k, v in data.items()
-    }
+    return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
-def _enforce_type(
-    data: Any, data_type: Union[DataType, Array, Object, Map], required=True, enforce_param=False
-):
+def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
     if isinstance(data_type, DataType):
-        return _enforce_datatype(data, data_type, required=required, enforce_param=enforce_param)
+        return _enforce_datatype(data, data_type, required=required)
     if isinstance(data_type, Array):
-        return _enforce_array(data, data_type, required=required, enforce_param=enforce_param)
+        return _enforce_array(data, data_type, required=required)
     if isinstance(data_type, Object):
-        return _enforce_object(data, data_type, required=required, enforce_param=enforce_param)
+        return _enforce_object(data, data_type, required=required)
     if isinstance(data_type, Map):
-        return _enforce_map(data, data_type, required=required, enforce_param=enforce_param)
+        return _enforce_map(data, data_type, required=required)
     if isinstance(data_type, AnyType):
         return data
     raise MlflowException(f"Invalid data type: {data_type!r}")

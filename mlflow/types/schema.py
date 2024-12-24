@@ -1183,7 +1183,9 @@ class ParamSpec:
                 if isinstance(value_type, DataType):
                     return _enforce_param_datatype(value, value_type)
                 elif isinstance(value_type, Object):
-                    return _enforce_object(value, value_type, enforce_param=True)
+                    # deepcopy to make sure the value is not mutated
+                    _enforce_object(deepcopy(value), value_type)
+                    return value
             elif shape == (-1,):
                 return [_enforce_param_datatype(v, value_type) for v in value]
         except Exception as e:
