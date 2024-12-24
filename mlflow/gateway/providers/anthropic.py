@@ -2,6 +2,7 @@ import json
 import time
 from typing import AsyncIterable
 
+from mlflow.anthropic.chat import convert_message_to_mlflow_chat
 from mlflow.gateway.config import AnthropicConfig, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
@@ -58,14 +59,23 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        # Example response:
+        # API reference: https://docs.anthropic.com/en/api/messages#body-messages
         #
+        # Example response:
         # ```
         # {
         #   "content": [
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "source": {
+        #       "type": "base64",
+        #       "media_type": "image/jpeg",
+        #       "data": "/9j/4AAQSkZJRg...",
+        #       "type": "image",
+        #       }
         #     }
         #   ],
         #   "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
@@ -90,13 +100,9 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    message=chat.ResponseMessage(
-                        role="assistant",
-                        content=c["text"],
-                    ),
+                    message=convert_message_to_mlflow_chat(resp),
                     finish_reason=stop_reason,
                 )
-                for c in resp["content"]
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=resp["usage"]["input_tokens"],
