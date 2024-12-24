@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
@@ -11,7 +10,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, jsonable_encoder
 
 
 def chat_config():
@@ -82,8 +81,6 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -292,7 +289,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "string",
             "object": "text_completion",
             "created": 1677858242,
             "model": "command",
@@ -375,7 +372,7 @@ async def test_completions_stream():
                     }
                 ],
                 "created": 1677858242,
-                "id": None,
+                "id": "",
                 "model": "command",
                 "object": "text_completion_chunk",
             },
@@ -388,7 +385,7 @@ async def test_completions_stream():
                     }
                 ],
                 "created": 1677858242,
-                "id": None,
+                "id": "",
                 "model": "command",
                 "object": "text_completion_chunk",
             },

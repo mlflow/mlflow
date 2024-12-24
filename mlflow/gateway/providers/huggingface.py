@@ -97,6 +97,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         output_tokens = resp["details"]["generated_tokens"]
         input_tokens = len(resp["details"]["prefill"])
         return completions.ResponsePayload(
+            id="",
             created=int(time.time()),
             object="text_completion",
             model=self.config.model.name,

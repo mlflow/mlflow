@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
@@ -15,6 +14,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 from tests.gateway.tools import (
     MockAsyncResponse,
     MockAsyncStreamingResponse,
+    jsonable_encoder,
     mock_http_client,
 )
 
@@ -80,7 +80,6 @@ async def test_chat():
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                         "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

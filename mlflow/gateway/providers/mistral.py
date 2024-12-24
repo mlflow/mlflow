@@ -36,6 +36,7 @@ class MistralAdapter(ProviderAdapter):
         # }
         # ```
         return completions.ResponsePayload(
+            id=resp["id"],
             created=int(time.time()),
             object="text_completion",
             model=config.model.name,
@@ -115,6 +116,7 @@ class MistralAdapter(ProviderAdapter):
                 embeddings.EmbeddingObject(
                     embedding=data["embedding"],
                     index=data["index"],
+                    object="embedding",
                 )
                 for data in resp["data"]
             ],
@@ -123,6 +125,7 @@ class MistralAdapter(ProviderAdapter):
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
             ),
+            object="list",
         )
 
     @classmethod

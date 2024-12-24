@@ -70,6 +70,7 @@ class AWSTitanAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
+            id=str(resp.get("id")),
             created=int(time.time()),
             object="text_completion",
             model=config.model.name,
@@ -113,6 +114,7 @@ class AI21Adapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
+            id=str(resp.get("id")),
             created=int(time.time()),
             object="text_completion",
             model=config.model.name,

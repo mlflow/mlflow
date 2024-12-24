@@ -105,6 +105,7 @@ def test_chat_request():
 def test_chat_response():
     chat.ResponsePayload(
         **{
+            "id": "some",
             "created": 100,
             "model": "gpt-4",
             "choices": [
@@ -118,6 +119,7 @@ def test_chat_response():
                 "completion_tokens": 1,
                 "total_tokens": 1,
             },
+            "object": "chat.completion",
         }
     )
 

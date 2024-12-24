@@ -133,6 +133,7 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
+            id=resp.get("id", ""),
             created=int(time.time()),
             model=self.config.model.name,
             choices=[
@@ -148,6 +149,7 @@ class MosaicMLProvider(BaseProvider):
                 completion_tokens=None,
                 total_tokens=None,
             ),
+            object="chat.completion",
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -199,6 +201,7 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
+            id=resp.get("id", ""),
             created=int(time.time()),
             object="text_completion",
             model=self.config.model.name,
@@ -260,6 +263,7 @@ class MosaicMLProvider(BaseProvider):
                 embeddings.EmbeddingObject(
                     embedding=output,
                     index=idx,
+                    object="embedding",
                 )
                 for idx, output in enumerate(resp["outputs"])
             ],
@@ -268,6 +272,7 @@ class MosaicMLProvider(BaseProvider):
                 prompt_tokens=None,
                 total_tokens=None,
             ),
+            object="list",
         )
 
 

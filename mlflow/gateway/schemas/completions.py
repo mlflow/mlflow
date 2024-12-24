@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.types.chat import BaseRequestPayload
@@ -53,7 +53,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class ResponsePayload(ResponseModel):
-    id: Optional[str] = None
+    id: Optional[str]
     object: str = "text_completion"
     created: int
     model: str
@@ -96,8 +96,8 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ResponseModel):
-    id: Optional[str] = None
-    object: str = "text_completion_chunk"
+    id: str
+    object: Literal["text_completion_chunk"]
     created: int
     model: str
     choices: list[StreamChoice]

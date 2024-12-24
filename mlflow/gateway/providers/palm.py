@@ -85,6 +85,7 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
+            id="",
             created=int(time.time()),
             model=self.config.model.name,
             choices=[
@@ -100,6 +101,7 @@ class PaLMProvider(BaseProvider):
                 completion_tokens=None,
                 total_tokens=None,
             ),
+            object="chat.completion",
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -147,6 +149,7 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
+            id="",
             created=int(time.time()),
             object="text_completion",
             model=self.config.model.name,
@@ -206,8 +209,7 @@ class PaLMProvider(BaseProvider):
         return embeddings.ResponsePayload(
             data=[
                 embeddings.EmbeddingObject(
-                    embedding=embedding["value"],
-                    index=idx,
+                    embedding=embedding["value"], index=idx, object="embedding"
                 )
                 for idx, embedding in enumerate(resp["embeddings"])
             ],
@@ -216,4 +218,5 @@ class PaLMProvider(BaseProvider):
                 prompt_tokens=None,
                 total_tokens=None,
             ),
+            object="list",
         )

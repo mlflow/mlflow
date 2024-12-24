@@ -1,7 +1,6 @@
 from unittest import mock
 
 import pytest
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -20,6 +19,7 @@ from tests.gateway.providers.test_anthropic import (
     parsed_completions_response as anthropic_parsed_completions_response,
 )
 from tests.gateway.providers.test_cohere import completions_response as cohere_completions_response
+from tests.gateway.tools import jsonable_encoder
 
 
 def ai21_completion_response():
@@ -90,7 +90,7 @@ def ai21_completion_response():
 
 def ai21_parsed_completion_response(mdl):
     return {
-        "id": None,
+        "id": "1234",
         "object": "text_completion",
         "created": 1677858242,
         "model": mdl,
@@ -191,7 +191,7 @@ bedrock_model_provider_fixtures = [
             "inputTextTokenCount": 4,
         },
         "expected": {
-            "id": None,
+            "id": "None",
             "object": "text_completion",
             "created": 1677858242,
             "model": "amazon.titan-tg1-large",

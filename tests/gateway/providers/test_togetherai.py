@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
@@ -11,7 +10,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, jsonable_encoder
 
 
 def completions_config():
@@ -421,8 +420,6 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "Its Artyom!",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": None,
                 }

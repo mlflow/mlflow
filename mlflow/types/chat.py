@@ -156,8 +156,8 @@ class ChatCompletionResponse(BaseModel):
     https://platform.openai.com/docs/api-reference/chat
     """
 
-    id: Optional[str] = None
-    object: str = "chat.completion"
+    id: str
+    object: Literal["chat.completion"]
     created: int
     model: str
     choices: list[ChatChoice]
@@ -180,7 +180,7 @@ class ChatCompletionChunk(BaseModel):
     """A chunk of a chat completion stream response."""
 
     id: Optional[str] = None
-    object: str = "chat.completion.chunk"
+    object: Literal["chat.completion.chunk"]
     created: int
     model: str
     choices: list[ChatChunkChoice]

@@ -117,6 +117,7 @@ class AnthropicAdapter(ProviderAdapter):
         return chat.StreamResponsePayload(
             id=resp["id"],
             created=int(time.time()),
+            object="chat.completion.chunk",
             model=resp["model"],
             choices=[
                 chat.StreamChoice(
@@ -135,6 +136,7 @@ class AnthropicAdapter(ProviderAdapter):
         stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
 
         return completions.ResponsePayload(
+            id=resp["id"],
             created=int(time.time()),
             object="text_completion",
             model=resp["model"],
