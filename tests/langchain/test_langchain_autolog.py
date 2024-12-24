@@ -58,7 +58,7 @@ from mlflow.models.utils import _read_example
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
-from tests.tracing.conftest import async_logging_enabled  # noqa: F401
+from tests.tracing.conftest import async_logging_enabled
 from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
@@ -1009,3 +1009,26 @@ def test_set_retriever_schema_work_for_langchain_model():
 
     trace = mlflow.get_last_active_trace()
     assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags
+
+
+def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed():
+    original_import = __import__
+
+    def _mock_import(name, *args):
+        if name.startswith("langchain."):
+            raise ImportError("No module named 'langchain'")
+        return original_import(name, *args)
+
+    with mock.patch("builtins.__import__", side_effect=_mock_import):
+        mlflow.langchain.autolog()
+
+        chain, input_example = create_runnable_sequence()
+        assert chain.invoke(input_example) == TEST_CONTENT
+        assert chain.invoke(input_example) == TEST_CONTENT
+
+        if async_logging_enabled:
+            mlflow.flush_trace_async_logging(terminate=True)
+
+        traces = get_traces()
+        assert len(traces) == 2
+        assert all(len(trace.data.spans) == 11 for trace in traces)
