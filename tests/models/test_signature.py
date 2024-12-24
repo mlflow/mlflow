@@ -275,7 +275,7 @@ def test_signature_construction():
     assert signature.to_dict() == {
         "inputs": None,
         "outputs": None,
-        "params": '[{"name": "param1", "type": "string", "default": "test", "shape": null}]',
+        "params": '[{"name": "param1", "default": "test", "shape": null, "type": "string"}]',
     }
 
 

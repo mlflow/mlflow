@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -26,6 +27,7 @@ from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import AnyType, Array, Map, Object, Property
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
@@ -301,6 +303,9 @@ class _Example:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
         model_input = deepcopy(self._inference_data)
 
+        if isinstance(model_input, pydantic.BaseModel):
+            model_input = model_input.dict() if PYDANTIC_V1_OR_OLDER else model_input.model_dump()
+
         is_unified_llm_input = False
         if isinstance(model_input, dict):
             """
@@ -383,6 +388,7 @@ class _Example:
                 "- list\n"
                 "- scalars\n"
                 "- datetime.datetime\n"
+                "- pydantic model instance\n"
                 f"but got '{type(model_input)}'",
             )
 
@@ -856,6 +862,74 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
+# dtype -> possible value types mapping
+_ALLOWED_CONVERSIONS_FOR_PARAMS = {
+    DataType.long: (DataType.integer,),
+    DataType.float: (DataType.integer, DataType.long),
+    DataType.double: (DataType.integer, DataType.long, DataType.float),
+}
+
+
+def _enforce_param_datatype(value: Any, dtype: DataType):
+    """
+    Enforce the value matches the data type. This is used to enforce params datatype.
+    The returned data is of python built-in type or a datetime object.
+
+    The following type conversions are allowed:
+
+    1. int -> long, float, double
+    2. long -> float, double
+    3. float -> double
+    4. any -> datetime (try conversion)
+
+    Any other type mismatch will raise error.
+
+    Args:
+        value: parameter value
+        dtype: expected data type
+    """
+    if value is None:
+        return
+
+    if dtype == DataType.datetime:
+        try:
+            datetime_value = np.datetime64(value).item()
+            if isinstance(datetime_value, int):
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to convert value to `{dtype}`. "
+                    f"It must be convertible to datetime.date/datetime, got `{value}`"
+                )
+            return datetime_value
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    # Note that np.isscalar(datetime.date(...)) is False
+    if not np.isscalar(value):
+        raise MlflowException.invalid_parameter_value(
+            f"Value must be a scalar for type `{dtype}`, got `{value}`"
+        )
+
+    # Always convert to python native type for params
+    if DataType.check_type(dtype, value):
+        return dtype.to_python()(value)
+
+    if dtype in _ALLOWED_CONVERSIONS_FOR_PARAMS and any(
+        DataType.check_type(t, value) for t in _ALLOWED_CONVERSIONS_FOR_PARAMS[dtype]
+    ):
+        try:
+            return dtype.to_python()(value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    raise MlflowException.invalid_parameter_value(
+        f"Can not safely convert `{type(value)}` to `{dtype}` for value `{value}`"
+    )
+
+
 def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     input_names = pf_input.columns[: len(input_schema.inputs)]
@@ -1266,7 +1340,7 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     return pd_series[0]
 
 
-def _enforce_array(data: Any, arr: Array, required=True):
+def _enforce_array(data: Any, arr: Array, required: bool = True):
     """
     Enforce data against an Array type.
     If the field is required, then the data must be provided.
@@ -1292,7 +1366,7 @@ def _enforce_property(data: Any, property: Property):
     return _enforce_type(data, property.dtype, required=property.required)
 
 
-def _enforce_object(data: dict[str, Any], obj: Object, required=True):
+def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
     if HAS_PYSPARK and isinstance(data, Row):
         data = None if len(data) == 0 else data.asDict(True)
     if not required and (data is None or data == {}):
@@ -1328,7 +1402,7 @@ def _enforce_object(data: dict[str, Any], obj: Object, required=True):
     return data
 
 
-def _enforce_map(data: Any, map_type: Map, required=True):
+def _enforce_map(data: Any, map_type: Map, required: bool = True):
     if (not required or isinstance(map_type.value_type, AnyType)) and (data is None or data == {}):
         return data
 

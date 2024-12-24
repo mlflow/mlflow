@@ -12,7 +12,7 @@ from packaging.version import Version
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
-IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.__version__).major >= 2
+IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
 _logger = logging.getLogger(__name__)
