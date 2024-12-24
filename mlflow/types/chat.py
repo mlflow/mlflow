@@ -97,7 +97,7 @@ class ChatMessage(BaseModel):
 
 
 class ParamType(BaseModel):
-    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"]
+    type: Optional[Literal["string", "number", "integer", "object", "array", "boolean", "null"]] = None
 
 
 class ParamProperty(ParamType):

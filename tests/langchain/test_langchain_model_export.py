@@ -1284,9 +1284,6 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
                 "message": {
                     "role": "assistant",
                     "content": "Databricks",
-                    "refusal": None,
-                    "tool_call_id": None,
-                    "tool_calls": None,
                 },
                 "finish_reason": None,
             }
@@ -1380,9 +1377,6 @@ def test_simple_chat_model_inference():
             "ai: What would you like to ask?\n"
             "human: Who owns MLflow?"
         ),
-        "refusal": None,
-        "tool_call_id": None,
-        "tool_calls": None,
     }
     response1 = loaded_model.predict([input_example])
     assert len(response1) == 1
@@ -2170,9 +2164,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                 "message": {
                     "role": "assistant",
                     "content": content,
-                    "refusal": None,
-                    "tool_call_id": None,
-                    "tool_calls": None,
                 },
                 "finish_reason": None,
             }
@@ -2247,9 +2238,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
                         "message": {
                             "role": "assistant",
                             "content": "You own MLflow",
-                            "refusal": None,
-                            "tool_call_id": None,
-                            "tool_calls": None,
                         },
                         "finish_reason": None,
                     }
@@ -3174,9 +3162,6 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
                     "message": {
                         "role": "assistant",
                         "content": "Databricks",
-                        "refusal": None,
-                        "tool_call_id": None,
-                        "tool_calls": None,
                     },
                     "finish_reason": None,
                 }

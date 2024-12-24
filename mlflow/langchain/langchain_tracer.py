@@ -28,6 +28,7 @@ from mlflow.langchain.utils.chat import (
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -221,20 +222,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
 
-        try:
-            mlflow_messages = [
-                convert_lc_message_to_chat_message(msg)
-                for message_list in messages
-                for msg in message_list
-            ]
-            kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
-        except Exception as e:
-            _logger.debug(
-                f"Failed to convert LangChain messages to MLflow chat messages: {e}",
-                exc_info=True,
-            )
-
-        self._start_span(
+        span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAT_MODEL,
@@ -242,6 +230,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=messages,
             attributes=kwargs,
         )
+
+        mlflow_messages = [
+            convert_lc_message_to_chat_message(msg)
+            for message_list in messages
+            for msg in message_list
+        ]
+        set_span_chat_messages(span, mlflow_messages)
 
     def on_llm_start(
         self,
@@ -259,10 +254,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if metadata:
             kwargs.update({"metadata": metadata})
 
-        mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
-        kwargs.update({SpanAttributeKey.CHAT_MESSAGES: mlflow_messages})
-
-        self._start_span(
+        span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
             parent_run_id=parent_run_id,
             span_type=SpanType.LLM,
@@ -270,6 +262,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=prompts,
             attributes=kwargs,
         )
+
+        mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
+        set_span_chat_messages(span, mlflow_messages)
 
     def on_llm_new_token(
         self,
@@ -333,7 +328,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             for gen_list in response.generations
             for gen in gen_list
         ]
-        llm_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, input_messages + output_messages)
+        set_span_chat_messages(llm_span, input_messages + output_messages)
         self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(

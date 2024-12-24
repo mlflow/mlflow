@@ -294,16 +294,10 @@ def test_llmchain_autolog(async_logging_enabled):
             {
                 "role": "user",
                 "content": "What is MLflow?",
-                "tool_calls": None,
-                "tool_call_id": None,
-                "refusal": None,
             },
             {
                 "role": "assistant",
                 "content": "What is MLflow?",
-                "tool_calls": None,
-                "tool_call_id": None,
-                "refusal": None,
             },
         ]
 
@@ -414,16 +408,10 @@ def test_chat_model_autolog():
         {
             "role": "system",
             "content": "You are a helpful assistant.",
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
         {
             "role": "user",
             "content": "What is the weather in San Francisco?",
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
         {
             "role": "assistant",
@@ -438,22 +426,15 @@ def test_chat_model_autolog():
                     "type": "function",
                 }
             ],
-            "tool_call_id": None,
-            "refusal": None,
         },
         {
             "role": "tool",
             "content": "Weather in San Francisco is 70F.",
-            "tool_calls": None,
             "tool_call_id": "123",
-            "refusal": None,
         },
         {
             "role": "assistant",
             "content": response.content,
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
     ]
 

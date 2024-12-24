@@ -166,6 +166,7 @@ def try_transform_response_to_chat_format(response: Any) -> dict:
             id=message_id,
             created=int(time.time()),
             model="",
+            object="chat.completion",
             choices=[
                 ChatChoice(
                     index=0,
@@ -180,9 +181,9 @@ def try_transform_response_to_chat_format(response: Any) -> dict:
             ),
         )
         if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json")
+            return transformed_response.model_dump(mode="json", exclude_unset=True)
         else:
-            return json.loads(transformed_response.json())
+            return json.loads(transformed_response.json(exclude_unset=True))
     else:
         return response
 
@@ -243,11 +244,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
-    if IS_PYDANTIC_V2_OR_NEWER:
-        model = ChatCompletionRequest.model_validate(chat_request)
-    else:
-        model = ChatCompletionRequest.parse_obj(chat_request)
-
+    model = ChatCompletionRequest.validate_compat(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 

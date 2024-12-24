@@ -8,7 +8,7 @@ import uuid
 from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -238,7 +238,7 @@ def generate_request_id() -> str:
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: list[ChatMessage],
+    messages: Union[dict, ChatMessage],
 ):
     """
     Set the `mlflow.chat.messages` attribute on the specified span. This
@@ -272,10 +272,19 @@ def set_span_chat_messages(
     """
     from mlflow.types.chat import ChatMessage
 
+    sanitized_messages = []
     for message in messages:
-        ChatMessage.validate_compat(message)
+        if isinstance(message, dict):
+            ChatMessage.validate_compat(message)
+            sanitized_messages.append(message)
+        elif isinstance(message, ChatMessage):
+            # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
+            #   some fields are only present in either the request or response (e.g., tool_call_id).
+            #   Those fields should not be recorded unless set explicitly, so we set
+            #   exclude_unset=True here to avoid recording unset fields.
+            sanitized_messages.append(message.model_dump(exclude_unset=True))
 
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
+    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
 
 def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):

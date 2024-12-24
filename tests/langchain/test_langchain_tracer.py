@@ -121,16 +121,10 @@ def test_llm_success():
         {
             "role": "user",
             "content": "test prompt",
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
         {
             "role": "assistant",
             "content": "generated text",
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
     ]
 
@@ -164,9 +158,6 @@ def test_llm_error():
         {
             "role": "user",
             "content": "test prompt",
-            "tool_calls": None,
-            "tool_call_id": None,
-            "refusal": None,
         },
     ]
 
@@ -347,16 +338,10 @@ def test_multiple_components():
             {
                 "role": "user",
                 "content": f"test prompt {i}",
-                "tool_calls": None,
-                "tool_call_id": None,
-                "refusal": None,
             },
             {
                 "role": "assistant",
                 "content": f"generated text {i}",
-                "tool_calls": None,
-                "tool_call_id": None,
-                "refusal": None,
             },
         ]
 
