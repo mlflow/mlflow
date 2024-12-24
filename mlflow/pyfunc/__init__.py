@@ -2930,12 +2930,10 @@ def save_model(
             input_example, input_params = _split_input_data_and_params(input_example)
             valid_params = {}
             if isinstance(input_example, list):
-                messages = []
-                for each_message in input_example:
-                    if isinstance(each_message, ChatMessage):
-                        messages.append(each_message)
-                    else:
-                        messages.append(ChatMessage.from_dict(each_message))
+                messages = [
+                    message if isinstance(message, ChatMessage) else ChatMessage.from_dict(message)
+                    for message in input_example
+                ]
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [

@@ -625,7 +625,7 @@ class Model:
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
-            res["_is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
+            res["is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
@@ -719,9 +719,9 @@ class Model:
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             signature = ModelSignature.from_dict(model_dict["signature"])
-            if "_is_signature_from_type_hint" in model_dict:
+            if "is_signature_from_type_hint" in model_dict:
                 signature._is_signature_from_type_hint = model_dict.pop(
-                    "_is_signature_from_type_hint"
+                    "is_signature_from_type_hint"
                 )
             model_dict["signature"] = signature
 
