@@ -3,22 +3,18 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel as _BaseModel
-from pydantic import Field, ValidationError
+from pydantic import Field
 
-from mlflow.exceptions import MlflowException
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 class BaseModel(_BaseModel):
     @classmethod
     def validate_compat(cls, obj: Any):
-        try:
-            if IS_PYDANTIC_V2_OR_NEWER:
-                return cls.model_validate(obj)
-            else:
-                return cls.parse_obj(obj)
-        except ValidationError as e:
-            raise MlflowException.invalid_parameter_value(e) from e
+        if IS_PYDANTIC_V2_OR_NEWER:
+            return cls.model_validate(obj)
+        else:
+            return cls.parse_obj(obj)
 
 
 class TextContentPart(BaseModel):

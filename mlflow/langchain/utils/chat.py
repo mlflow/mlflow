@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Any, Union
 
+import pydantic
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -334,7 +335,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     if should_convert:
         try:
             return _convert_chat_request(request_json), True
-        except MlflowException:
+        except pydantic.ValidationError:
             _logger.debug(
                 "Failed to convert the request JSON to LangChain's Message format. "
                 "The request will be passed to the LangChain model as-is. ",
