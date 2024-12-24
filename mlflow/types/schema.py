@@ -1187,6 +1187,8 @@ class ParamSpec:
                     # use _enforce_object to validate that the value matches the object schema.
                     # return the original value to preserve its type, as validation may cast it
                     # to a numpy type, but models require the original parameter type.
+                    # TODO: we will drop data conversion for params in the future, including
+                    # the current allowed conversions in _enforce_param_datatype
                     _enforce_object(deepcopy(value), value_type)
                     return value
             elif shape == (-1,):
