@@ -383,7 +383,14 @@ def _infer_signature_from_type_hints(
     except InvalidTypeHintException as e:
         warnings.warn(e.message, stacklevel=2)
         return None
+    if input_schema is None:
+        _logger.warning(
+            f"Type hint {type_hints.input} can not be used to infer model signature, "
+            "please provide a model signature explicitly."
+        )
+        return None
     is_output_type_hint_valid = type_hints.output is not None
+    default_output_schema = Schema([ColSpec(type=AnyType())])
     try:
         output_schema = (
             _infer_schema_from_type_hint(type_hints.output) if type_hints.output else None
@@ -393,9 +400,15 @@ def _infer_signature_from_type_hints(
             f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=2
         )
         is_output_type_hint_valid = False
-        output_schema = Schema([ColSpec(type=AnyType())])
+        output_schema = default_output_schema
+    if output_schema is None:
+        _logger.warning(
+            f"Type hint {type_hints.output} can not be used to infer model signature "
+            "output schema, setting output schema to AnyType."
+        )
+        output_schema = default_output_schema
     params_schema = _infer_param_schema(params) if params else None
-    if input_example:
+    if input_example is not None:
         # TODO: we can remove input example validation here
         # once we move the validation inside `predict` function
         if msg := _get_example_validation_result(
@@ -436,7 +449,7 @@ def _infer_signature_from_type_hints(
                         f"`{type_hints.output}`, setting output schema to AnyType. "
                         f"Error: {msg}"
                     )
-                    output_schema = Schema([ColSpec(type=AnyType())])
+                    output_schema = default_output_schema
     if not any([input_schema, output_schema, params_schema]):
         return None
     signature = ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)

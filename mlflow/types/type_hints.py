@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
@@ -43,6 +44,44 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
     bytes: DataType.binary,
     datetime: DataType.datetime,
 }
+
+
+@lru_cache(maxsize=1)
+def no_op_type_hints():
+    """
+    This function returns a tuple of types that can be used
+    as type hints, but no schema can be inferred from them.
+    During validation, the data will only be checked for type compatibility.
+
+    ..note::
+        These types can not be used as nested types in other type hints.
+    """
+    no_op_type_hints = ()
+    try:
+        import pandas as pd
+
+        no_op_type_hints += (
+            pd.DataFrame,
+            pd.Series,
+        )
+    except ImportError:
+        pass
+
+    try:
+        import numpy as np
+
+        no_op_type_hints += (np.ndarray,)
+    except ImportError:
+        pass
+
+    try:
+        from scipy.sparse import csc_matrix, csr_matrix
+
+        no_op_type_hints += (csc_matrix, csr_matrix)
+    except ImportError:
+        pass
+
+    return no_op_type_hints
 
 
 class ColSpecType(NamedTuple):
@@ -220,7 +259,9 @@ def field_required(field: type[FIELD_TYPE]) -> bool:
     return field.is_required()
 
 
-def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
+def _infer_schema_from_type_hint(type_hint: type[Any]) -> Optional[Schema]:
+    if type_hint in no_op_type_hints():
+        return None
     col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
@@ -261,7 +302,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
             return type_hint(**example_dict) if isinstance(example, dict) else example
     elif type_hint == Any:
         return example
-    elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
+    elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING or type_hint in no_op_type_hints():
         if isinstance(example, type_hint):
             return example
         raise MlflowException.invalid_parameter_value(

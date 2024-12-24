@@ -3,9 +3,11 @@ import sys
 from typing import Any, Dict, List, Optional, Union, get_args
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pydantic
 import pytest
+from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
@@ -153,6 +155,20 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
 def test_infer_schema_from_python_type_hints(type_hint, expected_schema):
     schema = _infer_schema_from_type_hint(type_hint)
     assert schema == expected_schema
+
+
+@pytest.mark.parametrize(
+    "type_hint",
+    [
+        pd.DataFrame,
+        pd.Series,
+        np.ndarray,
+        csc_matrix,
+        csr_matrix,
+    ],
+)
+def test_infer_schema_from_no_op_type_hints(type_hint):
+    assert _infer_schema_from_type_hint(type_hint) is None
 
 
 def test_infer_schema_from_type_hints_errors():
@@ -331,6 +347,20 @@ def test_pydantic_model_validation(type_hint, example):
 )
 def test_python_type_hints_validation(type_hint, example):
     assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == example
+
+
+@pytest.mark.parametrize(
+    ("type_hint", "example"),
+    [
+        (pd.DataFrame, pd.DataFrame({"a": ["a", "b"]})),
+        (pd.Series, pd.Series([1, 2])),
+        (np.ndarray, np.array([1, 2])),
+        (csc_matrix, csc_matrix((3, 4))),
+        (csr_matrix, csr_matrix((3, 4))),
+    ],
+)
+def test_validate_example_for_no_op_type_hints(type_hint, example):
+    _validate_example_against_type_hint(example=example, type_hint=type_hint)
 
 
 def test_type_hints_validation_errors():
