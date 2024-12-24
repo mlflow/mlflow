@@ -20,12 +20,14 @@ from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCH
 from mlflow.exceptions import MlflowException
 from mlflow.types.chat import (
     ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
+    ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
     ChatUsage,
 )
-from mlflow.types.llm import ChatChoiceDelta, ChatChunkChoice, ChatCompletionChunk
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)

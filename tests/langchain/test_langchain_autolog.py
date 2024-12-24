@@ -398,7 +398,10 @@ def test_chat_model_autolog():
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
     assert span.span_type == "CHAT_MODEL"
-    assert span.inputs == [[msg.model_dump() for msg in messages]]
+    if Version(langchain.__version__) >= Version("0.2.0"):
+        assert span.inputs == [[msg.model_dump() for msg in messages]]
+    else:
+        assert span.inputs == [[msg.dict() for msg in messages]]
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
