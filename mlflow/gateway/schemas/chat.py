@@ -39,7 +39,7 @@ class UnityCatalogFunctionToolDefinition(RequestModel):
 class ChatToolWithUC(RequestModel):
     """
     A tool definition for the chat endpoint with Unity Catalog integration.
-    The Gateway request accepts a tool with a special type 'uc_function' for Unity Catalog integration.
+    The Gateway request accepts a special tool type 'uc_function' for Unity Catalog integration.
     https://mlflow.org/docs/latest/llms/deployments/uc_integration.html
     """
 
