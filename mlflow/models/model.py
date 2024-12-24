@@ -574,6 +574,9 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
+    def _is_signature_from_type_hint(self):
+        return self.signature._is_signature_from_type_hint if self.signature is not None else False
+
     def get_model_info(self) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -622,6 +625,7 @@ class Model:
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
+            res["is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
@@ -714,7 +718,12 @@ class Model:
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
-            model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+            signature = ModelSignature.from_dict(model_dict["signature"])
+            if "is_signature_from_type_hint" in model_dict:
+                signature._is_signature_from_type_hint = model_dict.pop(
+                    "is_signature_from_type_hint"
+                )
+            model_dict["signature"] = signature
 
         if "model_uuid" not in model_dict:
             model_dict["model_uuid"] = None

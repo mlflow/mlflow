@@ -22,7 +22,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
-from mlflow.models.signature import _extract_type_hints
+from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
@@ -116,7 +116,10 @@ class PythonModel:
         """
 
     def _get_type_hints(self):
-        return _extract_type_hints(self.predict, input_arg_index=1)
+        if _is_context_in_predict_function_signature(func=self.predict):
+            return _extract_type_hints(self.predict, input_arg_index=1)
+        else:
+            return _extract_type_hints(self.predict, input_arg_index=0)
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
@@ -160,9 +163,8 @@ class _FunctionPythonModel(PythonModel):
     in an instance of this class.
     """
 
-    def __init__(self, func, hints=None, signature=None):
+    def __init__(self, func, signature=None):
         self.func = func
-        self.hints = hints
         self.signature = signature
 
     def _get_type_hints(self):
@@ -306,7 +308,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
     signature=None,
-    hints=None,
     artifacts=None,
     conda_env=None,
     code_paths=None,
@@ -363,7 +364,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
     if callable(python_model):
-        python_model = _FunctionPythonModel(python_model, hints, signature)
+        python_model = _FunctionPythonModel(func=python_model, signature=signature)
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
@@ -373,27 +374,11 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
             with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
                 cloudpickle.dump(python_model, out)
         except Exception as e:
-            # cloudpickle sometimes raises TypeError instead of PicklingError.
-            # catching generic Exception and checking message to handle both cases.
-            if "cannot pickle" in str(e).lower():
-                raise MlflowException(
-                    "Failed to serialize Python model. Please audit your "
-                    "class variables (e.g. in `__init__()`) for any "
-                    "unpicklable objects. If you're trying to save an external model "
-                    "in your custom pyfunc, Please use the `artifacts` parameter "
-                    "in `mlflow.pyfunc.save_model()`, and load your external model "
-                    "in the `load_context()` method instead. For example:\n\n"
-                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
-                    "    def load_context(self, context):\n"
-                    "        model_path = context.artifacts['my_model_path']\n"
-                    "        // custom load logic here\n"
-                    "        self.model = load_model(model_path)\n\n"
-                    "For more information, see our full tutorial at: "
-                    "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html"
-                    f"\n\nFull serialization error: {e}"
-                ) from None
-            else:
-                raise e
+            raise MlflowException(
+                "Failed to serialize Python model. Please save the model into a python file "
+                "and use code-based logging method instead. See"
+                "https://mlflow.org/docs/latest/models.html#models-from-code for more information."
+            ) from e
 
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
 
@@ -599,7 +584,7 @@ class _PythonModelPyfuncWrapper:
     predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, python_model, context, signature):
+    def __init__(self, python_model: PythonModel, context, signature):
         """
         Args:
             python_model: An instance of a subclass of :class:`~PythonModel`.
@@ -615,21 +600,16 @@ class _PythonModelPyfuncWrapper:
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
-        if _is_list_str(hints.input):
-            if isinstance(model_input, pd.DataFrame):
+        # we still need this for backwards compatibility
+        if isinstance(model_input, pd.DataFrame):
+            if _is_list_str(hints.input):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
                     raise MlflowException.invalid_parameter_value(
                         "Expected model input to contain at least one string column"
                     )
                 return model_input[first_string_column].tolist()
-            elif isinstance(model_input, list):
-                if all(isinstance(x, dict) for x in model_input):
-                    return [next(iter(d.values())) for d in model_input]
-                elif all(isinstance(x, str) for x in model_input):
-                    return model_input
-        elif _is_list_dict_str(hints.input):
-            if isinstance(model_input, pd.DataFrame):
+            elif _is_list_dict_str(hints.input):
                 if (
                     len(self.signature.inputs) == 1
                     and next(iter(self.signature.inputs)).name is None
@@ -637,15 +617,11 @@ class _PythonModelPyfuncWrapper:
                     first_string_column = _get_first_string_column(model_input)
                     return model_input[[first_string_column]].to_dict(orient="records")
                 return model_input.to_dict(orient="records")
-            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
-                keys = [x.name for x in self.signature.inputs]
-                return [{k: d[k] for k in keys} for d in model_input]
-        elif isinstance(hints.input, type) and (
-            issubclass(hints.input, ChatCompletionRequest)
-            or issubclass(hints.input, SplitChatMessagesRequest)
-        ):
-            # If the type hint is a RAG dataclass, we hydrate it
-            if isinstance(model_input, pd.DataFrame):
+            elif isinstance(hints.input, type) and (
+                issubclass(hints.input, ChatCompletionRequest)
+                or issubclass(hints.input, SplitChatMessagesRequest)
+            ):
+                # If the type hint is a RAG dataclass, we hydrate it
                 # If there are multiple rows, we should throw
                 if len(model_input) > 1:
                     raise MlflowException(
@@ -679,12 +655,7 @@ class _PythonModelPyfuncWrapper:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if (
-            # predict(self, context, model_input, ...)
-            "context" in parameters
-            # predict(self, ctx, model_input, ...) ctx can be any parameter name
-            or len([param for param in parameters if param != "params"]) == 2
-        ):
+        if _is_context_in_predict_function_signature(parameters=parameters):
             return self.python_model.predict(
                 self.context, self._convert_input(model_input), **kwargs
             )
@@ -714,12 +685,7 @@ class _PythonModelPyfuncWrapper:
             kwargs["params"] = params
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-        if (
-            # predict_stream(self, context, model_input, ...)
-            "context" in parameters
-            # predict_stream(self, ctx, model_input, ...) ctx can be any parameter name
-            or len([param for param in parameters if param != "params"]) == 2
-        ):
+        if _is_context_in_predict_function_signature(parameters=parameters):
             return self.python_model.predict_stream(
                 self.context, self._convert_input(model_input), **kwargs
             )

@@ -8,6 +8,7 @@ for more details on Schema and data types.
 import inspect
 import logging
 import re
+import warnings
 from copy import deepcopy
 from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
@@ -25,7 +26,12 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
-from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.type_hints import (
+    InvalidTypeHintException,
+    _get_example_validation_result,
+    _infer_schema_from_type_hint,
+)
+from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -90,6 +96,15 @@ class ModelSignature:
         else:
             self.outputs = outputs
         self.params = params
+        self.__is_signature_from_type_hint = False
+
+    @property
+    def _is_signature_from_type_hint(self):
+        return self.__is_signature_from_type_hint
+
+    @_is_signature_from_type_hint.setter
+    def _is_signature_from_type_hint(self, value):
+        self.__is_signature_from_type_hint = value
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -126,7 +141,6 @@ class ModelSignature:
         inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
         params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
-
         return cls(inputs, outputs, params)
 
     def __eq__(self, other) -> bool:
@@ -340,9 +354,23 @@ def _extract_type_hints(f, input_arg_index):
     return _TypeHints(hints.get(arg_name), hints.get("return"))
 
 
-def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
-    hints = _extract_type_hints(func, input_arg_index)
-    if hints.input is None:
+def _is_context_in_predict_function_signature(*, func=None, parameters=None):
+    if parameters is None:
+        if func is None:
+            raise ValueError("Either `func` or `parameters` must be provided.")
+        parameters = inspect.signature(func).parameters
+    return (
+        # predict(self, context, model_input, ...)
+        "context" in parameters
+        # predict(self, ctx, model_input, ...) ctx can be any parameter name
+        or len([param for param in parameters if param != "params"]) == 2
+    )
+
+
+def _infer_signature_from_type_hints(
+    func, type_hints: _TypeHints, input_example=None
+) -> Optional[ModelSignature]:
+    if type_hints.input is None:
         return None
 
     params = None
@@ -350,25 +378,70 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if _contains_params(input_example):
         input_example, params = input_example
 
-    input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
+    try:
+        input_schema = _infer_schema_from_type_hint(type_hints.input)
+    except InvalidTypeHintException as e:
+        warnings.warn(e.message, stacklevel=2)
+        return None
+    is_output_type_hint_valid = type_hints.output is not None
+    try:
+        output_schema = (
+            _infer_schema_from_type_hint(type_hints.output) if type_hints.output else None
+        )
+    except InvalidTypeHintException as e:
+        warnings.warn(
+            f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=2
+        )
+        is_output_type_hint_valid = False
+        output_schema = Schema([ColSpec(type=AnyType())])
     params_schema = _infer_param_schema(params) if params else None
-    input_arg_name = _get_arg_names(func)[input_arg_index]
     if input_example:
-        inputs = {input_arg_name: input_example}
-        if params and params_key in inspect.signature(func).parameters:
-            inputs[params_key] = params
-        # This is for PythonModel's predict function
-        if input_arg_index == 1:
-            inputs["context"] = None
-        output_example = func(**inputs)
-    else:
-        output_example = None
-    output_schema = (
-        _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
-    )
+        # TODO: we can remove input example validation here
+        # once we move the validation inside `predict` function
+        if msg := _get_example_validation_result(
+            example=input_example, type_hint=type_hints.input
+        ).error_message:
+            _logger.warning(
+                "Input example is not compatible with the type hint of the `predict` function. "
+                f"Error: {msg}"
+            )
+        else:
+            kwargs = (
+                {params_key: params}
+                if params and params_key in inspect.signature(func).parameters
+                else {}
+            )
+            # This is for PythonModel's predict function
+            if _is_context_in_predict_function_signature(func=func):
+                inputs = [None, input_example]
+            else:
+                inputs = [input_example]
+            _logger.info("Running the predict function to generate output based on input example")
+            try:
+                output_example = func(*inputs, **kwargs)
+            except Exception:
+                _logger.warning(
+                    "Failed to run the predict function on input example. To see the full "
+                    "traceback, set logging level to DEBUG.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+            else:
+                if is_output_type_hint_valid and (
+                    msg := _get_example_validation_result(
+                        example=output_example, type_hint=type_hints.output
+                    ).error_message
+                ):
+                    _logger.warning(
+                        f"Failed to validate output `{output_example}` against type hint "
+                        f"`{type_hints.output}`, setting output schema to AnyType. "
+                        f"Error: {msg}"
+                    )
+                    output_schema = Schema([ColSpec(type=AnyType())])
     if not any([input_schema, output_schema, params_schema]):
         return None
-    return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
+    signature._is_signature_from_type_hint = True
+    return signature
 
 
 def _infer_signature_from_input_example(
