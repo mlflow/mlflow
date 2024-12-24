@@ -13,24 +13,23 @@ from typing import Literal, Optional
 from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
+
+# Import marked with noqa is for aliasing the models from mlflow.types.chat
 from mlflow.types.chat import (
     ChatChoice,
-    ChatChoiceDelta,
-    ChatChunkChoice,
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
+    ChatUsage,  # noqa F401
+    Function,  # noqa F401
     FunctionToolDefinition,
+    ToolCall,  # noqa F401
 )
-from mlflow.types.chat import ChatCompletionRequest as _Function
-from mlflow.types.chat import ChatUsage as _ChatUsage
-from mlflow.types.chat import ToolCall as _ToolCall
+from mlflow.types.chat import ChatChoiceDelta as StreamDelta  # noqa F401
+from mlflow.types.chat import ChatChunkChoice as StreamChoice  # noqa F401
+from mlflow.types.chat import ChatMessage as RequestMessage
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-
-class RequestMessage(ChatMessage, RequestModel):
-    pass
 
 
 class UnityCatalogFunctionToolDefinition(RequestModel):
@@ -38,6 +37,12 @@ class UnityCatalogFunctionToolDefinition(RequestModel):
 
 
 class ChatToolWithUC(RequestModel):
+    """
+    A tool definition for the chat endpoint with Unity Catalog integration.
+    The Gateway request accepts a tool with a special type 'uc_function' for Unity Catalog integration.
+    https://mlflow.org/docs/latest/llms/deployments/uc_integration.html
+    """
+
     type: Literal["function", "uc_function"]
     function: Optional[FunctionToolDefinition] = None
     uc_function: Optional[UnityCatalogFunctionToolDefinition] = None
@@ -56,10 +61,8 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-# NB: RequestPayload is mostly OpenAI's ChatCompletion API spec, except for the `tools` field.
-#     The field accepts a tool with a special type 'uc_function' for Unity Catalog integration.
-#     https://mlflow.org/docs/latest/llms/deployments/uc_integration.html
 class RequestPayload(ChatCompletionRequest, RequestModel):
+    messages: list[RequestMessage]
     tools: Optional[list[ChatToolWithUC]] = None
 
     class Config:
@@ -87,14 +90,6 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class Function(_Function, ResponseModel):
-    pass
-
-
-class ToolCall(_ToolCall, ResponseModel):
-    pass
-
-
 class ResponseMessage(ChatMessage, ResponseModel):
     # Override the `tool_call_id` field to be excluded from the response.
     # This is a band-aid solution to avoid exposing the tool_call_id in the response,
@@ -107,10 +102,6 @@ class Choice(ChatChoice, ResponseModel):
     message: ResponseMessage
 
 
-class ChatUsage(_ChatUsage, ResponseModel):
-    pass
-
-
 class ResponsePayload(ChatCompletionResponse, ResponseModel):
     # Override the `choices` field to use the Choice model
     choices: list[Choice]
@@ -120,14 +111,6 @@ class ResponsePayload(ChatCompletionResponse, ResponseModel):
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-
-
-class StreamDelta(ChatChoiceDelta, ResponseModel):
-    pass
-
-
-class StreamChoice(ChatChunkChoice, ResponseModel):
-    pass
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {

@@ -9,7 +9,6 @@ from langchain_core.messages import (
     AIMessageChunk,
     HumanMessage,
     SystemMessage,
-    ToolCall,
     ToolMessage,
 )
 from packaging.version import Version
@@ -54,6 +53,8 @@ def test_convert_lc_message_to_chat_message(message, expected):
     reason="AIMessage does not have tool_calls attribute",
 )
 def test_convert_lc_message_to_chat_message_too_calls():
+    from langchain_core.messages import ToolCall
+
     message = AIMessage(
         content="", tool_calls=[ToolCall(name="tool_name", args={"arg1": "val1"}, id="123")]
     )

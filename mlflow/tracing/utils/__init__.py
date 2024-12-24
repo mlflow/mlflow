@@ -326,7 +326,14 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
 
         f()
     """
-    from mlflow.types.chat import ChatTools
+    from mlflow.types.chat import ChatTool
 
-    ChatTools.validate_compat({"tools": tools})
+    if not isinstance(tools, list):
+        raise MlflowTracingException(
+            f"Invalid tools type {type(tools)}. Expected a list of ChatTool.",
+            error_code=BAD_REQUEST,
+        )
+    for tool in tools:
+        ChatTool.validate_compat(tool)
+
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)

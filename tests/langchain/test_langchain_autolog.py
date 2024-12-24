@@ -378,7 +378,7 @@ def test_loaded_llmchain_autolog():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
+    Version(langchain.__version__) < Version("0.2.0"),
     reason="Callback does not pass all messages in older versions",
 )
 def test_chat_model_autolog():
@@ -386,7 +386,7 @@ def test_chat_model_autolog():
     model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
     messages = [
         SystemMessage(content="You are a helpful assistant."),
-        HumanMessage(content="What is MLflow?"),
+        HumanMessage(content="What is the weather in San Francisco?"),
         AIMessage(
             content="",
             tool_calls=[{"name": "GetWeather", "args": {"location": "San Francisco"}, "id": "123"}],
@@ -420,7 +420,7 @@ def test_chat_model_autolog():
         },
         {
             "role": "user",
-            "content": "What is MLflow?",
+            "content": "What is the weather in San Francisco?",
             "tool_calls": None,
             "tool_call_id": None,
             "refusal": None,

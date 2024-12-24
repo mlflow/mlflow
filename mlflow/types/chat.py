@@ -127,10 +127,6 @@ class ChatTool(BaseModel):
     function: Optional[FunctionToolDefinition] = None
 
 
-class ChatTools(BaseModel):
-    tools: Optional[list[ChatTool]] = Field(None, min_items=1)
-
-
 class BaseRequestPayload(BaseModel):
     """Common parameters used for chat completions and completion endpoints."""
 
@@ -142,7 +138,7 @@ class BaseRequestPayload(BaseModel):
     model: Optional[str] = None
 
 
-class ChatCompletionRequest(ChatTools, BaseRequestPayload):
+class ChatCompletionRequest(BaseRequestPayload):
     """
     A request to the chat completion API.
 
@@ -151,6 +147,7 @@ class ChatCompletionRequest(ChatTools, BaseRequestPayload):
     """
 
     messages: list[ChatMessage] = Field(..., min_items=1)
+    tools: Optional[list[ChatTool]] = Field(None, min_items=1)
 
 
 class ChatCompletionResponse(BaseModel):
