@@ -429,25 +429,28 @@ def test_delete_registered_model_permission(store):
 
 def test_rename_registered_model_permission(store):
     # create 2 users and create 2 permission for the model registry with the same name
-    model_registry_name = random_str()
+    model_name = random_str()
     username1 = random_str()
     password1 = random_str()
     _user_maker(store, username1, password1)
-    _rmp_maker(store, model_registry_name, username1, MANAGE.name)
+    _rmp_maker(store, model_name, username1, MANAGE.name)
 
     username2 = random_str()
     password2 = random_str()
     _user_maker(store, username2, password2)
-    _rmp_maker(store, model_registry_name, username2, MANAGE.name)
+    _rmp_maker(store, model_name, username2, READ.name)
 
-    model_registry_new_name = random_str()
+    new_name = random_str()
 
-    store.rename_registered_model_permissions(model_registry_name, model_registry_new_name)
+    store.rename_registered_model_permissions(model_name, new_name)
 
     # get permission by model registry new name and all user must have the same new name
-    perm_user_1 = store.get_registered_model_permission(model_registry_new_name, username1)
-    perm_user_2 = store.get_registered_model_permission(model_registry_new_name, username2)
+    perm_user_1 = store.get_registered_model_permission(new_name, username1)
+    perm_user_2 = store.get_registered_model_permission(new_name, username2)
     assert isinstance(perm_user_1, RegisteredModelPermission)
     assert isinstance(perm_user_2, RegisteredModelPermission)
-    assert perm_user_1.name == model_registry_new_name
-    assert perm_user_2.name == model_registry_new_name
+    assert perm_user_1.name == new_name
+    assert perm_user_2.name == new_name
+    
+    assert perm_user_1.permission == MANAGE.name
+    assert perm_user_2.permission == READ.name
