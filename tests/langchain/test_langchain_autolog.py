@@ -388,7 +388,7 @@ def test_chat_model_autolog():
         SystemMessage(content="You are a helpful assistant."),
         HumanMessage(content="What is the weather in San Francisco?"),
         AIMessage(
-            content="",
+            content="foo",
             tool_calls=[{"name": "GetWeather", "args": {"location": "San Francisco"}, "id": "123"}],
         ),
         ToolMessage(content="Weather in San Francisco is 70F.", tool_call_id="123"),
@@ -427,7 +427,7 @@ def test_chat_model_autolog():
         },
         {
             "role": "assistant",
-            "content": None,
+            "content": "foo",
             "tool_calls": [
                 {
                     "function": {

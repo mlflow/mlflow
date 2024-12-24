@@ -14,9 +14,11 @@ from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 
-# Import marked with noqa is for aliasing the models from mlflow.types.chat
+# Import marked with noqa is for backward compatibility
 from mlflow.types.chat import (
     ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -26,10 +28,12 @@ from mlflow.types.chat import (
     FunctionToolDefinition,
     ToolCall,  # noqa F401
 )
-from mlflow.types.chat import ChatChoiceDelta as StreamDelta  # noqa F401
-from mlflow.types.chat import ChatChunkChoice as StreamChoice  # noqa F401
-from mlflow.types.chat import ChatMessage as RequestMessage
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+
+# NB: `import x as y` does not work and will cause a Pydantic error.
+StreamDelta = ChatChoiceDelta
+StreamChoice = ChatChunkChoice
+RequestMessage = ChatMessage
 
 
 class UnityCatalogFunctionToolDefinition(RequestModel):
