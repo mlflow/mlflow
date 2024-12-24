@@ -367,7 +367,9 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
-def _infer_signature_from_type_hints(func, type_hints: _TypeHints, input_example=None):
+def _infer_signature_from_type_hints(
+    func, type_hints: _TypeHints, input_example=None
+) -> Optional[ModelSignature]:
     if type_hints.input is None:
         return None
 
