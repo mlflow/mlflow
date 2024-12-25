@@ -55,7 +55,7 @@ def create_chat_completion(self, max_tokens, model, messages):
     return DUMMY_CHAT_COMPLETION_RESPONSE
 
 
-@patch.dict(os.environ, {"GROQ_API_TOKEN": "test_token"})
+@patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
 def test_chat_completion_autolog():
     with patch("groq.resources.chat.completions.Completions.create", new=create_chat_completion):
         mlflow.groq.autolog()
@@ -96,7 +96,7 @@ def create_audio_transcription(self, model, file):
     return DUMMY_AUDIO_TRANSCRIPTION_RESPONSE
 
 
-@patch.dict(os.environ, {"GROQ_API_TOKEN": "test_token"})
+@patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
 def test_audio_transcription_autolog():
     with patch(
         "groq.resources.audio.transcriptions.Transcriptions.create", new=create_audio_transcription
@@ -141,7 +141,7 @@ def create_audio_translation(self, model, file):
     return DUMMY_AUDIO_TRANSLATION_RESPONSE
 
 
-@patch.dict(os.environ, {"GROQ_API_TOKEN": "test_token"})
+@patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
 def test_audio_translation_autolog():
     with patch(
         "groq.resources.audio.translations.Translations.create", new=create_audio_translation
