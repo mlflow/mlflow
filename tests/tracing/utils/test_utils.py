@@ -1,9 +1,10 @@
 import pytest
+from pydantic import ValidationError
 
 import mlflow
 from mlflow.entities import LiveSpan
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
@@ -116,7 +117,7 @@ def test_set_chat_messages_validation():
         set_span_chat_messages(span, messages)
         return None
 
-    with pytest.raises(MlflowException, match="validation error for RequestMessage"):
+    with pytest.raises(ValidationError, match="validation error for ChatMessage"):
         dummy_call(messages)
 
 
@@ -136,5 +137,5 @@ def test_set_chat_tools_validation():
         set_span_chat_tools(span, tools)
         return None
 
-    with pytest.raises(MlflowException, match="validation error for ChatTool"):
+    with pytest.raises(ValidationError, match="validation error for ChatTool"):
         dummy_call(tools)
