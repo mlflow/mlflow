@@ -430,7 +430,7 @@ nitpick_ignore = [
     ("py:class", "remove"),
     # sphinx can't resolve TYPE_CHECKING imports
     ("py:class", "LiveSpan"),
-    ("py:class", "RequestMessage"),
+    ("py:class", "ChatMessage"),
     ("py:class", "ChatTool"),
 ]
 

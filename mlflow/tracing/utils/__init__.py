@@ -8,7 +8,7 @@ import uuid
 from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -23,7 +23,7 @@ SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
-    from mlflow.types.chat import ChatTool, RequestMessage
+    from mlflow.types.chat import ChatMessage, ChatTool
 
 
 def capture_function_input_args(func, args, kwargs) -> dict[str, Any]:
@@ -238,7 +238,7 @@ def generate_request_id() -> str:
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: list[RequestMessage],
+    messages: Union[dict, ChatMessage],
 ):
     """
     Set the `mlflow.chat.messages` attribute on the specified span. This
@@ -270,12 +270,21 @@ def set_span_chat_messages(
 
         f()
     """
-    from mlflow.types.chat import RequestMessage
+    from mlflow.types.chat import ChatMessage
 
+    sanitized_messages = []
     for message in messages:
-        RequestMessage.validate_compat(message)
+        if isinstance(message, dict):
+            ChatMessage.validate_compat(message)
+            sanitized_messages.append(message)
+        elif isinstance(message, ChatMessage):
+            # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
+            #   some fields are only present in either the request or response (e.g., tool_call_id).
+            #   Those fields should not be recorded unless set explicitly, so we set
+            #   exclude_unset=True here to avoid recording unset fields.
+            sanitized_messages.append(message.model_dump(exclude_unset=True))
 
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, messages)
+    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
 
 def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
@@ -326,7 +335,14 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
 
         f()
     """
-    from mlflow.types.chat import ChatTools
+    from mlflow.types.chat import ChatTool
 
-    ChatTools.validate_compat({"tools": tools})
+    if not isinstance(tools, list):
+        raise MlflowTracingException(
+            f"Invalid tools type {type(tools)}. Expected a list of ChatTool.",
+            error_code=BAD_REQUEST,
+        )
+    for tool in tools:
+        ChatTool.validate_compat(tool)
+
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)

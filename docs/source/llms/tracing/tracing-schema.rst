@@ -359,7 +359,7 @@ custom attributes for standardized chat messages and tool defintions:
         conversation with the chat model. It enables rich conversation rendering in the UI,
         and will also be used in MLflow evaluation in the future. 
         
-        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.RequestMessage>` ``]``
+        The type must be ``List[`` :py:class:`ChatMessage <mlflow.types.chat.ChatMessage>` ``]``
       - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_messages` function. This function
         will throw a validation error if the data does not conform to the spec.
     
@@ -368,7 +368,7 @@ custom attributes for standardized chat messages and tool defintions:
         context, this would be equivalent to the `tools <https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>`_ 
         param in the Chat Completions API.
 
-        The type must be ``List[`` :py:class:`RequestMessage <mlflow.types.chat.ChatTool>` ``]``
+        The type must be ``List[`` :py:class:`ChatTool <mlflow.types.chat.ChatTool>` ``]``
       - This attribute can be conveniently set using the :py:func:`mlflow.tracing.set_span_chat_tools` function. This function
         will throw a validation error if the data does not conform to the spec.
 

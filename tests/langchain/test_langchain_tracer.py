@@ -31,7 +31,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
 
@@ -117,6 +117,16 @@ def test_llm_success():
     assert llm_span.inputs == ["test prompt"]
     assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -144,6 +154,12 @@ def test_llm_error():
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -318,6 +334,16 @@ def test_multiple_components():
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
         assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
+        assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+            {
+                "role": "user",
+                "content": f"test prompt {i}",
+            },
+            {
+                "role": "assistant",
+                "content": f"generated text {i}",
+            },
+        ]
 
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
