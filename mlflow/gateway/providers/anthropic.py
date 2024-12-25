@@ -2,7 +2,6 @@ import json
 import time
 from typing import AsyncIterable
 
-from mlflow.anthropic.chat import convert_message_to_mlflow_chat
 from mlflow.gateway.config import AnthropicConfig, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
@@ -90,6 +89,8 @@ class AnthropicAdapter(ProviderAdapter):
         #   }
         # }
         # ```
+        from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
 
         return chat.ResponsePayload(

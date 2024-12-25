@@ -66,7 +66,12 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
     stop_reason="end_turn",
     stop_sequence=None,
     type="message",
-    usage=Usage(input_tokens=10, output_tokens=18),
+    usage=Usage(
+        input_tokens=10,
+        output_tokens=18,
+        cache_creation_input_tokens=None,
+        cache_read_input_tokens=None,
+    ),
 )
 
 
