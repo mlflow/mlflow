@@ -417,6 +417,8 @@ def _infer_signature_from_type_hints(
                 stacklevel=2,
             )
             output_schema = default_output_schema
+    else:
+        output_schema = default_output_schema
     params_schema = _infer_param_schema(params) if params else None
 
     if input_example is not None:
