@@ -2,17 +2,11 @@
 The ``mlflow.groq`` module provides an API for logging and loading Groq models.
 """
 
-import importlib.metadata
-
 from mlflow.groq._groq_autolog import patched_call
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "groq"
-
-
-def _get_groq_package_version():
-    return importlib.metadata.version("groq")
 
 
 @experimental
