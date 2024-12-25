@@ -368,9 +368,28 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
+def _should_infer_signature_from_type_hints(type_hints: _TypeHints):
+    """
+    Whether model signature should be inferred from type hints.
+    If the input type hint is None or needs a signature, return False.
+    """
+    if type_hints.input is None:
+        return False
+
+    if _type_hint_needs_signature(type_hints.input):
+        return False
+
+    return True
+
+
 def _infer_signature_from_type_hints(
     func, type_hints: _TypeHints, input_example=None
 ) -> Optional[ModelSignature]:
+    """
+    Infer the signature from type hints.
+    This function should only be called if _should_infer_signature_from_type_hints
+    is True.
+    """
     if type_hints.input is None:
         return None
 
@@ -379,8 +398,6 @@ def _infer_signature_from_type_hints(
     if _contains_params(input_example):
         input_example, params = input_example
 
-    if _type_hint_needs_signature(type_hints.input):
-        return
     try:
         input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
@@ -390,18 +407,15 @@ def _infer_signature_from_type_hints(
     default_output_schema = Schema([ColSpec(type=AnyType())])
     is_output_type_hint_valid = False
     if type_hints.output:
-        if _type_hint_needs_signature(type_hints.output):
+        try:
+            output_schema = _infer_schema_from_type_hint(type_hints.output)
+            is_output_type_hint_valid = True
+        except InvalidTypeHintException as e:
+            warnings.warn(
+                f"Invalid output type hint, setting output schema to AnyType. Error: {e}",
+                stacklevel=2,
+            )
             output_schema = default_output_schema
-        else:
-            try:
-                output_schema = _infer_schema_from_type_hint(type_hints.output)
-                is_output_type_hint_valid = True
-            except InvalidTypeHintException as e:
-                warnings.warn(
-                    f"Invalid output type hint, setting output schema to AnyType. Error: {e}",
-                    stacklevel=2,
-                )
-                output_schema = default_output_schema
     params_schema = _infer_param_schema(params) if params else None
 
     if input_example is not None:
