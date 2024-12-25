@@ -53,7 +53,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class ResponsePayload(ResponseModel):
-    id: Optional[str]
+    id: str
     object: str = "text_completion"
     created: int
     model: str
