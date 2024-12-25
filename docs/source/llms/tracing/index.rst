@@ -654,6 +654,35 @@ for model/API invocations to the active MLflow Experiment.
             :align: center
 
 
+Jupyter Notebook integration
+----------------------------
+
+.. note::
+    Jupyter integration is available in **MLflow 2.20 and above**
+
+The trace UI is also available within Jupyter notebooks! 
+
+.. figure:: ../../_static/images/llms/tracing/jupyter-trace-ui.png
+    :alt: MLflow Trace UI in Jupyter Notebook
+    :width: 80%
+    :align: center
+
+This feature requires using an `MLflow Tracking Server <../../tracking/server.html>`_, as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. ``mlflow.set_tracking_uri("http://localhost:5000")``).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via  `automatic tracing <#automatic-tracing>`_, or by running a manually traced function)
+2. When :py:func:`mlflow.search_traces` is called
+3. When a :py:class:`mlflow.entities.Trace` object is displayed (e.g. via IPython's ``display`` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call :py:func:`mlflow.tracing.disable_notebook_display`, and rerun the cell
+containing the UI. To enable it again, call :py:func:`mlflow.tracing.enable_notebook_display`.
+
+For a more complete example, try running this `demo notebook <./notebooks/jupyter-trace-demo.html>`_!
+
+
 Tracing Fluent APIs
 -------------------
 
@@ -976,7 +1005,7 @@ Tracing Client APIs
 
 .. note::
 
-    Client APIs are in **Experimental Status** and is subject to change without deprecation warning or notification. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
+    Client APIs are advanced features. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
 
 The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained 
 control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs 
@@ -1066,58 +1095,9 @@ spans are properly ended.
 Searching and Retrieving Traces
 -------------------------------
 
-Searching for Traces
-^^^^^^^^^^^^^^^^^^^^
+You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method or the fluent API :py:func:`mlflow.search_traces`. 
+See `Searching and Retrieving Traces <./search-traces.html>`_ for the usages of these APIs.
 
-You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method. This method allows you to filter traces by experiment IDs, 
-filter strings, and other parameters.
-
-.. code-block:: python
-
-    # Search for traces in specific experiments
-    traces = client.search_traces(
-        experiment_ids=["1", "2"],
-        filter_string="attributes.status = 'OK'",
-        max_results=5,
-    )
-
-Alternatively, you can use fluent API :py:func:`mlflow.search_traces` to search for traces, which returns a pandas DataFrame with each row containing a trace. 
-This method allows you to specify fields to extract from traces using the format ``"span_name.[inputs|outputs]"`` or ``"span_name.[inputs|outputs].field_name"``.
-The extracted fields are included as extra columns in the pandas DataFrame. This feature can be used to build evaluation datasets to further improve model and agent performance.
-
-.. code-block:: python
-
-    import mlflow
-
-    with mlflow.start_span(name="span1") as span:
-        span.set_inputs({"a": 1, "b": 2})
-        span.set_outputs({"c": 3, "d": 4})
-
-    # Search for traces with specific fields extracted
-    traces = mlflow.search_traces(
-        extract_fields=["span1.inputs", "span1.outputs.c"],
-    )
-
-    print(traces)
-
-This outputs:
-
-.. code-block:: text
-
-        request_id                              ...     span1.inputs        span1.outputs.c
-    0   tr-97c4ef97c21f4348a5698f069c1320f1     ...     {'a': 1, 'b': 2}    3.0
-    1   tr-4dc3cd5567764499b5532e3af61b9f78     ...     {'a': 1, 'b': 2}    3.0
-
-
-Retrieving a Specific Trace
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To retrieve a specific trace by its request ID, use the :py:meth:`mlflow.client.MlflowClient.get_trace` method. This method returns the trace object corresponding to the given request ID.
-
-.. code-block:: python
-
-    # Retrieve a trace by request ID
-    trace = client.get_trace(request_id="12345678")
 
 Deleting Traces
 ---------------
@@ -1539,3 +1519,70 @@ Alternatively, you can use the :py:func:`mlflow.search_traces` function to get t
 .. code-block:: python
 
     traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")
+
+
+Q: How to find a particular span within a trace?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When you have a large number of spans in a trace, it can be cumbersome to find a particular span. You can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for spans based on several criteria.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.entities import SpanType
+
+
+    @mlflow.trace(span_type=SpanType.CHAIN)
+    def run(x: int) -> int:
+        x = add_one(x)
+        x = add_two(x)
+        x = multiply_by_two(x)
+        return x
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_one(x: int) -> int:
+        return x + 1
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_two(x: int) -> int:
+        return x + 2
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def multiply_by_two(x: int) -> int:
+        return x * 2
+
+
+    # Run the function and get the trace
+    y = run(2)
+    trace = mlflow.get_last_active_trace()
+
+This will create a :py:class:`~mlflow.entities.Trace` object with four spans.
+
+.. code-block::
+
+    run (CHAIN)
+      ├── add_one (TOOL)
+      ├── add_two (TOOL)
+      └── multiply_by_two (TOOL)
+
+Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for a particular spans:
+
+.. code-block:: python
+
+    # 1. Search by span name (exact match)
+    spans = trace.search_spans(name="add_one")
+    print(spans)
+    # Output: [Span(name='add_one', ...)]
+
+    # Search for a span with the span type "TOOL"
+    spans = trace.search_spans(span_type=SpanType.TOOL)
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...), Span(name='multiply_by_two', ...)]
+
+    # Search for spans whose name starts with "add"
+    spans = trace.search_spans(name=re.compile(r"add.*"))
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]

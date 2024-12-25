@@ -30,6 +30,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
+    tracing/notebooks/jupyter-trace-demo.ipynb
 
 
 .. raw:: html
@@ -121,6 +122,7 @@ of your GenAI models and retain your traced data within the tracking server for 
     tracing/overview
     tracing/tracing-schema
     tracing/contribute
+    tracing/search-traces
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
 MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.

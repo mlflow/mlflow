@@ -230,7 +230,7 @@ Explore the guides and tutorials below to start your journey!
                 </ul>
             </div>
             <div class="image-box">
-                <img src="_static/images/intro/tracing-ui.gif" alt="MLflow Tracing">
+                <img src="_static/images/llms/tracing/tracing-top.gif" alt="MLflow Tracing">
             </div>
         </div>
     </div>

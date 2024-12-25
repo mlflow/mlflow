@@ -166,6 +166,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/anthropic",
             "tests/autogen",
             "tests/azureml",
+            "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
             "tests/diviner",
@@ -386,7 +387,9 @@ def serve_wheel(request, tmp_path_factory):
             if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
                 url = f"{existing_url} {url}"
             os.environ["PIP_EXTRA_INDEX_URL"] = url
-
+            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+            # url when using `uv` as environment manager
+            os.environ["UV_INDEX"] = f"mlflow={url}"
             yield
         finally:
             prc.terminate()
