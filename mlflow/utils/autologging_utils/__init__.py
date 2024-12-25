@@ -73,6 +73,11 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "litellm",
     "openai",
     "dspy",
+    "autogen",
+    "gemini",
+    "anthropic",
+    "crewai",
+    "bedrock",
 ]
 
 # Global lock for turning on / off autologging
