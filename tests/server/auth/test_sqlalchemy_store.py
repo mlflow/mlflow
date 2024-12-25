@@ -451,6 +451,6 @@ def test_rename_registered_model_permission(store):
     assert isinstance(perm_user_2, RegisteredModelPermission)
     assert perm_user_1.name == new_name
     assert perm_user_2.name == new_name
-    
+
     assert perm_user_1.permission == MANAGE.name
     assert perm_user_2.permission == READ.name
