@@ -342,7 +342,13 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             f"Invalid tools type {type(tools)}. Expected a list of ChatTool.",
             error_code=BAD_REQUEST,
         )
-    for tool in tools:
-        ChatTool.validate_compat(tool)
 
-    span.set_attribute(SpanAttributeKey.CHAT_TOOLS, tools)
+    sanitized_tools = []
+    for tool in tools:
+        if isinstance(tool, dict):
+            ChatTool.validate_compat(tool)
+            sanitized_tools.append(tool)
+        elif isinstance(tool, ChatTool):
+            sanitized_tools.append(tool.model_dump(exclude_unset=True))
+
+    span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)

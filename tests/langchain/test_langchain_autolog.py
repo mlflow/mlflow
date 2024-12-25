@@ -483,17 +483,12 @@ def test_chat_model_bind_tool_autolog():
                 "parameters": {
                     "properties": {
                         "location": {
-                            "description": None,
-                            "enum": None,
-                            "items": None,
                             "type": "string",
                         }
                     },
                     "required": ["location"],
                     "type": "object",
-                    "additionalProperties": None,
                 },
-                "strict": None,
             },
         }
     ]
