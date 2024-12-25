@@ -7,19 +7,19 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
-def _get_span_type(task) -> str:
+def _get_span_type(resource: type) -> str:
     from groq.resources.audio.transcriptions import Transcriptions
     from groq.resources.audio.translations import Translations
-    from groq.resources.chat.completions import Completions as ChatCompletions
+    from groq.resources.chat.completions import Completions
     from groq.resources.embeddings import Embeddings
 
     span_type_mapping = {
-        ChatCompletions: SpanType.CHAT_MODEL,
+        Completions: SpanType.CHAT_MODEL,
         Transcriptions: SpanType.LLM,
         Translations: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
     }
-    return span_type_mapping.get(task, SpanType.UNKNOWN)
+    return span_type_mapping.get(resource, SpanType.UNKNOWN)
 
 
 def patched_call(original, self, *args, **kwargs):
@@ -27,8 +27,8 @@ def patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         with mlflow.start_span(
-            name=f"{self.__class__.__name__}.{original.__name__}",
-            span_type=_get_span_type(original.__name__),
+            name=f"{self.__class__.__name__}",
+            span_type=_get_span_type(self.__class__),
         ) as span:
             span.set_inputs(kwargs)
             outputs = original(self, *args, **kwargs)

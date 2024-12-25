@@ -365,6 +365,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.54.1"
         }
     },
+    "groq": {
+        "package_info": {
+            "pip_release": "groq"
+        },
+        "autologging": {
+            "minimum": "0.13.0",
+            "maximum": "0.13.1"
+        }
+    },
     "bedrock": {
         "package_info": {
             "pip_release": "boto3",
@@ -373,15 +382,6 @@ _ML_PACKAGE_VERSIONS = {
         "autologging": {
             "minimum": "1.33.0",
             "maximum": "1.35.76"
-        }
-    },
-    "groq": {
-        "package_info": {
-            "pip_release": "groq"
-        },
-        "autologging": {
-            "minimum": "0.13.0",
-            "maximum": "0.13.0"
         }
     }
 }

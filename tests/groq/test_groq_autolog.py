@@ -51,16 +51,12 @@ DUMMY_CHAT_COMPLETION_RESPONSE = ChatCompletion(
 )
 
 
-def create_chat_completion(self, max_tokens, model, messages):
-    return DUMMY_CHAT_COMPLETION_RESPONSE
-
-
 @patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
-def test_chat_completion_autolog():
-    with patch("groq.resources.chat.completions.Completions.create", new=create_chat_completion):
-        mlflow.groq.autolog()
-        client = groq.Groq()
-        client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST)
+@patch("groq._client.Groq.post", return_value=DUMMY_CHAT_COMPLETION_RESPONSE)
+def test_chat_completion_autolog(mock_post):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+    client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -72,10 +68,9 @@ def test_chat_completion_autolog():
     assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.to_dict()
 
-    with patch("groq.resources.chat.completions.Completions.create", new=create_chat_completion):
-        mlflow.groq.autolog(disable=True)
-        client = groq.Groq()
-        client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST)
+    mlflow.groq.autolog(disable=True)
+    client = groq.Groq()
+    client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     # No new trace should be created
     traces = get_traces()
@@ -92,18 +87,12 @@ DUMMY_AUDIO_TRANSCRIPTION_REQUEST = {
 DUMMY_AUDIO_TRANSCRIPTION_RESPONSE = Transcription(text="Test audio", x_groq={"id": "req_test"})
 
 
-def create_audio_transcription(self, model, file):
-    return DUMMY_AUDIO_TRANSCRIPTION_RESPONSE
-
-
 @patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
-def test_audio_transcription_autolog():
-    with patch(
-        "groq.resources.audio.transcriptions.Transcriptions.create", new=create_audio_transcription
-    ):
-        mlflow.groq.autolog()
-        client = groq.Groq()
-        client.audio.transcriptions.create(**DUMMY_AUDIO_TRANSCRIPTION_REQUEST)
+@patch("groq._client.Groq.post", return_value=DUMMY_AUDIO_TRANSCRIPTION_RESPONSE)
+def test_audio_transcription_autolog(mock_post):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+    client.audio.transcriptions.create(**DUMMY_AUDIO_TRANSCRIPTION_REQUEST)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -111,18 +100,15 @@ def test_audio_transcription_autolog():
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.name == "Transcriptions"
-    assert span.span_type == SpanType.UNKNOWN
+    assert span.span_type == SpanType.LLM
     assert span.inputs["file"][0] == DUMMY_AUDIO_TRANSCRIPTION_REQUEST["file"][0]
     assert span.inputs["file"][1] == str(DUMMY_AUDIO_TRANSCRIPTION_REQUEST["file"][1])
     assert span.inputs["model"] == DUMMY_AUDIO_TRANSCRIPTION_REQUEST["model"]
     assert span.outputs == DUMMY_AUDIO_TRANSCRIPTION_RESPONSE.to_dict()
 
-    with patch(
-        "groq.resources.audio.transcriptions.Transcriptions.create", new=create_audio_transcription
-    ):
-        mlflow.groq.autolog(disable=True)
-        client = groq.Groq()
-        client.audio.transcriptions.create(**DUMMY_AUDIO_TRANSCRIPTION_REQUEST)
+    mlflow.groq.autolog(disable=True)
+    client = groq.Groq()
+    client.audio.transcriptions.create(**DUMMY_AUDIO_TRANSCRIPTION_REQUEST)
 
     # No new trace should be created
     traces = get_traces()
@@ -137,18 +123,12 @@ DUMMY_AUDIO_TRANSLATION_REQUEST = {
 DUMMY_AUDIO_TRANSLATION_RESPONSE = Translation(text="Test audio", x_groq={"id": "req_test"})
 
 
-def create_audio_translation(self, model, file):
-    return DUMMY_AUDIO_TRANSLATION_RESPONSE
-
-
 @patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
-def test_audio_translation_autolog():
-    with patch(
-        "groq.resources.audio.translations.Translations.create", new=create_audio_translation
-    ):
-        mlflow.groq.autolog()
-        client = groq.Groq()
-        client.audio.translations.create(**DUMMY_AUDIO_TRANSLATION_REQUEST)
+@patch("groq._client.Groq.post", return_value=DUMMY_AUDIO_TRANSLATION_RESPONSE)
+def test_audio_translation_autolog(mock_post):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+    client.audio.translations.create(**DUMMY_AUDIO_TRANSLATION_REQUEST)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -156,18 +136,15 @@ def test_audio_translation_autolog():
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.name == "Translations"
-    assert span.span_type == SpanType.UNKNOWN
+    assert span.span_type == SpanType.LLM
     assert span.inputs["file"][0] == DUMMY_AUDIO_TRANSLATION_REQUEST["file"][0]
     assert span.inputs["file"][1] == str(DUMMY_AUDIO_TRANSLATION_REQUEST["file"][1])
     assert span.inputs["model"] == DUMMY_AUDIO_TRANSLATION_REQUEST["model"]
     assert span.outputs == DUMMY_AUDIO_TRANSLATION_RESPONSE.to_dict()
 
-    with patch(
-        "groq.resources.audio.translations.Translations.create", new=create_audio_translation
-    ):
-        mlflow.groq.autolog(disable=True)
-        client = groq.Groq()
-        client.audio.translations.create(**DUMMY_AUDIO_TRANSLATION_REQUEST)
+    mlflow.groq.autolog(disable=True)
+    client = groq.Groq()
+    client.audio.translations.create(**DUMMY_AUDIO_TRANSLATION_REQUEST)
 
     # No new trace should be created
     traces = get_traces()
