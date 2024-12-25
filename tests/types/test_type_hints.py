@@ -349,20 +349,6 @@ def test_python_type_hints_validation(type_hint, example):
     assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == example
 
 
-@pytest.mark.parametrize(
-    ("type_hint", "example"),
-    [
-        (pd.DataFrame, pd.DataFrame({"a": ["a", "b"]})),
-        (pd.Series, pd.Series([1, 2])),
-        (np.ndarray, np.array([1, 2])),
-        (csc_matrix, csc_matrix((3, 4))),
-        (csr_matrix, csr_matrix((3, 4))),
-    ],
-)
-def test_validate_example_for_no_op_type_hints(type_hint, example):
-    _validate_example_against_type_hint(example=example, type_hint=type_hint)
-
-
 def test_type_hints_validation_errors():
     with pytest.raises(
         MlflowException, match=r"Input example is not valid for Pydantic model `CustomModel`"

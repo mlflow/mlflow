@@ -30,6 +30,7 @@ from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_example_validation_result,
     _infer_schema_from_type_hint,
+    _type_hint_needs_signature,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
@@ -378,36 +379,31 @@ def _infer_signature_from_type_hints(
     if _contains_params(input_example):
         input_example, params = input_example
 
+    if _type_hint_needs_signature(type_hints.input):
+        return
     try:
         input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
         warnings.warn(e.message, stacklevel=2)
         return None
-    if input_schema is None:
-        _logger.warning(
-            f"Type hint {type_hints.input} can not be used to infer model signature, "
-            "please provide a model signature explicitly."
-        )
-        return None
-    is_output_type_hint_valid = type_hints.output is not None
+
     default_output_schema = Schema([ColSpec(type=AnyType())])
-    try:
-        output_schema = (
-            _infer_schema_from_type_hint(type_hints.output) if type_hints.output else None
-        )
-    except InvalidTypeHintException as e:
-        warnings.warn(
-            f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=2
-        )
-        is_output_type_hint_valid = False
-        output_schema = default_output_schema
-    if output_schema is None:
-        _logger.warning(
-            f"Type hint {type_hints.output} can not be used to infer model signature "
-            "output schema, setting output schema to AnyType."
-        )
-        output_schema = default_output_schema
+    is_output_type_hint_valid = False
+    if type_hints.output:
+        if _type_hint_needs_signature(type_hints.output):
+            output_schema = default_output_schema
+        else:
+            try:
+                output_schema = _infer_schema_from_type_hint(type_hints.output)
+                is_output_type_hint_valid = True
+            except InvalidTypeHintException as e:
+                warnings.warn(
+                    f"Invalid output type hint, setting output schema to AnyType. Error: {e}",
+                    stacklevel=2,
+                )
+                output_schema = default_output_schema
     params_schema = _infer_param_schema(params) if params else None
+
     if input_example is not None:
         # TODO: we can remove input example validation here
         # once we move the validation inside `predict` function
