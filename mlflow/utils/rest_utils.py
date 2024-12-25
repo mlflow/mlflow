@@ -87,23 +87,9 @@ def http_request(
     url = f"{cleaned_hostname}{endpoint}"
 
     if host_creds.use_databricks_sdk:
-        from databricks.sdk import WorkspaceClient
-        from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        if host_creds.use_secret_scope_token:
-            config = Config(
-                host=host_creds.host,
-                token=host_creds.token,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        else:
-            config = Config(
-                profile=host_creds.databricks_auth_profile,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
-        ws_client = WorkspaceClient(config=config)
+        ws_client = host_creds.get_workspace_client()
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -485,3 +471,22 @@ class MlflowHostCreds:
             return not self.ignore_tls_verification
         else:
             return self.server_cert_path
+
+    def get_workspace_client(self):
+        if hasattr(self, "ws_client"):
+            return self.ws_client
+
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.config import Config
+
+        if self.use_secret_scope_token:
+            kwargs = {"host": self.host, "token": self.token}
+        else:
+            kwargs = {"profile": self.databricks_auth_profile}
+        config = Config(
+            **kwargs,
+            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        )
+        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+        self.ws_client = WorkspaceClient(config=config)
+        return self.ws_client
