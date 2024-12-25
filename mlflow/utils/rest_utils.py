@@ -1,5 +1,6 @@
 import base64
 import json
+from functools import lru_cache
 
 import requests
 
@@ -89,7 +90,12 @@ def http_request(
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
-        ws_client = host_creds.get_workspace_client()
+        ws_client = get_workspace_client(
+            host_creds.use_secret_scope_token,
+            host_creds.host,
+            host_creds.token,
+            host_creds.databricks_auth_profile,
+        )
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -196,6 +202,23 @@ def http_request(
         raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
+
+
+@lru_cache(maxsize=1)
+def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
+
+    if use_secret_scope_token:
+        kwargs = {"host": host, "token": token}
+    else:
+        kwargs = {"profile": databricks_auth_profile}
+    config = Config(
+        **kwargs,
+        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+    )
+    # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+    return WorkspaceClient(config=config)
 
 
 def _can_parse_as_json_object(string):
@@ -471,22 +494,3 @@ class MlflowHostCreds:
             return not self.ignore_tls_verification
         else:
             return self.server_cert_path
-
-    def get_workspace_client(self):
-        if hasattr(self, "ws_client"):
-            return self.ws_client
-
-        from databricks.sdk import WorkspaceClient
-        from databricks.sdk.config import Config
-
-        if self.use_secret_scope_token:
-            kwargs = {"host": self.host, "token": self.token}
-        else:
-            kwargs = {"profile": self.databricks_auth_profile}
-        config = Config(
-            **kwargs,
-            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-        )
-        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
-        self.ws_client = WorkspaceClient(config=config)
-        return self.ws_client
