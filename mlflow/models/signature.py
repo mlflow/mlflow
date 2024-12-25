@@ -406,6 +406,7 @@ def _infer_signature_from_type_hints(
 
     default_output_schema = Schema([ColSpec(type=AnyType())])
     is_output_type_hint_valid = False
+    output_schema = None
     if type_hints.output:
         try:
             output_schema = _infer_schema_from_type_hint(type_hints.output)
