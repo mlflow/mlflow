@@ -106,9 +106,9 @@ tensorflow:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
-      # incompatible with SQLAlchemy 2.0.25 with error
+      # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
