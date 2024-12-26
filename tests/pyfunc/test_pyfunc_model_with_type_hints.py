@@ -3,11 +3,12 @@ import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
 
+import pandas as pd
 import pydantic
 import pytest
 
 import mlflow
-from mlflow.models.signature import _extract_type_hints
+from mlflow.models.signature import _extract_type_hints, infer_signature
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
 
@@ -186,6 +187,38 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         assert pyfunc_model.predict(input_example) == input_example
 
 
+def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
+    def predict(model_input: pd.DataFrame) -> pd.DataFrame:
+        return model_input
+
+    input_example = pd.DataFrame({"a": [1]})
+    signature = infer_signature(input_example, predict(input_example))
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=predict,
+            input_example=input_example,
+            signature=signature,
+        )
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long, name="a")])
+    pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+    pd.testing.assert_frame_equal(pyfunc.predict(input_example), input_example)
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=Model(),
+            input_example=input_example,
+        )
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long, name="a")])
+    pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+    pd.testing.assert_frame_equal(pyfunc.predict(input_example), input_example)
+
+
 def test_pyfunc_model_infer_signature_from_type_hints_errors():
     def predict(model_input: int) -> int:
         return model_input
@@ -213,6 +246,29 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
         )
         assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long)])
         assert model_info.signature.outputs == Schema([ColSpec(AnyType())])
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
+            return model_input
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("test_model", python_model=Model())
+        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
+        assert (
+            "Input example is not provided, model signature cannot be inferred."
+            in mock_warning.call_args[0][0]
+        )
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model(
+                "test_model", python_model=Model(), input_example=pd.DataFrame()
+            )
+        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
+        assert (
+            "Inferring model signature from input example failure" in mock_warning.call_args[0][0]
+        )
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
@@ -341,7 +397,7 @@ def test_functional_python_model_only_input_type_hints():
             "model", python_model=python_model, input_example=["a"]
         )
     assert model_info.signature.inputs == Schema([ColSpec(type=Array(DataType.string))])
-    assert model_info.signature.outputs is None
+    assert model_info.signature.outputs == Schema([ColSpec(AnyType())])
 
 
 def test_functional_python_model_only_output_type_hints():
