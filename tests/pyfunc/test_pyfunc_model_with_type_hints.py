@@ -478,6 +478,34 @@ def test_callable_with_decorator_local_testing():
     assert pyfunc_model.predict(pdf) == {"admin": "hello"}
 
 
+def test_no_warning_for_unsupported_type_hint_with_decorator(recwarn):
+    warn_msg = "Type hint used in the model's predict function is not supported"
+
+    @pyfunc
+    def predict(model_input: pd.DataFrame) -> pd.DataFrame:
+        return model_input
+
+    data = pd.DataFrame({"a": [1]})
+    predict(data)
+    assert not any(warn_msg in str(w.message) for w in recwarn)
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=predict, input_example=data)
+    assert not any(warn_msg in str(w.message) for w in recwarn)
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
+            return model_input
+
+    model = Model()
+    model.predict(data)
+    assert not any(warn_msg in str(w.message) for w in recwarn)
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model("model", python_model=model, input_example=data)
+    assert not any(warn_msg in str(w.message) for w in recwarn)
+
+
 def test_python_model_local_testing_data_validation():
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[Message], params=None) -> dict[str, str]:
@@ -570,21 +598,28 @@ def test_invalid_type_hint_in_callable():
             mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
 
 
-def test_log_model_warn_if_callable_not_decorated():
+def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn):
     def predict(model_input: list[str]) -> list[str]:
         return model_input
 
     with mlflow.start_run():
-        with pytest.warns(UserWarning, match=r"Decorate your callable"):
-            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+        mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+        assert any("Decorate your callable" in str(w.message) for w in recwarn)
+        recwarn.clear()
 
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str], params=None) -> list[str]:
             return model_input
 
+    def predict_df(model_input: pd.DataFrame) -> pd.DataFrame:
+        return model_input
+
     with mlflow.start_run():
-        with mock.patch("mlflow.models.signature.warnings.warn") as mock_warning:
-            mlflow.pyfunc.log_model("model", python_model=Model(), input_example=["a"])
-        assert not any(
-            "Decorate your callable" in call[0][0] for call in mock_warning.call_args_list
+        mlflow.pyfunc.log_model("model", python_model=Model(), input_example=["a"])
+    assert not any("Decorate your callable" in str(w.message) for w in recwarn)
+    recwarn.clear()
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
         )
+    assert not any("Decorate your callable" in str(w.message) for w in recwarn)

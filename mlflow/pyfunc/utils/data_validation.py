@@ -5,6 +5,7 @@ from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_
 from mlflow.types.type_hints import (
     _convert_data_to_type_hint,
     _infer_schema_from_type_hint,
+    _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
 from mlflow.utils.annotations import filter_user_warnings_once
@@ -58,6 +59,8 @@ def _predict_type_hint_check(func):
     """
     type_hint = _get_type_hints(func).input
     if type_hint:
+        if _signature_cannot_be_inferred_from_type_hint(type_hint):
+            return
         try:
             _infer_schema_from_type_hint(type_hint)
         except Exception as e:
