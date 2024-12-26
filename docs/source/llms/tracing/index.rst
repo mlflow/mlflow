@@ -79,6 +79,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
+                    <img src="../../_static/images/logos/groq-logo.svg" alt="Groq Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
                     <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
@@ -617,6 +622,34 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/crewai/crewai-trace.png
             :alt: CrewAI Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Groq
+
+        .. raw:: html
+
+            <h3>Groq Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with Groq AI models.
+        When Groq autologging is enabled with :py:func:`mlflow.groq.autolog`,
+        usage of the Groq SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.groq.autolog()
+
+        To see the full example of tracing Groq, please refer to the `Groq Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/groq/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/groq/groq-tracing.png
+            :alt: Groq Tracing
             :width: 100%
             :align: center
 
