@@ -451,6 +451,7 @@ from mlflow.models.signature import (
     _extract_type_hints,
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
+    _should_infer_signature_from_type_hints,
 )
 from mlflow.models.utils import (
     PyFuncInput,
@@ -2981,32 +2982,52 @@ def save_model(
         if callable(python_model):
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
-            signature_from_type_hints = _infer_signature_from_type_hints(
-                func=python_model, type_hints=type_hints, input_example=input_example
-            )
+            if _should_infer_signature_from_type_hints(type_hints):
+                signature_from_type_hints = _infer_signature_from_type_hints(
+                    func=python_model, type_hints=type_hints, input_example=input_example
+                )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
-            signature_from_type_hints = _infer_signature_from_type_hints(
-                func=python_model.predict,
-                type_hints=python_model._get_type_hints(),
-                input_example=input_example,
-            )
+            type_hints = python_model._get_type_hints()
+            infer_signature_from_type_hints = _should_infer_signature_from_type_hints(type_hints)
+            if infer_signature_from_type_hints:
+                signature_from_type_hints = _infer_signature_from_type_hints(
+                    func=python_model.predict,
+                    type_hints=python_model._get_type_hints(),
+                    input_example=input_example,
+                )
             # only infer signature based on input example when signature
             # and type hints are not provided
-            if (
-                signature is None
-                and signature_from_type_hints is None
-                and saved_example is not None
-            ):
-                try:
-                    context = PythonModelContext(artifacts, model_config)
-                    python_model.load_context(context)
-                    mlflow_model.signature = _infer_signature_from_input_example(
-                        saved_example,
-                        _PythonModelPyfuncWrapper(python_model, None, None),
-                    )
-                except Exception as e:
-                    _logger.warning(f"Failed to infer model signature from input example. {e}")
+            if signature is None and signature_from_type_hints is None:
+                if saved_example is not None:
+                    try:
+                        context = PythonModelContext(artifacts, model_config)
+                        python_model.load_context(context)
+                        mlflow_model.signature = _infer_signature_from_input_example(
+                            saved_example,
+                            _PythonModelPyfuncWrapper(python_model, None, None),
+                        )
+                    except Exception as e:
+                        if infer_signature_from_type_hints:
+                            _logger.warning(
+                                "Failed to infer model signature from type hints or input example. "
+                                f"Inferring model signature from input example failure: {e}",
+                            )
+                        else:
+                            _logger.warning(
+                                "Failed to infer model signature: "
+                                f"Type hint {type_hints} cannot be used to infer model signature."
+                                f"Inferring model signature from input example failure: {e}"
+                            )
+                else:
+                    # if infer_signature_from_type_hints, warnings are emitted
+                    # in _infer_signature_from_type_hints
+                    if not infer_signature_from_type_hints:
+                        _logger.warning(
+                            "Failed to infer model signature: "
+                            f"Type hint {type_hints} cannot be used to infer model signature."
+                            "Input example is not provided, model signature cannot be inferred."
+                        )
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:

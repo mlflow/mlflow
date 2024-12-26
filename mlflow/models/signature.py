@@ -30,6 +30,7 @@ from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_example_validation_result,
     _infer_schema_from_type_hint,
+    _signature_cannot_be_inferred_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
@@ -367,9 +368,28 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
+def _should_infer_signature_from_type_hints(type_hints: _TypeHints):
+    """
+    Whether model signature should be inferred from type hints.
+    If the input type hint is None or needs a signature, return False.
+    """
+    if type_hints.input is None:
+        return False
+
+    if _signature_cannot_be_inferred_from_type_hint(type_hints.input):
+        return False
+
+    return True
+
+
 def _infer_signature_from_type_hints(
     func, type_hints: _TypeHints, input_example=None
 ) -> Optional[ModelSignature]:
+    """
+    Infer the signature from type hints.
+    This function should only be called if _should_infer_signature_from_type_hints
+    is True.
+    """
     if type_hints.input is None:
         return None
 
@@ -383,19 +403,25 @@ def _infer_signature_from_type_hints(
     except InvalidTypeHintException as e:
         warnings.warn(e.message, stacklevel=2)
         return None
-    is_output_type_hint_valid = type_hints.output is not None
-    try:
-        output_schema = (
-            _infer_schema_from_type_hint(type_hints.output) if type_hints.output else None
-        )
-    except InvalidTypeHintException as e:
-        warnings.warn(
-            f"Invalid output type hint, setting output schema to AnyType. Error: {e}", stacklevel=2
-        )
-        is_output_type_hint_valid = False
-        output_schema = Schema([ColSpec(type=AnyType())])
+
+    default_output_schema = Schema([ColSpec(type=AnyType())])
+    is_output_type_hint_valid = False
+    output_schema = None
+    if type_hints.output:
+        try:
+            output_schema = _infer_schema_from_type_hint(type_hints.output)
+            is_output_type_hint_valid = True
+        except InvalidTypeHintException as e:
+            _logger.info(
+                f"Unsupported output type hint, setting output schema to AnyType. {e}",
+                stacklevel=2,
+            )
+            output_schema = default_output_schema
+    else:
+        output_schema = default_output_schema
     params_schema = _infer_param_schema(params) if params else None
-    if input_example:
+
+    if input_example is not None:
         # TODO: we can remove input example validation here
         # once we move the validation inside `predict` function
         if msg := _get_example_validation_result(
@@ -436,7 +462,7 @@ def _infer_signature_from_type_hints(
                         f"`{type_hints.output}`, setting output schema to AnyType. "
                         f"Error: {msg}"
                     )
-                    output_schema = Schema([ColSpec(type=AnyType())])
+                    output_schema = default_output_schema
     if not any([input_schema, output_schema, params_schema]):
         return None
     signature = ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
