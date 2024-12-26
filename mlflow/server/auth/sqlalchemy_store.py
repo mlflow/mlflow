@@ -250,3 +250,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
             session.delete(perm)
+
+    def rename_registered_model_permissions(self, old_name: str, new_name: str):
+        with self.ManagedSessionMaker() as session:
+            perms = (
+                session.query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.name == old_name)
+                .all()
+            )
+            for perm in perms:
+                perm.name = new_name

@@ -11,6 +11,7 @@ from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPer
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
     EDIT,
+    MANAGE,
     READ,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
@@ -424,3 +425,32 @@ def test_delete_registered_model_permission(store):
     ) as exception_context:
         store.get_registered_model_permission(name1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_rename_registered_model_permission(store):
+    # create 2 users and create 2 permission for the model registry with the same name
+    model_name = random_str()
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    _rmp_maker(store, model_name, username1, MANAGE.name)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+    _rmp_maker(store, model_name, username2, READ.name)
+
+    new_name = random_str()
+
+    store.rename_registered_model_permissions(model_name, new_name)
+
+    # get permission by model registry new name and all user must have the same new name
+    perm_user_1 = store.get_registered_model_permission(new_name, username1)
+    perm_user_2 = store.get_registered_model_permission(new_name, username2)
+    assert isinstance(perm_user_1, RegisteredModelPermission)
+    assert isinstance(perm_user_2, RegisteredModelPermission)
+    assert perm_user_1.name == new_name
+    assert perm_user_2.name == new_name
+
+    assert perm_user_1.permission == MANAGE.name
+    assert perm_user_2.permission == READ.name
