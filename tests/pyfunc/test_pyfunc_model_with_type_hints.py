@@ -266,7 +266,9 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
                 "test_model", python_model=Model(), input_example=pd.DataFrame()
             )
         assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
-        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
+        assert (
+            "Inferring model signature from input example failure" in mock_warning.call_args[0][0]
+        )
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")

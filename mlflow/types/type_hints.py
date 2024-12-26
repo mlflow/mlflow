@@ -47,7 +47,7 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
 
 
 @lru_cache(maxsize=1)
-def type_hints_needing_signature():
+def type_hints_no_signature_inference():
     """
     This function returns a tuple of types that can be used
     as type hints, but no schema can be inferred from them.
@@ -98,8 +98,8 @@ class InvalidTypeHintException(MlflowException):
         )
 
 
-def _type_hint_needs_signature(type_hint: type[Any]) -> bool:
-    return type_hint in type_hints_needing_signature()
+def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
+    return type_hint in type_hints_no_signature_inference()
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:

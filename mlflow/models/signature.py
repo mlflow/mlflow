@@ -30,7 +30,7 @@ from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_example_validation_result,
     _infer_schema_from_type_hint,
-    _type_hint_needs_signature,
+    _signature_cannot_be_inferred_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.uri import append_to_uri_path
@@ -376,7 +376,7 @@ def _should_infer_signature_from_type_hints(type_hints: _TypeHints):
     if type_hints.input is None:
         return False
 
-    if _type_hint_needs_signature(type_hints.input):
+    if _signature_cannot_be_inferred_from_type_hint(type_hints.input):
         return False
 
     return True
@@ -412,8 +412,8 @@ def _infer_signature_from_type_hints(
             output_schema = _infer_schema_from_type_hint(type_hints.output)
             is_output_type_hint_valid = True
         except InvalidTypeHintException as e:
-            warnings.warn(
-                f"Invalid output type hint, setting output schema to AnyType. Error: {e}",
+            _logger.info(
+                f"Unsupported output type hint, setting output schema to AnyType. {e}",
                 stacklevel=2,
             )
             output_schema = default_output_schema

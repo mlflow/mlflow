@@ -2999,11 +2999,6 @@ def save_model(
             # only infer signature based on input example when signature
             # and type hints are not provided
             if signature is None and signature_from_type_hints is None:
-                warning_msg = (
-                    ""
-                    if infer_signature_from_type_hints
-                    else f"Type hint {type_hints} cannot be used to infer model signature. "
-                )
                 if saved_example is not None:
                     try:
                         context = PythonModelContext(artifacts, model_config)
@@ -3013,15 +3008,26 @@ def save_model(
                             _PythonModelPyfuncWrapper(python_model, None, None),
                         )
                     except Exception as e:
-                        _logger.warning(
-                            f"{warning_msg}Failed to infer model signature from input example, "
-                            f"error: {e}"
-                        )
+                        if infer_signature_from_type_hints:
+                            _logger.warning(
+                                "Failed to infer model signature from type hints or input example. "
+                                f"Inferring model signature from input example failure: {e}",
+                            )
+                        else:
+                            _logger.warning(
+                                "Failed to infer model signature: "
+                                f"Type hint {type_hints} cannot be used to infer model signature."
+                                f"Inferring model signature from input example failure: {e}"
+                            )
                 else:
-                    _logger.warning(
-                        f"{warning_msg}Input example is not provided, model signature cannot "
-                        "be inferred."
-                    )
+                    # if infer_signature_from_type_hints, warnings are emitted
+                    # in _infer_signature_from_type_hints
+                    if not infer_signature_from_type_hints:
+                        _logger.warning(
+                            "Failed to infer model signature: "
+                            f"Type hint {type_hints} cannot be used to infer model signature."
+                            "Input example is not provided, model signature cannot be inferred."
+                        )
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:

@@ -16,7 +16,7 @@ from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _convert_data_to_type_hint,
     _infer_schema_from_type_hint,
-    _type_hint_needs_signature,
+    _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
 
@@ -169,7 +169,7 @@ def test_infer_schema_from_python_type_hints(type_hint, expected_schema):
     ],
 )
 def test_type_hints_needs_signature(type_hint):
-    assert _type_hint_needs_signature(type_hint) is True
+    assert _signature_cannot_be_inferred_from_type_hint(type_hint) is True
 
 
 def test_infer_schema_from_type_hints_errors():
