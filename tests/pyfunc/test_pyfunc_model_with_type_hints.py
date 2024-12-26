@@ -8,7 +8,9 @@ import pydantic
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints, infer_signature
+from mlflow.pyfunc.utils import pyfunc
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
 
@@ -427,11 +429,162 @@ def test_functional_python_model_callable_object():
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
 
 
+def test_python_model_local_testing():
+    class ModelWOTypeHint(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input, params=None) -> list[str]:
+            return model_input
+
+    class ModelWithTypeHint(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: dict[str, str], params=None) -> list[str]:
+            return [model_input["x"]]
+
+    model1 = ModelWOTypeHint()
+    assert model1.predict("a") == "a"
+    model2 = ModelWithTypeHint()
+    assert model2.predict({"x": "a"}) == ["a"]
+    with pytest.raises(MlflowException, match=r"Expected dict, but got str"):
+        model2.predict("a")
+
+
+def test_callable_with_decorator_local_testing():
+    @pyfunc
+    def predict(model_input: list[str]) -> list[str]:
+        return model_input
+
+    assert predict(["a"]) == ["a"]
+    with pytest.raises(MlflowException, match=r"Expected list, but got str"):
+        predict("a")
+
+    @pyfunc
+    def predict(messages: list[Message]) -> dict[str, str]:
+        return {m.role: m.content for m in messages}
+
+    assert predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
+    assert predict(
+        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
+    ) == {"admin": "hello", "user": "hello"}
+    pdf = pd.DataFrame([[{"role": "admin", "content": "hello"}]])
+    assert predict(pdf) == {"admin": "hello"}
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=predict, input_example=[{"role": "admin", "content": "hello"}]
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
+    assert pyfunc_model.predict(
+        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
+    ) == {"admin": "hello", "user": "hello"}
+    assert pyfunc_model.predict(pdf) == {"admin": "hello"}
+
+
+def test_python_model_local_testing_data_validation():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[Message], params=None) -> dict[str, str]:
+            return {m.role: m.content for m in model_input}
+
+    model = Model()
+    assert model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
+    assert model.predict(
+        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
+    ) == {"admin": "hello", "user": "hello"}
+    pdf = pd.DataFrame([[{"role": "admin", "content": "hello"}]])
+    assert model.predict(pdf) == {"admin": "hello"}
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=[{"role": "admin", "content": "hello"}]
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
+    assert pyfunc_model.predict(
+        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
+    ) == {"admin": "hello", "user": "hello"}
+    assert pyfunc_model.predict(pdf) == {"admin": "hello"}
+
+
+def test_python_model_local_testing_same_as_pyfunc_predict():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str], params=None) -> list[str]:
+            return model_input
+
+    model = MyModel()
+    with pytest.raises(MlflowException, match=r"Expected list, but got str") as e_local:
+        model.predict(None, "a")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=model, input_example=["a"])
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with pytest.raises(MlflowException, match=r"Expected list, but got str") as e_pyfunc:
+        pyfunc_model.predict("a")
+
+    assert e_local.value.message == e_pyfunc.value.message
+
+
 def test_invalid_type_hint_in_python_model():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[object], params=None) -> str:
-            return model_input[0]
+            if isinstance(model_input, list):
+                return model_input[0]
+            return "abc"
+
+    model = MyModel()
+    with pytest.warns(
+        UserWarning, match=r"Type hint used in the model's predict function is not supported"
+    ):
+        assert model.predict(["a"])
 
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=r"Unsupported type hint"):
             mlflow.pyfunc.log_model("model", python_model=MyModel())
+
+
+def test_invalid_type_hint_in_callable():
+    @pyfunc
+    def predict(model_input: list[object]) -> str:
+        if isinstance(model_input, list):
+            return model_input[0]
+        return "abc"
+
+    with pytest.warns(
+        UserWarning, match=r"Type hint used in the model's predict function is not supported"
+    ):
+        assert predict(["a"]) == "a"
+
+    with mlflow.start_run():
+        with pytest.warns(UserWarning, match=r"Unsupported type hint"):
+            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+
+    # without decorator
+    def predict(model_input: list[object]) -> str:
+        if isinstance(model_input, list):
+            return model_input[0]
+        return "abc"
+
+    with mock.patch("mlflow.pyfunc.model.warnings.warn") as mock_warning:
+        assert predict(["a"]) == "a"
+        mock_warning.assert_not_called()
+
+    with mlflow.start_run():
+        with pytest.warns(UserWarning, match=r"Unsupported type hint"):
+            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+
+
+def test_log_model_warn_if_callable_not_decorated():
+    def predict(model_input: list[str]) -> list[str]:
+        return model_input
+
+    with mlflow.start_run():
+        with pytest.warns(UserWarning, match=r"Decorate your callable"):
+            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str], params=None) -> list[str]:
+            return model_input
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.signature.warnings.warn") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=Model(), input_example=["a"])
+        assert not any(
+            "Decorate your callable" in call[0][0] for call in mock_warning.call_args_list
+        )
