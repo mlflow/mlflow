@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
@@ -45,6 +46,43 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
 }
 
 
+@lru_cache(maxsize=1)
+def type_hints_no_signature_inference():
+    """
+    This function returns a tuple of types that can be used
+    as type hints, but no schema can be inferred from them.
+
+    ..note::
+        These types can not be used as nested types in other type hints.
+    """
+    type_hints = ()
+    try:
+        import pandas as pd
+
+        type_hints += (
+            pd.DataFrame,
+            pd.Series,
+        )
+    except ImportError:
+        pass
+
+    try:
+        import numpy as np
+
+        type_hints += (np.ndarray,)
+    except ImportError:
+        pass
+
+    try:
+        from scipy.sparse import csc_matrix, csr_matrix
+
+        type_hints += (csc_matrix, csr_matrix)
+    except ImportError:
+        pass
+
+    return type_hints
+
+
 class ColSpecType(NamedTuple):
     dtype: COLSPEC_TYPES
     required: bool
@@ -58,6 +96,10 @@ class InvalidTypeHintException(MlflowException):
             "lists and dictionaries of primitive types, or typing.Any.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
+    return type_hint in type_hints_no_signature_inference()
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
