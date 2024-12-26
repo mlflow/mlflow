@@ -2,7 +2,11 @@ import warnings
 from functools import lru_cache, wraps
 from typing import Any, Optional
 
-from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
+from mlflow.models.signature import (
+    _extract_type_hints,
+    _is_context_in_predict_function_signature,
+    _TypeHints,
+)
 from mlflow.types.type_hints import (
     _convert_data_to_type_hint,
     _infer_schema_from_type_hint,
@@ -42,7 +46,7 @@ def pyfunc(func):
 
 
 @lru_cache(maxsize=1)
-def _get_type_hints(func):
+def _get_type_hints(func) -> _TypeHints:
     """
     Internal method to get type hints from the predict function signature.
     For PythonModel, the signature must be one of below:
