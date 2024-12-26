@@ -283,13 +283,17 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 tools.append(tool)
             except pydantic.ValidationError:
                 # If not OpenAI style, just try to extract the name and descriptions.
-                tool = ChatTool(
-                    type="function",
-                    function=FunctionToolDefinition(
-                        name=raw_tool.get("name"), description=raw_tool.get("description")
-                    ),
-                )
-                tools.append(tool)
+                if name := raw_tool.get("name"):
+                    tool = ChatTool(
+                        type="function",
+                        function=FunctionToolDefinition(
+                            name=name, description=raw_tool.get("description")
+                        ),
+                    )
+                    tools.append(tool)
+                else:
+                    _logger.warning(f"Failed to parse tool definition for tracing: {raw_tool}.")
+
         return tools
 
     def on_llm_new_token(

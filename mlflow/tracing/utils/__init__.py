@@ -282,7 +282,7 @@ def set_span_chat_messages(
             #   some fields are only present in either the request or response (e.g., tool_call_id).
             #   Those fields should not be recorded unless set explicitly, so we set
             #   exclude_unset=True here to avoid recording unset fields.
-            sanitized_messages.append(message.model_dump(exclude_unset=True))
+            sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
@@ -349,6 +349,6 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             ChatTool.validate_compat(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(tool.model_dump(exclude_unset=True))
+            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
