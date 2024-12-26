@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
@@ -10,7 +9,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder
 
 
 def completions_config():
@@ -77,7 +76,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "object": "text_completion",
             "created": 1677858242,
             "model": "hf-tgi",

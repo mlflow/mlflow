@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
@@ -12,7 +11,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.schemas import completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder
 
 TEST_STRING = "This is a test"
 CONTENT_TYPE = "application/json"
@@ -70,7 +69,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "string",
             "object": "text_completion",
             "created": 1677858242,
             "model": "mistral-tiny",

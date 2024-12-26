@@ -3,7 +3,6 @@ import json
 from unittest import mock
 
 import pytest
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers.openai import OpenAIProvider
@@ -13,6 +12,7 @@ from mlflow.gateway.uc_function_utils import uc_type_to_json_schema_type
 from tests.gateway.tools import (
     MockAsyncResponse,
     MockHttpClient,
+    jsonable_encoder,
 )
 
 
@@ -212,7 +212,6 @@ async def test_uc_functions(monkeypatch):
 
 1 + 2 = 3""".lstrip(),
                         "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": "stop",
                 }
@@ -408,7 +407,6 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
                                 },
                             },
                         ],
-                        "refusal": None,
                     },
                     "finish_reason": None,
                 }

@@ -16,6 +16,7 @@ import requests
 import transformers
 import uvicorn
 import yaml
+from fastapi.encoders import jsonable_encoder as _jsonable_encoder
 from sentence_transformers import SentenceTransformer
 
 import mlflow
@@ -316,3 +317,12 @@ def start_mlflow_server(port, model_uri):
 def stop_mlflow_server(server_pid):
     process_group = os.getpgid(server_pid.pid)
     os.killpg(process_group, signal.SIGTERM)
+
+
+def jsonable_encoder(response):
+    """
+    A customized JSON encoder that exclude unset fields.
+
+    The Gateway endpoint has the setting `response_model_exclude_unset=True`.
+    """
+    return _jsonable_encoder(response, exclude_unset=True)

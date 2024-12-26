@@ -39,13 +39,13 @@ class TogetherAIAdapter(ProviderAdapter):
         return embeddings_schema.ResponsePayload(
             data=[
                 embeddings_schema.EmbeddingObject(
-                    embedding=item["embedding"],
-                    index=item["index"],
+                    embedding=item["embedding"], index=item["index"], object="embedding"
                 )
                 for item in resp["data"]
             ],
             model=config.model.name,
             usage=embeddings_schema.EmbeddingsUsage(prompt_tokens=None, total_tokens=None),
+            object="list",
         )
 
     @classmethod
@@ -85,6 +85,7 @@ class TogetherAIAdapter(ProviderAdapter):
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
             ),
+            object="text_completion",
         )
 
     @classmethod
@@ -127,6 +128,7 @@ class TogetherAIAdapter(ProviderAdapter):
                 )
                 for idx, choice in enumerate(resp.get("choices", []))
             ],
+            object="text_completion_chunk",
             # usage is not included in OpenAI StreamResponsePayload
         )
 

@@ -65,12 +65,14 @@ class GatewayAPI(FastAPI):
                     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + route.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
                 endpoint=_route_type_to_endpoint(route, limiter, "deployments"),
+                response_model_exclude_unset=True,
                 methods=["POST"],
             )
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
                 endpoint=_route_type_to_endpoint(route, limiter, "gateway"),
                 methods=["POST"],
+                response_model_exclude_unset=True,
                 include_in_schema=False,
             )
             self.dynamic_routes[route.name] = route
@@ -361,7 +363,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             detail=f"Route {name} not found in the configuration.",
         )
 
-    @app.post("/v1/chat/completions")
+    @app.post("/v1/chat/completions", response_model_exclude_unset=True)
     async def openai_chat_handler(
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
@@ -379,7 +381,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         else:
             return await prov.chat(payload)
 
-    @app.post("/v1/completions")
+    @app.post("/v1/completions", response_model_exclude_unset=True)
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
@@ -397,7 +399,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         else:
             return await prov.completions(payload)
 
-    @app.post("/v1/embeddings")
+    @app.post("/v1/embeddings", response_model_exclude_unset=True)
     async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:

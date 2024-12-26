@@ -68,6 +68,7 @@ class AI21LabsProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
+            id=resp["id"],
             created=int(time.time()),
             object="text_completion",
             model=self.config.model.name,

@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig
@@ -11,7 +10,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder
 
 
 def completions_config():
@@ -101,7 +100,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "7921a78e-d905-c9df-27e3-88e4831e3c3b",
             "object": "text_completion",
             "created": 1677858242,
             "model": "j2-ultra",

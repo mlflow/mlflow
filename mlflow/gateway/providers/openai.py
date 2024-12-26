@@ -198,6 +198,7 @@ class OpenAIAdapter(ProviderAdapter):
                     finish_reason=c["finish_reason"],
                     delta=completions.StreamDelta(
                         content=c["delta"].get("content"),
+                        role=None,
                     ),
                 )
                 for c in resp["choices"]
@@ -234,6 +235,7 @@ class OpenAIAdapter(ProviderAdapter):
                 embeddings.EmbeddingObject(
                     embedding=d["embedding"],
                     index=idx,
+                    object="embedding",
                 )
                 for idx, d in enumerate(resp["data"])
             ],
@@ -242,6 +244,7 @@ class OpenAIAdapter(ProviderAdapter):
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
             ),
+            object="list",
         )
 
 

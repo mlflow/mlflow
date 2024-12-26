@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
@@ -11,7 +10,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder
 
 
 def completions_config():
@@ -59,7 +58,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "object": "text_completion",
             "created": 1677858242,
             "model": "text-bison",
@@ -177,7 +176,7 @@ async def test_chat(payload, expected_llm_input):
         provider = PaLMProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "created": 1700242674,
             "object": "chat.completion",
             "model": "chat-bison",
@@ -186,8 +185,6 @@ async def test_chat(payload, expected_llm_input):
                     "message": {
                         "role": "1",
                         "content": "Hi there! How can I help you today?",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,

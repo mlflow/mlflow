@@ -33,6 +33,7 @@ class CohereAdapter(ProviderAdapter):
         # }
         # ```
         return completions.ResponsePayload(
+            id=resp["id"],
             created=int(time.time()),
             object="text_completion",
             model=config.model.name,
@@ -87,7 +88,7 @@ class CohereAdapter(ProviderAdapter):
         # ```
         response = resp.get("response")
         return completions.StreamResponsePayload(
-            id=response["id"] if response else None,
+            id=response["id"] if response else "",
             created=int(time.time()),
             model=config.model.name,
             choices=[
@@ -105,6 +106,7 @@ class CohereAdapter(ProviderAdapter):
                 completion_tokens=None,
                 total_tokens=None,
             ),
+            object="text_completion_chunk",
         )
 
     @classmethod
@@ -140,10 +142,7 @@ class CohereAdapter(ProviderAdapter):
         # ```
         return embeddings.ResponsePayload(
             data=[
-                embeddings.EmbeddingObject(
-                    embedding=output,
-                    index=idx,
-                )
+                embeddings.EmbeddingObject(embedding=output, index=idx, object="embedding")
                 for idx, output in enumerate(resp["embeddings"])
             ],
             model=config.model.name,
@@ -151,6 +150,7 @@ class CohereAdapter(ProviderAdapter):
                 prompt_tokens=None,
                 total_tokens=None,
             ),
+            object="list",
         )
 
     @classmethod
@@ -322,6 +322,7 @@ class CohereAdapter(ProviderAdapter):
                 completion_tokens=response["token_count"]["response_tokens"] if response else None,
                 total_tokens=response["token_count"]["total_tokens"] if response else None,
             ),
+            object="chat.completion.chunk",
         )
 
 

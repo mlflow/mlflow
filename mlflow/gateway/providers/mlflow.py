@@ -119,6 +119,7 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["hello", "hi", "goodbye"]}
 
         return completions.ResponsePayload(
+            id="",
             created=int(time.time()),
             object="text_completion",
             model=self.config.model.name,
@@ -172,6 +173,7 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["answer"]}
 
         return chat.ResponsePayload(
+            id="",
             created=int(time.time()),
             model=self.config.model.name,
             choices=[
@@ -189,6 +191,7 @@ class MlflowModelServingProvider(BaseProvider):
                 completion_tokens=None,
                 total_tokens=None,
             ),
+            object="chat.completion",
         )
 
     def _process_embeddings_response_for_mlflow_serving(self, response):
@@ -224,6 +227,7 @@ class MlflowModelServingProvider(BaseProvider):
                 embeddings.EmbeddingObject(
                     embedding=embedding,
                     index=idx,
+                    object="embedding",
                 )
                 for idx, embedding in enumerate(
                     self._process_embeddings_response_for_mlflow_serving(resp)
@@ -234,4 +238,5 @@ class MlflowModelServingProvider(BaseProvider):
                 prompt_tokens=None,
                 total_tokens=None,
             ),
+            object="list",
         )

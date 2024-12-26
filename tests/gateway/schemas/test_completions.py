@@ -47,6 +47,7 @@ def test_completions_response():
     )
 
     completions.ResponsePayload(
+        id="some",
         object="text_completion",
         created=int(time.time()),
         model="hf-tgi",

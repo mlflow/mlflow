@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
@@ -15,13 +14,14 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, jsonable_encoder
 
 
 def completions_response():
     return {
         "completion": "Here is a basic overview of how a car works:\n\n1. The engine. "
         "The engine is the power source that makes the car move.",
+        "id": "test-123",
         "stop_reason": "max_tokens",
         "model": "claude-instant-1.1",
         "truncated": False,
@@ -48,7 +48,7 @@ def completions_config():
 
 def parsed_completions_response():
     return {
-        "id": None,
+        "id": "test-123",
         "object": "text_completion",
         "created": 1677858242,
         "model": "claude-instant-1.1",
@@ -271,8 +271,6 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "Response message",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

@@ -3,7 +3,6 @@ from unittest import mock
 import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
@@ -14,7 +13,7 @@ from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder
 
 
 def completions_config():
@@ -55,7 +54,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "object": "text_completion",
             "created": 1677858242,
             "model": "mpt-7b-instruct",
@@ -174,7 +173,7 @@ async def test_chat(payload, expected_llm_input):
         provider = MosaicMLProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "created": 1700242674,
             "object": "chat.completion",
             "model": "llama2-70b-chat",
@@ -183,8 +182,6 @@ async def test_chat(payload, expected_llm_input):
                     "message": {
                         "role": "assistant",
                         "content": "This is a test",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,

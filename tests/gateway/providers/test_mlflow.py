@@ -3,7 +3,6 @@ from unittest import mock
 import pydantic
 import pytest
 from aiohttp import ClientTimeout
-from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import (
@@ -14,7 +13,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, mock_http_client
+from tests.gateway.tools import MockAsyncResponse, jsonable_encoder, mock_http_client
 
 
 def completions_config():
@@ -51,7 +50,7 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "object": "text_completion",
             "created": 1677858242,
             "model": "text2text",
@@ -262,7 +261,7 @@ async def test_chat():
         payload = {"messages": [{"role": "user", "content": "Is this a test?"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "id": None,
+            "id": "",
             "created": 1700242674,
             "object": "chat.completion",
             "model": "chat-bot-9000",
@@ -271,8 +270,6 @@ async def test_chat():
                     "message": {
                         "role": "assistant",
                         "content": "It is a test",
-                        "tool_calls": None,
-                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
