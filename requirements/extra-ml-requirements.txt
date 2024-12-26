@@ -81,3 +81,5 @@ dspy
 litellm
 # Required by mlflow.gemini
 google-generativeai
+# Required by mlflow.groq
+groq
