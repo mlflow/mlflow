@@ -11,6 +11,7 @@ import boto3
 import dspy
 import fastai
 import google.generativeai
+import groq
 import keras
 import langchain
 import lightgbm
@@ -69,6 +70,7 @@ library_to_mlflow_module_genai = {
     litellm: mlflow.litellm,
     google.generativeai: mlflow.gemini,
     boto3: mlflow.bedrock,
+    groq: mlflow.groq,
 }
 
 library_to_mlflow_module_traditional_ai = {
