@@ -395,11 +395,11 @@ def _infer_signature_from_type_hints(
     if type_hints.input is None:
         return None
 
-    _pyfunc_decorator_not_used = getattr(func, "_is_pyfunc", None) is not True
-    if _pyfunc_decorator_not_used:
+    _pyfunc_decorator_used = getattr(func, "_is_pyfunc", False)
+    if not _pyfunc_decorator_used:
         # stacklevel is 3 because we have a decorator
         warnings.warn(
-            "Decorate your callable with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
+            "Decorate your function with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
             "data validation against model input type hints.",
             stacklevel=3,
         )
@@ -434,8 +434,8 @@ def _infer_signature_from_type_hints(
 
     if input_example is not None:
         # only validate input example here if pyfunc decorator is not used
-        # otherwise func will validate the input
-        if _pyfunc_decorator_not_used and (
+        # because when the decorator is used, the input is validated in the predict function
+        if not _pyfunc_decorator_used and (
             msg := _get_example_validation_result(
                 example=input_example, type_hint=type_hints.input
             ).error_message

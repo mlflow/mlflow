@@ -446,6 +446,18 @@ def test_python_model_local_testing():
         model2.predict("a")
 
 
+def test_python_model_with_optional_input_local_testing():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[Optional[str]], params=None) -> Optional[list[str]]:
+            return [x if x is not None else "default" for x in model_input]
+
+    model = Model()
+    assert model.predict([None]) == ["default"]
+    assert model.predict(["a"]) == ["a"]
+    with pytest.raises(MlflowException, match=r"Expected list, but got str"):
+        model.predict("a")
+
+
 def test_callable_with_decorator_local_testing():
     @pyfunc
     def predict(model_input: list[str]) -> list[str]:
@@ -560,28 +572,31 @@ def test_invalid_type_hint_in_python_model():
     with pytest.warns(
         UserWarning, match=r"Type hint used in the model's predict function is not supported"
     ):
-        assert model.predict(["a"])
+        assert model.predict(["a"]) == "a"
 
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=r"Unsupported type hint"):
             mlflow.pyfunc.log_model("model", python_model=MyModel())
 
 
-def test_invalid_type_hint_in_callable():
+def test_invalid_type_hint_in_callable(recwarn):
     @pyfunc
     def predict(model_input: list[object]) -> str:
         if isinstance(model_input, list):
             return model_input[0]
         return "abc"
 
-    with pytest.warns(
-        UserWarning, match=r"Type hint used in the model's predict function is not supported"
-    ):
-        assert predict(["a"]) == "a"
+    invalid_type_hint_msg = "Type hint used in the model's predict function is not supported"
+    assert any(invalid_type_hint_msg in str(w.message) for w in recwarn)
+    recwarn.clear()
+    # The warning should not be raised again when the function is called
+    assert predict(["a"]) == "a"
+    assert not any(invalid_type_hint_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        with pytest.warns(UserWarning, match=r"Unsupported type hint"):
-            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+        mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+    assert any("Unsupported type hint" in str(w.message) for w in recwarn)
+    recwarn.clear()
 
     # without decorator
     def predict(model_input: list[object]) -> str:
@@ -589,9 +604,8 @@ def test_invalid_type_hint_in_callable():
             return model_input[0]
         return "abc"
 
-    with mock.patch("mlflow.pyfunc.model.warnings.warn") as mock_warning:
-        assert predict(["a"]) == "a"
-        mock_warning.assert_not_called()
+    assert predict(["a"]) == "a"
+    assert not any(invalid_type_hint_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=r"Unsupported type hint"):
@@ -604,7 +618,7 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
 
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
-        assert any("Decorate your callable" in str(w.message) for w in recwarn)
+        assert any("Decorate your function" in str(w.message) for w in recwarn)
         recwarn.clear()
 
     class Model(mlflow.pyfunc.PythonModel):
@@ -616,10 +630,10 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
 
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=Model(), input_example=["a"])
-    assert not any("Decorate your callable" in str(w.message) for w in recwarn)
+    assert not any("Decorate your function" in str(w.message) for w in recwarn)
     recwarn.clear()
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
         )
-    assert not any("Decorate your callable" in str(w.message) for w in recwarn)
+    assert not any("Decorate your function" in str(w.message) for w in recwarn)

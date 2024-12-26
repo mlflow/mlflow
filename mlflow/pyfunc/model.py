@@ -22,7 +22,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
-from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
+from mlflow.models.signature import (
+    _extract_type_hints,
+    _is_context_in_predict_function_signature,
+    _TypeHints,
+)
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils import pyfunc
@@ -30,7 +34,7 @@ from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -116,7 +120,12 @@ class PythonModel:
                      can use to perform inference.
         """
 
+    @deprecated("predict_type_hints", "2.20.0")
     def _get_type_hints(self):
+        return self.predict_type_hints
+
+    @property
+    def predict_type_hints(self) -> _TypeHints:
         """
         Internal method to get type hints from the predict function signature.
         """
@@ -180,8 +189,12 @@ class _FunctionPythonModel(PythonModel):
         self.func = func
         self.signature = signature
 
-    def _get_type_hints(self):
-        return _extract_type_hints(self.func, input_arg_index=0)
+    @property
+    def predict_type_hints(self):
+        if hasattr(self, "_predict_type_hints"):
+            return self._predict_type_hints
+        self._predict_type_hints = _extract_type_hints(self.func, input_arg_index=0)
+        return self._predict_type_hints
 
     def __getattribute__(self, name):
         attr = super().__getattribute__(name)
@@ -617,7 +630,7 @@ class _PythonModelPyfuncWrapper:
     def _convert_input(self, model_input):
         import pandas as pd
 
-        hints = self.python_model._get_type_hints()
+        hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):
             if _is_list_str(hints.input):

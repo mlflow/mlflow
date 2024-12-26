@@ -2981,12 +2981,12 @@ def save_model(
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
-            type_hints = python_model._get_type_hints()
+            type_hints = python_model.predict_type_hints
             infer_signature_from_type_hints = _should_infer_signature_from_type_hints(type_hints)
             if infer_signature_from_type_hints:
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model.predict,
-                    type_hints=python_model._get_type_hints(),
+                    type_hints=python_model.predict_type_hints,
                     input_example=input_example,
                 )
             # only infer signature based on input example when signature

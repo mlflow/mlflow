@@ -1,5 +1,6 @@
 import warnings
 from functools import lru_cache, wraps
+from typing import Any, Optional
 
 from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
 from mlflow.types.type_hints import (
@@ -21,11 +22,19 @@ def pyfunc(func):
         of `mlflow.pyfunc.PythonModel`, or a callable that takes a single input.
     """
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if type_hint := _predict_type_hint_check(func):
+    type_hint = _get_type_hint_if_supported(func)
+    if type_hint is not None:
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
             args, kwargs = _validate_model_input(func, args, kwargs, type_hint)
-        return func(*args, **kwargs)
+            return func(*args, **kwargs)
+
+    else:
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
     wrapper._is_pyfunc = True
 
@@ -44,6 +53,8 @@ def _get_type_hints(func):
     Args:
         func: the predict function. Default is None, which means self.predict will be used.
     """
+    # TODO: move function signature validation here
+    # instead of the pyfunc wrapper
     if _is_context_in_predict_function_signature(func=func):
         return _extract_type_hints(func, input_arg_index=1)
     else:
@@ -52,13 +63,13 @@ def _get_type_hints(func):
 
 @lru_cache
 @filter_user_warnings_once
-def _predict_type_hint_check(func):
+def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
     """
     Internal method to check if the predict function has type hints and if they are supported
     by MLflow.
     """
     type_hint = _get_type_hints(func).input
-    if type_hint:
+    if type_hint is not None:
         if _signature_cannot_be_inferred_from_type_hint(type_hint):
             return
         try:
@@ -66,7 +77,7 @@ def _predict_type_hint_check(func):
         except Exception as e:
             warnings.warn(
                 "Type hint used in the model's predict function is not supported "
-                f"by MLflow, we cannot validate the input data. Error: {e}",
+                f"for MLflow's schema validation. {e}",
                 stacklevel=3,
             )
         else:
@@ -86,7 +97,7 @@ def _validate_model_input(func, args, kwargs, type_hint):
     elif len(args) >= 1:
         model_input = args[0]
         input_pos = 0
-    if model_input is not None:
+    if input_pos is not None:
         data = _convert_data_to_type_hint(model_input, type_hint)
         data = _validate_example_against_type_hint(data, type_hint)
         if input_pos == "kwargs":
