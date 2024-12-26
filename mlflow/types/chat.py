@@ -16,6 +16,12 @@ class BaseModel(_BaseModel):
         else:
             return cls.parse_obj(obj)
 
+    def model_dump_compat(self, **kwargs):
+        if IS_PYDANTIC_V2_OR_NEWER:
+            return self.model_dump(**kwargs)
+        else:
+            return self.dict(**kwargs)
+
 
 class TextContentPart(BaseModel):
     type: Literal["text"]

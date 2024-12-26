@@ -439,6 +439,61 @@ def test_chat_model_autolog():
     ]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="langchain-openai.ChatOpenAI requires LangChain >= 0.3.0",
+)
+def test_chat_model_bind_tool_autolog():
+    # Community version of ChatOpenAI does not support bind_tools
+    from langchain_openai import ChatOpenAI
+
+    mlflow.langchain.autolog()
+
+    @langchain.tools.tool
+    def get_weather(location: str) -> str:
+        """Get the weather for a location."""
+        return f"Weather in {location} is 70F."
+
+    model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
+    model_with_tools = model.bind_tools([get_weather])
+    model_with_tools.invoke("What is the weather in San Francisco?")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 1
+
+    span = traces[0].data.spans[0]
+    assert span.name == "ChatOpenAI"
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "What is the weather in San Francisco?",
+        },
+        {
+            "content": '[{"role": "user", "content": "What is the weather in San Francisco?"}]',
+            "role": "assistant",
+        },
+    ]
+    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather for a location.",
+                "parameters": {
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                        }
+                    },
+                    "required": ["location"],
+                    "type": "object",
+                },
+            },
+        }
+    ]
+
+
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
