@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import google.generativeai as genai
 import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -18,18 +19,25 @@ _USER_METADATA = {
 }
 
 
+def _get_candidate(content):
+    candidate = {
+        "content": content,
+        "avg_logprobs": 0.0,
+        "finish_reason": 0,
+        "grounding_attributions": [],
+        "safety_ratings": [],
+        "token_count": 0,
+    }
+
+    if Version(genai.__version__) < Version("0.8.3"):
+        candidate.pop("avg_logprobs")
+
+    return candidate
+
+
 def _generate_content_response(content):
     return {
-        "candidates": [
-            {
-                "content": content,
-                "avg_logprobs": 0.0,
-                "finish_reason": 0,
-                "grounding_attributions": [],
-                "safety_ratings": [],
-                "token_count": 0,
-            }
-        ],
+        "candidates": [_get_candidate(content)],
         "usage_metadata": _USER_METADATA,
     }
 
@@ -153,14 +161,11 @@ def test_chat_session_tool_calling_autolog():
                 "description": "returns a * b.",
                 "parameters": {
                     "properties": {
-                        "a": {"type": "number", "description": "", "enum": [], "items": None},
-                        "b": {"type": "number", "description": "", "enum": [], "items": None},
+                        "a": {"type": "number", "description": "", "enum": []},
+                        "b": {"type": "number", "description": "", "enum": []},
                     },
-                    "type": "object",
                     "required": ["a", "b"],
-                    "additionalProperties": None,
                 },
-                "strict": None,
             },
         },
     ]
