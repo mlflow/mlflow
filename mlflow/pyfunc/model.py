@@ -200,7 +200,7 @@ class _FunctionPythonModel(PythonModel):
     def __init__(self, func, signature=None):
         self.signature = signature
         # only wrap `func` if @pyfunc is not already applied
-        if getattr(func, "_is_pyfunc", False):
+        if not getattr(func, "_is_pyfunc", False):
             self.func = pyfunc(func)
         else:
             self.func = func

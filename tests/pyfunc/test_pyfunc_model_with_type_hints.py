@@ -458,7 +458,7 @@ def test_python_model_with_optional_input_local_testing():
         model.predict("a")
 
 
-def test_callable_with_decorator_local_testing():
+def test_callable_local_testing():
     @pyfunc
     def predict(model_input: list[str]) -> list[str]:
         return model_input
@@ -488,6 +488,20 @@ def test_callable_with_decorator_local_testing():
         [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
     ) == {"admin": "hello", "user": "hello"}
     assert pyfunc_model.predict(pdf) == {"admin": "hello"}
+
+    # without decorator
+    def predict(messages: list[Message]) -> dict[str, str]:
+        return {m.role: m.content for m in messages}
+
+    with pytest.raises(AttributeError, match=r"'dict' object has no attribute 'role'"):
+        predict([{"role": "admin", "content": "hello"}])
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=predict, input_example=[{"role": "admin", "content": "hello"}]
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict([{"role": "admin", "content": "hello"}]) == {"admin": "hello"}
 
 
 def test_no_warning_for_unsupported_type_hint_with_decorator(recwarn):
