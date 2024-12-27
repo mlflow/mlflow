@@ -7,6 +7,10 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths:
+      - .github/workflows/uc-oss.yml
+      - mlflow/protos/**
+      - mlflow/store/**
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -73,19 +77,20 @@ jobs:
           yarn
           yarn build
 
-      - name: Start uc-oss server
-        working-directory: unitycatalog
-        run: |
-          build/sbt package
-          nohup bin/start-uc-server > uc-server.log 2>&1 &
+      #- name: Start uc-oss server
+      #  working-directory: unitycatalog
+      #  run: |
+      #    build/sbt package
+      #    nohup bin/start-uc-server > uc-server.log 2>&1 &
 
-      - name: Start mlflow tracking server
-        working-directory: mlflow
-        run: |
-          nohup mlflow ui > mlflow-tracking.log 2>&1 &
+      #- name: Start mlflow tracking server
+      #  working-directory: mlflow
+      #  run: |
+      #    nohup mlflow ui > mlflow-tracking.log 2>&1 &
 
       - name: Run tests for UnityCatalog
         run: |
           echo "Running tests for UnityCatalog..."
           export PYTHONPATH=$MLFLOW_HOME:$PYTHONPATH
-          python tests/uc_oss/uc-oss-integration-test.py
+          pytest tests/uc_oss/test_uc_oss_integration.py
+      # python tests/uc_oss/uc-oss-integration-test.py
