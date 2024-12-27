@@ -39,10 +39,10 @@ def setup_servers():
         print(f"- {item}")
 
     assert False
-    
+
     with (
         subprocess.Popen(["mlflow", "server", "--port", "5000"]) as p1,
-        subprocess.Popen(["bin/start-uc-server"]) as p2,
+        subprocess.Popen(["unitycatalog/bin/start-uc-server"]) as p2,
     ):
         #_await_server_up_or_die(5000)
         _await_server_up_or_die(8080)
