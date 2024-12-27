@@ -42,6 +42,13 @@ def patched_class_call(original, self, *args, **kwargs):
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
 
+            if (tools := inputs.get("tools")) is not None:
+                try:
+                    tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools]
+                    set_span_chat_tools(span, tools)
+                except Exception as e:
+                    _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+
             messages = [convert_message_to_mlflow_chat(msg) for msg in inputs.get("messages", [])]
             try:
                 outputs = original(self, *args, **kwargs)
@@ -53,13 +60,5 @@ def patched_class_call(original, self, *args, **kwargs):
                     set_span_chat_messages(span, messages)
                 except Exception as e:
                     _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
-                    raise
-
-                try:
-                    if (tools := inputs.get("tools")) is not None:
-                        tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools]
-                        set_span_chat_tools(span, tools)
-                except Exception as e:
-                    _logger.debug(f"Failed to set tools for {span}. Error: {e}")
 
             return outputs
