@@ -9,10 +9,12 @@ from functools import partial
 from json import JSONEncoder
 from typing import Any, Optional
 
+import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -187,6 +189,8 @@ class NumpyEncoder(JSONEncoder):
             return np.datetime_as_string(o), True
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
+        if isinstance(o, pydantic.BaseModel):
+            return o.model_dump() if IS_PYDANTIC_V2_OR_NEWER else o.dict(), True
         return o, False
 
     def default(self, o):

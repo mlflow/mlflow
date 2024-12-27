@@ -29,7 +29,9 @@ from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_d
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_example_validation_result,
+    _infer_schema_from_list_type_hint,
     _infer_schema_from_type_hint,
+    _is_list_type_hint,
     _signature_cannot_be_inferred_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
@@ -401,7 +403,7 @@ def _infer_signature_from_type_hints(
         input_example, params = input_example
 
     try:
-        input_schema = _infer_schema_from_type_hint(type_hints.input)
+        input_schema = _infer_schema_from_list_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
         warnings.warn(e.message, stacklevel=3)
         return None
@@ -422,7 +424,14 @@ def _infer_signature_from_type_hints(
     output_schema = None
     if type_hints.output:
         try:
-            output_schema = _infer_schema_from_type_hint(type_hints.output)
+            # output type hint doesn't need to be a list
+            # but if it's a list, we infer the schema from the list type hint
+            # to be consistent with input schema inference
+            output_schema = (
+                _infer_schema_from_list_type_hint(type_hints.output)
+                if _is_list_type_hint(type_hints.output)
+                else _infer_schema_from_type_hint(type_hints.output)
+            )
             is_output_type_hint_valid = True
         except InvalidTypeHintException as e:
             _logger.info(
