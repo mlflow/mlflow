@@ -3,17 +3,20 @@ import sys
 from typing import Any, Dict, List, Optional, Union, get_args
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pydantic
 import pytest
+from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
+    _convert_data_to_type_hint,
     _infer_schema_from_type_hint,
-    _maybe_convert_data_for_type_hint,
+    _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
 
@@ -153,6 +156,20 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
 def test_infer_schema_from_python_type_hints(type_hint, expected_schema):
     schema = _infer_schema_from_type_hint(type_hint)
     assert schema == expected_schema
+
+
+@pytest.mark.parametrize(
+    "type_hint",
+    [
+        pd.DataFrame,
+        pd.Series,
+        np.ndarray,
+        csc_matrix,
+        csr_matrix,
+    ],
+)
+def test_type_hints_needs_signature(type_hint):
+    assert _signature_cannot_be_inferred_from_type_hint(type_hint) is True
 
 
 def test_infer_schema_from_type_hints_errors():
@@ -413,18 +430,14 @@ def test_type_hint_for_python_3_10():
 )
 def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
     if isinstance(expected_data, pd.DataFrame):
-        pd.testing.assert_frame_equal(
-            _maybe_convert_data_for_type_hint(data, type_hint), expected_data
-        )
+        pd.testing.assert_frame_equal(_convert_data_to_type_hint(data, type_hint), expected_data)
     else:
-        assert _maybe_convert_data_for_type_hint(data, type_hint) == expected_data
+        assert _convert_data_to_type_hint(data, type_hint) == expected_data
 
 
 def test_maybe_convert_data_for_type_hint_errors():
     with mock.patch("mlflow.types.type_hints._logger.warning") as mock_warning:
-        _maybe_convert_data_for_type_hint(
-            pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str]
-        )
+        _convert_data_to_type_hint(pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str])
         assert mock_warning.call_count == 1
         assert (
             "The data will be converted to a list of the first column."
@@ -435,4 +448,4 @@ def test_maybe_convert_data_for_type_hint_errors():
         MlflowException,
         match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
     ):
-        _maybe_convert_data_for_type_hint(pd.DataFrame([["a", "b"]]), str)
+        _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)

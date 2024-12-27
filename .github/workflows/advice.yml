@@ -23,4 +23,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/advice.js`
             );
-            script({ context, github });
+            await script({ context, github });

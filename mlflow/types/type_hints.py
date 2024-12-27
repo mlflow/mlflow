@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
 
 import pydantic
@@ -45,6 +46,43 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
 }
 
 
+@lru_cache(maxsize=1)
+def type_hints_no_signature_inference():
+    """
+    This function returns a tuple of types that can be used
+    as type hints, but no schema can be inferred from them.
+
+    ..note::
+        These types can not be used as nested types in other type hints.
+    """
+    type_hints = ()
+    try:
+        import pandas as pd
+
+        type_hints += (
+            pd.DataFrame,
+            pd.Series,
+        )
+    except ImportError:
+        pass
+
+    try:
+        import numpy as np
+
+        type_hints += (np.ndarray,)
+    except ImportError:
+        pass
+
+    try:
+        from scipy.sparse import csc_matrix, csr_matrix
+
+        type_hints += (csc_matrix, csr_matrix)
+    except ImportError:
+        pass
+
+    return type_hints
+
+
 class ColSpecType(NamedTuple):
     dtype: COLSPEC_TYPES
     required: bool
@@ -58,6 +96,10 @@ class InvalidTypeHintException(MlflowException):
             "lists and dictionaries of primitive types, or typing.Any.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
+    return type_hint in type_hints_no_signature_inference()
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
@@ -243,7 +285,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
     if _is_pydantic_type_hint(type_hint):
         # if example is a pydantic model instance, convert it to a dictionary for validation
         if isinstance(example, pydantic.BaseModel):
-            example_dict = example.model_dump()
+            example_dict = example.dict() if PYDANTIC_V1_OR_OLDER else example.model_dump()
         elif isinstance(example, dict):
             example_dict = example
         else:
@@ -359,10 +401,10 @@ def _get_origin_type(type_hint: type[Any]) -> Any:
     return origin_type
 
 
-def _maybe_convert_data_for_type_hint(data: Any, type_hint: type[Any]) -> Any:
+def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
     """
     Convert data to the expected format based on the type hint.
-    This function should only used with limited situations such as mlflow.evaluate.
+    This function should only used in limited situations such as mlflow.evaluate.
     Supported conversions:
         - pandas DataFrame with a single column + list[...] type hint -> list
     """

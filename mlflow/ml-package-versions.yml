@@ -106,9 +106,9 @@ tensorflow:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
-      # incompatible with SQLAlchemy 2.0.25 with error
+      # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
@@ -399,9 +399,6 @@ mleap:
 prophet:
   package_info:
     pip_release: "prophet"
-    install_dev: |
-      sudo apt-get -y install libtbb2
-      pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
     minimum: "1.1.1"
@@ -529,14 +526,14 @@ transformers:
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
-      "< 4.30.0": ["tensorflow<2.13.0"]
+      "< 4.30.0": ["tensorflow<2.13.0", "pydantic<2"]
       # peft >= 0.14 relies on classes from newer versions of transformers
       "< 4.43": ["peft<0.14.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
-      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
     pre_test: |
       export PYTHONPATH=./
@@ -833,6 +830,9 @@ anthropic:
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
+    # Our CI runs tests for every minor version of the library by default, which results in
+    # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
+    test_every_n_versions: 5
 
 crewai:
   package_info:
@@ -865,6 +865,7 @@ sentence_transformers:
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
         ]
+      "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
@@ -918,3 +919,24 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
+
+groq:
+  package_info:
+    pip_release: "groq"
+    install_dev: |
+      pip install git+https://github.com/groq/groq-python
+  autologging:
+    minimum: "0.13.0"
+    maximum: "0.13.1"
+    requirements:
+    run: pytest tests/groq
+
+bedrock:
+  package_info:
+    pip_release: "boto3"
+    module_name: "boto3"
+  autologging:
+    # BedrockRuntime client is added in boto3 1.33
+    minimum: "1.33.0"
+    maximum: "1.35.76"
+    run: pytest tests/bedrock
