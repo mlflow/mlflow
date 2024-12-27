@@ -29,7 +29,14 @@ class TextContentPart(BaseModel):
 
 
 class ImageUrl(BaseModel):
-    url: str  # either URL of an image, or bas64 encoded data
+    """
+    Represents an image URL.
+
+    The `url`` field can be either URL of an image, or base64 encoded data.
+    # Ref: https://platform.openai.com/docs/guides/vision?lang=curl#uploading-base64-encoded-images
+    """
+
+    url: str
     detail: Literal["auto", "low", "high"]
 
 
@@ -125,7 +132,11 @@ class FunctionToolDefinition(BaseModel):
 
 
 class ChatTool(BaseModel):
-    """A tool definition passed to the chat completion API."""
+    """
+    A tool definition passed to the chat completion API.
+
+    Ref: https://platform.openai.com/docs/guides/function-calling
+    """
 
     type: Literal["function"]
     function: Optional[FunctionToolDefinition] = None
