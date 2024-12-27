@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
+import mlflow
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -352,3 +353,34 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
+
+
+def start_client_span_or_trace(
+    client: mlflow.MlflowClient,
+    name: str,
+    span_type: str,
+    inputs: Optional[dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
+    start_time_ns: Optional[int] = None,
+) -> LiveSpan:
+    """
+    An utility to start a span or trace using MlflowClient based on the current active span.
+    """
+    if parent_span := mlflow.get_current_active_span():
+        return client.start_span(
+            name=name,
+            request_id=parent_span.request_id,
+            span_id=parent_span.span_id,
+            span_type=span_type,
+            inputs=inputs,
+            attributes=attributes,
+            start_time_ns=start_time_ns,
+        )
+    else:
+        return client.start_trace(
+            name=name,
+            span_type=span_type,
+            inputs=inputs,
+            attributes=attributes,
+            start_time_ns=start_time_ns,
+        )

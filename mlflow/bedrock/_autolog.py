@@ -1,7 +1,7 @@
 import io
 import json
 import logging
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 from botocore.client import BaseClient
 from botocore.response import StreamingBody
@@ -9,10 +9,15 @@ from botocore.response import StreamingBody
 import mlflow
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
+from mlflow.bedrock.stream import ConverseStreamWrapper
+from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.utils import (
+    set_span_chat_messages,
+    set_span_chat_tools,
+    start_client_span_or_trace,
+)
 from mlflow.utils.autologging_utils import safe_patch
-from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
 _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
@@ -47,24 +52,11 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
         safe_patch(FLAVOR_NAME, client_class, "converse", _patched_converse)
 
-
-def _skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
-    """
-    A decorator to apply the function only if trace autologging is enabled.
-    This decorator is used to skip the test if the trace autologging is disabled.
-    """
-
-    def wrapper(original, self, *args, **kwargs):
-        config = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
-        if not config.log_traces:
-            return original(self, *args, **kwargs)
-
-        return func(original, self, *args, **kwargs)
-
-    return wrapper
+    if hasattr(client_class, "converse_stream"):
+        safe_patch(FLAVOR_NAME, client_class, "converse_stream", _patched_converse_stream)
 
 
-@_skip_if_trace_disabled
+@skip_if_trace_disabled
 def _patched_invoke_model(original, self, *args, **kwargs):
     with mlflow.start_span(name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}") as span:
         # NB: Bedrock client doesn't accept any positional arguments
@@ -115,7 +107,7 @@ def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dic
         response_body._amount_read = 0
 
 
-@_skip_if_trace_disabled
+@skip_if_trace_disabled
 def _patched_converse(original, self, *args, **kwargs):
     with mlflow.start_span(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
@@ -123,13 +115,7 @@ def _patched_converse(original, self, *args, **kwargs):
     ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
-
-        if tool_config := kwargs.get("toolConfig"):
-            try:
-                tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tool_config["tools"]]
-                set_span_chat_tools(span, tools)
-            except Exception as e:
-                _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+        _set_tool_attributes(span, kwargs)
 
         result = None
         try:
@@ -138,6 +124,33 @@ def _patched_converse(original, self, *args, **kwargs):
         finally:
             _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result
+
+
+@skip_if_trace_disabled
+def _patched_converse_stream(original, self, *args, **kwargs):
+    # NB: Do not use fluent API to create a span for streaming response. If we do so,
+    # the span context will remain active until the stream is fully exhausted, which
+    # can lead to super hard-to-debug issues.
+    client = mlflow.MlflowClient()
+    span = start_client_span_or_trace(
+        client=client,
+        name=f"{_BEDROCK_SPAN_PREFIX}converse_stream",
+        span_type=SpanType.CHAT_MODEL,
+        inputs=kwargs,
+    )
+    _set_tool_attributes(span, kwargs)
+
+    result = original(self, *args, **kwargs)
+
+    if span:
+        result["stream"] = ConverseStreamWrapper(
+            stream=result["stream"],
+            span=span,
+            client=client,
+            inputs=kwargs,
+        )
+
+    return result
 
 
 def _set_chat_messages_attributes(span, messages: list[dict], response: Optional[dict]):
@@ -156,3 +169,13 @@ def _set_chat_messages_attributes(span, messages: list[dict], response: Optional
         set_span_chat_messages(span, messages)
     except Exception as e:
         _logger.debug(f"Failed to set messages for {span}. Error: {e}")
+
+
+def _set_tool_attributes(span, kwargs):
+    """Extract tool attributes for the Bedrock Converse API call."""
+    if tool_config := kwargs.get("toolConfig"):
+        try:
+            tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tool_config["tools"]]
+            set_span_chat_tools(span, tools)
+        except Exception as e:
+            _logger.debug(f"Failed to set tools for {span}. Error: {e}")
