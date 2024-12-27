@@ -561,22 +561,25 @@ def test_python_model_local_testing_same_as_pyfunc_predict():
     assert e_local.value.message == e_pyfunc.value.message
 
 
-def test_invalid_type_hint_in_python_model():
+def test_invalid_type_hint_in_python_model(recwarn):
+    invalid_type_hint_msg = "Type hint used in the model's predict function is not supported"
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[object], params=None) -> str:
             if isinstance(model_input, list):
                 return model_input[0]
             return "abc"
 
+    assert any(invalid_type_hint_msg in str(w.message) for w in recwarn)
+    recwarn.clear()
+
     model = MyModel()
-    with pytest.warns(
-        UserWarning, match=r"Type hint used in the model's predict function is not supported"
-    ):
-        assert model.predict(["a"]) == "a"
+    assert model.predict(["a"]) == "a"
+    assert not any(invalid_type_hint_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        with pytest.warns(UserWarning, match=r"Unsupported type hint"):
-            mlflow.pyfunc.log_model("model", python_model=MyModel())
+        mlflow.pyfunc.log_model("model", python_model=MyModel())
+    assert any("Unsupported type hint" in str(w.message) for w in recwarn)
 
 
 def test_invalid_type_hint_in_callable(recwarn):

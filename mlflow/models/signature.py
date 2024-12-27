@@ -320,13 +320,13 @@ def _extract_type_hints(f, input_arg_index):
     if f.__annotations__ == {}:
         return _TypeHints()
 
-    arg_names = _get_arg_names(f)
+    arg_names = list(filter(lambda x: x != "self", _get_arg_names(f)))
     if len(arg_names) - 1 < input_arg_index:
         raise MlflowException.invalid_parameter_value(
             f"The specified input argument index ({input_arg_index}) is out of range for the "
             "function signature: {}".format(input_arg_index, arg_names)
         )
-    arg_name = _get_arg_names(f)[input_arg_index]
+    arg_name = arg_names[input_arg_index]
     try:
         hints = get_type_hints(f)
     except (
@@ -365,7 +365,7 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
         # predict(self, context, model_input, ...)
         "context" in parameters
         # predict(self, ctx, model_input, ...) ctx can be any parameter name
-        or len([param for param in parameters if param != "params"]) == 2
+        or len([param for param in parameters if param not in ("self", "params")]) == 2
     )
 
 
@@ -395,15 +395,6 @@ def _infer_signature_from_type_hints(
     if type_hints.input is None:
         return None
 
-    _pyfunc_decorator_used = getattr(func, "_is_pyfunc", False)
-    if not _pyfunc_decorator_used:
-        # stacklevel is 3 because we have a decorator
-        warnings.warn(
-            "Decorate your function with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
-            "data validation against model input type hints.",
-            stacklevel=3,
-        )
-
     params = None
     params_key = "params"
     if _contains_params(input_example):
@@ -414,6 +405,17 @@ def _infer_signature_from_type_hints(
     except InvalidTypeHintException as e:
         warnings.warn(e.message, stacklevel=3)
         return None
+
+    # only warn if the pyfunc decorator is not used and schema can
+    # be inferred from the input type hint
+    _pyfunc_decorator_used = getattr(func, "_is_pyfunc", False)
+    if not _pyfunc_decorator_used:
+        # stacklevel is 3 because we have a decorator
+        warnings.warn(
+            "Decorate your function with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
+            "data validation against model input type hints.",
+            stacklevel=3,
+        )
 
     default_output_schema = Schema([ColSpec(type=AnyType())])
     is_output_type_hint_valid = False
