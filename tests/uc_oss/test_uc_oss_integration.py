@@ -2,6 +2,7 @@ import cgi
 import os
 import pathlib
 import subprocess
+import time
 from collections import namedtuple
 
 import pytest
@@ -28,8 +29,15 @@ Server = namedtuple(
 def setup_servers():
     with (
         subprocess.Popen(["mlflow", "server", "--port", "5000"]) as p1,
-        subprocess.Popen(["unitycatalog/bin/start-uc-server"]) as p2,
+        subprocess.Popen(["unitycatalog/bin/start-uc-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as p2,
     ):
+        time.sleep(1)
+        print("Printing the stream of start-uc-server...\n")
+        # Read and print the output stream
+        for line in p2.stdout:
+            print(line, end="")  # Print each line as it is received
+        print("Done printing s")
+
         _await_server_up_or_die(5000)
         _await_server_up_or_die(8080)
         mlflow_tracking_url = "http://127.0.0.1:5000"
