@@ -6,7 +6,6 @@ from typing import Any, Optional
 from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
-    _TypeHints,
 )
 from mlflow.types.type_hints import (
     _convert_data_to_type_hint,
@@ -15,6 +14,20 @@ from mlflow.types.type_hints import (
     _validate_example_against_type_hint,
 )
 from mlflow.utils.annotations import filter_user_warnings_once
+
+
+def pyfunc(func):
+    """
+    A decorator that forces data validation against type hint of the input data
+    in the wrapped method. It is no-op if the type hint is not supported by MLflow.
+
+    .. note::
+        The function that applies this decorator must be a valid `predict` function
+        of `mlflow.pyfunc.PythonModel`, or a callable that takes a single input.
+    """
+
+    type_hint = _get_type_hint_if_supported(func)
+    return _wrap_predict_with_pyfunc(func, type_hint)
 
 
 def _wrap_predict_with_pyfunc(func, type_hint):
@@ -35,48 +48,23 @@ def _wrap_predict_with_pyfunc(func, type_hint):
     return wrapper
 
 
-def pyfunc(func):
-    """
-    A decorator that forces data validation against type hint of the input data
-    in the wrapped method. It is no-op if the type hint is not supported by MLflow.
-
-    .. note::
-        The function that applies this decorator must be a valid `predict` function
-        of `mlflow.pyfunc.PythonModel`, or a callable that takes a single input.
-    """
-
-    type_hint = _get_type_hint_if_supported(func)
-    return _wrap_predict_with_pyfunc(func, type_hint)
-
-
-@lru_cache(maxsize=1)
-def _get_type_hints(func) -> _TypeHints:
-    """
-    Internal method to get type hints from the predict function signature.
-    For PythonModel, the signature must be one of below:
-        - predict(self, context, model_input, params=None)
-        - predict(self, model_input, params=None)
-    For callables, the function must contain only one input argument.
-
-    Args:
-        func: the predict function. Default is None, which means self.predict will be used.
-    """
-    # TODO: move function signature validation here
-    # instead of the pyfunc wrapper
-    if _is_context_in_predict_function_signature(func=func):
-        return _extract_type_hints(func, input_arg_index=1)
-    else:
-        return _extract_type_hints(func, input_arg_index=0)
-
-
 @lru_cache
 @filter_user_warnings_once
 def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
     """
     Internal method to check if the predict function has type hints and if they are supported
     by MLflow.
+    For PythonModel, the signature must be one of below:
+        - predict(self, context, model_input, params=None)
+        - predict(self, model_input, params=None)
+    For callables, the function must contain only one input argument.
     """
-    type_hint = _get_type_hints(func).input
+    # TODO: move function signature validation here
+    # instead of the pyfunc wrapper
+    if _is_context_in_predict_function_signature(func=func):
+        type_hint = _extract_type_hints(func, input_arg_index=1).input
+    else:
+        type_hint = _extract_type_hints(func, input_arg_index=0).input
     if type_hint is not None:
         if _signature_cannot_be_inferred_from_type_hint(type_hint):
             return

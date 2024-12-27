@@ -8,8 +8,6 @@ from mlflow.pyfunc import PythonModel
 
 
 class WrappedRecipeModel(PythonModel):
-    _skip_wrapping_predict = True
-
     def __init__(
         self, predict_scores_for_all_classes, predict_prefix, target_column_class_labels=None
     ):
