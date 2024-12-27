@@ -53,6 +53,7 @@ def patched_class_call(original, self, *args, **kwargs):
                     set_span_chat_messages(span, messages)
                 except Exception as e:
                     _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+                    raise
 
                 try:
                     if (tools := inputs.get("tools")) is not None:

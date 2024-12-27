@@ -26,10 +26,25 @@ DUMMY_CREATE_MESSAGE_RESPONSE = Message(
     usage=Usage(input_tokens=10, output_tokens=18),
 )
 
+# Ref: https://docs.anthropic.com/en/docs/build-with-claude/tool-use
 DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST = {
     "model": "test_model",
     "max_tokens": 1024,
     "tools": [
+        {
+            "name": "get_unit",
+            "description": "Get the temperature unit commonly used in a given location",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g., San Francisco, CA",
+                    },
+                },
+                "required": ["location"],
+            },
+        },
         {
             "name": "get_weather",
             "description": "Get the current weather in a given location",
@@ -46,19 +61,50 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST = {
                         "description": 'The unit of temperature, "celsius" or "fahrenheit"',
                     },
                 },
-                "required": ["location"],
+                "required": ["location", "unit"],
             },
-        }
+        },
     ],
-    "messages": [{"role": "user", "content": "What's the weather like in San Francisco?"}],
+    "messages": [
+        {"role": "user", "content": "What's the weather like in San Francisco?"},
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "<thinking>I need to use the get_unit first.</thinking>",
+                    "type": "text",
+                },
+                {
+                    "id": "tool_123",
+                    "name": "get_unit",
+                    "input": {"location": "San Francisco"},
+                    "type": "tool_use",
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "content": "celsius",
+                    "type": "tool_result",
+                    "tool_use_id": "tool_123",
+                    "is_error": False,
+                }
+            ],
+        },
+    ],
 }
 
 DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
     id="test_id",
     content=[
-        TextBlock(text="<thinking>I need to use the get_weather</thinking>", type="text"),
+        TextBlock(text="<thinking>Next, I need to use the get_weather</thinking>", type="text"),
         ToolUseBlock(
-            id="tool_123", name="get_weather", input={"location": "San Francisco"}, type="tool_use"
+            id="tool_456",
+            name="get_weather",
+            input={"location": "San Francisco", "unit": "celsius"},
+            type="tool_use",
         ),
     ],
     model="test_model",
@@ -185,7 +231,7 @@ def test_messages_autolog_tool_calling(mock_post):
             "role": "assistant",
             "content": [
                 {
-                    "text": "<thinking>I need to use the get_weather</thinking>",
+                    "text": "<thinking>I need to use the get_unit first.</thinking>",
                     "type": "text",
                 }
             ],
@@ -194,8 +240,32 @@ def test_messages_autolog_tool_calling(mock_post):
                     "id": "tool_123",
                     "type": "function",
                     "function": {
-                        "name": "get_weather",
+                        "name": "get_unit",
                         "arguments": '{"location": "San Francisco"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": [{"text": "celsius", "type": "text"}],
+            "tool_call_id": "tool_123",
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "<thinking>Next, I need to use the get_weather</thinking>",
+                    "type": "text",
+                }
+            ],
+            "tool_calls": [
+                {
+                    "id": "tool_456",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"location": "San Francisco", "unit": "celsius"}',
                     },
                 }
             ],
@@ -203,6 +273,23 @@ def test_messages_autolog_tool_calling(mock_post):
     ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_unit",
+                "description": "Get the temperature unit commonly used in a given location",
+                "parameters": {
+                    "properties": {
+                        "location": {
+                            "description": "The city and state, e.g., San Francisco, CA",
+                            "type": "string",
+                        },
+                    },
+                    "required": ["location"],
+                    "type": "object",
+                },
+            },
+        },
         {
             "type": "function",
             "function": {
@@ -220,9 +307,9 @@ def test_messages_autolog_tool_calling(mock_post):
                             "type": "string",
                         },
                     },
-                    "required": ["location"],
+                    "required": ["location", "unit"],
                     "type": "object",
                 },
             },
-        }
+        },
     ]
