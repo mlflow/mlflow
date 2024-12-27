@@ -89,13 +89,15 @@ class ColSpecType(NamedTuple):
 
 
 class InvalidTypeHintException(MlflowException):
-    def __init__(self, type_hint, extra_msg=""):
-        super().__init__(
-            f"Unsupported type hint `{type_hint}`{extra_msg}. Supported types are: "
-            f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
-            "lists and dictionaries of primitive types, or typing.Any.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    def __init__(self, *, message=None, type_hint=None, extra_msg=""):
+        if message is None:
+            message = (
+                f"Unsupported type hint `{type_hint}`{extra_msg}. Supported type hints must be "
+                "list[...] where internal types are: "
+                f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
+                "lists and dictionaries of primitive types, or typing.Any."
+            )
+        super().__init__(message, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
@@ -117,20 +119,11 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
     elif origin_type := get_origin(type_hint):
         args = get_args(type_hint)
         if origin_type is list:
-            # a valid list[...] type hint must only contain one argument
-            if len(args) == 0:
-                raise MlflowException.invalid_parameter_value(
-                    f"List type hint must contain the internal type, got {type_hint}"
-                )
-            elif len(args) > 1:
-                raise MlflowException.invalid_parameter_value(
-                    f"List type hint must contain only one internal type, got {type_hint}"
-                )
-            else:
-                return ColSpecType(
-                    dtype=Array(_infer_colspec_type_from_type_hint(type_hint=args[0]).dtype),
-                    required=True,
-                )
+            internal_type = _get_internal_type_of_list_type_hint(type_hint)
+            return ColSpecType(
+                dtype=Array(_infer_colspec_type_from_type_hint(type_hint=internal_type).dtype),
+                required=True,
+            )
         if origin_type is dict:
             if len(args) == 2:
                 if args[0] != str:
@@ -262,7 +255,51 @@ def field_required(field: type[FIELD_TYPE]) -> bool:
     return field.is_required()
 
 
+def _get_internal_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
+    """
+    Get the internal type of list[...] type hint
+    """
+    args = get_args(type_hint)
+    # a valid list[...] type hint must only contain one argument
+    if len(args) == 0:
+        raise MlflowException.invalid_parameter_value(
+            f"List type hint must contain the internal type, got {type_hint}"
+        )
+    elif len(args) > 1:
+        raise MlflowException.invalid_parameter_value(
+            f"List type hint must contain only one internal type, got {type_hint}"
+        )
+    else:
+        return args[0]
+
+
+def _is_list_type_hint(type_hint: type[Any]) -> bool:
+    origin_type = _get_origin_type(type_hint)
+    return origin_type is list
+
+
+def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
+    """
+    Infer schema from a list type hint.
+    The type hint must be list[...], and the inferred schema contains a
+    single ColSpec, where the type is based on the internal type of the list type hint,
+    since ColSpec represents a column's data type of the dataset.
+    e.g. list[int] -> Schema([ColSpec(type=DataType.long, required=True)])
+    A valid `predict` function of a pyfunc model must use list type hint for the input.
+    """
+    if not _is_list_type_hint(type_hint):
+        raise InvalidTypeHintException(
+            type_hint=type_hint,
+            message=f"Type hint must be list[...] with a valid internal type, got {type_hint}",
+        )
+    internal_type = _get_internal_type_of_list_type_hint(type_hint)
+    return _infer_schema_from_type_hint(internal_type)
+
+
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
+    """
+    Infer schema from a type hint.
+    """
     col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
