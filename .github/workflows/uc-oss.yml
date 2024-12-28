@@ -67,9 +67,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'  # Use Temurin distribution of OpenJDK
 
-      - name: Clone UnityCatalog at tag v0.2.0
+      - name: Clone UnityCatalog at tag v0.2.1
         run: |
-          git clone --branch v0.2.0 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
 
       - name: Build MLflow UI
         working-directory: mlflow/server/js
@@ -77,10 +77,10 @@ jobs:
           yarn
           yarn build
 
-      #- name: Start uc-oss server
-      #  working-directory: unitycatalog
-      #  run: |
-      #    build/sbt package
+      - name: Start uc-oss server
+        working-directory: unitycatalog
+        run: |
+          build/sbt package
       #    nohup bin/start-uc-server > uc-server.log 2>&1 &
 
       #- name: Start mlflow tracking server
