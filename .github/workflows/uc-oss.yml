@@ -81,16 +81,10 @@ jobs:
         working-directory: unitycatalog
         run: |
           build/sbt package
-      #    nohup bin/start-uc-server > uc-server.log 2>&1 &
-
-      #- name: Start mlflow tracking server
-      #  working-directory: mlflow
-      #  run: |
-      #    nohup mlflow ui > mlflow-tracking.log 2>&1 &
+          nohup bin/start-uc-server > uc-server.log 2>&1 &
 
       - name: Run tests for UnityCatalog
         run: |
           echo "Running tests for UnityCatalog..."
           export PYTHONPATH=$MLFLOW_HOME:$PYTHONPATH
           pytest tests/uc_oss/test_uc_oss_integration.py
-      # python tests/uc_oss/uc-oss-integration-test.py
