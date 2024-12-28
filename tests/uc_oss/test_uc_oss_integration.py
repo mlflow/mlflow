@@ -20,10 +20,6 @@ import pandas as pd
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
-Server = namedtuple(
-    "Server",
-    ["url", "process"],
-)
 
 @pytest.fixture(scope="module")
 def setup_servers():
@@ -35,12 +31,10 @@ def setup_servers():
         mlflow_tracking_url = "http://127.0.0.1:5000"
         uc_oss_url = "uc:http://127.0.0.1:8080"
 
-        mlflow_server = Server(mlflow_tracking_url, p1)
-
         mlflow.set_tracking_uri(mlflow_tracking_url)
         mlflow.set_registry_uri(uc_oss_url)
 
-        yield mlflow_server
+        return mlflow_tracking_url
 
 def test_integration(setup_servers):
     catalog = "unity"
