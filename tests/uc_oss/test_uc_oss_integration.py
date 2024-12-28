@@ -1,10 +1,5 @@
-import cgi
 import os
-import pathlib
 import subprocess
-import time
-from collections import namedtuple
-
 import pytest
 import requests
 
@@ -53,7 +48,9 @@ def test_integration(setup_servers):
         assert False, "Expected exception for missing model not raised"
 
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = (
+        train_test_split(X, y, test_size=0.2, random_state=42)
+    )
 
     def build_model():
         with mlflow.start_run():
@@ -66,7 +63,8 @@ def test_integration(setup_servers):
             mlflow.sklearn.log_model(
                 sk_model=clf,
                 artifact_path="model",
-                # The signature is automatically inferred from the input example and its predicted output.
+                # The signature is automatically inferred from the input example and
+                # its predicted output.
                 input_example=input_example,
                 registered_model_name=model_name,
             )
@@ -143,7 +141,11 @@ def test_integration(setup_servers):
     model2 = mlflow.MlflowClient().get_registered_model(model_name)
     assert model2.name == model_name
     assert model2.description == rm_desc
-    mlflow.MlflowClient().update_model_version(name=model_name, version=model_version, description=mv_desc)
+    mlflow.MlflowClient().update_model_version(
+        name=model_name,
+        version=model_version,
+        description=mv_desc
+    )
     model_v1_2 = mlflow.MlflowClient().get_model_version(name=model_name, version=model_version)
     assert model_v1_2.name == model_name
     assert model_v1_2.version == 1
