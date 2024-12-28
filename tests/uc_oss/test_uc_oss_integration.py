@@ -23,18 +23,20 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 @pytest.fixture(scope="module")
 def setup_servers():
-    with (
-        subprocess.Popen(["mlflow", "server", "--port", "5000"]) as p1,
-    ):
-        _await_server_up_or_die(5000)
+    with subprocess.Popen(["mlflow", "server", "--port", "5000"]) as proc:
+        try:
+            _await_server_up_or_die(5000)
 
-        mlflow_tracking_url = "http://127.0.0.1:5000"
-        uc_oss_url = "uc:http://127.0.0.1:8080"
+            mlflow_tracking_url = "http://127.0.0.1:5000"
+            uc_oss_url = "uc:http://127.0.0.1:8080"
 
-        mlflow.set_tracking_uri(mlflow_tracking_url)
-        mlflow.set_registry_uri(uc_oss_url)
+            mlflow.set_tracking_uri(mlflow_tracking_url)
+            mlflow.set_registry_uri(uc_oss_url)
 
-        return mlflow_tracking_url
+            yield mlflow_tracking_url
+        finally:
+            proc.terminate()
+
 
 def test_integration(setup_servers):
     catalog = "unity"
