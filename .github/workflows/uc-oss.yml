@@ -1,7 +1,7 @@
 name: uc-oss
 
 on:
-  pull_request:  # for testing
+  pull_request: # for testing
     types:
       - opened
       - synchronize
@@ -53,7 +53,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: '17'
-          distribution: 'temurin'  # Use Temurin distribution of OpenJDK
+          distribution: 'temurin' # Use Temurin distribution of OpenJDK
 
       - name: Clone UnityCatalog at tag v0.2.1
         run: |

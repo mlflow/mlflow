@@ -1,16 +1,13 @@
 import os
 import subprocess
-import pytest
-import requests
 
-import mlflow
-from mlflow import MlflowClient
-from mlflow.artifacts import download_artifacts
-from mlflow.utils.os import is_windows
+import pandas as pd
+import pytest
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-import pandas as pd
+
+import mlflow
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -48,9 +45,7 @@ def test_integration(setup_servers):
         assert False, "Expected exception for missing model not raised"
 
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    X_train, X_test, y_train, y_test = (
-        train_test_split(X, y, test_size=0.2, random_state=42)
-    )
+    X_train, X_test, y_train, y_test = (train_test_split(X, y, test_size=0.2, random_state=42))
 
     def build_model():
         with mlflow.start_run():
@@ -71,7 +66,6 @@ def test_integration(setup_servers):
 
     try:
         build_model()
-        pass
     except Exception as e:
         assert False, f"Unhandled exception while attempting to build a model: {e}"
 
@@ -91,7 +85,6 @@ def test_integration(setup_servers):
         result["actual_class"] = y_test
         result["predicted_class"] = predictions
         assert result[:4] is not None
-        pass
     except Exception as e:
         assert False, f"Unhandled exception while loading a model: {e}"
 
@@ -102,7 +95,6 @@ def test_integration(setup_servers):
         #   2) use the storage location returned from UC OSS for the model version
         #      list the artifacts stored in the location
         mlflow.artifacts.list_artifacts(model_uri)
-        pass
     except Exception as e:
         assert False, f"Unhandled exception while listing artifacts: {e}"
 
@@ -120,10 +112,9 @@ def test_integration(setup_servers):
         )
         requirements_path = f"{path}/requirements.txt"
         assert os.path.exists(requirements_path), f"File {requirements_path} does not exist."
-        with open(requirements_path, 'r') as file:
+        with open(requirements_path) as file:
             lines = file.readlines()
         assert len(lines) == 9
-        pass
     except Exception as e:
         assert False, f"Unhandled exception while testing download_artifacts: {e}"
 
@@ -142,9 +133,7 @@ def test_integration(setup_servers):
     assert model2.name == model_name
     assert model2.description == rm_desc
     mlflow.MlflowClient().update_model_version(
-        name=model_name,
-        version=model_version,
-        description=mv_desc
+        name=model_name, version=model_version, description=mv_desc
     )
     model_v1_2 = mlflow.MlflowClient().get_model_version(name=model_name, version=model_version)
     assert model_v1_2.name == model_name
@@ -165,6 +154,5 @@ def test_integration(setup_servers):
         mlflow.MlflowClient().get_registered_model(model_name)
     except Exception as e:
         e.args[0].startswith("NOT_FOUND")
-        pass
     else:
         assert False, "Expected exception not raised when testing that deletion was successful"
