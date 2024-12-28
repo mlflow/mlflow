@@ -29,7 +29,7 @@ def setup_servers():
     ):
         try:
             _await_server_up_or_die(5000)
-            _await_server_up_or_die(8080)
+            #_await_server_up_or_die(8080)
 
             mlflow_tracking_url = "http://127.0.0.1:5000"
             uc_oss_url = "uc:http://127.0.0.1:8080"
