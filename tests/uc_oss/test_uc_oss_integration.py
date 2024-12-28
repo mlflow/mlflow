@@ -39,7 +39,7 @@ def setup_servers():
 
 
 def test_integration(setup_servers):
-    catalog = "unity"
+    catalog = "unityy"
     schema = "default"
     registered_model_name = "iris"
     model_name = f"{catalog}.{schema}.{registered_model_name}"
