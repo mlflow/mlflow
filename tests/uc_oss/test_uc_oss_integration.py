@@ -29,32 +29,20 @@ Server = namedtuple(
 def setup_servers():
     with (
         subprocess.Popen(["mlflow", "server", "--port", "5000"]) as p1,
-        subprocess.Popen(["unitycatalog/bin/start-uc-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as p2,
     ):
-        time.sleep(1)
-        print("Printing the stream of start-uc-server...\n")
-        # Read and print the output stream
-        for line in p2.stdout:
-            print(line, end="")  # Print each line as it is received
-        print("Done printing s")
-
         _await_server_up_or_die(5000)
-        _await_server_up_or_die(8080)
+
         mlflow_tracking_url = "http://127.0.0.1:5000"
         uc_oss_url = "uc:http://127.0.0.1:8080"
 
         mlflow_server = Server(mlflow_tracking_url, p1)
-        uc_oss_server = Server(uc_oss_url, p2)
 
         mlflow.set_tracking_uri(mlflow_tracking_url)
         mlflow.set_registry_uri(uc_oss_url)
 
-        yield mlflow_server, uc_oss_server
+        yield mlflow_server
 
 def test_integration(setup_servers):
-    mlflow_server = setup_servers[1]
-    uc_oss_server = setup_servers[-1]
-
     catalog = "unity"
     schema = "default"
     registered_model_name = "iris"

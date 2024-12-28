@@ -81,7 +81,7 @@ jobs:
         working-directory: unitycatalog
         run: |
           build/sbt package
-      #    nohup bin/start-uc-server > uc-server.log 2>&1 &
+          nohup bin/start-uc-server > uc-server.log 2>&1 &
 
       #- name: Start mlflow tracking server
       #  working-directory: mlflow
