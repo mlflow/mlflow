@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 import pandas as pd
 import pytest
@@ -9,13 +10,12 @@ from sklearn.model_selection import train_test_split
 
 import mlflow
 
-from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
 @pytest.fixture(scope="module")
 def setup_servers():
-    with subprocess.Popen(["mlflow", "server", "--port", "5000"]) as proc:
+    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", "5000"]) as proc:
         try:
             _await_server_up_or_die(5000)
 
@@ -40,7 +40,6 @@ def test_integration(setup_servers):
         mlflow.MlflowClient().get_registered_model(model_name)
     except Exception as e:
         e.args[0].startswith("NOT_FOUND")
-        pass
     else:
         assert False, "Expected exception for missing model not raised"
 
@@ -56,8 +55,8 @@ def test_integration(setup_servers):
             input_example = X.iloc[[0]]
             # Log the model and register it as a new version in UC.
             mlflow.sklearn.log_model(
-                sk_model=clf,
-                artifact_path="model",
+                clf,
+                "model",
                 # The signature is automatically inferred from the input example and
                 # its predicted output.
                 input_example=input_example,
@@ -105,7 +104,7 @@ def test_integration(setup_servers):
         # to UC OSS to:
         #   1) retrieve credentials (none for file based UC OSS)
         #   2) copy the artifact files from the storage location to the
-        #      destintation path
+        #      destination path
         mlflow.artifacts.download_artifacts(
             artifact_uri=f"models:/{model_name}/{model_version}",
             dst_path=path,
