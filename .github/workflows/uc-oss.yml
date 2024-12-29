@@ -25,6 +25,7 @@ defaults:
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  UC_OSS_INTEGRATION: true
 
 jobs:
   uc-oss-integration-test:
