@@ -15,7 +15,7 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 @pytest.mark.skipif(
     "UC_OSS_INTEGRATION" not in os.environ,
-    reason="This test is only valid w/in the github workflow integration job"
+    reason="This test is only valid w/in the github workflow integration job",
 )
 @pytest.fixture(scope="module")
 def setup_servers():
