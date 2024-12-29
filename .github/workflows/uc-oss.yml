@@ -25,7 +25,6 @@ defaults:
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
-  UC_OSS_INTEGRATION: true
 
 jobs:
   uc-oss-integration-test:
@@ -74,4 +73,5 @@ jobs:
         run: |
           echo "Running tests for UnityCatalog..."
           export PYTHONPATH=$MLFLOW_HOME:$PYTHONPATH
+          export UC_OSS_INTEGRATION=true
           pytest tests/uc_oss/test_uc_oss_integration.py
