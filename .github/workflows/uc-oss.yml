@@ -33,6 +33,7 @@ jobs:
   uc-oss-integration-test:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - uses: actions/checkout@v4
