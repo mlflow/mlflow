@@ -33,6 +33,7 @@ from mlflow.types.type_hints import (
     _signature_cannot_be_inferred_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
+from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -319,13 +320,13 @@ def _extract_type_hints(f, input_arg_index):
     if f.__annotations__ == {}:
         return _TypeHints()
 
-    arg_names = _get_arg_names(f)
+    arg_names = list(filter(lambda x: x != "self", _get_arg_names(f)))
     if len(arg_names) - 1 < input_arg_index:
         raise MlflowException.invalid_parameter_value(
             f"The specified input argument index ({input_arg_index}) is out of range for the "
             "function signature: {}".format(input_arg_index, arg_names)
         )
-    arg_name = _get_arg_names(f)[input_arg_index]
+    arg_name = arg_names[input_arg_index]
     try:
         hints = get_type_hints(f)
     except (
@@ -364,7 +365,7 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
         # predict(self, context, model_input, ...)
         "context" in parameters
         # predict(self, ctx, model_input, ...) ctx can be any parameter name
-        or len([param for param in parameters if param != "params"]) == 2
+        or len([param for param in parameters if param not in ("self", "params")]) == 2
     )
 
 
@@ -382,6 +383,7 @@ def _should_infer_signature_from_type_hints(type_hints: _TypeHints):
     return True
 
 
+@filter_user_warnings_once
 def _infer_signature_from_type_hints(
     func, type_hints: _TypeHints, input_example=None
 ) -> Optional[ModelSignature]:
@@ -401,8 +403,19 @@ def _infer_signature_from_type_hints(
     try:
         input_schema = _infer_schema_from_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
-        warnings.warn(e.message, stacklevel=2)
+        warnings.warn(e.message, stacklevel=3)
         return None
+
+    # only warn if the pyfunc decorator is not used and schema can
+    # be inferred from the input type hint
+    _pyfunc_decorator_used = getattr(func, "_is_pyfunc", False)
+    if not _pyfunc_decorator_used:
+        # stacklevel is 3 because we have a decorator
+        warnings.warn(
+            "Decorate your function with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
+            "data validation against model input type hints.",
+            stacklevel=3,
+        )
 
     default_output_schema = Schema([ColSpec(type=AnyType())])
     is_output_type_hint_valid = False
@@ -422,11 +435,13 @@ def _infer_signature_from_type_hints(
     params_schema = _infer_param_schema(params) if params else None
 
     if input_example is not None:
-        # TODO: we can remove input example validation here
-        # once we move the validation inside `predict` function
-        if msg := _get_example_validation_result(
-            example=input_example, type_hint=type_hints.input
-        ).error_message:
+        # only validate input example here if pyfunc decorator is not used
+        # because when the decorator is used, the input is validated in the predict function
+        if not _pyfunc_decorator_used and (
+            msg := _get_example_validation_result(
+                example=input_example, type_hint=type_hints.input
+            ).error_message
+        ):
             _logger.warning(
                 "Input example is not compatible with the type hint of the `predict` function. "
                 f"Error: {msg}"
