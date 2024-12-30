@@ -24,6 +24,8 @@ class DspyModelWrapper(PythonModel):
             used at serving time.
     """
 
+    _skip_wrapping_predict = True
+
     def __init__(
         self,
         model: "dspy.Module",

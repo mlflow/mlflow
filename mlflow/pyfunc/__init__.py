@@ -803,15 +803,8 @@ class PyFuncModel:
         self.params_schema = self.metadata.get_params_schema()
         # signature can only be inferred from type hints if the model is PythonModel
         if self.metadata._is_signature_from_type_hint():
-            from mlflow.types.type_hints import (
-                _convert_data_to_type_hint,
-                _validate_example_against_type_hint,
-            )
-
-            type_hints = self._model_impl.python_model._get_type_hints()
-            data = _convert_data_to_type_hint(data, type_hints.input)
-            # TODO: remove the validation here once we move the logic inside PythonModel
-            data = _validate_example_against_type_hint(data, type_hints.input)
+            # we don't need to validate on data as data validation
+            # will be done during PythonModel's predict call
             params = _enforce_params_schema(params, self.params_schema)
         else:
             data, params = _validate_prediction_input(
@@ -2988,12 +2981,12 @@ def save_model(
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
-            type_hints = python_model._get_type_hints()
+            type_hints = python_model.predict_type_hints
             infer_signature_from_type_hints = _should_infer_signature_from_type_hints(type_hints)
             if infer_signature_from_type_hints:
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model.predict,
-                    type_hints=python_model._get_type_hints(),
+                    type_hints=python_model.predict_type_hints,
                     input_example=input_example,
                 )
             # only infer signature based on input example when signature
