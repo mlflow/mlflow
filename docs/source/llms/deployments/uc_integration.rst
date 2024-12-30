@@ -23,7 +23,7 @@ If you don't have ``git``, you can download the repository as a zip file from ht
 
     pip install mlflow>=2.14.0 openai databricks-sdk
 
-3. Create the UC function used in `the example script <https://github.com/mlflow/mlflow/blob/master/examples/deployments/uc_functions/run.py>`_ in your Databricks workspace by running the following SQL command:
+3. Create the UC function used in `the example script <https://github.com/mlflow/mlflow/blob/master/examples/gateway/uc_functions/run.py>`_ in your Databricks workspace by running the following SQL command:
 
 .. code-block:: sql
 
@@ -67,7 +67,7 @@ Once you have completed the pre-requisites, you can start the gateway server:
     export MLFLOW_ENABLE_UC_FUNCTIONS=true
 
     # Run the server
-    mlflow gateway start --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
+    mlflow gateway start --config-path examples/gateway/openai/config.yaml --port 7000
 
 Query the Endpoint with UC Function
 -----------------------------------
@@ -82,7 +82,7 @@ Once the server is running, you can run the example script:
     export OPENAI_API_KEY="test"
 
     # Replace `my.uc_func.add` if your UC function has a different name
-    python examples/deployments/uc_functions/run.py  --uc-function-name my.uc_func.add
+    python examples/gateway/uc_functions/run.py  --uc-function-name my.uc_func.add
 
 
 What's happening under the hood?
