@@ -98,7 +98,7 @@ jobs:
           name: Install dependencies
           command: |
             pip install .
-            pip install nbconvert ipykernel
+            pip install nbconvert ipykernel "mistune<3.1.0"
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression
