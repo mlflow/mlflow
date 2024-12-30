@@ -148,10 +148,10 @@ class PythonModel:
         # NB: subclasses of PythonModel in MLflow that has customized predict method
         # should set _skip_wrapping_predict = True to skip this wrapping
         if not getattr(cls, "_skip_wrapping_predict", False):
-            for attr_name, attr_value in cls.__dict__.items():
-                if attr_name == "predict" and callable(attr_value):
-                    type_hint = _get_type_hint_if_supported(attr_value)
-                    setattr(cls, attr_name, _wrap_predict_with_pyfunc(attr_value, type_hint))
+            predict_attr = cls.__dict__.get("predict")
+            if predict_attr is not None and callable(predict_attr):
+                type_hint = _get_type_hint_if_supported(predict_attr)
+                setattr(cls, "predict", _wrap_predict_with_pyfunc(predict_attr, type_hint))
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
