@@ -289,7 +289,6 @@ def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     """
     if not _is_list_type_hint(type_hint):
         raise InvalidTypeHintException(
-            type_hint=type_hint,
             message=f"Type hint must be list[...] with a valid internal type, got {type_hint}",
         )
     internal_type = _get_internal_type_of_list_type_hint(type_hint)
@@ -303,8 +302,9 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
-        raise MlflowException.invalid_parameter_value(
-            "If you would like to use Optional types, use a Pydantic-based type hint definition."
+        raise InvalidTypeHintException(
+            message="If you would like to use Optional types, "
+            "use a Pydantic-based type hint definition."
         )
     return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
