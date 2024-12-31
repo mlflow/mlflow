@@ -27,13 +27,13 @@ from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import AnyType, Array, Map, Object, Property
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
     _is_none_or_nan,
     clean_tensor_type,
 )
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.proto_json_utils import (
@@ -304,7 +304,9 @@ class _Example:
         model_input = deepcopy(self._inference_data)
 
         if isinstance(model_input, pydantic.BaseModel):
-            model_input = model_input.dict() if PYDANTIC_V1_OR_OLDER else model_input.model_dump()
+            model_input = (
+                model_input.model_dump() if IS_PYDANTIC_V2_OR_NEWER else model_input.dict()
+            )
 
         is_unified_llm_input = False
         if isinstance(model_input, dict):

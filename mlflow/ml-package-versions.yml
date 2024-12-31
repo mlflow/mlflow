@@ -561,7 +561,6 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
-          "accelerate",
           "setfit",
           "optuna",
           "accelerate<1",
@@ -576,11 +575,13 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
-      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
       # that version of setfit requires tranformers>=4.41
-      "< 4.41": ["huggingface_hub<0.24.0"]
+      # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
+      # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
+      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
