@@ -579,7 +579,8 @@ transformers:
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
       # that version of setfit requires tranformers>=4.41
-      "< 4.41": ["huggingface_hub<0.24.0"]
+      # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
+      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
