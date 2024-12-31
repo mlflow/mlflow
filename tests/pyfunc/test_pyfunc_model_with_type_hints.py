@@ -713,7 +713,14 @@ def test_serving_environment(monkeypatch):
     "env_manager",
     [VIRTUALENV, UV],
 )
-def test_predict_model_with_type_hints(env_manager):
+def test_predict_model_with_type_hints(env_manager, monkeypatch):
+    if env_manager == UV:
+        # the test env sets PIP_EXTRA_INDEX_URL to https://download.pytorch.org/whl/cpu
+        # setuptools also exists here, but it might not include the version we need,
+        # and uv by default finds the first index that has the package, this could cause
+        # version not found error
+        monkeypatch.delenv("PIP_EXTRA_INDEX_URL", False)
+
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
