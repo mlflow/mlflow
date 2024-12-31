@@ -100,6 +100,7 @@ class ModelSignature:
             self.outputs = outputs
         self.params = params
         self.__is_signature_from_type_hint = False
+        self.__type_hint_from_example = False
 
     @property
     def _is_signature_from_type_hint(self):
@@ -108,6 +109,14 @@ class ModelSignature:
     @_is_signature_from_type_hint.setter
     def _is_signature_from_type_hint(self, value):
         self.__is_signature_from_type_hint = value
+
+    @property
+    def _type_hint_from_example(self):
+        return self.__type_hint_from_example
+
+    @_type_hint_from_example.setter
+    def _type_hint_from_example(self, value):
+        self.__type_hint_from_example = value
 
     def to_dict(self) -> dict[str, Any]:
         """

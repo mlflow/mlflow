@@ -505,7 +505,12 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.type_hints import _signature_cannot_be_inferred_from_type_hint
+from mlflow.types.type_hints import (
+    _convert_dataframe_to_example_format,
+    _is_example_valid_for_type_from_example,
+    _is_type_hint_from_example,
+    _signature_cannot_be_inferred_from_type_hint,
+)
 from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
@@ -811,6 +816,9 @@ class PyFuncModel:
             data, params = _validate_prediction_input(
                 data, params, self.input_schema, self.params_schema, self.loader_module
             )
+            if isinstance(data, pandas.DataFrame) and self.metadata._is_type_hint_from_example():
+                input_example = self.metadata.load_input_example()
+                data = _convert_dataframe_to_example_format(data, input_example)
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -932,7 +940,7 @@ class PyFuncModel:
         return self._model_meta == other._model_meta
 
     @property
-    def metadata(self):
+    def metadata(self) -> Model:
         """Model metadata."""
         if self._model_meta is None:
             raise MlflowException("Model is missing metadata.")
@@ -2908,6 +2916,7 @@ def save_model(
         mlflow_model = Model()
     saved_example = None
     signature_from_type_hints = None
+    type_hint_from_example = None
     if isinstance(python_model, ChatModel):
         if signature is not None:
             raise MlflowException(
@@ -2985,15 +2994,19 @@ def save_model(
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             type_hints = python_model.predict_type_hints
-            should_infer_signature_from_type_hints = (
-                not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
-            )
-            if should_infer_signature_from_type_hints:
-                signature_from_type_hints = _infer_signature_from_type_hints(
-                    func=python_model.predict,
-                    type_hints=type_hints,
-                    input_example=input_example,
+            type_hint_from_example = _is_type_hint_from_example(type_hints.input)
+            if type_hint_from_example:
+                infer_signature_from_type_hints = False
+            else:
+                should_infer_signature_from_type_hints = (
+                    not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
                 )
+                if should_infer_signature_from_type_hints:
+                    signature_from_type_hints = _infer_signature_from_type_hints(
+                        func=python_model.predict,
+                        type_hints=type_hints,
+                        input_example=input_example,
+                    )
             # only infer signature based on input example when signature
             # and type hints are not provided
             if signature is None and signature_from_type_hints is None:
@@ -3010,10 +3023,20 @@ def save_model(
                         _logger.warning(
                             f"Failed to infer model signature from input example, error: {e}",
                         )
+                    else:
+                        if type_hint_from_example:
+                            update_signature_for_type_hint_from_example(
+                                input_example, mlflow_model.signature
+                            )
                 else:
+                    if type_hint_from_example:
+                        _logger.warning(
+                            "Input example must be provided when using TypeFromExample as "
+                            "type hint."
+                        )
                     # if signature is inferred from type hints, warnings are emitted
                     # in _infer_signature_from_type_hints
-                    if not should_infer_signature_from_type_hints:
+                    elif not should_infer_signature_from_type_hints:
                         _logger.warning(
                             "Failed to infer model signature: "
                             f"Type hint {type_hints} cannot be used to infer model signature and "
@@ -3033,9 +3056,16 @@ def save_model(
                 extra={"color": "red"},
             )
         mlflow_model.signature = signature_from_type_hints
-    # TODO: if signature is provided, we should validate input_example against it
     elif signature:
         mlflow_model.signature = signature
+        if type_hint_from_example:
+            if saved_example is None:
+                _logger.warning(
+                    "Input example must be provided when using TypeFromExample as type hint."
+                )
+            else:
+                # TODO: validate input example against signature
+                update_signature_for_type_hint_from_example(input_example, mlflow_model.signature)
 
     if metadata is not None:
         mlflow_model.metadata = metadata
@@ -3086,6 +3116,16 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
+        )
+
+
+def update_signature_for_type_hint_from_example(input_example: Any, signature: ModelSignature):
+    if _is_example_valid_for_type_from_example(input_example):
+        signature._type_hint_from_example = True
+    else:
+        _logger.warning(
+            "Input example must be one of pandas.DataFrame, "
+            "pandas.Series or list when using TypeFromExample as type hint."
         )
 
 
