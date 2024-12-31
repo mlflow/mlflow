@@ -12,7 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints, infer_signature
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, TypeFromExample, _is_pydantic_type_hint
 
 
 class CustomExample(pydantic.BaseModel):
@@ -654,3 +654,45 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
             "model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
         )
     assert not any("Decorate your function" in str(w.message) for w in recwarn)
+
+
+def assert_equal(data1, data2):
+    if isinstance(data1, pd.DataFrame):
+        pd.testing.assert_frame_equal(data1, data2)
+    elif isinstance(data1, pd.Series):
+        pd.testing.assert_series_equal(data1, data2)
+    else:
+        assert data1 == data2
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [
+        # list[scalar]
+        ["x", "y", "z"],
+        [1, 2, 3],
+        [1.0, 2.0, 3.0],
+        [True, False, True],
+        [b"Hello", b"World"],
+        # list[dict]
+        [{"a": 1, "b": 2}],
+        [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
+        # pd DataFrame
+        pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
+    ],
+)
+def test_type_hint_from_example(input_example):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: TypeFromExample):
+            return model_input
+
+    model = Model()
+    assert_equal(model.predict(input_example), input_example)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = pyfunc_model.predict(input_example)
+    assert_equal(result, input_example)
