@@ -9,6 +9,7 @@ from io import StringIO
 import keras
 import numpy as np
 import pandas as pd
+import pydantic
 import pytest
 import sklearn.neighbors as knn
 from packaging.version import Version
@@ -19,9 +20,10 @@ import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
-from mlflow.pyfunc.scoring_server import get_cmd
+from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -692,13 +694,28 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
 
 
 def test_get_jsonnable_obj():
-    from mlflow.pyfunc.scoring_server import _get_jsonable_obj
-
     py_ary = [["a", "b", "c"], ["e", "f", "g"]]
     np_ary = _get_jsonable_obj(np.array(py_ary))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+def test_numpy_encoder_for_pydantic():
+    class Message(pydantic.BaseModel):
+        role: str
+        content: str
+
+    class Messages(pydantic.BaseModel):
+        messages: list[Message]
+
+    messages = Messages(
+        messages=[Message(role="user", content="hello!"), Message(role="assistant", content="hi!")]
+    )
+    msg_dict = messages.model_dump() if IS_PYDANTIC_V2_OR_NEWER else messages.dict()
+    assert json.dumps(_get_jsonable_obj(messages), cls=NumpyEncoder) == json.dumps(
+        msg_dict, cls=NumpyEncoder
+    )
 
 
 def test_parse_json_input_including_path():
