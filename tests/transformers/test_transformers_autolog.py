@@ -292,7 +292,6 @@ skip_setfit = pytest.mark.skipif(
 @skip_setfit
 def test_setfit_does_not_autolog(setfit_trainer):
     mlflow.autolog()
-    # test
 
     setfit_trainer.train()
 
