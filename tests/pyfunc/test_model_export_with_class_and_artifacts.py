@@ -52,8 +52,8 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.tracking.artifact_utils import (
     get_artifact_uri as utils_get_artifact_uri,
 )
-from mlflow.types.schema import Array, ColSpec, Map, Schema
-from mlflow.types.type_hints import _infer_schema_from_type_hint
+from mlflow.types.schema import ColSpec, Map, Schema
+from mlflow.types.type_hints import _infer_schema_from_list_type_hint
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -1252,8 +1252,8 @@ def test_functional_python_model_list_dict_to_list_without_example(tmp_path):
         path=tmp_path, python_model=list_dict_to_list, pip_requirements=["pandas"]
     )
     model = Model.load(tmp_path)
-    assert model.signature.inputs == Schema([ColSpec(Array(Map("string")))])
-    assert model.signature.outputs == Schema([ColSpec(Array("string"))])
+    assert model.signature.inputs == Schema([ColSpec(Map("string"))])
+    assert model.signature.outputs == Schema([ColSpec("string")])
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x"}, {"a": "y"}]) == ["ax", "ay"]
 
@@ -1302,8 +1302,8 @@ def test_functional_python_model_list_dict_to_list(tmp_path):
         input_example=[{"a": "x", "b": "y"}],
     )
     model = Model.load(tmp_path)
-    assert model.signature.inputs == Schema([ColSpec(Array(Map("string")))])
-    assert model.signature.outputs == Schema([ColSpec(Array("string"))])
+    assert model.signature.inputs == Schema([ColSpec(Map("string"))])
+    assert model.signature.outputs == Schema([ColSpec("string")])
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == ["abxy"]
 
@@ -1321,10 +1321,10 @@ def test_functional_python_model_list_dict_to_list_dict():
         )
 
     assert model_info.signature.inputs.to_dict() == [
-        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True}
+        {"type": "map", "values": {"type": "string"}, "required": True}
     ]
     assert model_info.signature.outputs.to_dict() == [
-        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True}
+        {"type": "map", "values": {"type": "string"}, "required": True}
     ]
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1343,7 +1343,7 @@ def test_list_dict_with_signature_override():
             python_model=CustomModel(),
             signature=signature,
         )
-    assert model_info.signature.inputs == _infer_schema_from_type_hint(list[dict[str, str]])
+    assert model_info.signature.inputs == _infer_schema_from_list_type_hint(list[dict[str, str]])
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([{"a": "z"}]) == [{"a": "z"}]
 
@@ -1360,10 +1360,10 @@ def test_functional_python_model_list_dict_to_list_dict_with_example_pep585(tmp_
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True},
+        {"type": "map", "values": {"type": "string"}, "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "array", "items": {"type": "map", "values": {"type": "string"}}, "required": True},
+        {"type": "map", "values": {"type": "string"}, "required": True},
     ]
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
@@ -1442,12 +1442,8 @@ class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
 def test_class_python_model_type_hints(tmp_path):
     mlflow.pyfunc.save_model(path=tmp_path, python_model=AnnotatedPythonModel())
     model = Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [
-        {"type": "array", "items": {"type": "string"}, "required": True}
-    ]
-    assert model.signature.outputs.to_dict() == [
-        {"type": "array", "items": {"type": "string"}, "required": True}
-    ]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
+    assert model.signature.outputs.to_dict() == [{"type": "string", "required": True}]
     model = mlflow.pyfunc.load_model(tmp_path)
     assert model.predict(["a", "b"]) == ["a", "b"]
 
@@ -1537,7 +1533,7 @@ def test_pyfunc_model_infer_signature_from_type_hints():
             input_example=["a"],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_model.metadata.get_input_schema() == Schema([ColSpec(Array("string"))])
+    assert pyfunc_model.metadata.get_input_schema() == Schema([ColSpec("string")])
     assert pyfunc_model.predict(["a", "b"]) == ["a", "b"]
 
 

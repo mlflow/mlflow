@@ -525,20 +525,20 @@ def test_save_load_input_example_with_pydantic_model(tmp_path):
         content: str
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input: Message, params=None):
+        def predict(self, context, model_input: list[Message], params=None):
             return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "test_model",
             python_model=MyModel(),
-            input_example=Message(role="user", content="Hello!"),
+            input_example=[Message(role="user", content="Hello!")],
         )
     local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
     assert loaded_model.saved_input_example_info["type"] == "json_object"
     loaded_example = loaded_model.load_input_example(local_path)
-    assert loaded_example == {"role": "user", "content": "Hello!"}
+    assert loaded_example == [{"role": "user", "content": "Hello!"}]
 
 
 def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):

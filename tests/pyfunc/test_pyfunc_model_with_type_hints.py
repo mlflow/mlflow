@@ -12,7 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import _extract_type_hints, infer_signature
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
 
 
 class CustomExample(pydantic.BaseModel):
@@ -41,38 +41,60 @@ class CustomExample2(pydantic.BaseModel):
     ("type_hint", "expected_schema", "input_example"),
     [
         # scalars
-        (int, Schema([ColSpec(type=DataType.long)]), 123),
-        (str, Schema([ColSpec(type=DataType.string)]), "string"),
-        (bool, Schema([ColSpec(type=DataType.boolean)]), True),
-        (float, Schema([ColSpec(type=DataType.double)]), 1.23),
-        (bytes, Schema([ColSpec(type=DataType.binary)]), b"bytes"),
-        (datetime.datetime, Schema([ColSpec(type=DataType.datetime)]), datetime.datetime.now()),
-        # lists
-        (list[str], Schema([ColSpec(type=Array(DataType.string))]), ["a", "b"]),
-        (List[str], Schema([ColSpec(type=Array(DataType.string))]), ["a"]),  # noqa: UP006
+        (list[int], Schema([ColSpec(type=DataType.long)]), [123]),
+        (list[str], Schema([ColSpec(type=DataType.string)]), ["string"]),
+        (list[bool], Schema([ColSpec(type=DataType.boolean)]), [True]),
+        (list[float], Schema([ColSpec(type=DataType.double)]), [1.23]),
+        (list[bytes], Schema([ColSpec(type=DataType.binary)]), [b"bytes"]),
         (
-            list[list[str]],
-            Schema([ColSpec(type=Array(Array(DataType.string)))]),
-            [["a", "b"], ["c"]],
+            list[datetime.datetime],
+            Schema([ColSpec(type=DataType.datetime)]),
+            [datetime.datetime.now()],
         ),
-        (List[List[str]], Schema([ColSpec(type=Array(Array(DataType.string)))]), [["a"], ["b"]]),  # noqa: UP006
-        (list[dict[str, str]], Schema([ColSpec(type=Array(Map(DataType.string)))]), [{"a": "b"}]),
-        # dictionaries
-        (dict[str, int], Schema([ColSpec(type=Map(DataType.long))]), {"a": 1}),
-        (Dict[str, int], Schema([ColSpec(type=Map(DataType.long))]), {"a": 1, "b": 2}),  # noqa: UP006
-        (dict[str, list[str]], Schema([ColSpec(type=Map(Array(DataType.string)))]), {"a": ["b"]}),
+        # lists
+        (list[list[str]], Schema([ColSpec(type=Array(DataType.string))]), [["a", "b"]]),
+        (List[List[str]], Schema([ColSpec(type=Array(DataType.string))]), [["a"], ["b"]]),  # noqa: UP006
         (
-            Dict[str, List[str]],  # noqa: UP006
+            list[list[list[str]]],
+            Schema([ColSpec(type=Array(Array(DataType.string)))]),
+            [[["a", "b"], ["c"]]],
+        ),
+        (
+            List[List[List[str]]],  # noqa: UP006
+            Schema([ColSpec(type=Array(Array(DataType.string)))]),
+            [[["a"], ["b"]]],
+        ),
+        (
+            list[list[dict[str, str]]],
+            Schema([ColSpec(type=Array(Map(DataType.string)))]),
+            [[{"a": "b"}]],
+        ),
+        # dictionaries
+        (
+            list[dict[str, str]],
+            Schema([ColSpec(type=Map(DataType.string))]),
+            [{"a": "b"}, {"c": "d"}],
+        ),
+        (list[dict[str, int]], Schema([ColSpec(type=Map(DataType.long))]), [{"a": 1}, {"a": 2}]),
+        (list[Dict[str, int]], Schema([ColSpec(type=Map(DataType.long))]), [{"a": 1, "b": 2}]),  # noqa: UP006
+        (
+            list[dict[str, list[str]]],
             Schema([ColSpec(type=Map(Array(DataType.string)))]),
-            {"a": ["a", "b"]},
+            [{"a": ["b"]}],
+        ),
+        (
+            List[Dict[str, List[str]]],  # noqa: UP006
+            Schema([ColSpec(type=Map(Array(DataType.string)))]),
+            [{"a": ["a", "b"]}],
         ),
         # Union
-        (Union[int, str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
-        (list[Any], Schema([ColSpec(type=Array(AnyType()))]), [True, "abc", 123]),
+        (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
+        (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))]), [[True], ["abc"], [123]]),
         # Pydantic Models
         (
-            CustomExample,
+            list[CustomExample],
             Schema(
                 [
                     ColSpec(
@@ -93,19 +115,21 @@ class CustomExample2(pydantic.BaseModel):
                     ),
                 ]
             ),
-            {
-                "long_field": 123,
-                "str_field": "abc",
-                "bool_field": True,
-                "double_field": 1.23,
-                "binary_field": b"bytes",
-                "datetime_field": datetime.datetime.now(),
-                "any_field": ["any", 123],
-                "optional_str": "optional",
-            },
+            [
+                {
+                    "long_field": 123,
+                    "str_field": "abc",
+                    "bool_field": True,
+                    "double_field": 1.23,
+                    "binary_field": b"bytes",
+                    "datetime_field": datetime.datetime.now(),
+                    "any_field": ["any", 123],
+                    "optional_str": "optional",
+                }
+            ],
         ),
         (
-            CustomExample2,
+            list[CustomExample2],
             Schema(
                 [
                     ColSpec(
@@ -129,11 +153,13 @@ class CustomExample2(pydantic.BaseModel):
                     )
                 ]
             ),
-            {
-                "custom_field": {"a": 1},
-                "messages": [{"role": "admin", "content": "hello"}],
-                "optional_int": 123,
-            },
+            [
+                {
+                    "custom_field": {"a": 1},
+                    "messages": [{"role": "admin", "content": "hello"}],
+                    "optional_int": 123,
+                }
+            ],
         ),
     ],
 )
@@ -180,13 +206,10 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     assert model_info.signature._is_signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    if _is_pydantic_type_hint(type_hint):
-        if PYDANTIC_V1_OR_OLDER:
-            assert pyfunc_model.predict(input_example).dict() == input_example
-        else:
-            assert pyfunc_model.predict(input_example).model_dump() == input_example
-    else:
-        assert pyfunc_model.predict(input_example) == input_example
+    result = pyfunc_model.predict(input_example)
+    if isinstance(result[0], pydantic.BaseModel):
+        result = [r.dict() if PYDANTIC_V1_OR_OLDER else r.model_dump() for r in result]
+    assert result == input_example
 
 
 def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
@@ -221,29 +244,29 @@ def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
     pd.testing.assert_frame_equal(pyfunc.predict(input_example), input_example)
 
 
-def test_pyfunc_model_infer_signature_from_type_hints_errors():
-    def predict(model_input: int) -> int:
+def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
+    def predict(model_input: list[int]) -> int:
         return model_input
 
     with mlflow.start_run():
         with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("test_model", python_model=predict, input_example="string")
+            mlflow.pyfunc.log_model("test_model", python_model=predict, input_example=["string"])
         assert (
             "Input example is not compatible with the type hint of the `predict` function."
             in mock_warning.call_args[0][0]
         )
 
-    def predict(model_input: int) -> str:
+    def predict(model_input: list[int]) -> str:
         return model_input
 
     output_hints = _extract_type_hints(predict, 0).output
     with mlflow.start_run():
         with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "test_model", python_model=predict, input_example=123
+                "test_model", python_model=predict, input_example=[123]
             )
         assert (
-            f"Failed to validate output `123` against type hint `{output_hints}`"
+            f"Failed to validate output `[123]` against type hint `{output_hints}`"
             in mock_warning.call_args[0][0]
         )
         assert model_info.signature.inputs == Schema([ColSpec(type=DataType.long)])
@@ -275,13 +298,15 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors():
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
-    def predict(model_input: int | str) -> int | str:
+    def predict(model_input: list[int | str]) -> list[int | str]:
         return model_input
 
     with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model("test_model", python_model=predict, input_example=123)
+        model_info1 = mlflow.pyfunc.log_model(
+            "test_model", python_model=predict, input_example=[123]
+        )
         model_info2 = mlflow.pyfunc.log_model(
-            "test_model", python_model=predict, input_example="string"
+            "test_model", python_model=predict, input_example=["string"]
         )
 
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
@@ -332,23 +357,25 @@ class TypeHintExample(NamedTuple):
 @pytest.mark.parametrize(
     "type_hint_example",
     [
-        TypeHintExample("int", 123),
-        TypeHintExample("str", "string"),
-        TypeHintExample("bool", True),
-        TypeHintExample("float", 1.23),
-        TypeHintExample("bytes", b"bytes"),
-        TypeHintExample("datetime.datetime", datetime.datetime.now()),
-        TypeHintExample("Any", "any"),
-        TypeHintExample("list[str]", ["a", "b"]),
-        TypeHintExample("dict[str, int]", {"a": 1}),
-        TypeHintExample("Union[int, str]", 123),
+        TypeHintExample("list[int]", [123]),
+        TypeHintExample("list[str]", ["string"]),
+        TypeHintExample("list[bool]", [True]),
+        TypeHintExample("list[float]", [1.23]),
+        TypeHintExample("list[bytes]", [b"bytes"]),
+        TypeHintExample("list[datetime.datetime]", [datetime.datetime.now()]),
+        TypeHintExample("list[Any]", ["any"]),
+        TypeHintExample("list[list[str]]", [["a"], ["b"]]),
+        TypeHintExample("list[dict[str, int]]", [{"a": 1}]),
+        TypeHintExample("list[Union[int, str]]", [123, "abc"]),
         TypeHintExample(
-            "CustomExample2",
-            CustomExample2(
-                custom_field={"a": 1},
-                messages=[Message(role="admin", content="hello")],
-                optional_int=123,
-            ),
+            "list[CustomExample2]",
+            [
+                CustomExample2(
+                    custom_field={"a": 1},
+                    messages=[Message(role="admin", content="hello")],
+                    optional_int=123,
+                )
+            ],
             """
 class Message(pydantic.BaseModel):
     role: str
@@ -398,7 +425,7 @@ def test_functional_python_model_only_input_type_hints():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=python_model, input_example=["a"]
         )
-    assert model_info.signature.inputs == Schema([ColSpec(type=Array(DataType.string))])
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
     assert model_info.signature.outputs == Schema([ColSpec(AnyType())])
 
 
@@ -423,8 +450,8 @@ def test_functional_python_model_callable_object():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=CallableObject(), input_example=["a"]
         )
-    assert model_info.signature.inputs == Schema([ColSpec(type=Array(DataType.string))])
-    assert model_info.signature.outputs == Schema([ColSpec(type=Array(DataType.string))])
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
+    assert model_info.signature.outputs == Schema([ColSpec(type=DataType.string)])
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(["a", "b"]) == ["a", "b"]
 
@@ -435,25 +462,25 @@ def test_python_model_local_testing():
             return model_input
 
     class ModelWithTypeHint(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: dict[str, str], params=None) -> list[str]:
-            return [model_input["x"]]
+        def predict(self, model_input: list[dict[str, str]], params=None) -> list[str]:
+            return [m["x"] for m in model_input]
 
     model1 = ModelWOTypeHint()
     assert model1.predict("a") == "a"
     model2 = ModelWithTypeHint()
-    assert model2.predict({"x": "a"}) == ["a"]
+    assert model2.predict([{"x": "a"}, {"x": "b"}]) == ["a", "b"]
     with pytest.raises(MlflowException, match=r"Expected dict, but got str"):
-        model2.predict("a")
+        model2.predict(["a"])
 
 
 def test_python_model_with_optional_input_local_testing():
     class Model(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: list[Optional[str]], params=None) -> Optional[list[str]]:
-            return [x if x is not None else "default" for x in model_input]
+        def predict(self, model_input: list[dict[str, Optional[str]]], params=None) -> Any:
+            return [x["key"] if x.get("key") else "default" for x in model_input]
 
     model = Model()
-    assert model.predict([None]) == ["default"]
-    assert model.predict(["a"]) == ["a"]
+    assert model.predict([{"key": None}]) == ["default"]
+    assert model.predict([{"key": "a"}]) == ["a"]
     with pytest.raises(MlflowException, match=r"Expected list, but got str"):
         model.predict("a")
 
