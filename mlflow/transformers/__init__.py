@@ -800,6 +800,7 @@ def log_model(
     inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
+    run_id: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -914,6 +915,8 @@ def log_model(
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
+        run_id: The run ID to associate with this model. If not provided,
+            a new run will be started.
         signature: A Model Signature object that describes the input and output Schema of the
             model. The model signature can be inferred using `infer_signature` function
             of `mlflow.models.signature`.
