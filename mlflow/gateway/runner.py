@@ -95,6 +95,8 @@ class Runner:
 
 def run_app(config_path: str, host: str, port: int, workers: int) -> None:
     config_path = os.path.abspath(os.path.normpath(os.path.expanduser(config_path)))
+    if os.path.islink(config_path):
+        config_path = os.readlink(config_path)
     with Runner(
         config_path=config_path,
         host=host,
