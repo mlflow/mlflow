@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlflow.envConfigMapName" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+data:
+  {{- /* Use Alibaba Cloud OSS as artifact store */}}
+  {{- if .Values.artifactStore.oss.enabled }}
+  {{- with .Values.artifactStore.oss.endpoint }}
+  MLFLOW_OSS_ENDPOINT_URL: {{ . }}
+  {{- else }}
+  {{ fail "artifactStore.oss.endpoint must be specified when use OSS as artifact store" }}
+  {{- end }}
+  {{- end }}
