@@ -57,6 +57,9 @@ extras = [
   "kubernetes",
   "virtualenv",
   "prometheus-flask-exporter",
+  "PyMySQL",
+  "psycopg2-binary",
+  "pymssql",
 ]
 databricks = [
   "azure-storage-file-datalake>12",
