@@ -25,6 +25,8 @@ class _ChatAgentPyfuncWrapper:
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatAgent`.
     """
 
+    _skip_wrapping_predict = True
+
     def __init__(self, chat_agent, context, signature):
         """
         Args:

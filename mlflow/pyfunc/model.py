@@ -159,7 +159,7 @@ class PythonModel:
 
         # automatically wrap the predict method with pyfunc to ensure data validation
         # NB: subclasses of PythonModel in MLflow that has customized predict method
-        # should set _skip_wrapping_predict = True to skip this wrapping
+        # should set _skip_wrapping_predict = True in their wrapper class to skip this wrapping
         if not getattr(cls, "_skip_wrapping_predict", False):
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
