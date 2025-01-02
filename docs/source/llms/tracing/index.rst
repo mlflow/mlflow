@@ -79,6 +79,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
+                    <img src="../../_static/images/logos/groq-logo.svg" alt="Groq Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
                     <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
@@ -620,6 +625,63 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Groq
+
+        .. raw:: html
+
+            <h3>Groq Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with Groq AI models.
+        When Groq autologging is enabled with :py:func:`mlflow.groq.autolog`,
+        usage of the Groq SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.groq.autolog()
+
+        To see the full example of tracing Groq, please refer to the `Groq Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/groq/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/groq/groq-tracing.png
+            :alt: Groq Tracing
+            :width: 100%
+            :align: center
+
+
+Jupyter Notebook integration
+----------------------------
+
+.. note::
+    Jupyter integration is available in **MLflow 2.20 and above**
+
+The trace UI is also available within Jupyter notebooks! 
+
+.. figure:: ../../_static/images/llms/tracing/jupyter-trace-ui.png
+    :alt: MLflow Trace UI in Jupyter Notebook
+    :width: 80%
+    :align: center
+
+This feature requires using an `MLflow Tracking Server <../../tracking/server.html>`_, as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. ``mlflow.set_tracking_uri("http://localhost:5000")``).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via  `automatic tracing <#automatic-tracing>`_, or by running a manually traced function)
+2. When :py:func:`mlflow.search_traces` is called
+3. When a :py:class:`mlflow.entities.Trace` object is displayed (e.g. via IPython's ``display`` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call :py:func:`mlflow.tracing.disable_notebook_display`, and rerun the cell
+containing the UI. To enable it again, call :py:func:`mlflow.tracing.enable_notebook_display`.
+
+For a more complete example, try running this `demo notebook <./notebooks/jupyter-trace-demo.html>`_!
+
 
 Tracing Fluent APIs
 -------------------
@@ -943,7 +1005,7 @@ Tracing Client APIs
 
 .. note::
 
-    Client APIs are in **Experimental Status** and is subject to change without deprecation warning or notification. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
+    Client APIs are advanced features. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
 
 The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained 
 control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs 

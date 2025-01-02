@@ -5,11 +5,29 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.conftest import is_v1
 from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces
+
+MOCK_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add",
+            "description": "Add two numbers",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "a": {"type": "number"},
+                    "b": {"type": "number"},
+                },
+                "required": ["a", "b"],
+            },
+        },
+    }
+]
 
 
 @pytest.fixture
@@ -369,10 +387,13 @@ def test_autolog_use_active_run_id(client, log_models):
 def test_autolog_raw_response(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
         )
         resp = resp.parse()  # ensure the raw response is returned
 
@@ -384,15 +405,22 @@ def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
+    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
+        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
+    )
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 
 def test_autolog_raw_response_stream(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
             stream=True,
         )
         resp = resp.parse()  # ensure the raw response is returned
@@ -402,3 +430,7 @@ def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs == "Hello world"
+    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
+        messages + [{"role": "assistant", "content": "Hello world"}]
+    )
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS

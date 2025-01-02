@@ -300,6 +300,10 @@ class LiveSpan(Span):
         self._attributes.set(SpanAttributeKey.REQUEST_ID, request_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
 
+    def set_span_type(self, span_type: str):
+        """Set the type of the span."""
+        self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)

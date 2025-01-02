@@ -73,6 +73,11 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "litellm",
     "openai",
     "dspy",
+    "autogen",
+    "gemini",
+    "anthropic",
+    "crewai",
+    "bedrock",
 ]
 
 # Global lock for turning on / off autologging
@@ -514,9 +519,10 @@ def autologging_is_disabled(integration_name):
 
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
+        and get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
-        return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
+        return True
 
     return False
 
