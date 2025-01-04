@@ -3,6 +3,8 @@ import uuid
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
+from pydantic import BaseModel, Field
+
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
 # TODO: Switch to pydantic in a future version of MLflow.
@@ -136,6 +138,7 @@ class _BaseDataclass:
         return cls(**filtered_data)
 
 
+# keep this in sync with FunctionToolCallArgumentsPydantic
 @dataclass
 class FunctionToolCallArguments(_BaseDataclass):
     """
@@ -159,6 +162,7 @@ class FunctionToolCallArguments(_BaseDataclass):
         return ToolCall(id=id, function=self)
 
 
+# keep this in sync with ToolCallPydantic
 @dataclass
 class ToolCall(_BaseDataclass):
     """
@@ -178,6 +182,39 @@ class ToolCall(_BaseDataclass):
         self._validate_field("id", str, True)
         self._convert_dataclass("function", FunctionToolCallArguments, True)
         self._validate_field("type", str, True)
+
+
+class FunctionToolCallArgumentsPydantic(BaseModel):
+    """
+    The arguments of a function tool call made by the model. Pydantic version.
+
+    Args:
+        arguments (str): A JSON string of arguments that should be passed to the tool.
+        name (str): The name of the tool that is being called.
+    """
+
+    name: str
+    arguments: str
+
+    def to_tool_call(self, id=None):
+        if id is None:
+            id = str(uuid.uuid4())
+        return ToolCallPydantic(id=id, function=self)
+
+
+class ToolCallPydantic(BaseModel):
+    """
+    A tool call made by the model. Pydantic version.
+
+    Args:
+        function (:py:class:`FunctionToolCallArgumentsPydantic`): The arguments of the function tool call.
+        id (str): The ID of the tool call. Defaults to a random UUID.
+        type (str): The type of the object. Defaults to "function".
+    """
+
+    function: FunctionToolCallArguments
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str = Field(default="function")
 
 
 @dataclass
@@ -641,6 +678,7 @@ class ChatChunkChoice(_BaseDataclass):
         self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
+# keep this in sync with TokenUsageStatsPydantic
 @dataclass
 class TokenUsageStats(_BaseDataclass):
     """
@@ -663,6 +701,24 @@ class TokenUsageStats(_BaseDataclass):
         self._validate_field("prompt_tokens", int, False)
         self._validate_field("completion_tokens", int, False)
         self._validate_field("total_tokens", int, False)
+
+
+class TokenUsageStatsPydantic(BaseModel):
+    """
+    Stats about the number of tokens used during inference. Pydantic version.
+
+    Args:
+        prompt_tokens (int): The number of tokens in the prompt.
+            **Optional**, defaults to ``None``
+        completion_tokens (int): The number of tokens in the generated completion.
+            **Optional**, defaults to ``None``
+        total_tokens (int): The total number of tokens used.
+            **Optional**, defaults to ``None``
+    """
+
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
 
 @dataclass
@@ -702,98 +758,92 @@ class ChatCompletionResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
-@dataclass
-class Context(_BaseDataclass):
+class ChatAgentMessage(BaseModel):
+    """
+    A message in a ChatAgent model request or response.
+
+    Args:
+        role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``,
+            ``"assistant"``, ``"tool"``).
+        content (str): The content of the message.
+            **Optional** Can be ``None`` if refusal or tool_calls are provided.
+        name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
+        id (str): The ID of the message. **Optional** defaults to ``None``
+        tool_calls (List[:py:class:`ToolCallPydantic`]): A list of tool calls made by the model.
+            **Optional** defaults to ``None``
+        tool_call_id (str): The ID of the tool call that this message is a response to.
+            **Optional** defaults to ``None``
+        attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
+        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
+    """
+
+    role: str
+    content: Optional[str] = None
+    name: Optional[str] = None
+    id: Optional[str] = None
+    tool_calls: Optional[list[ToolCallPydantic]] = None
+    tool_call_id: Optional[str] = None
+    # TODO make this a pydantic class with subtypes once we have more details on usage
+    attachments: Optional[dict[str, str]] = None
+    finish_reason: Optional[str] = None
+    # TODO: add finish_reason_metadata once we have a plan for usage
+
+
+class Context(BaseModel):
     """
     Context to be used in the chat endpoint.
 
     Args:
-        messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage` objects
-            containing the context messages.
-        custom_inputs (Dict[str, str]): An optional field that can contain arbitrary additional
-            context.
+        conversation_id (str): The ID of the conversation. **Optional** defaults to ``None``
+        user_id (str): The ID of the user. **Optional** defaults to ``None``
     """
 
     conversation_id: Optional[str] = None
     user_id: Optional[str] = None
 
-    def __post_init__(self):
-        self._validate_field("conversation_id", str, False)
-        self._validate_field("user_id", str, False)
 
-
-# need to disable refusal if we choose not to include it in our final spec
-@dataclass
-class ChatAgentMessage(ChatMessage):
-    # Disabled by setting it to None and preventing instantiation
-    refusal: Optional[str] = field(init=False, default=None)
-    id: Optional[str] = None
-    # TODO bbqiu: make this a dataclass with subtypes
-    attachments: Optional[dict[str, str]] = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        self._validate_field("attachments", dict, False)
-
-
-@dataclass
-class ChatAgentParams(_BaseDataclass):
+class ChatAgentParams(BaseModel):
     """
-    Common parameters used for ChatAgent
+    Common parameters used for the ChatAgent interface.
+
+    Args:
+        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+            conversation_id and user_id. **Optional** defaults to ``None``
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
+            **Optional** defaults to ``None``
+        stream (bool): Whether to stream back responses as they are generated.
+            **Optional**, defaults to ``False``
     """
 
     context: Optional[Context] = None
     custom_inputs: Optional[dict[str, str]] = None
     stream: Optional[bool] = False
 
-    def __post_init__(self):
-        self._convert_dataclass("context", Context, False)
-        self._validate_field("stream", bool, False)
 
-        # validate that the custom_inputs field is a map from string to string
-        if self.custom_inputs is not None:
-            if not isinstance(self.custom_inputs, dict):
-                raise ValueError(
-                    "Expected `custom_inputs` to be a dictionary, "
-                    f"received `{type(self.custom_inputs).__name__}`"
-                )
-            for key, value in self.custom_inputs.items():
-                if not isinstance(key, str):
-                    raise ValueError(
-                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
-                        f"received key of type `{type(key).__name__}` (key: {key})"
-                    )
-                if not isinstance(value, str):
-                    raise ValueError(
-                        "Expected `custom_inputs` to be of type `Dict[str, str]`, "
-                        f"received value of type `{type(value).__name__}` in "
-                        f"`custom_inputs['{key}']`)"
-                    )
-
-
-@dataclass
 class ChatAgentRequest(ChatAgentParams):
-    messages: list[ChatAgentMessage] = field(default_factory=list)
+    """
+    Format of a ChatAgent interface request.
 
-    def __post_init__(self):
-        self._convert_dataclass_list("messages", ChatAgentMessage)
-        super().__post_init__()
+    Args:
+        messages: A list of :py:class:`ChatAgentMessage` that will be passed to the model.
+            **Optional**, defaults to empty list (``[]``)
+        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+            conversation_id and user_id. **Optional** defaults to ``None``
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
+            **Optional** defaults to ``None``
+        stream (bool): Whether to stream back responses as they are generated.
+            **Optional**, defaults to ``False``
+    """
+
+    messages: list[ChatAgentMessage] = Field(default_factory=list)
 
 
-@dataclass
-class ChatAgentResponse(_BaseDataclass):
+class ChatAgentResponse(BaseModel):
     messages: list[ChatAgentMessage]
     custom_outputs: Optional[dict[str, str]] = None
-    usage: Optional[TokenUsageStats] = None
-    finish_reason: Optional[str] = None
-    finish_reason_metadata: Optional[dict[str, str]] = None
-
-    def __post_init__(self):
-        self._convert_dataclass_list("messages", ChatAgentMessage)
-        self._validate_field("custom_outputs", dict, False)
-        self._convert_dataclass("usage", TokenUsageStats, False)
-        self._validate_field("finish_reason", str, False)
-        self._validate_field("finish_reason_metadata", dict, False)
+    usage: Optional[TokenUsageStatsPydantic] = None
 
 
 @dataclass
@@ -838,18 +888,18 @@ class ChatCompletionChunk(_BaseDataclass):
 # fmt: off
 
 _token_usage_stats_col_spec = ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        )
+    name="usage",
+    type=Object(
+        [
+            Property("prompt_tokens", DataType.long),
+            Property("completion_tokens", DataType.long),
+            Property("total_tokens", DataType.long),
+        ]
+    ),
+    required=False,
+)
 _custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(AnyType()), required=False)
-_custom_outputs_col_spec =         ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
@@ -958,7 +1008,7 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "stream": False,
 }
 
-_chat_agent_message_col_spec = ColSpec(
+_chat_agent_messages_col_spec = ColSpec(
     name="messages",
     type=Array(
         Object(
@@ -966,6 +1016,7 @@ _chat_agent_message_col_spec = ColSpec(
                 Property("role", DataType.string),
                 Property("content", DataType.string, False),
                 Property("name", DataType.string, False),
+                Property("id", DataType.string, False),
                 Property("tool_calls", Array(Object([
                     Property("id", DataType.string),
                     Property("function", Object([
@@ -975,8 +1026,8 @@ _chat_agent_message_col_spec = ColSpec(
                     Property("type", DataType.string),
                 ])), False),
                 Property("tool_call_id", DataType.string, False),
-                Property("id", DataType.string, False),
                 Property("attachments", Map(DataType.string), False),
+                Property("finish_reason", DataType.string, False),
             ]
         )
     ),
@@ -984,7 +1035,7 @@ _chat_agent_message_col_spec = ColSpec(
 
 CHAT_AGENT_INPUT_SCHEMA = Schema(
     [
-        _chat_agent_message_col_spec,
+        _chat_agent_messages_col_spec,
         ColSpec(name="context", type=Object([
             Property("conversation_id", DataType.string, False),
             Property("user_id", DataType.string, False),
@@ -996,7 +1047,7 @@ CHAT_AGENT_INPUT_SCHEMA = Schema(
 
 CHAT_AGENT_OUTPUT_SCHEMA = Schema(
     [
-        _chat_agent_message_col_spec,
+        _chat_agent_messages_col_spec,
         _custom_outputs_col_spec,
         _token_usage_stats_col_spec,
     ]

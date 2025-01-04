@@ -2997,7 +2997,7 @@ def save_model(
             CHAT_AGENT_INPUT_SCHEMA,
             CHAT_AGENT_OUTPUT_SCHEMA,
         )
-        # For ChatModel we set default metadata to indicate its task
+        # For ChatAgent we set default metadata to indicate its task
         default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
         mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
