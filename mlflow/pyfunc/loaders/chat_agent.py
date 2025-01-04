@@ -62,10 +62,8 @@ class _ChatAgentPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [
-            ChatAgentMessage.from_dict(message) for message in dict_input.pop("messages", [])
-        ]
-        params = ChatAgentParams.from_dict(dict_input)
+        messages = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
+        params = ChatAgentParams(**dict_input)
         return messages, params
 
     def predict(
@@ -93,7 +91,7 @@ class _ChatAgentPyfuncWrapper:
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-        return response.to_dict()
+        return response.model_dump()
 
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None

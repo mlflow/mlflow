@@ -2,12 +2,13 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, Optional, Tuple, TypedDict, Union
+from typing import Annotated, Any, Literal, Optional, TypedDict, Union
 
 from langchain_core.messages import (
     AIMessage,
     AnyMessage,
     HumanMessage,
+    ToolCall,
     ToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
@@ -21,8 +22,8 @@ from mlflow.types.llm import (
     ChatAgentMessage,
     ChatAgentParams,
     ChatAgentResponse,
-    FunctionToolCallArguments,
-    ToolCall,
+    FunctionToolCallArgumentsPydantic,
+    ToolCallPydantic,
 )
 
 
@@ -65,9 +66,9 @@ def parse_tool_calls(id, tool_calls: list[dict[str, Any]]) -> dict:
         content="",
         id=id,
         tool_calls=[
-            ToolCall(
+            ToolCallPydantic(
                 id=tool_call.get("id"),
-                function=FunctionToolCallArguments(
+                function=FunctionToolCallArgumentsPydantic(
                     arguments=json.dumps(tool_call.get("args", {})), name=tool_call.get("name")
                 ),
             )
@@ -147,8 +148,7 @@ class ChatAgentToolNode(ToolNode):
     ) -> ToolCall:
         tool_call["name"] = tool_call["function"]["name"]
         tool_call["args"] = json.loads(tool_call["function"]["arguments"])
-        temp = super()._inject_tool_args(tool_call, input, store)
-        return temp
+        return super()._inject_tool_args(tool_call, input, store)
 
     def _parse_input(
         self,
@@ -158,7 +158,7 @@ class ChatAgentToolNode(ToolNode):
             BaseModel,
         ],
         store: BaseStore,
-    ) -> Tuple[list[ToolCall], Literal["list", "dict"]]:
+    ) -> tuple[list[ToolCall], Literal["list", "dict"]]:
         if isinstance(input, list):
             output_type = "list"
             message: AnyMessage = input[-1]
