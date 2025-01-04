@@ -212,7 +212,7 @@ class ToolCallPydantic(BaseModel):
         type (str): The type of the object. Defaults to "function".
     """
 
-    function: FunctionToolCallArguments
+    function: FunctionToolCallArgumentsPydantic
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: str = Field(default="function")
 

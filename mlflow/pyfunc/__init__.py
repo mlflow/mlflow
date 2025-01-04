@@ -3010,28 +3010,26 @@ def save_model(
                 if isinstance(each_message, ChatAgentMessage):
                     messages.append(each_message)
                 else:
-                    messages.append(ChatAgentMessage.from_dict(each_message))
+                    messages.append(ChatAgentMessage(**each_message))
         else:
             # If the input example is a dictionary, convert it to ChatMessage format
             messages = [
-                ChatAgentMessage.from_dict(m) if isinstance(m, dict) else m
+                ChatAgentMessage(**m) if isinstance(m, dict) else m
                 for m in input_example["messages"]
             ]
-            params = ChatAgentParams.from_dict(input_example)
+            params = ChatAgentParams(**input_example)
         input_example = {
-            "messages": [m.to_dict() for m in messages],
-            **params.to_dict(),
+            "messages": [m.model_dump() for m in messages],
+            **params.model_dump(),
             **(input_params or {}),
         }
-        # TODO removed context
         _logger.info("Predicting on input example to validate output")
         output = python_model.predict(messages, params)
         if not isinstance(output, ChatAgentResponse):
             raise MlflowException(
-                "Failed to save ChatAgent. Please ensure that the model's predict() method "
-                "returns a ChatAgentResponse object. If your predict() method currently "
-                "returns a dict, you can instantiate a ChatAgentResponse using "
-                "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
+                "Failed to save ChatAgent. Ensure your model's predict() method returns a "
+                "ChatAgentResponse object. If your predict() method returns a dict, wrap it in a "
+                "ChatAgentResponse object: `ChatAgentResponse(**output)`"
             )
     elif python_model is not None:
         _logger.info("python_model not none")

@@ -2,7 +2,7 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Dict, Literal, Optional, Tuple, TypedDict, Union
+from typing import Annotated, Any, Literal, Optional, Tuple, TypedDict, Union
 
 from langchain_core.messages import (
     AIMessage,
@@ -26,7 +26,7 @@ from mlflow.types.llm import (
 )
 
 
-def add_agent_messages(left: list[Dict], right: list[Dict]):
+def add_agent_messages(left: list[dict], right: list[dict]):
     # assign missing ids
     for m in left:
         if m.get("id") is None:
@@ -51,7 +51,7 @@ class ChatAgentState(TypedDict):
     """The state of the agent."""
 
     messages: Annotated[list, add_agent_messages]
-    custom_outputs: Dict[str, Any]
+    custom_outputs: dict[str, Any]
 
 
 @dataclass
@@ -59,7 +59,7 @@ class SystemMessage(ChatAgentMessage):
     role: Literal["system"] = field(default="system")
 
 
-def parse_tool_calls(id, tool_calls: list[Dict[str, Any]]) -> Dict:
+def parse_tool_calls(id, tool_calls: list[dict[str, Any]]) -> dict:
     return ChatAgentMessage(
         role="assistant",
         content="",
@@ -74,10 +74,10 @@ def parse_tool_calls(id, tool_calls: list[Dict[str, Any]]) -> Dict:
             for tool_call in tool_calls
         ],
         # attachments = ...
-    ).to_dict()
+    ).model_dump()
 
 
-def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> Dict:
+def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> dict:
     return ChatAgentMessage(
         role="tool",
         id=tool_msg.tool_call_id,
@@ -85,10 +85,10 @@ def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> Dict:
         name=tool_msg.name,
         tool_call_id=tool_msg.tool_call_id,
         attachments=attachments,
-    ).to_dict()
+    ).model_dump()
 
 
-def parse_message(msg, key: str = None, attachments: Dict = None) -> Dict:
+def parse_message(msg, key: Optional[str] = None, attachments: Optional[dict] = None) -> dict:
     """Parse different message types into their string representations"""
     # tool call result
     if isinstance(msg, ToolMessage):
@@ -105,14 +105,14 @@ def parse_message(msg, key: str = None, attachments: Dict = None) -> Dict:
         }
         if key:
             args["name"] = key
-        return ChatAgentMessage(**args).to_dict()
+        return ChatAgentMessage(**args).model_dump()
     elif isinstance(msg, HumanMessage):
         return ChatAgentMessage(
             role="user",
             id=msg.id,
             content=msg.content,
             # attachments = ...
-        ).to_dict()
+        ).model_dump()
     else:
         logging.warning(f"Unexpected message type: {type(msg), str(msg)}")
 
@@ -178,9 +178,6 @@ class ChatAgentToolNode(ToolNode):
 class LangGraphChatAgent(ChatAgent):
     def __init__(self, agent):
         self.agent = agent
-
-    def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
-        return [m.to_dict() for m in messages]
 
     def predict(self, messages: list[ChatAgentMessage], params: Optional[ChatAgentParams] = None):
         response = ChatAgentResponse(messages=[])
