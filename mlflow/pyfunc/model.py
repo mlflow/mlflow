@@ -36,7 +36,15 @@ from mlflow.pyfunc.utils.data_validation import (
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
+from mlflow.types.llm import (
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
+    ChatCompletionChunk,
+    ChatCompletionResponse,
+    ChatMessage,
+    ChatParams,
+)
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.environment import (
@@ -50,7 +58,10 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_infer_and_copy_code_paths,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -60,6 +71,8 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
+_DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
+
 _INVALID_SIGNATURE_ERROR_MSG = (
     "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
     "Only the following parameter names are allowed: context, model_input, and params. "
@@ -146,7 +159,7 @@ class PythonModel:
 
         # automatically wrap the predict method with pyfunc to ensure data validation
         # NB: subclasses of PythonModel in MLflow that has customized predict method
-        # should set _skip_wrapping_predict = True to skip this wrapping
+        # should set _skip_wrapping_predict = True in their wrapper class to skip this wrapping
         if not getattr(cls, "_skip_wrapping_predict", False):
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
@@ -346,6 +359,76 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
+@experimental
+class ChatAgent(PythonModel, metaclass=ABCMeta):
+    """
+    A subclass of :class:`~PythonModel` that makes it more convenient to implement models
+    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
+    users can create MLflow models with a ``predict()`` method that is more convenient
+    for chat tasks than the generic :class:`~PythonModel` API. ChatModels automatically
+    define input/output signatures and an input example, so manually specifying these values
+    when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
+
+    See the documentation of the ``predict()`` method below for details on that parameters and
+    outputs that are expected by the ``ChatModel`` API.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls)
+
+    def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
+        return [m.to_dict() for m in messages]
+
+    @abstractmethod
+    def predict(
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
+    ) -> ChatAgentResponse:
+        """
+        Evaluates a chat input and produces a chat output.
+
+        .. warning::
+
+            In an upcoming MLflow release, we will be changing the output type from
+            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
+
+        Args:
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        Returns:
+            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+            the model's response(s), as well as other metadata.
+        """
+
+    def predict_stream(
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
+    ) -> Generator[ChatAgentResponse, None, None]:
+        """
+        Evaluates a chat input and produces a chat output.
+        Overrides this function to implement a real stream prediction.
+        By default, this function just yields result of `predict` function.
+
+        .. warning::
+
+            In an upcoming MLflow release, ``predict_stream`` will be returning a
+            true streaming interface that returns a generator of ``ChatCompletionChunks``
+            instead of the current behavior of yielding the entire prediction as a single
+            ``ChatResponse`` generator entry.
+
+        Args:
+        """
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming "
+            "predictions"
+        )
+
+
 def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
@@ -476,7 +559,10 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
+            shutil.move(
+                tmp_artifacts_dir.path(),
+                os.path.join(path, saved_artifacts_dir_subpath),
+            )
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
@@ -738,6 +824,9 @@ class _PythonModelPyfuncWrapper:
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
+    # TODO bbqiu: create a custom loader for chatagent
+    elif isinstance(python_model, ChatAgent):
+        return mlflow.pyfunc.loaders.chat_agent.__name__
     return __name__
 
 
@@ -754,7 +843,9 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.params = params
 
     def predict(
-        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
+        self,
+        context,
+        model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]],
     ):
         """
         Run prediction on the input data.
@@ -812,7 +903,10 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
+        from mlflow.metrics.genai.model_utils import (
+            call_deployments_api,
+            get_endpoint_type,
+        )
 
         endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
