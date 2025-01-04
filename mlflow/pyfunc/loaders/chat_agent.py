@@ -91,7 +91,7 @@ class _ChatAgentPyfuncWrapper:
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-        return response.model_dump()
+        return response.model_dump(exclude_unset=True)
 
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None

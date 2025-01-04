@@ -377,7 +377,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         return super().__new__(cls)
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
-        return [m.model_dump() for m in messages]
+        return [m.model_dump(exclude_unset=True) for m in messages]
 
     @abstractmethod
     def predict(

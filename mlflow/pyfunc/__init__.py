@@ -3019,8 +3019,8 @@ def save_model(
             ]
             params = ChatAgentParams(**input_example)
         input_example = {
-            "messages": [m.model_dump() for m in messages],
-            **params.model_dump(),
+            "messages": [m.model_dump(exclude_unset=True) for m in messages],
+            **params.model_dump(exclude_unset=True),
             **(input_params or {}),
         }
         _logger.info("Predicting on input example to validate output")
