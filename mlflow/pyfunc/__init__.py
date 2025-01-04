@@ -2994,8 +2994,8 @@ def save_model(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         mlflow_model.signature = ModelSignature(
-            CHAT_MODEL_INPUT_SCHEMA,
-            CHAT_MODEL_OUTPUT_SCHEMA,
+            CHAT_AGENT_INPUT_SCHEMA,
+            CHAT_AGENT_OUTPUT_SCHEMA,
         )
         # For ChatModel we set default metadata to indicate its task
         default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
@@ -3041,45 +3041,6 @@ def save_model(
             if _should_infer_signature_from_type_hints(type_hints):
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
-                )
-        elif isinstance(python_model, ChatAgent):
-            _logger.info("inside of chatagent")
-            mlflow_model.signature = ModelSignature(
-                CHAT_AGENT_INPUT_SCHEMA,
-                CHAT_AGENT_OUTPUT_SCHEMA,
-            )
-            input_example = input_example or CHAT_AGENT_INPUT_EXAMPLE
-            input_example, input_params = _split_input_data_and_params(input_example)
-
-            if isinstance(input_example, list):
-                params = ChatAgentParams()
-                messages = []
-                for each_message in input_example:
-                    if isinstance(each_message, ChatAgentMessage):
-                        messages.append(each_message)
-                    else:
-                        messages.append(ChatAgentMessage.from_dict(each_message))
-            else:
-                # If the input example is a dictionary, convert it to ChatMessage format
-                messages = [
-                    ChatAgentMessage.from_dict(m) if isinstance(m, dict) else m
-                    for m in input_example["messages"]
-                ]
-                params = ChatAgentParams.from_dict(input_example)
-            input_example = {
-                "messages": [m.to_dict() for m in messages],
-                **params.to_dict(),
-                **(input_params or {}),
-            }
-            # TODO removed context
-            _logger.info("Predicting on input example to validate output")
-            output = python_model.predict(messages, params)
-            if not isinstance(output, ChatAgentResponse):
-                raise MlflowException(
-                    "Failed to save ChatAgent. Please ensure that the model's predict() method "
-                    "returns a ChatAgentResponse object. If your predict() method currently "
-                    "returns a dict, you can instantiate a ChatAgentResponse using "
-                    "`from_dict()`, e.g. `ChatAgentResponse.from_dict(output)`",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
