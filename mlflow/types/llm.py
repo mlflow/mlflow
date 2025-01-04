@@ -842,7 +842,7 @@ class ChatAgentRequest(ChatAgentParams):
 
 class ChatAgentResponse(BaseModel):
     messages: list[ChatAgentMessage]
-    custom_outputs: Optional[dict[str, str]] = None
+    custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[TokenUsageStatsPydantic] = None
 
 
