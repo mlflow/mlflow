@@ -426,7 +426,7 @@ class Model:
         if path is None:
             path = f"runs:/{self.run_id}/{self.artifact_path}"
 
-        return _read_example(self, path)
+        return _read_example(self, str(path))
 
     def load_input_example_params(self, path: str):
         """
