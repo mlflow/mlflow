@@ -184,10 +184,15 @@ class MlflowCallback(BaseCallback):
         if isinstance(instance, dspy.Predict):
             return {"signature": instance.signature.signature}
         elif isinstance(instance, dspy.ChainOfThought):
-            return {
-                "signature": instance.signature.signature,
-                "extended_signature": instance.extended_signature.signature,
-            }
+            if hasattr(instance, "signature"):
+                signature = instance.signature.signature
+            else:
+                signature = instance.predict.signature.signature
+
+            attributes = {"signature": signature}
+            if hasattr(instance, "extended_signature"):
+                attributes["extended_signature"] = instance.extended_signature.signature
+            return attributes
         return {}
 
     def _unpack_kwargs(self, inputs: dict[str, Any]) -> dict[str, Any]:
