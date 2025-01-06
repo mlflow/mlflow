@@ -14,6 +14,7 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
@@ -209,10 +210,14 @@ def patched_call(original, self, *args, **kwargs):
             try:
                 chunk_dicts = [chunk.to_dict() for chunk in chunks]
                 if config.log_traces and request_id:
+                    outputs = "".join(output)
+
+                    set_span_chat_attributes(span, kwargs, outputs)
+
                     mlflow_client.end_trace(
                         request_id=request_id,
                         attributes={"events": chunk_dicts},
-                        outputs="".join(output),
+                        outputs=outputs,
                     )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
@@ -221,6 +226,7 @@ def patched_call(original, self, *args, **kwargs):
     else:
         if config.log_traces and request_id:
             try:
+                set_span_chat_attributes(span, kwargs, result)
                 if span.parent_id is None:
                     mlflow_client.end_trace(request_id=request_id, outputs=result)
                 else:

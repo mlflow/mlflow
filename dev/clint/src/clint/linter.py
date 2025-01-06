@@ -333,6 +333,9 @@ class Linter(ast.NodeVisitor):
             if arg.annotation:
                 self.visit_type_annotation(arg.annotation)
 
+        if node.returns:
+            self.visit_type_annotation(node.returns)
+
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -349,20 +352,44 @@ class Linter(ast.NodeVisitor):
         self.stack.pop()
 
     def visit_Import(self, node: ast.Import) -> None:
-        if self._is_in_function():
-            for alias in node.names:
-                if alias.name.split(".", 1)[0] in BUILTIN_MODULES:
-                    self._check(Location.from_node(node), rules.LazyBuiltinImport())
+        for alias in node.names:
+            root_module = alias.name.split(".", 1)[0]
+            if self._is_in_function() and root_module in BUILTIN_MODULES:
+                self._check(Location.from_node(node), rules.LazyBuiltinImport())
 
-        if self._is_at_top_level():
-            for alias in node.names:
-                self._check_forbidden_top_level_import(node, alias.name.split(".", 1)[0])
+            if (
+                alias.name.split(".", 1)[0] == "typing_extensions"
+                and alias.name not in self.config.typing_extensions_allowlist
+            ):
+                self._check(
+                    Location.from_node(node),
+                    rules.TypingExtensions(
+                        full_name=alias.name,
+                        allowlist=self.config.typing_extensions_allowlist,
+                    ),
+                )
+
+            if self._is_at_top_level():
+                self._check_forbidden_top_level_import(node, root_module)
 
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
+        root_module = node.module and node.module.split(".", 1)[0]
+        if self._is_in_function() and root_module in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
+
+        if root_module == "typing_extensions":
+            for alias in node.names:
+                full_name = f"{node.module}.{alias.name}"
+                if full_name not in self.config.typing_extensions_allowlist:
+                    self._check(
+                        Location.from_node(node),
+                        rules.TypingExtensions(
+                            full_name=full_name,
+                            allowlist=self.config.typing_extensions_allowlist,
+                        ),
+                    )
 
         if self._is_at_top_level():
             self._check_forbidden_top_level_import(node, node.module)
@@ -434,7 +461,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_type_annotation(self, node: ast.AST) -> None:
         self.in_type_annotation = True
-        self.generic_visit(node)
+        self.visit(node)
         self.in_type_annotation = False
 
 
