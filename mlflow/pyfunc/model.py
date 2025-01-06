@@ -363,14 +363,14 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     A subclass of :class:`~PythonModel` that makes it more convenient to implement models
-    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
+    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatAgent`,
     users can create MLflow models with a ``predict()`` method that is more convenient
-    for chat tasks than the generic :class:`~PythonModel` API. ChatModels automatically
+    for chat tasks than the generic :class:`~PythonModel` API. ChatAgents automatically
     define input/output signatures and an input example, so manually specifying these values
     when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
 
-    See the documentation of the ``predict()`` method below for details on that parameters and
-    outputs that are expected by the ``ChatModel`` API.
+    See the documentation of the ``predict()`` and ``predict_stream`` method below for details on
+    that parameters and outputs that are expected by the ``ChatAgent`` API.
     """
 
     def __new__(cls, *args, **kwargs):
