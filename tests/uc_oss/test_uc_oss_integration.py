@@ -13,16 +13,17 @@ import mlflow
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
-
-@pytest.mark.skipif(
+pytestmark = pytest.mark.skipif(
     "UC_OSS_INTEGRATION" not in os.environ,
     reason="This test is only valid w/in the github workflow integration job",
 )
+
+
 @pytest.fixture(scope="module")
 def setup_servers():
     port = get_safe_port()
     with (
-        subprocess.Popen(["bin/start-uc-server"]),
+        subprocess.Popen(["unitycatalog/bin/start-uc-server"]),
         subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as mlflow_proc,
     ):
         try:
