@@ -18,6 +18,7 @@ pytestmark = pytest.mark.skipif(
     reason="This test is only valid w/in the github workflow integration job",
 )
 
+
 @pytest.fixture(scope="module")
 def setup_servers():
     port = get_safe_port()
@@ -32,6 +33,7 @@ def setup_servers():
     ):
         try:
             _await_server_up_or_die(int(port))
+            _await_server_up_or_die(8080)
 
             mlflow_tracking_url = f"http://127.0.0.1:{port}"
             uc_oss_url = "uc:http://127.0.0.1:8080"
@@ -43,6 +45,7 @@ def setup_servers():
         finally:
             mlflow_proc.terminate()
             uc_proc.terminate()
+
 
 def test_integration(setup_servers):
     catalog = "unity"
