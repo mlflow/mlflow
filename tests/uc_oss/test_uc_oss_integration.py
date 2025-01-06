@@ -7,6 +7,7 @@ import pytest
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from tests.helper_functions import get_safe_port
 
 import mlflow
 
@@ -19,11 +20,12 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 )
 @pytest.fixture(scope="module")
 def setup_servers():
-    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", "5000"]) as proc:
+    port = get_safe_port()
+    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as proc:
         try:
-            _await_server_up_or_die(5000)
+            _await_server_up_or_die(int(port))
 
-            mlflow_tracking_url = "http://127.0.0.1:5000"
+            mlflow_tracking_url = f"http://127.0.0.1:{port}"
             uc_oss_url = "uc:http://127.0.0.1:8080"
 
             mlflow.set_tracking_uri(mlflow_tracking_url)
@@ -40,8 +42,9 @@ def test_integration(setup_servers):
     registered_model_name = "iris"
     model_name = f"{catalog}.{schema}.{registered_model_name}"
     mlflow.set_experiment("iris-uc-oss")
+    client = mlflow.MlflowClient()
     try:
-        mlflow.MlflowClient().get_registered_model(model_name)
+        client.get_registered_model(model_name)
     except Exception as e:
         e.args[0].startswith("NOT_FOUND")
     else:
@@ -122,39 +125,39 @@ def test_integration(setup_servers):
         assert False, f"Unhandled exception while testing download_artifacts: {e}"
 
     # Test get RM/MV works
-    model1 = mlflow.MlflowClient().get_registered_model(model_name)
+    model1 = client.get_registered_model(model_name)
     assert model1.name == model_name
     assert model1.description == ""
-    model_v1 = mlflow.MlflowClient().get_model_version(name=model_name, version=model_version)
+    model_v1 = client.get_model_version(name=model_name, version=model_version)
     assert model_v1.name == model_name
     assert model_v1.version == 1
     assert model_v1.description == ""
 
     # Test update RM/MV works
-    mlflow.MlflowClient().update_registered_model(model_name, description=rm_desc)
+    client.update_registered_model(model_name, description=rm_desc)
     model2 = mlflow.MlflowClient().get_registered_model(model_name)
     assert model2.name == model_name
     assert model2.description == rm_desc
-    mlflow.MlflowClient().update_model_version(
+    client.update_model_version(
         name=model_name, version=model_version, description=mv_desc
     )
-    model_v1_2 = mlflow.MlflowClient().get_model_version(name=model_name, version=model_version)
+    model_v1_2 = client.get_model_version(name=model_name, version=model_version)
     assert model_v1_2.name == model_name
     assert model_v1_2.version == 1
     assert model_v1_2.description == mv_desc
 
-    rms = mlflow.MlflowClient().search_registered_models()
+    rms = client.search_registered_models()
     assert len(rms) == 1
-    mvs = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
+    mvs = client.search_model_versions(f"name='{model_name}'")
     assert len(mvs) == 1
-    mlflow.MlflowClient().delete_model_version(name=model_name, version=1)
-    mvs = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
+    client.delete_model_version(name=model_name, version=1)
+    mvs = client.search_model_versions(f"name='{model_name}'")
     assert len(mvs) == 0
-    mlflow.MlflowClient().delete_registered_model(name=model_name)
-    rms = mlflow.MlflowClient().search_registered_models()
+    client.delete_registered_model(name=model_name)
+    rms = client.search_registered_models()
     assert len(rms) == 0
     try:
-        mlflow.MlflowClient().get_registered_model(model_name)
+        client.get_registered_model(model_name)
     except Exception as e:
         e.args[0].startswith("NOT_FOUND")
     else:
