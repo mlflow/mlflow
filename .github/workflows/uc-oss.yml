@@ -42,9 +42,9 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
 
-      #- name: Install dependencies
-      #  run: |
-      #    source ./dev/install-common-deps.sh --ml
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --ml
 
       - name: Set up Java 17
         uses: actions/setup-java@v3
