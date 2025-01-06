@@ -184,9 +184,17 @@ class MlflowCallback(BaseCallback):
         if isinstance(instance, dspy.Predict):
             return {"signature": instance.signature.signature}
         elif isinstance(instance, dspy.ChainOfThought):
+            if hasattr(instance, "signature"):
+                signature = instance.signature.signature
+            else:
+                signature = instance.predict.signature.signature
+
+            extended_signature = None
+            if hasattr(instance, "extended_signature"):
+                extended_signature = instance.extended_signature.signature
             return {
-                "signature": instance.signature.signature,
-                "extended_signature": instance.extended_signature.signature,
+                "signature": signature,
+                "extended_signature": extended_signature,
             }
         return {}
 
