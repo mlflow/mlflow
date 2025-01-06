@@ -54,12 +54,8 @@ def test_integration(setup_servers):
     model_name = f"{catalog}.{schema}.{registered_model_name}"
     mlflow.set_experiment("iris-uc-oss")
     client = mlflow.MlflowClient()
-    try:
+    with pytest.raises(Exception, match="NOT_FOUND"):
         client.get_registered_model(model_name)
-    except Exception as e:
-        e.args[0].startswith("NOT_FOUND")
-    else:
-        assert False, "Expected exception for missing model not raised"
 
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -81,59 +77,46 @@ def test_integration(setup_servers):
                 registered_model_name=model_name,
             )
 
-    try:
-        build_model()
-    except Exception as e:
-        assert False, f"Unhandled exception while attempting to build a model: {e}"
-
+    build_model()
     model_version = 1
     model_uri = f"models:/{model_name}/{model_version}"
     rm_desc = "UC-OSS/MLflow Iris model"
     mv_desc = "Version 1 of the UC-OSS/MLflow Iris model"
 
     # Load the model and do some batch inference.
-    try:
-        # By specifying the UC OSS model uri, mlflow will make UC OSS
-        # REST API calls to retrieve the model
-        loaded_model = mlflow.pyfunc.load_model(model_uri)
-        predictions = loaded_model.predict(X_test)
-        iris_feature_names = datasets.load_iris().feature_names
-        result = pd.DataFrame(X_test, columns=iris_feature_names)
-        result["actual_class"] = y_test
-        result["predicted_class"] = predictions
-        assert result[:4] is not None
-    except Exception as e:
-        assert False, f"Unhandled exception while loading a model: {e}"
+    # By specifying the UC OSS model uri, mlflow will make UC OSS
+    # REST API calls to retrieve the model
+    loaded_model = mlflow.pyfunc.load_model(model_uri)
+    predictions = loaded_model.predict(X_test)
+    iris_feature_names = datasets.load_iris().feature_names
+    result = pd.DataFrame(X_test, columns=iris_feature_names)
+    result["actual_class"] = y_test
+    result["predicted_class"] = predictions
+    assert result[:4] is not None
 
-    try:
-        # list_artifacts will use the UC OSS model URI and make REST API calls to
-        # UC OSS to:
-        #   1) retrieve credentials (none for file based UC OSS)
-        #   2) use the storage location returned from UC OSS for the model version
-        #      list the artifacts stored in the location
-        mlflow.artifacts.list_artifacts(model_uri)
-    except Exception as e:
-        assert False, f"Unhandled exception while listing artifacts: {e}"
+    # list_artifacts will use the UC OSS model URI and make REST API calls to
+    # UC OSS to:
+    #   1) retrieve credentials (none for file based UC OSS)
+    #   2) use the storage location returned from UC OSS for the model version
+    #      list the artifacts stored in the location
+    mlflow.artifacts.list_artifacts(model_uri)
 
     path = os.path.join("/tmp", "models", model_name, str(model_version))
 
-    try:
-        # download_artifacts will use the UC OSS model URI and make REST API calls
-        # to UC OSS to:
-        #   1) retrieve credentials (none for file based UC OSS)
-        #   2) copy the artifact files from the storage location to the
-        #      destination path
-        mlflow.artifacts.download_artifacts(
-            artifact_uri=f"models:/{model_name}/{model_version}",
-            dst_path=path,
-        )
-        requirements_path = f"{path}/requirements.txt"
-        assert os.path.exists(requirements_path), f"File {requirements_path} does not exist."
-        with open(requirements_path) as file:
-            lines = file.readlines()
-        assert len(lines) > 0
-    except Exception as e:
-        assert False, f"Unhandled exception while testing download_artifacts: {e}"
+    # download_artifacts will use the UC OSS model URI and make REST API calls
+    # to UC OSS to:
+    #   1) retrieve credentials (none for file based UC OSS)
+    #   2) copy the artifact files from the storage location to the
+    #      destination path
+    mlflow.artifacts.download_artifacts(
+        artifact_uri=f"models:/{model_name}/{model_version}",
+        dst_path=path,
+    )
+    requirements_path = f"{path}/requirements.txt"
+    assert os.path.exists(requirements_path), f"File {requirements_path} does not exist."
+    with open(requirements_path) as file:
+        lines = file.readlines()
+    assert len(lines) > 0
 
     # Test get RM/MV works
     model1 = client.get_registered_model(model_name)
@@ -165,9 +148,5 @@ def test_integration(setup_servers):
     client.delete_registered_model(name=model_name)
     rms = client.search_registered_models()
     assert len(rms) == 0
-    try:
+    with pytest.raises(Exception, match="NOT_FOUND"):
         client.get_registered_model(model_name)
-    except Exception as e:
-        e.args[0].startswith("NOT_FOUND")
-    else:
-        assert False, "Expected exception not raised when testing that deletion was successful"
