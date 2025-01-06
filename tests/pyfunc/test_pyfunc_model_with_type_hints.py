@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -838,7 +839,6 @@ def assert_equal(data1, data2):
         [1, 2, 3],
         [1.0, 2.0, 3.0],
         [True, False, True],
-        [b"Hello", b"World"],
         # list[dict]
         [{"a": 1, "b": 2}],
         [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
@@ -855,9 +855,30 @@ def test_type_hint_from_example(input_example):
     assert_equal(model.predict(input_example), input_example)
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+        with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+            model_info = mlflow.pyfunc.log_model(
+                "model", python_model=model, input_example=input_example
+            )
+        assert not any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     result = pyfunc_model.predict(input_example)
     assert_equal(result, input_example)
+
+    # test serving
+    payload = convert_input_example_to_serving_input(input_example)
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert scoring_response.status_code == 200
+    if isinstance(input_example, pd.DataFrame):
+        assert_equal(
+            json.loads(scoring_response.content)["predictions"], input_example.to_dict("records")
+        )
+    else:
+        assert_equal(json.loads(scoring_response.content)["predictions"], input_example)

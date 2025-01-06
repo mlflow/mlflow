@@ -750,6 +750,7 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        self._input_example = None
 
     @property
     @developer_stable
@@ -760,6 +761,17 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
+
+    @property
+    def input_example(self) -> Optional[Any]:
+        """
+        The input example provided when the model was saved.
+        """
+        return self._input_example
+
+    @input_example.setter
+    def input_example(self, value: Any) -> None:
+        self._input_example = value
 
     @contextmanager
     def _try_get_or_generate_prediction_context(self):
@@ -816,9 +828,12 @@ class PyFuncModel:
             data, params = _validate_prediction_input(
                 data, params, self.input_schema, self.params_schema, self.loader_module
             )
-            if isinstance(data, pandas.DataFrame) and self.metadata._is_type_hint_from_example():
-                input_example = self.metadata.load_input_example()
-                data = _convert_dataframe_to_example_format(data, input_example)
+            if (
+                isinstance(data, pandas.DataFrame)
+                and self.metadata._is_type_hint_from_example()
+                and self.input_example is not None
+            ):
+                data = _convert_dataframe_to_example_format(data, self.input_example)
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -1107,12 +1122,20 @@ def load_model(
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
-    return PyFuncModel(
+    pyfunc_model = PyFuncModel(
         model_meta=model_meta,
         model_impl=model_impl,
         predict_fn=predict_fn,
         predict_stream_fn=predict_stream_fn,
     )
+
+    try:
+        model_input_example = model_meta.load_input_example(path=local_path)
+        pyfunc_model.input_example = model_input_example
+    except Exception as e:
+        _logger.debug(f"Failed to load input example from model metadata: {e}.")
+
+    return pyfunc_model
 
 
 class _ServedPyFuncModel(PyFuncModel):
