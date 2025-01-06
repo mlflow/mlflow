@@ -8,6 +8,8 @@ from mlflow.types.chat import (
     Function,
     FunctionParams,
     FunctionToolDefinition,
+    ImageContentPart,
+    ImageUrl,
     ParamProperty,
     TextContentPart,
     ToolCall,
@@ -125,7 +127,7 @@ def _construct_chat_message(parts: list["genai.types.PartType"], role: str) -> C
     content_parts = []
     for content_part in parts:
         part = _parse_content_part(content_part)
-        if isinstance(part, TextContentPart):
+        if isinstance(part, (TextContentPart, ImageContentPart)):
             content_parts.append(part)
         elif isinstance(part, ToolCall):
             tool_calls.append(part)
@@ -151,13 +153,61 @@ def _parse_content_part(part: "genai.types.PartType") -> Optional[Union[TextCont
     Returns:
         Optional[Union[TextContentPart, ToolCall]]: MLflow's standard content part.
     """
+    # The schema of the Part proto is available at https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L76
     if function_call := getattr(part, "function_call", None):
+        # FunctionCall part: https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L316
         return convert_gemini_func_call_to_mlflow_tool_call(function_call)
+    elif function_response := getattr(part, "function_response", None):
+        # FunctionResponse part: https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L332
+        return TextContentPart(
+            text=str(type(function_response).to_dict(function_response)), type="text"
+        )
+    elif blob := getattr(part, "inline_data", None):
+        # Blob part: https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L109C9-L109C13
+        return ImageContentPart(
+            image_url=ImageUrl(
+                url=f"data:{blob.mime_type};base64,{blob.data}",
+                detail="auto",
+            ),
+            type="image_url",
+        )
+    elif file := getattr(part, "file_data", None):
+        # FileData part: https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L124
+        return ImageContentPart(
+            image_url=ImageUrl(
+                url=file.file_uri,
+                detail="auto",
+            ),
+            type="image_url",
+        )
+    elif hasattr(part, "mime_type"):
+        # Blob part or FileData part
+        url = (
+            part.file_uri
+            if hasattr(part, "file_uri")
+            else f"data:{part.mime_type};base64,{part.data}"
+        )
+        return ImageContentPart(
+            image_url=ImageUrl(url=url, detail="auto"),
+            type="image_url",
+        )
+    elif isinstance(part, dict):
+        if "mime_type" in part:
+            # genai.types.BlobDict
+            return ImageContentPart(
+                image_url=ImageUrl(
+                    url=f"data:{part['mime_type']};base64,{part['data']}", detail="auto"
+                ),
+                type="image_url",
+            )
+        elif "text" in part:
+            return TextContentPart(text=part["text"], type="text")
     elif text := getattr(part, "text", None):
+        # Text part
         return TextContentPart(text=text, type="text")
     elif isinstance(part, str):
         return TextContentPart(text=part, type="text")
-    # TODO: support more content types (e.g. PIL image)
+    # TODO: Gemini supports more types. Consider including unsupported types (e.g. PIL image)
     _logger.debug(f"Received an unsupported content block type: {part.__class__}")
 
 
