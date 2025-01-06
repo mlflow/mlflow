@@ -54,7 +54,7 @@ jobs:
         run: |
           git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
 
-      - name: Start uc-oss server
+      - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
           build/sbt package
