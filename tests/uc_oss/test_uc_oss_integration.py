@@ -26,7 +26,7 @@ def setup_servers():
         subprocess.Popen(
             ["bin/start-uc-server"],
             cwd="unitycatalog",
-        ),
+        ) as uc_proc,
         subprocess.Popen(
             [sys.executable, "-m", "mlflow", "server", "--port", str(port)]
         ) as mlflow_proc,
@@ -43,6 +43,7 @@ def setup_servers():
             yield mlflow_tracking_url
         finally:
             mlflow_proc.terminate()
+            uc_proc.terminate()
 
 
 def test_integration(setup_servers):
