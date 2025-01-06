@@ -54,7 +54,7 @@ _DUMMY_EMBEDDING_RESPONSE = {"embedding": [1, 2, 3]}
 
 _CHAT_MESSAGES = [
     {"role": "user", "content": "test content"},
-    {"role": "model", "content": "test answer"},
+    {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
 ]
 
 
@@ -196,7 +196,7 @@ def test_chat_session_tool_calling_autolog():
             "role": "user",
         },
         {
-            "role": "model",
+            "role": "assistant",
             "content": None,
             "tool_calls": [
                 {

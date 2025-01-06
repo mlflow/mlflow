@@ -31,11 +31,12 @@ def patched_class_call(original, self, *args, **kwargs):
         ) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
+            if isinstance(self, genai.GenerativeModel):
+                _log_tool_definition(self, span)
 
             result = original(self, *args, **kwargs)
 
             if isinstance(result, genai.types.GenerateContentResponse):
-                _log_tool_definition(self, span)
                 try:
                     content = inputs.get("contents", []) or inputs.get("content", [])
                     messages = parse_gemini_content_to_mlflow_chat_messages(content)

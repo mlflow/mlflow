@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.types.chat import (
     ChatMessage,
@@ -17,46 +17,6 @@ if TYPE_CHECKING:
     import google.generativeai as genai
 
 _logger = logging.getLogger(__name__)
-
-
-def convert_gemini_param_property_to_mlflow_param_property(param_property) -> ParamProperty:
-    """
-    Convert Gemini parameter property definition into MLflow's standard format (OpenAI compatible).
-    Ref: https://ai.google.dev/gemini-api/docs/function-calling
-
-    Args:
-        param_property: A genai.protos.Schema object representing a parameter property.
-
-    Returns:
-        ParamProperty: MLflow's standard param property object.
-    """
-    return ParamProperty(
-        description=param_property.description,
-        enum=param_property.enum,
-        type=param_property.type.name.lower(),
-    )
-
-
-def convert_gemini_function_param_to_mlflow_function_param(
-    function_params: "genai.protos.Schema",
-) -> FunctionParams:
-    """
-    Convert Gemini function parameter definition into MLflow's standard format (OpenAI compatible).
-    Ref: https://ai.google.dev/gemini-api/docs/function-calling
-
-    Args:
-        function_params: A genai.protos.Schema object representing function parameters.
-
-    Returns:
-        FunctionParams: MLflow's standard function parameter object.
-    """
-    return FunctionParams(
-        properties={
-            k: convert_gemini_param_property_to_mlflow_param_property(v)
-            for k, v in function_params.properties.items()
-        },
-        required=function_params.required,
-    )
 
 
 def convert_gemini_func_to_mlflow_chat_tool(
@@ -77,7 +37,7 @@ def convert_gemini_func_to_mlflow_chat_tool(
         function=FunctionToolDefinition(
             name=function_def.name,
             description=function_def.description,
-            parameters=convert_gemini_function_param_to_mlflow_function_param(
+            parameters=_convert_gemini_function_param_to_mlflow_function_param(
                 function_def.parameters
             ),
         ),
@@ -109,13 +69,13 @@ def convert_gemini_func_call_to_mlflow_tool_call(
 
 
 def parse_gemini_content_to_mlflow_chat_messages(
-    content: "genai.content_types.ContentsType",
+    content: "genai.types.ContentsType",
 ) -> list[ChatMessage]:
     """
     Convert a gemini content to chat messages.
 
     Args:
-        content: A genai.content_types.ContentsType object representing the model content.
+        content: A genai.types.ContentsType object representing the model content.
 
     Returns:
         list[ChatMessage]: A list of MLflow's standard chat messages.
@@ -143,46 +103,99 @@ def parse_gemini_content_to_mlflow_chat_messages(
             )
 
         # when multiple contents are passed by user
-        content_parts = []
-        for content_block in content:
-            if isinstance(content_block, str):
-                content_parts.append(TextContentPart(text=content_block, type="text"))
-            else:
-                # TODO: support more content types (e.g. PIL image)
-                _logger.debug(
-                    f"Received an unsupported content block type: {content_block.__class__}"
-                )
-        return [
-            ChatMessage(
-                role="user",
-                content=content_parts,
-            )
-        ]
+        return [_construct_chat_message(content, "user")]
     elif hasattr(content, "parts"):
         # eigher protos.Content or ContentDict
 
         # This could be unset for single turn conversation even if this is content proto
         # https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L64
         role = getattr(content, "role", "model") or "model"
-        tool_calls = []
-        chat_content = None
-        for part in content.parts:
-            if function_call := getattr(part, "function_call", None):
-                tool_calls.append(convert_gemini_func_call_to_mlflow_tool_call(function_call))
-            elif text := getattr(part, "text", None):
-                chat_content = text
-            elif isinstance(part, str):
-                chat_content = part
+        # we normalize role and use assistant
+        if role == "model":
+            role = "assistant"
 
-        chat_message = ChatMessage(
-            role=role,
-            content=chat_content,
-        )
-
-        if tool_calls:
-            chat_message.tool_calls = tool_calls
-
-        return [chat_message]
+        return [_construct_chat_message(content.parts, role)]
     else:
         _logger.debug(f"Received an unsupported content type: {content.__class__}")
         return []
+
+
+def _construct_chat_message(parts: list["genai.types.PartType"], role: str) -> ChatMessage:
+    tool_calls = []
+    content_parts = []
+    for content_part in parts:
+        part = _parse_content_part(content_part)
+        if isinstance(part, TextContentPart):
+            content_parts.append(part)
+        elif isinstance(part, ToolCall):
+            tool_calls.append(part)
+    chat_message = ChatMessage(
+        role=role,
+        content=content_parts or None,
+    )
+
+    if tool_calls:
+        chat_message.tool_calls = tool_calls
+
+    return chat_message
+
+
+def _parse_content_part(part: "genai.types.PartType") -> Optional[Union[TextContentPart, ToolCall]]:
+    """
+    Convert Gemini part type into MLflow's standard format (OpenAI compatible).
+    Ref: https://ai.google.dev/gemini-api/docs/function-calling
+
+    Args:
+        part: A genai.types.PartType object representing a part of content.
+
+    Returns:
+        Optional[Union[TextContentPart, ToolCall]]: MLflow's standard content part.
+    """
+    if function_call := getattr(part, "function_call", None):
+        return convert_gemini_func_call_to_mlflow_tool_call(function_call)
+    elif text := getattr(part, "text", None):
+        return TextContentPart(text=text, type="text")
+    elif isinstance(part, str):
+        return TextContentPart(text=part, type="text")
+    # TODO: support more content types (e.g. PIL image)
+    _logger.debug(f"Received an unsupported content block type: {part.__class__}")
+
+
+def _convert_gemini_param_property_to_mlflow_param_property(param_property) -> ParamProperty:
+    """
+    Convert Gemini parameter property definition into MLflow's standard format (OpenAI compatible).
+    Ref: https://ai.google.dev/gemini-api/docs/function-calling
+
+    Args:
+        param_property: A genai.protos.Schema object representing a parameter property.
+
+    Returns:
+        ParamProperty: MLflow's standard param property object.
+    """
+    return ParamProperty(
+        description=param_property.description,
+        enum=param_property.enum,
+        type=param_property.type.name.lower(),
+    )
+
+
+def _convert_gemini_function_param_to_mlflow_function_param(
+    function_params: "genai.protos.Schema",
+) -> FunctionParams:
+    """
+    Convert Gemini function parameter definition into MLflow's standard format (OpenAI compatible).
+    Ref: https://ai.google.dev/gemini-api/docs/function-calling
+
+    Args:
+        function_params: A genai.protos.Schema object representing function parameters.
+
+    Returns:
+        FunctionParams: MLflow's standard function parameter object.
+    """
+    return FunctionParams(
+        properties={
+            k: _convert_gemini_param_property_to_mlflow_param_property(v)
+            for k, v in function_params.properties.items()
+        },
+        required=function_params.required,
+    )
