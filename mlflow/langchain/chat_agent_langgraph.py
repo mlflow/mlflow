@@ -184,11 +184,11 @@ class LangGraphChatAgent(ChatAgent):
         for event in self.agent.stream(
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
         ):
-            for node in event:
-                for msg in event[node]["messages"]:
+            for node_data in event.values():
+                for msg in node_data.get("messages", []):
                     response.messages.append(ChatAgentMessage(**msg))
-                if "custom_outputs" in event[node]:
-                    response.custom_outputs = event[node]["custom_outputs"]
+                if "custom_outputs" in node_data:
+                    response.custom_outputs = node_data["custom_outputs"]
         return response
 
     def predict_stream(
