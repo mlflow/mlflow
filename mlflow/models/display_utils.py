@@ -13,6 +13,7 @@ def _is_input_string(inputs: schema.Schema) -> bool:
         and inputs.input_types()[0] == schema.DataType.string
     )
 
+
 def _is_input_agent_compatible(inputs: schema.Schema) -> bool:
     if _is_input_string(inputs):
         return True
