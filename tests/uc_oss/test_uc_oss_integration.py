@@ -25,7 +25,7 @@ def setup_servers():
         try:
             _await_server_up_or_die(port)
 
-            mlflow_tracking_url = f"http://127.0.0.1:{str(port)}"
+            mlflow_tracking_url = f"http://127.0.0.1:{port!s}"
             uc_oss_url = "uc:http://127.0.0.1:8080"
 
             mlflow.set_tracking_uri(mlflow_tracking_url)
