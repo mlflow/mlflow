@@ -295,7 +295,7 @@ def is_databricks_connect(spark=None):
         return False
 
     if hasattr(spark.client, "metadata"):
-        metadata = spark.client.metadata
+        metadata = spark.client.metadata()
     else:
         metadata = spark.client._builder.metadata()
 
@@ -395,7 +395,7 @@ def is_databricks_serverless(spark):
         return False
 
     if hasattr(spark.client, "metadata"):
-        metadata = spark.client.metadata
+        metadata = spark.client.metadata()
     else:
         metadata = spark.client._builder.metadata()
 
