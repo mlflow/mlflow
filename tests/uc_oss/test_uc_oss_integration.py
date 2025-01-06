@@ -23,8 +23,13 @@ pytestmark = pytest.mark.skipif(
 def setup_servers():
     port = get_safe_port()
     with (
-        subprocess.Popen(["unitycatalog/bin/start-uc-server"]),
-        subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as mlflow_proc,
+        subprocess.Popen(
+            ["bin/start-uc-server"],
+            cwd="unitycatalog",
+        ),
+        subprocess.Popen(
+            [sys.executable, "-m", "mlflow", "server", "--port", str(port)]
+        ) as mlflow_proc,
     ):
         try:
             _await_server_up_or_die(int(port))
