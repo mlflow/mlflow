@@ -56,12 +56,6 @@ jobs:
         run: |
           git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
 
-      #- name: Build MLflow UI
-      #  working-directory: mlflow/server/js
-      #  run: |
-      #    yarn
-      #    yarn build
-
       - name: Start uc-oss server
         working-directory: unitycatalog
         run: |

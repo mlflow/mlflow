@@ -138,9 +138,7 @@ def test_integration(setup_servers):
     model2 = mlflow.MlflowClient().get_registered_model(model_name)
     assert model2.name == model_name
     assert model2.description == rm_desc
-    client.update_model_version(
-        name=model_name, version=model_version, description=mv_desc
-    )
+    client.update_model_version(name=model_name, version=model_version, description=mv_desc)
     model_v1_2 = client.get_model_version(name=model_name, version=model_version)
     assert model_v1_2.name == model_name
     assert model_v1_2.version == 1
