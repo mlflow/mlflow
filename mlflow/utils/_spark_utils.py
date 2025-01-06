@@ -5,6 +5,12 @@ import shutil
 import tempfile
 import zipfile
 
+from mlflow.environment_variables import (
+    PYSPARK_GATEWAY_PORT,
+    PYSPARK_GATEWAY_SECRET,
+    SPARK_DIST_CLASSPATH,
+)
+
 
 def _get_active_spark_session():
     try:
@@ -31,10 +37,10 @@ def _prepare_subprocess_environ_for_creating_local_spark_session():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if is_in_databricks_runtime():
-        os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
+        SPARK_DIST_CLASSPATH.set("/databricks/jars/*")
 
-    os.environ.pop("PYSPARK_GATEWAY_PORT", None)
-    os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
+    PYSPARK_GATEWAY_PORT.unset()
+    PYSPARK_GATEWAY_SECRET.unset()
 
 
 def _get_spark_scala_version_from_spark_session(spark):

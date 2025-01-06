@@ -5,6 +5,8 @@ import os
 from typing import NamedTuple, Optional
 
 from mlflow.environment_variables import (
+    MLFLOW_DATABRICKS_CONFIG_FILE,
+    MLFLOW_DATABRICKS_CONFIG_PROFILE,
     MLFLOW_TRACKING_AUTH,
     MLFLOW_TRACKING_AWS_SIGV4,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
@@ -217,10 +219,8 @@ def _databricks_login(interactive):
         token = getpass.getpass("Token: ")
         profile["token"] = token
 
-    file_name = os.environ.get(
-        "DATABRICKS_CONFIG_FILE", f"{os.path.expanduser('~')}/.databrickscfg"
-    )
-    profile_name = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+    file_name = MLFLOW_DATABRICKS_CONFIG_FILE.get()
+    profile_name = MLFLOW_DATABRICKS_CONFIG_PROFILE.get()
     _overwrite_or_create_databricks_profile(file_name, profile, profile_name)
 
     try:

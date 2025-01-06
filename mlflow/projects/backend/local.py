@@ -9,9 +9,13 @@ from pathlib import Path
 import mlflow
 from mlflow import tracking
 from mlflow.environment_variables import (
+    MLFLOW_AZURE_STORAGE_ACCESS_KEY,
+    MLFLOW_AZURE_STORAGE_CONNECTION_STRING,
     MLFLOW_KERBEROS_TICKET_CACHE,
     MLFLOW_KERBEROS_USER,
     MLFLOW_PYARROW_EXTRA_CONF,
+    MLFLOW_S3_ENDPOINT_URL,
+    MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.projects import env_type
@@ -367,8 +371,8 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
     envs = {
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
-        "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
-        "MLFLOW_S3_IGNORE_TLS": os.environ.get("MLFLOW_S3_IGNORE_TLS"),
+        "MLFLOW_S3_ENDPOINT_URL": MLFLOW_S3_ENDPOINT_URL.get(),
+        "MLFLOW_S3_IGNORE_TLS": MLFLOW_S3_IGNORE_TLS.get(),
     }
     envs = {k: v for k, v in envs.items() if v is not None}
     return volumes, envs
@@ -376,8 +380,8 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
 def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
     envs = {
-        "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
-        "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
+        "AZURE_STORAGE_CONNECTION_STRING": MLFLOW_AZURE_STORAGE_CONNECTION_STRING.get(),
+        "AZURE_STORAGE_ACCESS_KEY": MLFLOW_AZURE_STORAGE_ACCESS_KEY.get(),
     }
     envs = {k: v for k, v in envs.items() if v is not None}
     return [], envs

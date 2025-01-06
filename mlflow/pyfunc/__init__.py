@@ -429,6 +429,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_HOME,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -1184,7 +1185,7 @@ def _load_model_or_server(
     pyfunc_backend = get_flavor_backend(
         local_path,
         env_manager=env_manager,
-        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        install_mlflow=MLFLOW_HOME.get() is not None,
         create_env_root_dir=not is_port_connectable,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
@@ -2062,7 +2063,7 @@ def spark_udf(
 
     is_spark_connect = is_spark_connect_mode()
     # Used in test to force install local version of mlflow when starting a model server
-    mlflow_home = os.environ.get("MLFLOW_HOME")
+    mlflow_home = MLFLOW_HOME.get()
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
@@ -2202,7 +2203,7 @@ def spark_udf(
     pyfunc_backend = get_flavor_backend(
         local_model_path,
         env_manager=env_manager,
-        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        install_mlflow=MLFLOW_HOME.get() is not None,
         **pyfunc_backend_env_root_config,
     )
     dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)

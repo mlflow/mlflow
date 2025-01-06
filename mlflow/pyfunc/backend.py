@@ -12,6 +12,7 @@ import warnings
 from pathlib import Path
 
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_HOME
 from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend, Model, docker_utils
 from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, UBUNTU_BASE_IMAGE
@@ -101,7 +102,7 @@ class PyFuncBackend(FlavorBackend):
             env_manager = em.LOCAL
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
-        self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
+        self._env_id = (MLFLOW_HOME.get() or VERSION) if install_mlflow else None
         self._create_env_root_dir = create_env_root_dir
         self._env_root_dir = env_root_dir
         self._environment = None

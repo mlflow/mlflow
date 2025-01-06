@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 from datetime import datetime
 from shlex import quote, split
@@ -10,6 +9,7 @@ from kubernetes.config.config_exception import ConfigException
 
 import docker
 from mlflow.entities import RunStatus
+from mlflow.environment_variables import KUBE_MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
 
@@ -36,8 +36,8 @@ def _get_kubernetes_job_definition(
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
     job_name = f"{project_name}-{timestamp}"
     _logger.info("=== Creating Job %s ===", job_name)
-    if os.environ.get("KUBE_MLFLOW_TRACKING_URI") is not None:
-        env_vars["MLFLOW_TRACKING_URI"] = os.environ["KUBE_MLFLOW_TRACKING_URI"]
+    if (kube_mlflow_tracking_uri := KUBE_MLFLOW_TRACKING_URI.get()) is not None:
+        env_vars["MLFLOW_TRACKING_URI"] = kube_mlflow_tracking_uri
     environment_variables = [{"name": k, "value": v} for k, v in env_vars.items()]
     job_template["metadata"]["name"] = job_name
     job_template["spec"]["template"]["spec"]["containers"][0]["name"] = project_name
