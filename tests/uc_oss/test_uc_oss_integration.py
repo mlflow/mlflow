@@ -7,10 +7,10 @@ import pytest
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from tests.helper_functions import get_safe_port
 
 import mlflow
 
+from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -21,7 +21,10 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 @pytest.fixture(scope="module")
 def setup_servers():
     port = get_safe_port()
-    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as proc:
+    with (
+        subprocess.Popen(["bin/start-uc-server"]),
+        subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as mlflow_proc,
+    ):
         try:
             _await_server_up_or_die(int(port))
 
@@ -33,7 +36,7 @@ def setup_servers():
 
             yield mlflow_tracking_url
         finally:
-            proc.terminate()
+            mlflow_proc.terminate()
 
 
 def test_integration(setup_servers):
@@ -138,9 +141,7 @@ def test_integration(setup_servers):
     model2 = mlflow.MlflowClient().get_registered_model(model_name)
     assert model2.name == model_name
     assert model2.description == rm_desc
-    client.update_model_version(
-        name=model_name, version=model_version, description=mv_desc
-    )
+    client.update_model_version(name=model_name, version=model_version, description=mv_desc)
     model_v1_2 = client.get_model_version(name=model_name, version=model_version)
     assert model_v1_2.name == model_name
     assert model_v1_2.version == 1

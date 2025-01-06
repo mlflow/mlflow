@@ -62,11 +62,10 @@ jobs:
       #    yarn
       #    yarn build
 
-      - name: Start uc-oss server
+      - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
           build/sbt package
-          nohup bin/start-uc-server > uc-server.log 2>&1 &
 
       - name: Run tests for UnityCatalog
         run: |
