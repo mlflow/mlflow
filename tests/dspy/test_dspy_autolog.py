@@ -9,7 +9,7 @@ from dspy.evaluate import Evaluate
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
-from dspy.utils.dummies import DSPDummyLM, DummyLM
+from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
@@ -19,6 +19,8 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_r
 from tests.tracing.helper import get_traces
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+
+_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
 
 def test_autolog_lm():
@@ -72,10 +74,12 @@ def test_autolog_cot():
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert spans[0].attributes["signature"] == "question -> answer"
+    assert spans[0].attributes["signature"] == (
+        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
+    )
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
-    assert spans[1].inputs == {"question": "How are you?", "signature": mock.ANY}
+    assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
     assert spans[2].span_type == SpanType.PARSER
@@ -376,7 +380,9 @@ def test_disable_autolog():
 
 def test_autolog_set_retriever_schema():
     mlflow.dspy.autolog()
-    dspy.settings.configure(lm=DSPDummyLM(answers=["4", "6", "8", "10"]))
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    )
 
     class CoT(dspy.Module):
         def __init__(self):
