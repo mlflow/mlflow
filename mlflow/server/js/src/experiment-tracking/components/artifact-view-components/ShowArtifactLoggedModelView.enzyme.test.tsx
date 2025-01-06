@@ -164,9 +164,7 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).text()).toContain(
-        'mlflow.models.predict',
-      );
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).text()).toContain('mlflow.models.predict');
       expect(wrapper.find('.artifact-logged-model-view-code-content').at(1).text()).toContain(
         'validate_serving_input(model_uri, serving_payload)',
       );
