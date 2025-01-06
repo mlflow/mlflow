@@ -7,10 +7,10 @@ import pytest
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from tests.helper_functions import get_safe_port
 
 import mlflow
 
+from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -21,11 +21,11 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 @pytest.fixture(scope="module")
 def setup_servers():
     port = get_safe_port()
-    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", port]) as proc:
+    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", str(port)]) as proc:
         try:
-            _await_server_up_or_die(int(port))
+            _await_server_up_or_die(port)
 
-            mlflow_tracking_url = f"http://127.0.0.1:{port}"
+            mlflow_tracking_url = f"http://127.0.0.1:{str(port)}"
             uc_oss_url = "uc:http://127.0.0.1:8080"
 
             mlflow.set_tracking_uri(mlflow_tracking_url)
