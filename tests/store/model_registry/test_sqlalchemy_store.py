@@ -451,7 +451,7 @@ def test_create_model_version(store):
 
     mvd1 = store.get_model_version(mv1.name, mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
     assert mvd1.creation_timestamp == 456778000
     assert mvd1.last_updated_timestamp == 456778000
@@ -466,7 +466,7 @@ def test_create_model_version(store):
     mv2 = _mv_maker(store, name)
     mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
     assert mv2.version == 2
-    assert mvd2.version == 2
+    assert int(mvd2.version) == 2
 
     # create model version with tags return model version entity with tags
     tags = [
@@ -477,7 +477,7 @@ def test_create_model_version(store):
     mvd3 = store.get_model_version(name=mv3.name, version=mv3.version)
     assert mv3.version == 3
     assert mv3.tags == {tag.key: tag.value for tag in tags}
-    assert mvd3.version == 3
+    assert int(mvd3.version) == 3
     assert mvd3.tags == {tag.key: tag.value for tag in tags}
 
     # create model versions with runLink
@@ -486,7 +486,7 @@ def test_create_model_version(store):
     mvd4 = store.get_model_version(name, mv4.version)
     assert mv4.version == 4
     assert mv4.run_link == run_link
-    assert mvd4.version == 4
+    assert int(mvd4.version) == 4
     assert mvd4.run_link == run_link
 
     # create model version with description
@@ -495,7 +495,7 @@ def test_create_model_version(store):
     mvd5 = store.get_model_version(name, mv5.version)
     assert mv5.version == 5
     assert mv5.description == description
-    assert mvd5.version == 5
+    assert int(mvd5.version) == 5
     assert mvd5.description == description
 
     # create model version without runId
@@ -503,7 +503,7 @@ def test_create_model_version(store):
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
-    assert mvd6.version == 6
+    assert int(mvd6.version) == 6
     assert mvd6.run_id is None
 
 
@@ -513,7 +513,7 @@ def test_update_model_version(store):
     mv1 = _mv_maker(store, name)
     mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
 
     # update stage
@@ -525,7 +525,7 @@ def test_update_model_version(store):
     )
     mvd2 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd2.name == name
-    assert mvd2.version == 1
+    assert int(mvd2.version) == 1
     assert mvd2.current_stage == "Production"
     assert mvd2.description is None
 
@@ -533,7 +533,7 @@ def test_update_model_version(store):
     store.update_model_version(name=mv1.name, version=mv1.version, description="test model version")
     mvd3 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd3.name == name
-    assert mvd3.version == 1
+    assert int(mvd3.version) == 1
     assert mvd3.current_stage == "Production"
     assert mvd3.description == "test model version"
 
@@ -1733,7 +1733,7 @@ def test_copy_model_version(store, copy_to_same_model):
 
     copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
     assert copied_mv.name == copy_rm_name
-    assert copied_mv.version == copy_mv_version
+    assert int(copied_mv.version) == copy_mv_version
     assert copied_mv.current_stage == "None"
     assert copied_mv.creation_timestamp >= timestamp
     assert copied_mv.last_updated_timestamp >= timestamp
