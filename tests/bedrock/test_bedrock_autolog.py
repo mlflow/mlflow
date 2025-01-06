@@ -40,7 +40,6 @@ _ANTHROPIC_RESPONSE = {
     },
 }
 
-
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jamba.html
 _AI21_JAMBA_REQUEST = {
     "messages": [{"role": "user", "content": "Hi"}],
@@ -70,10 +69,10 @@ _AI21_JAMBA_RESPONSE = {
     "meta": {"requestDurationMillis": 288},
 }
 
-# https://docs.aws.amazon.com/nova/latest/userguide/complete-request-schema.html
+# https://docs.aws.amazon.com/nova/latest/userguide/using-invoke-api.html
 _AMAZON_NOVA_REQUEST = {
     "messages": [{"role": "user", "content": [{"text": "Hi!"}]}],
-    "system": [],
+    "system": [{"text": "This is a system prompt"}],
     "schemaVersion": "messages-v1",
     "inferenceConfig": {
         "max_new_tokens": 512,
@@ -84,7 +83,7 @@ _AMAZON_NOVA_REQUEST = {
 _AMAZON_NOVA_RESPONSE = {
     "message": {
         "role": "assistant",
-        "content": [{"text": "Hello! How can I help you today?"}],
+        "content": [{"text": "Sure! How can I help you today?"}],
     },
     "stopReason": "end_turn",
     "usage": {
@@ -94,22 +93,11 @@ _AMAZON_NOVA_RESPONSE = {
     },
 }
 
-# https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command-r-plus.html
+# https://docs.aws.amazon.com/code-library/latest/ug/python_3_bedrock-runtime_code_examples.html#cohere_command
 _COHERE_REQUEST = {
     "message": "Hi!",
     "max_tokens": 512,
     "temperature": 0.5,
-}
-
-_COHERE_RESPONSE = {
-    "response_id": "id-123",
-    "text": "Sure! How can I help you today?",
-    "generation_id": "generation-id-123",
-    "chat_history": [
-        {"role": "USER", "message": "Hi"},
-        {"role": "CHATBOT", "message": "Hello! How can I help you today?"},
-    ],
-    "finish_reason": "COMPLETE",
 }
 
 _COHERE_RESPONSE = {
@@ -184,7 +172,7 @@ def _create_dummy_invoke_model_response(llm_response):
             _AI21_JAMBA_RESPONSE,
         ),
         (
-            "amazon.nova-lite-v1:0",
+            "us.amazon.nova-lite-v1:0",
             _AMAZON_NOVA_REQUEST,
             _AMAZON_NOVA_RESPONSE,
         ),
@@ -671,6 +659,7 @@ def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expect
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
 
 
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
 def test_bedrock_autolog_converse_error():
     mlflow.bedrock.autolog()
 
