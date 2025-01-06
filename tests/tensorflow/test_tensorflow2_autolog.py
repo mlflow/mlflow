@@ -38,7 +38,6 @@ SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
     ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
 )
-# test
 
 
 @pytest.fixture(autouse=True)
