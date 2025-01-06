@@ -13,19 +13,27 @@ import mlflow
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
-
-@pytest.mark.skipif(
+pytestmark = pytest.mark.skipif(
     "UC_OSS_INTEGRATION" not in os.environ,
     reason="This test is only valid w/in the github workflow integration job",
 )
+
 @pytest.fixture(scope="module")
 def setup_servers():
     port = get_safe_port()
-    with subprocess.Popen([sys.executable, "-m", "mlflow", "server", "--port", str(port)]) as proc:
+    with (
+        subprocess.Popen(
+            ["bin/start-uc-server"],
+            cwd="unitycatalog",
+        ) as uc_proc,
+        subprocess.Popen(
+            [sys.executable, "-m", "mlflow", "server", "--port", str(port)]
+        ) as mlflow_proc,
+    ):
         try:
-            _await_server_up_or_die(port)
+            _await_server_up_or_die(int(port))
 
-            mlflow_tracking_url = f"http://127.0.0.1:{port!s}"
+            mlflow_tracking_url = f"http://127.0.0.1:{port}"
             uc_oss_url = "uc:http://127.0.0.1:8080"
 
             mlflow.set_tracking_uri(mlflow_tracking_url)
@@ -33,8 +41,8 @@ def setup_servers():
 
             yield mlflow_tracking_url
         finally:
-            proc.terminate()
-
+            mlflow_proc.terminate()
+            uc_proc.terminate()
 
 def test_integration(setup_servers):
     catalog = "unity"

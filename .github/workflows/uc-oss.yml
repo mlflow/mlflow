@@ -38,9 +38,7 @@ jobs:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
         run: |
@@ -60,7 +58,6 @@ jobs:
         working-directory: unitycatalog
         run: |
           build/sbt package
-          nohup bin/start-uc-server > uc-server.log 2>&1 &
 
       - name: Run tests for UnityCatalog
         run: |
