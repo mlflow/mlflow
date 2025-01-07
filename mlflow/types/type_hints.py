@@ -380,9 +380,10 @@ def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
         - string data with bytes type hint -> bytes object
     """
     if type_hint == bytes and isinstance(data, str):
-        # The assumption is that the data is base64 encoded
-        # same as MLflow's NumpyEncoder that's used for saving input example
-        # base64.encodebytes(x).decode("ascii")
+        # The assumption is that the data is base64 encoded, and
+        # scoring server accepts base64 encoded string for bytes fields.
+        # MLflow uses the same method for saving input example
+        # via base64.encodebytes(x).decode("ascii")
         return base64.decodebytes(bytes(data, "utf8"))
     if type_hint == datetime and isinstance(data, str):
         # The assumption is that the data is in ISO format
