@@ -732,8 +732,8 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         model = mlflow.get_logged_model(model_id)
         model_params = []
-        for key, value in model.params.items():
-            model_params.append(ModelParam(key=key, value=value))
+        for name, value in model.params.items():
+            model_params.append(ModelParam(name=name, value=value))
         return model_params
 
     def create_model_version(
