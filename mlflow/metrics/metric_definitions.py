@@ -1,9 +1,9 @@
 import functools
 import logging
-import os
 
 import numpy as np
 
+from mlflow.environment_variables import MLFLOW_TIKTOKEN_CACHE_DIR
 from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 
     # ref: https://github.com/openai/tiktoken/issues/75
-    os.environ["TIKTOKEN_CACHE_DIR"] = ""
+    MLFLOW_TIKTOKEN_CACHE_DIR.set("")
     encoding = tiktoken.get_encoding("cl100k_base")
 
     num_tokens = []

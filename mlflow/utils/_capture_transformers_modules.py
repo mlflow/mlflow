@@ -3,10 +3,10 @@ This script should be executed in a fresh python interpreter process using `subp
 """
 
 import json
-import os
 import sys
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_USE_TF, MLFLOW_USE_TORCH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._capture_modules import (
@@ -53,13 +53,13 @@ def main():
     if module_to_throw == "":
         raise MlflowException("Please specify the module to throw.")
     elif module_to_throw == "tensorflow":
-        if os.environ.get("USE_TORCH", None) != "TRUE":
+        if MLFLOW_USE_TORCH.get() != "TRUE":
             raise MlflowException(
                 "The environment variable USE_TORCH has to be set to TRUE to disable Tensorflow.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
     elif module_to_throw == "torch":
-        if os.environ.get("USE_TF", None) != "TRUE":
+        if MLFLOW_USE_TF.get() != "TRUE":
             raise MlflowException(
                 "The environment variable USE_TF has to be set to TRUE to disable Pytorch.",
                 error_code=INVALID_PARAMETER_VALUE,

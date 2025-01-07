@@ -11,7 +11,10 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
-from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
+    MLFLOW_AZURE_STORAGE_CONNECTION_STRING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.credentials import get_default_host_creds
@@ -55,9 +58,9 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         from azure.storage.blob import BlobServiceClient
 
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
-        if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
+        if (azure_conn_str := MLFLOW_AZURE_STORAGE_CONNECTION_STRING.get()) is not None:
             self.client = BlobServiceClient.from_connection_string(
-                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
+                conn_str=azure_conn_str,
                 connection_verify=get_default_host_creds(artifact_uri).verify,
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:

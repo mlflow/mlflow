@@ -680,3 +680,74 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
 MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
     "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )
+
+#: Specifies Azure Storage access credentials.
+#: (default: ``None``)
+MLFLOW_AZURE_STORAGE_ACCESS_KEY = _EnvironmentVariable("AZURE_STORAGE_ACCESS_KEY", str, None)
+
+#: Specifies Azure Storage access credentials.
+#: (default: ``None``)
+MLFLOW_AZURE_STORAGE_CONNECTION_STRING = _EnvironmentVariable(
+    "AZURE_STORAGE_CONNECTION_STRING", str, None
+)
+
+#: Specifies local directory for tiktoken caching.
+#: (default: ````)
+MLFLOW_TIKTOKEN_CACHE_DIR = _EnvironmentVariable("TIKTOKEN_CACHE_DIR", str, "")
+
+#: Specifies the AWS Signature Version to be used when creating a client for
+#: the S3 Artifact Repo.
+#: NOTE: If you need to specify this env variable, please file an issue at
+#: https://github.com/mlflow/mlflow/issues so we know your use-case!
+#: (default: ``s3v4``)
+MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION = _EnvironmentVariable(
+    "MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", str, "s3v4"
+)
+
+#: Indicates if torch should be used for transformers. If so, should be set to
+#: "TRUE". See also: ``MLFLOW_USE_TF``.
+#: (default: ``None``)
+MLFLOW_USE_TORCH = _EnvironmentVariable("USE_TORCH", str, None)
+
+#: Indicates if tensorflow should be used for transformers. If so, should be
+#: set to "TRUE". See also: ``MLFLOW_USE_TORCH``.
+#: (default: ``None``)
+MLFLOW_USE_TF = _EnvironmentVariable("USE_TF", str, None)
+
+#: Databricks configuration file location.
+#: (default: ``~/.databrickscfg``)
+MLFLOW_DATABRICKS_CONFIG_FILE = _EnvironmentVariable(
+    "DATABRICKS_CONFIG_FILE", str, f"{os.path.expanduser('~')}/.databrickscfg"
+)
+
+#: Databricks configuration profile name.
+#: (default: ``DEFAULT``)
+MLFLOW_DATABRICKS_CONFIG_PROFILE = _EnvironmentVariable("DATABRICKS_CONFIG_PROFILE", str, "DEFAULT")
+
+#: If set, allows MLflow projects running on Kubernetes to specify a different
+#: tracking server to log to.
+#: (default: ``None``)
+KUBE_MLFLOW_TRACKING_URI = _EnvironmentVariable("KUBE_MLFLOW_TRACKING_URI", str, None)
+
+#: If set, indicates that the current environment is within a Databricks
+#: runtime. The value is a string identifying the version of the Databricks
+#: runtime. If None, indicates that the environment is not in a Databricks
+#: runtime.
+#: (default: ``None``)
+DATABRICKS_RUNTIME_VERSION = _EnvironmentVariable("DATABRICKS_RUNTIME_VERSION", str, None)
+
+#: Path to local clone of MLflow project. Used for development only.
+#: (default: ``None``)
+MLFLOW_HOME = _EnvironmentVariable("MLFLOW_HOME", str, None)
+
+#: If set, points to package jars to be used by Spark.
+#: (default: ``None``)
+SPARK_DIST_CLASSPATH = _EnvironmentVariable("SPARK_DIST_CLASSPATH", str, None)
+
+#: Specifies which port is running a PySpark gateway.
+#: (default: ``None``)
+PYSPARK_GATEWAY_PORT = _EnvironmentVariable("PYSPARK_GATEWAY_PORT", str, None)
+
+#: Used to authenticate to a running PySpark gateway.
+#: (default: ``None``)
+PYSPARK_GATEWAY_SECRET = _EnvironmentVariable("PYSPARK_GATEWAY_SECRET", str, None)

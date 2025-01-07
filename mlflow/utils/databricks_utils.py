@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 import mlflow.utils
 from mlflow.environment_variables import (
+    DATABRICKS_RUNTIME_VERSION,
     MLFLOW_ENABLE_DB_SDK,
     MLFLOW_TRACKING_URI,
 )
@@ -248,7 +249,7 @@ _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
 def get_databricks_runtime_version():
-    if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
+    if ver := DATABRICKS_RUNTIME_VERSION.get():
         return ver
     if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
         # In Databricks DCS cluster, it doesn't have DATABRICKS_RUNTIME_VERSION

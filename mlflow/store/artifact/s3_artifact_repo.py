@@ -13,6 +13,7 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
+    MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
@@ -99,7 +100,7 @@ def _get_s3_client(
 
     # NOTE: If you need to specify this env variable, please file an issue at
     # https://github.com/mlflow/mlflow/issues so we know your use-case!
-    signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
+    signature_version = MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION.get()
 
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
