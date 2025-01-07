@@ -37,7 +37,7 @@ class ImageUrl(BaseModel):
     """
 
     url: str
-    detail: Literal["auto", "low", "high"]
+    detail: Optional[Literal["auto", "low", "high"]] = None
 
 
 class ImageContentPart(BaseModel):
