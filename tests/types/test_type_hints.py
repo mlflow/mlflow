@@ -175,7 +175,7 @@ def test_type_hints_needs_signature(type_hint):
 
 
 def test_infer_schema_from_type_hints_errors():
-    message = r"Type hint must be list\[...\] with a valid element type"
+    message = r"Type hint for model input must be `list\[...\]`"
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(str)
 

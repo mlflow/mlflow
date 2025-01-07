@@ -289,7 +289,7 @@ def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     """
     if not _is_list_type_hint(type_hint):
         raise InvalidTypeHintException(
-            message=f"Type hint must be list[...] with a valid element type, got {type_hint}",
+            message=f"Type hint for model input must be `list[...]`, got {type_hint}",
         )
     internal_type = _get_element_type_of_list_type_hint(type_hint)
     return _infer_schema_from_type_hint(internal_type)
