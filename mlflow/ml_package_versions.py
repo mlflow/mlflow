@@ -329,6 +329,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.86.0"
         }
     },
+    "mistralai": {
+        "package_info": {
+            "pip_release": "mistralai",
+            "module_name": "mistralai"
+        },
+        "autologging": {
+            "minimum": "1.0.0",
+            "maximum": "1.2.6"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
@@ -410,6 +420,7 @@ FLAVOR_TO_MODULE_NAME = {
     "gemini": "google.generativeai",
     "anthropic": "anthropic",
     "crewai": "crewai",
+    "mistralai": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
     "bedrock": "boto3",
