@@ -732,7 +732,6 @@ class UcModelRegistryStore(BaseRestStore):
         model = mlflow.get_logged_model(model_id)
         return model.params
 
-
     def create_model_version(
         self,
         name,
@@ -810,7 +809,7 @@ class UcModelRegistryStore(BaseRestStore):
                     feature_deps=feature_deps,
                     model_version_dependencies=other_model_deps,
                     model_id=model_id,
-                    model_params = model_params,
+                    model_params=model_params,
                 )
             )
             model_version = self._call_endpoint(

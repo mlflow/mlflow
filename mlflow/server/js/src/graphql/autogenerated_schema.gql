@@ -177,6 +177,7 @@ type MlflowModelVersion {
   runLink: String
   aliases: [String]
   modelId: String
+  modelParams: [MlflowModelParam!]
 }
 
 enum MlflowModelVersionStatus {
@@ -187,6 +188,11 @@ enum MlflowModelVersionStatus {
 
 type MlflowModelVersionTag {
   key: String
+  value: String
+}
+
+type MlflowModelParam {
+  name: String
   value: String
 }
 
