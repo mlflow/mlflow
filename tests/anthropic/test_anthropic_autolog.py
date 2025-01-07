@@ -1,3 +1,4 @@
+import base64
 from unittest.mock import patch
 
 import anthropic
@@ -170,7 +171,33 @@ def test_messages_autolog(mock_post):
 def test_messages_autolog_multi_modal(mock_post):
     mlflow.anthropic.autolog()
     client = anthropic.Anthropic(api_key="test_key")
-    client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
+
+    with open("tests/resources/images/test.png", "rb") as f:
+        image_bytes = f.read()
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    dummy_multi_modal_request = {
+        "model": "test_model",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What text is in this image?"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": image_base64,
+                        },
+                    },
+                ],
+            }
+        ],
+        "max_tokens": 1024,
+    }
+
+    client.messages.create(**dummy_multi_modal_request)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -179,17 +206,22 @@ def test_messages_autolog_multi_modal(mock_post):
     span = traces[0].data.spans[0]
     assert span.name == "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
-    # Only keep input_tokens / output_tokens fields in usage dict.
-    span.outputs["usage"] = {
-        key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
-    }
-    assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
-
+    assert span.inputs == dummy_multi_modal_request
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
         {
             "role": "user",
-            "content": "test message",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "What text is in this image?",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/png;base64," + image_base64,
+                    },
+                },
+            ],
         },
         {
             "role": "assistant",
