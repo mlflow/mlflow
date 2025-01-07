@@ -42,7 +42,9 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessa
         )
 
     if isinstance(content, str):
-        return ChatMessage(role=role, content=content, tool_calls=tool_calls, tool_call_id=tool_call_id)
+        return ChatMessage(
+            role=role, content=content, tool_calls=tool_calls, tool_call_id=tool_call_id
+        )
 
     elif isinstance(content, list):
         contents = []
@@ -56,8 +58,9 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessa
                     content_chunk = content_chunk.dict()
             contents.append(_parse_content(content_chunk))
 
-        message = ChatMessage(role=role, content=contents, tool_calls=tool_calls, tool_call_id=tool_call_id)
-        return message
+        return ChatMessage(
+            role=role, content=contents, tool_calls=tool_calls, tool_call_id=tool_call_id
+        )
 
     else:
         raise MlflowException.invalid_parameter_value(
