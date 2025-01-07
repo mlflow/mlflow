@@ -50,6 +50,15 @@ message RegisteredModelTag {
   optional string value = 2;
 }
 
+// Param for a model version.
+message ModelParam {
+  // Name of the param.
+  optional string name = 1;
+
+  // Value of the param associated with the key, could be empty
+  optional string value = 2;
+}
+
 message ModelVersionTag {
   // Name (key) of the tag.
   optional string key = 1;
@@ -118,6 +127,12 @@ message ModelVersion {
 
   // Tags associated with this model version.
   repeated ModelVersionTag tags = 15;
+
+  // Optional `model_id` for model version that is used to link the registered model to the source logged model
+  optional string model_id = 16;
+
+  // Optional parameters for the model.
+  repeated ModelParam model_params = 17;
 }
 
 enum ModelVersionOperation {
@@ -326,6 +341,12 @@ message CreateModelVersionRequest {
 
   // Additional dependencies to pass to createModelVersion including VectorSearch and Embedding endpoints
   repeated Dependency model_version_dependencies = 8;
+
+  // Optional `model_id` for model version that is used to link the registered model to the source logged model
+  optional string model_id = 9;
+
+  // Optional parameters for the model.
+  repeated ModelParam model_params = 10;
 }
 
 message CreateModelVersionResponse {
