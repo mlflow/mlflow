@@ -45,6 +45,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 
 _logger = logging.getLogger(__name__)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -72,7 +73,8 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         status_message=uc_proto.status_message,
         aliases=[alias.alias for alias in (uc_proto.aliases or [])],
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
-        model_id=uc_proto.status_message,
+        model_id=uc_proto.model_id,
+        model_params=[ModelParam(key=param.key, value=param.value) for param in (uc_proto.model_params or [])],
     )
 
 
