@@ -34,8 +34,10 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessa
     elif isinstance(message, BaseModel):
         content = message.content
         role = message.role
-        tool_calls = message.tool_calls
-        tool_call_id = message.tool_call_id
+        # tool_calls is available if message is an AssistantMessage object
+        tool_calls = getattr(message, "tool_calls", None)
+        # tool_call_id is available if message is a ToolMessage object
+        tool_call_id = getattr(message, "tool_call_id", None)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Message must be either a dict or a Message object, but got: {type(message)}."
