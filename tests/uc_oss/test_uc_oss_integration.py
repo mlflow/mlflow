@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 
 import mlflow
 from mlflow.exceptions import MlflowException
+
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
