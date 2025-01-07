@@ -47,8 +47,8 @@ def patched_class_call(original, self, *args, **kwargs):
             finally:
                 # Set message attribute once at the end to avoid multiple JSON serialization
                 try:
-                    for choice in outputs.get("choices", []):
-                        choice_message = choice.get("message", {})
+                    for choice in getattr(outputs, "choices", []):
+                        choice_message = getattr(choice, "message", {})
                         messages.append(convert_message_to_mlflow_chat(choice_message))
                     set_span_chat_messages(span, messages)
                 except Exception as e:

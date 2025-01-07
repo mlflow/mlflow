@@ -173,15 +173,14 @@ def test_chat_complete_autolog(mock_complete):
         {
             "role": "user",
             "content": "test message",
+            "tool_calls": None,
+            "tool_call_id": None,
         },
         {
             "role": "assistant",
-            "content": [
-                {
-                    "text": "test answer",
-                    "type": "text",
-                }
-            ],
+            "content": "test answer",
+            "tool_calls": None,
+            "tool_call_id": None,
         },
     ]
     #

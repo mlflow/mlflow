@@ -1,3 +1,4 @@
+import json
 from typing import Union
 
 from pydantic import BaseModel
@@ -6,12 +7,20 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.chat import (
     ChatMessage,
     ChatTool,
+    Function,
     FunctionToolDefinition,
     ImageContentPart,
     ImageUrl,
     TextContentPart,
+    ToolCall,
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+
+
+def _to_dict(obj: BaseModel):
+    if IS_PYDANTIC_V2_OR_NEWER:
+        return obj.model_dump()
+    return obj.dict()
 
 
 def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessage:
@@ -36,12 +45,27 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessa
         role = message.role
         # tool_calls is available if message is an AssistantMessage object
         tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            tool_calls = [_to_dict(tool_call) for tool_call in tool_calls]
         # tool_call_id is available if message is a ToolMessage object
         tool_call_id = getattr(message, "tool_call_id", None)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Message must be either a dict or a Message object, but got: {type(message)}."
         )
+
+    if tool_calls:
+        tool_calls = [
+            ToolCall(
+                id=tool_call["id"],
+                function=Function(
+                    name=tool_call["function"]["name"],
+                    arguments=json.dumps(tool_call["function"]["arguments"]),
+                ),
+                type="function",
+            )
+            for tool_call in tool_calls
+        ]
 
     if isinstance(content, str):
         return ChatMessage(
@@ -54,10 +78,7 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict]) -> ChatMessa
         tool_call_id = None
         for content_chunk in content:
             if isinstance(content_chunk, BaseModel):
-                if IS_PYDANTIC_V2_OR_NEWER:
-                    content_chunk = content_chunk.model_dump()
-                else:
-                    content_chunk = content_chunk.dict()
+                content_chunk = _to_dict(content_chunk)
             contents.append(_parse_content(content_chunk))
 
         return ChatMessage(
