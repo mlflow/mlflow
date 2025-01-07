@@ -32,12 +32,18 @@ class ImageUrl(BaseModel):
     """
     Represents an image URL.
 
-    The `url`` field can be either URL of an image, or base64 encoded data.
-    # Ref: https://platform.openai.com/docs/guides/vision?lang=curl#uploading-base64-encoded-images
+    Attributes:
+        url: Either a URL of an image or base64 encoded data.
+            https://platform.openai.com/docs/guides/vision?lang=curl#uploading-base64-encoded-images
+        detail: The level of resolution for the image when the model receives it.
+            For example, when set to "low", the model will see a image resized to
+            512x512 pixels, which consumes fewer tokens. In OpenAI, this is optional
+            and defaults to "auto".
+            https://platform.openai.com/docs/guides/vision?lang=curl#low-or-high-fidelity-image-understanding
     """
 
     url: str
-    detail: Literal["auto", "low", "high"]
+    detail: Optional[Literal["auto", "low", "high"]] = None
 
 
 class ImageContentPart(BaseModel):
