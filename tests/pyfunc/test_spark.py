@@ -1655,3 +1655,47 @@ def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager
         )
         result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
     assert all(result.id + 3 == result.prediction)
+
+
+def test_spark_udf_model_server_timeout(spark, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", "1")
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            import time
+
+            time.sleep(2)
+            return pd.DataFrame({k: [v] * len(model_input) for k, v in params.items()})
+
+    test_params = {
+        "str_array": np.array(["str_a", "str_b"]),
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        f"runs:/{run.info.run_id}/model",
+        result_type=StructType(
+            [
+                StructField("str_array", ArrayType(StringType())),
+            ]
+        ),
+        params=test_params,
+        env_manager="virtualenv",
+    )
+    # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient
+    with pytest.raises(MlflowException, match="Scoring timeout"):
+        spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
