@@ -175,7 +175,7 @@ def test_type_hints_needs_signature(type_hint):
 
 
 def test_infer_schema_from_type_hints_errors():
-    message = r"Type hint must be list\[...\] with a valid internal type"
+    message = r"Type hint must be list\[...\] with a valid element type"
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(str)
 
@@ -199,27 +199,25 @@ def test_infer_schema_from_type_hints_errors():
         with pytest.raises(MlflowException, match=message):
             _infer_schema_from_list_type_hint(list[list[InvalidModel]])
 
-    message = r"If you would like to use Optional types, use a Pydantic-based type hint definition."
+    message = r"To define Optional inputs, use a Pydantic-based type hint definition"
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Optional[str]])
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])
 
-    with pytest.raises(
-        MlflowException, match=r"List type hint must contain only one internal type"
-    ):
+    with pytest.raises(MlflowException, match=r"List type hint must contain only one element type"):
         _infer_schema_from_list_type_hint(list[str, int])
 
     with pytest.raises(MlflowException, match=r"Dictionary key type must be str"):
         _infer_schema_from_list_type_hint(list[dict[int, int]])
 
     with pytest.raises(
-        MlflowException, match=r"Dictionary type hint must contain two internal types"
+        MlflowException, match=r"Dictionary type hint must contain two element types"
     ):
         _infer_schema_from_list_type_hint(list[dict[int]])
 
-    message = r"it must include a valid internal type"
+    message = r"it must include a valid element type"
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Union])
 
@@ -398,7 +396,7 @@ def test_type_hints_validation_errors():
 
     with pytest.raises(
         InvalidTypeHintException,
-        match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
+        match=r"Unsupported type hint `<class 'list'>`, it must include a valid element type.",
     ):
         _validate_example_against_type_hint(["a"], list)
 
