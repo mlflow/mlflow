@@ -547,7 +547,7 @@ _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE = [
 
 
 def _get_test_image(is_base64: bool):
-    with open("tests/bedrock/test.png", "rb") as f:
+    with open("tests/resources/images/test.png", "rb") as f:
         image_bytes = f.read()
         return base64.b64encode(image_bytes).decode("utf-8") if is_base64 else image_bytes
 
@@ -681,3 +681,41 @@ def test_bedrock_autolog_converse_error():
     assert (
         span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == _CONVERSE_EXPECTED_CHAT_ATTRIBUTE[:1]
     )
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_skip_unsupported_content():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    with mock.patch("botocore.client.BaseClient._make_api_call", return_value=_CONVERSE_RESPONSE):
+        client.converse(
+            modelId=_ANTHROPIC_MODEL_ID,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"video": b"\xe3\x81\xad\xe3\x81\x93"},
+                        {"text": "What you can see in this video?"},
+                    ],
+                }
+            ],
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.converse"
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": [{"text": "What you can see in this video?", "type": "text"}],
+        },
+        {
+            "role": "assistant",
+            "content": [{"text": "Hello! How can I help you today?", "type": "text"}],
+        },
+    ]

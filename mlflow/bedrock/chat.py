@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from typing import Union
 
 from mlflow.types.chat import (
@@ -12,6 +13,8 @@ from mlflow.types.chat import (
     TextContentPart,
     ToolCall,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
@@ -85,7 +88,7 @@ def _parse_contents(content: dict) -> list[Union[TextContentPart, ImageContentPa
         contents.append(ImageContentPart(type="image_url", image_url=image_url))
     # NB: Video and Document content type are not supported by OpenAI's spec, so recording as text.
     else:
-        contents.append(TextContentPart(text=json.dumps(content), type="text"))
+        _logger.debug(f"Received an unsupported content type: {list(content.keys())[0]}")
 
     return contents
 

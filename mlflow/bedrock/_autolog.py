@@ -136,11 +136,11 @@ def _patched_converse(original, self, *args, **kwargs):
             result = original(self, *args, **kwargs)
             span.set_outputs(result)
         finally:
-            _set_chat_messages_attributes(span, kwargs, result)
+            _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result
 
 
-def _set_chat_messages_attributes(span, kwargs, response: Optional[dict[str, Any]]):
+def _set_chat_messages_attributes(span, messages: list[dict], response: Optional[dict]):
     """
     Extract standard chat span attributes for the Bedrock Converse API call.
 
@@ -149,7 +149,7 @@ def _set_chat_messages_attributes(span, kwargs, response: Optional[dict[str, Any
     maintaining the compatibility for all providers is significantly cumbersome.
     """
     try:
-        messages = kwargs["messages"].copy()
+        messages = [*messages]  # shallow copy to avoid appending to the original list
         if response:
             messages.append(response["output"]["message"])
         messages = [convert_message_to_mlflow_chat(msg) for msg in messages]
