@@ -1662,8 +1662,6 @@ def test_spark_udf_model_server_timeout(spark, monkeypatch):
 
     class TestModel(PythonModel):
         def predict(self, context, model_input, params=None):
-            import time
-
             time.sleep(2)
             return pd.DataFrame({k: [v] * len(model_input) for k, v in params.items()})
 
