@@ -30,6 +30,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
+    tracing/notebooks/jupyter-trace-demo.ipynb
 
 
 .. raw:: html
@@ -103,9 +104,6 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
 `MLflow Tracing <tracing/index.html>`_
 --------------------------------------
 
-.. note::
-    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
-
 MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
 LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
 allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
@@ -124,11 +122,17 @@ of your GenAI models and retain your traced data within the tracking server for 
     tracing/overview
     tracing/tracing-schema
     tracing/contribute
+    tracing/search-traces
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
 MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.
 
 If you're interested in contributing to the development of MLflow Tracing, please refer to the `Contribute to MLflow Tracing <tracing/contribute.html>`_ guide.
+
+.. figure:: ../_static/images/llms/tracing/tracing-top.gif
+    :alt: Tracing Gateway Video
+    :width: 80%
+    :align: center
 
 `MLflow AI Gateway for LLMs <deployments/index.html>`_
 --------------------------------------------------------------

@@ -4,7 +4,7 @@ import logging
 import os
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Iterator
+from typing import Any, Iterator
 
 from packaging.version import Version
 
@@ -14,6 +14,7 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
@@ -92,6 +93,29 @@ def _get_span_type(task) -> str:
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
+def _try_parse_raw_response(response: Any) -> Any:
+    """
+    As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
+    a `LegacyAPIResponse` (https://github.com/openai/openai-python/blob/52357cff50bee57ef442e94d78a0de38b4173fc2/src/openai/_legacy_response.py#L45)
+    object is returned when the `create` method is invoked with `with_raw_response`.
+    """
+    try:
+        from openai._legacy_response import LegacyAPIResponse
+    except ImportError:
+        _logger.debug("Failed to import `LegacyAPIResponse` from `openai._legacy_response`")
+        return response
+
+    if isinstance(response, LegacyAPIResponse):
+        try:
+            # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
+            # depending on whether the request has a `stream` parameter set to `True`.
+            return response.parse()
+        except Exception as e:
+            _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
+
+    return response
+
+
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -124,6 +148,9 @@ def patched_call(original, self, *args, **kwargs):
             run_id = run.info.run_id
 
     if config.log_traces:
+        # Record input parameters to attributes
+        attributes = {k: v for k, v in kwargs.items() if k != "messages"}
+
         # If there is an active span, create a child span under it, otherwise create a new trace
         if active_span := mlflow.get_current_active_span():
             span = mlflow_client.start_span(
@@ -132,12 +159,14 @@ def patched_call(original, self, *args, **kwargs):
                 parent_id=active_span.span_id,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes=attributes,
             )
         else:
             span = mlflow_client.start_trace(
                 name=self.__class__.__name__,
                 span_type=_get_span_type(self.__class__),
                 inputs=kwargs,
+                attributes=attributes,
             )
 
         request_id = span.request_id
@@ -150,7 +179,7 @@ def patched_call(original, self, *args, **kwargs):
 
     # Execute the original function
     try:
-        result = original(self, *args, **kwargs)
+        raw_result = original(self, *args, **kwargs)
     except Exception as e:
         # We have to end the trace even the exception is raised
         if config.log_traces and request_id:
@@ -160,6 +189,8 @@ def patched_call(original, self, *args, **kwargs):
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
+
+    result = _try_parse_raw_response(raw_result)
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
@@ -179,10 +210,14 @@ def patched_call(original, self, *args, **kwargs):
             try:
                 chunk_dicts = [chunk.to_dict() for chunk in chunks]
                 if config.log_traces and request_id:
+                    outputs = "".join(output)
+
+                    set_span_chat_attributes(span, kwargs, outputs)
+
                     mlflow_client.end_trace(
                         request_id=request_id,
                         attributes={"events": chunk_dicts},
-                        outputs="".join(output),
+                        outputs=outputs,
                     )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
@@ -191,6 +226,7 @@ def patched_call(original, self, *args, **kwargs):
     else:
         if config.log_traces and request_id:
             try:
+                set_span_chat_attributes(span, kwargs, result)
                 if span.parent_id is None:
                     mlflow_client.end_trace(request_id=request_id, outputs=result)
                 else:
@@ -223,7 +259,7 @@ def patched_call(original, self, *args, **kwargs):
                 # so that the model can be logged.
                 with _set_api_key_env_var(self._client):
                     mlflow.openai.log_model(
-                        kwargs.get("model", None),
+                        kwargs.get("model"),
                         task,
                         "model",
                         input_example=input_example,
@@ -241,7 +277,7 @@ def patched_call(original, self, *args, **kwargs):
     if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
         mlflow_client.set_terminated(run_id)
 
-    return result
+    return raw_result
 
 
 def patched_agent_get_chat_completion(original, self, *args, **kwargs):

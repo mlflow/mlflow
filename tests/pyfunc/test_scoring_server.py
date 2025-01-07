@@ -675,9 +675,8 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
     )
     expect_status_code(response, 400)
     assert (
-        "Failed to convert value invalid_value1 from type str to "
-        "DataType.datetime for param 'param1'"
-        in json.loads(response.content.decode("utf-8"))["message"]
+        " Failed to convert value `invalid_value1` from type `<class 'str'>` "
+        "to `DataType.datetime`" in json.loads(response.content.decode("utf-8"))["message"]
     )
 
     # Ignore parameters specified in payload if it is not defined in ParamSchema
@@ -836,7 +835,7 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
                 "top_p": 0.9,  # filled with the default value
             },
         ),
-        # Test case: if some params are not defeind in either input and params schema,
+        # Test case: if some params are not defined in either input and params schema,
         # they will be dropped
         (
             ModelSignature(

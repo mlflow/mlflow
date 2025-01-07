@@ -35,6 +35,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator, Optional, TypeVar
 
@@ -83,6 +84,7 @@ class TestConfig(BaseModel, extra="forbid"):
     run: str
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
+    test_every_n_versions: int = 1
 
     class Config:
         arbitrary_types_allowed = True
@@ -155,11 +157,23 @@ def read_yaml(location, if_error=None):
         raise
 
 
-def get_released_versions(package_name):
+def uploaded_recently(dist: dict[str, Any]) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    return False
+
+
+def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
-    versions = []
+    versions: list[Version] = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+            continue
+
+        # Ignore versions that were uploaded recently to avoid testing unstable
+        # versions. Newly released versions often contain undiscovered bugs
+        # (example: https://github.com/huggingface/transformers/issues/34370).
+        if any(map(uploaded_recently, distributions)):
             continue
 
         try:
@@ -553,6 +567,10 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
             )
             versions = get_latest_micro_versions(versions)
 
+            # Test every n minor versions if specified
+            if cfg.test_every_n_versions > 1:
+                versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
+
             # Always test the minimum version
             if cfg.minimum not in versions:
                 versions.append(cfg.minimum)
@@ -735,7 +753,7 @@ def main(args):
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
+    matrix = [x for x in matrix if x.flavor != "mleap"]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}

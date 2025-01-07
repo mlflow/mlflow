@@ -7,11 +7,13 @@ tracer provider and ensure that it won't interfere with the other external libra
 use OpenTelemetry e.g. PromptFlow, Snowpark.
 """
 
+import contextvars
 import functools
 import json
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
+from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -24,6 +26,9 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import Span
 
 # Global tracer provider instance. We manage the tracer provider by ourselves instead of using
 # the global tracer provider provided by OpenTelemetry.
@@ -84,6 +89,31 @@ def start_detached_span(
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+
+def set_span_in_context(span: "Span") -> contextvars.Token:
+    """
+    Set the given OpenTelemetry span as the active span in the current context.
+
+    Args:
+        span: An MLflow span object to set as the active span.
+
+    Returns:
+        A token object that will be required when detaching the span from the context.
+    """
+    context = trace.set_span_in_context(span._span)
+    token = context_api.attach(context)
+    return token  # noqa: RET504
+
+
+def detach_span_from_context(token: contextvars.Token):
+    """
+    Remove the active span from the current context.
+
+    Args:
+        token: The token returned by `_set_span_to_active` function.
+    """
+    context_api.detach(token)
 
 
 def _get_tracer(module_name: str):
@@ -153,6 +183,17 @@ def _setup_tracer_provider(disabled=False):
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
+
+    from mlflow.tracing.utils.token import suppress_token_detach_warning_to_debug_level
+
+    # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
+    # level so that it does not show up in the user's console. This warning may indicate
+    # some incorrect context handling, but in many cases just false positive that does not
+    # cause any issue in the generated trace.
+    # Note that we need to apply it permanently rather than just the scope of prediction call,
+    # because the exception can happen for streaming case, where the error log might be
+    # generated when the iterator is consumed and we don't know when it will happen.
+    suppress_token_detach_warning_to_debug_level()
 
 
 @raise_as_trace_exception

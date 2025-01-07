@@ -296,7 +296,7 @@ When creating custom PyFunc models, you can choose between two different interfa
 a function-based model and a class-based model. In short, a function-based model is simply a
 python function that does not take additional params. The class-based model, on the other hand,
 is subclass of ``PythonModel`` that supports several required and optional
-methods. If your use case is simple and fits within a single predict function, a funcion-based
+methods. If your use case is simple and fits within a single predict function, a function-based
 approach is recommended. If you need more power, such as custom serialization, custom data
 processing, or to override additional methods, you should use the class-based implementation.
 
@@ -401,7 +401,6 @@ import functools
 import hashlib
 import importlib
 import inspect
-import json
 import logging
 import os
 import shutil
@@ -437,6 +436,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -448,8 +448,10 @@ from mlflow.models.model import (
 )
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
+    _extract_type_hints,
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
+    _should_infer_signature_from_type_hints,
 )
 from mlflow.models.utils import (
     PyFuncInput,
@@ -482,6 +484,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    _DEFAULT_CHAT_MODEL_METADATA_TASK,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -498,9 +501,9 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatCompletionResponse,
     ChatMessage,
     ChatParams,
-    ChatResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -567,8 +570,13 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+TASK = "task"
 
 _MODEL_DATA_SUBPATH = "data"
+_CHAT_PARAMS_WARNING_MESSAGE = (
+    "Default values for temperature, n and stream in ChatParams will be removed in the "
+    "next release. Specify them in the input example explicitly if needed."
+)
 
 
 class EnvType:
@@ -747,16 +755,6 @@ class PyFuncModel:
         """
         return self.__model_impl
 
-    def _update_dependencies_schemas_in_prediction_context(self, context: Context):
-        if self._model_meta and self._model_meta.metadata:
-            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
-            context.update(
-                dependencies_schemas={
-                    dependency: json.dumps(schema)
-                    for dependency, schema in dependencies_schemas.items()
-                }
-            )
-
     @contextmanager
     def _try_get_or_generate_prediction_context(self):
         # set context for prediction if it's not set
@@ -768,7 +766,8 @@ class PyFuncModel:
 
     def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         with self._try_get_or_generate_prediction_context() as context:
-            self._update_dependencies_schemas_in_prediction_context(context)
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
             return self._predict(data, params)
 
     def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
@@ -802,9 +801,15 @@ class PyFuncModel:
         # fetch the schema from metadata to avoid signature change after model is loaded
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        data, params = _validate_prediction_input(
-            data, params, self.input_schema, self.params_schema, self.loader_module
-        )
+        # signature can only be inferred from type hints if the model is PythonModel
+        if self.metadata._is_signature_from_type_hint():
+            # we don't need to validate on data as data validation
+            # will be done during PythonModel's predict call
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -816,14 +821,15 @@ class PyFuncModel:
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         with self._try_get_or_generate_prediction_context() as context:
-            self._update_dependencies_schemas_in_prediction_context(context)
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
             return self._predict_stream(data, params)
 
     def _predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
-        Generates streaming model predictions. Only LLM suports this method.
+        Generates streaming model predictions. Only LLM supports this method.
 
         If the model contains signature, enforce the input schema first before calling the model
         implementation with the sanitized input. If the pyfunc model does not include model schema,
@@ -858,7 +864,7 @@ class PyFuncModel:
                 )
             data = data[0]
 
-        if inspect.signature(self._predict_stream_fn).parameters.get("params"):
+        if "params" in inspect.signature(self._predict_stream_fn).parameters:
             return self._predict_stream_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -1074,7 +1080,7 @@ def load_model(
         # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
-        # databricks moduel errors will just be re-raised.
+        # databricks module errors will just be re-raised.
         if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "
@@ -1118,7 +1124,7 @@ class _ServedPyFuncModel(PyFuncModel):
         Returns:
             Model predictions.
         """
-        if inspect.signature(self._client.invoke).parameters.get("params"):
+        if "params" in inspect.signature(self._client.invoke).parameters:
             result = self._client.invoke(data, params=params).get_predictions()
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -2094,17 +2100,17 @@ def spark_udf(
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverles runtime (notebook REPL), it runs on Servereless VM that
+    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
     # can't access NFS, so it needs to use `spark.addArtifact`.
     use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
-        if Version(udf_sandbox_info.mlflow_version) < Version("2.19.0"):
+        if Version(udf_sandbox_info.mlflow_version) < Version("2.18.0"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
-                "of version >= 2.19."
+                "of version >= 2.18.0"
             )
         # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
         # It's safe to apply `Version`.
@@ -2503,7 +2509,7 @@ Compound types:
                     raise MlflowException(err_msg) from e
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(client.invoke).parameters.get("params"):
+                    if "params" in inspect.signature(client.invoke).parameters:
                         return client.invoke(pdf, params=params).get_predictions()
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return client.invoke(pdf).get_predictions()
@@ -2511,6 +2517,7 @@ Compound types:
             elif env_manager == _EnvManager.LOCAL:
                 if use_dbconnect_artifact:
                     model_path = dbconnect_artifact_cache.get_unpacked_artifact_dir(model_uri)
+                    loaded_model = mlflow.pyfunc.load_model(model_path, model_config=model_config)
                 elif is_spark_connect and not should_spark_connect_use_nfs:
                     model_path = os.path.join(
                         tempfile.gettempdir(),
@@ -2536,7 +2543,7 @@ Compound types:
                     )
 
                 def batch_predict_fn(pdf, params=None):
-                    if inspect.signature(loaded_model.predict).parameters.get("params"):
+                    if "params" in inspect.signature(loaded_model.predict).parameters:
                         return loaded_model.predict(pdf, params=params)
                     _log_warning_if_params_not_in_predict_signature(_logger, params)
                     return loaded_model.predict(pdf)
@@ -2897,84 +2904,140 @@ def save_model(
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
-
-    hints = None
-    if signature is not None:
-        if isinstance(python_model, ChatModel):
+    signature_from_type_hints = None
+    if isinstance(python_model, ChatModel):
+        if signature is not None:
             raise MlflowException(
                 "ChatModel subclasses have a standard signature that is set "
                 "automatically. Please remove the `signature` parameter from "
                 "the call to log_model() or save_model().",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        mlflow_model.signature = signature
-    elif python_model is not None:
-        if callable(python_model):
-            input_arg_index = 0  # first argument
-            if signature := _infer_signature_from_type_hints(
-                python_model, input_arg_index, input_example=input_example
-            ):
-                mlflow_model.signature = signature
-        elif isinstance(python_model, ChatModel):
-            mlflow_model.signature = ModelSignature(
-                CHAT_MODEL_INPUT_SCHEMA,
-                CHAT_MODEL_OUTPUT_SCHEMA,
-            )
-            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
-            input_example, input_params = _split_input_data_and_params(input_example)
+        mlflow_model.signature = ModelSignature(
+            CHAT_MODEL_INPUT_SCHEMA,
+            CHAT_MODEL_OUTPUT_SCHEMA,
+        )
+        # For ChatModel we set default metadata to indicate its task
+        default_metadata = {TASK: _DEFAULT_CHAT_MODEL_METADATA_TASK}
+        mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
+        if input_example:
+            input_example, input_params = _split_input_data_and_params(input_example)
+            valid_params = {}
             if isinstance(input_example, list):
-                params = ChatParams()
-                messages = []
-                for each_message in input_example:
-                    if isinstance(each_message, ChatMessage):
-                        messages.append(each_message)
-                    else:
-                        messages.append(ChatMessage.from_dict(each_message))
+                messages = [
+                    message if isinstance(message, ChatMessage) else ChatMessage.from_dict(message)
+                    for message in input_example
+                ]
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [
                     ChatMessage.from_dict(m) if isinstance(m, dict) else m
                     for m in input_example["messages"]
                 ]
-                params = ChatParams.from_dict(input_example)
+                valid_params = {
+                    k: v
+                    for k, v in input_example.items()
+                    if k != "messages" and k in ChatParams.keys()
+                }
+            if valid_params or input_params:
+                _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
             input_example = {
                 "messages": [m.to_dict() for m in messages],
-                **params.to_dict(),
+                **valid_params,
                 **(input_params or {}),
             }
+        else:
+            input_example = CHAT_MODEL_INPUT_EXAMPLE
+            _logger.warning(_CHAT_PARAMS_WARNING_MESSAGE)
+            messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
+        # extra params introduced by ChatParams will not be included in the
+        # logged input example file to avoid confusion
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
+        params = ChatParams.from_dict(input_example)
 
-            # call load_context() first, as predict may depend on it
-            _logger.info("Predicting on input example to validate output")
-            context = PythonModelContext(artifacts, model_config)
-            python_model.load_context(context)
+        # call load_context() first, as predict may depend on it
+        _logger.info("Predicting on input example to validate output")
+        context = PythonModelContext(artifacts, model_config)
+        python_model.load_context(context)
+        if "context" in inspect.signature(python_model.predict).parameters:
             output = python_model.predict(context, messages, params)
-            if not isinstance(output, ChatResponse):
-                raise MlflowException(
-                    "Failed to save ChatModel. Please ensure that the model's predict() method "
-                    "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse using `from_dict()`, e.g. "
-                    "`ChatResponse.from_dict(output)`",
+        else:
+            output = python_model.predict(messages, params)
+        if not isinstance(output, ChatCompletionResponse):
+            raise MlflowException(
+                "Failed to save ChatModel. Please ensure that the model's predict() method "
+                "returns a ChatCompletionResponse object. If your predict() method currently "
+                "returns a dict, you can instantiate a ChatCompletionResponse using "
+                "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
+            )
+    elif python_model is not None:
+        if callable(python_model):
+            # first argument is the model input
+            type_hints = _extract_type_hints(python_model, input_arg_index=0)
+            if _should_infer_signature_from_type_hints(type_hints):
+                signature_from_type_hints = _infer_signature_from_type_hints(
+                    func=python_model, type_hints=type_hints, input_example=input_example
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
-            input_arg_index = 1  # second argument
-            if signature := _infer_signature_from_type_hints(
-                python_model.predict,
-                input_arg_index=input_arg_index,
-                input_example=input_example,
-            ):
-                mlflow_model.signature = signature
-            elif saved_example is not None:
-                try:
-                    context = PythonModelContext(artifacts, model_config)
-                    python_model.load_context(context)
-                    mlflow_model.signature = _infer_signature_from_input_example(
-                        saved_example,
-                        _PythonModelPyfuncWrapper(python_model, None, None),
-                    )
-                except Exception as e:
-                    _logger.warning(f"Failed to infer model signature from input example. {e}")
+            type_hints = python_model.predict_type_hints
+            infer_signature_from_type_hints = _should_infer_signature_from_type_hints(type_hints)
+            if infer_signature_from_type_hints:
+                signature_from_type_hints = _infer_signature_from_type_hints(
+                    func=python_model.predict,
+                    type_hints=python_model.predict_type_hints,
+                    input_example=input_example,
+                )
+            # only infer signature based on input example when signature
+            # and type hints are not provided
+            if signature is None and signature_from_type_hints is None:
+                if saved_example is not None:
+                    try:
+                        context = PythonModelContext(artifacts, model_config)
+                        python_model.load_context(context)
+                        mlflow_model.signature = _infer_signature_from_input_example(
+                            saved_example,
+                            _PythonModelPyfuncWrapper(python_model, None, None),
+                        )
+                    except Exception as e:
+                        if infer_signature_from_type_hints:
+                            _logger.warning(
+                                "Failed to infer model signature from type hints or input example. "
+                                f"Inferring model signature from input example failure: {e}",
+                            )
+                        else:
+                            _logger.warning(
+                                "Failed to infer model signature: "
+                                f"Type hint {type_hints} cannot be used to infer model signature."
+                                f"Inferring model signature from input example failure: {e}"
+                            )
+                else:
+                    # if infer_signature_from_type_hints, warnings are emitted
+                    # in _infer_signature_from_type_hints
+                    if not infer_signature_from_type_hints:
+                        _logger.warning(
+                            "Failed to infer model signature: "
+                            f"Type hint {type_hints} cannot be used to infer model signature."
+                            "Input example is not provided, model signature cannot be inferred."
+                        )
+
+    if signature_from_type_hints:
+        if signature and signature_from_type_hints != signature:
+            # TODO: drop this support and raise exception in the next minor release since this
+            # is a behavior change
+            _logger.warning(
+                "Provided signature does not match the signature inferred from the Python model's "
+                "`predict` function type hint. Signature inferred from type hint: "
+                f"`{signature_from_type_hints}`. Remove the `signature` parameter or ensure it "
+                "matches the inferred signature. In a future release, this warning will become an "
+                "exception, and the signature must align with the type hint.",
+                extra={"color": "red"},
+            )
+        mlflow_model.signature = signature_from_type_hints
+    # TODO: if signature is provided, we should validate input_example against it
+    elif signature:
+        mlflow_model.signature = signature
 
     if metadata is not None:
         mlflow_model.metadata = metadata
@@ -3014,7 +3077,6 @@ def save_model(
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
             signature=signature,
-            hints=hints,
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,

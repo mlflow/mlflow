@@ -7,7 +7,6 @@ import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 
 if TYPE_CHECKING:
     from mlflow.gateway.providers import BaseProvider
@@ -54,10 +53,7 @@ def score_model_on_payload(
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix == "openai":
-        # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
-        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
-    elif prefix == "gateway":
+    if prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix == "endpoints":
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
@@ -89,75 +85,6 @@ def _parse_model_uri(model_uri):
         )
     path = path.lstrip("/")
     return scheme, path
-
-
-def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
-    if "OPENAI_API_KEY" not in os.environ:
-        raise MlflowException(
-            "OPENAI_API_KEY environment variable not set",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    from mlflow.openai import _get_api_config
-    from mlflow.openai.api_request_parallel_processor import process_api_requests
-    from mlflow.utils.openai_utils import _OAITokenHolder
-
-    api_config = _get_api_config()
-    api_token = _OAITokenHolder(api_config.api_type)
-
-    payload = {
-        "messages": [{"role": "user", "content": payload}],
-        **eval_parameters,
-    }
-
-    if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        api_base = getattr(api_config, "api_base")
-        api_version = getattr(api_config, "api_version")
-        engine = getattr(api_config, "engine")
-        deployment_id = getattr(api_config, "deployment_id")
-
-        if engine:
-            # Avoid using both parameters as they serve the same purpose
-            # Invalid inputs:
-            #   - Wrong engine + correct/wrong deployment_id
-            #   - No engine + wrong deployment_id
-            # Valid inputs:
-            #   - Correct engine + correct/wrong deployment_id
-            #   - No engine + correct deployment_id
-            if deployment_id is not None:
-                _logger.warning(
-                    "Both engine and deployment_id are set. Using engine as it takes precedence."
-                )
-            payload = {"engine": engine, **payload}
-        elif deployment_id is None:
-            raise MlflowException(
-                "Either engine or deployment_id must be set for Azure OpenAI API",
-            )
-        payload = payload
-
-        request_url = proxy_url or (
-            f"{api_base}/openai/deployments/{deployment_id}"
-            f"/chat/completions?api-version={api_version}"
-        )
-    else:
-        payload = {"model": openai_uri, **payload}
-        request_url = proxy_url or REQUEST_URL_CHAT
-
-    try:
-        resp = process_api_requests(
-            [payload],
-            request_url,
-            api_token=api_token,
-            throw_original_error=True,
-            max_workers=1,
-            extra_headers=extra_headers,
-        )[0]
-    except MlflowException as e:
-        raise e
-    except Exception as e:
-        raise MlflowException(f"Error response from OpenAI:\n {e}")
-
-    return _parse_chat_response_format(resp)
 
 
 _PREDICT_ERROR_MSG = """\
@@ -218,7 +145,7 @@ def _call_llm_provider_api(
 
     payload = {
         k: v
-        for k, v in chat_request.model_dump().items()
+        for k, v in chat_request.model_dump(exclude_none=True).items()
         if (v is not None) and (k in filtered_keys)
     }
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
@@ -243,7 +170,10 @@ def _call_llm_provider_api(
             "Failed to score the provided input as the judge LLM did not return "
             "any chat completion results in the response."
         )
-    return chat_response.choices[0].message.content
+    content = chat_response.choices[0].message.content
+
+    # NB: Evaluation only handles text content for now.
+    return content[0].text if isinstance(content, list) else content
 
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
@@ -263,7 +193,25 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
-    if provider == Provider.ANTHROPIC:
+    if provider == Provider.OPENAI:
+        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
+        from mlflow.openai import _get_api_config, _OAITokenHolder
+
+        api_config = _get_api_config()
+        api_token = _OAITokenHolder(api_config.api_type)
+        api_token.refresh()
+
+        config = OpenAIConfig(
+            openai_api_key=api_token.token,
+            openai_api_type=api_config.api_type or "openai",
+            openai_api_base=api_config.api_base,
+            openai_api_version=api_config.api_version,
+            openai_deployment_name=api_config.deployment_id,
+            openai_organization=api_config.organization,
+        )
+        return OpenAIProvider(_get_route_config(config))
+
+    elif provider == Provider.ANTHROPIC:
         from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
 
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))

@@ -2,11 +2,14 @@ import logging
 from typing import Any, Optional
 
 import dspy
-from dspy.utils.callback import ACTIVE_CALL_ID, BaseCallback
+from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
+from mlflow.pyfunc.context import Context, maybe_set_prediction_context
+from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils.token import SpanWithToken
 
 _logger = logging.getLogger(__name__)
 
@@ -14,9 +17,11 @@ _logger = logging.getLogger(__name__)
 class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
-    def __init__(self):
+    def __init__(self, prediction_context: Optional[Context] = None):
         self._client = mlflow.MlflowClient()
-        self._call_id_to_span = {}
+        self._prediction_context = prediction_context or Context()
+        # call_id: (LiveSpan, OTel token)
+        self._call_id_to_span: dict[str, SpanWithToken] = {}
 
     def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)
@@ -108,18 +113,9 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        # Get parent span in this order:
-        # 1. If there is an parent component in DSPy, use its span as parent span.
-        # 2. If there is an active span in MLflow, use it as parent span.
-        # 3. Otherwise, start a new root span.
-        if parent_call_id := ACTIVE_CALL_ID.get():
-            parent_span = self._call_id_to_span.get(parent_call_id)
-            if not parent_span:
-                _logger.warning("Failed to create a span. Parent span not found.")
-        elif active_span := mlflow.get_current_active_span():
-            parent_span = active_span
-        else:
-            parent_span = None
+        # If there is an active span in MLflow, use it as parent span.
+        # Otherwise, start a new root span.
+        parent_span = mlflow.get_current_active_span()
 
         common_params = {
             "name": name,
@@ -128,14 +124,18 @@ class MlflowCallback(BaseCallback):
             "attributes": attributes,
         }
 
-        if parent_span:
-            span = self._client.start_span(
-                request_id=parent_span.request_id, parent_id=parent_span.span_id, **common_params
-            )
-        else:
-            span = self._client.start_trace(**common_params)
+        with maybe_set_prediction_context(self._prediction_context):
+            if parent_span:
+                span = self._client.start_span(
+                    request_id=parent_span.request_id,
+                    parent_id=parent_span.span_id,
+                    **common_params,
+                )
+            else:
+                span = self._client.start_trace(**common_params)
 
-        self._call_id_to_span[call_id] = span
+        token = set_span_in_context(span)
+        self._call_id_to_span[call_id] = SpanWithToken(span, token)
 
     def _end_span(
         self,
@@ -143,27 +143,30 @@ class MlflowCallback(BaseCallback):
         outputs: Optional[Any],
         exception: Optional[Exception] = None,
     ):
-        span = self._call_id_to_span.pop(call_id, None)
+        st = self._call_id_to_span.pop(call_id, None)
 
-        if not span:
+        if not st.span:
             _logger.warning(f"Failed to end a span. Span not found for call_id: {call_id}")
             return
 
         status = SpanStatusCode.OK if exception is None else SpanStatusCode.ERROR
 
         if exception:
-            span.add_event(SpanEvent.from_exception(exception))
+            st.span.add_event(SpanEvent.from_exception(exception))
 
         common_params = {
-            "request_id": span.request_id,
+            "request_id": st.span.request_id,
             "outputs": outputs,
             "status": status,
         }
 
-        if span.parent_id:
-            self._client.end_span(span_id=span.span_id, **common_params)
-        else:
-            self._client.end_trace(**common_params)
+        try:
+            if st.span.parent_id:
+                self._client.end_span(span_id=st.span.span_id, **common_params)
+            else:
+                self._client.end_trace(**common_params)
+        finally:
+            detach_span_from_context(st.token)
 
     def _get_span_type_for_module(self, instance):
         if isinstance(instance, dspy.Retrieve):
@@ -181,10 +184,15 @@ class MlflowCallback(BaseCallback):
         if isinstance(instance, dspy.Predict):
             return {"signature": instance.signature.signature}
         elif isinstance(instance, dspy.ChainOfThought):
-            return {
-                "signature": instance.signature.signature,
-                "extended_signature": instance.extended_signature.signature,
-            }
+            if hasattr(instance, "signature"):
+                signature = instance.signature.signature
+            else:
+                signature = instance.predict.signature.signature
+
+            attributes = {"signature": signature}
+            if hasattr(instance, "extended_signature"):
+                attributes["extended_signature"] = instance.extended_signature.signature
+            return attributes
         return {}
 
     def _unpack_kwargs(self, inputs: dict[str, Any]) -> dict[str, Any]:

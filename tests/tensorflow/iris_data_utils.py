@@ -43,7 +43,7 @@ def eval_input_fn(features, labels, batch_size):
     """An input function for evaluation or prediction"""
     features = dict(features)
 
-    # Use only features when lables are null.
+    # Use only features when labels are null.
     inputs = features if labels is None else (features, labels)
 
     # Convert the inputs to a Dataset.

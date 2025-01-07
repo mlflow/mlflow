@@ -3,12 +3,10 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
-from unittest import mock
 from unittest.mock import MagicMock
 
 import langchain
 import pytest
-from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate
@@ -18,8 +16,10 @@ from langchain_community.embeddings import FakeEmbeddings
 from langchain_community.llms.openai import OpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
+from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
 from packaging.version import Version
 
@@ -32,7 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
 
@@ -60,36 +60,6 @@ def create_retriever():
     embeddings = FakeEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
     return db.as_retriever()
-
-
-def create_openai_llmagent():
-    # First, let's load the language model we're going to use to control the agent.
-    with mock.patch("openai.OpenAI") as mock_openai:
-        mock_openai.return_value.completions.create.return_value = {
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "choices": [
-                {
-                    "index": 0,
-                    "finish_reason": "stop",
-                    "text": "Final Answer: test",
-                }
-            ],
-            "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-        }
-        llm = OpenAI(temperature=0)
-
-    # Next, let's load some tools to use.
-    tools = load_tools(["llm-math"], llm=llm)
-
-    # Finally, let's initialize an agent with the tools.
-    return initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        verbose=True,
-    )
 
 
 def _validate_trace_json_serialization(trace):
@@ -148,6 +118,16 @@ def test_llm_success():
     assert llm_span.inputs == ["test prompt"]
     assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -175,6 +155,12 @@ def test_llm_error():
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -188,12 +174,160 @@ def test_llm_internal_exception():
         run_id=run_id,
         name="test_llm",
     )
-    callback._run_span_mapping = {}
-    with pytest.raises(
-        Exception,
-        match=f"Span for run_id {run_id} not found.",
-    ):
-        callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
+    try:
+        with pytest.raises(
+            Exception,
+            match="Span for run_id dummy not found.",
+        ):
+            callback.on_llm_end(LLMResult(generations=[[{"text": "generated"}]]), run_id="dummy")
+    finally:
+        callback.flush()
+
+
+def test_chat_model():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [SystemMessage("system prompt"), HumanMessage("test prompt")]
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.name == "test_chat_model"
+    assert chat_model_span.span_type == "CHAT_MODEL"
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.inputs == [[msg.dict() for msg in input_messages]]
+    assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "system",
+            "content": "system prompt",
+        },
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+
+
+def test_chat_model_with_tool():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [HumanMessage("test prompt")]
+    # OpenAI tool format
+    tool_definition = {
+        "type": "function",
+        "function": {
+            "name": "GetWeather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+                "properties": {
+                    "location": {
+                        "description": "The city and state, e.g. San Francisco, CA",
+                        "type": "string",
+                    }
+                },
+                "required": ["location"],
+                "type": "object",
+            },
+        },
+    }
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"tools": [tool_definition]},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [tool_definition]
+
+
+def test_chat_model_with_non_openai_tool():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [HumanMessage("test prompt")]
+    # Anthropic tool format
+    tool_definition = {
+        "name": "get_weather",
+        "description": "Get the weather for a location.",
+        "input_schema": {
+            "properties": {
+                "location": {
+                    "description": "The city and state, e.g. San Francisco, CA",
+                    "type": "string",
+                }
+            },
+            "required": ["location"],
+            "type": "object",
+        },
+    }
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"tools": [tool_definition]},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather for a location.",
+            },
+        }
+    ]
 
 
 def test_retriever_success():
@@ -267,20 +401,23 @@ def test_retriever_internal_exception():
         run_id=run_id,
         name="test_retriever",
     )
-    callback._run_span_mapping = {}
-    with pytest.raises(
-        Exception,
-        match=f"Span for run_id {run_id} not found.",
-    ):
-        callback.on_retriever_end(
-            [
-                Document(
-                    page_content="document content 1",
-                    metadata={"chunk_id": "1", "doc_uri": "uri1"},
-                )
-            ],
-            run_id=run_id,
-        )
+
+    try:
+        with pytest.raises(
+            Exception,
+            match="Span for run_id dummy not found.",
+        ):
+            callback.on_retriever_end(
+                [
+                    Document(
+                        page_content="document content 1",
+                        metadata={"chunk_id": "1", "doc_uri": "uri1"},
+                    )
+                ],
+                run_id="dummy",
+            )
+    finally:
+        callback.flush()
 
 
 def test_multiple_components():
@@ -344,6 +481,16 @@ def test_multiple_components():
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
         assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
+        assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+            {
+                "role": "user",
+                "content": f"test prompt {i}",
+            },
+            {
+                "role": "assistant",
+                "content": f"generated text {i}",
+            },
+        ]
 
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
@@ -407,19 +554,29 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
     _validate_trace_json_serialization(trace)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
 def test_agent_success(mock_databricks_serving_with_tracing_env):
-    agent = create_openai_llmagent()
-    langchain_input = {"input": "What is 123 raised to the .023 power?"}
-    expected_output = {"output": "test"}
+    # Load the agent definition (with OpenAI mock) from the sample script
+    from tests.langchain.sample_code.openai_agent import create_openai_agent
+
+    agent = create_openai_agent()
+
+    langchain_input = {"input": "what is the value of magic_function(3)?"}
+    expected_output = {"output": "The result of 2 * 3 is 6."}
     request_id = "test_request_id"
     response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
 
     assert response == expected_output
-    trace = Trace.from_dict(trace_dict)
-    spans = trace.data.spans
-    assert len(spans) == 3
 
-    # AgentExecutor
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.status == "OK"
+
+    spans = trace.data.spans
+    assert len(spans) == 16
+
     root_span = spans[0]
     assert root_span.name == "AgentExecutor"
     assert root_span.span_type == "CHAIN"
@@ -430,20 +587,6 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
         root_span.end_time_ns // 1_000_000
         - (trace.info.timestamp_ms + trace.info.execution_time_ms)
     ) <= 1
-    root_span_id = root_span.span_id
-
-    # LLMChain of the agent
-    llm_chain_span = spans[1]
-    assert llm_chain_span.parent_id == root_span_id
-    assert llm_chain_span.span_type == "CHAIN"
-    assert llm_chain_span.inputs["input"] == langchain_input["input"]
-    assert llm_chain_span.outputs == {"text": "Final Answer: test"}
-
-    # LLM of the LLMChain
-    llm_span = spans[2]
-    assert llm_span.parent_id == llm_chain_span.span_id
-    assert llm_span.span_type == "LLM"
-    assert llm_span.outputs["generations"][0][0]["text"] == "Final Answer: test"
 
     _validate_trace_json_serialization(trace)
 
@@ -590,35 +733,49 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     Version(langchain.__version__) < Version("0.1.0"),
     reason="ChatPromptTemplate expecting dict input",
 )
-def test_tracer_nested_trace():
-    # Validate if the callback works properly if it is used in a context
-    # of an active span created by MLflow fluent API.
+def test_tracer_with_manual_traces():
+    # Validate if the callback works properly when outer and inner spans
+    # are created by fluent APIs.
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
-        input_variables=["product"],
-        template="What is {product}?",
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
     )
-    chain = prompt | llm | StrOutputParser()
+
+    # Inner spans are created within RunnableLambda
+    def foo(s: str):
+        with mlflow.start_span(name="foo_inner") as span:
+            span.set_inputs(s)
+            s = s.replace("red", "blue")
+            s = bar(s)
+            span.set_outputs(s)
+        return s
+
+    @mlflow.trace
+    def bar(s):
+        return s.replace("blue", "green")
+
+    chain = RunnableLambda(foo) | prompt | llm | StrOutputParser()
 
     @mlflow.trace(name="parent", span_type="SPECIAL")
     def run(message):
         return chain.invoke(message, config={"callbacks": [MlflowLangchainTracer()]})
 
-    response = run("MLflow")
-    expected_response = TEST_CONTENT
+    response = run("red")
+    expected_response = "What is the complementary color of green?"
     assert response == expected_response
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"
-    assert spans[0].span_type == "SPECIAL"
-    assert spans[0].inputs == {"message": "MLflow"}
-    assert spans[0].outputs == TEST_CONTENT
-    assert spans[0].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].name == "RunnableSequence"
-    assert spans[1].span_type == "CHAIN"
-    assert spans[1].inputs == "MLflow"
-    assert spans[1].outputs == TEST_CONTENT
-    assert spans[1].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "foo"
+    assert spans[2].parent_id == spans[1].span_id
+    assert spans[3].name == "foo_inner"
+    assert spans[3].parent_id == spans[2].span_id
+    assert spans[4].name == "bar"
+    assert spans[4].parent_id == spans[3].span_id
+    assert spans[5].name == "PromptTemplate"
+    assert spans[5].parent_id == spans[1].span_id

@@ -19,6 +19,7 @@ def answer_similarity(
     parameters: Optional[dict[str, Any]] = None,
     extra_headers: Optional[dict[str, str]] = None,
     proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
@@ -53,6 +54,8 @@ def answer_similarity(
             judge model is served via a proxy endpoint, not directly via LLM provider services.
             If not specified, the default URL for the LLM provider will be used
             (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -94,6 +97,7 @@ def answer_similarity(
         metric_metadata=metric_metadata,
         extra_headers=extra_headers,
         proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -106,6 +110,7 @@ def answer_correctness(
     parameters: Optional[dict[str, Any]] = None,
     extra_headers: Optional[dict[str, str]] = None,
     proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer correctness of an LLM
@@ -142,6 +147,8 @@ def answer_correctness(
             judge model is served via a proxy endpoint, not directly via LLM provider services.
             If not specified, the default URL for the LLM provider will be used
             (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -182,6 +189,7 @@ def answer_correctness(
         metric_metadata=metric_metadata,
         extra_headers=extra_headers,
         proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -194,6 +202,7 @@ def faithfulness(
     parameters: Optional[dict[str, Any]] = None,
     extra_headers: Optional[dict[str, str]] = None,
     proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the faithfullness of an LLM using the
@@ -228,6 +237,8 @@ def faithfulness(
             judge model is served via a proxy endpoint, not directly via LLM provider services.
             If not specified, the default URL for the LLM provider will be used
             (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -267,6 +278,7 @@ def faithfulness(
         metric_metadata=metric_metadata,
         extra_headers=extra_headers,
         proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -279,6 +291,7 @@ def answer_relevance(
     parameters: Optional[dict[str, Any]] = None,
     extra_headers: Optional[dict[str, str]] = None,
     proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
@@ -309,6 +322,8 @@ def answer_relevance(
             judge model is served via a proxy endpoint, not directly via LLM provider services.
             If not specified, the default URL for the LLM provider will be used
             (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -346,6 +361,7 @@ def answer_relevance(
         metric_metadata=metric_metadata,
         extra_headers=extra_headers,
         proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -357,6 +373,7 @@ def relevance(
     parameters: Optional[dict[str, Any]] = None,
     extra_headers: Optional[dict[str, str]] = None,
     proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an
@@ -392,6 +409,8 @@ def relevance(
             judge model is served via a proxy endpoint, not directly via LLM provider services.
             If not specified, the default URL for the LLM provider will be used
             (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -432,4 +451,5 @@ def relevance(
         metric_metadata=metric_metadata,
         extra_headers=extra_headers,
         proxy_url=proxy_url,
+        max_workers=max_workers,
     )

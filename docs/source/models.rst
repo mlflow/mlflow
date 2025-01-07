@@ -1066,159 +1066,6 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
     predictions = onnx_pyfunc.predict(X.numpy())
     print(predictions)
 
-MXNet Gluon (``gluon``)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. warning::
-
-    The ``gluon`` model flavor is deprecated and will be removed in a future release.
-
-The ``gluon`` model flavor enables logging of `Gluon models
-<https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
-the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
-methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
-models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be scored with
-both DataFrame input and numpy array input. You can also use the :py:func:`mlflow.gluon.load_model()`
-method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
-
-Gluon pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For a minimal gluon model, here is an example of the pyfunc predict() method with a logistic regression model :
-
-.. code-block:: python
-
-    import mlflow
-    import mxnet as mx
-    from mxnet import nd, autograd, gluon
-    from mxnet.gluon import nn, Trainer
-    from mxnet.gluon.data import DataLoader, ArrayDataset
-    import numpy as np
-
-    # this example requires a compatible version of numpy : numpy == 1.23.1
-    # `pip uninstall numpy`  `python -m pip install numpy==1.23.1`
-
-
-    def get_random_data(size, ctx):
-        x = nd.normal(0, 1, shape=(size, 10), ctx=ctx)
-        y = x.sum(axis=1) > 3
-        return x, y
-
-
-    # use cpu for this example, gpu could be used with ctx=gpu()
-    ctx = mx.cpu()
-    train_data_size = 1000
-    val_data_size = 100
-    batch_size = 10
-
-    train_x, train_ground_truth_class = get_random_data(train_data_size, ctx)
-    train_dataset = ArrayDataset(train_x, train_ground_truth_class)
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-    )
-
-    val_x, val_ground_truth_class = get_random_data(val_data_size, ctx)
-    val_dataset = ArrayDataset(val_x, val_ground_truth_class)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
-
-    net = nn.HybridSequential()
-
-    with net.name_scope():
-        net.add(nn.Dense(units=10, activation="relu"))  # input layer
-        net.add(nn.Dense(units=10, activation="relu"))  # inner layer 1
-        net.add(nn.Dense(units=10, activation="relu"))  # inner layer 2
-        net.add(nn.Dense(units=1))  # output layer: must have only 1 neuron
-
-    net.initialize(mx.init.Xavier())
-
-    loss = gluon.loss.SigmoidBinaryCrossEntropyLoss()
-    trainer = Trainer(
-        params=net.collect_params(),
-        optimizer="sgd",
-        optimizer_params={"learning_rate": 0.1},
-    )
-
-    accuracy = mx.metric.Accuracy()
-    f1 = mx.metric.F1()
-    threshold = 0.5
-
-
-    def train_model():
-        cumulative_train_loss = 0
-
-        for i, (data, label) in enumerate(train_dataloader):
-            with autograd.record():
-                # do forward pass on a batch of training data
-                output = net(data)
-                # calculate loss for the training data batch
-                loss_result = loss(output, label)
-            # calculate gradients
-            loss_result.backward()
-            # update parameters of the network
-            trainer.step(batch_size)
-            # sum losses of every batch
-            cumulative_train_loss += nd.sum(loss_result).asscalar()
-
-        return cumulative_train_loss
-
-
-    def validate_model(threshold):
-        cumulative_val_loss = 0
-
-        for i, (val_data, val_ground_truth_class) in enumerate(val_dataloader):
-            # do forward pass on a batch of validation data
-            output = net(val_data)
-            # calculate cumulative validation loss
-            cumulative_val_loss += nd.sum(loss(output, val_ground_truth_class)).asscalar()
-            # prediction as a sigmoid
-            prediction = net(val_data).sigmoid()
-            # converting neuron outputs to classes
-            predicted_classes = mx.nd.ceil(prediction - threshold)
-            # update validation accuracy
-            accuracy.update(val_ground_truth_class, predicted_classes.reshape(-1))
-            # calculate probabilities of belonging to different classes
-            prediction = prediction.reshape(-1)
-            probabilities = mx.nd.stack(1 - prediction, prediction, axis=1)
-
-            f1.update(val_ground_truth_class, probabilities)
-
-        return cumulative_val_loss
-
-
-    # train model and get metrics
-    cumulative_train_loss = train_model()
-    cumulative_val_loss = validate_model(threshold)
-    net.collect_params().initialize()
-    metrics_to_log = {
-        "training_loss": cumulative_train_loss,
-        "val_loss": cumulative_val_loss,
-        "f1": f1.get()[1],
-        "accuracy": accuracy.get()[1],
-    }
-    params_to_log = {"learning_rate": trainer.learning_rate, "threshold": threshold}
-
-    # the model needs to be hybridized and run forward at least once before export is called
-    net.hybridize()
-    net.forward(train_x)
-
-    with mlflow.start_run():
-        mlflow.log_params(params_to_log)
-        mlflow.log_metrics(metrics_to_log)
-        model_info = mlflow.gluon.log_model(net, "model")
-
-    # load the model
-    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
-
-    # make a prediction
-    X = np.random.randn(10, 10)
-    predictions = pytorch_pyfunc.predict(X)
-    print(predictions)
-
-
-For more information, see :py:mod:`mlflow.gluon`.
 
 XGBoost (``xgboost``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3917,6 +3764,71 @@ back to ``numpy ndarray`` type as required by ``sktime`` inference API.
     # Score model
     response = requests.post(url, json=json_data)
     print(f"\nPyfunc 'predict_interval':\n${response.json()}")
+
+
+Validate Models before Deployment
+---------------------------------
+
+After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.
+The :py:func:`mlflow.models.predict` API provides a convenient way to test your model in a virtual environment, offering isolated execution and several advantages:
+
+* Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
+  For more details, refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>`.
+* Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
+  Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
+* Extra environment variables validation: By specifying the ``extra_envs`` parameter, you can test whether additional environment variables are required for the model to run successfully.
+  Note that all existing environment variables in ``os.environ`` are automatically passed into the virtual environment.
+
+.. code-block:: python
+
+    import mlflow
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
+
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data=["a", "b", "c"],
+        pip_requirements_override=["..."],
+        extra_envs={"MY_ENV_VAR": "my_value"},
+    )
+
+Environment managers
+^^^^^^^^^^^^^^^^^^^^
+
+The :py:func:`mlflow.models.predict` API supports the following environment managers to create the virtual environment for prediction:
+
+* `virtualenv <https://virtualenv.pypa.io/en/latest/>`_: The default environment manager.
+* `uv <https://docs.astral.sh/uv/>`_: An **extremely fast** environment manager written in Rust. **This is an experimental feature since MLflow 2.20.0.**
+* `conda <https://docs.conda.io/projects/conda/>`_: uses conda to create environment.
+* ``local``: uses the current environment to run the model. Note that ``pip_requirements_override`` is not supported in this mode.
+
+.. tip::
+
+    Starting from MLflow 2.20.0, ``uv`` is available, and **it is extremely fast**.
+    Run ``pip install uv`` to install uv, or refer to `uv installation guidance <https://docs.astral.sh/uv/getting-started/installation>`_ for other installation methods.
+
+Example of using ``uv`` to create a virtual environment for prediction:
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.models.predict(
+        model_uri="runs:/<run_id>/<model_path>",
+        input_data="your_data",
+        env_manager="uv",
+    )
 
 .. _built-in-deployment:
 

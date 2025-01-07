@@ -362,7 +362,7 @@ def invocations(data, content_type, model, input_schema):
     # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
-        if inspect.signature(model.predict).parameters.get("params"):
+        if "params" in inspect.signature(model.predict).parameters:
             raw_predictions = model.predict(data, params=params)
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -461,7 +461,7 @@ def init(model: PyFuncModel):
 
         # Content-Type can include other attributes like CHARSET
         # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
-        # TODO: Suport ";" in quoted parameter values
+        # TODO: Support ";" in quoted parameter values
         data = flask.request.data.decode("utf-8")
         content_type = flask.request.content_type
         result = invocations(data, content_type, model, input_schema)
@@ -497,7 +497,7 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
-    if inspect.signature(pyfunc_model.predict).parameters.get("params"):
+    if "params" in inspect.signature(pyfunc_model.predict).parameters:
         raw_predictions = pyfunc_model.predict(df, params=params)
     else:
         _log_warning_if_params_not_in_predict_signature(_logger, params)

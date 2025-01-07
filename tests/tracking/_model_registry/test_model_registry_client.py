@@ -302,11 +302,11 @@ def test_update_model_version(mock_store):
     description = "new description"
     expected_result = ModelVersion(name, version, creation_timestamp=123, description=description)
     mock_store.update_model_version.return_value = expected_result
-    actal_result = newModelRegistryClient().update_model_version(name, version, "new description")
+    actual_result = newModelRegistryClient().update_model_version(name, version, "new description")
     mock_store.update_model_version.assert_called_once_with(
         name=name, version=version, description="new description"
     )
-    assert expected_result == actal_result
+    assert expected_result == actual_result
 
 
 def test_transition_model_version_stage(mock_store):

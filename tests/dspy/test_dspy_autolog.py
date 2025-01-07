@@ -1,4 +1,5 @@
 import importlib
+import json
 import time
 from unittest import mock
 
@@ -13,10 +14,13 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 
 from tests.tracing.helper import get_traces
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+
+_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
 
 def test_autolog_lm():
@@ -57,22 +61,25 @@ def test_autolog_cot():
     assert result["answer"] == "test output"
     assert result["reasoning"] == "No more responses"
 
-    trace = mlflow.get_last_active_trace()
-    assert trace is not None
-    assert trace.info.status == "OK"
-    assert trace.info.execution_time_ms > 0
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0] is not None
+    assert traces[0].info.status == "OK"
+    assert traces[0].info.execution_time_ms > 0
 
-    spans = trace.data.spans
+    spans = traces[0].data.spans
     assert len(spans) == 7
     assert spans[0].name == "ChainOfThought.forward"
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert spans[0].attributes["signature"] == "question -> answer"
+    assert spans[0].attributes["signature"] == (
+        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
+    )
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
-    assert spans[1].inputs == {"question": "How are you?", "signature": mock.ANY}
+    assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
     assert spans[2].span_type == SpanType.PARSER
@@ -242,34 +249,13 @@ class RAG(dspy.Module):
         self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
 
     def forward(self, question):
-        context = "".join(self.retrieve(question))
-        prediction = self.generate_answer(context=context, question=question)
-        return dspy.Prediction(context=context, answer=prediction.answer)
-
-
-class DummyRetriever(dspy.Retrieve):
-    def forward(self, query: str) -> list[str]:
-        time.sleep(0.1)
-        return ["test output"]
-
-
-class GenerateAnswer(dspy.Signature):
-    """Answer questions with short factoid answers."""
-
-    context = dspy.InputField(desc="may contain relevant facts")
-    question = dspy.InputField()
-    answer = dspy.OutputField(desc="often between 1 and 5 words")
-
-
-class RAG(dspy.Module):
-    def __init__(self):
-        super().__init__()
-
-        self.retrieve = DummyRetriever()
-        self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
-
-    def forward(self, question):
-        context = "".join(self.retrieve(question))
+        # Create a custom span inside the module using fluent API
+        assert mlflow.get_current_active_span() is not None
+        with mlflow.start_span(name="retrieve_context", span_type=SpanType.RETRIEVER) as span:
+            span.set_inputs(question)
+            docs = self.retrieve(question)
+            context = "".join(docs)
+            span.set_outputs(context)
         prediction = self.generate_answer(context=context, question=question)
         return dspy.Prediction(context=context, answer=prediction.answer)
 
@@ -292,15 +278,17 @@ def test_autolog_custom_module():
     result = rag("What castle did David Gregory inherit?")
     assert result.answer == "test output"
 
-    trace = mlflow.get_last_active_trace()
-    assert trace is not None
-    assert trace.info.status == "OK"
-    assert trace.info.execution_time_ms > 0
+    traces = get_traces()
+    assert len(traces) == 1, [trace.data.spans for trace in traces]
+    assert traces[0] is not None
+    assert traces[0].info.status == "OK"
+    assert traces[0].info.execution_time_ms > 0
 
-    spans = trace.data.spans
-    assert len(spans) == 7
+    spans = traces[0].data.spans
+    assert len(spans) == 8
     assert [span.name for span in spans] == [
         "RAG.forward",
+        "retrieve_context",
         "DummyRetriever.forward",
         "ChainOfThought.forward",
         "Predict.forward",
@@ -388,3 +376,45 @@ def test_disable_autolog():
 
     # no additional trace should be created
     assert len(get_traces()) == 1
+
+
+def test_autolog_set_retriever_schema():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    )
+
+    class CoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question -> answer")
+            mlflow.models.set_retriever_schema(
+                primary_key="id",
+                text_column="text",
+                doc_uri="source",
+            )
+
+        def forward(self, question):
+            return self.prog(question=question)
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(CoT(), "model")
+
+    # Reset retriever schema
+    _clear_retriever_schema()
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict({"question": "What is 2 + 2?"})
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert json.loads(trace.info.tags[DependenciesSchemasType.RETRIEVERS.value]) == [
+        {
+            "name": "retriever",
+            "primary_key": "id",
+            "text_column": "text",
+            "doc_uri": "source",
+            "other_columns": [],
+        }
+    ]

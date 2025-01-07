@@ -1,9 +1,50 @@
 # CHANGELOG
 
-## 2.18.0rc0 (2024-11-12)
+## 2.19.0 (2024-12-11)
 
-We are excited to announce the release candidate for MLflow 2.18.0! 
-The 2.18.0 release includes a number of signficant features, enhancements, and bug fixes.
+We are excited to announce the release of MLflow 2.19.0! This release includes a number of significant features, enhancements, and bug fixes.
+
+### Major New Features
+
+- **ChatModel enhancements** - ChatModel now adopts `ChatCompletionRequest` and `ChatCompletionResponse` as its new schema. The `predict_stream` interface uses `ChatCompletionChunk` to deliver true streaming responses. Additionally, the `custom_inputs` and `custom_outputs` fields in ChatModel now utilize `AnyType`, enabling support for a wider variety of data types. **Note:** In a future version of MLflow, `ChatParams` (and by extension, `ChatCompletionRequest`) will have the default values for `n`, `temperature`, and `stream` removed. (#13782, #13857, @stevenchen-db)
+
+- **Tracing improvements** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now supports both automatic and manual tracing for DSPy, LlamaIndex and Langchain flavors. Tracing feature is also auto-enabled for mlflow evaluation for all supported flavors. (#13790, #13793, #13795, #13897, @B-Step62)
+
+- **New Tracing Integrations** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now supports **CrewAI** and **Anthropic**, enabling a one-line, fully automated tracing experience. (#13903, @TomeHirata, #13851, @gabrielfu)
+
+- **Any Type in model signature** - MLflow now supports AnyType in model signature. It can be used to host any data types that were not supported before. (#13766, @serena-ruan)
+
+Other Features:
+
+- [Tracking] Add `update_current_trace` API for adding tags to an active trace. (#13828, @B-Step62)
+- [Deployments] Update databricks deployments to support AI gateway & additional update endpoints (#13513, @djliden)
+- [Models] Support uv in mlflow.models.predict (#13824, @serena-ruan)
+- [Models] Add type hints support including pydantic models (#13924, @serena-ruan)
+- [Tracking] Add the `trace.search_spans()` method for searching spans within traces (#13984, @B-Step62)
+
+Bug fixes:
+
+- [Tracking] Allow passing in spark connect dataframes in mlflow evaluate API (#13889, @WeichenXu123)
+- [Tracking] Fix `mlflow.end_run` inside a MLflow run context manager (#13888, @WeichenXu123)
+- [Scoring] Fix spark_udf conditional check on remote spark-connect client or Databricks Serverless (#13827, @WeichenXu123)
+- [Models] Allow changing max_workers for built-in LLM-as-a-Judge metrics (#13858, @B-Step62)
+- [Models] Support saving all langchain runnables using code-based logging (#13821, @serena-ruan)
+- [Model Registry] return empty array when DatabricksSDKModelsArtifactRepository.list_artifacts is called on a file (#14027, @shichengzhou-db)
+- [Tracking] Stringify param values in client.log_batch() (#14015, @B-Step62)
+- [Tracking] Remove deprecated squared parameter (#14028, @B-Step62)
+- [Tracking] Fix request/response field in the search_traces output (#13985, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Add Ollama and Instructor examples in tracing doc (#13937, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#13972, #13968, #13917, #13912, #13906, #13846, @serena-ruan; #13969, #13959, #13957, #13958, #13925, #13882, #13879, #13881, #13869, #13870, #13868, #13854, #13849, #13847, #13836, #13823, #13811, #13820, #13775, #13768, #13764, @harupy; #13960, #13914, #13862, #13892, #13916, #13918, #13915, #13878, #13891, #13863, #13859, #13850, #13844, #13835, #13818, #13762, @B-Step62; #13913, #13848, #13774, @TomeHirata; #13936, #13954, #13883, @daniellok-db; #13947, @AHB102; #13929, #13922, @Ajay-Satish-01; #13857, @stevenchen-db; #13773, @BenWilson2; #13705, @williamjamir; #13745, #13743, @WeichenXu123; #13895, @chenmoneygithub; #14023, @theBeginner86
+
+## 2.18.0 (2024-11-18)
+
+We are excited to announce the release of MLflow 2.18.0! This release includes a number of significant features, enhancements, and bug fixes.
 
 ### Python Version Update
 
@@ -13,99 +54,74 @@ as a minimum supported version.
 > Note: If you are currently using MLflow's `ChatModel` interface for authoring custom GenAI applications, please ensure that you
 > have read the future breaking changes section below.
 
-### Breaking Changes to Experimental Features
+### Major New Features
 
-- **ChatModel Interface Changes** - As part of a broader unification effort within MLflow and services that rely on or deeply integrate
+- **🦺 Fluent API Thread/Process Safety** - MLflow's fluent APIs for tracking and the model registry have been overhauled to add support for both thread and multi-process safety. You are now no longer forced to use the Client APIs for managing experiments, runs, and logging from within multiprocessing and threaded applications. (#13456, #13419, @WeichenXu123)
+
+- **🧩 DSPy flavor** - MLflow now supports logging, loading, and tracing of `DSPy` models, broadening the support for advanced GenAI authoring within MLflow. Check out the [MLflow DSPy Flavor](https://mlflow.org/docs/latest/llms/dspy/index.html) documentation to get started! (#13131, #13279, #13369, #13345, @chenmoneygithub, #13543, #13800, #13807, @B-Step62, #13289, @michael-berk)
+
+- **🖥️ Enhanced Trace UI** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html)'s UI has undergone
+  a significant overhaul to bring usability and quality of life updates to the experience of auditing and investigating the contents of GenAI traces, from enhanced span content rendering using markdown to a standardized span component structure, (#13685, #13357, #13242, @daniellok-db)
+
+- **🚄 New Tracing Integrations** - [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now supports **DSPy**, **LiteLLM**, and **Google Gemini**, enabling a one-line, fully automated tracing experience. These integrations unlock enhanced observability across a broader range of industry tools. Stay tuned for upcoming integrations and updates! (#13801, @TomeHirata, #13585, @B-Step62)
+
+- **📊 Expanded LLM-as-a-Judge Support** - MLflow now enhances its evaluation capabilities with support for additional providers, including `Anthropic`, `Bedrock`, `Mistral`, and `TogetherAI`, alongside existing providers like `OpenAI`. Users can now also configure proxy endpoints or self-hosted LLMs that follow the provider API specs by using the new `proxy_url` and `extra_headers` options. Visit the [LLM-as-a-Judge](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#llm-as-a-judge-metrics) documentation for more details! (#13715, #13717, @B-Step62)
+
+
+- **⏰ Environment Variable Detection** - As a helpful reminder for when you are deploying models, MLflow now detects and reminds users of environment variables set during model logging, ensuring they are configured for deployment. In addition to this, the `mlflow.models.predict` utility has also been updated to include these variables in serving simulations, improving pre-deployment validation. (#13584, @serena-ruan)
+
+
+### Breaking Changes to ChatModel Interface
+
+- **ChatModel Interface Updates** - As part of a broader unification effort within MLflow and services that rely on or deeply integrate
   with MLflow's GenAI features, we are working on a phased approach to making a consistent and standard interface for custom GenAI
   application development and usage. In the first phase (planned for release in the next few releases of MLflow), we are marking
   several interfaces as deprecated, as they will be changing. These changes will be:
 
-  - **Renaming of ChatModel Interfaces**
-      - `ChatRequest` is being renamed to `ChatCompletionRequest` to provide disambiguation for future planned request interface
-        types. `ChatRequest` is too generic for planned future work.
-      - `ChatResponse` is being renamed to `ChatCompletionResponse` for the same reason as the input interface.
-      - `predict_stream` is being updated to provide actual streaming capabilities for custom GenAI applications. Currently, the return type of
-        `predict_stream` is a generator containing the synchronous output from a call to `predict`. In a future release, this will be changing to
-        return a generator of Chunks. While your existing call structure for the `predict_stream` API won't change, the returned data payload will
-        change significantly and allow for a true streaming return as asynchronous streaming values are returned. The updated return type will be
-        a generator of `ChatCompletionChunks`, similar to the existing implementation for `LangChain`.
-      - The mutable components of `ChatRequest` and `ChatResponse`, both currently set as `metadata` fields, will be renamed to the more specific
-        respective `custom_inputs` and `custom_outputs`. These field names will be made consistent with future GenAI interfaces as well.
-  - **Deprecation of Rag Signatures**
-      - In an effort to reduce the complexity with interfaces to different systems, we will be marking the dataclasses defined within
-        `mlflow.models.rag_signatures` as deprecated in a future release and merging these with the unified signature definitions and data
-        structures within `ChatCompletionRequest`, `ChatCompletionResponse` and `ChatCompletionChunks`. 
+  - **Renaming of Interfaces**:
+    - `ChatRequest` → `ChatCompletionRequest` to provide disambiguation for future planned request interfaces.
+    - `ChatResponse` → `ChatCompletionResponse` for the same reason as the input interface.
+    - `metadata` fields within `ChatRequest` and `ChatResponse` → `custom_inputs` and `custom_outputs`, respectively.
+  - **Streaming Updates**:
+    - `predict_stream` will be updated to enable true streaming for custom GenAI applications. Currently, it returns a generator with synchronous outputs from predict. In a future release, it will return a generator of `ChatCompletionChunks`, enabling asynchronous streaming. While the API call structure will remain the same, the returned data payload will change significantly, aligning with LangChain’s implementation.
+  - **Legacy Dataclass Deprecation**:
+    - Dataclasses in `mlflow.models.rag_signatures` will be deprecated, merging into unified `ChatCompletionRequest`, `ChatCompletionResponse`, and `ChatCompletionChunks`.
 
-### Major New Features
+Other Features:
 
-- **Fluent API Thread / Process Safety** - MLflow's fluent APIs for tracking and the model registry have been overhauled to add support for both thread and multi-process safety.
-  You are now no longer forced to use the Client APIs for managing experiments, runs, and logging from within multiprocessing and threaded applications. (#13456, #13419, @WeichenXu123)
-
-- **Broad Support for LLM-as-a-judge endpoints** - Prior to this release, MLflow's evaluate functionality for metrics that use an LLM to generate
-  metric scores was restricted to a restrictive list of providers (defaulted to use either `OpenAI` public APIs, `Databricks` endpoints, or `AzureOpenAI`
-  endpoints. (#13715, #13717, @B-Step62)
-
-  This restriction has been corrected to support:
-  - **OpenAI-compatible endpoints** - whether you're running a proxy to `OpenAI` or are creating a self-hosted LLM that conforms to the `OpenAI` specification
-    standards, you will now be able to define a `proxy_url` and specify `extra_headers` to pass along with your evaluation requests to use MLflow evaluate
-    to interface to whatever LLM you would like to use as a judge.
-  - **Additional Providers** - We now support using `Anthropic`, `Bedrock`, `Mistral`, and `TogetherAI` in addition to `OpenAI` for viable LLM interfaces for
-    judges. Custom proxy urls and headers are supported for these additional provider interfaces as well.
-
-- **Enhanced Trace UI** - From enhanced span content rendering using markdown to a standardized span component structure, MLflow's trace UI has undergone
-  a significant overhaul to bring usability and quality of life updates to the experience of auditing and investigating the contents of GenAI traces. (#13685, #13357, #13242, @daniellok-db)
-
-- **DSPy flavor** - MLflow now supports logging, loading, and tracing of `DSPy` models, broadening the support for advanced GenAI authoring within MLflow. (#13131, #13279, #13369, #13345, @chenmoneygithub), (#13543, @B-Step62)
-
-- **Detection of Environment Variable dependencies** - As a helpful reminder for when you are deploying models, MLflow will now record detected environment variables that are set
-  within your model logging environment and provider reminders to set these values when deploying. In addition to this, updates have been made to the pre-deployment validation
-  utility `mlflow.models.predict` to include required environment variables to the subprocess serving simulation to ensure that you can validate your model's deployment compatibility
-  prior to deployment. (#13584, @serena-ruan)
-
-Features:
-
-- [Evaluate] Add expanded support for additional LLM providers and custom endpoints for GenAI judge metrics. (#13715, #13717, @B-Step62)
 - [Evaluate] Add Huggingface BLEU metrics to MLflow Evaluate (#12799, @nebrass)
-- [Models] Add dspy flavor to MLflow (#13131, #13279, #13369, #13345, @chenmoneygithub)
-- [Models] Add tracing support for DSPy models (#13543, @B-Step62)
-- [Models] Add environment variable detection when logging models (#13584, @serena-ruan)
-- [Models] Add support for the new LlamaIndex `Workflow` API when logging (#13277, @B-Step62)
 - [Models / Databricks] Add support for `spark_udf` when running on Databricks Serverless runtime, Databricks connect, and prebuilt python environments (#13276, #13496, @WeichenXu123)
 - [Scoring] Add a `model_config` parameter for `pyfunc.spark_udf` for customization of batch inference payload submission (#13517, @WeichenXu123)
 - [Tracing] Standardize retriever span outputs to a list of MLflow `Document`s (#13242, @daniellok-db)
-- [Tracing] Add support for tracing OpenAI Swarm models (#13497, @B-Step62)
-- [Tracking] Make MLflow fluent APIs thread and process safe (#13456, #13419, @WeichenXu123)
-- [Tracking / Databricks] Add support for `resources` definitions for `Langchain` model logging (#13315, @sunishsheth2009)
-- [Tracking / Databricks] Add support for defining multiple retrievers within `dependencies` for Agent definitions (#13246, @sunishsheth2009)
-- [UI] Add significant updates to MLflow's tracing UI for enhanced content rendering and span structure display (#13685, #13357 @daniellok-db)
 - [UI] Add support for visualizing and comparing nested parameters within the MLflow UI (#13012, @jescalada)
 - [UI] Add support for comparing logged artifacts within the Compare Run page in the MLflow UI (#13145, @jescalada)
+- [Databricks] Add support for `resources` definitions for `Langchain` model logging (#13315, @sunishsheth2009)
+- [Databricks] Add support for defining multiple retrievers within `dependencies` for Agent definitions (#13246, @sunishsheth2009)
 
 Bug fixes:
 
 - [Database] Cascade deletes to datasets when deleting experiments to fix a bug in MLflow's `gc` command when deleting experiments with logged datasets (#13741, @daniellok-db)
 - [Models] Fix a bug with `Langchain`'s `pyfunc` predict input conversion (#13652, @serena-ruan)
-- [Models] Update Databricks dependency extraction to handle the partner package. (#13266, @B-Step62)
 - [Models] Fix signature inference for subclasses and `Optional` dataclasses that define a model's signature (#13440, @bbqiu)
 - [Tracking] Fix an issue with async logging batch splitting validation rules (#13722, @WeichenXu123)
 - [Tracking] Fix an issue with `LangChain`'s autologging thread-safety behavior (#13672, @B-Step62)
-- [Tracking] Fix a bug with tracing source run behavior when running inference with multithreading on `Langchain` models (#13610, @WeichenXu123)
 - [Tracking] Disable support for running spark autologging in a threadpool due to limitations in Spark (#13599, @WeichenXu123)
 - [Tracking] Mark `role` and `index` as required for chat schema (#13279, @chenmoneygithub)
+- [Tracing] Handle raw response in openai autolog (#13802, @harupy)
+- [Tracing] Fix a bug with tracing source run behavior when running inference with multithreading on `Langchain` models (#13610, @WeichenXu123)
+
 
 Documentation updates:
 
 - [Docs] Add docstring warnings for upcoming changes to ChatModel (#13730, @stevenchen-db)
+- [Docs] Add a contributor's guide for implementing tracing integrations (#13333, @B-Step62)
+- [Docs] Add guidance in the use of `model_config` when logging models as code (#13631, @sunishsheth2009)
 - [Docs] Add documentation for the use of custom library artifacts with the `code_paths` model logging feature (#13702, @TomeHirata)
 - [Docs] Improve `SparkML` `log_model` documentation with guidance on how return probabilities from classification models (#13684, @WeichenXu123)
-- [Docs] Add guidance in the use of `model_config` when logging models as code (#13631, @sunishsheth2009)
-- [Docs] Add documentation for the DSPy flavor (#13289, @michael-berk)
-- [Docs] Add a contributor's guide for implementing tracing integrations (#13333, @B-Step62)
-- [Docs] Add `run_id` parameter to the `search_trace` API (#13251, @B-Step62)
 
 Small bug fixes and documentation updates:
 
-#13744, #13699, #13742, #13703, #13669, #13682, #13569, #13563, #13562, #13539, #13537, #13533, #13408, #13295, @serena-ruan; #13768, #13764, #13761, #13738, #13737, #13735, #13734, #13723, #13726, #13662, #13692, #13689, #13688, #13680, #13674, #13666, #13661, #13625, #13460, #13626, #13546, #13621, #13623, #13603, #13617, #13614, #13606, #13600, #13583, #13601, #13602, #13604, #13598, #13596, #13597, #13531, #13594, #13589, #13581, #13112, #13587, #13582, #13579, #13578, #13545, #13572, #13571, #13564, #13559, #13565, #13558, #13541, #13560, #13556, #13534, #13386, #13532, #13385, #13384, #13383, #13507, #13523, #13518, #13492, #13493, #13487, #13490, #13488, #13449, #13471, #13417, #13445, #13430, #13448, #13443, #13429, #13418, #13412, #13382, #13402, #13381, #13364, #13356, #13309, #13313, #13334, #13331, #13273, #13322, #13319, #13308, #13302, #13268, #13298, #13296, @harupy; #13705, @williamjamir; #13632, @shichengzhou-db; #13755, #13712, #13260, @BenWilson2; #13745, #13743, #13697, #13548, #13549, #13577, #13349, #13351, #13350, #13342, #13341, @WeichenXu123; #13749, #13733, #13678, #13721, #13611, #13528, #13444, #13450, #13360, #13416, #13415, #13336, #13305, #13271, @B-Step62; #13708, @smurching; #13739, @fedorkobak; #13728, #13719, #13695, #13677, @TomeHirata; #13736, #13649, #13285, #13292, #13282, #13283, #13267, @daniellok-db; #13711, @bhavya2109sharma; #13693, #13658, @aravind-segu; #13553, @dsuhinin; #13663, @gitlijian; #13657, #13629, @parag-shendye; #13630, @JohannesJungbluth; #13613, @itepifanio; #13480, @agjendem; #13627, @ilyaresh; #13592, #13410, #13358, #13233, @nojaf; #13660, #13505, @sunishsheth2009; #13414, @lmoros-DB; #13399, @Abubakar17; #13390, @KekmaTime; #13291, @michael-berk; #12511, @jgiannuzzi; #13265, @Ahar28
+ #13775, #13768, #13764, #13744, #13699, #13742, #13703, #13669, #13682, #13569, #13563, #13562, #13539, #13537, #13533, #13408, #13295, @serena-ruan; #13768, #13764, #13761, #13738, #13737, #13735, #13734, #13723, #13726, #13662, #13692, #13689, #13688, #13680, #13674, #13666, #13661, #13625, #13460, #13626, #13546, #13621, #13623, #13603, #13617, #13614, #13606, #13600, #13583, #13601, #13602, #13604, #13598, #13596, #13597, #13531, #13594, #13589, #13581, #13112, #13587, #13582, #13579, #13578, #13545, #13572, #13571, #13564, #13559, #13565, #13558, #13541, #13560, #13556, #13534, #13386, #13532, #13385, #13384, #13383, #13507, #13523, #13518, #13492, #13493, #13487, #13490, #13488, #13449, #13471, #13417, #13445, #13430, #13448, #13443, #13429, #13418, #13412, #13382, #13402, #13381, #13364, #13356, #13309, #13313, #13334, #13331, #13273, #13322, #13319, #13308, #13302, #13268, #13298, #13296, @harupy; #13705, @williamjamir; #13632, @shichengzhou-db; #13755, #13712, #13260, @BenWilson2; #13745, #13743, #13697, #13548, #13549, #13577, #13349, #13351, #13350, #13342, #13341, @WeichenXu123; #13807, #13798, #13787, #13786, #13762, #13749, #13733, #13678, #13721, #13611, #13528, #13444, #13450, #13360, #13416, #13415, #13336, #13305, #13271, @B-Step62; #13808, #13708, @smurching; #13739, @fedorkobak; #13728, #13719, #13695, #13677, @TomeHirata; #13776, #13736, #13649, #13285, #13292, #13282, #13283, #13267, @daniellok-db; #13711, @bhavya2109sharma; #13693, #13658, @aravind-segu; #13553, @dsuhinin; #13663, @gitlijian; #13657, #13629, @parag-shendye; #13630, @JohannesJungbluth; #13613, @itepifanio; #13480, @agjendem; #13627, @ilyaresh; #13592, #13410, #13358, #13233, @nojaf; #13660, #13505, @sunishsheth2009; #13414, @lmoros-DB; #13399, @Abubakar17; #13390, @KekmaTime; #13291, @michael-berk; #12511, @jgiannuzzi; #13265, @Ahar28; #13785, @Rick-McCoy; #13676, @hyolim-e; #13718, @annzhang-db; #13705, @williamjamir
 
 ## 2.17.2 (2024-10-31)
 

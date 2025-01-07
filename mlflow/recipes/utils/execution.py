@@ -425,7 +425,7 @@ def _create_makefile(recipe_root_path, execution_directory_path, template) -> No
             if not os.path.exists(required_file_path):
                 try:
                     with open(required_file_path, "w") as f:
-                        f.write("# Created by MLflow Pipeliens\n")
+                        f.write("# Created by MLflow Pipelines\n")
                 except OSError:
                     pass
             if not os.path.exists(required_file_path):

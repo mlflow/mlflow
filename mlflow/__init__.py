@@ -40,6 +40,7 @@ from mlflow import (
     exceptions,  # noqa: F401
     models,  # noqa: F401
     projects,  # noqa: F401
+    tracing,  # noqa: F401
     tracking,  # noqa: F401
 )
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
@@ -47,17 +48,22 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
+bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
+crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
-gluon = LazyLoader("mlflow.gluon", globals(), "mlflow.gluon")
+gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
+groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
+litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
@@ -119,6 +125,7 @@ from mlflow.tracing.fluent import (
     search_traces,
     start_span,
     trace,
+    update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -239,6 +246,7 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "update_current_trace",
 ]
 
 

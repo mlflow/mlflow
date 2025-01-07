@@ -574,6 +574,9 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
+    def _is_signature_from_type_hint(self):
+        return self.signature._is_signature_from_type_hint if self.signature is not None else False
+
     def get_model_info(self) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -622,6 +625,7 @@ class Model:
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
+            res["is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
@@ -714,7 +718,12 @@ class Model:
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
-            model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+            signature = ModelSignature.from_dict(model_dict["signature"])
+            if "is_signature_from_type_hint" in model_dict:
+                signature._is_signature_from_type_hint = model_dict.pop(
+                    "is_signature_from_type_hint"
+                )
+            model_dict["signature"] = signature
 
         if "model_uuid" not in model_dict:
             model_dict["model_uuid"] = None
@@ -788,9 +797,11 @@ class Model:
             # fallback when not provided by user, which is set during flavor's save_model() call.
             if mlflow_model.signature is None:
                 if serving_input is None:
-                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                    _logger.warning(
+                        _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
+                    )
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
-                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"})
 
             env_vars = None
             # validate input example works for serving when logging the model
@@ -895,6 +906,11 @@ class Model:
             model_info = mlflow_model.get_model_info()
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
+
+        # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
+        from mlflow.models.display_utils import maybe_render_agent_eval_recipe
+
+        maybe_render_agent_eval_recipe(model_info)
 
         return model_info
 
@@ -1116,9 +1132,20 @@ __mlflow_model__ = None
 
 
 def _validate_langchain_model(model):
-    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    from langchain_core.runnables.base import Runnable
 
-    return _validate_and_prepare_lc_model_or_path(model, None)
+    from mlflow.models.utils import _validate_and_get_model_code_path
+
+    if isinstance(model, str):
+        return _validate_and_get_model_code_path(model, None)
+
+    if not isinstance(model, Runnable):
+        raise MlflowException.invalid_parameter_value(
+            "Model must be a Langchain Runnable type or path to a Langchain model, "
+            f"got {type(model)}"
+        )
+
+    return model
 
 
 def _validate_llama_index_model(model):

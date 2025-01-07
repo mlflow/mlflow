@@ -122,6 +122,21 @@ def test_trace_llm_complete_stream():
     assert attr["model_dict"]["model"] == model_name
 
 
+def _get_llm_input_content_json(content):
+    if Version(llama_index.core.__version__) >= Version("0.12.5"):
+        # in llama-index >= 0.12.5, the input content json format is changed to
+        # {"blocks": {"block_type": "text", "text": <content>} }
+        return {
+            "blocks": [
+                {
+                    "block_type": "text",
+                    "text": content,
+                }
+            ]
+        }
+    return {"content": content}
+
+
 @pytest.mark.parametrize("is_async", [True, False])
 def test_trace_llm_chat(is_async):
     llm = OpenAI()
@@ -139,19 +154,22 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+
+    content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
-        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
+        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}]
     }
-    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
         if llama_oai_version >= Version("0.1.30")
         else {}
     )
+    output_content_json = _get_llm_input_content_json('[{"role": "system", "content": "Hello"}]')
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
-            "content": '[{"role": "system", "content": "Hello"}]',
+            **output_content_json,
             "additional_kwargs": {},
         },
         "raw": ANY,
@@ -197,19 +215,22 @@ def test_trace_llm_chat_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+
+    content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
-        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
+        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}]
     }
-    # `addtional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
+    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
         {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
         if llama_oai_version >= Version("0.1.30")
         else {}
     )
+    output_content_json = _get_llm_input_content_json("Hello world")
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
-            "content": "Hello world",
+            **output_content_json,
             "additional_kwargs": {},
         },
         "raw": ANY,
@@ -288,7 +309,12 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[0].span_type == SpanType.RETRIEVER
     assert spans[0].inputs == {"str_or_query_bundle": "apple"}
     assert len(spans[0].outputs) == 1
-    assert spans[0].outputs[0]["page_content"] == retrieved[0].text
+
+    if Version(llama_index.core.__version__) >= Version("0.12.5"):
+        retrieved_text = retrieved[0].node.text
+    else:
+        retrieved_text = retrieved[0].text
+    assert spans[0].outputs[0]["page_content"] == retrieved_text
 
     assert spans[1].name.startswith("VectorIndexRetriever")
     assert spans[1].span_type == SpanType.RETRIEVER
@@ -448,11 +474,6 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
 
 
 @pytest.mark.skipif(
-    llama_core_version >= Version("0.11.10"),
-    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
-    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
-)
-@pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
@@ -474,11 +495,6 @@ async def test_tracer_simple_workflow():
     assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
 
 
-@pytest.mark.skipif(
-    llama_core_version >= Version("0.11.10"),
-    reason="Workflow tracing does not work correctly in >= 0.11.10 until "
-    "https://github.com/run-llama/llama_index/issues/16283 is fixed",
-)
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -537,3 +553,78 @@ async def test_tracer_parallel_workflow():
     root_span = traces[0].data.spans[0]
     assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
     assert root_span.outputs == "apple, banana, grape, orange"
+
+
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_parallel_workflow_with_custom_spans():
+    from llama_index.core.workflow import (
+        Context,
+        Event,
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
+
+    class ProcessEvent(Event):
+        data: str
+
+    class ResultEvent(Event):
+        result: str
+
+    class ParallelWorkflow(Workflow):
+        @step
+        async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
+            await ctx.set("num_to_collect", len(ev.inputs))
+            for item in ev.inputs:
+                ctx.send_event(ProcessEvent(data=item))
+            return None
+
+        @step(num_workers=3)
+        async def process_data(self, ev: ProcessEvent) -> ResultEvent:
+            # Simulate some time-consuming processing
+            await asyncio.sleep(random.randint(1, 2))
+            with mlflow.start_span(name="custom_inner_span_worker"):
+                pass
+            return ResultEvent(result=ev.data)
+
+        @step
+        async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
+            num_to_collect = await ctx.get("num_to_collect")
+            results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
+            if results is None:
+                return None
+
+            with mlflow.start_span(name="custom_inner_result_span") as span:
+                span.set_inputs(results)
+                combined_result = ", ".join(sorted([event.result for event in results]))
+                span.set_outputs(combined_result)
+            return StopEvent(result=combined_result)
+
+    w = ParallelWorkflow()
+    inputs = ["apple", "grape", "orange", "banana"]
+
+    result = await w.run(inputs=inputs)
+    assert result == "apple, banana, grape, orange"
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
+
+    workflow_span = spans[0]
+    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
+    assert workflow_span.outputs == result
+
+    inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
+    assert len(inner_worker_spans) == len(inputs)
+
+    inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
+    assert inner_result_span.inputs is not None
+    assert inner_result_span.outputs == result

@@ -97,7 +97,7 @@ class MetricDefinition:
                     f"{exception_header} must return MetricValue with justifications as a list."
                 )
                 return
-            if any(not (_is_string(jus) or jus is None) for jus in justifications):
+            if any(not (_is_string(just) or just is None) for just in justifications):
                 _logger.warning(
                     f"{exception_header} must return MetricValue with string justifications."
                 )

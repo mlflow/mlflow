@@ -1,5 +1,6 @@
 import base64
 import json
+from functools import lru_cache
 
 import requests
 
@@ -87,23 +88,14 @@ def http_request(
     url = f"{cleaned_hostname}{endpoint}"
 
     if host_creds.use_databricks_sdk:
-        from databricks.sdk import WorkspaceClient
-        from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        if host_creds.use_secret_scope_token:
-            config = Config(
-                host=host_creds.host,
-                token=host_creds.token,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        else:
-            config = Config(
-                profile=host_creds.databricks_auth_profile,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
-        ws_client = WorkspaceClient(config=config)
+        ws_client = get_workspace_client(
+            host_creds.use_secret_scope_token,
+            host_creds.host,
+            host_creds.token,
+            host_creds.databricks_auth_profile,
+        )
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -210,6 +202,23 @@ def http_request(
         raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
+
+
+@lru_cache(maxsize=1)
+def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
+
+    if use_secret_scope_token:
+        kwargs = {"host": host, "token": token}
+    else:
+        kwargs = {"profile": databricks_auth_profile}
+    config = Config(
+        **kwargs,
+        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+    )
+    # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+    return WorkspaceClient(config=config)
 
 
 def _can_parse_as_json_object(string):

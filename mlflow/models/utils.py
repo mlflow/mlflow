@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -25,12 +26,14 @@ from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
+    _is_none_or_nan,
     clean_tensor_type,
 )
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.proto_json_utils import (
@@ -300,6 +303,11 @@ class _Example:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
         model_input = deepcopy(self._inference_data)
 
+        if isinstance(model_input, pydantic.BaseModel):
+            model_input = (
+                model_input.model_dump() if IS_PYDANTIC_V2_OR_NEWER else model_input.dict()
+            )
+
         is_unified_llm_input = False
         if isinstance(model_input, dict):
             """
@@ -382,6 +390,7 @@ class _Example:
                 "- list\n"
                 "- scalars\n"
                 "- datetime.datetime\n"
+                "- pydantic model instance\n"
                 f"but got '{type(model_input)}'",
             )
 
@@ -546,7 +555,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
 
 def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
     """
-    Load serving input exaple from a model directory. Returns None if there is no serving input
+    Load serving input example from a model directory. Returns None if there is no serving input
     example.
 
     Args:
@@ -853,6 +862,74 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             f"Incompatible input types for column {name}. "
             f"Can not safely convert {values.dtype} to {numpy_type}.{hint}"
         )
+
+
+# dtype -> possible value types mapping
+_ALLOWED_CONVERSIONS_FOR_PARAMS = {
+    DataType.long: (DataType.integer,),
+    DataType.float: (DataType.integer, DataType.long),
+    DataType.double: (DataType.integer, DataType.long, DataType.float),
+}
+
+
+def _enforce_param_datatype(value: Any, dtype: DataType):
+    """
+    Enforce the value matches the data type. This is used to enforce params datatype.
+    The returned data is of python built-in type or a datetime object.
+
+    The following type conversions are allowed:
+
+    1. int -> long, float, double
+    2. long -> float, double
+    3. float -> double
+    4. any -> datetime (try conversion)
+
+    Any other type mismatch will raise error.
+
+    Args:
+        value: parameter value
+        dtype: expected data type
+    """
+    if value is None:
+        return
+
+    if dtype == DataType.datetime:
+        try:
+            datetime_value = np.datetime64(value).item()
+            if isinstance(datetime_value, int):
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to convert value to `{dtype}`. "
+                    f"It must be convertible to datetime.date/datetime, got `{value}`"
+                )
+            return datetime_value
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    # Note that np.isscalar(datetime.date(...)) is False
+    if not np.isscalar(value):
+        raise MlflowException.invalid_parameter_value(
+            f"Value must be a scalar for type `{dtype}`, got `{value}`"
+        )
+
+    # Always convert to python native type for params
+    if DataType.check_type(dtype, value):
+        return dtype.to_python()(value)
+
+    if dtype in _ALLOWED_CONVERSIONS_FOR_PARAMS and any(
+        DataType.check_type(t, value) for t in _ALLOWED_CONVERSIONS_FOR_PARAMS[dtype]
+    ):
+        try:
+            return dtype.to_python()(value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    raise MlflowException.invalid_parameter_value(
+        f"Can not safely convert `{type(value)}` to `{dtype}` for value `{value}`"
+    )
 
 
 def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
@@ -1163,6 +1240,11 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
             if extra_cols:
                 message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
+        if extra_cols:
+            _logger.warning(
+                "Found extra inputs in the model input that are not defined in the model "
+                f"signature: `{extra_cols}`. These inputs will be ignored."
+            )
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pf_input.columns)
@@ -1226,7 +1308,7 @@ def _enforce_pyspark_dataframe_schema(
     columns_not_dropped_for_feature_store_model = []
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
-            # to support backwards compatability with feature store models
+            # to support backwards compatibility with feature store models
             if any(x in dtype for x in ["array", "map", "struct"]):
                 if flavor == _FEATURE_STORE_FLAVOR:
                     columns_not_dropped_for_feature_store_model.append(col)
@@ -1242,7 +1324,7 @@ def _enforce_pyspark_dataframe_schema(
 
 
 def _enforce_datatype(data: Any, dtype: DataType, required=True):
-    if not required and data is None:
+    if not required and _is_none_or_nan(data):
         return None
 
     if not isinstance(dtype, DataType):
@@ -1260,14 +1342,20 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     return pd_series[0]
 
 
-def _enforce_array(data: Any, arr: Array, required=True):
-    if not required and data is None:
-        return None
+def _enforce_array(data: Any, arr: Array, required: bool = True):
+    """
+    Enforce data against an Array type.
+    If the field is required, then the data must be provided.
+    If Array's internal dtype is AnyType, then None and empty lists are also accepted.
+    """
+    if not required or isinstance(arr.dtype, AnyType):
+        if data is None or (isinstance(data, (list, np.ndarray)) and len(data) == 0):
+            return data
 
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [_enforce_type(x, arr.dtype) for x in data]
+    data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     # Keep input data type
     if isinstance(data, np.ndarray):
@@ -1277,14 +1365,14 @@ def _enforce_array(data: Any, arr: Array, required=True):
 
 
 def _enforce_property(data: Any, property: Property):
-    return _enforce_type(data, property.dtype)
+    return _enforce_type(data, property.dtype, required=property.required)
 
 
-def _enforce_object(data: dict[str, Any], obj: Object, required=True):
-    if not required and data is None:
-        return None
+def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
     if HAS_PYSPARK and isinstance(data, Row):
-        data = data.asDict(True)
+        data = None if len(data) == 0 else data.asDict(True)
+    if not required and (data is None or data == {}):
+        return data
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
@@ -1316,9 +1404,9 @@ def _enforce_object(data: dict[str, Any], obj: Object, required=True):
     return data
 
 
-def _enforce_map(data: Any, map_type: Map, required=True):
-    if not required and data is None:
-        return None
+def _enforce_map(data: Any, map_type: Map, required: bool = True):
+    if (not required or isinstance(map_type.value_type, AnyType)) and (data is None or data == {}):
+        return data
 
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
@@ -1326,7 +1414,7 @@ def _enforce_map(data: Any, map_type: Map, required=True):
     if not all(isinstance(k, str) for k in data):
         raise MlflowException("Expected all keys in the map type data are string type.")
 
-    return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
+    return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
 def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
@@ -1338,6 +1426,8 @@ def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], req
         return _enforce_object(data, data_type, required=required)
     if isinstance(data_type, Map):
         return _enforce_map(data, data_type, required=required)
+    if isinstance(data_type, AnyType):
+        return data
     raise MlflowException(f"Invalid data type: {data_type!r}")
 
 

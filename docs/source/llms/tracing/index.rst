@@ -1,11 +1,17 @@
 .. meta::
   :description: MLflow Tracing is a feature that enables LLM observability in your apps. MLflow automatically logs traces for LangChain, LlamaIndex, and more.
 
-Introduction to MLflow Tracing
-==============================
+MLflow Tracing for LLM Observability
+====================================
 
-.. note::
-    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
+**MLflow Tracing** is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
+Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
+
+.. figure:: ../../_static/images/llms/tracing/tracing-top.gif
+    :alt: Tracing Gateway Video
+    :width: 95%
+    :align: center
+
 
 .. raw:: html
 
@@ -43,14 +49,46 @@ Introduction to MLflow Tracing
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
-                    <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                    <img src="../../_static/images/logos/autogen-logo.png" alt="AutoGen Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/google-gemini-logo.svg" alt="Gemini Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/litellm-logo.jpg" alt="LiteLLM Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/crewai-logo.png" alt="CrewAI Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/ollama-logo.png" alt="Ollama Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/groq-logo.svg" alt="Groq Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
     </section>
 
-
-MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
-Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
@@ -59,13 +97,10 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
 
-To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
-
-To explore the structure and schema of MLflow Tracing, please see the `Tracing Schema <./tracing-schema.html>`_ guide.
+If you are new to the tracing or observability concepts, we recommend starting with the `Tracing Concepts Overview <./overview.html>`_ guide.
 
 .. note::
-    MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release 
-    do not contain the full set of features that are required for trace logging support.
+    MLflow Tracing support is available with the **MLflow 2.14.0** release.
 
 .. contents:: Table of Contents
     :local:
@@ -111,53 +146,32 @@ for model/API invocations to the active MLflow Experiment.
 
             .. code-block:: shell
 
-                pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-community==0.2.1 mlflow==2.14.0 tiktoken==0.7.0
+                pip install mlflow==2.18.0 langchain==0.3.0 langchain-openai==0.2.9
 
 
         .. code-block:: python
 
+            import mlflow
             import os
 
             from langchain.prompts import PromptTemplate
-            from langchain_openai import OpenAI
+            from langchain_core.output_parsers import StrOutputParser
+            from langchain_openai import ChatOpenAI
 
-            import mlflow
-
-            assert (
-                "OPENAI_API_KEY" in os.environ
-            ), "Please set your OPENAI_API_KEY environment variable."
-
-            # Using a local MLflow tracking server
-            mlflow.set_tracking_uri("http://localhost:5000")
-
-            # Create a new experiment that the model and the traces will be logged to
             mlflow.set_experiment("LangChain Tracing")
 
-            # Enable LangChain autologging
-            # Note that models and examples are not required to be logged in order to log traces.
-            # Simply enabling autolog for LangChain via mlflow.langchain.autolog() will enable trace logging.
-            mlflow.langchain.autolog(log_models=True, log_input_examples=True)
+            # Enabling autolog for LangChain will enable trace logging.
+            mlflow.langchain.autolog()
 
-            llm = OpenAI(temperature=0.7, max_tokens=1000)
+            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=1000)
 
-            prompt_template = (
-                "Imagine that you are {person}, and you are embodying their manner of answering questions posed to them. "
-                "While answering, attempt to mirror their conversational style, their wit, and the habits of their speech "
-                "and prose. You will emulate them as best that you can, attempting to distill their quirks, personality, "
-                "and habits of engagement to the best of your ability. Feel free to fully embrace their personality, whether "
-                "aspects of it are not guaranteed to be productive or entirely constructive or inoffensive."
-                "The question you are asked, to which you will reply as that person, is: {question}"
+            prompt_template = PromptTemplate.from_template(
+                "Answer the question as if you are {person}, fully embodying their style, wit, personality, and habits of speech. "
+                "Emulate their quirks and mannerisms to the best of your ability, embracing their traits—even if they aren't entirely "
+                "constructive or inoffensive. The question is: {question}"
             )
 
-            chain = prompt_template | llm
-
-            # Test the chain
-            chain.invoke(
-                {
-                    "person": "Richard Feynman",
-                    "question": "Why should we colonize Mars instead of Venus?",
-                }
-            )
+            chain = prompt_template | llm | StrOutputParser()
 
             # Let's test another call
             chain.invoke(
@@ -167,17 +181,13 @@ for model/API invocations to the active MLflow Experiment.
                 }
             )
 
+        If we navigate to the MLflow UI, we can see not only the model that has been auto-logged, but the traces as well, as shown in the video above.
 
-        If we navigate to the MLflow UI, we can see not only the model that has been auto-logged, but the traces as well, as shown in the below video:
 
-        .. figure:: ../../_static/images/llms/tracing/langchain-tracing.gif
+        .. figure:: ../../_static/images/llms/tracing/langchain-tracing.png
             :alt: LangChain Tracing via autolog
             :width: 100%
             :align: center
-
-        .. note::
-            The example above is purposely simple (a simple chat completions demonstration) for purposes of brevity. In real-world scenarios involving complex 
-            RAG chains, the trace that is recorded by MLflow will be significantly more complex and verbose. 
 
 
     .. tab:: OpenAI
@@ -188,7 +198,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
+        The `MLflow OpenAI flavor <../openai/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
         usage of the OpenAI SDK will automatically record generated traces during interactive development. 
 
         .. code-block:: python
@@ -245,7 +255,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow OpenAI flavor supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
+        The `MLflow OpenAI flavor <../openai/index.html>`_ supports automatic tracing for `Swarm <https://github.com/openai/swarm>`_, a multi-agent orchestration
         framework from OpenAI. To enable tracing for **Swarm**, just call :py:func:`mlflow.openai.autolog`
         before running your multi-agent interactions. MLflow will trace all LLM interactions,
         tool calls, and agent operations automatically.
@@ -300,6 +310,104 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Ollama
+
+        .. raw:: html
+
+            <h3>Ollama Automatic Tracing</h3>
+
+        |
+
+        `Ollama <https://github.com/ollama/ollama>`_ is an open-source platform that enables users to run large language models (LLMs) locally on their devices, such as Llama 3.2, Gemma 2, Mistral, Code Llama, and more.
+
+        Since the local LLM endpoint served by Ollama is compatible with the OpenAI API, you can query it via OpenAI SDK and enable tracing for Ollama with :py:func:`mlflow.openai.autolog`. Any LLM interactions via Ollama will be recorded to the active MLflow Experiment.
+
+        1. Run the Ollama server with the desired LLM model.
+
+        .. code-block:: bash
+
+            ollama run llama3.2:1b
+
+        2. Enable auto-tracing for OpenAI SDK.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Ollama")
+
+        3. Query the LLM and see the traces in the MLflow UI.
+
+        .. code-block:: python
+
+            from openai import OpenAI
+
+            client = OpenAI(
+                base_url="http://localhost:11434/v1",  # The local Ollama REST endpoint
+                api_key="dummy",  # Required to instantiate OpenAI client, it can be a random string
+            )
+
+            response = client.chat.completions.create(
+                model="llama3.2:1b",
+                messages=[
+                    {"role": "system", "content": "You are a science teacher."},
+                    {"role": "user", "content": "Why is the sky blue?"},
+                ],
+            )
+
+        .. figure:: ../../_static/images/llms/tracing/ollama-tracing.png
+            :alt: Ollama Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Instructor
+
+        .. raw:: html
+
+            <h3>Instructor Automatic Tracing</h3>
+
+        |
+
+        `Instructor <https://python.useinstructor.com>`_ is an open-source Python library built on top of Pydantic, simplifying structured LLM outputs with validation, retries, and streaming.
+
+        MLflow Tracing works with Instructor by enabling auto-tracing for the underlying LLM libraries.
+        For example, if you use Instructor for OpenAI LLMs, you can enable tracing with :py:func:`mlflow.openai.autolog` and the generated traces will capture the structured outputs from Instructor.
+
+        Similarly, you can also trace Instructor with other LLM providers, such as Anthropic, Gemini, and LiteLLM, by enabling the corresponding autologging in MLflow.
+
+        .. code-block:: python
+
+            import instructor
+            from pydantic import BaseModel
+            from openai import OpenAI
+
+            # Use other autologging function e.g., mlflow.anthropic.autolog() if you are using Instructor with different LLM providers
+            mlflow.openai.autolog()
+
+            # Optional, create an experiment to store traces
+            mlflow.set_experiment("Instructor")
+
+
+            # Use Instructor as usual
+            class ExtractUser(BaseModel):
+                name: str
+                age: int
+
+
+            client = instructor.from_openai(OpenAI())
+
+            res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                response_model=ExtractUser,
+                messages=[{"role": "user", "content": "John Doe is 30 years old."}],
+            )
+            print(f"Name: {res.name}, Age:{res.age}")
+
+        .. figure:: ../../_static/images/llms/tracing/instructor-tracing.png
+
     .. tab:: LlamaIndex
 
         .. raw:: html
@@ -308,7 +416,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
+        The `MLflow LlamaIndex flavor <../llama-index/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
         such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
 
         .. code-block:: python
@@ -333,7 +441,7 @@ for model/API invocations to the active MLflow Experiment.
 
         |
 
-        The MLflow DSPy flavor's autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
+        The `MLflow DSPy flavor <../dspy/index.html>`_'s autologging feature has a direct integration with MLflow tracing. When DSPy autologging is enabled with :py:func:`mlflow.dspy.autolog`, invocation of components
         such as LMs, Adapters and Modules, will automatically record generated traces during interactive development.
 
         .. code-block:: python
@@ -407,6 +515,172 @@ for model/API invocations to the active MLflow Experiment.
             :alt: AutoGen Tracing
             :width: 100%
             :align: center
+
+    .. tab:: Gemini
+
+        .. raw:: html
+
+            <h3>Gemini Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your interactions with Gemini AI models.
+        When Gemini autologging is enabled with :py:func:`mlflow.gemini.autolog`, 
+        usage of the Gemini SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported. Asynchronous API is not traced, and full inputs cannnot be recorded for multi-modal inputs.
+
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.gemini.autolog()
+
+        To see the full example of tracing Gemini, please refer to the `Gemini Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/gemini/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/gemini/gemini-tracing.png
+            :alt: Gemini Tracing
+            :width: 100%
+            :align: center
+
+
+    .. tab:: LiteLLM
+
+        .. raw:: html
+
+            <h3>LiteLLM Automatic Tracing</h3>
+
+        |
+
+        LiteLLM allows developers to call all LLM APIs using the OpenAI format. MLflow support auto-tracing for LiteLLM. You can enable it by calling :py:func:`mlflow.litellm.autolog`, then any LLM interactions via LiteLLM will be recorded to the active MLflow Experiment, including various metadata such as token usage, cost, cache hit, and more.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.litellm.autolog()
+
+            # Call Anthropic API via LiteLLM
+            response = litellm.completion(
+                model="claude-3-opus-20240229",
+                messages=[{"role": "system", "content": "Hey! how's it going?"}],
+            )
+
+        .. figure:: ../../_static/images/llms/litellm/litellm-tracing.png
+            :alt: LiteLLM Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Anthropic
+
+        .. raw:: html
+
+            <h3>Anthropic Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with Anthropic AI models.
+        When Anthropic autologging is enabled with :py:func:`mlflow.anthropic.autolog`,
+        usage of the Anthropic SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls for text interactions are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.anthropic.autolog()
+
+        To see the full example of tracing Anthropic, please refer to the `Anthropic Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/anthropic/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/anthropic/anthropic-tracing.png
+            :alt: Anthropic Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: CrewAI
+
+        .. raw:: html
+
+            <h3>CrewAI Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for the interactions of CrewAI agents.
+        When CrewAI autologging is enabled with :py:func:`mlflow.crewai.autolog`, 
+        traces are generated for the usage of the CrewAI framework.
+        Note that asynchronous task and kickoff are not supported now.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.crewai.autolog()
+
+        To see the full example of tracing CrewAI, please refer to the `CrewAI Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/crewai/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/crewai/crewai-trace.png
+            :alt: CrewAI Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Groq
+
+        .. raw:: html
+
+            <h3>Groq Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with Groq AI models.
+        When Groq autologging is enabled with :py:func:`mlflow.groq.autolog`,
+        usage of the Groq SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.groq.autolog()
+
+        To see the full example of tracing Groq, please refer to the `Groq Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/groq/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/groq/groq-tracing.png
+            :alt: Groq Tracing
+            :width: 100%
+            :align: center
+
+
+Jupyter Notebook integration
+----------------------------
+
+.. note::
+    Jupyter integration is available in **MLflow 2.20 and above**
+
+The trace UI is also available within Jupyter notebooks! 
+
+.. figure:: ../../_static/images/llms/tracing/jupyter-trace-ui.png
+    :alt: MLflow Trace UI in Jupyter Notebook
+    :width: 80%
+    :align: center
+
+This feature requires using an `MLflow Tracking Server <../../tracking/server.html>`_, as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. ``mlflow.set_tracking_uri("http://localhost:5000")``).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via  `automatic tracing <#automatic-tracing>`_, or by running a manually traced function)
+2. When :py:func:`mlflow.search_traces` is called
+3. When a :py:class:`mlflow.entities.Trace` object is displayed (e.g. via IPython's ``display`` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call :py:func:`mlflow.tracing.disable_notebook_display`, and rerun the cell
+containing the UI. To enable it again, call :py:func:`mlflow.tracing.enable_notebook_display`.
+
+For a more complete example, try running this `demo notebook <./notebooks/jupyter-trace-demo.html>`_!
 
 
 Tracing Fluent APIs
@@ -494,32 +768,20 @@ metadata associated with any span (start time, end time, status, etc):
 - **Response**: The output of the function is also captured, in this case the result of the addition and subtraction operations.
 - **Trace Name**: The name of the decorated function.
 
-.. figure:: ../../_static/images/llms/tracing/trace-demo-1.png
-    :alt: Trace UI - simple use case
-    :width: 100%
-    :align: center
-
 Error Handling with Traces
 ##########################
 
 If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not 
 successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included 
-within the ``events`` attribute of the partially completed span, further aiding the identification of where issues are occuring within your code. 
+within ``Events`` of the partially completed span, further aiding the identification of where issues are occurring within your code. 
 
-An example of a trace that has been recorded from code that raised an Exception is shown below:
-
-.. code-block:: python
-
-    # This will raise an AttributeError exception
-    do_math(3, 2, "multiply")
-
-.. figure:: ../../_static/images/llms/tracing/trace-error.png
+.. figure:: ../../_static/images/llms/tracing/trace-exception.gif
     :alt: Trace Error
     :width: 100%
     :align: center
 
-How to handle parent-child relationships
-########################################
+Parent-child relationships
+##########################
 
 When using the trace decorator, each decorated function will be treated as a separate span within the trace. The relationship between dependent function calls 
 is handled directly through the native call excecution order within Python. For example, the following code will introduce two "child" spans to the main 
@@ -550,9 +812,9 @@ parent span, all using decorators.
 
 If we look at this trace from within the MLflow UI, we can see the relationship of the call order shown in the structure of the trace. 
 
-.. figure:: ../../_static/images/llms/tracing/trace-decorator.gif
+.. figure:: ../../_static/images/llms/tracing/trace-decorator.png
     :alt: Trace Decorator
-    :width: 100%
+    :width: 80%
     :align: center
 
 
@@ -730,9 +992,9 @@ capture its inputs, outputs, and execution context.
     for i in range(8):
         invocation(i)
 
-The video below shows our external function wrapping runs within the MLflow UI. Note that 
+The screenshot below shows our external function wrapping runs within the MLflow UI. 
 
-.. figure:: ../../_static/images/llms/tracing/external-trace.gif
+.. figure:: ../../_static/images/llms/tracing/external-trace.png
     :alt: External Function tracing
     :width: 100%
     :align: center
@@ -740,6 +1002,10 @@ The video below shows our external function wrapping runs within the MLflow UI. 
 
 Tracing Client APIs
 -------------------
+
+.. note::
+
+    Client APIs are advanced features. We recommend using the client APIs only when you have specific requirements that are not met by the other APIs.
 
 The MLflow client API provides a comprehensive set of thread-safe methods for manually managing traces. These APIs allow for fine-grained 
 control over tracing, enabling you to create, manipulate, and retrieve traces programmatically. This section will cover how to use these APIs 
@@ -829,64 +1095,12 @@ spans are properly ended.
 Searching and Retrieving Traces
 -------------------------------
 
-Searching for Traces
-^^^^^^^^^^^^^^^^^^^^
+You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method or the fluent API :py:func:`mlflow.search_traces`. 
+See `Searching and Retrieving Traces <./search-traces.html>`_ for the usages of these APIs.
 
-You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method. This method allows you to filter traces by experiment IDs, 
-filter strings, and other parameters.
-
-.. code-block:: python
-
-    # Search for traces in specific experiments
-    traces = client.search_traces(
-        experiment_ids=["1", "2"],
-        filter_string="attributes.status = 'OK'",
-        max_results=5,
-    )
-
-Alternatively, you can use fluent API :py:func:`mlflow.search_traces` to search for traces, which returns a pandas DataFrame with each row containing a trace. 
-This method allows you to specify fields to extract from traces using the format ``"span_name.[inputs|outputs]"`` or ``"span_name.[inputs|outputs].field_name"``.
-The extracted fields are included as extra columns in the pandas DataFrame. This feature can be used to build evaluation datasets to further improve model and agent performance.
-
-.. code-block:: python
-
-    import mlflow
-
-    with mlflow.start_span(name="span1") as span:
-        span.set_inputs({"a": 1, "b": 2})
-        span.set_outputs({"c": 3, "d": 4})
-
-    # Search for traces with specific fields extracted
-    traces = mlflow.search_traces(
-        extract_fields=["span1.inputs", "span1.outputs.c"],
-    )
-
-    print(traces)
-
-This outputs:
-
-.. code-block:: text
-
-        request_id                              ...     span1.inputs        span1.outputs.c
-    0   tr-97c4ef97c21f4348a5698f069c1320f1     ...     {'a': 1, 'b': 2}    3.0
-    1   tr-4dc3cd5567764499b5532e3af61b9f78     ...     {'a': 1, 'b': 2}    3.0
-
-
-Retrieving a Specific Trace
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To retrieve a specific trace by its request ID, use the :py:meth:`mlflow.client.MlflowClient.get_trace` method. This method returns the trace object corresponding to the given request ID.
-
-.. code-block:: python
-
-    # Retrieve a trace by request ID
-    trace = client.get_trace(request_id="12345678")
-
-Managing Trace Data
--------------------
 
 Deleting Traces
-^^^^^^^^^^^^^^^
+---------------
 
 You can delete traces based on specific criteria using the :py:meth:`mlflow.client.MlflowClient.delete_traces` method. This method allows you to delete traces by **experiment ID**,
 **maximum timestamp**, or **request IDs**.
@@ -907,19 +1121,80 @@ You can delete traces based on specific criteria using the :py:meth:`mlflow.clie
         experiment_id="1", max_timestamp_millis=current_time, max_traces=10
     )
 
-Setting and Deleting Trace Tags
+Data Model and Schema
+---------------------
+
+To explore the structure and schema of MLflow Tracing, please see the `Tracing Schema <./tracing-schema.html>`_ guide.
+
+
+Trace Tags
+----------
+
+Tags can be added to traces to provide additional metadata at the trace level. For example, you can attach a session ID to a trace to group traces by a conversation session. MLflow provides APIs to set and delete tags on traces. Select the right API based on whether you want to set tags on an active trace or on an already finished trace.
+
+
+.. list-table::
+    :header-rows: 1
+
+    * - API / Method
+      - Use Case
+
+    * - :py:func:`mlflow.update_current_trace` API.
+      - Setting tags on an **active** trace during the code execution.
+    * - :py:meth:`mlflow.client.MlflowClient.set_trace_tag` API
+      - Programmatically setting tags on a finished trace.
+    * - MLflow UI
+      - Setting tags on a finished trace conveniently.
+
+
+Setting Tags on an Active Trace
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Tags can be added to traces to provide additional metadata. Use the :py:meth:`mlflow.client.MlflowClient.set_trace_tag` method to set a tag on a trace, 
+If you are using automatic tracing or fluent APIs to create traces and want to add tags to the trace during its execution, you can use the :py:func:`mlflow.update_current_trace` function.
+
+For example, the following code example adds the ``"fruit": "apple"`` tag to the trace created for the ``my_func`` function:
+
+.. code-block:: python
+
+    @mlflow.trace
+    def my_func(x):
+        mlflow.update_current_trace(tags={"fruit": "apple"})
+        return x + 1
+
+
+.. note::
+
+    The ::py:func:`mlflow.update_current_trace` function adds the specified tag(s) to the current trace when the key is not already present. If the key is already present, it updates the key with the new value.
+
+
+Setting Tags on a Finished Trace
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To set tags on a trace that has already been completed and logged in the backend store, use the :py:meth:`mlflow.client.MlflowClient.set_trace_tag` method to set a tag on a trace, 
 and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove a tag from a trace.
 
 .. code-block:: python
 
+    # Get the request ID fof the most recently created trace
+    trace = mlflow.get_last_active_trace()
+    request_id = trace.info.request_id
+
     # Set a tag on a trace
-    client.set_trace_tag(request_id="12345678", key="tag_key", value="tag_value")
+    client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
 
     # Delete a tag from a trace
-    client.delete_trace_tag(request_id="12345678", key="tag_key")
+    client.delete_trace_tag(request_id=request_id, key="tag_key")
+
+
+Setting Tags via the MLflow UI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alternatively, you can update or delete tags on a trace from the MLflow UI. To do this, navigate to the trace tab, then click on the pencil icon next to the tag you want to update.
+
+.. figure:: ../../_static/images/llms/tracing/trace-set-tag.gif
+    :alt: Traces tag update
+    :width: 80%
+    :align: center
 
 
 Async Logging
@@ -1087,13 +1362,6 @@ For example, the following will work:
             attributes={"attribute2": "value2"},
         )
 
-
-
-.. figure:: ../../_static/images/llms/tracing/client-with-fluent.png
-    :alt: Using Client APIs within fluent context
-    :width: 100%
-    :align: center
-
 .. warning::
     Using the fluent API to manage a child span of a client-initiated root span or child span is not possible. 
     Attempting to start a ``start_span`` context handler while using the client API will result in two traces being created,
@@ -1174,88 +1442,147 @@ Client API
         attributes={"attribute3": "value3", "attribute4": "value4"},
     )
 
-Q: How can I see the stack trace of a Span that captured an Exception?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Q: I cannot open my trace in the MLflow UI. What should I do?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow UI does not display Exception types, messages, or stacktraces if faults occur while logging a trace. 
-However, the trace does contain this critical debugging information as part of the Span objects that comprise the Trace. 
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI.
 
-The simplest way to retrieve a particular stack trace information from a span that endured an exception is to retrieve the trace directly in 
-an interactive environment (such as a Jupyter Notebook). 
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
 
-Here is an example of intentionally throwing an Exception while a trace is being collected and a simple way to view the exception details:
-
-.. code-block:: python
-
-    import mlflow
-
-    experiment = mlflow.set_experiment("Intentional Exception")
-
-    with mlflow.start_span(name="A Problematic Span") as span:
-        span.set_inputs({"input": "Exception should log as event"})
-        span.set_attribute("a", "b")
-        raise Exception("Intentionally throwing!")
-        span.set_outputs({"This": "should not be recorded"})
-
-When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
-
-.. code-block:: python
-    
-    from pprint import pprint
-
-    trace = mlflow.get_trace(span.request_id)
-    trace_data = trace.data
-    pprint(trace_data.to_dict(), indent=1)  # Minimum indent due to depth of Span object
-
-In an interactive environment, such as a Jupyter Notebook, the ``stdout`` return will render an output like this:
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
 
 
-.. code-block:: text
+Q. How to group multiple traces within a single conversation session?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    {'spans': [{'name': 'A Span',
-        'context': {'span_id': '0x896ff177c0942903',
-            'trace_id': '0xcae9cb08ec0a273f4c0aab36c484fe87'},
-        'parent_id': None,
-        'start_time': 1718063629190062000,
-        'end_time': 1718063629190595000,
-        'status_code': 'ERROR',
-        'status_message': 'Exception: Intentionally throwing!',
-        'attributes': {'mlflow.traceRequestId': '"7d418211df5945fa94e5e39b8009039e"',
-            'mlflow.spanType': '"UNKNOWN"',
-            'mlflow.spanInputs': '{"input": "Exception should log as event"}',
-            'a': '"b"'},
-        'events': [{'name': 'exception',
-            'timestamp': 1718063629190527000,
-            'attributes': {'exception.type': 'Exception',
-            'exception.message': 'Intentionally throwing!',
-            'exception.stacktrace': 'Traceback (most recent call last):\n  
-                                     File "/usr/local/lib/python3.8/site-packages/opentelemetry/trace/__init__.py", 
-                                     line 573, in use_span\n    
-                                        yield span\n  File "/usr/local/mlflow/mlflow/tracing/fluent.py", 
-                                     line 241, in start_span\n    
-                                        yield mlflow_span\n  File "/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/ipykernel_9875/4089093747.py", 
-                                     line 4, in <cell line: 1>\n    
-                                        raise Exception("Intentionally throwing!")\nException: Intentionally throwing!\n',
-            'exception.escaped': 'False'}}]}],
-     'request': '{"input": "Exception should log as event"}',
-     'response': None
-    }
+In conversational AI applications, it is common that users interact with the model multiple times within a single conversation session. Since each interaction generates a trace in the typical MLflow setup, it is useful to group these traces together to analyze the conversation as a whole. You can achieve this by attaching the session ID as a **tag** to each trace.
 
-The ``exception.stacktrace`` attribute contains the full stack trace of the Exception that was raised during the span's execution.
-
-Alternatively, if you were to use the MLflowClient API to search traces, the access to retrieve the span's event data from the failure would be 
-slightly different (due to the return value being a ``pandas`` DataFrame). To use the ``search_traces`` API to access the same exception data would 
-be as follows:
+The following example shows how to use session ID in a chat model that has been implemented using the :py:class:`mlflow.pyfunc.ChatModel` class. Refer to the `Trace Tags <#trace-tags>`_ section for more information on how to set tags on traces.
 
 .. code-block:: python
 
     import mlflow
+    from mlflow.entities import SpanType
+    from mlflow.types.llm import ChatMessage, ChatParams, ChatCompletionResponse
 
-    client = mlflow.MlflowClient()
+    import openai
+    from typing import Optional
 
-    traces = client.search_traces(
-        experiment_ids=[experiment.experiment_id]
-    )  # This returns a pandas DataFrame
-    pprint(traces["trace"][0].data.spans[0].to_dict(), indent=1)
+    mlflow.set_experiment("Tracing Session ID Demo")
 
-The stdout values that will be rendered from this call are identical to those from the example span data above. 
+
+    class ChatModelWithSession(mlflow.pyfunc.ChatModel):
+        @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+        def predict(
+            self, context, messages: list[ChatMessage], params: Optional[ChatParams] = None
+        ) -> ChatCompletionResponse:
+            if session_id := (params.custom_inputs or {}).get("session_id"):
+                # Set session ID tag on the current trace
+                mlflow.update_current_trace(tags={"session_id": session_id})
+
+            response = openai.OpenAI().chat.completions.create(
+                messages=[m.to_dict() for m in messages],
+                model="gpt-4o-mini",
+            )
+
+            return ChatCompletionResponse.from_dict(response.to_dict())
+
+
+    model = ChatModelWithSession()
+
+    # Invoke the chat model multiple times with the same session ID
+    session_id = "123"
+    messages = [ChatMessage(role="user", content="What is MLflow Tracing?")]
+    response = model.predict(
+        None, messages, ChatParams(custom_inputs={"session_id": session_id})
+    )
+
+    # Invoke again with the same session ID
+    messages.append(
+        ChatMessage(role="assistant", content=response.choices[0].message.content)
+    )
+    messages.append(ChatMessage(role="user", content="How to get started?"))
+    response = model.predict(
+        None, messages, ChatParams(custom_inputs={"session_id": session_id})
+    )
+
+The above code creates two new traces with the same session ID tag. Within the MLflow UI, you can search for these traces that have this defined session ID using ``tag.session_id = '123'``.
+
+.. figure:: ../../_static/images/llms/tracing/trace-session-id.gif
+    :alt: Traces with session IDs
+    :width: 80%
+    :align: center
+
+
+Alternatively, you can use the :py:func:`mlflow.search_traces` function to get these traces programmatically.
+
+.. code-block:: python
+
+    traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")
+
+
+Q: How to find a particular span within a trace?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When you have a large number of spans in a trace, it can be cumbersome to find a particular span. You can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for spans based on several criteria.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.entities import SpanType
+
+
+    @mlflow.trace(span_type=SpanType.CHAIN)
+    def run(x: int) -> int:
+        x = add_one(x)
+        x = add_two(x)
+        x = multiply_by_two(x)
+        return x
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_one(x: int) -> int:
+        return x + 1
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def add_two(x: int) -> int:
+        return x + 2
+
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def multiply_by_two(x: int) -> int:
+        return x * 2
+
+
+    # Run the function and get the trace
+    y = run(2)
+    trace = mlflow.get_last_active_trace()
+
+This will create a :py:class:`~mlflow.entities.Trace` object with four spans.
+
+.. code-block::
+
+    run (CHAIN)
+      ├── add_one (TOOL)
+      ├── add_two (TOOL)
+      └── multiply_by_two (TOOL)
+
+Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_spans>` method to search for a particular spans:
+
+.. code-block:: python
+
+    # 1. Search by span name (exact match)
+    spans = trace.search_spans(name="add_one")
+    print(spans)
+    # Output: [Span(name='add_one', ...)]
+
+    # Search for a span with the span type "TOOL"
+    spans = trace.search_spans(span_type=SpanType.TOOL)
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...), Span(name='multiply_by_two', ...)]
+
+    # Search for spans whose name starts with "add"
+    spans = trace.search_spans(name=re.compile(r"add.*"))
+    print(spans)
+    # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
