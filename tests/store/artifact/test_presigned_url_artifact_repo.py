@@ -103,7 +103,7 @@ def test_list_artifacts_failure():
     with (
         mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc)
     ):
-        empty_infos = artifact_repo._download_from_cloud(remote_file_path, "local_file")
+        empty_infos = artifact_repo.list_artifacts(remote_file_path)
         assert len(empty_infos) == 0
 
 
