@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Promover modelo",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "O juiz LLM de fundamentação devolve uma avaliação binária e uma justificativa escrita que indicam se a resposta gerada é de fato consistente com o contexto obtido pelo agente.",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "Promover {sourceModelName} versão {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "É necessário ampliar o compute.",

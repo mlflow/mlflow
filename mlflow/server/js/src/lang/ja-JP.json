@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "モデルをプロモート",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "根拠LLM審査は、生成された応答がエージェントが取得したコンテキストと事実的に一致しているかどうかについて、二値評価と書面による根拠を返します。",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "{sourceModelName}を{sourceModelVersion}バージョンに格上げ",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "コンピュートのスケールアウトが必要です。",
