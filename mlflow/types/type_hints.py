@@ -8,7 +8,7 @@ import pydantic
 import pydantic.fields
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_IS_SERVING_ENVIRONMENT
+from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import (
@@ -341,7 +341,7 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
     elif type_hint == Any:
         return example
     elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
-        if _MLFLOW_IS_SERVING_ENVIRONMENT.get():
+        if _MLFLOW_IS_IN_SERVING_ENVIRONMENT.get():
             example = _parse_data_for_datatype_hint(data=example, type_hint=type_hint)
         if isinstance(example, type_hint):
             return example

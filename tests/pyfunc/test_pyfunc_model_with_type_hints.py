@@ -9,13 +9,13 @@ import pydantic
 import pytest
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_IS_SERVING_ENVIRONMENT
+from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
-from mlflow.pyfunc.utils.environment import serving_environment
+from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
 from mlflow.utils.env_manager import UV, VIRTUALENV
@@ -699,14 +699,14 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
 
 
 def test_serving_environment(monkeypatch):
-    with serving_environment():
-        assert os.environ[_MLFLOW_IS_SERVING_ENVIRONMENT.name] == "true"
-    assert os.environ.get(_MLFLOW_IS_SERVING_ENVIRONMENT.name) is None
+    with _simulate_serving_environment():
+        assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "true"
+    assert os.environ.get(_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name) is None
 
-    monkeypatch.setenv(_MLFLOW_IS_SERVING_ENVIRONMENT.name, "false")
-    with serving_environment():
-        assert os.environ[_MLFLOW_IS_SERVING_ENVIRONMENT.name] == "true"
-    assert os.environ[_MLFLOW_IS_SERVING_ENVIRONMENT.name] == "false"
+    monkeypatch.setenv(_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name, "false")
+    with _simulate_serving_environment():
+        assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "true"
+    assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "false"
 
 
 @pytest.mark.parametrize(

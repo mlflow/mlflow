@@ -22,7 +22,10 @@ import sys
 import traceback
 from typing import Any, NamedTuple, Optional
 
-from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_IS_IN_SERVING_ENVIRONMENT,
+    MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+)
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -208,15 +211,12 @@ def _split_data_and_params(json_input):
     return data, params
 
 
-def infer_and_parse_data(data, schema: Schema = None, should_parse_data=True):
+def infer_and_parse_data(data, schema: Schema = None):
     """
     Args:
         data: A dictionary representation of TF serving input or a Pandas
             DataFrame, or a stream containing such a string representation.
         schema: Optional schema specification to be used during parsing.
-        should_parse_data: Whether to parse the data or not. If False, the
-            data field of the input is returned as is. Default to True for
-            backwards compatibility.
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
@@ -227,14 +227,6 @@ def infer_and_parse_data(data, schema: Schema = None, should_parse_data=True):
             error_code=BAD_REQUEST,
         )
     input_format = format_keys.pop()
-    if not should_parse_data:
-        # TODO: check if we need to support other formats
-        if input_format != INPUTS:
-            raise MlflowException.invalid_parameter_value(
-                "Request payload must be a dictionary with 'inputs' key when "
-                f"the model contains a valid type hint. Got {input_format}."
-            )
-        return data[INPUTS]
     if input_format in (INSTANCES, INPUTS):
         return parse_tf_serving_input(data, schema=schema)
 
@@ -438,7 +430,15 @@ def _parse_json_data(data, metadata, input_schema):
             if hasattr(metadata, "_is_signature_from_type_hint")
             else True
         )
-        data = infer_and_parse_data(data, input_schema, should_parse_data)
+        if should_parse_data:
+            data = infer_and_parse_data(data, input_schema)
+        else:
+            if INPUTS not in data:
+                raise MlflowException.invalid_parameter_value(
+                    "Request payload must be a dictionary with 'inputs' key when "
+                    f"the model contains a valid type hint. Found keys in payload: {data.keys()}."
+                )
+            data = data[INPUTS]
     return ParsedJsonInput(data, params, _is_unified_llm_input)
 
 
@@ -451,7 +451,7 @@ def init(model: PyFuncModel):
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
     # set the environment variable to indicate that we are in a serving environment
-    os.environ["_MLFLOW_IS_SERVING_ENVIRONMENT"] = "true"
+    os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
 
     @app.route("/ping", methods=["GET"])
     @app.route("/health", methods=["GET"])
@@ -495,9 +495,9 @@ def init(model: PyFuncModel):
 
 
 def _predict(model_uri, input_path, output_path, content_type):
-    from mlflow.pyfunc.utils.environment import serving_environment
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
-    with serving_environment():
+    with _simulate_serving_environment():
         pyfunc_model = load_model(model_uri)
 
         should_parse_as_unified_llm_input = False

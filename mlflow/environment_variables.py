@@ -684,4 +684,6 @@ MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
 # Specifies whether the current environment is a serving environment.
 # This should only be used internally by MLflow to add some additional logic when running in a
 # serving environment.
-_MLFLOW_IS_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable("_MLFLOW_IS_SERVING_ENVIRONMENT", None)
+_MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
+    "_MLFLOW_IS_IN_SERVING_ENVIRONMENT", None
+)
