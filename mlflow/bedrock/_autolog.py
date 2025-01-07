@@ -9,7 +9,7 @@ from botocore.response import StreamingBody
 import mlflow
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
-from mlflow.bedrock.stream import ConverseStreamWrapper
+from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
 from mlflow.tracing.utils import (
@@ -45,6 +45,12 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
     """
     # The most basic model invocation API
     safe_patch(FLAVOR_NAME, client_class, "invoke_model", _patched_invoke_model)
+    safe_patch(
+        FLAVOR_NAME,
+        client_class,
+        "invoke_model_with_response_stream",
+        _patched_invoke_model_with_response_stream,
+    )
 
     if hasattr(client_class, "converse"):
         # The new "converse" API was introduced in boto3 1.35 to access all models
@@ -75,6 +81,28 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         span.set_outputs({**result, "body": parsed_response_body})
 
         return result
+
+
+@skip_if_trace_disabled
+def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
+    client = mlflow.MlflowClient()
+
+    span = start_client_span_or_trace(
+        client=client,
+        name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
+        # NB: Since we don't inspect the response body for this method, the span type is unknown.
+        # We assume it is LLM as using streaming for embedding is not common.
+        span_type=SpanType.LLM,
+        inputs=kwargs,
+    )
+
+    result = original(self, *args, **kwargs)
+
+    # To avoid consuming the stream during serialization, set dummy outputs for the span.
+    span.set_outputs({**result, "body": "EventStream"})
+
+    result["body"] = InvokeModelStreamWrapper(stream=result["body"], client=client, span=span)
+    return result
 
 
 def _buffer_stream(raw_stream: StreamingBody) -> StreamingBody:
@@ -134,7 +162,7 @@ def _patched_converse_stream(original, self, *args, **kwargs):
     client = mlflow.MlflowClient()
     span = start_client_span_or_trace(
         client=client,
-        name=f"{_BEDROCK_SPAN_PREFIX}converse_stream",
+        name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
     )

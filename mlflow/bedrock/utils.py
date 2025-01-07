@@ -1,9 +1,9 @@
 import logging
+from typing import Any, Callable
+
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
-from typing import Any, Callable
-
 
 _logger = logging.getLogger(__name__)
 
@@ -12,6 +12,7 @@ def capture_exception(logging_message: str):
     """
     A decorator to capture exceptions during a function execution.
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             try:

@@ -294,6 +294,81 @@ def test_bedrock_autolog_invoke_model_capture_exception():
     assert span.events[0].attributes["exception.message"].startswith("Unable to locate credentials")
 
 
+def test_bedrock_autolog_invoke_model_stream():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    dummy_chunks = [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "123",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-3-5-sonnet-20241022",
+                "content": [],
+                "stop_reason": None,
+                "usage": {"input_tokens": 8, "output_tokens": 1},
+            },
+        },
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": "Hello"},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "! How can I help you today?"},
+        },
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "usage": {"output_tokens": 12},
+        },
+        {"type": "message_stop", "amazon-bedrock-invocationMetrics": {"invocationLatency": 909}},
+    ]
+
+    # Mimic event stream
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(
+            body=request_body, modelId=_ANTHROPIC_MODEL_ID
+        )
+
+    # Trace should not be created until the stream is consumed
+    assert get_traces() == []
+
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.invoke_model_with_response_stream"
+    assert span.span_type == "LLM"
+    assert span.inputs == {"body": request_body, "modelId": _ANTHROPIC_MODEL_ID}
+    assert span.outputs == {"body": "EventStream"}
+    # Raw chunks must be recorded as span events
+    assert len(span.events) == len(dummy_chunks)
+    for i in range(len(dummy_chunks)):
+        assert span.events[i].name == dummy_chunks[i]["type"]
+        assert json.loads(span.events[i].attributes["chunk_json"]) == dummy_chunks[i]
+
+
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
 def test_bedrock_autolog_trace_disabled(config):
     mlflow.bedrock.autolog(**config)
