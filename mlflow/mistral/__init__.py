@@ -19,7 +19,7 @@ def autolog(
     Args:
         log_traces: If ``True``, traces are logged for Mistral AI models.
             If ``False``, no traces are collected during inference. Default to ``True``.
-        disable: If ``True``, disables the Anthropic autologging. Default to ``False``.
+        disable: If ``True``, disables the Mistral AI autologging. Default to ``False``.
         silent: If ``True``, suppress all event logs and warnings from MLflow during Mistral AI
             autologging. If ``False``, show all events and warnings.
     """
