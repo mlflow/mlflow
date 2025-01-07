@@ -81,10 +81,48 @@ const updateStatus = async (context, github, sha, needs) => {
   await createCommitStatus(context, github, sha, state);
 };
 
+const fetchWorkflowRuns = async ({ context, github, head_sha }) => {
+  const { owner, repo } = context.repo;
+  for (const _ of Array(5).keys()) {
+    const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+      owner,
+      repo,
+      head_sha,
+      status: "action_required",
+    });
+
+    if (runs.length > 0) {
+      return runs;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000 * 5)); // sleep 5 seconds
+  }
+  return [];
+};
+
+const approveWorkflowRuns = async (context, github, head_sha) => {
+  const { owner, repo } = context.repo;
+  const workflowRuns = await fetchWorkflowRuns({ context, github, head_sha });
+  const approvePromises = workflowRuns.map((run) =>
+    github.rest.actions.approveWorkflowRun({
+      owner,
+      repo,
+      run_id: run.id,
+    })
+  );
+  const results = await Promise.allSettled(approvePromises);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error(`Failed to approve run: ${result.reason}`);
+    }
+  }
+};
+
 module.exports = {
   shouldAutoformat,
   getPullInfo,
   createReaction,
   createStatus,
   updateStatus,
+  approveWorkflowRuns,
 };
