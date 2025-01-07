@@ -6,7 +6,17 @@ from mlflow.types import schema
 from mlflow.utils import databricks_utils
 
 
+def _is_input_string(inputs: schema.Schema) -> bool:
+    return (
+        not inputs.has_input_names()
+        and len(inputs.input_types()) == 1
+        and inputs.input_types()[0] == schema.DataType.string
+    )
+
+
 def _is_input_agent_compatible(inputs: schema.Schema) -> bool:
+    if _is_input_string(inputs):
+        return True
     if not inputs.has_input_names():
         return False
     messages = inputs.input_dict().get("messages")
