@@ -93,7 +93,7 @@ def _parse_outputs(outputs) -> list[ChatMessage]:
 
 
 def _log_tool_definition(model, span):
-    # when tools are not passed or object is ChatSession
+    # when tools are not passed
     if not getattr(model, "_tools", None):
         return
 
