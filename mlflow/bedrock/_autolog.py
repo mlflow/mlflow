@@ -1,18 +1,23 @@
 import io
 import json
-from typing import Any, Callable, Union
+import logging
+from typing import Any, Callable, Optional, Union
 
 from botocore.client import BaseClient
 from botocore.response import StreamingBody
 
 import mlflow
 from mlflow.bedrock import FLAVOR_NAME
+from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
+from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
 _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
+
+_logger = logging.getLogger(__name__)
 
 
 def patched_create_client(original, self, *args, **kwargs):
@@ -75,7 +80,6 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # with the key "embedding". This might change in the future.
         span_type = SpanType.EMBEDDING if "embedding" in parsed_response_body else SpanType.LLM
         span.set_span_type(span_type)
-
         span.set_outputs({**result, "body": parsed_response_body})
 
         return result
@@ -119,6 +123,36 @@ def _patched_converse(original, self, *args, **kwargs):
     ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
-        result = original(self, *args, **kwargs)
-        span.set_outputs(result)
+
+        if tool_config := kwargs.get("toolConfig"):
+            try:
+                tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tool_config["tools"]]
+                set_span_chat_tools(span, tools)
+            except Exception as e:
+                _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+
+        result = None
+        try:
+            result = original(self, *args, **kwargs)
+            span.set_outputs(result)
+        finally:
+            _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result
+
+
+def _set_chat_messages_attributes(span, messages: list[dict], response: Optional[dict]):
+    """
+    Extract standard chat span attributes for the Bedrock Converse API call.
+
+    NB: We only support standard attribute extraction for the Converse API, because
+    the InvokeModel API exposes the raw API spec from each LLM provider, hence
+    maintaining the compatibility for all providers is significantly cumbersome.
+    """
+    try:
+        messages = [*messages]  # shallow copy to avoid appending to the original list
+        if response:
+            messages.append(response["output"]["message"])
+        messages = [convert_message_to_mlflow_chat(msg) for msg in messages]
+        set_span_chat_messages(span, messages)
+    except Exception as e:
+        _logger.debug(f"Failed to set messages for {span}. Error: {e}")
