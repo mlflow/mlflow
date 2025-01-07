@@ -147,5 +147,5 @@ def test_integration(setup_servers, tmp_path):
     client.delete_registered_model(name=model_name)
     rms = client.search_registered_models()
     assert len(rms) == 0
-    with pytest.raises(Exception, match="NOT_FOUND"):
+    with pytest.raises(MlflowException, match="NOT_FOUND"):
         client.get_registered_model(model_name)
