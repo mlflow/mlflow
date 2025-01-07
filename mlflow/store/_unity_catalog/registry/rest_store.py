@@ -39,6 +39,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionResponse,
     GetRegisteredModelRequest,
     GetRegisteredModelResponse,
+    ModelParam,
     Job,
     Lineage,
     LineageHeaderInfo,
@@ -726,11 +727,14 @@ class UcModelRegistryStore(BaseRestStore):
                     shutil.rmtree(local_model_dir)
 
     def _get_model_params_from_model_id(self, model_id):
-        # load the mlflow model and extract the model parameters
+        # load the mlflow model and extract the model parameters and return as ModelParam objects
         if model_id is None:
             return None
         model = mlflow.get_logged_model(model_id)
-        return model.params
+        model_params = []
+        for key, value in model.params.items():
+            model_params.append(ModelParam(key=key, value=value))
+        return model_params
 
     def create_model_version(
         self,
