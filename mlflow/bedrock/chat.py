@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-from typing import Union
+from typing import Optional, Union
 
 from mlflow.types.chat import (
     ChatMessage,
@@ -51,9 +51,13 @@ def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
             # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ToolResultContentBlock.html
             role = "tool"
             for content in tool_result["content"]:
-                contents += _parse_contents(content)
+                parsed_content = _parse_content(content)
+                if parsed_content:
+                    contents.append(parsed_content)
         else:
-            contents += _parse_contents(content)
+            parsed_content = _parse_content(content)
+            if parsed_content:
+                contents.append(parsed_content)
 
     message = ChatMessage(role=role, content=contents)
     if tool_calls:
@@ -63,17 +67,19 @@ def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
     return message
 
 
-def _parse_contents(content: dict) -> list[Union[TextContentPart, ImageContentPart]]:
+def _parse_content(content: dict) -> Optional[Union[TextContentPart, ImageContentPart]]:
     """
-    Parse the content block in the Bedrock message object.
+    Parse a single content block in the Bedrock message object.
+
+    Some content types like video and document are not supported by OpenAI's spec. This
+    function returns None for those content types.
 
     Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ContentBlock.html
     """
-    contents = []
     if text := content.get("text"):
-        contents.append(TextContentPart(text=text, type="text"))
+        return TextContentPart(text=text, type="text")
     elif json_content := content.get("json"):
-        contents.append(TextContentPart(text=json.dumps(json_content), type="text"))
+        return TextContentPart(text=json.dumps(json_content), type="text")
     elif image := content.get("image"):
         # Bedrock support passing images in both raw bytes and base64 encoded strings.
         # OpenAI spec only supports base64 encoded images, so we encode the raw bytes to base64.
@@ -85,12 +91,11 @@ def _parse_contents(content: dict) -> list[Union[TextContentPart, ImageContentPa
             data = image_bytes
         format = "image/" + image["format"]
         image_url = ImageUrl(url=f"data:{format};base64,{data}", detail="auto")
-        contents.append(ImageContentPart(type="image_url", image_url=image_url))
+        return ImageContentPart(type="image_url", image_url=image_url)
     # NB: Video and Document content type are not supported by OpenAI's spec, so recording as text.
     else:
         _logger.debug(f"Received an unsupported content type: {list(content.keys())[0]}")
-
-    return contents
+        return None
 
 
 def convert_tool_to_mlflow_chat_tool(tool: dict) -> ChatTool:
