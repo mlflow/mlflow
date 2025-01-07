@@ -75,9 +75,7 @@ class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     @capture_exception("Failed to handle event for the stream")
     def _handle_event(self, span, event):
         chunk = json.loads(event["chunk"]["bytes"])
-        self._span.add_event(
-            SpanEvent(name=chunk["type"], attributes={"chunk_json": json.dumps(chunk)})
-        )
+        self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
 
     def _close(self):
         self._end_span()
@@ -105,7 +103,9 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         event_name = list(event.keys())[0]
         self._response_builder.process_event(event_name, event[event_name])
         # Record raw event as a span event
-        span.add_event(SpanEvent(name=event_name, attributes=event[event_name]))
+        self._span.add_event(
+            SpanEvent(name=event_name, attributes={"json": json.dumps(event[event_name])})
+        )
 
     @capture_exception("Failed to record the accumulated response in the span")
     def _close(self):
@@ -146,7 +146,6 @@ class _ConverseMessageBuilder:
             if text := delta.get("text"):
                 self._text_content_buffer += text
             if tool_use := delta.get("toolUse"):
-                print(tool_use)
                 self._tool_use["input"] += tool_use["input"]
         elif event_name == "contentBlockStop":
             pass

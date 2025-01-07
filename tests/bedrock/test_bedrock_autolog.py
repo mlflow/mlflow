@@ -366,7 +366,7 @@ def test_bedrock_autolog_invoke_model_stream():
     assert len(span.events) == len(dummy_chunks)
     for i in range(len(dummy_chunks)):
         assert span.events[i].name == dummy_chunks[i]["type"]
-        assert json.loads(span.events[i].attributes["chunk_json"]) == dummy_chunks[i]
+        assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
 
 
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
@@ -846,6 +846,8 @@ def test_bedrock_autolog_converse_stream(
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
     assert len(span.events) > 0
+    assert span.events[0].name == "messageStart"
+    assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
 
 
 def _event_stream(raw_response, chunk_size=10):
