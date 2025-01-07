@@ -22,14 +22,23 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
-from mlflow.models.signature import _extract_type_hints, _is_context_in_predict_function_signature
+from mlflow.models.signature import (
+    _extract_type_hints,
+    _is_context_in_predict_function_signature,
+    _TypeHints,
+)
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.utils import pyfunc
+from mlflow.pyfunc.utils.data_validation import (
+    _get_type_hint_if_supported,
+    _wrap_predict_with_pyfunc,
+)
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -115,11 +124,34 @@ class PythonModel:
                      can use to perform inference.
         """
 
+    @deprecated("predict_type_hints", "2.20.0")
     def _get_type_hints(self):
+        return self.predict_type_hints
+
+    @property
+    def predict_type_hints(self) -> _TypeHints:
+        """
+        Internal method to get type hints from the predict function signature.
+        """
+        if hasattr(self, "_predict_type_hints"):
+            return self._predict_type_hints
         if _is_context_in_predict_function_signature(func=self.predict):
-            return _extract_type_hints(self.predict, input_arg_index=1)
+            self._predict_type_hints = _extract_type_hints(self.predict, input_arg_index=1)
         else:
-            return _extract_type_hints(self.predict, input_arg_index=0)
+            self._predict_type_hints = _extract_type_hints(self.predict, input_arg_index=0)
+        return self._predict_type_hints
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+
+        # automatically wrap the predict method with pyfunc to ensure data validation
+        # NB: subclasses of PythonModel in MLflow that has customized predict method
+        # should set _skip_wrapping_predict = True to skip this wrapping
+        if not getattr(cls, "_skip_wrapping_predict", False):
+            predict_attr = cls.__dict__.get("predict")
+            if predict_attr is not None and callable(predict_attr):
+                type_hint = _get_type_hint_if_supported(predict_attr)
+                setattr(cls, "predict", _wrap_predict_with_pyfunc(predict_attr, type_hint))
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
@@ -163,12 +195,22 @@ class _FunctionPythonModel(PythonModel):
     in an instance of this class.
     """
 
-    def __init__(self, func, signature=None):
-        self.func = func
-        self.signature = signature
+    _skip_wrapping_predict = True
 
-    def _get_type_hints(self):
-        return _extract_type_hints(self.func, input_arg_index=0)
+    def __init__(self, func, signature=None):
+        self.signature = signature
+        # only wrap `func` if @pyfunc is not already applied
+        if not getattr(func, "_is_pyfunc", False):
+            self.func = pyfunc(func)
+        else:
+            self.func = func
+
+    @property
+    def predict_type_hints(self):
+        if hasattr(self, "_predict_type_hints"):
+            return self._predict_type_hints
+        self._predict_type_hints = _extract_type_hints(self.func, input_arg_index=0)
+        return self._predict_type_hints
 
     def predict(
         self,
@@ -183,9 +225,7 @@ class _FunctionPythonModel(PythonModel):
         Returns:
             Model predictions.
         """
-        if "params" in inspect.signature(self.func).parameters:
-            return self.func(model_input, params=params)
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        # callable only supports one input argument for now
         return self.func(model_input)
 
 
@@ -241,6 +281,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
     """
+
+    _skip_wrapping_predict = True
 
     @abstractmethod
     def predict(
@@ -599,7 +641,7 @@ class _PythonModelPyfuncWrapper:
     def _convert_input(self, model_input):
         import pandas as pd
 
-        hints = self.python_model._get_type_hints()
+        hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):
             if _is_list_str(hints.input):
@@ -704,6 +746,8 @@ class ModelFromDeploymentEndpoint(PythonModel):
     A PythonModel wrapper for invoking an MLflow Deployments endpoint.
     This class is particularly used for running evaluation against an MLflow Deployments endpoint.
     """
+
+    _skip_wrapping_predict = True
 
     def __init__(self, endpoint, params):
         self.endpoint = endpoint
