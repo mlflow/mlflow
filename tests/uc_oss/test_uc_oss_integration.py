@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 import mlflow
-
+from mlflow.exceptions import MlflowException
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
@@ -32,7 +32,7 @@ def setup_servers():
         ) as mlflow_proc,
     ):
         try:
-            _await_server_up_or_die(int(port))
+            _await_server_up_or_die(port)
             _await_server_up_or_die(8080)
 
             mlflow_tracking_url = f"http://127.0.0.1:{port}"
@@ -47,37 +47,35 @@ def setup_servers():
             uc_proc.terminate()
 
 
-def test_integration(setup_servers):
+def test_integration(setup_servers, tmp_path):
     catalog = "unity"
     schema = "default"
     registered_model_name = "iris"
     model_name = f"{catalog}.{schema}.{registered_model_name}"
     mlflow.set_experiment("iris-uc-oss")
     client = mlflow.MlflowClient()
-    with pytest.raises(Exception, match="NOT_FOUND"):
+    with pytest.raises(MlflowException, match="NOT_FOUND"):
         client.get_registered_model(model_name)
 
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    def build_model():
-        with mlflow.start_run():
-            # Train a sklearn model on the iris dataset
-            clf = RandomForestClassifier(max_depth=7)
-            clf.fit(X_train, y_train)
-            # Take the first row of the training dataset as the model input example.
-            input_example = X.iloc[[0]]
-            # Log the model and register it as a new version in UC.
-            mlflow.sklearn.log_model(
-                clf,
-                "model",
-                # The signature is automatically inferred from the input example and
-                # its predicted output.
-                input_example=input_example,
-                registered_model_name=model_name,
-            )
+    with mlflow.start_run():
+        # Train a sklearn model on the iris dataset
+        clf = RandomForestClassifier(max_depth=7)
+        clf.fit(X_train, y_train)
+        # Take the first row of the training dataset as the model input example.
+        input_example = X.iloc[[0]]
+        # Log the model and register it as a new version in UC.
+        mlflow.sklearn.log_model(
+            clf,
+            "model",
+            # The signature is automatically inferred from the input example and
+            # its predicted output.
+            input_example=input_example,
+            registered_model_name=model_name,
+        )
 
-    build_model()
     model_version = 1
     model_uri = f"models:/{model_name}/{model_version}"
     rm_desc = "UC-OSS/MLflow Iris model"
@@ -101,7 +99,7 @@ def test_integration(setup_servers):
     #      list the artifacts stored in the location
     mlflow.artifacts.list_artifacts(model_uri)
 
-    path = os.path.join("/tmp", "models", model_name, str(model_version))
+    path = os.path.join(tmp_path, "models", model_name, str(model_version))
 
     # download_artifacts will use the UC OSS model URI and make REST API calls
     # to UC OSS to:
