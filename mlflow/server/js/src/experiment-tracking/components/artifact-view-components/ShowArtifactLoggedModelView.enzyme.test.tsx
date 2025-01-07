@@ -268,7 +268,8 @@ saved_input_example_info:
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(3);
       const validatePredictCodeContent = codeContent.at(0).text();
-      expect(validatePredictCodeContent.includes('input_data = ["x", "y", "z"]')).toBe(true);
+      expect(validatePredictCodeContent.includes('input_example = \'["x", "y", "z"]\'')).toBe(true);
+      expect(validatePredictCodeContent.includes('input_data = json.loads(input_example)')).toBe(true);
       expect(validatePredictCodeContent.includes('mlflow.models.predict')).toBe(true);
       done();
     });

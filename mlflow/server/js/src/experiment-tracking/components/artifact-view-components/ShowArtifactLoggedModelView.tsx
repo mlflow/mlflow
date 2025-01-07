@@ -210,11 +210,13 @@ validate_serving_input(model_uri, serving_payload)`;
 
   validateModelPredictText(modelPath: any, inputExample?: string) {
     if (inputExample) {
-      return `import mlflow
+      return `import json
+import mlflow
 
 model_uri = '${modelPath}'
 # This is the input example logged with the model
-input_data = ${inputExample}
+input_example = '${inputExample}'
+input_data = json.loads(input_example)
 
 # Verify the model with the provided input data using the logged dependencies.
 # For more details, refer to:
