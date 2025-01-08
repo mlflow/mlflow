@@ -389,10 +389,7 @@ def serve_wheel(request, tmp_path_factory):
             os.environ["PIP_EXTRA_INDEX_URL"] = url
             # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
             # url when using `uv` as environment manager
-            # setuptools also exists in https://download.pytorch.org/whl/cpu, but it might
-            # not include the version we need, and uv by default finds the first index that
-            # has the package, this could cause version not found error
-            os.environ["UV_INDEX"] = f"mlflow={url} setuptools=https://pypi.org/simple"
+            os.environ["UV_INDEX"] = f"mlflow={url}"
             yield
         finally:
             prc.terminate()

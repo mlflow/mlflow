@@ -18,7 +18,7 @@ from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
-from mlflow.utils.env_manager import UV, VIRTUALENV
+from mlflow.utils.env_manager import VIRTUALENV
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -709,11 +709,7 @@ def test_serving_environment(monkeypatch):
     assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "false"
 
 
-@pytest.mark.parametrize(
-    "env_manager",
-    [VIRTUALENV, UV],
-)
-def test_predict_model_with_type_hints(env_manager):
+def test_predict_model_with_type_hints():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
@@ -727,5 +723,9 @@ def test_predict_model_with_type_hints(env_manager):
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
-        env_manager=env_manager,
+        # uv env manager works in local testing but not in CI
+        # because setuptools also exists in https://download.pytorch.org/whl/cpu, but it might
+        # not include the version we need, and uv by default finds the first index that
+        # has the package, this could cause version not found error
+        env_manager=VIRTUALENV,
     )
