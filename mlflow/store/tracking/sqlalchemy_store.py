@@ -1596,8 +1596,9 @@ class SqlAlchemyStore(AbstractStore):
             # tag='mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
             # to make it possible to override `request_id` from Python tests in other stores
             # like GO store. Filter it from here.
-            if "mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag" in tags:
-                del tags["mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"]
+            go_mock_generate_request_id_tag = "mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
+            if go_mock_generate_request_id_tag in tags:
+                del tags[go_mock_generate_request_id_tag]
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 

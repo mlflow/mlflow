@@ -4186,10 +4186,11 @@ def _create_trace(
         # not possible to mock `generate.request_id`. Let's send generated `request_id`
         # via special tag='mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag'
         # so GO implementation can catch it.
+        go_mock_generate_request_id_tag = "mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
         if tags:
-            tags["mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag"] = request_id
+            tags[go_mock_generate_request_id_tag] = request_id
         else:
-            tags = {"mock.generate_request_id.fa4bcce6c7b1b57d16ff01c82504b18b.tag": request_id}
+            tags = {go_mock_generate_request_id_tag: request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,
