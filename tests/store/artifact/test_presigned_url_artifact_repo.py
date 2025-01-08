@@ -100,9 +100,7 @@ def test_list_artifacts_failure():
     exc_code = "NOT_FOUND"
     exc_message = "The directory being accessed is not found."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with (
-        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc)
-    ):
+    with mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc):
         empty_infos = artifact_repo.list_artifacts(remote_file_path)
         assert len(empty_infos) == 0
 
