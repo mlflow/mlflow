@@ -35,7 +35,7 @@ def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
 
 def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
     """Convert a message object from LlamaIndex to MLflow's standard format."""
-    content = [_parse_content_block(cb) for cb in _get_content(message)]
+    content = [_parse_content_block(cb) for cb in _get_contents(message)]
     content = [cb for cb in content if cb is not None]
     mlflow_message = ChatMessage(role=message.role.value, content=content)
 
@@ -92,11 +92,11 @@ def _parse_content_block(content_block: Any) -> Optional[Union[ImageContentPart,
         _logger.debug(f"Unsupported content block type, skipping: {type(content_block)}")
 
 
-def _get_content(message: LLamaChatMessage) -> Any:
+def _get_contents(message: LLamaChatMessage) -> list[Any]:
     """
     Get the content blocks from the ChatMessage object in LlamaIndex.
 
     The `block` field was added in llama-index 0.12.2. Before that, the message stores
     a single string in the `content` field.
     """
-    return getattr(message, "blocks", []) or message.content
+    return getattr(message, "blocks", []) or [message.content]
