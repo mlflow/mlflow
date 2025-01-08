@@ -185,6 +185,8 @@ class LangGraphChatAgent(ChatAgent):
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
         ):
             for node_data in event.values():
+                if not node_data:
+                    continue
                 for msg in node_data.get("messages", []):
                     response.messages.append(ChatAgentMessage(**msg))
                 if "custom_outputs" in node_data:
@@ -197,5 +199,7 @@ class LangGraphChatAgent(ChatAgent):
         for event in self.agent.stream(
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
         ):
-            for node in event:
-                yield ChatAgentResponse(**event[node])
+            for node_data in event.values():
+                if not node_data:
+                    continue
+                yield ChatAgentResponse(**node_data)

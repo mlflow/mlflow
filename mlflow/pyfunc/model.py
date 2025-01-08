@@ -362,7 +362,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 @experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
-    A subclass of :class:`~PythonModel` that makes it more convenient to implement models
+    A subclass of :class:`~PythonModel` that makes it more convenient to implement agents
     that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatAgent`,
     users can create MLflow models with a ``predict()`` method that is more convenient
     for chat tasks than the generic :class:`~PythonModel` API. ChatAgents automatically
@@ -384,24 +384,19 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> ChatAgentResponse:
         """
-        Evaluates a chat input and produces a chat output.
-
-        .. warning::
-
-            In an upcoming MLflow release, we will be changing the output type from
-            ``ChatResponse`` to a new ``ChatCompletionResponse`` type.
+        Evaluates a ChatAgent input and produces a ChatAgent output.
 
         Args:
-            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
-                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
-                objects representing chat history.
-            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
-                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
+                objects representing the chat history.
+            params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
+                A :py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>` object
                 containing various parameters used to modify model behavior during
                 inference.
 
         Returns:
-            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+            A :py:class:`ChatAgentResponse <mlflow.types.llm.ChatAgentResponse>` object containing
             the model's response(s), as well as other metadata.
         """
 
@@ -409,23 +404,21 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> Generator[ChatAgentResponse, None, None]:
         """
-        Evaluates a chat input and produces a chat output.
-        Overrides this function to implement a real stream prediction.
-        By default, this function just yields result of `predict` function.
-
-        .. warning::
-
-            In an upcoming MLflow release, ``predict_stream`` will be returning a
-            true streaming interface that returns a generator of ``ChatCompletionChunks``
-            instead of the current behavior of yielding the entire prediction as a single
-            ``ChatResponse`` generator entry.
+        Evaluates a ChatAgent input and produces a ChatAgent output.
+        Override this function to implement a real stream prediction.
 
         Args:
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
+                objects representing the chat history.
+            params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
+                A :py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
         """
         raise NotImplementedError(
             "Streaming implementation not provided. Please override the "
-            "`predict_stream` method on your model to generate streaming "
-            "predictions"
+            "`predict_stream` method on your model to generate streaming predictions"
         )
 
 

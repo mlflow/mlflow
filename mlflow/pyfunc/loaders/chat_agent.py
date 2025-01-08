@@ -1,5 +1,7 @@
 from typing import Any, Generator, Optional
 
+import pydantic
+
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -11,12 +13,13 @@ from mlflow.types.llm import (
     ChatAgentParams,
     ChatAgentResponse,
 )
+from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
-    return _ChatAgentPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
+    _, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
+    return _ChatAgentPyfuncWrapper(chat_model=chat_model, signature=signature)
 
 
 @experimental
@@ -25,16 +28,13 @@ class _ChatAgentPyfuncWrapper:
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatAgent`.
     """
 
-    def __init__(self, chat_agent, context, signature):
+    def __init__(self, chat_agent, signature):
         """
         Args:
-            chat_model: An instance of a subclass of :class:`~ChatAgent`.
-            context: A :class:`~PythonModelContext` instance containing artifacts that
-                        ``chat_model`` may use when performing inference.
+            chat_agent: An instance of a subclass of :class:`~ChatAgent`.
             signature: :class:`~ModelSignature` instance describing model input and output.
         """
         self.chat_agent = chat_agent
-        self.context = context
         self.signature = signature
 
     def get_raw_model(self):
@@ -64,15 +64,29 @@ class _ChatAgentPyfuncWrapper:
         params = ChatAgentParams(**dict_input)
         return messages, params
 
+    # used for both streaming and non streaming
+    def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
+        try:
+            model_validate(ChatAgentResponse, response)
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    "Model returned an invalid response. Expected a ChatAgentResponse object "
+                    "or dictionary with the same schema"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        if isinstance(response, ChatAgentResponse):
+            return response.model_dump(exclude_unset=True)
+        return response
+
     def predict(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         """
         Args:
-            model_input: Model input data in the form of a chat request.
+            model_input: Model input data in the form of a ChatAgent request.
             params: Additional parameters to pass to the model for inference.
-                       Unused in this implementation, as the params are handled
-                       via ``self._convert_input()``.
 
         Returns:
             Model predictions in :py:class:`~ChatCompletionResponse` format.
@@ -81,25 +95,13 @@ class _ChatAgentPyfuncWrapper:
         response = self.chat_agent.predict(messages, params)
         return self._response_to_dict(response)
 
-    # used for both streaming and non streaming
-    def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
-        if not isinstance(response, ChatAgentResponse):
-            raise MlflowException(
-                "Model returned an invalid response. Expected a ChatAgentResponse, but "
-                f"got {type(response)} instead.",
-                error_code=INTERNAL_ERROR,
-            )
-        return response.model_dump(exclude_unset=True)
-
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
     ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
-            model_input: Model input data in the form of a chat request.
+            model_input: Model input data in the form of a ChatAgent request.
             params: Additional parameters to pass to the model for inference.
-                       Unused in this implementation, as the params are handled
-                       via ``self._convert_input()``.
 
         Returns:
             Generator over model predictions in :py:class:`~ChatAgentResponse` format.

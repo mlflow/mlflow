@@ -15,6 +15,6 @@ def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None)
     if isinstance(model, ChatModel):
         return _ChatModelPyfuncWrapper(model, context, signature)
     if isinstance(model, ChatAgent):
-        return _ChatAgentPyfuncWrapper(model, context, signature)
+        return _ChatAgentPyfuncWrapper(model, signature)
     else:
         return _PythonModelPyfuncWrapper(model, context, signature)

@@ -791,7 +791,7 @@ class ChatAgentMessage(BaseModel):
 
 class Context(BaseModel):
     """
-    Context to be used in the chat endpoint.
+    Context to be used in a ChatAgent endpoint.
 
     Args:
         conversation_id (str): The ID of the conversation. **Optional** defaults to ``None``
