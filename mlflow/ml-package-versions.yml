@@ -126,7 +126,7 @@ tensorflow:
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -897,7 +897,9 @@ promptflow:
     maximum: "1.16.2"
     requirements:
       # Requirements to run sparkudf predict test
-      ">= 0.0.0": ["pyspark", "jinja2"]
+      # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
+      # inside promptflow
+      ">= 0.0.0": ["pyspark", "jinja2", "marshmallow<3.24.0"]
       ">= 1.11.0": ["openai>=1"]
       "< 1.18": ["numpy<2"]
     run: |
