@@ -1939,6 +1939,7 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
         The prediction result from the model.
     """
     from mlflow.pyfunc.scoring_server import _parse_json_data
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
     # sklearn model might not have python_function flavor if it
     # doesn't define a predict function. In such case the model
@@ -1953,7 +1954,8 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
             pyfunc_model.metadata,
             pyfunc_model.metadata.get_input_schema(),
         )
-        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+        with _simulate_serving_environment():
+            return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
     finally:
         if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)

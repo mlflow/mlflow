@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime
 from functools import lru_cache
@@ -7,6 +8,7 @@ import pydantic
 import pydantic.fields
 from packaging.version import Version
 
+from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import (
@@ -339,6 +341,8 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
     elif type_hint == Any:
         return example
     elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
+        if _MLFLOW_IS_IN_SERVING_ENVIRONMENT.get():
+            example = _parse_data_for_datatype_hint(data=example, type_hint=type_hint)
         if isinstance(example, type_hint):
             return example
         raise MlflowException.invalid_parameter_value(
@@ -364,6 +368,27 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
             # no validation needed for AnyType
             return example
     _invalid_type_hint_error(type_hint)
+
+
+def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
+    """
+    Parse the data based on the type hint.
+    This should only be used in MLflow serving environment to convert
+    json data to the expected format.
+    Allowed conversions:
+        - string data with datetime type hint -> datetime object
+        - string data with bytes type hint -> bytes object
+    """
+    if type_hint == bytes and isinstance(data, str):
+        # The assumption is that the data is base64 encoded, and
+        # scoring server accepts base64 encoded string for bytes fields.
+        # MLflow uses the same method for saving input example
+        # via base64.encodebytes(x).decode("ascii")
+        return base64.decodebytes(bytes(data, "utf8"))
+    if type_hint == datetime and isinstance(data, str):
+        # The assumption is that the data is in ISO format
+        return datetime.fromisoformat(data)
+    return data
 
 
 class ValidationResult(NamedTuple):
