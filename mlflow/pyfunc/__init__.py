@@ -2021,6 +2021,8 @@ def spark_udf(
         params: Additional parameters to pass to the model for inference.
 
         extra_env: Extra environment variables to pass to the UDF executors.
+            For overrides that need to propagate to the Spark workers (i.e.,
+            overriding the scoring server timeout via `MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT`).
 
         prebuilt_env_uri: The path of the prebuilt env archive file created by
             `mlflow.pyfunc.build_model_env` API.
