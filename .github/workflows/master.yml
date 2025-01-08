@@ -303,9 +303,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 2
+          - splits: 4
     steps:
       - uses: actions/checkout@v4
         with:
