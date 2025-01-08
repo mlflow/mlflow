@@ -1,5 +1,8 @@
 """
 This module defines environment variables used in MLflow.
+MLflow's environment variables adhere to the following naming conventions:
+- Public variables: environment variable names begin with `MLFLOW_`
+- Internal-use variables: For variables used only internally, names start with `_MLFLOW_`
 """
 
 import os
