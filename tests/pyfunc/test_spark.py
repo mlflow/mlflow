@@ -1703,5 +1703,5 @@ def test_spark_udf_model_server_timeout(spark, monkeypatch):
     # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient,
     # but handled as a PythonException from a subprocess failure for a timeout exception.
     # Broad exception catching here due to PySpark / DBConnect stacktrace handling.
-    with pytest.raises(Exception, match="Scoring timeout"):
+    with pytest.raises(Exception, match="An exception was thrown from the Python worker"):
         spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
