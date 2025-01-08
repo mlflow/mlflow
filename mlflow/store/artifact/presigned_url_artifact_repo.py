@@ -117,7 +117,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 )
             except RestException as e:
                 if e.error_code == ErrorCode.Name(NOT_FOUND):
-                    return infos
+                    return []
                 else:
                     raise e
             for dir_entry in resp.contents:
