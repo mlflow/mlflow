@@ -143,11 +143,11 @@ def test_mlflow_callback_exception():
     assert spans[3].status.status_code == "ERROR"
 
 
+@pytest.mark.skipif(
+    _DSPY_VERSION < Version("2.5.42"),
+    reason="DSPy callback does not handle Tool in versions < 2.5.42",
+)
 def test_autolog_react():
-    # NB: DSPy's __version__ is not reliable as it is hard-coded in the package.
-    if not hasattr(BaseCallback, "on_tool_start"):
-        pytest.skip("DSPy callback does not handle Tool in versions < 2.5.42")
-
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
