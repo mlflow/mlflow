@@ -265,12 +265,11 @@ def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
         raise MlflowException.invalid_parameter_value(
             f"List type hint must contain the element type, got {type_hint}"
         )
-    elif len(args) > 1:
+    if len(args) > 1:
         raise MlflowException.invalid_parameter_value(
             f"List type hint must contain only one element type, got {type_hint}"
         )
-    else:
-        return args[0]
+    return args[0]
 
 
 def _is_list_type_hint(type_hint: type[Any]) -> bool:

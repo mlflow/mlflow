@@ -405,7 +405,7 @@ def _infer_signature_from_type_hints(
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
     except InvalidTypeHintException as e:
-        warnings.warn(e.message, stacklevel=3)
+        warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
         return None
 
     # only warn if the pyfunc decorator is not used and schema can
