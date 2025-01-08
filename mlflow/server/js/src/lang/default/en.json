@@ -1271,10 +1271,6 @@
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
   },
-  "OA8FBt": {
-    "defaultMessage": "Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
-    "description": "Section heading to display the code block on how we can validate an input against registered model prior to serving"
-  },
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
