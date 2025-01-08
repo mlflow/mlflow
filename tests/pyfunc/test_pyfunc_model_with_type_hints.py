@@ -17,7 +17,7 @@ from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, _is_pydantic_type_hint
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
 from mlflow.utils.env_manager import VIRTUALENV
 
 from tests.helper_functions import pyfunc_serve_and_score_model
