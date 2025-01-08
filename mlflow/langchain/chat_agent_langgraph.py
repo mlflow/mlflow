@@ -71,6 +71,7 @@ def parse_tool_calls(id, tool_calls: list[dict[str, Any]]) -> dict:
                 function=FunctionToolCallArgumentsPydantic(
                     arguments=json.dumps(tool_call.get("args", {})), name=tool_call.get("name")
                 ),
+                type="function",
             )
             for tool_call in tool_calls
         ],
