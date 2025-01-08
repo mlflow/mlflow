@@ -37,8 +37,10 @@ import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.llama_index.chat import get_chat_messages_from_event
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
@@ -162,8 +164,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
         try:
             input_args = bound_args.arguments
+
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
+
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
@@ -184,6 +188,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
+
+            # NB: The tool definition is passed to LLM via kwargs, but it is not set
+            # to the LLM/Chat start event. Therefore, we need to handle it here.
+            if span_type in [SpanType.LLM, SpanType.CHAT_MODEL] and (
+                tools := input_args.get("kwargs", {}).get("tools")
+            ):
+                try:
+                    set_span_chat_tools(span, tools)
+                except Exception as e:
+                    _logger.debug(f"Failed to set tools for {span}: {e}")
+
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
             _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
@@ -232,7 +247,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
         token = self._span_id_to_token.pop(span.span_id, None)
-
         if _get_llama_index_version() >= Version("0.10.59"):
             # LlamaIndex determines if a workflow is terminated or not by propagating an special
             # exception WorkflowDone. We should treat this exception as a successful termination.
@@ -383,20 +397,24 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
         span.set_attribute("prompt", event.prompt)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.CHAT_MODEL)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -439,6 +457,13 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                 if (v := additional_kwargs.get(k)) is not None:
                     usage[k] = v
         return usage
+
+    def _extract_and_set_chat_messages(self, span: LiveSpan, event: BaseEvent):
+        try:
+            messages = get_chat_messages_from_event(event)
+            set_span_chat_messages(span, messages, append=True)
+        except Exception as e:
+            _logger.debug(f"Failed to set chat messages to the span: {e}", exc_info=True)
 
 
 _StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]

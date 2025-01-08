@@ -239,6 +239,7 @@ def generate_request_id() -> str:
 def set_span_chat_messages(
     span: LiveSpan,
     messages: Union[dict, ChatMessage],
+    append=False,
 ):
     """
     Set the `mlflow.chat.messages` attribute on the specified span. This
@@ -250,6 +251,10 @@ def set_span_chat_messages(
         messages: A list of standardized chat messages (refer to the
                  `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
                  for details)
+        append: If True, the messages will be appended to the existing messages. Otherwise,
+                the attribute will be overwritten entirely. Default is False.
+                This is useful when you want to record messages incrementally, e.g., log
+                input messages first, and then log output messages later.
 
     Example:
 
@@ -283,6 +288,10 @@ def set_span_chat_messages(
             #   Those fields should not be recorded unless set explicitly, so we set
             #   exclude_unset=True here to avoid recording unset fields.
             sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
+
+    if append:
+        existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
+        sanitized_messages = existing_messages + sanitized_messages
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
