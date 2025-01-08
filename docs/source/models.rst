@@ -3841,6 +3841,13 @@ This information is moved to `MLflow Deployment <deployment/index.html>`_ page.
 Export a ``python_function`` model as an Apache Spark UDF
 ---------------------------------------------------------
 
+.. note:: 
+    If you are using a model that has a very long running inference latency (i.e., a 
+    `transformers` model) that could take longer than the default timeout of 60 seconds, 
+    you can utilize the `extra_env` argument when defining the `spark_udf` instance for your 
+    MLflow model, specifying an override to the environment variable `MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT`.
+    For further guidance, please see :py:func:`mlflow.pyfunc.spark_udf`.
+
 You can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a
 Spark cluster and used to score the model.
 
