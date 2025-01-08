@@ -42,6 +42,7 @@ from sklearn.preprocessing import FunctionTransformer
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.models.signature import infer_signature
@@ -1693,7 +1694,14 @@ def test_spark_udf_model_server_timeout(spark, monkeypatch):
         ),
         params=test_params,
         env_manager="virtualenv",
+        extra_env={
+            "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT": str(
+                MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+            )
+        },
     )
-    # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient
-    with pytest.raises(MlflowException, match="Scoring timeout"):
+    # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient,
+    # but handled as a PythonException from a subprocess failure for a timeout exception.
+    # Broad exception catching here due to PySpark / DBConnect stacktrace handling.
+    with pytest.raises(Exception, match="Scoring timeout"):
         spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
