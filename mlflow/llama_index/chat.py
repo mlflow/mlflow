@@ -36,7 +36,7 @@ def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
 def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
     """Convert a message object from LlamaIndex to MLflow's standard format."""
     content = [_parse_content_block(cb) for cb in _get_contents(message)]
-    content = [cb for cb in content if cb is not None]
+    content = [cb for cb in content if cb]
     mlflow_message = ChatMessage(role=message.role.value, content=content)
 
     if tool_calls := message.additional_kwargs.get("tool_calls"):
