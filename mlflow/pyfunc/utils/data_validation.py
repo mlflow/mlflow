@@ -3,13 +3,14 @@ import warnings
 from functools import lru_cache, wraps
 from typing import Any, Optional
 
+from mlflow.exceptions import MlflowException
 from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
 )
 from mlflow.types.type_hints import (
     _convert_data_to_type_hint,
-    _infer_schema_from_type_hint,
+    _infer_schema_from_list_type_hint,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
@@ -36,7 +37,15 @@ def _wrap_predict_with_pyfunc(func, type_hint):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            args, kwargs = _validate_model_input(args, kwargs, model_input_index, type_hint)
+            try:
+                args, kwargs = _validate_model_input(args, kwargs, model_input_index, type_hint)
+            except Exception as e:
+                if isinstance(e, MlflowException):
+                    raise e
+                raise MlflowException(
+                    f"Failed to validate the input data against the type hint `{type_hint}`. "
+                    f"Error: {e}"
+                )
             return func(*args, **kwargs)
     else:
 
@@ -69,7 +78,7 @@ def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
         if _signature_cannot_be_inferred_from_type_hint(type_hint):
             return
         try:
-            _infer_schema_from_type_hint(type_hint)
+            _infer_schema_from_list_type_hint(type_hint)
         except Exception as e:
             warnings.warn(
                 "Type hint used in the model's predict function is not supported "
