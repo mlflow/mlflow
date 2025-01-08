@@ -76,7 +76,7 @@ def parse_tool_calls(id, tool_calls: list[dict[str, Any]]) -> dict:
             for tool_call in tool_calls
         ],
         # attachments = ...
-    ).model_dump(exclude_unset=True)
+    ).model_dump(exclude_none=True)
 
 
 def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> dict:
@@ -87,7 +87,7 @@ def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> dict:
         id=tool_msg.tool_call_id,
         tool_call_id=tool_msg.tool_call_id,
         attachments=attachments,
-    ).model_dump(exclude_unset=True)
+    ).model_dump(exclude_none=True)
 
 
 def parse_message(msg, key: Optional[str] = None, attachments: Optional[dict] = None) -> dict:
@@ -107,14 +107,14 @@ def parse_message(msg, key: Optional[str] = None, attachments: Optional[dict] = 
         }
         if key:
             args["name"] = key
-        return ChatAgentMessage(**args).model_dump(exclude_unset=True)
+        return ChatAgentMessage(**args).model_dump(exclude_none=True)
     elif isinstance(msg, HumanMessage):
         return ChatAgentMessage(
             role="user",
             id=msg.id,
             content=msg.content,
             # attachments = ...
-        ).model_dump(exclude_unset=True)
+        ).model_dump(exclude_none=True)
     else:
         logging.warning(f"Unexpected message type: {type(msg), str(msg)}")
 

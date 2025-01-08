@@ -77,7 +77,7 @@ class _ChatAgentPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             ) from e
         if isinstance(response, ChatAgentResponse):
-            return response.model_dump(exclude_unset=True)
+            return response.model_dump(exclude_none=True)
         return response
 
     def predict(
