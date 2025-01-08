@@ -19,9 +19,6 @@ def spark():
         yield s
 
 
-# test
-
-
 def get_promptflow_example_model():
     flow_path = Path(__file__).parent / "flow_with_additional_includes"
     return load_flow(flow_path)
