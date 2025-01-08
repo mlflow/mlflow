@@ -1,8 +1,7 @@
 import logging
-from typing import Union
+from typing import Any, Optional, Union
 
 from llama_index.core.base.llms.types import ChatMessage as LLamaChatMessage
-from llama_index.core.base.llms.types import ImageBlock, TextBlock
 from llama_index.core.instrumentation.events import BaseEvent
 from llama_index.core.instrumentation.events.llm import (
     LLMChatEndEvent,
@@ -37,6 +36,7 @@ def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
 def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
     """Convert a message object from LlamaIndex to MLflow's standard format."""
     content = [_parse_content_block(cb) for cb in _get_content(message)]
+    content = [cb for cb in content if cb is not None]
     mlflow_message = ChatMessage(role=message.role.value, content=content)
 
     if tool_calls := message.additional_kwargs.get("tool_calls"):
@@ -48,12 +48,18 @@ def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
     return mlflow_message
 
 
-def _parse_content_block(
-    content_block: Union[TextBlock, ImageBlock, str],
-) -> Union[ImageContentPart, TextContentPart]:
+def _parse_content_block(content_block: Any) -> Optional[Union[ImageContentPart, TextContentPart]]:
     if isinstance(content_block, str):
         return TextContentPart(text=content_block, type="text")
-    elif isinstance(content_block, TextBlock):
+
+    # Before LlamaIndex 0.12.0, only string content was supported.
+    try:
+        from llama_index.core.base.llms.types import ImageBlock, TextBlock
+    except ImportError:
+        _logger.debug(f"Unsupported content block type, skipping: {type(content_block)}")
+        return None
+
+    if isinstance(content_block, TextBlock):
         return TextContentPart(text=content_block.text, type="text")
     elif isinstance(content_block, ImageBlock):
         # https://github.com/run-llama/llama_index/blob/b449940dfad14afbc5721dcd37744d4b0ddac15e/llama-index-core/llama_index/core/base/llms/types.py#L51
@@ -68,6 +74,8 @@ def _parse_content_block(
                 ),
             )
 
+        # LlamaIndex has a bug that it stores base64 encoded image as bytes instead of string.
+        # https://github.com/run-llama/llama_index/blame/526d4c1c21f46e544bb85dc53d9afd36dff5fbef/llama-index-core/llama_index/core/base/llms/types.py#L53
         if isinstance(content_block.image, bytes):
             image_base64 = str(content_block.image, "utf-8")
         else:
@@ -84,7 +92,7 @@ def _parse_content_block(
         _logger.debug(f"Unsupported content block type, skipping: {type(content_block)}")
 
 
-def _get_content(message: LLamaChatMessage) -> Union[TextBlock, ImageBlock, str]:
+def _get_content(message: LLamaChatMessage) -> Any:
     """
     Get the content blocks from the ChatMessage object in LlamaIndex.
 

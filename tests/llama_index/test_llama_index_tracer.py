@@ -10,7 +10,6 @@ import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import Settings
-from llama_index.core.base.llms.types import ImageBlock, TextBlock
 from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.llms.callbacks import llm_chat_callback
@@ -221,12 +220,13 @@ def test_trace_llm_chat(is_async):
     ]
 
 
-@pytest.mark.parametrize(
-    (
-        "image_block",
-        "expected_image_url",
-    ),
-    [
+def _multi_modal_test_cases():
+    if llama_core_version < Version("0.12.0"):
+        return []
+
+    from llama_index.core.base.llms.types import ImageBlock
+
+    test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
             {
@@ -241,20 +241,32 @@ def test_trace_llm_chat(is_async):
                 "detail": None,
             },
         ),
-        (
-            ImageBlock(
-                image=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\xdac\xfc\xcf\xc0P\x0f\x00\x04\x85\x01\x80\x84\xa9\x8c!\x00\x00\x00\x00IEND\xaeB`\x82",
-                detail="low",
+    ]
+
+    # LlamaIndex < 0.12.3 doesn't support image content in byte format
+    if llama_core_version >= Version("0.12.3"):
+        test_cases.append(
+            (
+                ImageBlock(
+                    image=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\xdac\xfc\xcf\xc0P\x0f\x00\x04\x85\x01\x80\x84\xa9\x8c!\x00\x00\x00\x00IEND\xaeB`\x82",
+                    detail="low",
+                ),
+                {
+                    "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA"
+                    "BCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                    "detail": "low",
+                },
             ),
-            {
-                "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA"
-                "BCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-                "detail": "low",
-            },
-        ),
-    ],
-)
+        )
+
+    return test_cases
+
+
+@pytest.mark.skipif(llama_core_version < Version("0.12.0"), reason="Multi-modal not supported")
+@pytest.mark.parametrize(("image_block", "expected_image_url"), _multi_modal_test_cases())
 def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
+    from llama_index.core.base.llms.types import TextBlock
+
     llm = OpenAI()
     message = ChatMessage(
         role="user", blocks=[TextBlock(text="What is in the image?"), image_block]

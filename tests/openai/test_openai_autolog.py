@@ -148,7 +148,9 @@ def test_chat_completions_autolog_streaming(client):
 def test_chat_completions_autolog_tracing_error(client):
     mlflow.openai.autolog()
     messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.UnprocessableEntityError, match="Input should be less than or equal to 2"):
+    with pytest.raises(
+        openai.UnprocessableEntityError, match="Input should be less than or equal to 2"
+    ):
         client.chat.completions.create(
             messages=messages,
             model="gpt-4o-mini",
