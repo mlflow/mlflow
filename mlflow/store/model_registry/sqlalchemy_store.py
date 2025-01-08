@@ -12,6 +12,9 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -56,6 +59,8 @@ _logger = logging.getLogger(__name__)
 # https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.configure_mappers
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
+
+GO_MOCK_TIME_TAG = "mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -171,10 +176,11 @@ class SqlAlchemyStore(AbstractStore):
         # it is impossible to use Pythin dynamic mocking.
         # Tag with key="mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
         # is a special tag which is used to override some values in GO implementation.
-        # This tag is not necessary in Pythin implementation, so let's clean it.
-        for i in range(len(tags or [])):
-            if tags[i].key == "mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag":
-                del tags[i]
+        # This tag is not necessary in Python implementation, so let's clean it.
+        if _MLFLOW_GO_STORE_TESTING.get():
+            for i in range(len(tags or [])):
+                if tags[i].key == GO_MOCK_TIME_TAG:
+                    del tags[i]
 
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
@@ -203,7 +209,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
     @classmethod
-    def _get_registered_model(cls, session, name, eager=False):  # noqa: D417
+    def _get_registered_model(cls, session, name, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the registered model's tags. If ``False``, these
@@ -759,7 +765,7 @@ class SqlAlchemyStore(AbstractStore):
         return versions[0]
 
     @classmethod
-    def _get_sql_model_version(cls, session, name, version, eager=False):  # noqa: D417
+    def _get_sql_model_version(cls, session, name, version, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the model version's tags.

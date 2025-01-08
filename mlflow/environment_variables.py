@@ -680,3 +680,8 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
 MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
     "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )
+
+#: A boolean flag which enables additional functionality in Python tests for GO backend.
+_MLFLOW_GO_STORE_TESTING = _BooleanEnvironmentVariable(
+    "MLFLOW_GO_STORE_TESTING", False
+)
