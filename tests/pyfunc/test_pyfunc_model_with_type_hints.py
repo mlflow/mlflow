@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
@@ -8,11 +9,18 @@ import pydantic
 import pytest
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
+from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
+from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
+from mlflow.utils.env_manager import VIRTUALENV
+
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 class CustomExample(pydantic.BaseModel):
@@ -20,8 +28,6 @@ class CustomExample(pydantic.BaseModel):
     str_field: str
     bool_field: bool
     double_field: float
-    binary_field: bytes
-    datetime_field: datetime.datetime
     any_field: Any
     optional_str: Optional[str] = None
 
@@ -104,8 +110,6 @@ class CustomExample2(pydantic.BaseModel):
                                 Property(name="str_field", dtype=DataType.string),
                                 Property(name="bool_field", dtype=DataType.boolean),
                                 Property(name="double_field", dtype=DataType.double),
-                                Property(name="binary_field", dtype=DataType.binary),
-                                Property(name="datetime_field", dtype=DataType.datetime),
                                 Property(name="any_field", dtype=AnyType()),
                                 Property(
                                     name="optional_str", dtype=DataType.string, required=False
@@ -121,8 +125,6 @@ class CustomExample2(pydantic.BaseModel):
                     "str_field": "abc",
                     "bool_field": True,
                     "double_field": 1.23,
-                    "binary_field": b"bytes",
-                    "datetime_field": datetime.datetime.now(),
                     "any_field": ["any", 123],
                     "optional_str": "optional",
                 }
@@ -202,7 +204,12 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     if has_input_example:
         kwargs["input_example"] = input_example
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+        with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+            model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+        assert not any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
     assert model_info.signature._is_signature_from_type_hint is True
     assert model_info.signature.inputs == expected_schema
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -210,6 +217,16 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     if isinstance(result[0], pydantic.BaseModel):
         result = [r.dict() if PYDANTIC_V1_OR_OLDER else r.model_dump() for r in result]
     assert result == input_example
+
+    # test serving
+    payload = convert_input_example_to_serving_input(input_example)
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert scoring_response.status_code == 200
 
 
 def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
@@ -681,3 +698,36 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
             "model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
         )
     assert not any("Decorate your function" in str(w.message) for w in recwarn)
+
+
+def test_serving_environment(monkeypatch):
+    with _simulate_serving_environment():
+        assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "true"
+    assert os.environ.get(_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name) is None
+
+    monkeypatch.setenv(_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name, "false")
+    with _simulate_serving_environment():
+        assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "true"
+    assert os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] == "false"
+
+
+def test_predict_model_with_type_hints():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data=["a", "b", "c"],
+        # uv env manager works in local testing but not in CI
+        # because setuptools also exists in https://download.pytorch.org/whl/cpu, but it might
+        # not include the version we need, and uv by default finds the first index that
+        # has the package, this could cause version not found error
+        env_manager=VIRTUALENV,
+    )

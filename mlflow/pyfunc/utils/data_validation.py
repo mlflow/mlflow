@@ -3,6 +3,7 @@ import warnings
 from functools import lru_cache, wraps
 from typing import Any, Optional
 
+from mlflow.exceptions import MlflowException
 from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
@@ -36,7 +37,15 @@ def _wrap_predict_with_pyfunc(func, type_hint):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            args, kwargs = _validate_model_input(args, kwargs, model_input_index, type_hint)
+            try:
+                args, kwargs = _validate_model_input(args, kwargs, model_input_index, type_hint)
+            except Exception as e:
+                if isinstance(e, MlflowException):
+                    raise e
+                raise MlflowException(
+                    f"Failed to validate the input data against the type hint `{type_hint}`. "
+                    f"Error: {e}"
+                )
             return func(*args, **kwargs)
     else:
 
