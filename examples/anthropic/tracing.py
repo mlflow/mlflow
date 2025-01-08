@@ -5,7 +5,7 @@ For more information about MLflow Tracing, see: https://mlflow.org/docs/latest/l
 """
 
 import os
-
+import numpy
 import anthropic
 
 import mlflow
