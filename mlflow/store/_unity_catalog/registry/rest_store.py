@@ -731,9 +731,7 @@ class UcModelRegistryStore(BaseRestStore):
         if model_id is None:
             return None
         model = mlflow.get_logged_model(model_id)
-        model_params = []
-        for name, value in model.params.items():
-            model_params.append(ModelParam(name=name, value=value))
+        model_params = [ModelParam(name=name, value=value) for name, value in model.params.items()]
         return model_params
 
     def create_model_version(
