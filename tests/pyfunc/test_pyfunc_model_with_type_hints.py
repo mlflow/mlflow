@@ -119,14 +119,16 @@ class CustomExample2(pydantic.BaseModel):
                     ),
                 ]
             ),
-            {
-                "long_field": 123,
-                "str_field": "abc",
-                "bool_field": True,
-                "double_field": 1.23,
-                "any_field": ["any", 123],
-                "optional_str": "optional",
-            },
+            [
+                {
+                    "long_field": 123,
+                    "str_field": "abc",
+                    "bool_field": True,
+                    "double_field": 1.23,
+                    "any_field": ["any", 123],
+                    "optional_str": "optional",
+                }
+            ],
         ),
         (
             list[CustomExample2],
