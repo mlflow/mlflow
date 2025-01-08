@@ -13,7 +13,7 @@ mlflow.groq.autolog()
 
 client = groq.Groq()
 
-# Use the create method to create new message
+# Use the create method to create new message.
 message = client.chat.completions.create(
     model="llama3-8b-8192",
     messages=[
