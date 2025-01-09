@@ -161,32 +161,6 @@ def test_chat_agent_predict(tmp_path):
     assert response["messages"][0]["content"] == "default response"
 
 
-# def test_chat_agent_works_in_serving():
-#     model = SimpleChatAgent()
-#     messages = [
-#         {"role": "system", "content": "You are a helpful assistant"},
-#         {"role": "user", "content": "Hello!"},
-#     ]
-#     with mlflow.start_run():
-#         model_info = mlflow.pyfunc.log_model(
-#             "model",
-#             python_model=model,
-#             input_example=(messages, ChatAgentParams().model_dump()),
-#         )
-
-#     inference_payload = load_serving_example(model_info.model_uri)
-#     response = pyfunc_serve_and_score_model(
-#         model_uri=model_info.model_uri,
-#         data=inference_payload,
-#         content_type="application/json",
-#         extra_args=["--env-manager", "local"],
-#     )
-
-#     expect_status_code(response, 200)
-#     response = json.loads(response)
-#     assert response["messages"][0]["content"] == "default_response"
-
-
 def test_chat_agent_works_with_infer_signature_input_example(tmp_path):
     model = SimpleChatAgent()
     params = {
