@@ -100,17 +100,12 @@ def test_list_artifacts_failure():
     exc_code = "NOT_FOUND"
     exc_message = "The directory being accessed is not found."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with (
-        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
-        pytest.raises(RestException) as exc_info,  # noqa: PT011
-    ):
-        artifact_repo._download_from_cloud(remote_file_path, "local_file")
-
-    assert exc_info.value.error_code == exc_code
-    assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+    with mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc):
+        empty_infos = artifact_repo.list_artifacts(remote_file_path)
+        assert len(empty_infos) == 0
 
 
-def _make_pesigned_url(remote_path):
+def _make_presigned_url(remote_path):
     return f"presigned_url/{remote_path}"
 
 
@@ -121,7 +116,7 @@ def _make_headers(remote_path):
 def mock_create_download_url(*args, **kwargs):
     remote_path = json.loads(kwargs["json_body"])["path"]
     return CreateDownloadUrlResponse(
-        url=_make_pesigned_url(remote_path),
+        url=_make_presigned_url(remote_path),
         headers=[
             HttpHeader(name=header, value=val) for header, val in _make_headers(remote_path).items()
         ],
@@ -151,7 +146,7 @@ def test_get_read_credentials():
                 response_proto=ANY,
             )
 
-        assert {_make_pesigned_url(f"{MODEL_URI}/{path}") for path in remote_file_paths} == {
+        assert {_make_presigned_url(f"{MODEL_URI}/{path}") for path in remote_file_paths} == {
             cred.signed_uri for cred in creds
         }
         expected_headers = {}
@@ -166,7 +161,7 @@ def test_get_read_credentials():
 def mock_create_upload_url(*args, **kwargs):
     remote_path = json.loads(kwargs["json_body"])["path"]
     return CreateUploadUrlResponse(
-        url=_make_pesigned_url(remote_path),
+        url=_make_presigned_url(remote_path),
         headers=[
             HttpHeader(name=header, value=val) for header, val in _make_headers(remote_path).items()
         ],
@@ -211,7 +206,7 @@ def test_download_from_cloud():
         mock.patch(
             f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
             return_value=CreateDownloadUrlResponse(
-                url=_make_pesigned_url(remote_file_path),
+                url=_make_presigned_url(remote_file_path),
                 headers=[
                     HttpHeader(name=k, value=v) for k, v in _make_headers(remote_file_path).items()
                 ],
@@ -226,7 +221,7 @@ def test_download_from_cloud():
 
         mock_request.assert_called_once_with(remote_file_path)
         mock_download.assert_called_once_with(
-            http_uri=_make_pesigned_url(remote_file_path),
+            http_uri=_make_presigned_url(remote_file_path),
             download_path=local_file,
             headers=_make_headers(remote_file_path),
         )
@@ -255,7 +250,7 @@ def test_log_artifact():
     artifact_path = "remote/file/location"
     total_remote_path = f"{artifact_path}/{os.path.basename(local_file)}"
     creds = ArtifactCredentialInfo(
-        signed_uri=_make_pesigned_url(total_remote_path),
+        signed_uri=_make_presigned_url(total_remote_path),
         headers=[
             ArtifactCredentialInfo.HttpHeader(name=k, value=v)
             for k, v in _make_headers(total_remote_path).items()
@@ -297,7 +292,7 @@ def test_upload_to_cloud(tmp_path):
         ) as mock_status,
     ):
         cred_info = ArtifactCredentialInfo(
-            signed_uri=_make_pesigned_url(remote_file_path),
+            signed_uri=_make_presigned_url(remote_file_path),
             headers=[
                 ArtifactCredentialInfo.HttpHeader(name=k, value=v)
                 for k, v in _make_headers(remote_file_path).items()
@@ -306,7 +301,7 @@ def test_upload_to_cloud(tmp_path):
         artifact_repo._upload_to_cloud(cred_info, local_file, "some/irrelevant/path")
         mock_cloud.assert_called_once_with(
             "put",
-            _make_pesigned_url(remote_file_path),
+            _make_presigned_url(remote_file_path),
             data=bytearray(content, "utf-8"),
             headers=_make_headers(remote_file_path),
         )
