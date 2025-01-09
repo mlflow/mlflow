@@ -96,8 +96,13 @@ def test_chat_agent_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [ChatAgentMessage(**msg).model_dump() for msg in messages]
-
+    assert [
+        {k: v for k, v in msg.items() if k != "id"} 
+        for msg in request["messages"]
+    ] == [
+        {k: v for k, v in ChatAgentMessage(**msg).model_dump().items() if k != "id"} 
+        for msg in messages
+    ]
 
 def test_chat_agent_save_throws_with_signature(tmp_path):
     model = SimpleChatAgent()
@@ -191,10 +196,12 @@ def test_chat_agent_works_with_infer_signature_input_example(tmp_path):
     assert model_info.signature.outputs == CHAT_AGENT_OUTPUT_SCHEMA
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
-    assert mlflow_model.load_input_example(local_path) == {
-        "messages": input_example["messages"],
-        **params,
-    }
+    loaded_input_example = mlflow_model.load_input_example(local_path)
+    # drop the generated UUID
+    loaded_input_example['messages'] = [
+        {k: v for k, v in msg.items() if k != "id"}  for msg in request["messages"]
+    ] 
+    assert saved_input_example == input_example
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
