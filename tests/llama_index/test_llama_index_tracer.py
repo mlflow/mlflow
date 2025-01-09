@@ -224,6 +224,7 @@ def _multi_modal_test_cases():
 
     from llama_index.core.base.llms.types import ImageBlock
 
+    image_base64 = _get_image_content("tests/resources/images/test.png", True)
     test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
@@ -233,22 +234,20 @@ def _multi_modal_test_cases():
         (
             ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
             {
+                "url": f"data:image/png;base64,{image_base64}",
                 "detail": "low",
-                "url": f"data:image/png;base64,{_get_image_content('tests/resources/images/test.png', True)}",
             },
         ),
     ]
 
     # LlamaIndex < 0.12.3 doesn't support image content in byte format
     if llama_core_version >= Version("0.12.3"):
+        image_bytes = _get_image_content("tests/resources/images/test.png", False)
         test_cases.append(
             (
-                ImageBlock(
-                    image=_get_image_content("tests/resources/images/test.png", False),
-                    detail="low",
-                ),
+                ImageBlock(image=image_bytes, detail="low"),
                 {
-                    "url": f"data:image/png;base64,{_get_image_content('tests/resources/images/test.png', True)}",
+                    "url": f"data:image/png;base64,{image_bytes}",
                     "detail": "low",
                 },
             ),
