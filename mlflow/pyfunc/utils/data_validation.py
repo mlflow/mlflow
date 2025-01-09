@@ -76,7 +76,7 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
 
 def _check_func_signature(func, func_name) -> list[str]:
     parameters = inspect.signature(func).parameters
-    param_names = list(filter(lambda x: x != "self", list(parameters.keys())))
+    param_names = [name for name in parameters.keys() if name != "self"]
     if invalid_params := set(param_names) - {"self", "context", "model_input", "params"}:
         warnings.warn(
             _INVALID_SIGNATURE_ERROR_MSG.format(func_name=func_name, invalid_params=invalid_params),
