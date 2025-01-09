@@ -3,7 +3,8 @@ import uuid
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from packaging.version import Version
+from pydantic import VERSION, BaseModel, Field, model_validator
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -14,6 +15,8 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, 
 #       Unfortunately, validation for generic types is not that
 #       straightforward. For example, `isinstance(thing, List[T])``
 #       is not supported, so the code here is a little ugly.
+
+PYDANTIC_V1_OR_OLDER = Version(VERSION).major <= 1
 
 
 JSON_SCHEMA_TYPES = [
@@ -138,6 +141,46 @@ class _BaseDataclass:
         return cls(**filtered_data)
 
 
+class _BaseModel(BaseModel):
+    def model_dump(
+        self,
+        *,
+        mode="python",
+        include=None,
+        exclude=None,
+        context=None,
+        by_alias=False,
+        exclude_unset=False,
+        exclude_defaults=False,
+        exclude_none=False,
+        round_trip=False,
+        warnings=True,
+        serialize_as_any=False,
+    ):
+        if PYDANTIC_V1_OR_OLDER:
+            return super().dict(
+                include=include,
+                exclude=exclude,
+                by_alias=by_alias,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+                exclude_none=exclude_none,
+            )
+        return super().model_dump(
+            mode=mode,
+            include=include,
+            exclude=exclude,
+            context=context,
+            by_alias=by_alias,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+            round_trip=round_trip,
+            warnings=warnings,
+            serialize_as_any=serialize_as_any,
+        )
+
+
 # keep this in sync with FunctionToolCallArgumentsPydantic
 @dataclass
 class FunctionToolCallArguments(_BaseDataclass):
@@ -184,7 +227,7 @@ class ToolCall(_BaseDataclass):
         self._validate_field("type", str, True)
 
 
-class FunctionToolCallArgumentsPydantic(BaseModel):
+class FunctionToolCallArgumentsPydantic(_BaseModel):
     """
     The arguments of a function tool call made by the model. Pydantic version.
 
@@ -202,7 +245,7 @@ class FunctionToolCallArgumentsPydantic(BaseModel):
         return ToolCallPydantic(id=id, function=self)
 
 
-class ToolCallPydantic(BaseModel):
+class ToolCallPydantic(_BaseModel):
     """
     A tool call made by the model. Pydantic version.
 
@@ -704,7 +747,7 @@ class TokenUsageStats(_BaseDataclass):
         self._validate_field("total_tokens", int, False)
 
 
-class TokenUsageStatsPydantic(BaseModel):
+class TokenUsageStatsPydantic(_BaseModel):
     """
     Stats about the number of tokens used during inference. Pydantic version.
 
@@ -759,7 +802,7 @@ class ChatCompletionResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
-class ChatAgentMessage(BaseModel):
+class ChatAgentMessage(_BaseModel):
     """
     A message in a ChatAgent model request or response.
 
@@ -799,7 +842,7 @@ class ChatAgentMessage(BaseModel):
         return chat_agent_msg
 
 
-class Context(BaseModel):
+class Context(_BaseModel):
     """
     Context to be used in a ChatAgent endpoint.
 
@@ -812,7 +855,7 @@ class Context(BaseModel):
     user_id: Optional[str] = None
 
 
-class ChatAgentParams(BaseModel):
+class ChatAgentParams(_BaseModel):
     """
     Common parameters used for the ChatAgent interface.
 
@@ -850,7 +893,7 @@ class ChatAgentRequest(ChatAgentParams):
     messages: list[ChatAgentMessage] = Field(default_factory=list)
 
 
-class ChatAgentResponse(BaseModel):
+class ChatAgentResponse(_BaseModel):
     messages: list[ChatAgentMessage]
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[TokenUsageStatsPydantic] = None
