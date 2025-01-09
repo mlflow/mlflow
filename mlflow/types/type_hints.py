@@ -145,7 +145,8 @@ def _convert_dataframe_to_example_format(data: Any, input_example: Any) -> Any:
                 _logger.warning("Cannot convert DataFrame to a single dictionary.")
                 return data
         if isinstance(input_example, list):
-            if len(data.columns) == 1:
+            # list[scalar]
+            if len(data.columns) == 1 and all(np.isscalar(x) for x in input_example):
                 return data.iloc[:, 0].tolist()
             else:
                 # Note: this doesn't work well if dictionaries in the list

@@ -840,6 +840,7 @@ def assert_equal(data1, data2):
         [1.0, 2.0, 3.0],
         [True, False, True],
         # list[dict]
+        [{"x": True}],
         [{"a": 1, "b": 2}],
         [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
         # pd DataFrame
