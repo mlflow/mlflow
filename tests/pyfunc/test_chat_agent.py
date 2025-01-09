@@ -96,13 +96,11 @@ def test_chat_agent_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert [
-        {k: v for k, v in msg.items() if k != "id"} 
-        for msg in request["messages"]
-    ] == [
-        {k: v for k, v in ChatAgentMessage(**msg).model_dump().items() if k != "id"} 
+    assert [{k: v for k, v in msg.items() if k != "id"} for msg in request["messages"]] == [
+        {k: v for k, v in ChatAgentMessage(**msg).model_dump().items() if k != "id"}
         for msg in messages
     ]
+
 
 def test_chat_agent_save_throws_with_signature(tmp_path):
     model = SimpleChatAgent()
@@ -166,7 +164,7 @@ def test_chat_agent_predict(tmp_path):
     assert response["messages"][0]["content"] == "default response"
 
 
-def test_chat_agent_works_with_infer_signature_input_example(tmp_path):
+def test_chat_agent_works_with_infer_signature_input_example():
     model = SimpleChatAgent()
     params = {
         "context": {
@@ -198,10 +196,10 @@ def test_chat_agent_works_with_infer_signature_input_example(tmp_path):
     local_path = _download_artifact_from_uri(model_info.model_uri)
     loaded_input_example = mlflow_model.load_input_example(local_path)
     # drop the generated UUID
-    loaded_input_example['messages'] = [
-        {k: v for k, v in msg.items() if k != "id"}  for msg in request["messages"]
-    ] 
-    assert saved_input_example == input_example
+    loaded_input_example["messages"] = [
+        {k: v for k, v in msg.items() if k != "id"} for msg in loaded_input_example["messages"]
+    ]
+    assert loaded_input_example == input_example
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -216,7 +214,7 @@ def test_chat_agent_works_with_infer_signature_input_example(tmp_path):
     assert model_response["messages"][0]["content"] == "default response"
 
 
-def test_chat_agent_logs_default_metadata_task(tmp_path):
+def test_chat_agent_logs_default_metadata_task():
     model = SimpleChatAgent()
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=model)
@@ -231,7 +229,7 @@ def test_chat_agent_logs_default_metadata_task(tmp_path):
     assert model_info_with_override.metadata["task"] is None
 
 
-def test_chatagent_works_with_chat_message_input_example(tmp_path):
+def test_chatagent_works_with_chat_message_input_example():
     model = SimpleChatAgent()
     input_example = [
         ChatAgentMessage(role="user", content="What is Retrieval-augmented Generation?")
