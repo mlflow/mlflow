@@ -817,7 +817,7 @@ class ChatAgentParams(BaseModel):
     """
 
     context: Optional[Context] = None
-    custom_inputs: Optional[dict[str, str]] = None
+    custom_inputs: Optional[dict[str, Any]] = None
     stream: Optional[bool] = False
 
 
