@@ -89,7 +89,7 @@ class _ChatAgentPyfuncWrapper:
             params: Additional parameters to pass to the model for inference.
 
         Returns:
-            Model predictions in :py:class:`~ChatCompletionResponse` format.
+            Model predictions in :py:class:`~ChatAgentResponse` format.
         """
         messages, params = self._convert_input(model_input)
         response = self.chat_agent.predict(messages, params)

@@ -207,7 +207,8 @@ class ToolCallPydantic(BaseModel):
     A tool call made by the model. Pydantic version.
 
     Args:
-        function (:py:class:`FunctionToolCallArgumentsPydantic`): The arguments of the function tool call.
+        function (:py:class:`FunctionToolCallArgumentsPydantic`): The arguments of the
+            function tool call.
         id (str): The ID of the tool call. Defaults to a random UUID.
         type (str): The type of the object. Defaults to "function".
     """
