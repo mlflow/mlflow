@@ -17,7 +17,7 @@ from mlflow.types.type_hints import (
 from mlflow.utils.annotations import filter_user_warnings_once
 
 _INVALID_SIGNATURE_ERROR_MSG = (
-    "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
+    "Model's `{func_name}` method contains invalid parameters: {invalid_params}. "
     "Only the following parameter names are allowed: context, model_input, and params. "
     "Note that invalid parameters will no longer be permitted in future versions."
 )
@@ -77,7 +77,7 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
 def _check_func_signature(func, func_name) -> list[str]:
     parameters = inspect.signature(func).parameters
     param_names = list(filter(lambda x: x != "self", list(parameters.keys())))
-    if invalid_params := set(param_names) - {"context", "model_input", "params"}:
+    if invalid_params := set(param_names) - {"self", "context", "model_input", "params"}:
         warnings.warn(
             _INVALID_SIGNATURE_ERROR_MSG.format(func_name=func_name, invalid_params=invalid_params),
             FutureWarning,

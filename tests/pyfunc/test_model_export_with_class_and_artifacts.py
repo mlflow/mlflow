@@ -2151,7 +2151,7 @@ def test_callable_python_model_without_context_in_predict():
 def test_pyfunc_model_with_wrong_predict_signature_warning():
     with pytest.warns(
         FutureWarning,
-        match=r"The underlying model's `predict` method contains invalid parameters: {'messages'}",
+        match=r"Model's `predict` method contains invalid parameters: {'messages'}",
     ):
 
         class Model(mlflow.pyfunc.PythonModel):
@@ -2160,7 +2160,7 @@ def test_pyfunc_model_with_wrong_predict_signature_warning():
 
     with pytest.warns(
         FutureWarning,
-        match=r"The underlying model's `predict_stream` method contains invalid parameters: {'_'}",
+        match=r"Model's `predict_stream` method contains invalid parameters: {'_'}",
     ):
 
         class Model(mlflow.pyfunc.PythonModel):

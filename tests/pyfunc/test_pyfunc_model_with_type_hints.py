@@ -734,7 +734,7 @@ def test_predict_model_with_type_hints():
 
 
 def test_predict_with_wrong_signature_warns():
-    message = r"The underlying model's `predict` method contains invalid parameters"
+    message = r"Model's `predict` method contains invalid parameters"
     with pytest.warns(FutureWarning, match=message):
 
         class ModelWOTypeHint(mlflow.pyfunc.PythonModel):
