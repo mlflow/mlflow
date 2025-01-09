@@ -18,8 +18,8 @@ from mlflow.utils.annotations import experimental
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    _, chat_agent, signature = _load_context_model_and_signature(model_path, model_config)
-    return _ChatAgentPyfuncWrapper(chat_agent=chat_agent, signature=signature)
+    _, chat_agent, _ = _load_context_model_and_signature(model_path, model_config)
+    return _ChatAgentPyfuncWrapper(chat_agent=chat_agent)
 
 
 @experimental
@@ -28,14 +28,12 @@ class _ChatAgentPyfuncWrapper:
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatAgent`.
     """
 
-    def __init__(self, chat_agent, signature):
+    def __init__(self, chat_agent):
         """
         Args:
             chat_agent: An instance of a subclass of :class:`~ChatAgent`.
-            signature: :class:`~ModelSignature` instance describing model input and output.
         """
         self.chat_agent = chat_agent
-        self.signature = signature
 
     def get_raw_model(self):
         """
@@ -71,8 +69,8 @@ class _ChatAgentPyfuncWrapper:
         except pydantic.ValidationError as e:
             raise MlflowException(
                 message=(
-                    "Model returned an invalid response. Expected a ChatAgentResponse object "
-                    "or dictionary with the same schema"
+                    f"Model returned an invalid response. Expected a ChatAgentResponse object "
+                    f"or dictionary with the same schema. Pydantic validation error: {e}"
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e

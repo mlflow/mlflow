@@ -1049,9 +1049,7 @@ def load_model(
         lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     local_path = _download_artifact_from_uri(
-        artifact_uri=model_uri,
-        output_path=dst_path,
-        lineage_header_info=lineage_header_info,
+        artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
     )
 
     if not suppress_warnings:
@@ -2259,8 +2257,7 @@ def spark_udf(
             # message).
             if env_manager != _EnvManager.LOCAL:
                 pyfunc_backend.prepare_env(
-                    model_uri=local_model_path,
-                    capture_output=is_in_databricks_runtime(),
+                    model_uri=local_model_path, capture_output=is_in_databricks_runtime()
                 )
     else:
         # Broadcast local model directory to remote worker if needed.

@@ -159,7 +159,7 @@ class PythonModel:
 
         # automatically wrap the predict method with pyfunc to ensure data validation
         # NB: subclasses of PythonModel in MLflow that has customized predict method
-        # should set _skip_wrapping_predict = True in their wrapper class to skip this wrapping
+        # should set _skip_wrapping_predict = True to skip this wrapping
         if not getattr(cls, "_skip_wrapping_predict", False):
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
@@ -373,8 +373,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     that parameters and outputs that are expected by the ``ChatAgent`` API.
     """
 
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls)
+    _skip_wrapping_predict = True
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump(exclude_none=True) for m in messages]
