@@ -332,7 +332,8 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           pip install 'pydantic<2'
-          pytest tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
