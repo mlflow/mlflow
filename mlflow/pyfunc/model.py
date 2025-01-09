@@ -817,7 +817,6 @@ class _PythonModelPyfuncWrapper:
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
-    # TODO bbqiu: create a custom loader for chatagent
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
     return __name__
