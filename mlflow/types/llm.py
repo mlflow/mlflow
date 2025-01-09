@@ -769,7 +769,7 @@ class ChatAgentMessage(BaseModel):
         content (str): The content of the message.
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
-        id (str): The ID of the message. **Optional** defaults to ``None``
+        id (str): The ID of the message. **Optional** defaults to a random UUID
         tool_calls (List[:py:class:`ToolCallPydantic`]): A list of tool calls made by the model.
             **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
@@ -781,7 +781,7 @@ class ChatAgentMessage(BaseModel):
     role: str
     content: Optional[str] = None
     name: Optional[str] = None
-    id: Optional[str] = None
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tool_calls: Optional[list[ToolCallPydantic]] = None
     tool_call_id: Optional[str] = None
     # TODO make this a pydantic class with subtypes once we have more details on usage
