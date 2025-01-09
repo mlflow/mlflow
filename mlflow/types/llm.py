@@ -3,7 +3,7 @@ import uuid
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -787,6 +787,15 @@ class ChatAgentMessage(BaseModel):
     attachments: Optional[dict[str, str]] = None
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
+
+    @model_validator(mode="after")
+    def check_content_and_tool_calls(cls, chat_agent_msg):
+        """
+        Ensure at least one of 'content' or 'tool_calls' is set.
+        """
+        if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
+            raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+        return chat_agent_msg
 
 
 class Context(BaseModel):
