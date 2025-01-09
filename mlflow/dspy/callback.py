@@ -105,6 +105,33 @@ class MlflowCallback(BaseCallback):
     ):
         self._end_span(call_id, outputs, exception)
 
+    def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
+        # DSPy uses the special "finish" tool to signal the end of the agent.
+        if instance.name == "finish":
+            return
+
+        inputs = self._unpack_kwargs(inputs)
+        # Tools are always called with keyword arguments only.
+        inputs.pop("args", None)
+
+        self._start_span(
+            call_id,
+            name=f"Tool.{instance.name}",
+            span_type=SpanType.TOOL,
+            inputs=inputs,
+            attributes={
+                "name": instance.name,
+                "description": instance.desc,
+                "args": instance.args,
+            },
+        )
+
+    def on_tool_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
+        if call_id in self._call_id_to_span:
+            self._end_span(call_id, outputs, exception)
+
     def _start_span(
         self,
         call_id: str,
