@@ -201,23 +201,21 @@ def test_trace_llm_chat(is_async):
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
         {
             "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Hello",
-                }
-            ],
+            "content": "Hello",
         },
         {
             "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": '[{"role": "system", "content": "Hello"}]',
-                }
-            ],
+            "content": '[{"role": "system", "content": "Hello"}]',
         },
     ]
+
+
+def _get_image_content(image_path, base64=False):
+    import base64
+
+    with open(image_path, "rb") as f:
+        content = f.read()
+        return base64.b64encode(content).decode("utf-8") if base64 else content
 
 
 def _multi_modal_test_cases():
@@ -229,16 +227,14 @@ def _multi_modal_test_cases():
     test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
-            {
-                "url": "https://example/image.jpg",
-                "detail": None,
-            },
+            {"url": "https://example/image.jpg"},
         ),
+        # LlamaIndex support passing local image path
         (
-            ImageBlock(path="tests/resources/images/test.png"),
+            ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
             {
-                "url": "tests/resources/images/test.png",
-                "detail": None,
+                "detail": "low",
+                "url": f"data:image/png;base64,{_get_image_content('tests/resources/images/test.png', True)}",
             },
         ),
     ]
@@ -248,12 +244,11 @@ def _multi_modal_test_cases():
         test_cases.append(
             (
                 ImageBlock(
-                    image=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\xdac\xfc\xcf\xc0P\x0f\x00\x04\x85\x01\x80\x84\xa9\x8c!\x00\x00\x00\x00IEND\xaeB`\x82",
+                    image=_get_image_content("tests/resources/images/test.png", False),
                     detail="low",
                 ),
                 {
-                    "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA"
-                    "BCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                    "url": f"data:image/png;base64,{_get_image_content('tests/resources/images/test.png', True)}",
                     "detail": "low",
                 },
             ),
@@ -294,15 +289,7 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
                 },
             ],
         },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": response.message.content,
-                }
-            ],
-        },
+        {"role": "assistant", "content": response.message.content},
     ]
 
 
@@ -368,21 +355,11 @@ def test_trace_llm_chat_stream():
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
         {
             "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Hello",
-                }
-            ],
+            "content": "Hello",
         },
         {
             "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Hello world",
-                }
-            ],
+            "content": "Hello world",
         },
     ]
 
@@ -419,7 +396,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert events[0].attributes["exception.message"] == "Connection error."
     # When an error occurs, only input message should be captured
     assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {"role": "system", "content": [{"type": "text", "text": "Hello"}]},
+        {"role": "system", "content": "Hello"},
     ]
 
 
@@ -581,11 +558,11 @@ def test_trace_agent():
     expected_full_messages = [
         {
             "role": "user",
-            "content": [{"type": "text", "text": "What is 1 + 2?"}],
+            "content": "What is 1 + 2?",
         },
         {
             "role": "assistant",
-            "content": [],
+            "content": None,
             "tool_calls": [
                 {
                     "id": "test",
@@ -599,12 +576,12 @@ def test_trace_agent():
         },
         {
             "role": "tool",
-            "content": [{"type": "text", "text": "3"}],
+            "content": "3",
             "tool_call_id": "test",
         },
         {
             "role": "assistant",
-            "content": [{"type": "text", "text": "The result is 3"}],
+            "content": "The result is 3",
         },
     ]
     assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages[:2]
