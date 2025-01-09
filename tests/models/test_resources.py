@@ -22,10 +22,26 @@ def test_serving_endpoint():
         "databricks": expected,
     }
 
+    endpoint = DatabricksServingEndpoint(endpoint_name="llm_server", on_behalf_of_user=False)
+    expected = {"serving_endpoint": [{"name": "llm_server", "on_behalf_of_user": False}]}
+    assert endpoint.to_dict() == expected
+    assert _ResourceBuilder.from_resources([endpoint]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
 
 def test_index_name():
     index = DatabricksVectorSearchIndex(index_name="index1")
     expected = {"vector_search_index": [{"name": "index1"}]}
+    assert index.to_dict() == expected
+    assert _ResourceBuilder.from_resources([index]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+    index = DatabricksVectorSearchIndex(index_name="index1", on_behalf_of_user=True)
+    expected = {"vector_search_index": [{"name": "index1", "on_behalf_of_user": True}]}
     assert index.to_dict() == expected
     assert _ResourceBuilder.from_resources([index]) == {
         "api_version": DEFAULT_API_VERSION,
@@ -42,10 +58,26 @@ def test_sql_warehouse():
         "databricks": expected,
     }
 
+    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1", on_behalf_of_user=True)
+    expected = {"sql_warehouse": [{"name": "id1", "on_behalf_of_user": True}]}
+    assert sql_warehouse.to_dict() == expected
+    assert _ResourceBuilder.from_resources([sql_warehouse]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
 
 def test_uc_function():
     uc_function = DatabricksFunction(function_name="function")
     expected = {"function": [{"name": "function"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+    uc_function = DatabricksFunction(function_name="function", on_behalf_of_user=True)
+    expected = {"function": [{"name": "function", "on_behalf_of_user": True}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
@@ -63,10 +95,29 @@ def test_genie_space():
         "databricks": expected,
     }
 
+    genie_space = DatabricksGenieSpace(genie_space_id="id1", on_behalf_of_user=True)
+    expected = {"genie_space": [{"name": "id1", "on_behalf_of_user": True}]}
+
+    assert genie_space.to_dict() == expected
+    assert _ResourceBuilder.from_resources([genie_space]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
 
 def test_uc_connection():
     uc_function = DatabricksUCConnection(connection_name="slack_connection")
     expected = {"uc_connection": [{"name": "slack_connection"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+    uc_function = DatabricksUCConnection(
+        connection_name="slack_connection", on_behalf_of_user=False
+    )
+    expected = {"uc_connection": [{"name": "slack_connection", "on_behalf_of_user": False}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
@@ -80,6 +131,14 @@ def test_table():
 
     assert table.to_dict() == expected
     assert _ResourceBuilder.from_resources([table]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+    uc_function = DatabricksUCConnection(connection_name="slack_connection", on_behalf_of_user=True)
+    expected = {"uc_connection": [{"name": "slack_connection", "on_behalf_of_user": True}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
@@ -107,6 +166,42 @@ def test_resources():
             "function": [
                 {"name": "rag.studio.test_function_1"},
                 {"name": "rag.studio.test_function_2"},
+            ],
+            "uc_connection": [{"name": "slack_connection"}],
+        },
+    }
+
+    assert _ResourceBuilder.from_resources(resources) == expected
+
+
+def test_invoker_resources():
+    resources = [
+        DatabricksVectorSearchIndex(
+            index_name="rag.studio_bugbash.databricks_docs_index", on_behalf_of_user=True
+        ),
+        DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+        DatabricksServingEndpoint(
+            endpoint_name="databricks-llama-8x7b-instruct", on_behalf_of_user=True
+        ),
+        DatabricksSQLWarehouse(warehouse_id="id123"),
+        DatabricksFunction(function_name="rag.studio.test_function_1"),
+        DatabricksFunction(function_name="rag.studio.test_function_2", on_behalf_of_user=True),
+        DatabricksUCConnection(connection_name="slack_connection"),
+    ]
+    expected = {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": {
+            "vector_search_index": [
+                {"name": "rag.studio_bugbash.databricks_docs_index", "on_behalf_of_user": True}
+            ],
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-llama-8x7b-instruct", "on_behalf_of_user": True},
+            ],
+            "sql_warehouse": [{"name": "id123"}],
+            "function": [
+                {"name": "rag.studio.test_function_1"},
+                {"name": "rag.studio.test_function_2", "on_behalf_of_user": True},
             ],
             "uc_connection": [{"name": "slack_connection"}],
         },
@@ -195,3 +290,47 @@ def test_resources_from_yaml(tmp_path):
 
     with pytest.raises(ValueError, match="Unsupported resource type: vector_search_index_name"):
         _ResourceBuilder.from_yaml_file(incorrect_resource)
+
+    invokers_yaml_file = tmp_path.joinpath("invokers_resources.yaml")
+    with open(invokers_yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                  on_behalf_of_user: true
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-llama-8x7b-instruct
+                  on_behalf_of_user: true
+                sql_warehouse:
+                - name: id123
+                function:
+                - name: rag.studio.test_function_1
+                  on_behalf_of_user: true
+                - name: rag.studio.test_function_2
+                uc_connection:
+                - name: slack_connection
+                  on_behalf_of_user: true
+            """
+        )
+
+    assert _ResourceBuilder.from_yaml_file(invokers_yaml_file) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": {
+            "vector_search_index": [
+                {"name": "rag.studio_bugbash.databricks_docs_index", "on_behalf_of_user": True}
+            ],
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-llama-8x7b-instruct", "on_behalf_of_user": True},
+            ],
+            "sql_warehouse": [{"name": "id123"}],
+            "function": [
+                {"name": "rag.studio.test_function_1", "on_behalf_of_user": True},
+                {"name": "rag.studio.test_function_2"},
+            ],
+            "uc_connection": [{"name": "slack_connection", "on_behalf_of_user": True}],
+        },
+    }
