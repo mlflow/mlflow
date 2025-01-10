@@ -29,6 +29,7 @@ from mlflow.types.chat import (
     ChatUsage,
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+from mlflow.utils.pydantic import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -244,7 +245,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
-    model = ChatCompletionRequest.validate_compat(chat_request)
+    model = model_dump_compat(ChatCompletionRequest, chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 

@@ -12,7 +12,7 @@ from llama_index.core.instrumentation.events.llm import (
 from llama_index.llms.openai.utils import to_openai_message_dict
 
 from mlflow.types.chat import ChatMessage
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+from mlflow.utils.pydantic import model_dump_compat, model_validate_compat
 
 
 def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
@@ -24,13 +24,12 @@ def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
     elif isinstance(event, LLMCompletionEndEvent):
         return [ChatMessage(role="assistant", content=event.response.text)]
     elif isinstance(event, LLMChatStartEvent):
-        # TODO: Parse tool calls
         return [_convert_message_to_mlflow_chat(msg) for msg in event.messages]
     elif isinstance(event, LLMChatEndEvent):
         message = event.response.message
         return [_convert_message_to_mlflow_chat(message)]
-    else:
-        ValueError(f"Unsupported event type for chat attribute extraction: {type(event)}")
+
+    raise ValueError(f"Unsupported event type for chat attribute extraction: {type(event)}")
 
 
 def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
@@ -39,8 +38,6 @@ def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
 
     # tool calls are pydantic models in llama-index
     if tool_calls := message.get("tool_calls"):
-        message["tool_calls"] = [
-            tool.model_dump() if IS_PYDANTIC_V2_OR_NEWER else tool.dict() for tool in tool_calls
-        ]
+        message["tool_calls"] = [model_dump_compat(tool) for tool in tool_calls]
 
-    return ChatMessage.validate_compat(message)
+    return model_validate_compat(ChatMessage, message)

@@ -42,7 +42,7 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+from mlflow.utils.pydantic import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -191,9 +191,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
             # NB: The tool definition is passed to LLM via kwargs, but it is not set
             # to the LLM/Chat start event. Therefore, we need to handle it here.
-            if span_type in [SpanType.LLM, SpanType.CHAT_MODEL] and (
-                tools := input_args.get("kwargs", {}).get("tools")
-            ):
+            tools = input_args.get("kwargs", {}).get("tools")
+            if tools and span_type in [SpanType.LLM, SpanType.CHAT_MODEL]:
                 try:
                     set_span_chat_tools(span, tools)
                 except Exception as e:
@@ -444,7 +443,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = raw.model_dump() if IS_PYDANTIC_V2_OR_NEWER else raw.dict()
+                raw = model_dump_compat(raw)
 
             if usage := raw.get("usage"):
                 return usage

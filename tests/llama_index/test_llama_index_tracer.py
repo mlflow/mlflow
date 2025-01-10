@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import inspect
 import random
 from dataclasses import asdict
@@ -210,10 +211,10 @@ def test_trace_llm_chat(is_async):
     ]
 
 
-def _get_image_content(image_path, base64=False):
+def _get_image_content(image_path):
     with open(image_path, "rb") as f:
         content = f.read()
-        return base64.b64encode(content).decode("utf-8") if base64 else content
+        return base64.b64encode(content).decode("utf-8")
 
 
 def _multi_modal_test_cases():
@@ -222,7 +223,7 @@ def _multi_modal_test_cases():
 
     from llama_index.core.base.llms.types import ImageBlock
 
-    image_base64 = _get_image_content("tests/resources/images/test.png", True)
+    image_base64 = _get_image_content("tests/resources/images/test.png")
     test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
@@ -240,7 +241,7 @@ def _multi_modal_test_cases():
 
     # LlamaIndex < 0.12.3 doesn't support image content in byte format
     if llama_core_version >= Version("0.12.3"):
-        image_bytes = _get_image_content("tests/resources/images/test.png", False)
+        image_bytes = _get_image_content("tests/resources/images/test.png")
         test_cases.append(
             (
                 ImageBlock(image=image_bytes, detail="low"),

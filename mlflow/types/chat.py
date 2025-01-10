@@ -1,26 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel as _BaseModel
-from pydantic import Field
-
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-
-class BaseModel(_BaseModel):
-    @classmethod
-    def validate_compat(cls, obj: Any):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return cls.model_validate(obj)
-        else:
-            return cls.parse_obj(obj)
-
-    def model_dump_compat(self, **kwargs):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return self.model_dump(**kwargs)
-        else:
-            return self.dict(**kwargs)
+from pydantic import BaseModel, Field
 
 
 class TextContentPart(BaseModel):
