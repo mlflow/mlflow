@@ -3019,7 +3019,6 @@ def save_model(
             **(input_params or {}),
         }
         _logger.info("Predicting on input example to validate output")
-        print(messages, params)
         output = python_model.predict(messages, params)
         if not isinstance(output, ChatAgentResponse):
             raise MlflowException(
