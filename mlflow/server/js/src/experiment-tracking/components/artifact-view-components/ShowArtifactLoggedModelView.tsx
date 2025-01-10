@@ -44,7 +44,6 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.fetchLoggedModelMetadata = this.fetchLoggedModelMetadata.bind(this);
-    this.fetchServingInputExample = this.fetchServingInputExample.bind(this);
   }
 
   static defaultProps = {
@@ -58,7 +57,7 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     outputs: undefined,
     flavor: undefined,
     loader_module: undefined,
-    serving_input: undefined,
+    input_example: undefined,
   };
 
   componentDidMount() {
@@ -176,34 +175,41 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     );
   }
 
-  validateModelForServingText(modelPath: any, servingInput?: string) {
-    if (servingInput) {
-      return `from mlflow.models import validate_serving_input
+  validateModelPredictText(modelPath: any, inputExample?: string) {
+    if (inputExample) {
+      return `import json
+import mlflow
 
 model_uri = '${modelPath}'
+# This is the input example logged with the model
+input_example = '${inputExample}'
+input_data = json.loads(input_example)
 
-# The model is logged with an input example. MLflow converts
-# it into the serving payload format for the deployed model endpoint,
-# and saves it to 'serving_input_payload.json'
-serving_payload = """${servingInput}"""
-
-# Validate the serving payload works on the model
-validate_serving_input(model_uri, serving_payload)`;
+# Verify the model with the provided input data using the logged dependencies.
+# For more details, refer to:
+# https://mlflow.org/docs/latest/models.html#validate-models-before-deployment
+mlflow.models.predict(
+    model_uri=model_uri,
+    input_data=input_data,
+    env_manager="uv",
+)`;
     } else {
-      return `from mlflow.models import validate_serving_input
+      return `import mlflow
 
 model_uri = '${modelPath}'
 
-# The logged model does not contain an input_example.
-# Manually generate a serving payload to verify your model prior to deployment.
-from mlflow.models import convert_input_example_to_serving_input
-
-# Define INPUT_EXAMPLE via assignment with your own input example to the model
+# Replace INPUT_EXAMPLE with your own input example to the model
 # A valid input example is a data instance suitable for pyfunc prediction
-serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
+input_data = INPUT_EXAMPLE
 
-# Validate the serving payload works on the model
-validate_serving_input(model_uri, serving_payload)`;
+# Verify the model with the provided input data using the logged dependencies.
+# For more details, refer to:
+# https://mlflow.org/docs/latest/models.html#validate-models-before-deployment
+mlflow.models.predict(
+    model_uri=model_uri,
+    input_data=input_data,
+    env_manager="uv",
+)`;
     }
   }
 
@@ -313,16 +319,16 @@ validate_serving_input(model_uri, serving_payload)`;
     );
   }
 
-  renderValidateServingInput(modelPath: any, servingInput?: string) {
+  renderValidateModelPredict(modelPath: any, inputExample?: string) {
     return (
       <div css={{ marginBottom: 16 }}>
         <Text>
           <FormattedMessage
-            defaultMessage="Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
-            description="Section heading to display the code block on how we can use validate an input against registered model prior to serving"
+            defaultMessage="Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
+            description="Section heading to display the code block on how we can validate a model locally prior to serving"
           />
         </Text>
-        <ShowArtifactCodeSnippet code={this.validateModelForServingText(modelPath, servingInput)} />
+        <ShowArtifactCodeSnippet code={this.validateModelPredictText(modelPath, inputExample)} />
       </div>
     );
   }
@@ -340,7 +346,7 @@ validate_serving_input(model_uri, serving_payload)`;
           />
         </Title>
         <div className="artifact-logged-model-view-code-content">
-          {this.renderValidateServingInput(modelPath, this.state.serving_input)}
+          {this.renderValidateModelPredict(modelPath, this.state.input_example)}
         </div>
       </>
     );
@@ -471,29 +477,25 @@ validate_serving_input(model_uri, serving_payload)`;
           this.setState({ flavor: Object.keys(parsedJson.flavors)[0] });
         }
         this.setState({ loading: false });
-        if (parsedJson.saved_input_example_info && parsedJson.saved_input_example_info.serving_input_path) {
-          const servingInputFileLocation = getArtifactLocationUrl(
-            `${this.props.path}/${parsedJson.saved_input_example_info.serving_input_path}`,
+        if (parsedJson.saved_input_example_info && parsedJson.saved_input_example_info.artifact_path) {
+          const inputExampleFileLocation = getArtifactLocationUrl(
+            `${this.props.path}/${parsedJson.saved_input_example_info.artifact_path}`,
             this.props.runUuid,
           );
-          this.fetchServingInputExample(servingInputFileLocation);
+          this.props
+            .getArtifact(inputExampleFileLocation)
+            .then((response: any) => {
+              this.setState({ input_example: response });
+            })
+            .catch(() => {
+              this.setState({ input_example: null });
+            });
         } else {
-          this.setState({ serving_input: null });
+          this.setState({ input_example: null });
         }
       })
       .catch((error: any) => {
         this.setState({ error: error, loading: false });
-      });
-  }
-
-  fetchServingInputExample(servingInputFileLocation: string) {
-    this.props
-      .getArtifact(servingInputFileLocation)
-      .then((response: any) => {
-        this.setState({ serving_input: response });
-      })
-      .catch(() => {
-        this.setState({ serving_input: null });
       });
   }
 }
