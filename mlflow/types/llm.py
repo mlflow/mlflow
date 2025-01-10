@@ -4,9 +4,15 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
 from packaging.version import Version
-from pydantic import VERSION, BaseModel, Field, model_validator
+from pydantic import VERSION, BaseModel, Field
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
+
+PYDANTIC_V1_OR_OLDER = Version(VERSION).major <= 1
+if PYDANTIC_V1_OR_OLDER:
+    from pydantic import root_validator as model_validator
+else:
+    from pydantic import model_validator
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -15,8 +21,6 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, 
 #       Unfortunately, validation for generic types is not that
 #       straightforward. For example, `isinstance(thing, List[T])``
 #       is not supported, so the code here is a little ugly.
-
-PYDANTIC_V1_OR_OLDER = Version(VERSION).major <= 1
 
 
 JSON_SCHEMA_TYPES = [
