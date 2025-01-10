@@ -211,8 +211,6 @@ def test_trace_llm_chat(is_async):
 
 
 def _get_image_content(image_path, base64=False):
-    import base64
-
     with open(image_path, "rb") as f:
         content = f.read()
         return base64.b64encode(content).decode("utf-8") if base64 else content
