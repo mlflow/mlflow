@@ -5,7 +5,11 @@ NB: This test file is executed with both pydantic v1 and v2 in the CI.
 import pytest
 from pydantic import BaseModel
 
-from mlflow.utils.pydantic import IS_PYDANTIC_V2_OR_NEWER, model_dump_compat, model_validate_compat
+from mlflow.utils.pydantic_utils import (
+    IS_PYDANTIC_V2_OR_NEWER,
+    model_dump_compat,
+    model_validate_compat,
+)
 
 
 class MyModel(BaseModel):

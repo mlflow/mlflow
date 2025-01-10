@@ -16,7 +16,7 @@ from packaging.version import Version
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
-from mlflow.utils.pydantic import model_dump_compat, model_validate_compat
+from mlflow.utils.pydantic_utils import model_dump_compat, model_validate_compat
 
 _logger = logging.getLogger(__name__)
 

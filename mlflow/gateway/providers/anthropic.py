@@ -11,7 +11,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
-from mlflow.utils.pydantic import model_dump_compat
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 
 class AnthropicAdapter(ProviderAdapter):

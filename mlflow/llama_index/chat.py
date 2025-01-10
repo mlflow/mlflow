@@ -12,7 +12,7 @@ from llama_index.core.instrumentation.events.llm import (
 from llama_index.llms.openai.utils import to_openai_message_dict
 
 from mlflow.types.chat import ChatMessage
-from mlflow.utils.pydantic import model_dump_compat, model_validate_compat
+from mlflow.utils.pydantic_utils import model_dump_compat, model_validate_compat
 
 
 def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:

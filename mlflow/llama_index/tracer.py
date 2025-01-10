@@ -42,7 +42,7 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.pydantic import model_dump_compat
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 

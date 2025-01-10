@@ -33,7 +33,7 @@ from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
-from mlflow.utils.pydantic import model_validate_compat
+from mlflow.utils.pydantic_utils import model_validate_compat
 
 _logger = logging.getLogger(__name__)
 # Vector Search index column names
