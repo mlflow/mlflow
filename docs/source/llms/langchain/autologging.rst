@@ -101,7 +101,7 @@ Example Code of LangChain Autologging
 Tracing LangGraph
 -----------------
 
-MLflow also support automatic tracing for LangGraph, an open-source library from LangChain for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows. To enable auto-tracing for LangGraph, use the same :py:func:`mlflow.langchain.autolog()` function.
+MLflow support automatic tracing for LangGraph, an open-source library from LangChain for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows. To enable auto-tracing for LangGraph, use the same :py:func:`mlflow.langchain.autolog()` function.
 
 .. code-block:: python
 
@@ -109,8 +109,6 @@ MLflow also support automatic tracing for LangGraph, an open-source library from
 
     import mlflow
 
-    from langchain_core.messages import AIMessage, ToolCall
-    from langchain_core.outputs import ChatGeneration, ChatResult
     from langchain_core.tools import tool
     from langchain_openai import ChatOpenAI
     from langgraph.prebuilt import create_react_agent
@@ -143,7 +141,7 @@ MLflow also support automatic tracing for LangGraph, an open-source library from
 
 .. note::
 
-    MLflow does not support other auto-logging features such as model logging, model signatures, for LangGraph. Only traces are logged for LangGraph.
+    MLflow does not support other auto-logging features for LangGraph, such as automatic model logging. Only traces are logged for LangGraph.
 
 How It Works
 ------------
