@@ -10,15 +10,19 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
     _convert_data_to_type_hint,
-    _infer_schema_from_type_hint,
+    _convert_dataframe_to_example_format,
+    _infer_schema_from_list_type_hint,
+    _is_example_valid_for_type_from_example,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
+from mlflow.types.utils import _infer_schema
 
 
 class CustomModel(pydantic.BaseModel):
@@ -47,7 +51,7 @@ class CustomModel2(pydantic.BaseModel):
     ("type_hint", "expected_schema"),
     [
         (
-            CustomModel,
+            list[CustomModel],
             Schema(
                 [
                     ColSpec(
@@ -70,7 +74,7 @@ class CustomModel2(pydantic.BaseModel):
             ),
         ),
         (
-            list[CustomModel],
+            list[list[CustomModel]],
             Schema(
                 [
                     ColSpec(
@@ -95,7 +99,7 @@ class CustomModel2(pydantic.BaseModel):
             ),
         ),
         (
-            CustomModel2,
+            list[CustomModel2],
             Schema(
                 [
                     ColSpec(
@@ -123,7 +127,7 @@ class CustomModel2(pydantic.BaseModel):
     ],
 )
 def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
-    schema = _infer_schema_from_type_hint(type_hint)
+    schema = _infer_schema_from_list_type_hint(type_hint)
     assert schema == expected_schema
 
 
@@ -131,30 +135,32 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
     ("type_hint", "expected_schema"),
     [
         # scalars
-        (int, Schema([ColSpec(type=DataType.long)])),
-        (str, Schema([ColSpec(type=DataType.string)])),
-        (bool, Schema([ColSpec(type=DataType.boolean)])),
-        (float, Schema([ColSpec(type=DataType.double)])),
-        (bytes, Schema([ColSpec(type=DataType.binary)])),
-        (datetime.datetime, Schema([ColSpec(type=DataType.datetime)])),
+        (list[int], Schema([ColSpec(type=DataType.long)])),
+        (list[str], Schema([ColSpec(type=DataType.string)])),
+        (list[bool], Schema([ColSpec(type=DataType.boolean)])),
+        (list[float], Schema([ColSpec(type=DataType.double)])),
+        (list[bytes], Schema([ColSpec(type=DataType.binary)])),
+        (list[datetime.datetime], Schema([ColSpec(type=DataType.datetime)])),
         # lists
-        (list[str], Schema([ColSpec(type=Array(DataType.string))])),
-        (List[str], Schema([ColSpec(type=Array(DataType.string))])),  # noqa: UP006
-        (list[list[str]], Schema([ColSpec(type=Array(Array(DataType.string)))])),
-        (List[List[str]], Schema([ColSpec(type=Array(Array(DataType.string)))])),  # noqa: UP006
+        (list[list[str]], Schema([ColSpec(type=Array(DataType.string))])),
+        (List[List[str]], Schema([ColSpec(type=Array(DataType.string))])),  # noqa: UP006
+        (list[list[list[str]]], Schema([ColSpec(type=Array(Array(DataType.string)))])),
+        (List[List[List[str]]], Schema([ColSpec(type=Array(Array(DataType.string)))])),  # noqa: UP006
         # dictionaries
-        (dict[str, int], Schema([ColSpec(type=Map(DataType.long))])),
-        (Dict[str, int], Schema([ColSpec(type=Map(DataType.long))])),  # noqa: UP006
-        (dict[str, list[str]], Schema([ColSpec(type=Map(Array(DataType.string)))])),
-        (Dict[str, List[str]], Schema([ColSpec(type=Map(Array(DataType.string)))])),  # noqa: UP006
+        (list[dict[str, str]], Schema([ColSpec(type=Map(DataType.string))])),
+        (list[dict[str, int]], Schema([ColSpec(type=Map(DataType.long))])),
+        (list[Dict[str, int]], Schema([ColSpec(type=Map(DataType.long))])),  # noqa: UP006
+        (list[dict[str, list[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),
+        (list[Dict[str, List[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),  # noqa: UP006
         # Union
-        (Union[int, str], Schema([ColSpec(type=AnyType())])),
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())])),
         # Any
-        (list[Any], Schema([ColSpec(type=Array(AnyType()))])),
+        (list[Any], Schema([ColSpec(type=AnyType())])),
+        (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))])),
     ],
 )
 def test_infer_schema_from_python_type_hints(type_hint, expected_schema):
-    schema = _infer_schema_from_type_hint(type_hint)
+    schema = _infer_schema_from_list_type_hint(type_hint)
     assert schema == expected_schema
 
 
@@ -173,6 +179,13 @@ def test_type_hints_needs_signature(type_hint):
 
 
 def test_infer_schema_from_type_hints_errors():
+    message = r"Type hint for model input must be `list\[...\]`"
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(str)
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list)
+
     class InvalidModel(pydantic.BaseModel):
         bool_field: Optional[bool]
 
@@ -185,46 +198,44 @@ def test_infer_schema_from_type_hints_errors():
             MlflowException,
             match=message,
         ):
-            _infer_schema_from_type_hint(InvalidModel)
+            _infer_schema_from_list_type_hint(list[InvalidModel])
 
         with pytest.raises(MlflowException, match=message):
-            _infer_schema_from_type_hint(list[InvalidModel])
+            _infer_schema_from_list_type_hint(list[list[InvalidModel]])
 
-    message = r"If you would like to use Optional types, use a Pydantic-based type hint definition."
+    message = r"To define Optional inputs, use a Pydantic-based type hint definition"
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(Optional[str])
+        _infer_schema_from_list_type_hint(list[Optional[str]])
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(Union[str, int, type(None)])
+        _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])
 
-    with pytest.raises(
-        MlflowException, match=r"List type hint must contain only one internal type"
-    ):
-        _infer_schema_from_type_hint(list[str, int])
+    with pytest.raises(MlflowException, match=r"List type hint must contain only one element type"):
+        _infer_schema_from_list_type_hint(list[str, int])
 
     with pytest.raises(MlflowException, match=r"Dictionary key type must be str"):
-        _infer_schema_from_type_hint(dict[int, int])
+        _infer_schema_from_list_type_hint(list[dict[int, int]])
 
     with pytest.raises(
-        MlflowException, match=r"Dictionary type hint must contain two internal types"
+        MlflowException, match=r"Dictionary type hint must contain two element types"
     ):
-        _infer_schema_from_type_hint(dict[int])
+        _infer_schema_from_list_type_hint(list[dict[int]])
 
-    message = r"it must include a valid internal type"
+    message = r"it must include a valid element type"
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(Union)
-
-    with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(Optional)
+        _infer_schema_from_list_type_hint(list[Union])
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(list)
+        _infer_schema_from_list_type_hint(list[Optional])
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_type_hint(dict)
+        _infer_schema_from_list_type_hint(list[list])
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[dict])
 
     with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
-        _infer_schema_from_type_hint(object)
+        _infer_schema_from_list_type_hint(list[object])
 
 
 @pytest.mark.parametrize(
@@ -389,15 +400,19 @@ def test_type_hints_validation_errors():
 
     with pytest.raises(
         InvalidTypeHintException,
-        match=r"Unsupported type hint `<class 'list'>`, it must include a valid internal type.",
+        match=r"Unsupported type hint `<class 'list'>`, it must include a valid element type.",
     ):
         _validate_example_against_type_hint(["a"], list)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_type_hint_for_python_3_10():
-    assert _infer_schema_from_type_hint(bool | int | str) == Schema([ColSpec(type=AnyType())])
-    assert _infer_schema_from_type_hint(list[int | str]) == Schema([ColSpec(type=Array(AnyType()))])
+    assert _infer_schema_from_list_type_hint(list[bool | int | str]) == Schema(
+        [ColSpec(type=AnyType())]
+    )
+    assert _infer_schema_from_list_type_hint(list[list[int | str]]) == Schema(
+        [ColSpec(type=Array(AnyType()))]
+    )
 
     class ToolDef(pydantic.BaseModel):
         type: str
@@ -406,7 +421,7 @@ def test_type_hint_for_python_3_10():
     class Tool(pydantic.BaseModel):
         tool_choice: str | ToolDef
 
-    assert _infer_schema_from_type_hint(Tool) == Schema(
+    assert _infer_schema_from_list_type_hint(list[Tool]) == Schema(
         [ColSpec(type=Object([Property(name="tool_choice", dtype=AnyType())]))]
     )
 
@@ -449,3 +464,52 @@ def test_maybe_convert_data_for_type_hint_errors():
         match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
     ):
         _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)
+
+
+def test_is_example_valid_for_type_from_example():
+    for data in [
+        pd.DataFrame({"a": ["x", "y", "z"], "b": [1, 2, 3]}),
+        pd.Series([1, 2, 3]),
+        ["a", "b", "c"],
+        [1, 2, 3],
+    ]:
+        assert _is_example_valid_for_type_from_example(data) is True
+
+    for data in [
+        "abc",
+        123,
+        None,
+        {"a": 1},
+        {"a": ["x", "y"]},
+    ]:
+        assert _is_example_valid_for_type_from_example(data) is False
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # list[scalar]
+        ["x", "y", "z"],
+        [1, 2, 3],
+        [1.0, 2.0, 3.0],
+        [True, False, True],
+        [b"Hello", b"World"],
+        # list[dict]
+        [{"a": 1, "b": 2}],
+        [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
+        # pd Series
+        pd.Series([1, 2, 3]),
+        # pd DataFrame
+        pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
+    ],
+)
+def test_convert_dataframe_to_example_format(data):
+    schema = _infer_schema(data)
+    df = _enforce_schema(data, schema)
+    converted_data = _convert_dataframe_to_example_format(df, data)
+    if isinstance(data, pd.Series):
+        pd.testing.assert_series_equal(converted_data, data)
+    elif isinstance(data, pd.DataFrame):
+        pd.testing.assert_frame_equal(converted_data, data)
+    else:
+        assert converted_data == data

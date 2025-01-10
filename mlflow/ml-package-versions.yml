@@ -843,7 +843,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.86.0"
+    maximum: "0.95.0"
     python:
       ">= 0.80.0": "3.10"
     requirements:
@@ -897,7 +897,9 @@ promptflow:
     maximum: "1.16.2"
     requirements:
       # Requirements to run sparkudf predict test
-      ">= 0.0.0": ["pyspark", "jinja2"]
+      # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
+      # inside promptflow
+      ">= 0.0.0": ["pyspark", "jinja2", "marshmallow<3.24.0"]
       ">= 1.11.0": ["openai>=1"]
       "< 1.18": ["numpy<2"]
     run: |

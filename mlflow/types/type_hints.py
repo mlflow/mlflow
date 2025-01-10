@@ -1,12 +1,14 @@
+import base64
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
+from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_origin
 
 import pydantic
 import pydantic.fields
 from packaging.version import Version
 
+from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.schema import (
@@ -34,6 +36,9 @@ try:
 except ImportError:
     pass
 
+# special type hint that can be used to convert data to
+# the input example type after data validation
+TypeFromExample = TypeVar("TypeFromExample")
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -89,17 +94,68 @@ class ColSpecType(NamedTuple):
 
 
 class InvalidTypeHintException(MlflowException):
-    def __init__(self, type_hint, extra_msg=""):
-        super().__init__(
-            f"Unsupported type hint `{type_hint}`{extra_msg}. Supported types are: "
-            f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
-            "lists and dictionaries of primitive types, or typing.Any.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    def __init__(self, *, message=None, type_hint=None, extra_msg=""):
+        if message is None:
+            message = (
+                f"Unsupported type hint `{type_hint}`{extra_msg}. Supported type hints must be "
+                "list[...] where element types are: "
+                f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
+                "lists and dictionaries of primitive types, or typing.Any."
+            )
+        super().__init__(message, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
     return type_hint in type_hints_no_signature_inference()
+
+
+def _is_type_hint_from_example(type_hint: type[Any]) -> bool:
+    return type_hint == TypeFromExample
+
+
+def _is_example_valid_for_type_from_example(example: Any) -> bool:
+    allowed_types = (list,)
+    try:
+        import pandas as pd
+
+        allowed_types += (pd.DataFrame, pd.Series)
+    except ImportError:
+        pass
+    return isinstance(example, allowed_types)
+
+
+def _convert_dataframe_to_example_format(data: Any, input_example: Any) -> Any:
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame):
+        if isinstance(input_example, pd.DataFrame):
+            return data
+        if isinstance(input_example, pd.Series):
+            data = data.iloc[:, 0]
+            data.name = input_example.name
+            return data
+        if np.isscalar(input_example):
+            return data.iloc[0, 0]
+        if isinstance(input_example, dict):
+            if len(data) == 1:
+                return data.to_dict(orient="records")[0]
+            else:
+                # This case shouldn't happen
+                _logger.warning("Cannot convert DataFrame to a single dictionary.")
+                return data
+        if isinstance(input_example, list):
+            # list[scalar]
+            if len(data.columns) == 1 and all(np.isscalar(x) for x in input_example):
+                return data.iloc[:, 0].tolist()
+            else:
+                # NB: there are some cases that this doesn't work well, but it's the best we can do
+                # e.g. list of dictionaries with different keys
+                # [{"a": 1}, {"b": 2}] -> pd.DataFrame(...) during schema enforcement
+                # here -> [{'a': 1.0, 'b': nan}, {'a': nan, 'b': 2.0}]
+                return data.to_dict(orient="records")
+
+    return data
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
@@ -117,20 +173,11 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
     elif origin_type := get_origin(type_hint):
         args = get_args(type_hint)
         if origin_type is list:
-            # a valid list[...] type hint must only contain one argument
-            if len(args) == 0:
-                raise MlflowException.invalid_parameter_value(
-                    f"List type hint must contain the internal type, got {type_hint}"
-                )
-            elif len(args) > 1:
-                raise MlflowException.invalid_parameter_value(
-                    f"List type hint must contain only one internal type, got {type_hint}"
-                )
-            else:
-                return ColSpecType(
-                    dtype=Array(_infer_colspec_type_from_type_hint(type_hint=args[0]).dtype),
-                    required=True,
-                )
+            internal_type = _get_element_type_of_list_type_hint(type_hint)
+            return ColSpecType(
+                dtype=Array(_infer_colspec_type_from_type_hint(type_hint=internal_type).dtype),
+                required=True,
+            )
         if origin_type is dict:
             if len(args) == 2:
                 if args[0] != str:
@@ -142,7 +189,7 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                     required=True,
                 )
             raise MlflowException.invalid_parameter_value(
-                f"Dictionary type hint must contain two internal types, got {type_hint}"
+                f"Dictionary type hint must contain two element types, got {type_hint}"
             )
         if origin_type in UNION_TYPES:
             if NONE_TYPE in args:
@@ -162,14 +209,14 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                 else:
                     _logger.warning(
                         "Union type hint with multiple non-None types is inferred as AnyType, "
-                        "and MLflow doesn't validate the data against its internal types."
+                        "and MLflow doesn't validate the data against its element types."
                     )
                     return ColSpecType(dtype=AnyType(), required=False)
             # Union type with all valid types is matched as AnyType
             else:
                 _logger.warning(
                     "Union type hint is inferred as AnyType, and MLflow doesn't validate the data "
-                    "against its internal types."
+                    "against its element types."
                 )
                 return ColSpecType(dtype=AnyType(), required=True)
     _invalid_type_hint_error(type_hint)
@@ -186,7 +233,7 @@ def _invalid_type_hint_error(type_hint: type[Any]) -> None:
         + UNION_TYPES
     ):
         raise InvalidTypeHintException(
-            type_hint=type_hint, extra_msg=", it must include a valid internal type"
+            type_hint=type_hint, extra_msg=", it must include a valid element type"
         )
     raise InvalidTypeHintException(type_hint=type_hint)
 
@@ -262,12 +309,54 @@ def field_required(field: type[FIELD_TYPE]) -> bool:
     return field.is_required()
 
 
+def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
+    """
+    Get the element type of list[...] type hint
+    """
+    args = get_args(type_hint)
+    # a valid list[...] type hint must only contain one argument
+    if len(args) == 0:
+        raise MlflowException.invalid_parameter_value(
+            f"List type hint must contain the element type, got {type_hint}"
+        )
+    if len(args) > 1:
+        raise MlflowException.invalid_parameter_value(
+            f"List type hint must contain only one element type, got {type_hint}"
+        )
+    return args[0]
+
+
+def _is_list_type_hint(type_hint: type[Any]) -> bool:
+    origin_type = _get_origin_type(type_hint)
+    return origin_type is list
+
+
+def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
+    """
+    Infer schema from a list type hint.
+    The type hint must be list[...], and the inferred schema contains a
+    single ColSpec, where the type is based on the element type of the list type hint,
+    since ColSpec represents a column's data type of the dataset.
+    e.g. list[int] -> Schema([ColSpec(type=DataType.long, required=True)])
+    A valid `predict` function of a pyfunc model must use list type hint for the input.
+    """
+    if not _is_list_type_hint(type_hint):
+        raise InvalidTypeHintException(
+            message=f"Type hint for model input must be `list[...]`, got {type_hint}",
+        )
+    internal_type = _get_element_type_of_list_type_hint(type_hint)
+    return _infer_schema_from_type_hint(internal_type)
+
+
 def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
-        raise MlflowException.invalid_parameter_value(
-            "If you would like to use Optional types, use a Pydantic-based type hint definition."
+        raise InvalidTypeHintException(
+            message=(
+                "To define Optional inputs, use a Pydantic-based type hint definition. See "
+                "https://docs.pydantic.dev/latest/api/base_model/ for pydantic BaseModel examples."
+            )
         )
     return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
@@ -304,6 +393,8 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
     elif type_hint == Any:
         return example
     elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
+        if _MLFLOW_IS_IN_SERVING_ENVIRONMENT.get():
+            example = _parse_data_for_datatype_hint(data=example, type_hint=type_hint)
         if isinstance(example, type_hint):
             return example
         raise MlflowException.invalid_parameter_value(
@@ -329,6 +420,27 @@ def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> A
             # no validation needed for AnyType
             return example
     _invalid_type_hint_error(type_hint)
+
+
+def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
+    """
+    Parse the data based on the type hint.
+    This should only be used in MLflow serving environment to convert
+    json data to the expected format.
+    Allowed conversions:
+        - string data with datetime type hint -> datetime object
+        - string data with bytes type hint -> bytes object
+    """
+    if type_hint == bytes and isinstance(data, str):
+        # The assumption is that the data is base64 encoded, and
+        # scoring server accepts base64 encoded string for bytes fields.
+        # MLflow uses the same method for saving input example
+        # via base64.encodebytes(x).decode("ascii")
+        return base64.decodebytes(bytes(data, "utf8"))
+    if type_hint == datetime and isinstance(data, str):
+        # The assumption is that the data is in ISO format
+        return datetime.fromisoformat(data)
+    return data
 
 
 class ValidationResult(NamedTuple):
