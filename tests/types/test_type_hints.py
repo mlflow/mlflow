@@ -179,10 +179,12 @@ def test_type_hints_needs_signature(type_hint):
 
 
 def test_infer_schema_from_type_hints_errors():
-    with pytest.raises(MlflowException, match=r"Type hint for model input must be `list\[...\]`"):
+    with pytest.raises(MlflowException, match=r"Type hints must be wrapped in list\[...\]"):
         _infer_schema_from_list_type_hint(str)
 
-    with pytest.raises(MlflowException, match=r"Type hint `list` doesn't contain element type"):
+    with pytest.raises(
+        MlflowException, match=r"Type hint `list` doesn't contain a collection element type"
+    ):
         _infer_schema_from_list_type_hint(list)
 
     class InvalidModel(pydantic.BaseModel):
@@ -202,8 +204,8 @@ def test_infer_schema_from_type_hints_errors():
         with pytest.raises(MlflowException, match=message):
             _infer_schema_from_list_type_hint(list[list[InvalidModel]])
 
-    message = r"Input cannot be optional type"
-    with pytest.raises(MlflowException, match=r"Input cannot be optional type"):
+    message = r"Input cannot be Optional type"
+    with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(Optional[list[str]])
 
     with pytest.raises(MlflowException, match=message):
@@ -212,7 +214,9 @@ def test_infer_schema_from_type_hints_errors():
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])
 
-    with pytest.raises(MlflowException, match=r"only one element type is allowed."):
+    with pytest.raises(
+        MlflowException, match=r"Collections must have only a single type definition"
+    ):
         _infer_schema_from_list_type_hint(list[str, int])
 
     with pytest.raises(MlflowException, match=r"Dictionary key type must be str"):
