@@ -13,81 +13,50 @@ from mlflow.models.resources import (
 )
 
 
-def test_serving_endpoint():
-    endpoint = DatabricksServingEndpoint(endpoint_name="llm_server")
-    expected = {"serving_endpoint": [{"name": "llm_server"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_serving_endpoint(on_behalf_of_user):
+    endpoint = DatabricksServingEndpoint(endpoint_name="llm_server", on_behalf_of_user=on_behalf_of_user)
+    expected = {"serving_endpoint": [{"name": "llm_server"}]} if on_behalf_of_user is None else {"serving_endpoint": [{"name": "llm_server", "on_behalf_of_user": on_behalf_of_user}]}
     assert endpoint.to_dict() == expected
     assert _ResourceBuilder.from_resources([endpoint]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
 
-    endpoint = DatabricksServingEndpoint(endpoint_name="llm_server", on_behalf_of_user=False)
-    expected = {"serving_endpoint": [{"name": "llm_server", "on_behalf_of_user": False}]}
-    assert endpoint.to_dict() == expected
-    assert _ResourceBuilder.from_resources([endpoint]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_index_name():
-    index = DatabricksVectorSearchIndex(index_name="index1")
-    expected = {"vector_search_index": [{"name": "index1"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_index_name(on_behalf_of_user):
+    index = DatabricksVectorSearchIndex(index_name="index1", on_behalf_of_user=on_behalf_of_user)
+    expected = {"vector_search_index": [{"name": "index1"}]} if on_behalf_of_user is None else {"vector_search_index": [{"name": "index1", "on_behalf_of_user": on_behalf_of_user}]}
     assert index.to_dict() == expected
     assert _ResourceBuilder.from_resources([index]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
 
-    index = DatabricksVectorSearchIndex(index_name="index1", on_behalf_of_user=True)
-    expected = {"vector_search_index": [{"name": "index1", "on_behalf_of_user": True}]}
-    assert index.to_dict() == expected
-    assert _ResourceBuilder.from_resources([index]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_sql_warehouse():
-    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1")
-    expected = {"sql_warehouse": [{"name": "id1"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_sql_warehouse(on_behalf_of_user):
+    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1", on_behalf_of_user=on_behalf_of_user)
+    expected = {"sql_warehouse": [{"name": "id1"}]} if on_behalf_of_user is None else {"sql_warehouse": [{"name": "id1", "on_behalf_of_user": on_behalf_of_user}]}
     assert sql_warehouse.to_dict() == expected
     assert _ResourceBuilder.from_resources([sql_warehouse]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
 
-    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1", on_behalf_of_user=True)
-    expected = {"sql_warehouse": [{"name": "id1", "on_behalf_of_user": True}]}
-    assert sql_warehouse.to_dict() == expected
-    assert _ResourceBuilder.from_resources([sql_warehouse]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_uc_function():
-    uc_function = DatabricksFunction(function_name="function")
-    expected = {"function": [{"name": "function"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_uc_function(on_behalf_of_user):
+    uc_function = DatabricksFunction(function_name="function", on_behalf_of_user=on_behalf_of_user)
+    expected = {"function": [{"name": "function"}]} if on_behalf_of_user is None else {"function": [{"name": "function", "on_behalf_of_user": on_behalf_of_user}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
 
-    uc_function = DatabricksFunction(function_name="function", on_behalf_of_user=True)
-    expected = {"function": [{"name": "function", "on_behalf_of_user": True}]}
-    assert uc_function.to_dict() == expected
-    assert _ResourceBuilder.from_resources([uc_function]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_genie_space():
-    genie_space = DatabricksGenieSpace(genie_space_id="id1")
-    expected = {"genie_space": [{"name": "id1"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_genie_space(on_behalf_of_user):
+    genie_space = DatabricksGenieSpace(genie_space_id="id1", on_behalf_of_user=on_behalf_of_user)
+    expected = {"genie_space": [{"name": "id1"}]} if on_behalf_of_user is None else {"genie_space": [{"name": "id1", "on_behalf_of_user": on_behalf_of_user}]}
 
     assert genie_space.to_dict() == expected
     assert _ResourceBuilder.from_resources([genie_space]) == {
@@ -95,50 +64,23 @@ def test_genie_space():
         "databricks": expected,
     }
 
-    genie_space = DatabricksGenieSpace(genie_space_id="id1", on_behalf_of_user=True)
-    expected = {"genie_space": [{"name": "id1", "on_behalf_of_user": True}]}
-
-    assert genie_space.to_dict() == expected
-    assert _ResourceBuilder.from_resources([genie_space]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_uc_connection():
-    uc_function = DatabricksUCConnection(connection_name="slack_connection")
-    expected = {"uc_connection": [{"name": "slack_connection"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_uc_connection(on_behalf_of_user):
+    uc_function = DatabricksUCConnection(connection_name="slack_connection", on_behalf_of_user=on_behalf_of_user)
+    expected = {"uc_connection": [{"name": "slack_connection"}]} if on_behalf_of_user is None else {"uc_connection": [{"name": "slack_connection", "on_behalf_of_user": on_behalf_of_user}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
 
-    uc_function = DatabricksUCConnection(
-        connection_name="slack_connection", on_behalf_of_user=False
-    )
-    expected = {"uc_connection": [{"name": "slack_connection", "on_behalf_of_user": False}]}
-    assert uc_function.to_dict() == expected
-    assert _ResourceBuilder.from_resources([uc_function]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-
-def test_table():
-    table = DatabricksTable(table_name="tableName")
-    expected = {"table": [{"name": "tableName"}]}
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_table(on_behalf_of_user):
+    table = DatabricksTable(table_name="tableName", on_behalf_of_user=on_behalf_of_user)
+    expected = {"table": [{"name": "tableName"}]} if on_behalf_of_user is None else {"table": [{"name": "tableName", "on_behalf_of_user": on_behalf_of_user}]} 
 
     assert table.to_dict() == expected
     assert _ResourceBuilder.from_resources([table]) == {
-        "api_version": DEFAULT_API_VERSION,
-        "databricks": expected,
-    }
-
-    uc_function = DatabricksUCConnection(connection_name="slack_connection", on_behalf_of_user=True)
-    expected = {"uc_connection": [{"name": "slack_connection", "on_behalf_of_user": True}]}
-    assert uc_function.to_dict() == expected
-    assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }

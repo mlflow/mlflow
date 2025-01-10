@@ -103,8 +103,9 @@ class DatabricksUCConnection(DatabricksResource):
     Args:
         connection_name (str): The name of the databricks UC connection
         used to create the tool which was used to build the model.
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -121,8 +122,9 @@ class DatabricksServingEndpoint(DatabricksResource):
 
     Args:
         endpoint_name (str): The name of all the databricks endpoints used by the model.
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -138,10 +140,11 @@ class DatabricksVectorSearchIndex(DatabricksResource):
     Define Databricks vector search index name resource to serve a model.
 
     Args:
-        index_name (str): The name of all the databricks vector search index names
-        used by the model.
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        index_name (str): The name of the databricks vector search index
+        used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -158,8 +161,9 @@ class DatabricksSQLWarehouse(DatabricksResource):
 
     Args:
         warehouse_id (str): The id of the sql warehouse used by the model
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -176,8 +180,9 @@ class DatabricksFunction(DatabricksResource):
 
     Args:
         function_name (str): The name of the function used by the model
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -194,8 +199,9 @@ class DatabricksGenieSpace(DatabricksResource):
 
     Args:
         genie_space_id (str): The genie space id
-        on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-        is used on behalf of a user.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
@@ -214,8 +220,9 @@ class DatabricksTable(DatabricksResource):
 
      Args:
          table_name (str): The name of the table used by the model
-         on_behalf_of_user (Optional[bool]): Flag indicating if the resource
-         is used on behalf of a user.
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with definers rights
     """
 
     @property
