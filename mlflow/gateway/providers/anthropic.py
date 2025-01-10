@@ -105,7 +105,7 @@ class AnthropicAdapter(ProviderAdapter):
                     # TODO: Remove this casting once
                     # https://github.com/mlflow/mlflow/pull/14160 is merged
                     message=chat.ResponseMessage(
-                        model_dump_compat(**convert_message_to_mlflow_chat(resp))
+                        **model_dump_compat(convert_message_to_mlflow_chat(resp))
                     ),
                     finish_reason=stop_reason,
                 )
