@@ -38,6 +38,9 @@ _MLFLOW_TRACER_PROVIDER = None
 # Note that it doesn't work as expected in a distributed environment.
 _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
+# TODO: add description
+_MLFLOW_TRACE_MONITOR_DESTINATION = None
+
 _logger = logging.getLogger(__name__)
 
 
@@ -116,6 +119,15 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
+# TODO: Replace argument with MonitoringTraceDestination construct
+def set_monitoring_destination(destination: str):
+    # The destination needs to be persisted because the tracer setup can be re-initialized sometimes
+    global _MLFLOW_TRACE_MONITOR_DESTINATION
+    _MLFLOW_TRACE_MONITOR_DESTINATION = destination
+
+    _setup_tracer_provider()
+
+
 def _get_tracer(module_name: str):
     """
     Get a tracer instance for the given module name.
@@ -159,6 +171,18 @@ def _setup_tracer_provider(disabled=False):
 
         exporter = get_otlp_exporter()
         processor = OtelSpanProcessor(exporter)
+
+    elif _MLFLOW_TRACE_MONITOR_DESTINATION is not None:
+        # Export to Monitoring Trace Destination when configured
+        from mlflow.tracing.export.databricks_external import (
+            DatabricksExternalMonitoringSpanExporter,
+        )
+        from mlflow.tracing.processor.databricks_external import (
+            DatabricksExternalMonitoringSpanProcessor,
+        )
+
+        exporter = DatabricksExternalMonitoringSpanExporter(_MLFLOW_TRACE_MONITOR_DESTINATION)
+        processor = DatabricksExternalMonitoringSpanProcessor(exporter)
 
     elif is_in_databricks_model_serving_environment():
         # Export to Inference Table when running in Databricks Model Serving

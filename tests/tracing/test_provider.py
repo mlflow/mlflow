@@ -6,11 +6,13 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
+from mlflow.tracing.export.databricks_external import DatabricksExternalMonitoringSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.processor.databricks_external import DatabricksExternalMonitoringSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
@@ -72,6 +74,16 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert len(processors) == 1
     assert isinstance(processors[0], InferenceTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
+
+
+def test_span_processor_for_databricks_external_monitoring():
+    mlflow.tracing.set_monitoring_destination(destination="dummy-model-endpoint")
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksExternalMonitoringSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksExternalMonitoringSpanExporter)
 
 
 def test_disable_enable_tracing():
