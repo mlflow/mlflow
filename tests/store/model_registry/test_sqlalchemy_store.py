@@ -59,12 +59,6 @@ def _add_go_test_tags(tags, val):
         return tags + [RegisteredModelTag(GO_MOCK_TIME_TAG, val)]
 
 
-def _remove_go_test_tags(tags):
-    for i in range(len(tags)):
-        if tags[i].key == GO_MOCK_TIME_TAG:
-            del tags[i]
-
-
 def _mv_maker(
     store,
     name,
