@@ -149,8 +149,10 @@ def _convert_dataframe_to_example_format(data: Any, input_example: Any) -> Any:
             if len(data.columns) == 1 and all(np.isscalar(x) for x in input_example):
                 return data.iloc[:, 0].tolist()
             else:
-                # Note: this doesn't work well if dictionaries in the list
-                # have different keys
+                # NB: there are some cases that this doesn't work well, but it's the best we can do
+                # e.g. list of dictionaries with different keys
+                # [{"a": 1}, {"b": 2}] -> pd.DataFrame(...) during schema enforcement
+                # here -> [{'a': 1.0, 'b': nan}, {'a': nan, 'b': 2.0}]
                 return data.to_dict(orient="records")
 
     return data

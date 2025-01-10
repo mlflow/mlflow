@@ -3084,7 +3084,9 @@ def save_model(
         if type_hint_from_example:
             if saved_example is None:
                 _logger.warning(
-                    "Input example must be provided when using TypeFromExample as type hint."
+                    # TODO: add link to documentation
+                    "Input example must be provided when using TypeFromExample as type hint. "
+                    "Fix this by passing `input_example` when logging your model."
                 )
             else:
                 # TODO: validate input example against signature
@@ -3144,11 +3146,12 @@ def save_model(
 
 def update_signature_for_type_hint_from_example(input_example: Any, signature: ModelSignature):
     if _is_example_valid_for_type_from_example(input_example):
-        signature._type_hint_from_example = True
+        signature._is_type_hint_from_example = True
     else:
         _logger.warning(
-            "Input example must be one of pandas.DataFrame, "
-            "pandas.Series or list when using TypeFromExample as type hint."
+            # TODO: add link to documentation
+            "Input example must be one of pandas.DataFrame, pandas.Series "
+            f"or list when using TypeFromExample as type hint, got {type(input_example)}. "
         )
 
 

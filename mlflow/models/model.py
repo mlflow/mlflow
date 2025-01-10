@@ -583,7 +583,7 @@ class Model:
         return self.signature._is_signature_from_type_hint if self.signature is not None else False
 
     def _is_type_hint_from_example(self):
-        return self.signature._type_hint_from_example if self.signature is not None else False
+        return self.signature._is_type_hint_from_example if self.signature is not None else False
 
     def get_model_info(self) -> ModelInfo:
         """
@@ -634,7 +634,7 @@ class Model:
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
             res["is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
-            res["type_hint_from_example"] = self.signature._type_hint_from_example
+            res["type_hint_from_example"] = self.signature._is_type_hint_from_example
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
@@ -733,7 +733,7 @@ class Model:
                     "is_signature_from_type_hint"
                 )
             if "type_hint_from_example" in model_dict:
-                signature._type_hint_from_example = model_dict.pop("type_hint_from_example")
+                signature._is_type_hint_from_example = model_dict.pop("type_hint_from_example")
             model_dict["signature"] = signature
 
         if "model_uuid" not in model_dict:
