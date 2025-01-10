@@ -583,6 +583,10 @@ _CHAT_PARAMS_WARNING_MESSAGE = (
     "Default values for temperature, n and stream in ChatParams will be removed in the "
     "next release. Specify them in the input example explicitly if needed."
 )
+_TYPE_FROM_EXAMPLE_ERROR_MESSAGE = (
+    "Input example must be provided when using TypeFromExample as type hint. "
+    "Fix this by passing `input_example` when logging your model."
+)
 
 
 class EnvType:
@@ -3019,7 +3023,7 @@ def save_model(
             type_hints = python_model.predict_type_hints
             type_hint_from_example = _is_type_hint_from_example(type_hints.input)
             if type_hint_from_example:
-                infer_signature_from_type_hints = False
+                should_infer_signature_from_type_hints = False
             else:
                 should_infer_signature_from_type_hints = (
                     not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
@@ -3054,8 +3058,8 @@ def save_model(
                 else:
                     if type_hint_from_example:
                         _logger.warning(
-                            "Input example must be provided when using TypeFromExample as "
-                            "type hint."
+                            _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
+                            extra={"color": "red"},
                         )
                     # if signature is inferred from type hints, warnings are emitted
                     # in _infer_signature_from_type_hints
@@ -3085,8 +3089,8 @@ def save_model(
             if saved_example is None:
                 _logger.warning(
                     # TODO: add link to documentation
-                    "Input example must be provided when using TypeFromExample as type hint. "
-                    "Fix this by passing `input_example` when logging your model."
+                    _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
+                    extra={"color": "red"},
                 )
             else:
                 # TODO: validate input example against signature
