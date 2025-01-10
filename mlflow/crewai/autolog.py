@@ -21,10 +21,7 @@ def patched_class_call(original, self, *args, **kwargs):
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
         span_type = _get_span_type(self)
-        with mlflow.start_span(
-            name=fullname,
-            span_type=span_type,
-        ) as span:
+        with mlflow.start_span(name=fullname, span_type=span_type) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             _set_span_attributes(span=span, instance=self)
