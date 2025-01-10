@@ -10,7 +10,7 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, 
 
 PYDANTIC_V1_OR_OLDER = Version(VERSION).major <= 1
 if PYDANTIC_V1_OR_OLDER:
-    from pydantic import root_validator as model_validator
+    from pydantic import root_validator
 else:
     from pydantic import model_validator
 
@@ -836,14 +836,28 @@ class ChatAgentMessage(_BaseModel):
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
 
-    @model_validator(mode="after")
-    def check_content_and_tool_calls(cls, chat_agent_msg):
-        """
-        Ensure at least one of 'content' or 'tool_calls' is set.
-        """
-        if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
-            raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-        return chat_agent_msg
+    if PYDANTIC_V1_OR_OLDER:
+
+        @root_validator
+        def check_content_and_tool_calls(cls, values):
+            """
+            Ensure at least one of 'content' or 'tool_calls' is set.
+            """
+            content = values.get("content")
+            tool_calls = values.get("tool_calls")
+            if not content and not tool_calls:
+                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+            return values
+    else:
+
+        @model_validator(mode="after")
+        def check_content_and_tool_calls(cls, chat_agent_msg):
+            """
+            Ensure at least one of 'content' or 'tool_calls' is set.
+            """
+            if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
+                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+            return chat_agent_msg
 
 
 class Context(_BaseModel):
