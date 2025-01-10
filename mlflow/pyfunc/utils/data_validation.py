@@ -1,7 +1,7 @@
 import inspect
 import warnings
 from functools import lru_cache, wraps
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import (
@@ -16,6 +16,17 @@ from mlflow.types.type_hints import (
 )
 from mlflow.utils.annotations import filter_user_warnings_once
 
+_INVALID_SIGNATURE_ERROR_MSG = (
+    "Model's `{func_name}` method contains invalid parameters: {invalid_params}. "
+    "Only the following parameter names are allowed: context, model_input, and params. "
+    "Note that invalid parameters will no longer be permitted in future versions."
+)
+
+
+class FuncInfo(NamedTuple):
+    input_type_hint: Optional[type[Any]]
+    input_param_name: str
+
 
 def pyfunc(func):
     """
@@ -27,24 +38,30 @@ def pyfunc(func):
         of `mlflow.pyfunc.PythonModel`, or a callable that takes a single input.
     """
 
-    type_hint = _get_type_hint_if_supported(func)
-    return _wrap_predict_with_pyfunc(func, type_hint)
+    func_info = _get_func_info_if_type_hint_supported(func)
+    return _wrap_predict_with_pyfunc(func, func_info)
 
 
-def _wrap_predict_with_pyfunc(func, type_hint):
-    if type_hint is not None:
+def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
+    if func_info is not None:
         model_input_index = _model_input_index_in_function_signature(func)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                args, kwargs = _validate_model_input(args, kwargs, model_input_index, type_hint)
+                args, kwargs = _validate_model_input(
+                    args,
+                    kwargs,
+                    model_input_index,
+                    func_info.input_type_hint,
+                    func_info.input_param_name,
+                )
             except Exception as e:
                 if isinstance(e, MlflowException):
                     raise e
                 raise MlflowException(
-                    f"Failed to validate the input data against the type hint `{type_hint}`. "
-                    f"Error: {e}"
+                    "Failed to validate the input data against the type hint "
+                    f"`{func_info.input_type_hint}`. Error: {e}"
                 )
             return func(*args, **kwargs)
     else:
@@ -57,9 +74,21 @@ def _wrap_predict_with_pyfunc(func, type_hint):
     return wrapper
 
 
+def _check_func_signature(func, func_name) -> list[str]:
+    parameters = inspect.signature(func).parameters
+    param_names = [name for name in parameters.keys() if name != "self"]
+    if invalid_params := set(param_names) - {"self", "context", "model_input", "params"}:
+        warnings.warn(
+            _INVALID_SIGNATURE_ERROR_MSG.format(func_name=func_name, invalid_params=invalid_params),
+            FutureWarning,
+            stacklevel=2,
+        )
+    return param_names
+
+
 @lru_cache
 @filter_user_warnings_once
-def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
+def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
     """
     Internal method to check if the predict function has type hints and if they are supported
     by MLflow.
@@ -68,12 +97,10 @@ def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
         - predict(self, model_input, params=None)
     For callables, the function must contain only one input argument.
     """
-    # TODO: move function signature validation here
-    # instead of the pyfunc wrapper
-    if _is_context_in_predict_function_signature(func=func):
-        type_hint = _extract_type_hints(func, input_arg_index=1).input
-    else:
-        type_hint = _extract_type_hints(func, input_arg_index=0).input
+    param_names = _check_func_signature(func, "predict")
+    input_arg_index = 1 if _is_context_in_predict_function_signature(func=func) else 0
+    type_hint = _extract_type_hints(func, input_arg_index=input_arg_index).input
+    input_param_name = param_names[input_arg_index]
     if type_hint is not None:
         if _signature_cannot_be_inferred_from_type_hint(type_hint):
             return
@@ -88,7 +115,7 @@ def _get_type_hint_if_supported(func) -> Optional[type[Any]]:
                 stacklevel=3,
             )
         else:
-            return type_hint
+            return FuncInfo(input_type_hint=type_hint, input_param_name=input_param_name)
 
 
 def _model_input_index_in_function_signature(func):
@@ -100,11 +127,13 @@ def _model_input_index_in_function_signature(func):
     return index
 
 
-def _validate_model_input(args, kwargs, model_input_index_in_sig, type_hint):
+def _validate_model_input(
+    args, kwargs, model_input_index_in_sig, type_hint, model_input_param_name
+):
     model_input = None
     input_pos = None
-    if "model_input" in kwargs:
-        model_input = kwargs["model_input"]
+    if model_input_param_name in kwargs:
+        model_input = kwargs[model_input_param_name]
         input_pos = "kwargs"
     elif len(args) >= model_input_index_in_sig + 1:
         model_input = args[model_input_index_in_sig]
@@ -113,7 +142,7 @@ def _validate_model_input(args, kwargs, model_input_index_in_sig, type_hint):
         data = _convert_data_to_type_hint(model_input, type_hint)
         data = _validate_example_against_type_hint(data, type_hint)
         if input_pos == "kwargs":
-            kwargs["model_input"] = data
+            kwargs[model_input_param_name] = data
         else:
             args = args[:input_pos] + (data,) + args[input_pos + 1 :]
     return args, kwargs
