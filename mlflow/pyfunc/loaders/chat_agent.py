@@ -19,7 +19,7 @@ from mlflow.utils.annotations import experimental
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
     _, chat_agent, _ = _load_context_model_and_signature(model_path, model_config)
-    return _ChatAgentPyfuncWrapper(chat_agent=chat_agent)
+    return _ChatAgentPyfuncWrapper(chat_agent)
 
 
 @experimental
