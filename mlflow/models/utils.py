@@ -528,11 +528,13 @@ def _save_example(  # noqa: D417
     return example
 
 
-def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
+def _get_mlflow_model_input_example_dict(mlflow_model: Model, uri_or_path: str) -> Optional[dict]:
     """
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
 
     Returns:
         Input example or None if the model has no example.
@@ -548,9 +550,9 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         "json_object",
     ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
-    with open(path) as handle:
-        return json.load(handle)
+    return json.loads(
+        _read_file_content(uri_or_path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
+    )
 
 
 def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
@@ -582,20 +584,31 @@ def load_serving_example(model_uri_or_path: str):
         model_uri_or_path: Model URI or path to the `model` directory.
             e.g. models://<model_name>/<model_version> or /path/to/model
     """
-    serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-    if os.path.exists(serving_input_path):
-        with open(serving_input_path) as handle:
+    return _read_file_content(model_uri_or_path, SERVING_INPUT_FILENAME)
+
+
+def _read_file_content(uri_or_path: str, file_name: str):
+    """
+    Read file content from a model directory or URI.
+
+    Args:
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
+        file_name: Name of the file to read.
+    """
+    file_path = uri_or_path.rstrip("/") + "/" + file_name
+    if os.path.exists(file_path):
+        with open(file_path) as handle:
             return handle.read()
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_serving_input_path = _download_artifact_from_uri(
-                serving_input_path, output_path=tmpdir
-            )
-            with open(local_serving_input_path) as handle:
+            local_file_path = _download_artifact_from_uri(file_path, output_path=tmpdir)
+            with open(local_file_path) as handle:
                 return handle.read()
 
 
-def _read_example(mlflow_model: Model, path: str):
+def _read_example(mlflow_model: Model, uri_or_path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
     model was saved without example). Raises FileNotFoundError if there is model metadata but the
@@ -603,12 +616,14 @@ def _read_example(mlflow_model: Model, path: str):
 
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+                e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+                or /path/to/model
 
     Returns:
         Input example data or None if the model has no example.
     """
-    input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    input_example = _get_mlflow_model_input_example_dict(mlflow_model, uri_or_path)
     if input_example is None:
         return None
 

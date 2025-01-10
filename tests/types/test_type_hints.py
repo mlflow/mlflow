@@ -10,15 +10,19 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
     _convert_data_to_type_hint,
+    _convert_dataframe_to_example_format,
     _infer_schema_from_list_type_hint,
+    _is_example_valid_for_type_from_example,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
+from mlflow.types.utils import _infer_schema
 
 
 class CustomModel(pydantic.BaseModel):
@@ -460,3 +464,52 @@ def test_maybe_convert_data_for_type_hint_errors():
         match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
     ):
         _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)
+
+
+def test_is_example_valid_for_type_from_example():
+    for data in [
+        pd.DataFrame({"a": ["x", "y", "z"], "b": [1, 2, 3]}),
+        pd.Series([1, 2, 3]),
+        ["a", "b", "c"],
+        [1, 2, 3],
+    ]:
+        assert _is_example_valid_for_type_from_example(data) is True
+
+    for data in [
+        "abc",
+        123,
+        None,
+        {"a": 1},
+        {"a": ["x", "y"]},
+    ]:
+        assert _is_example_valid_for_type_from_example(data) is False
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # list[scalar]
+        ["x", "y", "z"],
+        [1, 2, 3],
+        [1.0, 2.0, 3.0],
+        [True, False, True],
+        [b"Hello", b"World"],
+        # list[dict]
+        [{"a": 1, "b": 2}],
+        [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
+        # pd Series
+        pd.Series([1, 2, 3]),
+        # pd DataFrame
+        pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
+    ],
+)
+def test_convert_dataframe_to_example_format(data):
+    schema = _infer_schema(data)
+    df = _enforce_schema(data, schema)
+    converted_data = _convert_dataframe_to_example_format(df, data)
+    if isinstance(data, pd.Series):
+        pd.testing.assert_series_equal(converted_data, data)
+    elif isinstance(data, pd.DataFrame):
+        pd.testing.assert_frame_equal(converted_data, data)
+    else:
+        assert converted_data == data
