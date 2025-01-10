@@ -731,3 +731,58 @@ def test_predict_model_with_type_hints():
         # has the package, this could cause version not found error
         env_manager=VIRTUALENV,
     )
+
+
+def test_predict_with_wrong_signature_warns():
+    message = r"Model's `predict` method contains invalid parameters"
+    with pytest.warns(FutureWarning, match=message):
+
+        class ModelWOTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, context, messages, params=None):
+                return messages
+
+    with pytest.warns(FutureWarning, match=message):
+
+        class ModelWithTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, messages: list[str], params=None) -> list[str]:
+                return messages
+
+    # applying @pyfunc on the callable should trigger the warning
+    with pytest.warns(FutureWarning, match=message):
+
+        @pyfunc
+        def predict(messages: list[str]) -> list[str]:
+            return messages
+
+    with pytest.warns(FutureWarning, match=message):
+
+        @pyfunc
+        def predict(messages):
+            return message
+
+    # no @pyfunc decorator, then logging it should trigger the warning
+    def predict(messages) -> list[str]:
+        return messages
+
+    with mlflow.start_run():
+        with pytest.warns(FutureWarning, match=message):
+            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+
+
+def test_model_with_wrong_predict_signature_works():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, messages: list[Message], params=None) -> list[str]:
+            return [m.content for m in messages]
+
+    model = Model()
+    input_example = [{"role": "admin", "content": "hello"}]
+    expected_response = ["hello"]
+    assert model.predict(input_example) == expected_response
+    assert model.predict(messages=input_example) == expected_response
+
+    @pyfunc
+    def predict(messages: list[Message]) -> list[str]:
+        return [m.content for m in messages]
+
+    assert predict(input_example) == expected_response
+    assert predict(messages=input_example) == expected_response

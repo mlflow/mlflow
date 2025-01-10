@@ -7,7 +7,6 @@ import inspect
 import logging
 import os
 import shutil
-import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
@@ -31,7 +30,8 @@ from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.data_validation import (
-    _get_type_hint_if_supported,
+    _check_func_signature,
+    _get_func_info_if_type_hint_supported,
     _wrap_predict_with_pyfunc,
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
@@ -60,11 +60,6 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
-_INVALID_SIGNATURE_ERROR_MSG = (
-    "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
-    "Only the following parameter names are allowed: context, model_input, and params. "
-    "Note that invalid parameters will no longer be permitted in future versions."
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -150,8 +145,11 @@ class PythonModel:
         if not getattr(cls, "_skip_wrapping_predict", False):
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
-                type_hint = _get_type_hint_if_supported(predict_attr)
-                setattr(cls, "predict", _wrap_predict_with_pyfunc(predict_attr, type_hint))
+                func_info = _get_func_info_if_type_hint_supported(predict_attr)
+                setattr(cls, "predict", _wrap_predict_with_pyfunc(predict_attr, func_info))
+            predict_stream_attr = cls.__dict__.get("predict_stream")
+            if predict_stream_attr is not None and callable(predict_stream_attr):
+                _check_func_signature(predict_stream_attr, "predict_stream")
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
@@ -684,14 +682,6 @@ class _PythonModelPyfuncWrapper:
             dict or string. Chunk dict fields are determined by the model implementation.
         """
         parameters = inspect.signature(self.python_model.predict).parameters
-        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
-            warnings.warn(
-                _INVALID_SIGNATURE_ERROR_MSG.format(
-                    func_name="predict", invalid_params=invalid_params
-                ),
-                FutureWarning,
-                stacklevel=2,
-            )
         kwargs = {}
         if "params" in parameters:
             kwargs["params"] = params
@@ -714,14 +704,6 @@ class _PythonModelPyfuncWrapper:
             Streaming predictions.
         """
         parameters = inspect.signature(self.python_model.predict_stream).parameters
-        if invalid_params := set(parameters) - {"context", "model_input", "params"}:
-            warnings.warn(
-                _INVALID_SIGNATURE_ERROR_MSG.format(
-                    func_name="predict_stream", invalid_params=invalid_params
-                ),
-                FutureWarning,
-                stacklevel=2,
-            )
         kwargs = {}
         if "params" in parameters:
             kwargs["params"] = params
