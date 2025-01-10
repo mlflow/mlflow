@@ -843,7 +843,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.86.0"
+    maximum: "0.95.0"
     python:
       ">= 0.80.0": "3.10"
     requirements:
