@@ -296,21 +296,17 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model("test_model", python_model=Model())
-        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
         assert (
-            "Input example is not provided, model signature cannot be inferred."
-            in mock_warning.call_args[0][0]
-        )
+            "cannot be used to infer model signature and input example is not provided, "
+            "model signature cannot be inferred."
+        ) in mock_warning.call_args[0][0]
 
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model(
                 "test_model", python_model=Model(), input_example=pd.DataFrame()
             )
-        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
-        assert (
-            "Inferring model signature from input example failure" in mock_warning.call_args[0][0]
-        )
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
@@ -786,3 +782,40 @@ def test_model_with_wrong_predict_signature_works():
 
     assert predict(input_example) == expected_response
     assert predict(messages=input_example) == expected_response
+
+
+def test_warning_message_when_logging_model():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            raise ValueError("test")
+
+    # no type hint + invalid input example
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
+
+    # invalid type hint + invalid input example
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[object], params=None) -> str:
+            raise ValueError("test")
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
+
+    # type hint that cannot be used to infer model signature + no input example
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: pd.DataFrame, params=None):
+            return model_input
+
+    model = TestModel()
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=model)
+        assert (
+            "Failed to infer model signature: "
+            f"Type hint {model.predict_type_hints} cannot be used to infer model signature and "
+            "input example is not provided, model signature cannot be inferred."
+        ) in mock_warning.call_args[0][0]
