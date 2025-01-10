@@ -3016,7 +3016,7 @@ def save_model(
                     if not should_infer_signature_from_type_hints:
                         _logger.warning(
                             "Failed to infer model signature: "
-                            f"Type hint {type_hints} cannot be used to infer model signature, "
+                            f"Type hint {type_hints} cannot be used to infer model signature and "
                             "input example is not provided, model signature cannot be inferred."
                         )
 

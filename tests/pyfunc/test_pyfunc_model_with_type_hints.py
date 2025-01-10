@@ -297,7 +297,7 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model("test_model", python_model=Model())
         assert (
-            "cannot be used to infer model signature, input example is not provided, "
+            "cannot be used to infer model signature and input example is not provided, "
             "model signature cannot be inferred."
         ) in mock_warning.call_args[0][0]
 
@@ -816,6 +816,6 @@ def test_warning_message_when_logging_model():
             mlflow.pyfunc.log_model("model", python_model=model)
         assert (
             "Failed to infer model signature: "
-            f"Type hint {model.predict_type_hints} cannot be used to infer model signature, "
+            f"Type hint {model.predict_type_hints} cannot be used to infer model signature and "
             "input example is not provided, model signature cannot be inferred."
         ) in mock_warning.call_args[0][0]
