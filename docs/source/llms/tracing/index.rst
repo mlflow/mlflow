@@ -125,12 +125,12 @@ for model/API invocations to the active MLflow Experiment.
 
         .. raw:: html
 
-            <h3>LangChain Automatic Tracing</h3>
+            <h3>LangChain / LangGraph Automatic Tracing</h3>
 
         |
 
         As part of the LangChain autologging integration, traces are logged to the active MLflow Experiment when calling invocation APIs on chains. You can enable tracing
-        for LangChain by calling the :py:func:`mlflow.langchain.autolog` function.
+        for LangChain and LangGraph by calling the :py:func:`mlflow.langchain.autolog` function.
 
         .. code-block:: python
 
