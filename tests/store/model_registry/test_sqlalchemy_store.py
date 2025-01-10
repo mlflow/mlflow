@@ -31,8 +31,7 @@ from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
 
-GO_MOCK_TIME_TAG = "mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
-
+GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 @pytest.fixture
 def store(tmp_sqlite_uri):
@@ -56,8 +55,8 @@ def _rm_maker(store, name, tags=None, description=None):
 
 
 def _add_go_test_tags(tags, val):
-    tags.append(RegisteredModelTag(GO_MOCK_TIME_TAG, val))
-    return tags
+    if _MLFLOW_GO_STORE_TESTING.get():
+        return tags + [RegisteredModelTag(GO_MOCK_TIME_TAG, val)]
 
 
 def _remove_go_test_tags(tags):
@@ -148,10 +147,6 @@ def test_get_registered_model(store):
     with mock.patch("time.time", return_value=1234):
         rm = _rm_maker(store, name, _add_go_test_tags(tags, "1234000"))
         assert rm.name == name
-
-    # clean tags list from special/temporary tag. created above.
-    if _MLFLOW_GO_STORE_TESTING.get():
-        _remove_go_test_tags(tags)
 
     rmd = store.get_registered_model(name=name)
     assert rmd.name == name

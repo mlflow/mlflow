@@ -60,7 +60,7 @@ _logger = logging.getLogger(__name__)
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
 
-GO_MOCK_TIME_TAG = "mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
+GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -171,16 +171,6 @@ class SqlAlchemyStore(AbstractStore):
             created in the backend.
         """
         _validate_model_name(name)
-
-        # In case if under the hood of `store` is a GO implementation,
-        # it is impossible to use Pythin dynamic mocking.
-        # Tag with key="mock.time.time.fa4bcce6c7b1b57d16ff01c82504b18b.tag"
-        # is a special tag which is used to override some values in GO implementation.
-        # This tag is not necessary in Python implementation, so let's clean it.
-        if _MLFLOW_GO_STORE_TESTING.get():
-            for i in range(len(tags or [])):
-                if tags[i].key == GO_MOCK_TIME_TAG:
-                    del tags[i]
 
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
