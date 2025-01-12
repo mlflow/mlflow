@@ -28,9 +28,13 @@ def download_artifacts(
     """Download an artifact file or directory to a local directory.
 
     Args:
-        artifact_uri: URI pointing to the artifacts, such as
-            ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``,
-            ``"models:/my_model/Production"``, or ``"s3://my_bucket/my/file.txt"``.
+        artifact_uri: URI pointing to the artifacts. Supported formats include:
+        - ``"runs:/<run_id>/<artifact_path>"``, e.g., ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``.
+        - ``"models:/<model_name>/<stage>"``, e.g., ``"models:/my_model/Production"``.
+        - ``"models:/<model_name>/<version>/path/to/model"``, e.g., ``"models:/my_model/2/path/to/model"``.
+        - ``"models:/<model_name>@<alias>/path/to/model"``, e.g., ``"models:/my_model@staging/path/to/model"``.
+        - Cloud storage URIs like ``"s3://<bucket>/<path>"`` or ``"gs://<bucket>/<path>"``.
+        - Tracking server artifact URIs such as ``"http://<host>/mlartifacts"`` or ``"mlflow-artifacts://<host>/mlartifacts"``.
             Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
         run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
             ``artifact_uri`` must be specified.
@@ -106,7 +110,9 @@ def list_artifacts(
 
     if artifact_uri is not None:
         root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
+        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(
+            artifact_path
+        )
 
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
@@ -147,7 +153,9 @@ def load_text(artifact_uri: str) -> str:
             try:
                 return str(local_artifact_fd.read())
             except Exception:
-                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+                raise MlflowException(
+                    "Unable to form a str object from file content", BAD_REQUEST
+                )
 
 
 def load_dict(artifact_uri: str) -> dict:
@@ -181,7 +189,9 @@ def load_dict(artifact_uri: str) -> dict:
             try:
                 return json.load(local_artifact_fd)
             except json.JSONDecodeError:
-                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+                raise MlflowException(
+                    "Unable to form a JSON object from file content", BAD_REQUEST
+                )
 
 
 def load_image(artifact_uri: str):
