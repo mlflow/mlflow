@@ -29,12 +29,24 @@ def download_artifacts(
 
     Args:
         artifact_uri: URI pointing to the artifacts. Supported formats include:
-        - ``"runs:/<run_id>/<artifact_path>"``, e.g., ``"runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl"``.
-        - ``"models:/<model_name>/<stage>"``, e.g., ``"models:/my_model/Production"``.
-        - ``"models:/<model_name>/<version>/path/to/model"``, e.g., ``"models:/my_model/2/path/to/model"``.
-        - ``"models:/<model_name>@<alias>/path/to/model"``, e.g., ``"models:/my_model@staging/path/to/model"``.
-        - Cloud storage URIs like ``"s3://<bucket>/<path>"`` or ``"gs://<bucket>/<path>"``.
-        - Tracking server artifact URIs such as ``"http://<host>/mlartifacts"`` or ``"mlflow-artifacts://<host>/mlartifacts"``.
+
+            * ``runs:/<run_id>/<artifact_path>``
+              Example: ``runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl``
+
+            * ``models:/<model_name>/<stage>``
+              Example: ``models:/my_model/Production``
+
+            * ``models:/<model_name>/<version>/path/to/model``
+              Example: ``models:/my_model/2/path/to/model``
+
+            * ``models:/<model_name>@<alias>/path/to/model``
+              Example: ``models:/my_model@staging/path/to/model``
+
+            * Cloud storage URIs: ``s3://<bucket>/<path>`` or ``gs://<bucket>/<path>``
+
+            * Tracking server artifact URIs: ``http://<host>/mlartifacts`` or
+              ``mlflow-artifacts://<host>/mlartifacts``
+
             Exactly one of ``artifact_uri`` or ``run_id`` must be specified.
         run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
             ``artifact_uri`` must be specified.
