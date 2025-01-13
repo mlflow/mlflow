@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional, Union
+from uuid import uuid4
 
-import uuid4
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
 
