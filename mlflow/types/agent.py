@@ -1,10 +1,9 @@
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel as _BaseModel
 from pydantic import Field
 
-from mlflow.types.chat import ChatUsage, ToolCall
+from mlflow.types.chat import BaseModel, ChatUsage, ToolCall
 from mlflow.types.llm import (
     _custom_inputs_col_spec,
     _custom_outputs_col_spec,
@@ -25,14 +24,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
     from pydantic import model_validator
 else:
     from pydantic import root_validator
-
-
-class BaseModel(_BaseModel):
-    def model_dump(self, **kwargs):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return super().model_dump(**kwargs)
-        else:
-            return super().dict(**kwargs)
 
 
 class ChatAgentMessage(BaseModel):
@@ -140,7 +131,7 @@ class ChatAgentRequest(ChatAgentParams):
     messages: list[ChatAgentMessage] = Field(default_factory=list)
 
 
-class ChatAgentResponse(_BaseModel):
+class ChatAgentResponse(BaseModel):
     messages: list[ChatAgentMessage]
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
@@ -186,6 +177,7 @@ _chat_agent_messages_col_spec = ColSpec(
 
 # fmt: off
 
+# TODO: move out all params to a ParamSchema when Map(AnyType()) is supported by ParamSpec
 CHAT_AGENT_INPUT_SCHEMA = Schema(
     [
         _chat_agent_messages_col_spec,

@@ -37,8 +37,17 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
-    def _convert_input(self, model_input):
+    def _convert_input(self, model_input, params):
         import pandas
+
+        # if the model_input and params are already Pydantic models, return
+        if (
+            isinstance(model_input, list)
+            and model_input
+            and isinstance(model_input[0], ChatAgentMessage)
+            and (params is None or isinstance(params, ChatAgentParams))
+        ):
+            return model_input, params
 
         if isinstance(model_input, dict):
             dict_input = model_input
@@ -54,9 +63,9 @@ class _ChatAgentPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
+        model_input = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatAgentParams(**dict_input)
-        return messages, params
+        return model_input, params
 
     def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
         try:
@@ -84,14 +93,7 @@ class _ChatAgentPyfuncWrapper:
         Returns:
             Model predictions in :py:class:`~ChatAgentResponse` format.
         """
-        if not (
-            isinstance(model_input, list)
-            and model_input
-            and isinstance(model_input[0], ChatAgentMessage)(
-                params is None or isinstance(params, ChatAgentParams)
-            )
-        ):
-            model_input, params = self._convert_input(model_input)
+        model_input, params = self._convert_input(model_input, params)
         response = self.chat_agent.predict(model_input, params)
         return self._response_to_dict(response)
 
@@ -106,6 +108,6 @@ class _ChatAgentPyfuncWrapper:
         Returns:
             Generator over model predictions in :py:class:`~ChatAgentResponse` format.
         """
-        messages, params = self._convert_input(model_input)
-        for response in self.chat_agent.predict_stream(messages, params):
+        model_input, params = self._convert_input(model_input, params)
+        for response in self.chat_agent.predict_stream(model_input, params):
             yield self._response_to_dict(response)

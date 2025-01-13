@@ -364,11 +364,16 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     define input/output signatures and an input example, so manually specifying these values
     when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
 
-    See the documentation of the ``predict()`` and ``predict_stream`` method below for details on
+    See the documentation of the ``predict()`` and ``predict_stream()`` method below for details on
     that parameters and outputs that are expected by the ``ChatAgent`` API.
+
+    Before logging, ``predict()`` and ``predict_stream()`` methods only take in Pydantic models.
+    After logging, you can either pass in Pydantic models or a single dictionary that conforms to
+    a ChatAgentRequest schema. Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.agent for an
+    example.
     """
 
-    # _skip_wrapping_predict = True
+    _skip_wrapping_predict = True
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump(exclude_none=True) for m in messages]

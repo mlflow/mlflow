@@ -23,6 +23,12 @@ class BaseModel(_BaseModel):
         else:
             return self.dict(**kwargs)
 
+    def model_dump(self, **kwargs):
+        if IS_PYDANTIC_V2_OR_NEWER:
+            return super().model_dump(**kwargs)
+        else:
+            return super().dict(**kwargs)
+
 
 class TextContentPart(BaseModel):
     type: Literal["text"]
