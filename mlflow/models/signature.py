@@ -257,7 +257,9 @@ def infer_signature(
                 schemas[key] = (
                     convert_dataclass_to_schema(data) if is_dataclass(data) else _infer_schema(data)
                 )
-            except Exception:
+            except Exception as e:
+                if isinstance(e, MlflowException) and "Pydantic objects" in e.message:
+                    raise
                 extra_msg = (
                     ("Note that MLflow doesn't validate data types during inference for AnyType. ")
                     if key == "inputs"

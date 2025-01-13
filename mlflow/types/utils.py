@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
@@ -130,6 +131,15 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         While empty lists are inferred as AnyType instead of None after the support of AnyType.
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
+    if isinstance(data, pydantic.BaseModel):
+        # TODO: add link to documentation
+        raise MlflowException.invalid_parameter_value(
+            "Pydantic objects are not supported for model signature inference. "
+            "To use Pydantic objects, define your PythonModel's `predict` method "
+            "with a Pydantic type hint, and model signature will be automatically "
+            "inferred when logging the model. e.g. "
+            "`def predict(self, model_input: list[PydanticType])`"
+        )
 
     if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
         return AnyType()
