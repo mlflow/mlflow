@@ -422,7 +422,6 @@ import numpy as np
 import pandas
 import yaml
 from packaging.version import Version
-from sympy import python
 
 import mlflow
 import mlflow.pyfunc.loaders
@@ -3458,12 +3457,6 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
 
 def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
     """Helper method for save_model for ChatAgent models
-
-    Args:
-        signature (_type_): _description_
-        python_model (_type_): _description_
-        mlflow_model (_type_): _description_
-        input_example (_type_): _description_
 
     Returns: a dict input_example
     """

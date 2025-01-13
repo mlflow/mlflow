@@ -137,6 +137,7 @@ class ChatAgentResponse(BaseModel):
     usage: Optional[ChatUsage] = None
 
 
+# fmt: off
 _chat_agent_messages_col_spec = ColSpec(
     name="messages",
     type=Array(
@@ -146,27 +147,14 @@ _chat_agent_messages_col_spec = ColSpec(
                 Property("content", DataType.string, False),
                 Property("name", DataType.string, False),
                 Property("id", DataType.string, False),
-                Property(
-                    "tool_calls",
-                    Array(
-                        Object(
-                            [
-                                Property("id", DataType.string),
-                                Property(
-                                    "function",
-                                    Object(
-                                        [
-                                            Property("name", DataType.string),
-                                            Property("arguments", DataType.string),
-                                        ]
-                                    ),
-                                ),
-                                Property("type", DataType.string),
-                            ]
-                        )
-                    ),
-                    False,
-                ),
+                Property("tool_calls", Array(Object([
+                    Property("id", DataType.string),
+                    Property("function", Object([
+                        Property("name", DataType.string),
+                        Property("arguments", DataType.string),
+                    ])),
+                    Property("type", DataType.string),
+                ])), False),
                 Property("tool_call_id", DataType.string, False),
                 Property("attachments", Map(DataType.string), False),
                 Property("finish_reason", DataType.string, False),
@@ -174,8 +162,6 @@ _chat_agent_messages_col_spec = ColSpec(
         )
     ),
 )
-
-# fmt: off
 
 # TODO: move out all params to a ParamSchema when Map(AnyType()) is supported by ParamSpec
 CHAT_AGENT_INPUT_SCHEMA = Schema(
