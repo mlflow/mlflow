@@ -484,7 +484,9 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    _DEFAULT_CHAT_AGENT_METADATA_TASK,
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    ChatAgent,
     ChatModel,
     PythonModel,
     PythonModelContext,
@@ -497,6 +499,14 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.agent import (
+    CHAT_AGENT_INPUT_EXAMPLE,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
+)
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
@@ -510,6 +520,7 @@ from mlflow.types.type_hints import (
     _is_example_valid_for_type_from_example,
     _is_type_hint_from_example,
     _signature_cannot_be_inferred_from_type_hint,
+    model_validate,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -2938,7 +2949,6 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
@@ -3010,6 +3020,10 @@ def save_model(
                 "returns a dict, you can instantiate a ChatCompletionResponse using "
                 "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
             )
+    elif isinstance(python_model, ChatAgent):
+        input_example = _save_model_chat_agent_helper(
+            python_model, mlflow_model, signature, input_example
+        )
     elif python_model is not None:
         if callable(python_model):
             # first argument is the model input
@@ -3506,3 +3520,69 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
+
+
+def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+    """Helper method for save_model for ChatAgent models
+
+    Returns: a dict input_example
+    """
+    if signature is not None:
+        raise MlflowException(
+            "ChatAgent subclasses have a standard signature that is set "
+            "automatically. Please remove the `signature` parameter from "
+            "the call to log_model() or save_model().",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    mlflow_model.signature = ModelSignature(
+        inputs=CHAT_AGENT_INPUT_SCHEMA,
+        outputs=CHAT_AGENT_OUTPUT_SCHEMA,
+    )
+    # For ChatAgent we set default metadata to indicate its task
+    default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    # We accept either a tuple of either dicts or pydantic models, or a single dict
+    if input_example:
+        if isinstance(input_example, tuple):
+            messages, params = input_example
+        else:
+            messages = input_example
+            params = None
+        if isinstance(messages, list):
+            messages = [
+                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg for msg in messages
+            ]
+            params = (
+                ChatAgentParams(**params)
+                if isinstance(params, dict)
+                else params or ChatAgentParams()
+            )
+        else:
+            # If the input example is a single dictionary
+            # convert it to a list of ChatAgentMessages and ChatAgentParams
+            messages = [
+                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg
+                for msg in input_example["messages"]
+            ]
+            params = ChatAgentParams(**input_example)
+        input_example = {
+            "messages": [m.model_dump_compat(exclude_none=True) for m in messages],
+            **params.model_dump_compat(exclude_none=True),
+        }
+    else:
+        input_example = CHAT_AGENT_INPUT_EXAMPLE
+        messages = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
+        params = ChatAgentParams(**input_example)
+
+    _logger.info("Predicting on input example to validate output")
+    output = python_model.predict(messages, params)
+    try:
+        model_validate(ChatAgentResponse, output)
+    except Exception as e:
+        raise MlflowException(
+            "Failed to save ChatAgent. Ensure your model's predict() method returns a "
+            "ChatAgentResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
+    return input_example
