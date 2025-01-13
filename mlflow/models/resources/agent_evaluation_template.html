@@ -110,15 +110,19 @@
       gap: 6px;
       align-items: center;
     }
+    .caret-up {
+      transform: rotate(180deg);
+    }
   </style>
 </head>
 <body>
   <div style="display: flex; align-items: center">
     The logged model is compatible with the Mosaic AI Agent Framework.
-    <button onclick="showCode()">
+    <button onclick="toggleCode()">
       See how to evaluate the model&nbsp;
       <span
         role="img"
+        id="caret"
         aria-hidden="true"
         class="anticon css-6xix1i"
         style="font-size: 14px"
@@ -142,7 +146,7 @@
       </span>
     </button>
   </div>
-  <div id="code" style="display: none" onclick="showCode()">
+  <div id="code" style="display: none">
     <h1>
       Agent evaluation
       <a
@@ -189,6 +193,7 @@
     </div>
   </div>
   <script>
+    var codeShown = false;
     function clip(el) {
       var range = document.createRange();
       range.selectNodeContents(el);
@@ -197,9 +202,16 @@
       sel.addRange(range);
     }
 
-    function showCode() {
-      document.getElementById("code").style.display = "block";
-      clip(document.querySelector("pre.active"));
+    function toggleCode() {
+      if (codeShown) {
+        document.getElementById("code").style.display = "none";
+        codeShown = false;
+      } else {
+        document.getElementById("code").style.display = "block";
+        clip(document.querySelector("pre.active"));
+        codeShown = true;
+      }
+      document.getElementById("caret").classList.toggle("caret-up");
     }
 
     function tabClicked(tabIndex) {
@@ -217,7 +229,7 @@
           pre.classList.remove("active");
         }
       });
-      showCode();
+      clip(document.querySelector("pre.active"));
     }
   </script>
 </body>
