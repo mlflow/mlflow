@@ -40,15 +40,6 @@ class _ChatAgentPyfuncWrapper:
     def _convert_input(self, messages, params):
         import pandas
 
-        # if the messages and params are already Pydantic models, return
-        if (
-            isinstance(messages, list)
-            and messages
-            and isinstance(messages[0], ChatAgentMessage)
-            and (params is None or isinstance(params, ChatAgentParams))
-        ):
-            return messages, params
-
         if isinstance(messages, dict):
             dict_input = messages
         elif isinstance(messages, pandas.DataFrame):
@@ -87,15 +78,13 @@ class _ChatAgentPyfuncWrapper:
     ) -> dict[str, Any]:
         """
         Args:
-            messages: Model input data in the form of a ChatAgent request.
+            messages: Model input dict in the form of a ChatAgent request.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
             Model predictions in :py:class:`~ChatAgentResponse` format.
         """
-        print("before", messages, params)
         messages, params = self._convert_input(messages, params)
-        print("after", messages, params)
         response = self.chat_agent.predict(messages, params)
         return self._response_to_dict(response)
 

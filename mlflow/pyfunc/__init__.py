@@ -3482,7 +3482,7 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
     mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
-    # we accept either a tuple of either dicts or pydantic models, or a single dict
+    # We accept either a tuple of either dicts or pydantic models, or a single dict
     if input_example:
         if isinstance(input_example, tuple):
             messages, params = input_example
@@ -3510,7 +3510,6 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
             "messages": [m.model_dump(exclude_none=True) for m in messages],
             **params.model_dump(exclude_none=True),
         }
-    # default to the example input
     else:
         input_example = CHAT_AGENT_INPUT_EXAMPLE
         messages = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
