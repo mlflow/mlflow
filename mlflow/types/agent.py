@@ -16,9 +16,9 @@ else:
 class BaseModel(_BaseModel):
     def model_dump(self, **kwargs):
         if IS_PYDANTIC_V2_OR_NEWER:
-            return self.model_dump(**kwargs)
+            return super().model_dump(**kwargs)
         else:
-            return self.dict(**kwargs)
+            return super().dict(**kwargs)
 
 
 class ChatAgentMessage(BaseModel):

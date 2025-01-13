@@ -83,8 +83,8 @@ class Function(BaseModel):
 
 
 class ToolCall(BaseModel):
-    id: str
-    type: Literal["function"]
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    type: str = Field(default="function")
     function: Function
 
 
