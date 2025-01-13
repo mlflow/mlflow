@@ -3567,8 +3567,8 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
             ]
             params = ChatAgentParams(**input_example)
         input_example = {
-            "messages": [m.model_dump(exclude_none=True) for m in messages],
-            **params.model_dump(exclude_none=True),
+            "messages": [m.model_dump_compat(exclude_none=True) for m in messages],
+            **params.model_dump_compat(exclude_none=True),
         }
     else:
         input_example = CHAT_AGENT_INPUT_EXAMPLE

@@ -117,7 +117,7 @@ def test_chat_agent_trace(tmp_path):
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
     assert [{k: v for k, v in msg.items() if k != "id"} for msg in request["messages"]] == [
-        {k: v for k, v in ChatAgentMessage(**msg).model_dump().items() if k != "id"}
+        {k: v for k, v in ChatAgentMessage(**msg).model_dump_compat().items() if k != "id"}
         for msg in messages
     ]
 
@@ -263,7 +263,7 @@ def test_chat_agent_works_with_chat_message_input_example():
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
-        "messages": [m.model_dump(exclude_none=True) for m in input_example_no_params],
+        "messages": [m.model_dump_compat(exclude_none=True) for m in input_example_no_params],
         "stream": False,  # this is set by default
     }
 
@@ -278,7 +278,7 @@ def test_chat_agent_works_with_chat_message_input_example():
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
-        "messages": [m.model_dump(exclude_none=True) for m in input_example_with_params[0]],
+        "messages": [m.model_dump_compat(exclude_none=True) for m in input_example_with_params[0]],
         "context": {"conversation_id": "121", "user_id": "123"},
         "stream": False,  # this is set by default
     }
