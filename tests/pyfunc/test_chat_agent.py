@@ -27,15 +27,16 @@ from tests.helper_functions import (
 from tests.tracing.helper import get_traces
 
 
-def get_mock_response(message=None):
+def get_mock_response(messages: list[ChatAgentMessage], message=None):
     return {
         "messages": [
             {
                 "role": "assistant",
-                "content": message or "default response",
+                "content": message or msg.content,
                 "name": "llm",
                 "id": "call_4a7173b9-5058-4236-adf0-d3fdde69076c",
             }
+            for msg in messages
         ],
     }
 
@@ -43,23 +44,22 @@ def get_mock_response(message=None):
 class SimpleChatAgent(ChatAgent):
     @mlflow.trace
     def predict(
-        self, model_input: list[ChatAgentMessage], params: ChatAgentParams
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> ChatAgentResponse:
-        mock_response = get_mock_response()
+        mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response)
 
     def predict_stream(self, messages: list[ChatAgentMessage], params: ChatAgentParams):
-        num_chunks = 10
-        for i in range(num_chunks):
-            mock_response = get_mock_response(f"message {i}")
+        for i in range(5):
+            mock_response = get_mock_response(messages, f"message {i}")
             yield ChatAgentResponse(**mock_response)
 
 
 class ChatAgentWithCustomInputs(ChatAgent):
     def predict(
-        self, model_input: list[ChatAgentMessage], params: ChatAgentParams
+        self, messages: list[ChatAgentMessage], params: ChatAgentParams
     ) -> ChatAgentResponse:
-        mock_response = get_mock_response()
+        mock_response = get_mock_response(messages)
         return ChatAgentResponse(
             **mock_response,
             custom_outputs=params.custom_inputs,
@@ -122,7 +122,7 @@ def mock_predict():
 @pytest.mark.parametrize(
     "ret",
     [
-        "not a ChatCompletionResponse",
+        "not a ChatAgentResponse",
         {"dict": "with", "bad": "keys"},
         {
             "id": "1",
@@ -151,17 +151,19 @@ def test_save_throws_on_invalid_output(tmp_path, ret):
 
 
 def test_chat_agent_predict(tmp_path):
-    model = SimpleChatAgent()
+    model = ChatAgentWithCustomInputs()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    # test that a single dictionary will work
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
     ]
 
     response = loaded_model.predict({"messages": messages})
-    assert response["messages"][0]["content"] == "default response"
+    assert response["messages"][0]["content"] == "You are a helpful assistant"
 
 
 def test_chat_agent_works_with_infer_signature_input_example():
@@ -211,7 +213,7 @@ def test_chat_agent_works_with_infer_signature_input_example():
 
     expect_status_code(response, 200)
     model_response = json.loads(response.content)
-    assert model_response["messages"][0]["content"] == "default response"
+    assert model_response["messages"][0]["content"] == "You are in helpful assistant!"
 
 
 def test_chat_agent_logs_default_metadata_task():
@@ -229,21 +231,35 @@ def test_chat_agent_logs_default_metadata_task():
     assert model_info_with_override.metadata["task"] is None
 
 
-def test_chatagent_works_with_chat_message_input_example():
+def test_chat_agent_works_with_chat_message_input_example():
     model = SimpleChatAgent()
-    input_example = [
+    input_example_no_params = [
         ChatAgentMessage(role="user", content="What is Retrieval-augmented Generation?")
     ]
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            "model", python_model=model, input_example=input_example_no_params
         )
-    assert model_info.signature.inputs == CHAT_AGENT_INPUT_SCHEMA
-    assert model_info.signature.outputs == CHAT_AGENT_OUTPUT_SCHEMA
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
     assert mlflow_model.load_input_example(local_path) == {
-        "messages": [m.model_dump(exclude_none=True) for m in input_example],
+        "messages": [m.model_dump(exclude_none=True) for m in input_example_no_params],
+        "stream": False,  # this is set by default
+    }
+
+    input_example_with_params = (
+        [ChatAgentMessage(role="user", content="What is Retrieval-augmented Generation?")],
+        ChatAgentParams(context={"conversation_id": "121", "user_id": "123"}),
+    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example_with_params
+        )
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": [m.model_dump(exclude_none=True) for m in input_example_with_params[0]],
+        "context": {"conversation_id": "121", "user_id": "123"},
         "stream": False,  # this is set by default
     }
 
@@ -257,7 +273,7 @@ def test_chatagent_works_with_chat_message_input_example():
 
     expect_status_code(response, 200)
     model_response = json.loads(response.content)
-    assert model_response["messages"][0]["content"] == "default response"
+    assert model_response["messages"][0]["content"] == "What is Retrieval-augmented Generation?"
 
 
 def test_chat_agent_predict_stream(tmp_path):
@@ -266,7 +282,6 @@ def test_chat_agent_predict_stream(tmp_path):
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     messages = [
-        {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
     ]
 

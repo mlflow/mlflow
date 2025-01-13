@@ -37,35 +37,35 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
-    def _convert_input(self, model_input, params):
+    def _convert_input(self, messages, params):
         import pandas
 
-        # if the model_input and params are already Pydantic models, return
+        # if the messages and params are already Pydantic models, return
         if (
-            isinstance(model_input, list)
-            and model_input
-            and isinstance(model_input[0], ChatAgentMessage)
+            isinstance(messages, list)
+            and messages
+            and isinstance(messages[0], ChatAgentMessage)
             and (params is None or isinstance(params, ChatAgentParams))
         ):
-            return model_input, params
+            return messages, params
 
-        if isinstance(model_input, dict):
-            dict_input = model_input
-        elif isinstance(model_input, pandas.DataFrame):
+        if isinstance(messages, dict):
+            dict_input = messages
+        elif isinstance(messages, pandas.DataFrame):
             dict_input = {
                 k: _convert_llm_ndarray_to_list(v[0])
-                for k, v in model_input.to_dict(orient="list").items()
+                for k, v in messages.to_dict(orient="list").items()
             }
         else:
             raise MlflowException(
                 "Unsupported model input type. Expected a dict or pandas.DataFrame, "
-                f"but got {type(model_input)} instead.",
+                f"but got {type(messages)} instead.",
                 error_code=INTERNAL_ERROR,
             )
 
-        model_input = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
+        messages = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatAgentParams(**dict_input)
-        return model_input, params
+        return messages, params
 
     def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
         try:
@@ -83,31 +83,33 @@ class _ChatAgentPyfuncWrapper:
         return response
 
     def predict(
-        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+        self, messages: dict[str, Any], params: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         """
         Args:
-            model_input: Model input data in the form of a ChatAgent request.
+            messages: Model input data in the form of a ChatAgent request.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
             Model predictions in :py:class:`~ChatAgentResponse` format.
         """
-        model_input, params = self._convert_input(model_input, params)
-        response = self.chat_agent.predict(model_input, params)
+        print("before", messages, params)
+        messages, params = self._convert_input(messages, params)
+        print("after", messages, params)
+        response = self.chat_agent.predict(messages, params)
         return self._response_to_dict(response)
 
     def predict_stream(
-        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+        self, messages: dict[str, Any], params: Optional[dict[str, Any]] = None
     ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
-            model_input: Model input data in the form of a ChatAgent request.
+            messages: Model input data in the form of a ChatAgent request.
             params: Additional parameters to pass to the model for inference.
 
         Returns:
             Generator over model predictions in :py:class:`~ChatAgentResponse` format.
         """
-        model_input, params = self._convert_input(model_input, params)
-        for response in self.chat_agent.predict_stream(model_input, params):
+        messages, params = self._convert_input(messages, params)
+        for response in self.chat_agent.predict_stream(messages, params):
             yield self._response_to_dict(response)
