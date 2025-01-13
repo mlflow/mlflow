@@ -57,7 +57,7 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     outputs: undefined,
     flavor: undefined,
     loader_module: undefined,
-    input_example: undefined,
+    hasInputExample: false,
   };
 
   componentDidMount() {
@@ -175,15 +175,14 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     );
   }
 
-  validateModelPredictText(modelPath: any, inputExample?: string) {
-    if (inputExample) {
-      return `import json
-import mlflow
+  validateModelPredictText(modelPath: any) {
+    if (this.state.hasInputExample) {
+      return `import mlflow
 
 model_uri = '${modelPath}'
 # This is the input example logged with the model
-input_example = '${inputExample}'
-input_data = json.loads(input_example)
+pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+input_data = pyfunc_model.input_example
 
 # Verify the model with the provided input data using the logged dependencies.
 # For more details, refer to:
@@ -319,7 +318,7 @@ mlflow.models.predict(
     );
   }
 
-  renderValidateModelPredict(modelPath: any, inputExample?: string) {
+  renderValidateModelPredict(modelPath: any) {
     return (
       <div css={{ marginBottom: 16 }}>
         <Text>
@@ -328,7 +327,7 @@ mlflow.models.predict(
             description="Section heading to display the code block on how we can validate a model locally prior to serving"
           />
         </Text>
-        <ShowArtifactCodeSnippet code={this.validateModelPredictText(modelPath, inputExample)} />
+        <ShowArtifactCodeSnippet code={this.validateModelPredictText(modelPath)} />
       </div>
     );
   }
@@ -345,9 +344,7 @@ mlflow.models.predict(
             description="Heading text for validating the model before deploying it for serving"
           />
         </Title>
-        <div className="artifact-logged-model-view-code-content">
-          {this.renderValidateModelPredict(modelPath, this.state.input_example)}
-        </div>
+        <div className="artifact-logged-model-view-code-content">{this.renderValidateModelPredict(modelPath)}</div>
       </>
     );
   }
@@ -478,20 +475,7 @@ mlflow.models.predict(
         }
         this.setState({ loading: false });
         if (parsedJson.saved_input_example_info && parsedJson.saved_input_example_info.artifact_path) {
-          const inputExampleFileLocation = getArtifactLocationUrl(
-            `${this.props.path}/${parsedJson.saved_input_example_info.artifact_path}`,
-            this.props.runUuid,
-          );
-          this.props
-            .getArtifact(inputExampleFileLocation)
-            .then((response: any) => {
-              this.setState({ input_example: response });
-            })
-            .catch(() => {
-              this.setState({ input_example: null });
-            });
-        } else {
-          this.setState({ input_example: null });
+          this.setState({ hasInputExample: true });
         }
       })
       .catch((error: any) => {
