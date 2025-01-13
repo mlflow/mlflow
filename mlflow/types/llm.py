@@ -856,60 +856,6 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "stream": False,
 }
 
-_chat_agent_messages_col_spec = ColSpec(
-    name="messages",
-    type=Array(
-        Object(
-            [
-                Property("role", DataType.string),
-                Property("content", DataType.string, False),
-                Property("name", DataType.string, False),
-                Property("id", DataType.string, False),
-                Property("tool_calls", Array(Object([
-                    Property("id", DataType.string),
-                    Property("function", Object([
-                        Property("name", DataType.string),
-                        Property("arguments", DataType.string),
-                    ])),
-                    Property("type", DataType.string),
-                ])), False),
-                Property("tool_call_id", DataType.string, False),
-                Property("attachments", Map(DataType.string), False),
-                Property("finish_reason", DataType.string, False),
-            ]
-        )
-    ),
-)
-
-CHAT_AGENT_INPUT_SCHEMA = Schema([_chat_agent_messages_col_spec])
-
-CHAT_AGENT_PARAMS_SCHEMA = Schema(
-    [
-        ColSpec(name="context", type=Object([
-            Property("conversation_id", DataType.string, False),
-            Property("user_id", DataType.string, False),
-        ]), required=False),
-        _custom_inputs_col_spec,
-        ColSpec(name="stream", type=DataType.boolean, required=False),
-    ]
-)
-
-CHAT_AGENT_OUTPUT_SCHEMA = Schema(
-    [
-        _chat_agent_messages_col_spec,
-        _custom_outputs_col_spec,
-        _token_usage_stats_col_spec,
-    ]
-)
-
-CHAT_AGENT_INPUT_EXAMPLE = {
-    "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello!"},
-    ],
-    "stream": False,
-}
-
 COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(name="prompt", type=DataType.string),

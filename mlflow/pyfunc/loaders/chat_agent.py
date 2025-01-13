@@ -73,21 +73,27 @@ class _ChatAgentPyfuncWrapper:
             return response.model_dump(exclude_none=True)
         return response
 
-    # should be done automatically by the pyfunc wrapping related to _skip_wrapping_predict
-    # def predict(
-    #     self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
-    # ) -> dict[str, Any]:
-    #     """
-    #     Args:
-    #         model_input: Model input data in the form of a ChatAgent request.
-    #         params: Additional parameters to pass to the model for inference.
+    def predict(
+        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """
+        Args:
+            model_input: Model input data in the form of a ChatAgent request.
+            params: Additional parameters to pass to the model for inference.
 
-    #     Returns:
-    #         Model predictions in :py:class:`~ChatAgentResponse` format.
-    #     """
-    #     messages, params = self._convert_input(model_input)
-    #     response = self.chat_agent.predict(messages, params)
-    #     return self._response_to_dict(response)
+        Returns:
+            Model predictions in :py:class:`~ChatAgentResponse` format.
+        """
+        if not (
+            isinstance(model_input, list)
+            and model_input
+            and isinstance(model_input[0], ChatAgentMessage)(
+                params is None or isinstance(params, ChatAgentParams)
+            )
+        ):
+            model_input, params = self._convert_input(model_input)
+        response = self.chat_agent.predict(model_input, params)
+        return self._response_to_dict(response)
 
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None

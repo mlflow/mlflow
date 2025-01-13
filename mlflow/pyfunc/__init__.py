@@ -499,9 +499,15 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
-from mlflow.types.llm import (
+from mlflow.types.agent import (
     CHAT_AGENT_INPUT_EXAMPLE,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
+)
+from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -2984,7 +2990,10 @@ def save_model(
                 "the call to log_model() or save_model().",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
+        mlflow_model.signature = ModelSignature(
+            inputs=CHAT_AGENT_INPUT_SCHEMA,
+            outputs=CHAT_AGENT_OUTPUT_SCHEMA,
+        )
         # For ChatAgent we set default metadata to indicate its task
         default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
         mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
@@ -3014,11 +3023,6 @@ def save_model(
             input_example = CHAT_AGENT_INPUT_EXAMPLE
             model_input = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
             params = ChatAgentParams(**input_example).model_dump(exclude_none=True)
-
-        type_hints = python_model.predict_type_hints
-        mlflow_model.signature = _infer_signature_from_type_hints(
-            func=python_model, type_hints=type_hints, input_example=input_example
-        )
 
         _logger.info("Predicting on input example to validate output")
         output = python_model.predict(model_input, params)
