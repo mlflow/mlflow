@@ -48,7 +48,7 @@ class ChatAgentMessage(BaseModel):
     role: str
     content: Optional[str] = None
     name: Optional[str] = None
-    id: str = Field(default_factory=lambda: str(uuid4()))
+    id: Optional[str] = Field(default_factory=lambda: str(uuid4()))
     tool_calls: Optional[list[ToolCall]] = None
     tool_call_id: Optional[str] = None
     # TODO make this a pydantic class with subtypes once we have more details on usage

@@ -520,6 +520,7 @@ from mlflow.types.type_hints import (
     _is_example_valid_for_type_from_example,
     _is_type_hint_from_example,
     _signature_cannot_be_inferred_from_type_hint,
+    model_validate,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -3576,10 +3577,12 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
 
     _logger.info("Predicting on input example to validate output")
     output = python_model.predict(messages, params)
-    if not isinstance(output, ChatAgentResponse):
+    try:
+        model_validate(ChatAgentResponse, output)
+    except Exception as e:
         raise MlflowException(
             "Failed to save ChatAgent. Ensure your model's predict() method returns a "
-            "ChatAgentResponse object. If your predict() method returns a dict, wrap it in a "
-            "ChatAgentResponse object: `ChatAgentResponse(**output)`"
-        )
+            "ChatAgentResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
     return input_example

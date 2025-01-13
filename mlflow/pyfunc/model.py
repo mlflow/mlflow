@@ -371,9 +371,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     that parameters and outputs that are expected by the ``ChatAgent`` API.
 
     Before logging, ``predict()`` and ``predict_stream()`` methods only take in Pydantic models.
-    After logging, you can either pass one dictionary that conforms to a ChatAgentRequest schema or
-    two dictionaries for `messages` and `params`. Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.
-    agent for an example.
+    After logging, you can pass in a single dictionary that conforms to a ChatAgentRequest schema.
+    Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.agent for an example.
     """
 
     _skip_wrapping_predict = True

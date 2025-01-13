@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import pytest
 
@@ -55,6 +56,13 @@ class SimpleChatAgent(ChatAgent):
             yield ChatAgentResponse(**mock_response)
 
 
+class SimpleDictChatAgent(ChatAgent):
+    @mlflow.trace
+    def predict(self, messages: list[ChatAgentMessage], params: ChatAgentParams) -> dict[str, Any]:
+        mock_response = get_mock_response(messages)
+        return ChatAgentResponse(**mock_response).model_dump_compat()
+
+
 class ChatAgentWithCustomInputs(ChatAgent):
     def predict(
         self, messages: list[ChatAgentMessage], params: ChatAgentParams
@@ -68,6 +76,18 @@ class ChatAgentWithCustomInputs(ChatAgent):
 
 def test_chat_agent_save_load(tmp_path):
     model = SimpleChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert isinstance(loaded_model._model_impl, _ChatAgentPyfuncWrapper)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_AGENT_INPUT_SCHEMA
+    assert output_schema == CHAT_AGENT_OUTPUT_SCHEMA
+
+
+def test_chat_agent_save_load_dict_output(tmp_path):
+    model = SimpleDictChatAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
