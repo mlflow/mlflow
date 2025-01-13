@@ -32,7 +32,6 @@ from mlflow.types.type_hints import (
     _infer_schema_from_list_type_hint,
     _infer_schema_from_type_hint,
     _is_list_type_hint,
-    _signature_cannot_be_inferred_from_type_hint,
 )
 from mlflow.types.utils import _infer_param_schema, _infer_schema
 from mlflow.utils.annotations import filter_user_warnings_once
@@ -101,6 +100,7 @@ class ModelSignature:
             self.outputs = outputs
         self.params = params
         self.__is_signature_from_type_hint = False
+        self.__is_type_hint_from_example = False
 
     @property
     def _is_signature_from_type_hint(self):
@@ -109,6 +109,14 @@ class ModelSignature:
     @_is_signature_from_type_hint.setter
     def _is_signature_from_type_hint(self, value):
         self.__is_signature_from_type_hint = value
+
+    @property
+    def _is_type_hint_from_example(self):
+        return self.__is_type_hint_from_example
+
+    @_is_type_hint_from_example.setter
+    def _is_type_hint_from_example(self, value):
+        self.__is_type_hint_from_example = value
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -371,28 +379,12 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
     )
 
 
-def _should_infer_signature_from_type_hints(type_hints: _TypeHints):
-    """
-    Whether model signature should be inferred from type hints.
-    If the input type hint is None or needs a signature, return False.
-    """
-    if type_hints.input is None:
-        return False
-
-    if _signature_cannot_be_inferred_from_type_hint(type_hints.input):
-        return False
-
-    return True
-
-
 @filter_user_warnings_once
 def _infer_signature_from_type_hints(
     func, type_hints: _TypeHints, input_example=None
 ) -> Optional[ModelSignature]:
     """
     Infer the signature from type hints.
-    This function should only be called if _should_infer_signature_from_type_hints
-    is True.
     """
     if type_hints.input is None:
         return None
@@ -402,6 +394,7 @@ def _infer_signature_from_type_hints(
     if _contains_params(input_example):
         input_example, params = input_example
 
+    _logger.info("Inferring model signature from type hints")
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
     except InvalidTypeHintException as e:

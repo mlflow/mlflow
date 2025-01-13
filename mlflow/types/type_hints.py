@@ -2,7 +2,7 @@ import base64
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, NamedTuple, Optional, Union, get_args, get_origin
+from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_origin
 
 import pydantic
 import pydantic.fields
@@ -36,6 +36,9 @@ try:
 except ImportError:
     pass
 
+# special type hint that can be used to convert data to
+# the input example type after data validation
+TypeFromExample = TypeVar("TypeFromExample")
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -104,6 +107,55 @@ class InvalidTypeHintException(MlflowException):
 
 def _signature_cannot_be_inferred_from_type_hint(type_hint: type[Any]) -> bool:
     return type_hint in type_hints_no_signature_inference()
+
+
+def _is_type_hint_from_example(type_hint: type[Any]) -> bool:
+    return type_hint == TypeFromExample
+
+
+def _is_example_valid_for_type_from_example(example: Any) -> bool:
+    allowed_types = (list,)
+    try:
+        import pandas as pd
+
+        allowed_types += (pd.DataFrame, pd.Series)
+    except ImportError:
+        pass
+    return isinstance(example, allowed_types)
+
+
+def _convert_dataframe_to_example_format(data: Any, input_example: Any) -> Any:
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame):
+        if isinstance(input_example, pd.DataFrame):
+            return data
+        if isinstance(input_example, pd.Series):
+            data = data.iloc[:, 0]
+            data.name = input_example.name
+            return data
+        if np.isscalar(input_example):
+            return data.iloc[0, 0]
+        if isinstance(input_example, dict):
+            if len(data) == 1:
+                return data.to_dict(orient="records")[0]
+            else:
+                # This case shouldn't happen
+                _logger.warning("Cannot convert DataFrame to a single dictionary.")
+                return data
+        if isinstance(input_example, list):
+            # list[scalar]
+            if len(data.columns) == 1 and all(np.isscalar(x) for x in input_example):
+                return data.iloc[:, 0].tolist()
+            else:
+                # NB: there are some cases that this doesn't work well, but it's the best we can do
+                # e.g. list of dictionaries with different keys
+                # [{"a": 1}, {"b": 2}] -> pd.DataFrame(...) during schema enforcement
+                # here -> [{'a': 1.0, 'b': nan}, {'a': nan, 'b': 2.0}]
+                return data.to_dict(orient="records")
+
+    return data
 
 
 def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:

@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -17,7 +18,7 @@ from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER
+from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, TypeFromExample
 from mlflow.utils.env_manager import VIRTUALENV
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -296,21 +297,17 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model("test_model", python_model=Model())
-        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
         assert (
-            "Input example is not provided, model signature cannot be inferred."
-            in mock_warning.call_args[0][0]
-        )
+            "cannot be used to infer model signature and input example is not provided, "
+            "model signature cannot be inferred."
+        ) in mock_warning.call_args[0][0]
 
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model(
                 "test_model", python_model=Model(), input_example=pd.DataFrame()
             )
-        assert "cannot be used to infer model signature." in mock_warning.call_args[0][0]
-        assert (
-            "Inferring model signature from input example failure" in mock_warning.call_args[0][0]
-        )
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
@@ -731,3 +728,158 @@ def test_predict_model_with_type_hints():
         # has the package, this could cause version not found error
         env_manager=VIRTUALENV,
     )
+
+
+def test_predict_with_wrong_signature_warns():
+    message = r"Model's `predict` method contains invalid parameters"
+    with pytest.warns(FutureWarning, match=message):
+
+        class ModelWOTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, context, messages, params=None):
+                return messages
+
+    with pytest.warns(FutureWarning, match=message):
+
+        class ModelWithTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, messages: list[str], params=None) -> list[str]:
+                return messages
+
+    # applying @pyfunc on the callable should trigger the warning
+    with pytest.warns(FutureWarning, match=message):
+
+        @pyfunc
+        def predict(messages: list[str]) -> list[str]:
+            return messages
+
+    with pytest.warns(FutureWarning, match=message):
+
+        @pyfunc
+        def predict(messages):
+            return message
+
+    # no @pyfunc decorator, then logging it should trigger the warning
+    def predict(messages) -> list[str]:
+        return messages
+
+    with mlflow.start_run():
+        with pytest.warns(FutureWarning, match=message):
+            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+
+
+def test_model_with_wrong_predict_signature_works():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, messages: list[Message], params=None) -> list[str]:
+            return [m.content for m in messages]
+
+    model = Model()
+    input_example = [{"role": "admin", "content": "hello"}]
+    expected_response = ["hello"]
+    assert model.predict(input_example) == expected_response
+    assert model.predict(messages=input_example) == expected_response
+
+    @pyfunc
+    def predict(messages: list[Message]) -> list[str]:
+        return [m.content for m in messages]
+
+    assert predict(input_example) == expected_response
+    assert predict(messages=input_example) == expected_response
+
+
+def test_warning_message_when_logging_model():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            raise ValueError("test")
+
+    # no type hint + invalid input example
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
+
+    # invalid type hint + invalid input example
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[object], params=None) -> str:
+            raise ValueError("test")
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+        assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
+
+    # type hint that cannot be used to infer model signature + no input example
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: pd.DataFrame, params=None):
+            return model_input
+
+    model = TestModel()
+    with mlflow.start_run():
+        with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model("model", python_model=model)
+        assert (
+            "Failed to infer model signature: "
+            f"Type hint {model.predict_type_hints} cannot be used to infer model signature and "
+            "input example is not provided, model signature cannot be inferred."
+        ) in mock_warning.call_args[0][0]
+
+
+def assert_equal(data1, data2):
+    if isinstance(data1, pd.DataFrame):
+        pd.testing.assert_frame_equal(data1, data2)
+    elif isinstance(data1, pd.Series):
+        pd.testing.assert_series_equal(data1, data2)
+    else:
+        assert data1 == data2
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [
+        # list[scalar]
+        ["x", "y", "z"],
+        [1, 2, 3],
+        [1.0, 2.0, 3.0],
+        [True, False, True],
+        # list[dict]
+        [{"x": True}],
+        [{"a": 1, "b": 2}],
+        [{"role": "user", "content": "hello"}, {"role": "admin", "content": "hi"}],
+        # pd DataFrame
+        pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
+    ],
+)
+def test_type_hint_from_example(input_example):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: TypeFromExample):
+            return model_input
+
+    model = Model()
+    assert_equal(model.predict(input_example), input_example)
+
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+            model_info = mlflow.pyfunc.log_model(
+                "model", python_model=model, input_example=input_example
+            )
+        assert not any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = pyfunc_model.predict(input_example)
+    assert_equal(result, input_example)
+
+    # test serving
+    payload = convert_input_example_to_serving_input(input_example)
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=payload,
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert scoring_response.status_code == 200
+    if isinstance(input_example, pd.DataFrame):
+        assert_equal(
+            json.loads(scoring_response.content)["predictions"], input_example.to_dict("records")
+        )
+    else:
+        assert_equal(json.loads(scoring_response.content)["predictions"], input_example)

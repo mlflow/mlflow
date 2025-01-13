@@ -98,6 +98,51 @@ Example Code of LangChain Autologging
     :language: python
 
 
+Tracing LangGraph
+-----------------
+
+MLflow support automatic tracing for LangGraph, an open-source library from LangChain for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows. To enable auto-tracing for LangGraph, use the same :py:func:`mlflow.langchain.autolog()` function.
+
+.. code-block:: python
+
+    from typing import Literal
+
+    import mlflow
+
+    from langchain_core.tools import tool
+    from langchain_openai import ChatOpenAI
+    from langgraph.prebuilt import create_react_agent
+
+    # Enabling tracing for LangGraph (LangChain)
+    mlflow.langchain.autolog()
+
+    # Optional: Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("LangGraph")
+
+
+    @tool
+    def get_weather(city: Literal["nyc", "sf"]):
+        """Use this to get weather information."""
+        if city == "nyc":
+            return "It might be cloudy in nyc"
+        elif city == "sf":
+            return "It's always sunny in sf"
+
+
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    tools = [get_weather]
+    graph = create_react_agent(llm, tools)
+
+    # Invoke the graph
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+    )
+
+.. note::
+
+    MLflow does not support other auto-logging features for LangGraph, such as automatic model logging. Only traces are logged for LangGraph.
+
 How It Works
 ------------
 
@@ -171,8 +216,8 @@ Other artifacts such as models are logged by patching the invocation functions o
     asynchronous and may block the main thread. The invocation function itself is still not blocking and returns a coroutine object, but
     the logging overhead may slow down the model inference process. Please be aware of this side effect when using async functions with autologging.
 
-Troubleshooting
----------------
+FAQ
+---
 
 If you encounter any issues with MLflow LangChain flavor, please also refer to `FAQ <../index.html#faq>`. If you still have questions, please feel free to open an issue in `MLflow Github repo <https://github.com/mlflow/mlflow/issues>`_.
 
@@ -205,3 +250,56 @@ There are a few type of models that MLflow LangChain autologging does not suppor
     For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
     consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
     environment has `pydantic` installed with at least version 2. 
+
+
+How to customize span names in the traces?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, MLflow creates span names based on the class name in LangChain, such as ``ChatOpenAI``, ``RunnableLambda``, etc. If you want to customize the span names, you can do the following:
+
+1. Pass ``name`` parameter to the constructor of the LangChain class. This is useful when you want to set a specific name for a single component.
+2. Use ``with_config`` method to set the name for the runnables. You can pass the ``"run_name"`` key to the config dictionary to set a name for a sub chain that contains multiple components.
+
+.. code-block::
+
+    import mlflow
+    from langchain_openai import ChatOpenAI
+    from langchain_core.output_parsers import StrOutputParser
+
+    # Enable auto-tracing for LangChain
+    mlflow.langchain.autolog()
+
+    # Method 1: Pass `name` parameter to the constructor
+    model = ChatOpenAI(name="custom-llm", model="gpt-4o-mini")
+    # Method 2: Use `with_config` method to set the name for the runnables
+    runnable= (model | StrOutputParser()).with_config({"run_name": "custom-chain"})
+
+    runnable.invoke("Hi")
+
+The above code will create a trace like the following:
+
+.. figure:: ../../_static/images/llms/tracing/langchain-name-customize.png
+    :alt: Customize Span Names in LangChain Traces
+    :width: 100%
+    :align: center
+
+How to add extra metadata to a span?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can record extra metadata to the span by passing the ``metadata`` parameter of the LangChain's ``RunnableConfig`` dictionary, either to the constructor or at runtime.
+
+.. code-block::
+
+    import mlflow
+    from langchain_openai import ChatOpenAI
+
+    # Enable auto-tracing for LangChain
+    mlflow.langchain.autolog()
+
+    # Pass metadata to the constructor using `with_config` method
+    model = ChatOpenAI(model="gpt-4o-mini").with_config({"metadata": {"key1": "value1"}})
+
+    # Pass metadata at runtime using the `config` parameter
+    model.invoke("Hi", config={"metadata": {"key2": "value2"}})
+
+The metadata can be accessed in the ``Attributes`` tab in the MLflow UI.
