@@ -3,16 +3,7 @@ import uuid
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal, Optional
 
-from packaging.version import Version
-from pydantic import VERSION, BaseModel, Field
-
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-
-PYDANTIC_V1_OR_OLDER = Version(VERSION).major <= 1
-if PYDANTIC_V1_OR_OLDER:
-    from pydantic import root_validator
-else:
-    from pydantic import model_validator
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -23,15 +14,7 @@ else:
 #       is not supported, so the code here is a little ugly.
 
 
-JSON_SCHEMA_TYPES = [
-    "string",
-    "number",
-    "integer",
-    "object",
-    "array",
-    "boolean",
-    "null",
-]
+JSON_SCHEMA_TYPES = ["string", "number", "integer", "object", "array", "boolean", "null"]
 
 
 class _BaseDataclass:
@@ -145,47 +128,6 @@ class _BaseDataclass:
         return cls(**filtered_data)
 
 
-class _BaseModel(BaseModel):
-    def model_dump(
-        self,
-        *,
-        mode="python",
-        include=None,
-        exclude=None,
-        context=None,
-        by_alias=False,
-        exclude_unset=False,
-        exclude_defaults=False,
-        exclude_none=False,
-        round_trip=False,
-        warnings=True,
-        serialize_as_any=False,
-    ):
-        if PYDANTIC_V1_OR_OLDER:
-            return super().dict(
-                include=include,
-                exclude=exclude,
-                by_alias=by_alias,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-            )
-        return super().model_dump(
-            mode=mode,
-            include=include,
-            exclude=exclude,
-            context=context,
-            by_alias=by_alias,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-            round_trip=round_trip,
-            warnings=warnings,
-            serialize_as_any=serialize_as_any,
-        )
-
-
-# keep this in sync with FunctionToolCallArgumentsPydantic
 @dataclass
 class FunctionToolCallArguments(_BaseDataclass):
     """
@@ -209,7 +151,6 @@ class FunctionToolCallArguments(_BaseDataclass):
         return ToolCall(id=id, function=self)
 
 
-# keep this in sync with ToolCallPydantic
 @dataclass
 class ToolCall(_BaseDataclass):
     """
@@ -229,40 +170,6 @@ class ToolCall(_BaseDataclass):
         self._validate_field("id", str, True)
         self._convert_dataclass("function", FunctionToolCallArguments, True)
         self._validate_field("type", str, True)
-
-
-class FunctionToolCallArgumentsPydantic(_BaseModel):
-    """
-    The arguments of a function tool call made by the model. Pydantic version.
-
-    Args:
-        arguments (str): A JSON string of arguments that should be passed to the tool.
-        name (str): The name of the tool that is being called.
-    """
-
-    name: str
-    arguments: str
-
-    def to_tool_call(self, id=None):
-        if id is None:
-            id = str(uuid.uuid4())
-        return ToolCallPydantic(id=id, function=self)
-
-
-class ToolCallPydantic(_BaseModel):
-    """
-    A tool call made by the model. Pydantic version.
-
-    Args:
-        function (:py:class:`FunctionToolCallArgumentsPydantic`): The arguments of the
-            function tool call.
-        id (str): The ID of the tool call. Defaults to a random UUID.
-        type (str): The type of the object. Defaults to "function".
-    """
-
-    function: FunctionToolCallArgumentsPydantic
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str = Field(default="function")
 
 
 @dataclass
@@ -726,7 +633,6 @@ class ChatChunkChoice(_BaseDataclass):
         self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
-# keep this in sync with TokenUsageStatsPydantic
 @dataclass
 class TokenUsageStats(_BaseDataclass):
     """
@@ -749,24 +655,6 @@ class TokenUsageStats(_BaseDataclass):
         self._validate_field("prompt_tokens", int, False)
         self._validate_field("completion_tokens", int, False)
         self._validate_field("total_tokens", int, False)
-
-
-class TokenUsageStatsPydantic(_BaseModel):
-    """
-    Stats about the number of tokens used during inference. Pydantic version.
-
-    Args:
-        prompt_tokens (int): The number of tokens in the prompt.
-            **Optional**, defaults to ``None``
-        completion_tokens (int): The number of tokens in the generated completion.
-            **Optional**, defaults to ``None``
-        total_tokens (int): The total number of tokens used.
-            **Optional**, defaults to ``None``
-    """
-
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
 
 
 @dataclass
@@ -804,117 +692,6 @@ class ChatCompletionResponse(_BaseDataclass):
         self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
         self._convert_dataclass("usage", TokenUsageStats, False)
-
-
-class ChatAgentMessage(_BaseModel):
-    """
-    A message in a ChatAgent model request or response.
-
-    Args:
-        role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``,
-            ``"assistant"``, ``"tool"``).
-        content (str): The content of the message.
-            **Optional** Can be ``None`` if refusal or tool_calls are provided.
-        name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
-        id (str): The ID of the message. **Optional** defaults to a random UUID
-        tool_calls (List[:py:class:`ToolCallPydantic`]): A list of tool calls made by the model.
-            **Optional** defaults to ``None``
-        tool_call_id (str): The ID of the tool call that this message is a response to.
-            **Optional** defaults to ``None``
-        attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
-        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
-    """
-
-    role: str
-    content: Optional[str] = None
-    name: Optional[str] = None
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tool_calls: Optional[list[ToolCallPydantic]] = None
-    tool_call_id: Optional[str] = None
-    # TODO make this a pydantic class with subtypes once we have more details on usage
-    attachments: Optional[dict[str, str]] = None
-    finish_reason: Optional[str] = None
-    # TODO: add finish_reason_metadata once we have a plan for usage
-
-    if PYDANTIC_V1_OR_OLDER:
-
-        @root_validator
-        def check_content_and_tool_calls(cls, values):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
-            content = values.get("content")
-            tool_calls = values.get("tool_calls")
-            if not content and not tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return values
-    else:
-
-        @model_validator(mode="after")
-        def check_content_and_tool_calls(cls, chat_agent_msg):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
-            if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return chat_agent_msg
-
-
-class Context(_BaseModel):
-    """
-    Context to be used in a ChatAgent endpoint.
-
-    Args:
-        conversation_id (str): The ID of the conversation. **Optional** defaults to ``None``
-        user_id (str): The ID of the user. **Optional** defaults to ``None``
-    """
-
-    conversation_id: Optional[str] = None
-    user_id: Optional[str] = None
-
-
-class ChatAgentParams(_BaseModel):
-    """
-    Common parameters used for the ChatAgent interface.
-
-    Args:
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
-            conversation_id and user_id. **Optional** defaults to ``None``
-        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. The dictionary values must be JSON-serializable.
-            **Optional** defaults to ``None``
-        stream (bool): Whether to stream back responses as they are generated.
-            **Optional**, defaults to ``False``
-    """
-
-    context: Optional[Context] = None
-    custom_inputs: Optional[dict[str, Any]] = None
-    stream: Optional[bool] = False
-
-
-class ChatAgentRequest(ChatAgentParams):
-    """
-    Format of a ChatAgent interface request.
-
-    Args:
-        messages: A list of :py:class:`ChatAgentMessage` that will be passed to the model.
-            **Optional**, defaults to empty list (``[]``)
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
-            conversation_id and user_id. **Optional** defaults to ``None``
-        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. The dictionary values must be JSON-serializable.
-            **Optional** defaults to ``None``
-        stream (bool): Whether to stream back responses as they are generated.
-            **Optional**, defaults to ``False``
-    """
-
-    messages: list[ChatAgentMessage] = Field(default_factory=list)
-
-
-class ChatAgentResponse(_BaseModel):
-    messages: list[ChatAgentMessage]
-    custom_outputs: Optional[dict[str, Any]] = None
-    usage: Optional[TokenUsageStatsPydantic] = None
 
 
 @dataclass
@@ -1104,9 +881,10 @@ _chat_agent_messages_col_spec = ColSpec(
     ),
 )
 
-CHAT_AGENT_INPUT_SCHEMA = Schema(
+CHAT_AGENT_INPUT_SCHEMA = Schema([_chat_agent_messages_col_spec])
+
+CHAT_AGENT_PARAMS_SCHEMA = Schema(
     [
-        _chat_agent_messages_col_spec,
         ColSpec(name="context", type=Object([
             Property("conversation_id", DataType.string, False),
             Property("user_id", DataType.string, False),

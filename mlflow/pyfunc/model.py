@@ -36,10 +36,8 @@ from mlflow.pyfunc.utils.data_validation import (
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
 from mlflow.types.llm import (
-    ChatAgentMessage,
-    ChatAgentParams,
-    ChatAgentResponse,
     ChatCompletionChunk,
     ChatCompletionResponse,
     ChatMessage,

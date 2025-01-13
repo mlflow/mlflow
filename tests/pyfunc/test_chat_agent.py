@@ -11,12 +11,10 @@ from mlflow.pyfunc.loaders.chat_agent import _ChatAgentPyfuncWrapper
 from mlflow.pyfunc.model import ChatAgent
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
 from mlflow.types.llm import (
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
-    ChatAgentMessage,
-    ChatAgentParams,
-    ChatAgentResponse,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 

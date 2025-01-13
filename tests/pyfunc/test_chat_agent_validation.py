@@ -1,8 +1,6 @@
 import pytest
 
-from mlflow.types.llm import (
-    ChatAgentMessage,
-)
+from mlflow.types.agent import ChatAgentMessage
 
 
 def test_chat_message_throws_on_invalid_data():
