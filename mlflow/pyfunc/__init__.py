@@ -503,6 +503,7 @@ from mlflow.types.llm import (
     CHAT_AGENT_INPUT_EXAMPLE,
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
+    CHAT_AGENT_PARAMS_SCHEMA,
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -2989,37 +2990,42 @@ def save_model(
                 error_code=INVALID_PARAMETER_VALUE,
             )
         mlflow_model.signature = ModelSignature(
-            CHAT_AGENT_INPUT_SCHEMA,
-            CHAT_AGENT_OUTPUT_SCHEMA,
+            inputs=CHAT_AGENT_INPUT_SCHEMA,
+            outputs=CHAT_AGENT_OUTPUT_SCHEMA,
+            params=CHAT_AGENT_PARAMS_SCHEMA,
         )
         # For ChatAgent we set default metadata to indicate its task
         default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
         mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
-        input_example = input_example or CHAT_AGENT_INPUT_EXAMPLE
-        input_example, input_params = _split_input_data_and_params(input_example)
-        if isinstance(input_example, list):
-            params = ChatAgentParams()
-            messages = []
-            for each_message in input_example:
-                if isinstance(each_message, ChatAgentMessage):
-                    messages.append(each_message)
-                else:
-                    messages.append(ChatAgentMessage(**each_message))
+        # we accept either a tuple of either dicts or pydantic models, or a single dict
+        if input_example:
+            model_input, params = _split_input_data_and_params(input_example)
+            if isinstance(model_input, list):
+                model_input = [
+                    ChatAgentMessage(**msg) if isinstance(msg, dict) else msg for msg in model_input
+                ]
+                params = ChatAgentParams(**params) if isinstance(params, dict) else params
+            else:
+                # If the input example is a single dictionary
+                # convert it to a list of ChatAgentMessages and ChatAgentParams
+                model_input = [
+                    ChatAgentMessage(**msg) if isinstance(msg, dict) else msg
+                    for msg in input_example["messages"]
+                ]
+                params = ChatAgentParams(**input_example)
+            input_example = {
+                "messages": [m.model_dump(exclude_none=True) for m in model_input],
+                **params.model_dump(exclude_none=True),
+            }
+        # default to the example input
         else:
-            # If the input example is a dictionary, convert it to ChatMessage format
-            messages = [
-                ChatAgentMessage(**m) if isinstance(m, dict) else m
-                for m in input_example["messages"]
-            ]
-            params = ChatAgentParams(**input_example)
-        input_example = {
-            "messages": [m.model_dump(exclude_none=True) for m in messages],
-            **params.model_dump(exclude_none=True),
-            **(input_params or {}),
-        }
+            input_example = CHAT_AGENT_INPUT_EXAMPLE
+            model_input = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
+            params = ChatAgentParams(**input_example).model_dump(exclude_none=True)
+
         _logger.info("Predicting on input example to validate output")
-        output = python_model.predict(messages, params)
+        output = python_model.predict(model_input, params)
         if not isinstance(output, ChatAgentResponse):
             raise MlflowException(
                 "Failed to save ChatAgent. Ensure your model's predict() method returns a "

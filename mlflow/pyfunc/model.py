@@ -58,10 +58,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_infer_and_copy_code_paths,
-)
+from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -373,20 +370,20 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     that parameters and outputs that are expected by the ``ChatAgent`` API.
     """
 
-    _skip_wrapping_predict = True
+    # _skip_wrapping_predict = True
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump(exclude_none=True) for m in messages]
 
     @abstractmethod
     def predict(
-        self, messages: list[ChatAgentMessage], params: ChatAgentParams
+        self, model_input: list[ChatAgentMessage], params: ChatAgentParams
     ) -> ChatAgentResponse:
         """
         Evaluates a ChatAgent input and produces a ChatAgent output.
 
         Args:
-            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
+            model_input (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
                 A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
                 objects representing the chat history.
             params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
@@ -400,14 +397,14 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         """
 
     def predict_stream(
-        self, messages: list[ChatAgentMessage], params: ChatAgentParams
+        self, model_input: list[ChatAgentMessage], params: ChatAgentParams
     ) -> Generator[ChatAgentResponse, None, None]:
         """
         Evaluates a ChatAgent input and produces a ChatAgent output.
         Override this function to implement a real stream prediction.
 
         Args:
-            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
+            model_input (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
                 A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
                 objects representing the chat history.
             params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
@@ -551,10 +548,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(
-                tmp_artifacts_dir.path(),
-                os.path.join(path, saved_artifacts_dir_subpath),
-            )
+            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
@@ -834,9 +828,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.params = params
 
     def predict(
-        self,
-        context,
-        model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]],
+        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
     ):
         """
         Run prediction on the input data.
@@ -894,10 +886,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import (
-            call_deployments_api,
-            get_endpoint_type,
-        )
+        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
 
         endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 

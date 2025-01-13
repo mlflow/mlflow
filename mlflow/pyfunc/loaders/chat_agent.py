@@ -62,7 +62,6 @@ class _ChatAgentPyfuncWrapper:
         params = ChatAgentParams(**dict_input)
         return messages, params
 
-    # used for both streaming and non streaming
     def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
         try:
             model_validate(ChatAgentResponse, response)
@@ -78,20 +77,21 @@ class _ChatAgentPyfuncWrapper:
             return response.model_dump(exclude_none=True)
         return response
 
-    def predict(
-        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
-        """
-        Args:
-            model_input: Model input data in the form of a ChatAgent request.
-            params: Additional parameters to pass to the model for inference.
+    # should be done automatically by the pyfunc wrapping related to _skip_wrapping_predict
+    # def predict(
+    #     self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+    # ) -> dict[str, Any]:
+    #     """
+    #     Args:
+    #         model_input: Model input data in the form of a ChatAgent request.
+    #         params: Additional parameters to pass to the model for inference.
 
-        Returns:
-            Model predictions in :py:class:`~ChatAgentResponse` format.
-        """
-        messages, params = self._convert_input(model_input)
-        response = self.chat_agent.predict(messages, params)
-        return self._response_to_dict(response)
+    #     Returns:
+    #         Model predictions in :py:class:`~ChatAgentResponse` format.
+    #     """
+    #     messages, params = self._convert_input(model_input)
+    #     response = self.chat_agent.predict(messages, params)
+    #     return self._response_to_dict(response)
 
     def predict_stream(
         self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
