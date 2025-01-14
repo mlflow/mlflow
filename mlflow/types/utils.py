@@ -9,6 +9,7 @@ import pandas as pd
 import pydantic
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import (
     HAS_PYSPARK,
@@ -114,6 +115,11 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
     return dtype
 
 
+class InvalidDataForSignatureInferenceError(MlflowException):
+    def __init__(self, message):
+        super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
+
+
 def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
     """
     Infer the datatype of input data.
@@ -133,10 +139,10 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
     """
     if isinstance(data, pydantic.BaseModel):
         # TODO: add link to documentation
-        raise MlflowException.invalid_parameter_value(
-            "Pydantic objects are not supported for model signature inference. "
-            "To use Pydantic objects, define your PythonModel's `predict` method "
-            "with a Pydantic type hint, and model signature will be automatically "
+        raise InvalidDataForSignatureInferenceError(
+            message="MLflow does not support inferring model signature from input example "
+            "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
+            "`predict` method with a Pydantic type hint, and model signature will be automatically "
             "inferred when logging the model. e.g. "
             "`def predict(self, model_input: list[PydanticType])`"
         )

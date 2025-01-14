@@ -23,6 +23,7 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
+from mlflow.types.utils import InvalidDataForSignatureInferenceError
 
 
 def test_model_signature_with_colspec():
@@ -384,6 +385,8 @@ def test_infer_signature_for_pydantic_objects_error():
 
     m = Message(content="test", role="user")
     with pytest.raises(
-        MlflowException, match=r"Pydantic objects are not supported for model signature inference."
+        InvalidDataForSignatureInferenceError,
+        match=r"MLflow does not support inferring model signature from "
+        r"input example with Pydantic objects",
     ):
         infer_signature([m])
