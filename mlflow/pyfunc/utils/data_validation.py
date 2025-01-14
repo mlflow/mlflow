@@ -9,6 +9,7 @@ from mlflow.models.signature import (
     _is_context_in_predict_function_signature,
 )
 from mlflow.types.type_hints import (
+    InvalidTypeHintException,
     _convert_data_to_type_hint,
     _infer_schema_from_list_type_hint,
     _is_type_hint_from_example,
@@ -110,6 +111,12 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
             return
         try:
             _infer_schema_from_list_type_hint(type_hint)
+        except InvalidTypeHintException as e:
+            raise MlflowException(
+                f"{e.message} To disable data validation, remove the type hint from the "
+                "predict function. Otherwise, fix the type hint."
+            )
+        # catch other exceptions to avoid breaking model usage
         except Exception as e:
             color_warning(
                 message="Type hint used in the model's predict function is not supported "

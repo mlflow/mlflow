@@ -49,6 +49,7 @@ OPTIONAL_INPUT_MSG = (
     "BaseModel examples."
 )
 
+
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
     int: DataType.long,
@@ -58,6 +59,13 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
     bytes: DataType.binary,
     datetime: DataType.datetime,
 }
+
+# TODO: add link to documentation
+SUPPORTED_TYPE_HINT_MSG = (
+    "Type hints must be a list[...] where collection element type is one of these types: "
+    f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
+    "lists and dictionaries of primitive types, or typing.Any."
+)
 
 
 @lru_cache(maxsize=1)
@@ -102,16 +110,16 @@ class ColSpecType(NamedTuple):
     required: bool
 
 
+class UnsupportedTypeHintException(MlflowException):
+    def __init__(self, type_hint):
+        super().__init__(
+            f"Unsupported type hint `{_type_hint_repr(type_hint)}`. {SUPPORTED_TYPE_HINT_MSG}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 class InvalidTypeHintException(MlflowException):
-    def __init__(self, *, message=None, type_hint=None, extra_msg=""):
-        if message is None:
-            # TODO: add link to documentation for full list of supported type hints
-            message = (
-                f"Unsupported type hint `{_type_hint_repr(type_hint)}`{extra_msg}. "
-                "Type hints must be a list[...] where collection element types are of types: "
-                f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
-                "lists and dictionaries of primitive types, or typing.Any."
-            )
+    def __init__(self, *, message):
         super().__init__(message, error_code=INVALID_PARAMETER_VALUE)
 
 
@@ -197,24 +205,24 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
         if origin_type is dict:
             if len(args) == 2:
                 if args[0] != str:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Dictionary key type must be str, got {args[0]} in type hint "
+                    raise InvalidTypeHintException(
+                        message=f"Dictionary key type must be str, got {args[0]} in type hint "
                         f"{_type_hint_repr(type_hint)}"
                     )
                 return ColSpecType(
                     dtype=Map(_infer_colspec_type_from_type_hint(type_hint=args[1]).dtype),
                     required=True,
                 )
-            raise MlflowException.invalid_parameter_value(
-                "Dictionary type hint must contain two element types, got "
+            raise InvalidTypeHintException(
+                message="Dictionary type hint must contain two element types, got "
                 f"{_type_hint_repr(type_hint)}"
             )
         if origin_type in UNION_TYPES:
             if NONE_TYPE in args:
                 # This case shouldn't happen, but added for completeness
                 if len(args) < 2:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Union type hint must contain at least one non-None type, "
+                    raise InvalidTypeHintException(
+                        message=f"Union type hint must contain at least one non-None type, "
                         f"got {_type_hint_repr(type_hint)}"
                     )
                 # Optional type
@@ -238,10 +246,10 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                     "against its element types."
                 )
                 return ColSpecType(dtype=AnyType(), required=True)
-    _invalid_type_hint_error(type_hint)
+    _raise_type_hint_error(type_hint)
 
 
-def _invalid_type_hint_error(type_hint: type[Any]) -> None:
+def _raise_type_hint_error(type_hint: type[Any]) -> None:
     if (
         type_hint
         in (
@@ -252,9 +260,10 @@ def _invalid_type_hint_error(type_hint: type[Any]) -> None:
         + UNION_TYPES
     ):
         raise InvalidTypeHintException(
-            type_hint=type_hint, extra_msg=", it must include a valid element type"
+            message=f"Invalid type hint `{_type_hint_repr(type_hint)}`, it must include "
+            f"a valid element type. {SUPPORTED_TYPE_HINT_MSG}"
         )
-    raise InvalidTypeHintException(type_hint=type_hint)
+    raise UnsupportedTypeHintException(type_hint=type_hint)
 
 
 def _infer_type_from_pydantic_model(model: pydantic.BaseModel) -> Object:
@@ -277,8 +286,8 @@ def _infer_type_from_pydantic_model(model: pydantic.BaseModel) -> Object:
             continue
         colspec_type = _infer_colspec_type_from_type_hint(annotation)
         if colspec_type.required is False and field_required(field_info):
-            raise MlflowException.invalid_parameter_value(
-                f"Optional field `{field_name}` in Pydantic model `{model.__name__}` "
+            raise InvalidTypeHintException(
+                message=f"Optional field `{field_name}` in Pydantic model `{model.__name__}` "
                 "doesn't have a default value. Please set default value to None for this field."
             )
         properties.append(
@@ -289,8 +298,8 @@ def _infer_type_from_pydantic_model(model: pydantic.BaseModel) -> Object:
             )
         )
     if invalid_fields:
-        raise MlflowException.invalid_parameter_value(
-            "The following fields in the Pydantic model do not have type annotations: "
+        raise InvalidTypeHintException(
+            message="The following fields in the Pydantic model do not have type annotations: "
             f"{invalid_fields}. Please add type annotations to these fields."
         )
 
@@ -338,14 +347,14 @@ def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
         raise MlflowException.invalid_parameter_value(OPTIONAL_INPUT_MSG)
     # a valid list[...] type hint must only contain one argument
     if len(args) == 0:
-        raise MlflowException.invalid_parameter_value(
-            f"Type hint `{_type_hint_repr(type_hint)}` doesn't contain a collection element type. "
-            "Fix by adding an element type to the collection type definition, "
+        raise InvalidTypeHintException(
+            message=f"Type hint `{_type_hint_repr(type_hint)}` doesn't contain a collection "
+            "element type. Fix by adding an element type to the collection type definition, "
             "e.g. `list[str]` instead of `list`."
         )
     if len(args) > 1:
-        raise MlflowException.invalid_parameter_value(
-            f"Type hint `{_type_hint_repr(type_hint)}` contains {len(args)} element types. "
+        raise InvalidTypeHintException(
+            message=f"Type hint `{_type_hint_repr(type_hint)}` contains {len(args)} element types. "
             "Collections must have only a single type definition e.g. `list[int]` is valid; "
             "`list[str, int]` is invalid."
         )
@@ -367,7 +376,10 @@ def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     A valid `predict` function of a pyfunc model must use list type hint for the input.
     """
     if not _is_list_type_hint(type_hint):
-        raise InvalidTypeHintException(
+        # This should be invalid, but to keep backwards compatibility of ChatCompletionRequest
+        # type hint used in some rag models, we raise UnsupportedTypeHintException here
+        # so that the model with such type hint can still be logged
+        raise MlflowException.invalid_parameter_value(
             message="Type hints must be wrapped in list[...] because MLflow assumes the "
             "predict method to take multiple input instances. Specify your type hint as "
             f"`list[{_type_hint_repr(type_hint)}]` for a valid signature."
@@ -442,7 +454,7 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
             # Union type with all valid types is matched as AnyType
             # no validation needed for AnyType
             return data
-    _invalid_type_hint_error(type_hint)
+    _raise_type_hint_error(type_hint)
 
 
 def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
