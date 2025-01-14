@@ -34,8 +34,8 @@ from mlflow.entities import (
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    MLFLOW_TRACKING_URI,
     _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -4185,7 +4185,6 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-
         # In case if under the hood of `store` is a GO implementation, it is
         # not possible to mock `generate.request_id`. Let's send generated `request_id`
         # via special tag='mock.generate_request_id.go.testing.tag'

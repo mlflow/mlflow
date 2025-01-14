@@ -12,9 +12,6 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
-from mlflow.environment_variables import (
-    _MLFLOW_GO_STORE_TESTING,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,

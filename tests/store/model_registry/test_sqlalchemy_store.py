@@ -3,6 +3,7 @@ import uuid
 from unittest import mock
 
 import pytest
+
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -32,6 +33,7 @@ from tests.helper_functions import random_str
 pytestmark = pytest.mark.notrackingurimock
 
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
+
 
 @pytest.fixture
 def store(tmp_sqlite_uri):
