@@ -62,7 +62,7 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
 
 # TODO: add link to documentation
 SUPPORTED_TYPE_HINT_MSG = (
-    "Type hints must be a list[...] where collection element types are of types: "
+    "Type hints must be a list[...] where collection element type is one of these types: "
     f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
     "lists and dictionaries of primitive types, or typing.Any."
 )
@@ -348,8 +348,8 @@ def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
     # a valid list[...] type hint must only contain one argument
     if len(args) == 0:
         raise InvalidTypeHintException(
-            message=f"Type hint `{_type_hint_repr(type_hint)}` doesn't contain a collection element "
-            "type. Fix by adding an element type to the collection type definition, "
+            message=f"Type hint `{_type_hint_repr(type_hint)}` doesn't contain a collection "
+            "element type. Fix by adding an element type to the collection type definition, "
             "e.g. `list[str]` instead of `list`."
         )
     if len(args) > 1:
