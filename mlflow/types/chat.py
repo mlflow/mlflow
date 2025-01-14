@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -57,10 +58,15 @@ class Function(BaseModel):
     name: str
     arguments: str
 
+    def to_tool_call(self, id=None) -> ToolCall:
+        if id is None:
+            id = str(uuid4())
+        return ToolCall(id=id, type="function", function=self)
+
 
 class ToolCall(BaseModel):
-    id: str
-    type: Literal["function"]
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    type: str = Field(default="function")
     function: Function
 
 

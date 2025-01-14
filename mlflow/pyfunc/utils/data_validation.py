@@ -11,6 +11,7 @@ from mlflow.models.signature import (
 from mlflow.types.type_hints import (
     _convert_data_to_type_hint,
     _infer_schema_from_list_type_hint,
+    _is_type_hint_from_example,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_example_against_type_hint,
 )
@@ -102,7 +103,9 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
     type_hint = _extract_type_hints(func, input_arg_index=input_arg_index).input
     input_param_name = param_names[input_arg_index]
     if type_hint is not None:
-        if _signature_cannot_be_inferred_from_type_hint(type_hint):
+        if _signature_cannot_be_inferred_from_type_hint(type_hint) or _is_type_hint_from_example(
+            type_hint
+        ):
             return
         try:
             _infer_schema_from_list_type_hint(type_hint)
