@@ -59,6 +59,7 @@ def _rm_maker(store, name, tags=None, description=None):
 def _add_go_test_tags(tags, val):
     if _MLFLOW_GO_STORE_TESTING.get():
         return tags + [RegisteredModelTag(GO_MOCK_TIME_TAG, val)]
+    return tags
 
 
 def _mv_maker(

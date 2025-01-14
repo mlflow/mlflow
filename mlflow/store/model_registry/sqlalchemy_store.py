@@ -57,8 +57,6 @@ _logger = logging.getLogger(__name__)
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
 
-GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
-
 
 class SqlAlchemyStore(AbstractStore):
     """
