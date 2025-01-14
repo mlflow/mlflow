@@ -22,6 +22,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
+from mlflow.utils.warnings_utils import color_warning
 
 PYDANTIC_V1_OR_OLDER = Version(pydantic.VERSION).major <= 1
 FIELD_TYPE = pydantic.fields.ModelField if PYDANTIC_V1_OR_OLDER else pydantic.fields.FieldInfo
@@ -39,6 +40,14 @@ except ImportError:
 # special type hint that can be used to convert data to
 # the input example type after data validation
 TypeFromExample = TypeVar("TypeFromExample")
+# TODO: add link to mlflow documentation to include examples
+OPTIONAL_INPUT_MSG = (
+    "Input cannot be Optional type. Fix this by removing the "
+    "Optional wrapper from the type hint. To use optional fields, "
+    "use a Pydantic-based type hint definition. See "
+    "https://docs.pydantic.dev/latest/api/base_model/ for pydantic "
+    "BaseModel examples."
+)
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -96,9 +105,10 @@ class ColSpecType(NamedTuple):
 class InvalidTypeHintException(MlflowException):
     def __init__(self, *, message=None, type_hint=None, extra_msg=""):
         if message is None:
+            # TODO: add link to documentation for full list of supported type hints
             message = (
-                f"Unsupported type hint `{type_hint}`{extra_msg}. Supported type hints must be "
-                "list[...] where element types are: "
+                f"Unsupported type hint `{_type_hint_repr(type_hint)}`{extra_msg}. "
+                "Type hints must be a list[...] where collection element types are of types: "
                 f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
                 "lists and dictionaries of primitive types, or typing.Any."
             )
@@ -164,6 +174,12 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
     The inferred dtype should be one of the supported data types in COLSPEC_TYPES.
     """
     if type_hint == Any:
+        color_warning(
+            message="Any type hint is inferred as AnyType, and MLflow doesn't validate the data "
+            "for this type. Please use a more specific type hint to enable data validation.",
+            stacklevel=2,
+            color="yellow_bold",
+        )
         return ColSpecType(dtype=AnyType(), required=True)
     if datatype := TYPE_HINTS_TO_DATATYPE_MAPPING.get(type_hint):
         return ColSpecType(dtype=datatype, required=True)
@@ -182,21 +198,24 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
             if len(args) == 2:
                 if args[0] != str:
                     raise MlflowException.invalid_parameter_value(
-                        f"Dictionary key type must be str, got {args[0]} in type hint {type_hint}"
+                        f"Dictionary key type must be str, got {args[0]} in type hint "
+                        f"{_type_hint_repr(type_hint)}"
                     )
                 return ColSpecType(
                     dtype=Map(_infer_colspec_type_from_type_hint(type_hint=args[1]).dtype),
                     required=True,
                 )
             raise MlflowException.invalid_parameter_value(
-                f"Dictionary type hint must contain two element types, got {type_hint}"
+                "Dictionary type hint must contain two element types, got "
+                f"{_type_hint_repr(type_hint)}"
             )
         if origin_type in UNION_TYPES:
             if NONE_TYPE in args:
                 # This case shouldn't happen, but added for completeness
                 if len(args) < 2:
                     raise MlflowException.invalid_parameter_value(
-                        f"Union type hint must contain at least one non-None type, got {type_hint}"
+                        f"Union type hint must contain at least one non-None type, "
+                        f"got {_type_hint_repr(type_hint)}"
                     )
                 # Optional type
                 elif len(args) == 2:
@@ -314,21 +333,28 @@ def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
     Get the element type of list[...] type hint
     """
     args = get_args(type_hint)
+    # Optional[list[...]]
+    if type(None) in args:
+        raise MlflowException.invalid_parameter_value(OPTIONAL_INPUT_MSG)
     # a valid list[...] type hint must only contain one argument
     if len(args) == 0:
         raise MlflowException.invalid_parameter_value(
-            f"List type hint must contain the element type, got {type_hint}"
+            f"Type hint `{_type_hint_repr(type_hint)}` doesn't contain a collection element type. "
+            "Fix by adding an element type to the collection type definition, "
+            "e.g. `list[str]` instead of `list`."
         )
     if len(args) > 1:
         raise MlflowException.invalid_parameter_value(
-            f"List type hint must contain only one element type, got {type_hint}"
+            f"Type hint `{_type_hint_repr(type_hint)}` contains {len(args)} element types. "
+            "Collections must have only a single type definition e.g. `list[int]` is valid; "
+            "`list[str, int]` is invalid."
         )
     return args[0]
 
 
 def _is_list_type_hint(type_hint: type[Any]) -> bool:
     origin_type = _get_origin_type(type_hint)
-    return origin_type is list
+    return type_hint == list or origin_type is list
 
 
 def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
@@ -342,7 +368,9 @@ def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     """
     if not _is_list_type_hint(type_hint):
         raise InvalidTypeHintException(
-            message=f"Type hint for model input must be `list[...]`, got {type_hint}",
+            message="Type hints must be wrapped in list[...] because MLflow assumes the "
+            "predict method to take multiple input instances. Specify your type hint as "
+            f"`list[{_type_hint_repr(type_hint)}]` for a valid signature."
         )
     internal_type = _get_element_type_of_list_type_hint(type_hint)
     return _infer_schema_from_type_hint(internal_type)
@@ -352,73 +380,68 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     col_spec_type = _infer_colspec_type_from_type_hint(type_hint)
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
-        raise InvalidTypeHintException(
-            message=(
-                "To define Optional inputs, use a Pydantic-based type hint definition. See "
-                "https://docs.pydantic.dev/latest/api/base_model/ for pydantic BaseModel examples."
-            )
-        )
+        raise InvalidTypeHintException(message=OPTIONAL_INPUT_MSG)
     return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
 
 
-def _validate_example_against_type_hint(example: Any, type_hint: type[Any]) -> Any:
+def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
     """
-    Validate the example against provided type hint.
+    Validate the data against provided type hint.
     The allowed conversions are:
-        dictionary example with Pydantic model type hint -> Pydantic model instance
+        dictionary data with Pydantic model type hint -> Pydantic model instance
 
     Args:
-        example: The example to validate
+        data: The data to validate
         type_hint: The type hint to validate against
     """
     if _is_pydantic_type_hint(type_hint):
-        # if example is a pydantic model instance, convert it to a dictionary for validation
-        if isinstance(example, pydantic.BaseModel):
-            example_dict = example.dict() if PYDANTIC_V1_OR_OLDER else example.model_dump()
-        elif isinstance(example, dict):
-            example_dict = example
+        # if data is a pydantic model instance, convert it to a dictionary for validation
+        if isinstance(data, pydantic.BaseModel):
+            data_dict = data.dict() if PYDANTIC_V1_OR_OLDER else data.model_dump()
+        elif isinstance(data, dict):
+            data_dict = data
         else:
             raise MlflowException.invalid_parameter_value(
                 "Expecting example to be a dictionary or pydantic model instance for "
-                f"Pydantic type hint, got {type(example)}"
+                f"Pydantic type hint, got {type(data)}"
             )
         try:
-            model_validate(type_hint, example_dict)
+            model_validate(type_hint, data_dict)
         except pydantic.ValidationError as e:
+            # TODO: add link to documentation
             raise MlflowException.invalid_parameter_value(
-                message=f"Input example is not valid for Pydantic model `{type_hint.__name__}`",
+                message=f"Data doesn't match type hint, error: {e}. Expected fields in the "
+                f"type hint: {model_fields(type_hint)}; passed data: {data_dict}",
             ) from e
         else:
-            return type_hint(**example_dict) if isinstance(example, dict) else example
+            return type_hint(**data_dict) if isinstance(data, dict) else data
     elif type_hint == Any:
-        return example
+        return data
     elif type_hint in TYPE_HINTS_TO_DATATYPE_MAPPING:
         if _MLFLOW_IS_IN_SERVING_ENVIRONMENT.get():
-            example = _parse_data_for_datatype_hint(data=example, type_hint=type_hint)
-        if isinstance(example, type_hint):
-            return example
+            data = _parse_data_for_datatype_hint(data=data, type_hint=type_hint)
+        if isinstance(data, type_hint):
+            return data
         raise MlflowException.invalid_parameter_value(
-            f"Expected type {type_hint}, but got {type(example).__name__}"
+            f"Expected type {_type_hint_repr(type_hint)}, but got {type(data).__name__}"
         )
     elif origin_type := get_origin(type_hint):
         args = get_args(type_hint)
         if origin_type is list:
-            return _validate_list_elements(element_type=args[0], example=example)
+            return _validate_list_elements(element_type=args[0], data=data)
         elif origin_type is dict:
-            return _validate_dict_elements(element_type=args[1], example=example)
+            return _validate_dict_elements(element_type=args[1], data=data)
         elif origin_type in UNION_TYPES:
             # Optional type
             if NONE_TYPE in args:
-                if example is None:
-                    return example
+                if data is None:
+                    return data
                 if len(args) == 2:
                     effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
-                    return _validate_example_against_type_hint(
-                        example=example, type_hint=effective_type
-                    )
+                    return _validate_data_against_type_hint(data=data, type_hint=effective_type)
             # Union type with all valid types is matched as AnyType
             # no validation needed for AnyType
-            return example
+            return data
     _invalid_type_hint_error(type_hint)
 
 
@@ -448,50 +471,68 @@ class ValidationResult(NamedTuple):
     error_message: Optional[str] = None
 
 
-def _get_example_validation_result(example: Any, type_hint: type[Any]) -> ValidationResult:
+def _get_data_validation_result(data: Any, type_hint: type[Any]) -> ValidationResult:
     try:
-        value = _validate_example_against_type_hint(example=example, type_hint=type_hint)
+        value = _validate_data_against_type_hint(data=data, type_hint=type_hint)
         return ValidationResult(value=value)
     except MlflowException as e:
         return ValidationResult(error_message=e.message)
 
 
-def _validate_list_elements(element_type: type[Any], example: Any) -> list[Any]:
-    if not isinstance(example, list):
+def _type_hint_repr(type_hint: type[Any]) -> str:
+    return (
+        type_hint.__name__
+        if _is_pydantic_type_hint(type_hint) or type(type_hint) == type
+        else str(type_hint)
+    )
+
+
+def _validate_list_elements(element_type: type[Any], data: Any) -> list[Any]:
+    if not isinstance(data, list):
         raise MlflowException.invalid_parameter_value(
-            f"Expected list, but got {type(example).__name__}"
+            f"Expected list, but got {type(data).__name__}"
         )
-    invalid_elems = {}
+    invalid_elems = []
     result = []
-    for elem in example:
-        validation_result = _get_example_validation_result(example=elem, type_hint=element_type)
+    for elem in data:
+        validation_result = _get_data_validation_result(data=elem, type_hint=element_type)
         if validation_result.error_message:
-            invalid_elems[str(elem)] = validation_result.error_message
+            invalid_elems.append((str(elem), validation_result.error_message))
         else:
             result.append(validation_result.value)
     if invalid_elems:
-        raise MlflowException.invalid_parameter_value(f"Invalid elements in list: {invalid_elems}")
+        invalid_elems_msg = (
+            f"{invalid_elems[:5]} ... (truncated)" if len(invalid_elems) > 5 else invalid_elems
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Failed to validate data against type hint `list[{_type_hint_repr(element_type)}]`, "
+            f"invalid elements: {invalid_elems_msg}"
+        )
     return result
 
 
-def _validate_dict_elements(element_type: type[Any], example: Any) -> dict[str, Any]:
-    if not isinstance(example, dict):
+def _validate_dict_elements(element_type: type[Any], data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
         raise MlflowException.invalid_parameter_value(
-            f"Expected dict, but got {type(example).__name__}"
+            f"Expected dict, but got {type(data).__name__}"
         )
     invalid_elems = {}
     result = {}
-    for key, value in example.items():
+    for key, value in data.items():
         if not isinstance(key, str):
             invalid_elems[str(key)] = f"Key must be a string, got {type(key).__name__}"
             continue
-        validation_result = _get_example_validation_result(example=value, type_hint=element_type)
+        validation_result = _get_data_validation_result(data=value, type_hint=element_type)
         if validation_result.error_message:
             invalid_elems[key] = validation_result.error_message
         else:
             result[key] = validation_result.value
     if invalid_elems:
-        raise MlflowException.invalid_parameter_value(f"Invalid elements in dict: {invalid_elems}")
+        raise MlflowException.invalid_parameter_value(
+            f"Failed to validate data against type hint "
+            f"`dict[str, {_type_hint_repr(element_type)}]`, "
+            f"invalid elements: {invalid_elems}"
+        )
     return result
 
 
@@ -536,7 +577,7 @@ def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
         if origin_type is not list:
             raise MlflowException(
                 "Only `list[...]` or `Any` type hint supports pandas DataFrame input "
-                f"with a single column. But got {type_hint}."
+                f"with a single column. But got {_type_hint_repr(type_hint)}."
             )
         return data.iloc[:, 0].tolist()
 

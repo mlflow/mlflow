@@ -28,7 +28,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_
 from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
-    _get_example_validation_result,
+    _get_data_validation_result,
     _infer_schema_from_list_type_hint,
     _infer_schema_from_type_hint,
     _is_list_type_hint,
@@ -440,8 +440,8 @@ def _infer_signature_from_type_hints(
         # only validate input example here if pyfunc decorator is not used
         # because when the decorator is used, the input is validated in the predict function
         if not _pyfunc_decorator_used and (
-            msg := _get_example_validation_result(
-                example=input_example, type_hint=type_hints.input
+            msg := _get_data_validation_result(
+                data=input_example, type_hint=type_hints.input
             ).error_message
         ):
             _logger.warning(
@@ -470,8 +470,8 @@ def _infer_signature_from_type_hints(
                 )
             else:
                 if is_output_type_hint_valid and (
-                    msg := _get_example_validation_result(
-                        example=output_example, type_hint=type_hints.output
+                    msg := _get_data_validation_result(
+                        data=output_example, type_hint=type_hints.output
                     ).error_message
                 ):
                     _logger.warning(
