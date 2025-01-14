@@ -33,7 +33,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -4182,19 +4185,21 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-        # In case if under the hood of `store` is a GO implementation it is
-        # not possible to mock `generate.request_id`. Let's send generated
-        # `request_id` via special tag='request_id' so GO implementation can catch it.
-        if tags:
-            tags["request_id"] = request_id
-        else:
-            tags = {"request_id": request_id}
+        # In case if under the hood of `store` is a GO implementation, it is
+        # not possible to mock `generate.request_id`. Let's send generated `request_id`
+        # via special tag='mock.generate_request_id.go.testing.tag'
+        # so GO implementation can catch it.
+        if _MLFLOW_GO_STORE_TESTING.get():
+            if tags:
+                tags["mock.generate_request_id.go.testing.tag"] = request_id
+            else:
+                tags = {"mock.generate_request_id.go.testing.tag": request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=tags,
+            tags=tags or {},
         )
 
     store.end_trace(
