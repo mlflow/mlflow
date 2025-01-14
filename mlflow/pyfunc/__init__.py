@@ -3026,21 +3026,29 @@ def save_model(
             python_model, mlflow_model, signature, input_example
         )
     elif python_model is not None:
-        input_type_hint = None
         if callable(python_model):
             # TODO: support input_example and TypeFromExample for callables
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
-            input_type_hint = type_hints.input
-            if not _signature_cannot_be_inferred_from_type_hint(input_type_hint):
+            if not _signature_cannot_be_inferred_from_type_hint(type_hints.input):
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
+                )
+            _pyfunc_decorator_used = getattr(python_model, "_is_pyfunc", False)
+            # only show the warning here if @pyfunc is not applied on the function
+            # since @pyfunc will trigger the warning instead
+            if type_hints.input is None and not _pyfunc_decorator_used:
+                # TODO: add link to documentation
+                color_warning(
+                    "Add type hints to the `predict` method to enable "
+                    "data validation and automatic signature inference. ",
+                    stacklevel=1,
+                    color="yellow",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             type_hints = python_model.predict_type_hints
-            input_type_hint = type_hints.input
-            type_hint_from_example = _is_type_hint_from_example(input_type_hint)
+            type_hint_from_example = _is_type_hint_from_example(type_hints.input)
             if type_hint_from_example:
                 should_infer_signature_from_type_hints = False
             else:
@@ -3088,14 +3096,6 @@ def save_model(
                             f"Type hint {type_hints} cannot be used to infer model signature and "
                             "input example is not provided, model signature cannot be inferred."
                         )
-        if input_type_hint is None:
-            # TODO: add link to documentation
-            color_warning(
-                "Add type hints to the `predict` method of the PythonModel subclass to enable "
-                "data validation and automatic signature inference. ",
-                stacklevel=1,
-                color="yellow",
-            )
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
