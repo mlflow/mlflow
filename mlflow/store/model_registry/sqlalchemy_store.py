@@ -171,7 +171,6 @@ class SqlAlchemyStore(AbstractStore):
             created in the backend.
         """
         _validate_model_name(name)
-
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
