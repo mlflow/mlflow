@@ -8,7 +8,6 @@ import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
@@ -87,9 +86,8 @@ class MlflowCallback(BaseCallback):
     ):
         st = self._call_id_to_span.get(call_id)
         try:
-            input_msg = st.span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
             output_msg = self._extract_messages_from_lm_outputs(outputs)
-            set_span_chat_messages(st.span, input_msg + output_msg)
+            set_span_chat_messages(st.span, output_msg, append=True)
         except Exception as e:
             _logger.debug(f"Failed to set output messages for {call_id}. Error: {e}")
 
