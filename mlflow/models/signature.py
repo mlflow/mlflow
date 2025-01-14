@@ -33,7 +33,11 @@ from mlflow.types.type_hints import (
     _infer_schema_from_type_hint,
     _is_list_type_hint,
 )
-from mlflow.types.utils import _infer_param_schema, _infer_schema
+from mlflow.types.utils import (
+    InvalidDataForSignatureInferenceError,
+    _infer_param_schema,
+    _infer_schema,
+)
 from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
 
@@ -257,6 +261,8 @@ def infer_signature(
                 schemas[key] = (
                     convert_dataclass_to_schema(data) if is_dataclass(data) else _infer_schema(data)
                 )
+            except InvalidDataForSignatureInferenceError:
+                raise
             except Exception:
                 extra_msg = (
                     ("Note that MLflow doesn't validate data types during inference for AnyType. ")
