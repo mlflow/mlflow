@@ -12,7 +12,7 @@ from llama_index.core.instrumentation.events.llm import (
 from llama_index.llms.openai.utils import to_openai_message_dict
 
 from mlflow.types.chat import ChatMessage
-from mlflow.utils.pydantic_utils import model_dump_compat, model_validate_compat
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 
 def get_chat_messages_from_event(event: BaseEvent) -> list[ChatMessage]:
@@ -40,4 +40,4 @@ def _convert_message_to_mlflow_chat(message: LLamaChatMessage) -> ChatMessage:
     if tool_calls := message.get("tool_calls"):
         message["tool_calls"] = [model_dump_compat(tool) for tool in tool_calls]
 
-    return model_validate_compat(ChatMessage, message)
+    return ChatMessage.validate_compat(message)

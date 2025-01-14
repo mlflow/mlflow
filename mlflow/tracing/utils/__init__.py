@@ -16,7 +16,6 @@ from packaging.version import Version
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
-from mlflow.utils.pydantic_utils import model_dump_compat, model_validate_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -281,14 +280,14 @@ def set_span_chat_messages(
     sanitized_messages = []
     for message in messages:
         if isinstance(message, dict):
-            model_validate_compat(ChatMessage, message)
+            ChatMessage.validate_compat(message)
             sanitized_messages.append(message)
         elif isinstance(message, ChatMessage):
             # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
             #   some fields are only present in either the request or response (e.g., tool_call_id).
             #   Those fields should not be recorded unless set explicitly, so we set
             #   exclude_unset=True here to avoid recording unset fields.
-            sanitized_messages.append(model_dump_compat(message, exclude_unset=True))
+            sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
 
     if append:
         existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
@@ -356,9 +355,9 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
-            model_validate_compat(ChatTool, tool)
+            ChatTool.validate_compat(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(model_dump_compat(tool, exclude_unset=True))
+            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)

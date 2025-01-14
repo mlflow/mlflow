@@ -20,19 +20,3 @@ def model_dump_compat(pydantic_model: BaseModel, **kwargs: Any) -> dict[str, Any
         if IS_PYDANTIC_V2_OR_NEWER
         else pydantic_model.dict(**kwargs)
     )
-
-
-def model_validate_compat(cls: type[BaseModel], obj: Any, **kwargs: Any) -> BaseModel:
-    """
-    Validate the Pydantic model, in a compatible way for Pydantic v1 and v2.
-
-    Args:
-        cls: The Pydantic model class to validate.
-        obj: The object to validate.
-        kwargs: Additional arguments to pass to the parse_obj method
-    """
-    return (
-        cls.model_validate(obj, **kwargs)
-        if IS_PYDANTIC_V2_OR_NEWER
-        else cls.parse_obj(obj, **kwargs)
-    )

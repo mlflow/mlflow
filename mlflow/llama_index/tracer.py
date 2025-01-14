@@ -164,10 +164,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
         try:
             input_args = bound_args.arguments
-
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
@@ -246,6 +244,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
         token = self._span_id_to_token.pop(span.span_id, None)
+
         if _get_llama_index_version() >= Version("0.10.59"):
             # LlamaIndex determines if a workflow is terminated or not by propagating an special
             # exception WorkflowDone. We should treat this exception as a successful termination.
