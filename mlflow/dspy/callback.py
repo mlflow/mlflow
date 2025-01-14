@@ -87,9 +87,8 @@ class MlflowCallback(BaseCallback):
     ):
         st = self._call_id_to_span.get(call_id)
         try:
-            input_msg = st.span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
             output_msg = self._extract_messages_from_lm_outputs(outputs)
-            set_span_chat_messages(st.span, input_msg + output_msg)
+            set_span_chat_messages(st.span, output_msg, append=True)
         except Exception as e:
             _logger.debug(f"Failed to set output messages for {call_id}. Error: {e}")
 
