@@ -32,6 +32,7 @@ client = mlflow.MlflowClient()
 client.create_registered_model("model_client")
 client.create_model_version("model_client", model_info.model_uri, model_id = model_info.model_id)
 m = client.get_model_version("model_client", 1)
+print(m)
 assert m.model_id == model_info.model_id
 assert m.params == [
     LoggedModelParameter(key="alpha", value="0.5"),
