@@ -634,7 +634,7 @@ message ModelParam {
   // Name of the param.
   optional string name = 1;
 
-  // Value of the param associated with the key, could be empty
+  // Value of the param associated with the name, could be empty
   optional string value = 2;
 }
 

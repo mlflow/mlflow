@@ -727,7 +727,8 @@ class UcModelRegistryStore(BaseRestStore):
                     shutil.rmtree(local_model_dir)
 
     def _get_model_params_from_model_id(self, model_id):
-        # load the mlflow model and extract the model parameters and return as ModelParam objects
+        # load the MLflow LoggedModel by model_id and 
+        # extract the model parameters and return as ModelParam objects
         if model_id is None:
             return None
         model = mlflow.get_logged_model(model_id)
