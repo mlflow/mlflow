@@ -1,6 +1,7 @@
 import logging
 from typing import Callable, Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -72,6 +73,10 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         status_message=uc_proto.status_message,
         aliases=[alias.alias for alias in (uc_proto.aliases or [])],
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
+        model_id=uc_proto.model_id,
+        params=[
+            ModelParam(key=param.key, value=param.value) for param in (uc_proto.model_params or [])
+        ],
     )
 
 
