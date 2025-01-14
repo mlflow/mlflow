@@ -6,13 +6,9 @@ from contextlib import closing
 from itertools import islice
 from sys import version_info
 
-import pydantic
-from packaging.version import Version
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
-
-
-IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
 _logger = logging.getLogger(__name__)
