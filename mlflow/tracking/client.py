@@ -3748,7 +3748,7 @@ class MlflowClient:
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
-                      registered model version, if applicable.            
+                      registered model version, if applicable.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
