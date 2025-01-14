@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2.20.0rc0 (2025-01-14)
+
+MLflow 2.20.0rc0 includes several major features and improvements
+
+Features:
+
+- [] Add support for invokers rights in Databricks Resources (#14212, @aravind-segu)
+- [Models] Introduce ChatAgent (#13797, @bbqiu)
+- [] Special type hint support (#14182, @serena-ruan)
+- [] Add predict section in artifacts tab (#14189, @serena-ruan)
+- [Tracking] Add new chat tab to the trace UI (#14211, @TomeHirata)
+- [Scoring] Apply timeout override to within-request local scoring server for Spark UDF inference (#14202, @BenWilson2)
+- [] Support type hint in serving (#14168, @serena-ruan)
+- [] Limit model input typehint to list for predict (#14171, @serena-ruan)
+- [] Pyfunc data validation in predict (#14130, @serena-ruan)
+- [] Groq autotracing (#14006, @anumita0203)
+- [] [2/2] Type hint support in pyfunc models (#14100, @serena-ruan)
+- [] Dictionary param support (#14091, @serena-ruan)
+- [] Add standardized messages and tools attributes in span schema (#14087, @daniellok-db)
+- [UI] Jupyter notebook trace UI display (#13955, @daniellok-db)
+- [Tracking] Support tracing for Bedrock LLM calls (#14018, @B-Step62)
+- [] Support predict function without context param for PythonModel and ChatModel (#14059, @serena-ruan)
+- [Models] Set default task for ChatModel (#14068, @stevenchen-db)
+- [] Support uv in mlflow.models.predict (#13824, @serena-ruan)
+- [Models] Add type hints support including pydantic models (#13924, @serena-ruan)
+
+Bug fixes:
+
+- [Models] Fix the faithfulness metric for custom override parameters supplied to the callable metric implementation (#14220, @BenWilson2)
+- [Artifacts] Update presigned URL list_artifacts to return an empty list instead of an exception (#14203, @arpitjasa-db)
+- [Model Registry / Sqlalchemy] fix rename permission model registry (#14139, @MohamedKHALILRouissi)
+- [Tracking] Fix hard-dependency to langchain package in autologging (#14125, @B-Step62)
+- [] Fix constraint name for MSSQL in migration 0584bdc529eb (#14146, @daniellok-db)
+- [Scoring] fix unitialized loaded_model var (#14109, @yang-chengg)
+- [Model Registry] return empty array when DatabricksSDKModelsArtifactRepository.list_artifacts is called on a file (#14027, @shichengzhou-db)
+
+Documentation updates:
+
+- [] Add documentation for predict API and uv as env manager (#14039, @serena-ruan)
+- [] Add a page for search_traces (#14033, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#14232, #14207, #14206, #14185, #14196, #14193, #14173, #14164, #14159, #14165, #14152, #14151, #14126, #14069, #13987, @B-Step62; #14233, #14205, #14217, #14172, #14188, #14167, #14166, #14163, #14162, #14161, #13971, @TomeHirata; #14234, #14228, #14227, #14229, #14218, #14216, #14213, #14208, #14204, #14198, #14187, #14181, #14177, #14176, #14156, #14169, #14099, #14086, #13983, @serena-ruan; #14223, #14191, #14084, @dsmilkov; #13804, @kriscon-db; #14108, @dsuhinin; #14158, @Lodewic; #14067, #14140, #14132, #14072, @daniellok-db; #14148, #14147, #14115, #14079, #14116, @WeichenXu123; #14128, #14112, #14111, #14093, #14096, #14095, #14090, #14089, #14085, #14078, #14074, #14070, #14053, #14060, #14035, #14014, #14002, #14000, #13997, #13996, #13995, @harupy; #14135, @brilee; #14133, @manos02; #14121, @LeahKorol; #14025, @nojaf; #13948, @benglewis; #13942, @justsomerandomdude264; #14003, @Ajay-Satish-01; #13982, @prithvikannan; #13638, @MaxwellSalmon
+
 ## 2.19.0 (2024-12-11)
 
 We are excited to announce the release of MLflow 2.19.0! This release includes a number of significant features, enhancements, and bug fixes.
