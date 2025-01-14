@@ -40,6 +40,7 @@ except ImportError:
 # special type hint that can be used to convert data to
 # the input example type after data validation
 TypeFromExample = TypeVar("TypeFromExample")
+# TODO: add link to mlflow documentation to include examples
 OPTIONAL_INPUT_MSG = (
     "Input cannot be Optional type. Fix this by removing the "
     "Optional wrapper from the type hint. To use optional fields, "
@@ -367,8 +368,8 @@ def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     """
     if not _is_list_type_hint(type_hint):
         raise InvalidTypeHintException(
-            message="Type hints must be wrapped in list[...] to support "
-            "multiple-record batch inference. Specify your type hint as "
+            message="Type hints must be wrapped in list[...] because MLflow assumes the "
+            "predict method to take multiple input instances. Specify your type hint as "
             f"`list[{_type_hint_repr(type_hint)}]` for a valid signature."
         )
     internal_type = _get_element_type_of_list_type_hint(type_hint)
