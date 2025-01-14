@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -77,6 +77,24 @@ class DatabricksResource(Resource, ABC):
     def target_uri(self) -> str:
         return "databricks"
 
+    @property
+    def type(self) -> ResourceType:
+        raise NotImplementedError("Subclasses must implement the 'type' property.")
+
+    def __init__(self, name: str, on_behalf_of_user: Optional[bool] = None):
+        self.name = name
+        self.on_behalf_of_user = on_behalf_of_user
+
+    def to_dict(self):
+        result = {self.type.value: [{"name": self.name}]}
+        if self.on_behalf_of_user is not None:
+            result[self.type.value][0]["on_behalf_of_user"] = self.on_behalf_of_user
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str]):
+        return cls(data["name"], data.get("on_behalf_of_user"))
+
 
 class DatabricksUCConnection(DatabricksResource):
     """
@@ -85,21 +103,17 @@ class DatabricksUCConnection(DatabricksResource):
     Args:
         connection_name (str): The name of the databricks UC connection
         used to create the tool which was used to build the model.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.UC_CONNECTION
 
-    def __init__(self, connection_name: str):
-        self.connection_name = connection_name
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.connection_name}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(connection_name=data["name"])
+    def __init__(self, connection_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(connection_name, on_behalf_of_user)
 
 
 class DatabricksServingEndpoint(DatabricksResource):
@@ -108,21 +122,17 @@ class DatabricksServingEndpoint(DatabricksResource):
 
     Args:
         endpoint_name (str): The name of all the databricks endpoints used by the model.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.SERVING_ENDPOINT
 
-    def __init__(self, endpoint_name: str):
-        self.endpoint_name = endpoint_name
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.endpoint_name}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(endpoint_name=data["name"])
+    def __init__(self, endpoint_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(endpoint_name, on_behalf_of_user)
 
 
 class DatabricksVectorSearchIndex(DatabricksResource):
@@ -130,23 +140,19 @@ class DatabricksVectorSearchIndex(DatabricksResource):
     Define Databricks vector search index name resource to serve a model.
 
     Args:
-        index_name (str): The name of all the databricks vector search index names
-        used by the model.
+        index_name (str): The name of the databricks vector search index
+        used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.VECTOR_SEARCH_INDEX
 
-    def __init__(self, index_name: str):
-        self.index_name = index_name
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.index_name}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(index_name=data["name"])
+    def __init__(self, index_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(index_name, on_behalf_of_user)
 
 
 class DatabricksSQLWarehouse(DatabricksResource):
@@ -155,21 +161,17 @@ class DatabricksSQLWarehouse(DatabricksResource):
 
     Args:
         warehouse_id (str): The id of the sql warehouse used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.SQL_WAREHOUSE
 
-    def __init__(self, warehouse_id: str):
-        self.warehouse_id = warehouse_id
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.warehouse_id}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(warehouse_id=data["name"])
+    def __init__(self, warehouse_id: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(warehouse_id, on_behalf_of_user)
 
 
 class DatabricksFunction(DatabricksResource):
@@ -178,21 +180,17 @@ class DatabricksFunction(DatabricksResource):
 
     Args:
         function_name (str): The name of the function used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.FUNCTION
 
-    def __init__(self, function_name: str):
-        self.function_name = function_name
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.function_name}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(function_name=data["name"])
+    def __init__(self, function_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(function_name, on_behalf_of_user)
 
 
 class DatabricksGenieSpace(DatabricksResource):
@@ -201,21 +199,17 @@ class DatabricksGenieSpace(DatabricksResource):
 
     Args:
         genie_space_id (str): The genie space id
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.GENIE_SPACE
 
-    def __init__(self, genie_space_id: str):
-        self.genie_space_id = genie_space_id
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.genie_space_id}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(genie_space_id=data["name"])
+    def __init__(self, genie_space_id: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(genie_space_id, on_behalf_of_user)
 
 
 class DatabricksTable(DatabricksResource):
@@ -226,21 +220,17 @@ class DatabricksTable(DatabricksResource):
 
      Args:
          table_name (str): The name of the table used by the model
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
     @property
     def type(self) -> ResourceType:
         return ResourceType.TABLE
 
-    def __init__(self, table_name: str):
-        self.table_name = table_name
-
-    def to_dict(self):
-        return {self.type.value: [{"name": self.table_name}]}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        return cls(table_name=data["name"])
+    def __init__(self, table_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(table_name, on_behalf_of_user)
 
 
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
