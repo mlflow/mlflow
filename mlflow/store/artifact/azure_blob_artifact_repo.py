@@ -213,8 +213,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 container_client.delete_blob(blob.name)
         except ResourceNotFoundError:
             raise MlflowException(f"No such file or directory: '{dest_path}'")
-        except Exception as e:
-            raise MlflowException(f"Failed to delete artifacts at '{dest_path}': {e}")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
