@@ -261,12 +261,11 @@ saved_input_example_info:
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().input_example).toBeDefined();
+      expect(impl.state().hasInputExample).toBeDefined();
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const validatePredictCodeContent = codeContent.at(0).text();
-      expect(validatePredictCodeContent.includes('input_example = \'["x", "y", "z"]\'')).toBe(true);
-      expect(validatePredictCodeContent.includes('input_data = json.loads(input_example)')).toBe(true);
+      expect(validatePredictCodeContent.includes('input_data = pyfunc_model.input_example')).toBe(true);
       expect(validatePredictCodeContent.includes('mlflow.models.predict')).toBe(true);
       done();
     });
@@ -290,7 +289,7 @@ flavors:
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().input_example).toBeDefined();
+      expect(impl.state().hasInputExample).toBeDefined();
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
