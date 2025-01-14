@@ -27,6 +27,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
+    chat-agent-intro/index
     chat-model-intro/index
     chat-model-guide/index
     notebooks/chat-model-tool-calling.ipynb
@@ -37,6 +38,16 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
 
     <section>
         <article class="simple-grid">
+              <div class="simple-card">
+                <a href="chat-agent-intro/index.html" >
+                    <div class="header">
+                        Custom GenAI Agents with ChatAgent
+                    </div>
+                    <p>
+                        Learn the basics of creating custom agents using MLflow's <code>ChatAgent</code>.
+                    </p>
+                </a>
+            </div>
             <div class="simple-card">
                 <a href="chat-model-intro/index.html" >
                     <div class="header">
