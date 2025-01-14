@@ -316,12 +316,22 @@ def test_bedrock_autolog_invoke_model_stream():
         {
             "type": "content_block_start",
             "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
             "content_block": {"type": "text", "text": "Hello"},
         },
         {
             "type": "content_block_delta",
             "index": 0,
-            "delta": {"type": "text_delta", "text": "! How can I help you today?"},
+            "delta": {"type": "text_delta", "text": "! How can I "},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "help you today?"},
         },
         {"type": "content_block_stop", "index": 0},
         {
