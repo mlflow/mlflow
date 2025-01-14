@@ -198,6 +198,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def delete_artifacts(self, artifact_path=None):
         from azure.core.exceptions import ResourceNotFoundError
+
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         if artifact_path:
