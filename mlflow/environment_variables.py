@@ -698,6 +698,9 @@ MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
     "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
 )
 
+#: A boolean flag which enables additional functionality in Python tests for GO backend.
+_MLFLOW_GO_STORE_TESTING = _BooleanEnvironmentVariable("MLFLOW_GO_STORE_TESTING", False)
+
 # Specifies whether the current environment is a serving environment.
 # This should only be used internally by MLflow to add some additional logic when running in a
 # serving environment.
