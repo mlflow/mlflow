@@ -8,6 +8,7 @@ from unittest import mock
 import pandas as pd
 import pydantic
 import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
@@ -616,7 +617,7 @@ def test_python_model_local_testing_same_as_pyfunc_predict():
     assert e_local.value.message == e_pyfunc.value.message
 
 
-def test_invalid_type_hint_in_python_model(recwarn):
+def test_unsupported_type_hint_in_python_model(recwarn):
     invalid_type_hint_msg = "Type hint used in the model's predict function is not supported"
 
     class MyModel(mlflow.pyfunc.PythonModel):
@@ -637,7 +638,7 @@ def test_invalid_type_hint_in_python_model(recwarn):
     assert any("Unsupported type hint" in str(w.message) for w in recwarn)
 
 
-def test_invalid_type_hint_in_callable(recwarn):
+def test_unsupported_type_hint_in_callable(recwarn):
     @pyfunc
     def predict(model_input: list[object]) -> str:
         if isinstance(model_input, list):
@@ -883,3 +884,26 @@ def test_type_hint_from_example(input_example):
         )
     else:
         assert_equal(json.loads(scoring_response.content)["predictions"], input_example)
+
+
+@pytest.mark.skipif(
+    Version(pydantic.VERSION).major <= 1,
+    reason="pydantic v1 has default value None if the field is Optional",
+)
+def test_invalid_type_hint_raise_exception():
+    class Message(pydantic.BaseModel):
+        role: str
+        # this doesn't include default value
+        content: Optional[str]
+
+    with pytest.raises(MlflowException, match="To disable data validation, remove the type hint"):
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(self, model_input: list[Message], params=None):
+                return model_input
+
+    with pytest.raises(MlflowException, match="To disable data validation, remove the type hint"):
+
+        @pyfunc
+        def predict(model_input: list[Message]):
+            return model_input
