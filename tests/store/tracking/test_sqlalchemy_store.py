@@ -4199,7 +4199,7 @@ def _create_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=tags,
+            tags=tags or {},
         )
 
     store.end_trace(
