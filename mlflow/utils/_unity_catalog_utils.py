@@ -75,7 +75,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
         model_id=uc_proto.model_id,
         params=[
-            ModelParam(key=param.key, value=param.value) for param in (uc_proto.model_params or [])
+            ModelParam(key=param.name, value=param.value) for param in (uc_proto.model_params or [])
         ],
     )
 
