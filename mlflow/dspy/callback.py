@@ -8,7 +8,6 @@ import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
