@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
+from azure.core.exceptions import ResourceNotFoundError
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
@@ -469,9 +470,9 @@ def test_delete_artifacts_failure(mock_client):
     mock_client.get_container_client().list_blobs.return_value = [blob_props]
 
     # Mock the delete_blob method to raise an exception
-    mock_client.get_container_client().delete_blob.side_effect = Exception("Deletion failed")
+    mock_client.get_container_client().delete_blob.side_effect = ResourceNotFoundError("Deletion failed")
 
-    with pytest.raises(MlflowException, match="Failed to delete artifacts"):
+    with pytest.raises(MlflowException, match=f"No such file or directory: '{blob_props.name}'"):
         repo.delete_artifacts("file")
 
 
