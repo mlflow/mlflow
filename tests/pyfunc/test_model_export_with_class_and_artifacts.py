@@ -1659,6 +1659,222 @@ def test_model_save_load_with_resources(tmp_path):
     assert reloaded_model.resources == expected_resources
 
 
+def test_model_save_load_with_invokers_resources(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+    pyfunc_model_path_2 = os.path.join(tmp_path, "pyfunc_model_2")
+
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct", "on_behalf_of_user": True},
+                {"name": "databricks-bge-large-en"},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [
+                {"name": "rag.studio_bugbash.databricks_docs_index", "on_behalf_of_user": True}
+            ],
+            "sql_warehouse": [{"name": "testid"}],
+            "function": [
+                {"name": "rag.studio.test_function_a", "on_behalf_of_user": True},
+                {"name": "rag.studio.test_function_b"},
+            ],
+            "genie_space": [
+                {"name": "genie_space_id_1", "on_behalf_of_user": True},
+                {"name": "genie_space_id_2"},
+            ],
+            "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
+            "table": [
+                {"name": "rag.studio.table_a", "on_behalf_of_user": True},
+                {"name": "rag.studio.table_b"},
+            ],
+        },
+    }
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        conda_env=_conda_env(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
+        resources=[
+            DatabricksServingEndpoint(
+                endpoint_name="databricks-mixtral-8x7b-instruct", on_behalf_of_user=True
+            ),
+            DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+            DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+            DatabricksVectorSearchIndex(
+                index_name="rag.studio_bugbash.databricks_docs_index", on_behalf_of_user=True
+            ),
+            DatabricksSQLWarehouse(warehouse_id="testid"),
+            DatabricksFunction(function_name="rag.studio.test_function_a", on_behalf_of_user=True),
+            DatabricksFunction(function_name="rag.studio.test_function_b"),
+            DatabricksGenieSpace(genie_space_id="genie_space_id_1", on_behalf_of_user=True),
+            DatabricksGenieSpace(genie_space_id="genie_space_id_2"),
+            DatabricksUCConnection(connection_name="test_connection_1"),
+            DatabricksUCConnection(connection_name="test_connection_2"),
+            DatabricksTable(table_name="rag.studio.table_a", on_behalf_of_user=True),
+            DatabricksTable(table_name="rag.studio.table_b"),
+        ],
+    )
+
+    reloaded_model = Model.load(pyfunc_model_path)
+    assert reloaded_model.resources == expected_resources
+
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                  on_behalf_of_user: True
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                  on_behalf_of_user: True
+                - name: databricks-bge-large-en
+                - name: azure-eastus-model-serving-2_vs_endpoint
+                sql_warehouse:
+                - name: testid
+                function:
+                - name: rag.studio.test_function_a
+                  on_behalf_of_user: True
+                - name: rag.studio.test_function_b
+                genie_space:
+                - name: genie_space_id_1
+                  on_behalf_of_user: True
+                - name: genie_space_id_2
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
+                table:
+                - name: rag.studio.table_a
+                  on_behalf_of_user: True
+                - name: rag.studio.table_b
+            """
+        )
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path_2,
+        conda_env=_conda_env(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
+        resources=yaml_file,
+    )
+
+    reloaded_model = Model.load(pyfunc_model_path_2)
+    assert reloaded_model.resources == expected_resources
+
+
+def test_model_log_with_invokers_resources(tmp_path):
+    pyfunc_artifact_path = "pyfunc_model"
+
+    expected_resources = {
+        "api_version": "1",
+        "databricks": {
+            "serving_endpoint": [
+                {"name": "databricks-mixtral-8x7b-instruct"},
+                {"name": "databricks-bge-large-en", "on_behalf_of_user": True},
+                {"name": "azure-eastus-model-serving-2_vs_endpoint"},
+            ],
+            "vector_search_index": [
+                {"name": "rag.studio_bugbash.databricks_docs_index", "on_behalf_of_user": True}
+            ],
+            "sql_warehouse": [{"name": "testid", "on_behalf_of_user": True}],
+            "function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b", "on_behalf_of_user": True},
+            ],
+            "genie_space": [
+                {"name": "genie_space_id_1"},
+                {"name": "genie_space_id_2", "on_behalf_of_user": True},
+            ],
+            "uc_connection": [
+                {"name": "test_connection_1"},
+                {"name": "test_connection_2", "on_behalf_of_user": True},
+            ],
+            "table": [
+                {"name": "rag.studio.table_a"},
+                {"name": "rag.studio.table_b", "on_behalf_of_user": True},
+            ],
+        },
+    }
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            pyfunc_artifact_path,
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            resources=[
+                DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+                DatabricksServingEndpoint(
+                    endpoint_name="databricks-bge-large-en", on_behalf_of_user=True
+                ),
+                DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
+                DatabricksVectorSearchIndex(
+                    index_name="rag.studio_bugbash.databricks_docs_index", on_behalf_of_user=True
+                ),
+                DatabricksSQLWarehouse(warehouse_id="testid", on_behalf_of_user=True),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksFunction(
+                    function_name="rag.studio.test_function_b", on_behalf_of_user=True
+                ),
+                DatabricksGenieSpace(genie_space_id="genie_space_id_1"),
+                DatabricksGenieSpace(genie_space_id="genie_space_id_2", on_behalf_of_user=True),
+                DatabricksUCConnection(connection_name="test_connection_1"),
+                DatabricksUCConnection(connection_name="test_connection_2", on_behalf_of_user=True),
+                DatabricksTable(table_name="rag.studio.table_a"),
+                DatabricksTable(table_name="rag.studio.table_b", on_behalf_of_user=True),
+            ],
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources == expected_resources
+
+    yaml_file = tmp_path.joinpath("resources.yaml")
+    with open(yaml_file, "w") as f:
+        f.write(
+            """
+            api_version: "1"
+            databricks:
+                vector_search_index:
+                - name: rag.studio_bugbash.databricks_docs_index
+                  on_behalf_of_user: True
+                serving_endpoint:
+                - name: databricks-mixtral-8x7b-instruct
+                - name: databricks-bge-large-en
+                  on_behalf_of_user: True
+                - name: azure-eastus-model-serving-2_vs_endpoint
+                sql_warehouse:
+                - name: testid
+                  on_behalf_of_user: True
+                function:
+                - name: rag.studio.test_function_a
+                - name: rag.studio.test_function_b
+                  on_behalf_of_user: True
+                genie_space:
+                - name: genie_space_id_1
+                - name: genie_space_id_2
+                  on_behalf_of_user: True
+                uc_connection:
+                - name: test_connection_1
+                - name: test_connection_2
+                  on_behalf_of_user: True
+                table:
+                - name: "rag.studio.table_a"
+                - name: "rag.studio.table_b"
+                  on_behalf_of_user: True
+            """
+        )
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            pyfunc_artifact_path,
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            resources=yaml_file,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources == expected_resources
+
+
 def test_model_log_with_resources(tmp_path):
     pyfunc_artifact_path = "pyfunc_model"
 
