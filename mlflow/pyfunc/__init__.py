@@ -3118,9 +3118,10 @@ def save_model(
         else:
             if saved_example is None:
                 color_warning(
-                    "An input example was not provided when logging the model. To ensure the model "
-                    "signature functions correctly, specify the `input_example` parameter. "
-                    "See https://mlflow.org/docs/latest/model/signatures.html#model-input-example "
+                    message="An input example was not provided when logging the model. To ensure "
+                    "the model signature functions correctly, specify the `input_example` "
+                    "parameter. See "
+                    "https://mlflow.org/docs/latest/model/signatures.html#model-input-example "
                     "for more details about the benefits of using input_example.",
                     stacklevel=1,
                     color="yellow_bold",
