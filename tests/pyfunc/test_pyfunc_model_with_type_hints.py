@@ -907,3 +907,15 @@ def test_invalid_type_hint_raise_exception():
         @pyfunc
         def predict(model_input: list[Message]):
             return model_input
+
+
+def test_python_model_without_type_hint_warning():
+    class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        with pytest.warns(
+            UserWarning, match=r"Add type hints to the `predict` method of the PythonModel"
+        ):
+            mlflow.pyfunc.log_model("model", python_model=PythonModelWithoutTypeHint())

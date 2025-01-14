@@ -575,6 +575,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.warnings_utils import color_warning
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -3025,17 +3026,21 @@ def save_model(
             python_model, mlflow_model, signature, input_example
         )
     elif python_model is not None:
+        input_type_hint = None
         if callable(python_model):
+            # TODO: support input_example and TypeFromExample for callables
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
-            if not _signature_cannot_be_inferred_from_type_hint(type_hints.input):
+            input_type_hint = type_hints.input
+            if not _signature_cannot_be_inferred_from_type_hint(input_type_hint):
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             type_hints = python_model.predict_type_hints
-            type_hint_from_example = _is_type_hint_from_example(type_hints.input)
+            input_type_hint = type_hints.input
+            type_hint_from_example = _is_type_hint_from_example(input_type_hint)
             if type_hint_from_example:
                 should_infer_signature_from_type_hints = False
             else:
@@ -3083,6 +3088,14 @@ def save_model(
                             f"Type hint {type_hints} cannot be used to infer model signature and "
                             "input example is not provided, model signature cannot be inferred."
                         )
+        if input_type_hint is None:
+            # TODO: add link to documentation
+            color_warning(
+                "Add type hints to the `predict` method of the PythonModel subclass to enable "
+                "data validation and automatic signature inference. ",
+                stacklevel=1,
+                color="yellow",
+            )
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
