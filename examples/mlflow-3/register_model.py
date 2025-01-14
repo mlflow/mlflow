@@ -3,7 +3,6 @@ import json
 from sklearn.linear_model import LinearRegression
 
 import mlflow
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
 
 with mlflow.start_run():
     model = LinearRegression().fit([[1], [2]], [3, 4])
@@ -34,7 +33,7 @@ client.create_model_version("model_client", model_info.model_uri, model_id = mod
 m = client.get_model_version("model_client", 1)
 print(m)
 assert m.model_id == model_info.model_id
-assert m.params == [
-    LoggedModelParameter(key="alpha", value="0.5"),
-    LoggedModelParameter(key="l1_ratio", value="0.5"),
-]
+assert m.params == {
+    "alpha": 0.5,
+    "l1_ratio": 0.5,
+}
