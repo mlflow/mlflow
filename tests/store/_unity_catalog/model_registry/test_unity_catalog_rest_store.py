@@ -244,12 +244,12 @@ def langchain_local_model_dir_with_resources(tmp_path):
                 ],
                 "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
                 "function": [
-                    {"name": "test.schema.test_function"},
+                    {"name": "test.schema.test_function", "on_behalf_of_user": True},
                     {"name": "test.schema.test_function_2"},
                 ],
                 "uc_connection": [{"name": "test_connection"}],
                 "table": [
-                    {"name": "test.schema.test_table"},
+                    {"name": "test.schema.test_table", "on_behalf_of_user": True},
                     {"name": "test.schema.test_table_2"},
                 ],
             }
