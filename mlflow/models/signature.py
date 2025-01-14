@@ -397,7 +397,13 @@ def _infer_signature_from_type_hints(
     _logger.info("Inferring model signature from type hints")
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
-    except InvalidTypeHintException as e:
+    except InvalidTypeHintException:
+        raise MlflowException.invalid_parameter_value(
+            "The `predict` function has unsupported type hints for the model input "
+            "arguments. Update it to one of supported type hints, or remove type hints "
+            "to bypass this check. Error: {e}"
+        )
+    except Exception as e:
         warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
         return None
 
@@ -426,9 +432,9 @@ def _infer_signature_from_type_hints(
                 else _infer_schema_from_type_hint(type_hints.output)
             )
             is_output_type_hint_valid = True
-        except InvalidTypeHintException as e:
+        except Exception as e:
             _logger.info(
-                f"Unsupported output type hint, setting output schema to AnyType. {e}",
+                f"Failed to infer output type hint, setting output schema to AnyType. {e}",
                 stacklevel=2,
             )
             output_schema = default_output_schema
