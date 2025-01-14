@@ -15,6 +15,7 @@ from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, 
 from mlflow.types.type_hints import (
     PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
+    UnsupportedTypeHintException,
     _convert_data_to_type_hint,
     _convert_dataframe_to_example_format,
     _infer_schema_from_list_type_hint,
@@ -240,7 +241,7 @@ def test_infer_schema_from_type_hints_errors():
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[dict])
 
-    with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
+    with pytest.raises(UnsupportedTypeHintException, match=r"Unsupported type hint"):
         _infer_schema_from_list_type_hint(list[object])
 
 
@@ -400,7 +401,7 @@ def test_type_hints_validation_errors():
 
     with pytest.raises(
         InvalidTypeHintException,
-        match=r"Unsupported type hint `list`, it must include a valid element type.",
+        match=r"Invalid type hint `list`, it must include a valid element type.",
     ):
         _validate_data_against_type_hint(["a"], list)
 

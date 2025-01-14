@@ -1391,16 +1391,6 @@ def test_functional_python_model_no_arguments(tmp_path):
         mlflow.pyfunc.save_model(path=tmp_path, python_model=no_arguments)
 
 
-def unsupported_types(x: tuple[str, ...]) -> tuple[str, ...]:
-    return x
-
-
-def test_functional_python_model_unsupported_types(tmp_path):
-    mlflow.pyfunc.save_model(path=tmp_path, python_model=unsupported_types, input_example=["a"])
-    model = Model.load(tmp_path)
-    assert model.signature is None
-
-
 def requires_sklearn(x: list[str]) -> list[str]:
     import sklearn  # noqa: F401
 
