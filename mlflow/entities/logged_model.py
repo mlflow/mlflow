@@ -144,6 +144,11 @@ class LoggedModel(_MlflowObject):
     def metrics(self) -> Optional[list[Metric]]:
         """List of metrics associated with this Model."""
         return self._metrics
+    
+    @property
+    def model_uri(self) -> str:
+        """URI of the model."""
+        return f"models:/{self.model_id}"
 
     @metrics.setter
     def metrics(self, new_metrics: Optional[list[Metric]]):
