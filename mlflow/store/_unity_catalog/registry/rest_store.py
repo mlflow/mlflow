@@ -8,6 +8,7 @@ from typing import Optional
 
 import mlflow
 from mlflow.entities import Run
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -726,12 +727,14 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def _get_model_params_from_model_id(self, model_id):
+    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]: 
         # load the MLflow LoggedModel by model_id and 
-        # extract the model parameters and return as ModelParam objects
         if model_id is None:
             return None
-        model = mlflow.get_logged_model(model_id)
+        return mlflow.get_logged_model(model_id)
+
+    def _get_model_params_from_model_id(self, model: LoggedModel):
+        # extract the model parameters and return as ModelParam objects
         model_params = [ModelParam(name=name, value=value) for name, value in model.params.items()]
         return model_params
 
@@ -770,6 +773,9 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        logged_model = self._get_logged_model_from_model_id(model_id)
+        if logged_model:
+            run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
@@ -795,7 +801,7 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        model_params = self._get_model_params_from_model_id(model_id)
+        model_params = self._get_model_params_from_model_id(logged_model) if logged_model else []
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
