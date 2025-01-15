@@ -132,6 +132,16 @@ class ChatAgentRequest(ChatAgentParams):
 
 
 class ChatAgentResponse(BaseModel):
+    """Format of a ChatAgent interface response
+
+    Args:
+        messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+        usage (:py:class:`ChatUsage`): The token usage of the reque.s **Optional**, defaults to None
+    """
+
     messages: list[ChatAgentMessage]
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
