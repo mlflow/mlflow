@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Optional
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.destination import MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -40,9 +40,9 @@ _MLFLOW_TRACER_PROVIDER = None
 # Note that it doesn't work as expected in a distributed environment.
 _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
-# A custom span exporter specified by the user via the `set_destination` function.
-# This exporter, when set, will take precedence over other configurations.
-_MLFLOW_TRACE_CUSTOM_EXPORTER = None
+# A trace destination specified by the user via the `set_destination` function.
+# This destination, when set, will take precedence over other configurations.
+_MLFLOW_TRACE_USER_DESTINATION = None
 
 _logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ def detach_span_from_context(token: contextvars.Token):
 
 
 @experimental
-def set_destination(destination: SpanExporter):
+def set_destination(destination: TraceDestination):
     """
     Set a custom span destination to which MLflow will export the traces.
 
@@ -133,13 +133,31 @@ def set_destination(destination: SpanExporter):
     To reset the destination, call the :py:func:`mlflow.tracing.reset()` function.
 
     Args:
-        destination: An object that implements OpenTelemetry's SpanExporter interface.
-            The exporter is responsible for implementing the logic to send generated
-            traces to the desired destination, such as a trace collector endpoint.
+        destination: A ``TraceDestination`` object that specifies the destination of the trace data.
+
+    Example:
+
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.tracing.destination import MlflowExperiment
+
+            # Setting the destination to an MLflow experiment with ID "123"
+            mlflow.tracing.set_destination(MlflowExperiment(experiment_id="123"))
+
+            # Reset the destination (to an active experiment as default)
+            mlflow.tracing.reset()
     """
-    # The destination needs to be persisted because the tracer setup can be re-initialized sometimes
-    global _MLFLOW_TRACE_CUSTOM_EXPORTER
-    _MLFLOW_TRACE_CUSTOM_EXPORTER = destination
+    if not isinstance(destination, TraceDestination):
+        raise MlflowTracingException(
+            f"Invalid destination type: {type(destination)}. "
+            "The destination must be an instance of TraceDestination."
+        )
+
+    # The destination needs to be persisted because the tracer setup can be re-initialized
+    # e.g. when the tracing is disabled and re-enabled, or tracking URI is changed, etc.
+    global _MLFLOW_TRACE_USER_DESTINATION
+    _MLFLOW_TRACE_USER_DESTINATION = destination
 
     _setup_tracer_provider()
 
@@ -181,10 +199,28 @@ def _setup_tracer_provider(disabled=False):
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    if _MLFLOW_TRACE_CUSTOM_EXPORTER is not None:
-        from mlflow.tracing.processor.local import LocalSpanProcessor
+    # TODO: Update this logic to pluggable registry where
+    #  1. Partners can implement span processor/exporter and destination class.
+    #  2. They can register their implementation to the registry via entry points.
+    #  3. MLflow will pick the implementation based on given destination id.
+    if _MLFLOW_TRACE_USER_DESTINATION is not None:
+        if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
+            from mlflow import MlflowClient
+            from mlflow.tracing.export.mlflow import MlflowSpanExporter
+            from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 
-        processor = LocalSpanProcessor(_MLFLOW_TRACE_CUSTOM_EXPORTER)
+            client = MlflowClient(tracking_uri=_MLFLOW_TRACE_USER_DESTINATION.tracking_uri)
+            exporter = MlflowSpanExporter(client)
+            processor = MlflowSpanProcessor(
+                exporter, client, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
+            )
+
+        else:
+            from mlflow.tracing.export.databricks_agent import DatabricksAgentSpanExporter
+            from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
+
+            exporter = DatabricksAgentSpanExporter(_MLFLOW_TRACE_USER_DESTINATION)
+            processor = DatabricksAgentSpanProcessor(exporter)
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
@@ -376,9 +412,9 @@ def reset():
     # the next tracing operation will re-initialize the provider.
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
 
-    # Reset the custom exporter set by the user
-    global _MLFLOW_TRACE_CUSTOM_EXPORTER
-    _MLFLOW_TRACE_CUSTOM_EXPORTER = None
+    # Reset the custom destination set by the user
+    global _MLFLOW_TRACE_USER_DESTINATION
+    _MLFLOW_TRACE_USER_DESTINATION = None
 
 
 @raise_as_trace_exception

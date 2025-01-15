@@ -21,13 +21,14 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
-class LocalSpanProcessor(SimpleSpanProcessor):
+class DatabricksAgentSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
     This process implements simple responsibilities to generate MLflow-style trace
     object from OpenTelemetry spans and store them in memory.
-    The trace will then be exported to any destination by the specified SpanExporter.
+
+    TODO: This class will be migrated under databricks-agents package.
     """
 
     def __init__(self, span_exporter: SpanExporter):
