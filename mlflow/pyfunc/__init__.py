@@ -3130,7 +3130,7 @@ def save_model(
                 _logger.info("Validating input example against model signature")
                 try:
                     _validate_prediction_input(
-                        data=deepcopy(saved_example.inference_data),
+                        data=saved_example.inference_data,
                         params=saved_example.inference_params,
                         input_schema=signature.inputs,
                         params_schema=signature.params,
