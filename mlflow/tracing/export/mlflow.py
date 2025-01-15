@@ -49,7 +49,7 @@ class MlflowSpanExporter(SpanExporter):
 
     def export(self, root_spans: Sequence[ReadableSpan]):
         """
-        Export the spans to an MLflow Experiment.
+        Export the spans to MLflow backend.
 
         Args:
             root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.

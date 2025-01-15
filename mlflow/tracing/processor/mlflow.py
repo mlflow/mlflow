@@ -41,7 +41,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
-    This processor is used when the tracing destination is MLflow Experiment in Tracking Server.
+    This processor is used when the tracing destination is MLflow Tracking Server.
     """
 
     def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
