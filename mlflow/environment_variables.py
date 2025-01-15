@@ -109,9 +109,17 @@ MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 #: (default: ``/tmp/mlflow``)
 MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
 
-#: Specifies the maximum number of retries for MLflow HTTP requests
-#: (default: ``5``)
-MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
+#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests
+#: (default: ``7``)
+MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_HTTP_REQUEST_MAX_RETRIES",
+    int,
+    # Important: It's common for MLflow backends to rate limit requests for more than 1 minute.
+    # To remain resilient to rate limiting, the MLflow client needs to retry for more than 1
+    # minute. Assuming 2 seconds per retry, 7 retries with backoff will take ~ 4 minutes,
+    # which is appropriate for most rate limiting scenarios
+    7,
+)
 
 #: Specifies the backoff increase factor between MLflow HTTP request failures
 #: (default: ``2``)
