@@ -207,9 +207,6 @@ Type hints data validation in PythonModel
 By subclassing :py:class:`mlflow.pyfunc.PythonModel <mlflow.pyfunc.PythonModel>`, you can get data validation based on the type hints for free.
 The data validation works for both a PythonModel instance and a loaded PyFunc model. 
 
-.. tip::
-    For Pydantic model type hints, the input data can be either a Pydantic object or a dictionary that matches the schema of the Pydantic model.
-    For other type hints, the input data must match the specified type in the type hint.
 
 Below example demonstrates how data validation works based on the ``CustomModel`` defined above.
 
@@ -279,6 +276,54 @@ For callables, you can use @pyfunc decorator to enable data validation based on 
 
 .. note::
     MLflow doesn't validate model output against the type hints, but the output type hint is used for model signature inference.
+
+
+Pydantic Model type hints data conversion
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For Pydantic model type hints, the input data can be either a Pydantic object or a dictionary that matches the schema of the Pydantic model.
+MLflow automatically converts the provided data to the type hint object before passing it to the predict function.
+Such as example in the last section: ``[{"role": "system", "content": "Hello"}]`` is converted to ``[Message(role="system", content="Hello")]`` inside the predict function.
+
+Below example demonstrates how to use a base class as type hint, while preserving fields in the subclasses.
+
+.. code-block:: python
+
+    from pydantic import BaseModel, ConfigDict
+    from mlflow.pyfunc.utils import pyfunc
+
+
+    class BaseMessage(BaseModel):
+        # set extra='allow' to allow extra fields in the subclass
+        model_config = ConfigDict(extra="allow")
+
+        role: str
+        content: str
+
+
+    class SystemMessage(BaseMessage):
+        system_prompt: str
+
+
+    class UserMessage(BaseMessage):
+        user_prompt: str
+
+
+    @pyfunc
+    def predict(model_input: list[BaseMessage]) -> list[str]:
+        result = []
+        for msg in model_input:
+            if hasattr(msg, "system_prompt"):
+                result.append(msg.system_prompt)
+            elif hasattr(msg, "user_prompt"):
+                result.append(msg.user_prompt)
+        return result
+
+
+    input_example = [
+        {"role": "system", "content": "Hello", "system_prompt": "Hi"},
+        {"role": "user", "content": "Hi", "user_prompt": "Hello"},
+    ]
+    print(predict(input_example))  # Output: ['Hi', 'Hello']
 
 
 Model signature inference based on the type hints
