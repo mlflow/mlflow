@@ -3027,11 +3027,23 @@ def save_model(
         )
     elif python_model is not None:
         if callable(python_model):
+            # TODO: support input_example and TypeFromExample for callables
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
             if not _signature_cannot_be_inferred_from_type_hint(type_hints.input):
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
+                )
+            pyfunc_decorator_used = getattr(python_model, "_is_pyfunc", False)
+            # only show the warning here if @pyfunc is not applied on the function
+            # since @pyfunc will trigger the warning instead
+            if type_hints.input is None and not pyfunc_decorator_used:
+                # TODO: add link to documentation
+                color_warning(
+                    "Add type hints to the `predict` method to enable "
+                    "data validation and automatic signature inference.",
+                    stacklevel=1,
+                    color="yellow",
                 )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
