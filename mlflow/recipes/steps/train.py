@@ -277,7 +277,8 @@ class TrainStep(BaseStep):
             frame = sys._getframe(stacklevel)
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
-            message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
+            original_message = args[0] if len(args) > 0 else kwargs.get("message", "")
+            message = f"{timestamp} {filename}:{lineno}: {original_message}\n"
             with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
                 f.write(message)
 
