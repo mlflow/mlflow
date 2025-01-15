@@ -575,6 +575,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.warnings_utils import color_warning
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -3084,6 +3085,11 @@ def save_model(
                             "input example is not provided, model signature cannot be inferred."
                         )
 
+    if metadata is not None:
+        mlflow_model.metadata = metadata
+    if saved_example is None:
+        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
             # TODO: drop this support and raise exception in the next minor release since this
@@ -3109,11 +3115,30 @@ def save_model(
             else:
                 # TODO: validate input example against signature
                 update_signature_for_type_hint_from_example(input_example, mlflow_model.signature)
-
-    if metadata is not None:
-        mlflow_model.metadata = metadata
-    if saved_example is None:
-        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+        else:
+            if saved_example is None:
+                color_warning(
+                    message="An input example was not provided when logging the model. To ensure "
+                    "the model signature functions correctly, specify the `input_example` "
+                    "parameter. See "
+                    "https://mlflow.org/docs/latest/model/signatures.html#model-input-example "
+                    "for more details about the benefits of using input_example.",
+                    stacklevel=1,
+                    color="yellow_bold",
+                )
+            else:
+                _logger.info("Validating input example against model signature")
+                try:
+                    _validate_prediction_input(
+                        data=saved_example.inference_data,
+                        params=saved_example.inference_params,
+                        input_schema=signature.inputs,
+                        params_schema=signature.params,
+                    )
+                except Exception as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Input example does not match the model signature. Error: {e}"
+                    )
 
     with _get_dependencies_schemas() as dependencies_schemas:
         schema = dependencies_schemas.to_dict()
