@@ -497,7 +497,7 @@ def test_http_request_customize_config(monkeypatch):
         mock_get_http_response_with_retries.assert_called_with(
             mock.ANY,
             mock.ANY,
-            5,
+            7,
             2,
             1.0,
             mock.ANY,
