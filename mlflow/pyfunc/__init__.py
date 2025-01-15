@@ -3041,7 +3041,7 @@ def save_model(
                 # TODO: add link to documentation
                 color_warning(
                     "Add type hints to the `predict` method to enable "
-                    "data validation and automatic signature inference. ",
+                    "data validation and automatic signature inference.",
                     stacklevel=1,
                     color="yellow",
                 )
