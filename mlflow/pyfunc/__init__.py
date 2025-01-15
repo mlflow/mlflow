@@ -3034,10 +3034,10 @@ def save_model(
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
                 )
-            _pyfunc_decorator_used = getattr(python_model, "_is_pyfunc", False)
+            pyfunc_decorator_used = getattr(python_model, "_is_pyfunc", False)
             # only show the warning here if @pyfunc is not applied on the function
             # since @pyfunc will trigger the warning instead
-            if type_hints.input is None and not _pyfunc_decorator_used:
+            if type_hints.input is None and not pyfunc_decorator_used:
                 # TODO: add link to documentation
                 color_warning(
                     "Add type hints to the `predict` method to enable "
