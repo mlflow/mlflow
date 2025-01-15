@@ -7,6 +7,7 @@ tracer provider and ensure that it won't interfere with the other external libra
 use OpenTelemetry e.g. PromptFlow, Snowpark.
 """
 
+from contextlib import contextmanager
 import contextvars
 import functools
 import json
@@ -95,6 +96,34 @@ def start_detached_span(
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+
+@contextmanager
+def safe_set_span_in_context(span: "Span"):
+    """
+    A context manager that sets the given OpenTelemetry span as the active span in the current
+    context.
+
+    Args:
+        span: An MLflow span object to set as the active span.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+
+        with mlflow.start_span("my_span") as span:
+            span.set_attribute("my_key", "my_value")
+
+        # The span is automatically detached from the context when the context manager exits.
+    """
+    token = set_span_in_context(span)
+    try:
+        yield
+    finally:
+        detach_span_from_context(token)
 
 
 def set_span_in_context(span: "Span") -> contextvars.Token:

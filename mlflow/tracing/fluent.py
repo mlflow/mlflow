@@ -9,6 +9,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
 from cachetools import TTLCache
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
@@ -25,13 +27,15 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.provider import is_tracing_enabled
+from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     capture_function_input_args,
     encode_span_id,
+    end_client_span_or_trace,
     get_otel_attribute,
+    start_client_span_or_trace,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
@@ -53,6 +57,8 @@ TRACE_BUFFER = TTLCache(
     ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
 )
 
+# TODO: Add description
+GENERATOR_OUTPUT_PLACEHOLDER = "<generator object - see 'Events' tab to view streamed items>"
 
 def trace(
     func: Optional[Callable] = None,
@@ -163,11 +169,56 @@ def trace(
             self.coro.close()
 
     def decorator(fn):
+        # 1. Async function
         if inspect.iscoroutinefunction(fn):
 
-            async def wrapper(*args, **kwargs):
+            async def async_wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
+
+            return functools.wraps(fn)(async_wrapper)
+
+        # 2. Sync generator
+        elif inspect.isgeneratorfunction(fn):
+            def generator_wrapper(*args, **kwargs):
+                client = MlflowClient()
+                span = start_client_span_or_trace(
+                    client=client,
+                    name=name or fn.__name__,
+                    parent_span=get_current_active_span(),
+                    span_type=span_type, attributes=attributes,
+                    inputs=capture_function_input_args(fn, args, kwargs),
+                )
+                with safe_set_span_in_context(span):
+                    generator = fn(*args, **kwargs)
+
+
+                # Initialize the span when first yield
+                # The parent span should be
+                i = 0
+                while True:
+                    try:
+                        with safe_set_span_in_context(span):
+                            value = next(generator)
+                    except StopIteration:
+                        break
+                    except Exception as e:
+                        span.add_event(SpanEvent.from_exception(e))
+                        span.set_status(SpanStatusCode.ERROR)
+                        raise
+                    else:
+                        span.add_event(SpanEvent(name=f"item_{i}", attributes={"value": str(value)}))
+                        yield value
+                        i += 1
+
+                end_client_span_or_trace(
+                    client,
+                    span,
+                    status=SpanStatusCode.OK,
+                    outputs=GENERATOR_OUTPUT_PLACEHOLDER,
+                )
+
+            return functools.wraps(fn)(generator_wrapper)
         else:
 
             def wrapper(*args, **kwargs):

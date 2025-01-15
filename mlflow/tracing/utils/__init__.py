@@ -365,9 +365,10 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
 
 
 def start_client_span_or_trace(
-    client: MlflowClient,
+    client,
     name: str,
     span_type: str,
+    parent_span: Optional[LiveSpan] = None,
     inputs: Optional[dict[str, Any]] = None,
     attributes: Optional[dict[str, Any]] = None,
     start_time_ns: Optional[int] = None,
@@ -375,9 +376,7 @@ def start_client_span_or_trace(
     """
     An utility to start a span or trace using MlflowClient based on the current active span.
     """
-    from mlflow.tracing.fluent import get_current_active_span
-
-    if parent_span := get_current_active_span():
+    if parent_span:
         return client.start_span(
             name=name,
             request_id=parent_span.request_id,
@@ -394,4 +393,34 @@ def start_client_span_or_trace(
             inputs=inputs,
             attributes=attributes,
             start_time_ns=start_time_ns,
+        )
+
+
+def end_client_span_or_trace(
+    client,
+    span: LiveSpan,
+    outputs: Optional[dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
+    status: Optional[str] = None,
+    end_time_ns: Optional[int] = None,
+) -> LiveSpan:
+    """
+    An utility to end a span or trace using MlflowClient based on the current active span.
+    """
+    if span.parent_id is not None:
+        return client.end_span(
+            request_id=span.request_id,
+            span_id=span.span_id,
+            outputs=outputs,
+            attributes=attributes,
+            status=status,
+            end_time_ns=end_time_ns,
+        )
+    else:
+        return client.end_trace(
+            request_id=span.request_id,
+            outputs=outputs,
+            attributes=attributes,
+            status=status,
+            end_time_ns=end_time_ns,
         )

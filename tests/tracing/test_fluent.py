@@ -31,7 +31,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.fluent import TRACE_BUFFER, GENERATOR_OUTPUT_PLACEHOLDER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -75,6 +75,30 @@ class DefaultAsyncTestModel:
         time.sleep(0.1)
         return res
 
+
+class StreamTestModel:
+    @mlflow.trace
+    def predict_stream(self, x, y):
+        z = x + y
+        for i in range(z):
+            yield i
+
+        # Generator with a normal func
+        for i in range(z):
+            yield self.square(i)
+
+        # Nested generator
+        yield from self.generate_numbers(z)
+
+    @mlflow.trace
+    def square(self, t):
+        time.sleep(0.1)
+        return t**2
+
+    @mlflow.trace
+    def generate_numbers(self, z):
+        for i in range(z):
+            yield i
 
 class ErroringTestModel:
     @mlflow.trace()
@@ -168,6 +192,56 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.spanInputs": {"t": 8},
         "mlflow.spanOutputs": 64,
     }
+
+
+#@pytest.mark.parametrize("wrap_sync_func", [True, False])
+def test_trace_stream():
+    model = StreamTestModel()
+
+    stream = model.predict_stream(1, 2)
+
+    # Trace should not be logged until the generator is consumed
+    assert get_traces() == []
+    # The span should not be set to active because the generator is consumed
+    assert mlflow.get_current_active_span() is None
+
+    results = []
+    for chunk in stream:
+        results.append(chunk)
+        # The span should not be active here as well
+        assert mlflow.get_current_active_span() is None
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.request_id is not None
+    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.status == SpanStatusCode.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == json.dumps(GENERATOR_OUTPUT_PLACEHOLDER)
+
+    assert len(trace.data.spans) == 5  # 1 root span + 3 square + 1 generate_numbers
+
+    root_span = trace.data.spans[0]
+    assert root_span.name == "predict_stream"
+    assert len(root_span.events) == 9
+    assert root_span.events[0].name == "item_0"
+    assert root_span.events[0].attributes == {"value": "0"}
+    assert root_span.events[8].name == "item_8"
+
+    # Spans for the chid 'square' function
+    for i in range(3):
+        assert trace.data.spans[i+1].name == f"square_{i+1}"
+        assert trace.data.spans[i+1].inputs == {"t": i}
+        assert trace.data.spans[i+1].outputs == i**2
+        assert trace.data.spans[i+1].parent_id == root_span.span_id
+
+    # Span for the 'generate_numbers' function
+    assert trace.data.spans[4].name == "generate_numbers"
+    assert trace.data.spans[4].inputs == 3
+    assert trace.data.spans[4].outputs == json.dumps(GENERATOR_OUTPUT_PLACEHOLDER)
+    assert len(trace.data.spans[4].events) == 3
 
 
 def test_trace_with_databricks_tracking_uri(
