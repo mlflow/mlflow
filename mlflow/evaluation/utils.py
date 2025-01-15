@@ -1,8 +1,10 @@
 import pandas as pd
 
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 def evaluations_to_dataframes(
     evaluations: list[EvaluationEntity],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:

@@ -8,8 +8,10 @@ from mlflow.entities.evaluation_tag import EvaluationTag  # Assuming EvaluationT
 from mlflow.entities.metric import Metric
 from mlflow.evaluation.assessment import Assessment
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Evaluation(_MlflowObject):
     """
     Evaluation result data.
