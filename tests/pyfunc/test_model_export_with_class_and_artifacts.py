@@ -2375,3 +2375,24 @@ def test_pyfunc_model_with_wrong_predict_signature_warning():
 
             def predict_stream(self, _, model_input, params=None):
                 yield model_input
+
+
+def test_pyfunc_model_input_example_with_signature():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    signature = infer_signature(["a", "b", "c"])
+    with mlflow.start_run():
+        with pytest.warns(
+            UserWarning, match=r"An input example was not provided when logging the model"
+        ):
+            mlflow.pyfunc.log_model("model", python_model=Model(), signature=signature)
+
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException, match=r"Input example does not match the model signature"
+        ):
+            mlflow.pyfunc.log_model(
+                "model", python_model=Model(), signature=signature, input_example=123
+            )
