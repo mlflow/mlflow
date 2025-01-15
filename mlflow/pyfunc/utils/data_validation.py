@@ -130,6 +130,14 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
             )
         else:
             return FuncInfo(input_type_hint=type_hint, input_param_name=input_param_name)
+    else:
+        # TODO: add link to documentation
+        color_warning(
+            "Add type hints to the `predict` method to enable data validation "
+            "and automatic signature inference during model logging.",
+            stacklevel=1,
+            color="yellow",
+        )
 
 
 def _model_input_index_in_function_signature(func):
