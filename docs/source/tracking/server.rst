@@ -266,3 +266,57 @@ For example:
 
     response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
     assert response.text == mlflow.__version__  # Checking for a strict version match
+
+Handling timeout when uploading/downloading large artifacts
+===========================================================
+
+When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit (30 seconds by default), the server will restart the worker process, resulting in a request failure on the client side.
+
+Example client code:
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.set_tracking_uri("<TRACKING_SERVER_URI>")
+
+    with mlflow.start_run():
+        mlflow.log_artifact("large.txt")
+
+Client traceback:
+
+.. code-block::
+
+    Traceback (most recent call last):
+      File "/Users/user/python3.10/site-packages/requests/adapters.py", line 486, in send
+        resp = conn.urlopen(
+      File "/Users/user/python3.10/site-packages/urllib3/connectionpool.py", line 826, in urlopen
+        return self.urlopen(
+      ...
+      File "/Users/user/python3.10/site-packages/urllib3/connectionpool.py", line 798, in urlopen
+        retries = retries.increment(
+      File "/Users/user/python3.10/site-packages/urllib3/util/retry.py", line 592, in increment
+        raise MaxRetryError(_pool, url, error or ResponseError(cause))
+    urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='mlflow.example.com', port=443): Max retries exceeded with url: ... (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2426)')))
+
+During handling of the above exception, another exception occurred:
+
+Tracking server logs:
+
+.. code-block:: bash
+
+    [2025-01-10 11:59:00 +0000] [82] [INFO] Starting gunicorn 20.1.0
+    [2025-01-10 11:59:00 +0000] [82] [DEBUG] Arbiter booted
+    [2025-01-10 11:59:00 +0000] [82] [INFO] Listening at: http://0.0.0.0:5000 (82)
+    ...
+    [2025-01-10 11:59:01 +0000] [82] [CRITICAL] WORKER TIMEOUT (pid:86)
+    [2025-01-10 11:59:01 +0000] [86] [INFO] Worker exiting (pid: 86)
+    [2025-01-10 11:59:01 +0000] [179] [INFO] Booting worker with pid: 179
+
+To mitigate this issue, the timeout length can be increased by using the ``--gunicorn-opts`` option when starting the server as shown below:
+
+.. code-block:: bash
+
+    mlflow server --gunicorn-opts "--timeout=60" ...
+
+See https://docs.gunicorn.org/en/stable/settings.html#timeout for more information on the timeout option.
