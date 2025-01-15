@@ -21,11 +21,13 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksExternalMonitoringSpanProcessor(SimpleSpanProcessor):
+class LocalSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
-    This processor is used when the tracing destination is Databricks External Trace Monitoring.
+    This process implements simple responsibilities to generate MLflow-style trace
+    object from OpenTelemetry spans and store them in memory.
+    The trace will then be exported to any destination by the specified SpanExporter.
     """
 
     def __init__(self, span_exporter: SpanExporter):
@@ -43,7 +45,8 @@ class DatabricksExternalMonitoringSpanProcessor(SimpleSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        request_id = self._generate_request_id()
+
+        request_id = self._create_or_get_request_id(span)
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
         tags = {}
@@ -62,8 +65,11 @@ class DatabricksExternalMonitoringSpanProcessor(SimpleSpanProcessor):
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
 
-    def _generate_request_id(self) -> str:
-        return "tr-" + uuid.uuid4().hex
+    def _create_or_get_request_id(self, span: OTelSpan) -> str:
+        if span._parent is None:
+            return "tr-" + uuid.uuid4().hex
+        else:
+            return self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
 
     def on_end(self, span: OTelReadableSpan) -> None:
         """
@@ -72,18 +78,16 @@ class DatabricksExternalMonitoringSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
-        # Processing the trace only when the root span is found.
-        if span._parent is not None:
-            return
+        # Processing the trace only when it is a root span.
+        if span._parent is None:
+            request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+            with self._trace_manager.get_trace(request_id) as trace:
+                if trace is None:
+                    _logger.debug(f"Trace data with request ID {request_id} not found.")
+                    return
 
-        request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        with self._trace_manager.get_trace(request_id) as trace:
-            if trace is None:
-                _logger.debug(f"Trace data with request ID {request_id} not found.")
-                return
-
-            trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
-            trace.info.status = TraceStatus.from_otel_status(span.status)
-            deduplicate_span_names_in_place(list(trace.span_dict.values()))
+                trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
+                trace.info.status = TraceStatus.from_otel_status(span.status)
+                deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)

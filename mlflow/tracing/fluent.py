@@ -259,7 +259,7 @@ def start_span(
     except Exception as e:
         _logger.warning(
             f"Failed to start span: {e}. For full traceback, set logging level to debug.",
-            exc_info=_logger.isEnabledFor(logging.DEBUG),
+            exc_info=True,  # _logger.isEnabledFor(logging.DEBUG),
         )
         mlflow_span = NoOpSpan()
         yield mlflow_span

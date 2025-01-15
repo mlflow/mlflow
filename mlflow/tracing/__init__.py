@@ -1,5 +1,5 @@
 from mlflow.tracing.display import disable_notebook_display, enable_notebook_display
-from mlflow.tracing.provider import disable, enable, set_monitoring_destination
+from mlflow.tracing.provider import disable, enable, reset, set_destination
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 
 __all__ = [
@@ -9,5 +9,6 @@ __all__ = [
     "enable_notebook_display",
     "set_span_chat_messages",
     "set_span_chat_tools",
-    "set_monitoring_destination",
+    "set_destination",
+    "reset",
 ]

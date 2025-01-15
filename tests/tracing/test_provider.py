@@ -3,22 +3,21 @@ from unittest import mock
 
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.export.databricks_external import DatabricksExternalMonitoringSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.processor.databricks_external import DatabricksExternalMonitoringSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+from mlflow.tracing.processor.local import LocalSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
     is_tracing_enabled,
-    reset_tracer_setup,
     start_span_in_context,
     trace_disabled,
 )
@@ -54,7 +53,7 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
     start_span_in_context("test1")
     assert mock_setup_tracer_provider.call_count == 1
 
-    reset_tracer_setup()
+    mlflow.tracing.reset()
     assert mock_setup_tracer_provider.call_count == 2
 
     start_span_in_context("test2")
@@ -76,14 +75,17 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
 
 
-def test_span_processor_for_databricks_external_monitoring():
-    mlflow.tracing.set_monitoring_destination(destination="dummy-model-endpoint")
+def test_span_processor_for_custom_destination():
+    class CustomExporter(SpanExporter):
+        pass
+
+    mlflow.tracing.set_destination(destination=CustomExporter())
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], DatabricksExternalMonitoringSpanProcessor)
-    assert isinstance(processors[0].span_exporter, DatabricksExternalMonitoringSpanExporter)
+    assert isinstance(processors[0], LocalSpanProcessor)
+    assert isinstance(processors[0].span_exporter, CustomExporter)
 
 
 def test_disable_enable_tracing():

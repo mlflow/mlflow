@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Optional
+from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -41,7 +41,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
-    This processor is used when the tracing destination is MLflow Tracking Server.
+    This processor is used when the tracing destination is MLflow Experiment in Tracking Server.
     """
 
     def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
@@ -197,21 +197,3 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value
-
-    def _create_trace_info(
-        self,
-        request_id: str,
-        span: OTelSpan,
-        experiment_id: Optional[str] = None,
-        request_metadata: Optional[dict[str, Any]] = None,
-        tags: Optional[dict[str, str]] = None,
-    ) -> TraceInfo:
-        return TraceInfo(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
-        )
