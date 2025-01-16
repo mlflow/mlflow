@@ -122,9 +122,7 @@ def list_artifacts(
 
     if artifact_uri is not None:
         root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(
-            artifact_path
-        )
+        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
 
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
@@ -165,9 +163,7 @@ def load_text(artifact_uri: str) -> str:
             try:
                 return str(local_artifact_fd.read())
             except Exception:
-                raise MlflowException(
-                    "Unable to form a str object from file content", BAD_REQUEST
-                )
+                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
 def load_dict(artifact_uri: str) -> dict:
@@ -201,9 +197,7 @@ def load_dict(artifact_uri: str) -> dict:
             try:
                 return json.load(local_artifact_fd)
             except json.JSONDecodeError:
-                raise MlflowException(
-                    "Unable to form a JSON object from file content", BAD_REQUEST
-                )
+                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
 def load_image(artifact_uri: str):
