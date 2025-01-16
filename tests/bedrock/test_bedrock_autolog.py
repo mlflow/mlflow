@@ -294,6 +294,91 @@ def test_bedrock_autolog_invoke_model_capture_exception():
     assert span.events[0].attributes["exception.message"].startswith("Unable to locate credentials")
 
 
+def test_bedrock_autolog_invoke_model_stream():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    dummy_chunks = [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "123",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-3-5-sonnet-20241022",
+                "content": [],
+                "stop_reason": None,
+                "usage": {"input_tokens": 8, "output_tokens": 1},
+            },
+        },
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "content_block": {"type": "text", "text": "Hello"},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "! How can I "},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "help you today?"},
+        },
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "usage": {"output_tokens": 12},
+        },
+        {"type": "message_stop", "amazon-bedrock-invocationMetrics": {"invocationLatency": 909}},
+    ]
+
+    # Mimic event stream
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(
+            body=request_body, modelId=_ANTHROPIC_MODEL_ID
+        )
+
+    # Trace should not be created until the stream is consumed
+    assert get_traces() == []
+
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.invoke_model_with_response_stream"
+    assert span.span_type == "LLM"
+    assert span.inputs == {"body": request_body, "modelId": _ANTHROPIC_MODEL_ID}
+    assert span.outputs == {"body": "EventStream"}
+    # Raw chunks must be recorded as span events
+    assert len(span.events) == len(dummy_chunks)
+    for i in range(len(dummy_chunks)):
+        assert span.events[i].name == dummy_chunks[i]["type"]
+        assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
+
+
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
 def test_bedrock_autolog_trace_disabled(config):
     mlflow.bedrock.autolog(**config)
@@ -445,7 +530,7 @@ _CONVERSE_TOOL_CALLING_RESPONSE = {
                     "toolUse": {
                         "toolUseId": "tool_2",
                         "name": "get_weather",
-                        "input": {"location": "San Francisco, CA", "unit": "fahrenheit"},
+                        "input": '{"location": "San Francisco, CA", "unit": "fahrenheit"}',
                     }
                 },
             ],
@@ -719,3 +804,98 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             "content": [{"text": "Hello! How can I help you today?", "type": "text"}],
         },
     ]
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+@pytest.mark.parametrize(
+    ("_request", "expected_response", "expected_chat_attr", "expected_tool_attr"),
+    [
+        # 1. Normal conversation
+        (
+            _CONVERSE_REQUEST,
+            _CONVERSE_RESPONSE,
+            _CONVERSE_EXPECTED_CHAT_ATTRIBUTE,
+            None,
+        ),
+        # 2. Conversation with tool calling
+        (
+            _CONVERSE_TOOL_CALLING_REQUEST,
+            _CONVERSE_TOOL_CALLING_RESPONSE,
+            _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE,
+            _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+        ),
+    ],
+)
+def test_bedrock_autolog_converse_stream(
+    _request, expected_response, expected_chat_attr, expected_tool_attr
+):
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": _event_stream(expected_response)},
+    ):
+        response = client.converse_stream(**_request)
+
+    assert get_traces() == []
+
+    chunks = list(response["stream"])
+    assert chunks == list(_event_stream(expected_response))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.converse_stream"
+    assert span.inputs == _request
+    assert span.outputs == expected_response
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
+    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+    assert len(span.events) > 0
+    assert span.events[0].name == "messageStart"
+    assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
+
+
+def _event_stream(raw_response, chunk_size=10):
+    """Split the raw response into chunks to simulate the event stream."""
+    content = raw_response["output"]["message"]["content"]
+
+    yield {"messageStart": {"role": "assistant"}}
+
+    text_content = content[0]["text"]
+    for i in range(0, len(text_content), chunk_size):
+        yield {"contentBlockDelta": {"delta": {"text": text_content[i : i + chunk_size]}}}
+
+    yield {"contentBlockStop": {}}
+
+    yield from _generate_tool_use_chunks_if_present(content)
+
+    yield {"messageStop": {"stopReason": "end_turn"}}
+
+    yield {"metadata": {"usage": raw_response["usage"], "metrics": {"latencyMs": 551}}}
+
+
+def _generate_tool_use_chunks_if_present(content, chunk_size=10):
+    if len(content) > 1 and (tool_content := content[1].get("toolUse")):
+        yield {
+            "contentBlockStart": {
+                "start": {
+                    "toolUse": {
+                        "toolUseId": tool_content["toolUseId"],
+                        "name": tool_content["name"],
+                    }
+                }
+            }
+        }
+
+        for i in range(0, len(tool_content["input"]), chunk_size):
+            yield {
+                "contentBlockDelta": {
+                    "delta": {"toolUse": {"input": tool_content["input"][i : i + chunk_size]}}
+                }
+            }
+        yield {"contentBlockStop": {}}
