@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import time
 from dataclasses import asdict
@@ -31,7 +32,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.fluent import TRACE_BUFFER, GENERATOR_OUTPUT_PLACEHOLDER
+from mlflow.tracing.fluent import STREAM_OUTPUT_PLACEHOLDER, TRACE_BUFFER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -100,6 +101,32 @@ class StreamTestModel:
         for i in range(z):
             yield i
 
+class AsyncStreamTestModel:
+    @mlflow.trace
+    async def predict_stream(self, x, y):
+        z = x + y
+        for i in range(z):
+            yield i
+
+        # Generator with a normal func
+        for i in range(z):
+            yield await self.square(i)
+
+        # Nested generator
+        async for number in self.generate_numbers(z):
+            yield number
+
+    @mlflow.trace
+    async def square(self, t):
+        await asyncio.sleep(0.1)
+        return t**2
+
+    @mlflow.trace
+    async def generate_numbers(self, z):
+        for i in range(z):
+            yield i
+
+
 class ErroringTestModel:
     @mlflow.trace()
     def predict(self, x, y):
@@ -118,6 +145,19 @@ class ErroringAsyncTestModel:
     @mlflow.trace()
     async def some_operation_raise_error(self, x, y):
         raise ValueError("Some error")
+
+
+class ErroringStreamTestModel:
+    @mlflow.trace
+    def predict_stream(self, x):
+        for i in range(x):
+            yield self.some_operation_raise_error(i)
+
+    @mlflow.trace
+    def some_operation_raise_error(self, i):
+        if i >= 1:
+            raise ValueError("Some error")
+        return i
 
 
 @pytest.fixture
@@ -194,22 +234,31 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
     }
 
 
-#@pytest.mark.parametrize("wrap_sync_func", [True, False])
-def test_trace_stream():
-    model = StreamTestModel()
+@pytest.mark.parametrize("wrap_sync_func", [True, False])
+def test_trace_stream(wrap_sync_func):
+    model = StreamTestModel() if wrap_sync_func else AsyncStreamTestModel()
 
     stream = model.predict_stream(1, 2)
 
     # Trace should not be logged until the generator is consumed
     assert get_traces() == []
-    # The span should not be set to active because the generator is consumed
+    # The span should not be set to active
+    # because the generator is not yet consumed
     assert mlflow.get_current_active_span() is None
 
-    results = []
-    for chunk in stream:
-        results.append(chunk)
-        # The span should not be active here as well
-        assert mlflow.get_current_active_span() is None
+    chunks = []
+    if wrap_sync_func:
+        for chunk in stream:
+            chunks.append(chunk)
+            # The `predict` span should not be active here.
+            assert mlflow.get_current_active_span() is None
+    else:
+        async def consume_stream():
+            async for chunk in stream:
+                chunks.append(chunk)
+                assert mlflow.get_current_active_span() is None
+        asyncio.run(consume_stream())
+
 
     traces = get_traces()
     assert len(traces) == 1
@@ -218,8 +267,9 @@ def test_trace_stream():
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == SpanStatusCode.OK
-    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == json.dumps(GENERATOR_OUTPUT_PLACEHOLDER)
+    metadata = trace.info.request_metadata
+    assert metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert metadata[TraceMetadataKey.OUTPUTS] == json.dumps(STREAM_OUTPUT_PLACEHOLDER)
 
     assert len(trace.data.spans) == 5  # 1 root span + 3 square + 1 generate_numbers
 
@@ -232,15 +282,15 @@ def test_trace_stream():
 
     # Spans for the chid 'square' function
     for i in range(3):
-        assert trace.data.spans[i+1].name == f"square_{i+1}"
-        assert trace.data.spans[i+1].inputs == {"t": i}
-        assert trace.data.spans[i+1].outputs == i**2
-        assert trace.data.spans[i+1].parent_id == root_span.span_id
+        assert trace.data.spans[i + 1].name == f"square_{i+1}"
+        assert trace.data.spans[i + 1].inputs == {"t": i}
+        assert trace.data.spans[i + 1].outputs == i**2
+        assert trace.data.spans[i + 1].parent_id == root_span.span_id
 
     # Span for the 'generate_numbers' function
     assert trace.data.spans[4].name == "generate_numbers"
-    assert trace.data.spans[4].inputs == 3
-    assert trace.data.spans[4].outputs == json.dumps(GENERATOR_OUTPUT_PLACEHOLDER)
+    assert trace.data.spans[4].inputs == {"z": 3}
+    assert trace.data.spans[4].outputs == STREAM_OUTPUT_PLACEHOLDER
     assert len(trace.data.spans[4].events) == 3
 
 
@@ -478,54 +528,99 @@ def test_trace_handle_exception_during_prediction(sync):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
-    # This test is to make sure that the main prediction logic is not affected
-    # by the exception raised by the tracing logic.
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            return x + y
+def test_trace_handle_exception_during_streaming():
+    model = ErroringStreamTestModel()
 
-    model = TestModel()
+    stream = model.predict_stream(2)
 
-    # Exception during span creation: no-op span wrapper created and no trace is logged
-    with mock.patch("mlflow.tracing.provider._get_tracer", side_effect=ValueError("Some error")):
-        output = model.predict(2, 5)
+    chunks = []
+    with pytest.raises(ValueError, match=r"Some error"):
+        for chunk in stream:
+            chunks.append(chunk)
 
-    assert output == 7
-    assert get_traces() == []
-    TRACE_BUFFER.clear()
+    # The test model raises an error after the first chunk
+    assert len(chunks) == 1
 
-    # Exception during inspecting inputs: trace is logged without inputs field
-    with mock.patch(
-        "mlflow.tracing.fluent.capture_function_input_args", side_effect=ValueError("Some error")
-    ) as mock_input_args:
-        output = model.predict(2, 5)
-        mock_input_args.assert_called_once()
-
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
-
-    assert output == 7
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
-    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == ""
-    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
-    TRACE_BUFFER.clear()
+    assert trace.info.status == TraceStatus.ERROR
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2}'
 
-    # Exception during ending span: trace is not logged.
+    # The test model is expected to produce three spans
+    # 1. Root span (error - inherited from the child)
+    # 2. First chunk span (OK)
+    # 3. Second chunk span (error)
+    spans = trace.data.spans
+    assert len(spans) == 3
+    assert spans[0].name == "predict_stream"
+    assert spans[0].status.status_code == SpanStatusCode.ERROR
+    assert spans[1].name == "some_operation_raise_error_1"
+    assert spans[1].status.status_code == SpanStatusCode.OK
+    assert spans[2].name == "some_operation_raise_error_2"
+    assert spans[2].status.status_code == SpanStatusCode.ERROR
+
+    # One chunk event + one exception event
+    assert len(spans[0].events) == 2
+    assert spans[0].events[0].name == "item_0"
+    assert spans[0].events[1].name == "exception"
+
+
+@pytest.mark.parametrize("model", [
+    DefaultTestModel(),
+    DefaultAsyncTestModel(),
+    StreamTestModel(),
+    AsyncStreamTestModel(),
+])
+def test_trace_ignore_exception(monkeypatch, model):
+    # This test is to make sure that the main prediction logic is not affected
+    # by the exception raised by the tracing logic.
+    def _call_model_and_assert_output(model):
+        if isinstance(model, DefaultTestModel):
+            output = model.predict(2, 5)
+            assert output == 64
+        elif isinstance(model, DefaultAsyncTestModel):
+            output = asyncio.run(model.predict_stream(2, 5))
+            assert output == 64
+        elif isinstance(model, StreamTestModel):
+            stream = model.predict_stream(2, 5)
+            assert len(list(stream)) == 21
+        elif isinstance(model, AsyncStreamTestModel):
+            astream = model.predict_stream(2, 5)
+            async def _consume_stream():
+                return [chunk async for chunk in astream]
+            stream = asyncio.run(_consume_stream())
+            assert len(list(stream)) == 21
+        else:
+            raise ValueError("Unknown model type")
+
+    # Exception during starting span: trace should not be logged.
+    with mock.patch("mlflow.tracing.provider._get_tracer", side_effect=ValueError("Some error")):
+        _call_model_and_assert_output(model)
+
+    assert get_traces() == []
+
+    # Exception during ending span: trace should not be logged.
     tracer = _get_tracer(__name__)
 
     def _always_fail(*args, **kwargs):
         raise ValueError("Some error")
 
     monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
+    _call_model_and_assert_output(model)
+    assert len(get_traces()) == 0
+    monkeypatch.undo()
 
-    output = model.predict(2, 5)
-    assert output == 7
-    assert len(traces) == 1  # The trace from the previous prediction
-    TRACE_BUFFER.clear()
+    # Exception during inspecting inputs: trace should be logged without inputs field
+    with mock.patch(
+        "mlflow.tracing.fluent.capture_function_input_args", side_effect=ValueError("Some error")
+    ) as mock_input_args:
+        _call_model_and_assert_output(model)
+        assert mock_input_args.call_count > 0
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
 
 
 def test_trace_skip_resolving_unrelated_tags_to_traces():

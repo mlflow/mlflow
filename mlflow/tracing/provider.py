@@ -7,11 +7,11 @@ tracer provider and ensure that it won't interfere with the other external libra
 use OpenTelemetry e.g. PromptFlow, Snowpark.
 """
 
-from contextlib import contextmanager
 import contextvars
 import functools
 import json
 import logging
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Optional
 
 from opentelemetry import context as context_api

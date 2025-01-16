@@ -4,20 +4,22 @@ import contextlib
 import functools
 import importlib
 import inspect
+import itertools
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
 from cachetools import TTLCache
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
 from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -27,7 +29,10 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context, set_span_in_context
+from mlflow.tracing.provider import (
+    is_tracing_enabled,
+    safe_set_span_in_context,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
@@ -58,7 +63,8 @@ TRACE_BUFFER = TTLCache(
 )
 
 # TODO: Add description
-GENERATOR_OUTPUT_PLACEHOLDER = "<generator object - see 'Events' tab to view streamed items>"
+STREAM_OUTPUT_PLACEHOLDER = "<generator object - see 'Events' tab to view streamed items>"
+
 
 def trace(
     func: Optional[Callable] = None,
@@ -169,58 +175,108 @@ def trace(
             self.coro.close()
 
     def decorator(fn):
-        # 1. Async function
-        if inspect.iscoroutinefunction(fn):
+        # Sync or async generator (stream)
+        if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
+            # Helper functions to avoid code repetition between sync and async cases
+            def _start_stream_span(client, fn, args, kwargs):
+                try:
+                    inputs = capture_function_input_args(fn, args, kwargs)
+                except Exception:
+                    _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
+                    inputs = None
 
-            async def async_wrapper(*args, **kwargs):
+                try:
+                    client = MlflowClient()
+
+                    span = start_client_span_or_trace(
+                        client=client,
+                        name=name or fn.__name__,
+                        parent_span=get_current_active_span(),
+                        span_type=span_type,
+                        attributes=attributes,
+                        inputs=inputs,
+                    )
+
+                    with safe_set_span_in_context(span):
+                        generator = fn(*args, **kwargs)
+                except Exception as e:
+                    _logger.debug(f"Failed to start stream span: {e}")
+                    span = NoOpSpan()
+                    generator = fn(*args, **kwargs)
+
+                return span, generator
+
+            def _end_stream_span(client, span: LiveSpan, e: Optional[Exception] = None):
+                if e:
+                    span.add_event(SpanEvent.from_exception(e))
+                    span.set_status(SpanStatusCode.ERROR)
+                    end_client_span_or_trace(
+                        client,
+                        span,
+                        outputs=STREAM_OUTPUT_PLACEHOLDER,
+                        status=SpanStatusCode.ERROR,
+                    )
+                else:
+                    end_client_span_or_trace(client, span, STREAM_OUTPUT_PLACEHOLDER)
+
+            def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
+                try:
+                    chunk_event = SpanEvent(
+                        name=f"item_{chunk_index}",
+                        attributes={"value": json.dumps(chunk)},
+                    )
+                    span.add_event(chunk_event)
+                except Exception as e:
+                    _logger.debug(f"Failing to record chunk event for span {span.name}: {e}")
+
+            # Wrapper for generators
+            if inspect.isgeneratorfunction(fn):
+                def wrapper(*args, **kwargs):
+                    client = MlflowClient()
+                    span, generator = _start_stream_span(client, fn, args, kwargs)
+                    i = 0
+                    while True:
+                        try:
+                            with safe_set_span_in_context(span):
+                                value = next(generator)
+                        except StopIteration:
+                            break
+                        except Exception as e:
+                            _end_stream_span(client, span, e)
+                            raise
+                        else:
+                            _record_chunk_event(span, value, i)
+                            yield value
+                            i += 1
+                    _end_stream_span(client, span)
+            else:
+                async def wrapper(*args, **kwargs):
+                    client = MlflowClient()
+                    span, generator = _start_stream_span(client, fn, args, kwargs)
+                    i = 0
+                    while True:
+                        try:
+                            with safe_set_span_in_context(span):
+                                value = await generator.__anext__()
+                        except StopAsyncIteration:
+                            break
+                        except Exception as e:
+                            _end_stream_span(client, span, e)
+                            raise
+                        else:
+                            _record_chunk_event(span, value, i)
+                            yield value
+                            i += 1
+                    _end_stream_span(client, span)
+
+        # Async function
+        elif inspect.iscoroutinefunction(fn):
+            async def wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
 
-            return functools.wraps(fn)(async_wrapper)
-
-        # 2. Sync generator
-        elif inspect.isgeneratorfunction(fn):
-            def generator_wrapper(*args, **kwargs):
-                client = MlflowClient()
-                span = start_client_span_or_trace(
-                    client=client,
-                    name=name or fn.__name__,
-                    parent_span=get_current_active_span(),
-                    span_type=span_type, attributes=attributes,
-                    inputs=capture_function_input_args(fn, args, kwargs),
-                )
-                with safe_set_span_in_context(span):
-                    generator = fn(*args, **kwargs)
-
-
-                # Initialize the span when first yield
-                # The parent span should be
-                i = 0
-                while True:
-                    try:
-                        with safe_set_span_in_context(span):
-                            value = next(generator)
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        span.add_event(SpanEvent.from_exception(e))
-                        span.set_status(SpanStatusCode.ERROR)
-                        raise
-                    else:
-                        span.add_event(SpanEvent(name=f"item_{i}", attributes={"value": str(value)}))
-                        yield value
-                        i += 1
-
-                end_client_span_or_trace(
-                    client,
-                    span,
-                    status=SpanStatusCode.OK,
-                    outputs=GENERATOR_OUTPUT_PLACEHOLDER,
-                )
-
-            return functools.wraps(fn)(generator_wrapper)
+        # Sync function
         else:
-
             def wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(fn(*args, **kwargs))

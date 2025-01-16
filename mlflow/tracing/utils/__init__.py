@@ -10,6 +10,7 @@ from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+from mlflow.entities.span_status import SpanStatusCode
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
@@ -401,7 +402,7 @@ def end_client_span_or_trace(
     span: LiveSpan,
     outputs: Optional[dict[str, Any]] = None,
     attributes: Optional[dict[str, Any]] = None,
-    status: Optional[str] = None,
+    status: str = SpanStatusCode.OK,
     end_time_ns: Optional[int] = None,
 ) -> LiveSpan:
     """
