@@ -188,7 +188,7 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(
 
     response_b = s3_client.head_object(Bucket=bucket, Key="some/path/b.tar.gz")
     assert response_b.get("ContentType") == "application/x-tar"
-    assert response_b.get("ContentEncoding") == "gzip"
+    assert response_b.get("ContentEncoding") == "gzip,aws-chunked"
 
     response_c = s3_client.head_object(Bucket=bucket, Key="some/path/nested/c.csv")
     assert response_c.get("ContentType") == "text/csv"
