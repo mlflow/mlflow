@@ -49,6 +49,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
+                    <img src="../../_static/images/logos/bedrock-logo.png" alt="Bedrock Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
                     <img src="../../_static/images/logos/autogen-logo.png" alt="AutoGen Logo"/>
                 </div>
             </a>
@@ -118,6 +123,10 @@ LangChain, OpenAI, LlamaIndex, and AutoGen. For these libraries, you can instrum
 just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
 for model/API invocations to the active MLflow Experiment.
 
+.. toctree::
+   :hidden:
+
+   ../bedrock/autologging
 
 .. tabs::
 
@@ -491,6 +500,31 @@ for model/API invocations to the active MLflow Experiment.
             :width: 100%
             :align: center
 
+    .. tab:: Amazon Bedrock
+
+        .. raw:: html
+
+            <h3>Amazon Bedrock Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your interactions with Amazon Bedrock AI models.
+        When Bedrock autologging is enabled with :py:func:`mlflow.bedrock.autolog`, LLM invocation via the `boto3` SDK
+        will automatically be recorded to the active MLflow Experiment.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.bedrock.autolog()
+
+
+        To learn more advanced usage of Amazon Bedrock tracing, e.g., streaming, function calling, `visit the documentation here <../bedrock/autologging.html>`_.
+
+        .. figure:: ../../_static/images/llms/tracing/bedrock-tracing.png
+            :alt: Bedrock Tracing
+            :width: 100%
+            :align: center
 
     .. tab:: AutoGen
 
