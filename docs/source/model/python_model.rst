@@ -120,14 +120,14 @@ Supported type hints
 **Type hint used in the PythonModel must be list[...]** because PythonModel's predict function expects batch input data.
 The following type hints are supported as the element type of ``list[...]``:
 
-    - **Basic types**: int, float, str, bool, bytes, datetime.datetime
-    - **Container types**: list, dict
-    - **Union types**: Union[type1, type2, ...] or type1 | type2 | ...
+    - **Primitive types**: int, float, str, bool, bytes, datetime.datetime
+    - **Collection types**: list, dict
+    - **Union types**: ``Union[type1, type2, ...]`` or ``type1 | type2 | ...``
     - **Optional types**: Optional[type]
     - **Pydantic models**: Subclass of pydantic.BaseModel (fields must be of supported types)
     - **typing.Any**: Any
 
-Some constraints of type hints usage:
+Constraints of type hints usage:
 
     - **Pydantic models**: Optional fields must contain a default value.
     - **Union types**: Union of more than one valid type is inferred as AnyType in MLflow, and MLflow does no data validation based on it.
