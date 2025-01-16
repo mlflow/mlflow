@@ -17,7 +17,7 @@ from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
-from mlflow.exceptions import MlflowTracingException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
@@ -149,7 +149,7 @@ def set_destination(destination: TraceDestination):
             mlflow.tracing.reset()
     """
     if not isinstance(destination, TraceDestination):
-        raise MlflowTracingException(
+        raise MlflowException.invalid_parameter_value(
             f"Invalid destination type: {type(destination)}. "
             "The destination must be an instance of TraceDestination."
         )
