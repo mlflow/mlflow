@@ -24,7 +24,7 @@ MLflow trace automatically captures the following information about Amazon Bedro
 - Function calling if returned in the response
 - Any exception if raised
 
-Supporter APIs
+Supported APIs
 --------------
 
 MLflow supports automatic tracing for the following Amazon Bedrock APIs:
@@ -85,7 +85,7 @@ By default, MLflow renders the rich chat-like UI for input and output messages i
 Streaming
 ---------
 
-MLflow support tracing streaming calls to Amazon Bedrock APIs. The generated trace shows the aggregated output message in the ``Chat`` tab, while the individual chunks are displayed in the ``Events`` tab.
+MLflow supports tracing streaming calls to Amazon Bedrock APIs. The generated trace shows the aggregated output message in the ``Chat`` tab, while the individual chunks are displayed in the ``Events`` tab.
 
 .. code-block:: python
 
@@ -171,12 +171,12 @@ Combining this with the manual tracing feature, you can define a function-callin
             }
         }
     ]
-    _tool_functions = {"get_weather": get_weather}
+    tool_functions = {"get_weather": get_weather}
 
 
     # Define a simple tool calling agent
     @mlflow.trace(span_type=SpanType.AGENT)
-    def run_tool_agent(question: str):
+    def run_tool_agent(question: str) -> str:
         messages = [{"role": "user", "content": [{"text": question}]}]
 
         # Invoke the model with the given question and available tools
@@ -188,12 +188,12 @@ Combining this with the manual tracing feature, you can define a function-callin
         assistant_message = response["output"]["message"]
         messages.append(assistant_message)
 
-        # If the model request tool call(s), invoke the function with the specified arguments
+        # If the model requests tool call(s), invoke the function with the specified arguments
         tool_use = next(
             (c["toolUse"] for c in assistant_message["content"] if "toolUse" in c), None
         )
         if tool_use:
-            tool_func = _tool_functions[tool_use["name"]]
+            tool_func = tool_functions[tool_use["name"]]
             tool_result = tool_func(**tool_use["input"])
             messages.append(
                 {
@@ -209,7 +209,7 @@ Combining this with the manual tracing feature, you can define a function-callin
                 }
             )
 
-            # Sent the tool results to the model and get a new response
+            # Send the tool results to the model and get a new response
             response = bedrock.converse(
                 modelId=model_id,
                 messages=messages,
