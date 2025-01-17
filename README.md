@@ -1,5 +1,3 @@
-MLflow survey: [here](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)
-
 # MLflow: A Machine Learning Lifecycle Platform
 
 ### 📢 Announcements 📢
