@@ -89,6 +89,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
+                    <img src="../../_static/images/logos/mistral-ai-logo.svg" alt="Mistral AI Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
                     <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
@@ -684,6 +689,34 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/groq/groq-tracing.png
             :alt: Groq Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Mistral AI
+
+        .. raw:: html
+
+            <h3>Mistral AI Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with Mistral AI models.
+        When Mistral autologging is enabled with :py:func:`mlflow.mistral.autolog`,
+        usage of the Mistral SDK will automatically record generated traces during interactive development.
+        Note that only synchronous calls to the Text Generation API are supported.
+        Asynchronous API and streaming methods are not traced.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.mistral.autolog()
+
+        To see the full example of tracing Mistral AI, please refer to the `Mistral Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/mistral/tracing.py>`_.
+
+        .. figure:: ../../_static/images/llms/mistral/mistral-tracing.png
+            :alt: Mistral Tracing
             :width: 100%
             :align: center
 

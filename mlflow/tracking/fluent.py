@@ -2395,6 +2395,7 @@ def autolog(
         "crewai": "mlflow.crewai",
         "groq": "mlflow.groq",
         "boto3": "mlflow.bedrock",
+        "mistralai": "mlflow.mistral",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
