@@ -43,8 +43,8 @@ def patched_class_call(original, self, *args, **kwargs):
             try:
                 messages = [convert_message_to_mlflow_chat(m) for m in inputs.get("messages", [])]
             except Exception as e:
-                _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
- 
+                _logger.debug(f"Failed to convert chat messages for {span}. Error: {e}")
+
             try:
                 outputs = original(self, *args, **kwargs)
                 span.set_outputs(outputs)
