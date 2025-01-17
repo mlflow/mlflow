@@ -124,12 +124,12 @@ def convert_tool_to_mlflow_chat_tool(tool: dict) -> ChatTool:
     Returns:
         ChatTool: MLflow's standard tool definition object.
     """
-    function = tool.get("function", {})
+    function = tool["function"]
     return ChatTool(
         type="function",
         function=FunctionToolDefinition(
-            name=function.get("name"),
+            name=function["name"],
             description=function.get("description"),
-            parameters=function.get("parameters"),
+            parameters=function["parameters"],
         ),
     )

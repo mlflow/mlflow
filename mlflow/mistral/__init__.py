@@ -14,7 +14,8 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Mistral AI to MLflow.
-    Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
+    Only synchronous calls to the Text generation API are supported.
+    Asynchronous APIs and streaming are not recorded.
 
     Args:
         log_traces: If ``True``, traces are logged for Mistral AI models.

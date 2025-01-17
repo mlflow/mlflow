@@ -670,14 +670,14 @@ for model/API invocations to the active MLflow Experiment.
         MLflow Tracing ensures observability for your interactions with Mistral AI models.
         When Mistral autologging is enabled with :py:func:`mlflow.mistral.autolog`,
         usage of the Mistral SDK will automatically record generated traces during interactive development.
-        Note that only synchronous calls for text interactions are supported.
+        Note that only synchronous calls to the Text Generation API are supported.
         Asynchronous API and streaming methods are not traced.
 
         .. code-block:: python
 
             import mlflow
 
-            mlflow.Mistral.autolog()
+            mlflow.mistral.autolog()
 
         To see the full example of tracing Mistral AI, please refer to the `Mistral Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/mistral/tracing.py>`_.
 

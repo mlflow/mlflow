@@ -11,7 +11,7 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
-def construct_full_inputs(func, *args, **kwargs):
+def _construct_full_inputs(func, *args, **kwargs):
     signature = inspect.signature(func)
     # this does not create copy. So values should not be mutated directly
     arguments = signature.bind_partial(*args, **kwargs).arguments
@@ -30,7 +30,7 @@ def patched_class_call(original, self, *args, **kwargs):
             name=f"{self.__class__.__name__}.{original.__name__}",
             span_type=SpanType.CHAT_MODEL,
         ) as span:
-            inputs = construct_full_inputs(original, self, *args, **kwargs)
+            inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
 
             if (tools := inputs.get("tools")) is not None:
