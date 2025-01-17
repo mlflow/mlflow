@@ -329,7 +329,7 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.86.0"
         }
     },
-    "mistralai": {
+    "mistral": {
         "package_info": {
             "pip_release": "mistralai",
             "module_name": "mistralai"
@@ -420,7 +420,7 @@ FLAVOR_TO_MODULE_NAME = {
     "gemini": "google.generativeai",
     "anthropic": "anthropic",
     "crewai": "crewai",
-    "mistralai": "mistralai",
+    "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
     "bedrock": "boto3",

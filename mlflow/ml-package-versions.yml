@@ -849,7 +849,7 @@ crewai:
     requirements:
     run: pytest tests/crewai
 
-mistralai:
+mistral:
   package_info:
     pip_release: "mistralai"
     module_name: "mistralai"
@@ -859,7 +859,7 @@ mistralai:
     minimum: "1.0.0"
     maximum: "1.2.6"
     requirements:
-    run: pytest tests/mistralai
+    run: pytest tests/mistral
 
 sentence_transformers:
   package_info:
