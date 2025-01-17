@@ -6,27 +6,13 @@
 
 ### MLflow Office Hours
 
-Join the MLflow core team for an interactive session focused on GenAI implementations, LLMOps best practices, and all things MLflow!
-
-- Date: January 22, 2025
-- Time: 8:00 AM PST / 11:00 AM EST
-- Duration: 1 hour
-
-Register [here](https://lu.ma/xj16g8ih)
+Join us for the upcoming [MLflow Office Hours](https://lu.ma/xj16g8ih) (January 22, 2025, 8:00 AM PST / 11:00 AM EST)!
 
 ---
 
 ### MLflow Community Survey
 
-Our H2 2024 Community Survey is now open. In just 10-15 minutes, you can:
-
-- Directly influence MLflow's development
-- Share challenges in ML workflow management
-- Help shape the future of machine learning infrastructure
-
-Whether you're working with traditional ML, generative AI, or cutting-edge research, your voice matters to us.
-
-Visit the Survey [here](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)
+Help us improve MLflow by taking our [survey](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)!
 
 ---
 
