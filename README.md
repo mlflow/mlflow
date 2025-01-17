@@ -1,4 +1,36 @@
+MLflow survey: [here](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)
+
 # MLflow: A Machine Learning Lifecycle Platform
+
+### 📢 Announcements 📢
+
+---
+
+### MLflow Office Hours
+
+Join the MLflow core team for an interactive session focused on GenAI implementations, LLMOps best practices, and all things MLflow!
+
+- Date: January 22, 2025
+- Time: 8:00 AM PST / 11:00 AM EST
+- Duration: 1 hour
+
+Register [here](https://lu.ma/xj16g8ih)
+
+---
+
+### MLflow Community Survey
+
+Our H2 2024 Community Survey is now open. In just 10-15 minutes, you can:
+
+- Directly influence MLflow's development
+- Share challenges in ML workflow management
+- Help shape the future of machine learning infrastructure
+
+Whether you're working with traditional ML, generative AI, or cutting-edge research, your voice matters to us.
+
+Visit the Survey [here](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)
+
+---
 
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
