@@ -35,7 +35,7 @@ def patched_class_call(original, self, *args, **kwargs):
 
             if (tools := inputs.get("tools")) is not None:
                 try:
-                    tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools]
+                    tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools if tool]
                     set_span_chat_tools(span, tools)
                 except Exception as e:
                     _logger.debug(f"Failed to set tools for {span}. Error: {e}")
