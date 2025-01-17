@@ -3108,8 +3108,8 @@ def save_model(
             # is a behavior change
             _logger.warning(
                 "Provided signature does not match the signature inferred from the Python model's "
-                "`predict` function type hint. Signature inferred from type hint: "
-                f"`{signature_from_type_hints}`. Remove the `signature` parameter or ensure it "
+                "`predict` function type hint. Signature inferred from type hint will be used:\n"
+                f"{signature_from_type_hints}\nRemove the `signature` parameter or ensure it "
                 "matches the inferred signature. In a future release, this warning will become an "
                 "exception, and the signature must align with the type hint.",
                 extra={"color": "red"},
