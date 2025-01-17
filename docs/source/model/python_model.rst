@@ -21,7 +21,7 @@ Define a custom PythonModel
 
 Option 1: Subclass PythonModel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:mod:`mlflow.pyfunc` module provides a :py:class:`generic PythonModel class <mlflow.pyfunc.PythonModel>` that can be used to define your own 
+The :py:mod:`mlflow.pyfunc` module provides a :py:class:`generic PythonModel class <mlflow.pyfunc.PythonModel>` that can be used to define your own 
 customized model. By subclassing it, the model can be seamlessly integrated with other MLflow components.
 
 Methods of PythonModel:
@@ -36,7 +36,7 @@ Methods of PythonModel:
         Implement the load_context method if the model requires additional context to be loaded. For more details, refer to :py:func:`load_context() <mlflow.pyfunc.PythonModel.load_context>`.
 
 .. tip::
-    Starting from MLflow 2.20.0, ``context`` parameter can be removed from ``predict`` and ``predict_stream`` functions if it is not used.
+    Starting from MLflow 2.20.0, the ``context`` parameter can be removed from ``predict`` and ``predict_stream`` functions if it is not used.
     e.g. ``def predict(self, model_input, params)`` is a valid predict function signature.
 
 Below is an example of a simple PythonModel that takes a list of string and returns it.
@@ -58,17 +58,21 @@ An alternative way to log a PythonModel is to define a callable that **takes a s
 logged as a PythonModel by passing it to ``mlflow.pyfunc.log_model``.
 
 .. tip::
-    Starting from MLflow 2.20.0, you can use @pyfunc decorator on the callable to enable data validation on the input based on the type hints.
+    Starting from MLflow 2.20.0, you can use the ``@pyfunc`` decorator on the callable to enable data validation on the input based on the type hints.
     Check :ref:`type hint usage in PythonModel <type-hint-usage-in-pythonmodel>` for more details.
 
 .. code-block:: python
 
+    from mlflow.pyfunc.utils import pyfunc
+
+
+    @pyfunc
     def predict(model_input: list[str]) -> list[str]:
         return model_input
 
 Log the model
 ^^^^^^^^^^^^^
-PythonModel should be logged as python_function flavor using :py:func:`mlflow.pyfunc.log_model`.
+Use the pyfunc module to log a custom model with :py:func:`mlflow.pyfunc.log_model`.
 
 .. code-block:: python
 
@@ -84,16 +88,12 @@ PythonModel should be logged as python_function flavor using :py:func:`mlflow.py
 
 Validate the model before deployment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-After logging the model, you can validate the model by loading the model and running predictions. In addition, it's highly recommended to use 
-:py:func`mlflow.models.predict` API to validate the model dependencies. Check `MLflow Model Validation <../models.html#validate-models-before-deployment>`_
-for more details.
+Use :py:func`mlflow.models.predict` API to validate the model dependencies and input data before deploy it.
+Check `MLflow Model Validation <../models.html#validate-models-before-deployment>`_ for more details.
 
 .. code-block:: python
     
     import mlflow
-
-    model = mlflow.pyfunc.load_model(model_info.model_uri)
-    model.predict(["hello", "world"])
 
     mlflow.models.predict(
         model_uri=model_info.model_uri,
@@ -101,30 +101,39 @@ for more details.
         env_manager="uv",
     )
 
+In addition, you can load the model locally and validate it by running predictions.
+
+.. code-block:: python
+
+    import mlflow
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    pyfunc_model.predict(["hello", "world"])
+
 Deploy the model
 ^^^^^^^^^^^^^^^^
-Final step to use your model in production is to deploy it. Follow `MLflow Model Deployment <../models.html#deployment-to-custom-targets>`_ guide to deploy the model.
+The final step to use your model in production is to deploy it. Follow `MLflow Model Deployment <../models.html#deployment-to-custom-targets>`_ guide to deploy the model.
 
 .. _type-hint-usage-in-pythonmodel:
 
 Type hint usage in PythonModel
 ------------------------------
-Starting from MLflow 2.20.0, type hints support for PythonModel is introduced. You can use type hints to define the input and output types of the model.
-It introduces the following benefits:
+Starting from MLflow 2.20.0, type hints are now a valid way to define your model's interfaces. You can use type hints to define the input and output types of the model.
+Utilizing type hints introduces the following benefits:
 
     - **Data validation**: MLflow validates the input data based on the type hints defined in the model. No matter if the model is a PythonModel instance or a loaded PyFunc model, the input data is consistently validated.
-    - **Type hint inference**: MLflow infers the input and output schema of the model based on the type hints defined in the model, and sets as the model signature.
+    - **Type hint inference**: MLflow infers the input and output schema of the model based on the type hints defined in the model, and sets that inferred structure as the logged model signature.
 
 Supported type hints
 ^^^^^^^^^^^^^^^^^^^^
-**Type hint used in the PythonModel must be list[...]** because PythonModel's predict function expects batch input data.
+**Type hints used within the PythonModel's input signature must be of type list[...]** because PythonModel's predict function expects batch input data.
 The following type hints are supported as the element type of ``list[...]``:
 
     - **Primitive types**: int, float, str, bool, bytes, datetime.datetime
     - **Collection types**: list, dict
     - **Union types**: ``Union[type1, type2, ...]`` or ``type1 | type2 | ...``
     - **Optional types**: Optional[type]
-    - **Pydantic models**: Subclass of pydantic.BaseModel (fields must be of supported types)
+    - **Pydantic models**: Subclass of pydantic.BaseModel (fields must be of supported types mentioned in this section)
     - **typing.Any**: Any
 
 Constraints of type hints usage:
@@ -182,8 +191,8 @@ Below is an example of nested pydantic models as type hints:
     print(predict(input_example))  # Output: [['Hello']]
 
 
-Use type hints in PythonModel
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using type hints in PythonModel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To use type hints in PythonModel, you can define the input and output types in the predict function signature. Below is an example of a PythonModel
 that takes a list of Message object and returns a list of string.
 
@@ -282,9 +291,9 @@ Pydantic Model type hints data conversion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 For Pydantic model type hints, the input data can be either a Pydantic object or a dictionary that matches the schema of the Pydantic model.
 MLflow automatically converts the provided data to the type hint object before passing it to the predict function.
-Such as example in the last section: ``[{"role": "system", "content": "Hello"}]`` is converted to ``[Message(role="system", content="Hello")]`` inside the predict function.
+If comparing to the example in the last section, ``[{"role": "system", "content": "Hello"}]`` is converted to ``[Message(role="system", content="Hello")]`` within the predict function.
 
-Below example demonstrates how to use a base class as type hint, while preserving fields in the subclasses.
+The example below demonstrates how to use a base class as type hint, while preserving fields in the subclasses.
 
 .. code-block:: python
 
@@ -326,15 +335,15 @@ Below example demonstrates how to use a base class as type hint, while preservin
     print(predict(input_example))  # Output: ['Hi', 'Hello']
 
 
-Model signature inference based on the type hints
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Model signature inference based on type hints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 When logging a PythonModel with type hints, MLflow automatically infers the input and output schema of the model based on the type hints defined in the model.
 
 .. note::
     Do not pass ``signature`` parameter explicitly when logging a PythonModel with type hints. If you pass the ``signature`` parameter, 
     MLflow still uses the inferred signature based on the type hints, and raises a warning if they don't match.
 
-Below table illustrates how type hints map to the schema in the model signature:
+The table below illustrates how type hints map to given schemas in model signatures:
 
 .. list-table::
    :widths: 30 70
@@ -356,7 +365,7 @@ Below table illustrates how type hints map to the schema in the model signature:
      - Schema([ColSpec(type=Object([...]))]) # properties based on the pydantic model fields
 
 .. warning::
-    Pydantic objects cannot be used in ``infer_signature`` function. To use pydantic objects as model inputs, you must define the type hints
+    Pydantic objects cannot be used in the ``infer_signature`` function. To use pydantic objects as model inputs, you must define the type hints
     as the pydantic model in the PythonModel's predict function signature.
 
 Input example together with type hints during model logging
@@ -378,7 +387,7 @@ The input example is used to validate the type hints and check if the ``predict`
 Query a serving endpoint hosting a PythonModel with type hints
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 When querying a serving endpoint hosting a PythonModel with type hints, you **must pass the input data with** ``inputs`` **key in the request body**.
-Below example demonstrates how to serve the model locally and query it:
+The example below demonstrates how to serve the model locally and query it:
 
 .. code-block:: bash
 
@@ -409,7 +418,7 @@ types, as the ``predict`` function expects batch input data:
     - pandas.DataFrame
     - pandas.Series
 
-Below example demonstrates how to use ``TypeFromExample`` type hint:
+The example below demonstrates how to use ``TypeFromExample`` type hint:
 
 .. code-block:: python
 
