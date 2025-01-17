@@ -13,7 +13,7 @@ def test_export(mock_get_deploy_client):
         databricks_monitor_id: str
 
         @property
-        def id(self):
+        def type(self):
             return "databricks_agent_monitoring"
 
     mock_deploy_client = mock.MagicMock()

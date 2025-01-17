@@ -109,7 +109,7 @@ def test_set_destination_databricks_agent():
         databricks_monitor_id: str
 
         @property
-        def id(self):
+        def type(self):
             return "databricks_agent_monitoring"
 
     mlflow.tracing.set_destination(
