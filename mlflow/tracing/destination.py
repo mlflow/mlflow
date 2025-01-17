@@ -10,8 +10,8 @@ class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
 
     @property
-    def id(self) -> str:
-        """Implement a unique identifier for the destination."""
+    def type(self) -> str:
+        """Type of the destination."""
         raise NotImplementedError
 
 
@@ -35,5 +35,5 @@ class MlflowExperiment(TraceDestination):
     tracking_uri: Optional[str] = None
 
     @property
-    def id(self) -> str:
+    def type(self) -> str:
         return "experiment"
