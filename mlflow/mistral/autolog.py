@@ -40,7 +40,10 @@ def patched_class_call(original, self, *args, **kwargs):
                 except Exception as e:
                     _logger.debug(f"Failed to set tools for {span}. Error: {e}")
 
-            messages = [convert_message_to_mlflow_chat(msg) for msg in inputs.get("messages", [])]
+            try:
+                messages = [convert_message_to_mlflow_chat(msg) for msg in inputs.get("messages", [])]
+            except Exception as e:
+                _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
             try:
                 outputs = original(self, *args, **kwargs)
                 span.set_outputs(outputs)
