@@ -83,3 +83,5 @@ litellm
 google-generativeai
 # Required by mlflow.groq
 groq
+# Required by mlflow.mistral
+mistralai
