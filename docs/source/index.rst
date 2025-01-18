@@ -346,6 +346,11 @@ Explore the guides and tutorials below to start your journey!
 
             |rag|
 
+Running MLflow Anywhere
+-----------------------
+
+.. include:: platform.rst
+
 
 .. toctree::
     :maxdepth: 1
