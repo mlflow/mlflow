@@ -40,6 +40,7 @@ def _generate_content_response(content):
     return {
         "candidates": [_get_candidate(content)],
         "usage_metadata": _USER_METADATA,
+        "model_version": "gemini-1.5-flash-002",
     }
 
 
