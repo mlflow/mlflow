@@ -36,6 +36,7 @@ from mlflow.tracing.provider import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
+    TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
     end_client_span_or_trace,
@@ -71,6 +72,7 @@ def trace(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
+    stream_reducer: Optional[Callable] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -223,7 +225,7 @@ def trace(
                 try:
                     chunk_event = SpanEvent(
                         name=f"item_{chunk_index}",
-                        attributes={"value": json.dumps(chunk)},
+                        attributes={"value": json.dumps(chunk, cls=TraceJSONEncoder)},
                     )
                     span.add_event(chunk_event)
                 except Exception as e:
