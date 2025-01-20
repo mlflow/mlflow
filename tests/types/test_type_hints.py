@@ -435,13 +435,10 @@ def test_type_hint_for_python_3_10():
         ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
         (1, Optional[int], 1),
         (None, Optional[int], None),
-        (pd.DataFrame([["a", "b"]]), Any, pd.DataFrame([["a", "b"]])),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
         # This is a temp workaround for evaluate
         (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
-        (["x", "y"], Any, ["x", "y"]),
-        ([1, "a", None], Optional[Any], [1, "a", None]),
     ],
 )
 def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
@@ -462,7 +459,7 @@ def test_maybe_convert_data_for_type_hint_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
+        match=r"Only `list\[...\]` type hint supports pandas DataFrame input",
     ):
         _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)
 

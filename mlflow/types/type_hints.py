@@ -591,16 +591,21 @@ def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
         origin_type = _get_origin_type(type_hint)
         if origin_type is not list:
             raise MlflowException(
-                "Only `list[...]` or `Any` type hint supports pandas DataFrame input "
+                "Only `list[...]` type hint supports pandas DataFrame input "
                 f"with a single column. But got {_type_hint_repr(type_hint)}."
             )
         element_type = _get_element_type_of_list_type_hint(type_hint)
+        # This is needed for list[dict] or list[pydantic.BaseModel] type hints
+        # since the data can be converted to pandas DataFrame with multiple columns
+        # inside spark_udf
         if element_type is dict or _is_pydantic_type_hint(element_type):
-            result = data.to_dict(orient="records")
-        else:
-            if len(data.columns) == 1:
+            # if the column is 0, then each row is a dictionary
+            if list(data.columns) == [0]:
                 result = data.iloc[:, 0].tolist()
             else:
+                result = data.to_dict(orient="records")
+        else:
+            if len(data.columns) != 1:
                 # TODO: remove the warning and raise Exception once the bug [ML-48554] is fixed
                 _logger.warning(
                     "`predict` function with list[...] type hints of non-dictionary collection "
@@ -608,6 +613,7 @@ def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
                     f"{len(data.columns)} columns. The data will be converted to a list "
                     "of the first column."
                 )
+            result = data.iloc[:, 0].tolist()
         # only sanitize the data when it's converted from pandas DataFrame
         # since spark_udf implicitly converts lists into numpy arrays
         return _sanitize_data(result)
