@@ -262,6 +262,8 @@ spacy:
   models:
     minimum: "3.0.0"
     maximum: "3.8.3"
+    python:
+      ">= 3.8.4": "3.10"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
