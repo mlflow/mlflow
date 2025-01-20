@@ -94,7 +94,6 @@ class TTLCache(_TimedCache):
 
             time.sleep(MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS.get())
 
-
     def _get_all_expired(self) -> list[tuple[str, Any]]:
         # Find all expired traces. Not removing them here because
         # because span exporter may access the trace stored in the cache
@@ -121,3 +120,4 @@ class TTLCache(_TimedCache):
         self.clear()
         if self._event_loop_started:
             self._expire_checker_stop_event.set()
+

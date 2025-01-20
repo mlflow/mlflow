@@ -164,7 +164,6 @@ class InMemoryTraceManager:
         """
         with self._lock:
             request_id = self._trace_id_to_request_id.pop(trace_id, None)
-            print(f"{request_id=}")
             trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
 
