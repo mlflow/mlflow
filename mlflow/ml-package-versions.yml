@@ -856,8 +856,9 @@ mistral:
     install_dev: |
       TMP_DIR=$(mktemp -d)
       git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
+      cd $TMP_DIR
       python scripts/prepare-readme.py
-      pip install $TMP_DIR
+      pip install .
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
