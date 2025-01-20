@@ -1,5 +1,5 @@
 -r doc-min-requirements.txt
-#tensorflow-cpu<=2.12.0
+tensorflow-cpu<=2.12.0
 # tensorflow-macos<=2.12.0  # Comment out the line above and uncomment this line if setting up dev
                             # environment on local ARM macOS.
                             # Only do this for the purpose of setting up the dev environment, do not
