@@ -579,7 +579,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
         streamable=streamable,
-        model_code_path=model_code_path,
+        model_code_path=os.path.basename(model_code_path),
         **custom_model_config_kwargs,
     )
     if size := get_total_file_size(path):

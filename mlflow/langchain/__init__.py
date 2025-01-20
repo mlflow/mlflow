@@ -354,7 +354,7 @@ def save_model(
         code=code_dir_subpath,
         predict_stream_fn="predict_stream",
         streamable=streamable,
-        model_code_path=model_code_path,
+        model_code_path=os.path.basename(model_code_path),
         model_config=model_config,
         **model_data_kwargs,
     )

@@ -265,7 +265,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        model_code_path=model_code_path,
+        model_code_path=os.path.basename(model_code_path),
         model_config=model_config,
     )
     mlflow_model.add_flavor(
