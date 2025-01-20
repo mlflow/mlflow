@@ -860,6 +860,7 @@ mistral:
       # https://github.com/mistralai/client-python/blob/55cd72a8f6300a2ab3838370f7a1cc47d863b31a/pyproject.toml#L6
       touch $TMP_DIR/README-PYPI.md
       pip $TMP_DIR
+      rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
     maximum: "1.2.6"
