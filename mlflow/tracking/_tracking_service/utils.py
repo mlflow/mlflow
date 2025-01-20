@@ -70,7 +70,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
     if _tracking_uri != uri:
         _tracking_uri = uri
-        if _tracking_uri:
+        if _tracking_uri is not None:
             # Set 'MLFLOW_TRACKING_URI' environment variable
             # so that subprocess can inherit it.
             MLFLOW_TRACKING_URI.set(_tracking_uri)
