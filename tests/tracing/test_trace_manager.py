@@ -104,8 +104,6 @@ def test_add_and_pop_span_thread_safety():
 
 
 def test_traces_buffer_expires_after_ttl(monkeypatch):
-    # Clear singleton instance to patch TTL
-    InMemoryTraceManager._instance = None
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
@@ -134,9 +132,22 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
     assert span_1_1.events[0].attributes["exception.message"].startswith("This trace is automatically halted")
 
 
+    # Update the TTL to a longer value
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "10")
+
+    trace_info = create_test_trace_info(request_id_1, "test")
+    trace_manager.register_trace(12345, trace_info)
+    span_1_2 = _create_test_span(request_id_1)
+    trace_manager.register_span(span_1_2)
+
+    time.sleep(3)
+    trace_manager._traces.expire(block=True)
+
+    # Trace should still be alive as the TTL is updated
+    assert request_id_1 in trace_manager._traces
+
+
 def test_traces_buffer_max_size_limit(monkeypatch):
-    # Clear singleton instance to patch buffer size
-    InMemoryTraceManager._instance = None
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()

@@ -6,7 +6,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Generator, Optional
 
-from cachetools import TTLCache
+from cachetools import Cache, TTLCache
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.span_event import SpanEvent
@@ -190,6 +190,11 @@ class _TTLCacheWithLogging(TTLCache):
         with an error status, and log it to the backend, so users can see the timeout traces on the UI.
         Since logging takes time, it is done in a background thread and this method returns immediately.
         """
+        # TTL may be updated by users after initial creation.
+        if self.ttl != MLFLOW_TRACE_BUFFER_TTL_SECONDS.get():
+            # NB: This does not impact the TTL of existing traces, which is fine.
+            self._TTLCache__ttl = MLFLOW_TRACE_BUFFER_TTL_SECONDS.get()
+
         expired = self._get_expired_traces()
         if not expired:
             return
@@ -216,8 +221,8 @@ class _TTLCacheWithLogging(TTLCache):
                     except Exception as e:
                         print(f"Failed to expire a trace with request ID {request_id}: {e}")
 
-            # Call the original expire method to remove from the cache
-            TTLCache.expire(self, time)
+                # Remove the trace and link (TTLCache uses a linked list) from the cache
+                del self[request_id]
 
         if block:
             _expire_traces()
