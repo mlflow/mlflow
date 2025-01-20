@@ -22,7 +22,10 @@ import sys
 import traceback
 from typing import Any, NamedTuple, Optional
 
-from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_IS_IN_SERVING_ENVIRONMENT,
+    MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+)
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -409,6 +412,7 @@ class ParsedJsonInput(NamedTuple):
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
     _is_unified_llm_input = is_unified_llm_input(json_input)
+    # no data parsing for unified LLM input format
     if _is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
@@ -419,7 +423,22 @@ def _parse_json_data(data, metadata, input_schema):
     else:
         # Traditional json input format
         data, params = _split_data_and_params(data)
-        data = infer_and_parse_data(data, input_schema)
+        # data only needs to be parsed if the model signature is not from type hint
+        # default to True for backwards compatibility
+        should_parse_data = (
+            not metadata._is_signature_from_type_hint()
+            if hasattr(metadata, "_is_signature_from_type_hint")
+            else True
+        )
+        if should_parse_data:
+            data = infer_and_parse_data(data, input_schema)
+        else:
+            if INPUTS not in data:
+                raise MlflowException.invalid_parameter_value(
+                    "Request payload must be a dictionary with 'inputs' key when "
+                    f"the model contains a valid type hint. Found keys in payload: {data.keys()}."
+                )
+            data = data[INPUTS]
     return ParsedJsonInput(data, params, _is_unified_llm_input)
 
 
@@ -431,6 +450,8 @@ def init(model: PyFuncModel):
 
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
+    # set the environment variable to indicate that we are in a serving environment
+    os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
 
     @app.route("/ping", methods=["GET"])
     @app.route("/health", methods=["GET"])
@@ -474,44 +495,53 @@ def init(model: PyFuncModel):
 
 
 def _predict(model_uri, input_path, output_path, content_type):
-    pyfunc_model = load_model(model_uri)
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
-    should_parse_as_unified_llm_input = False
-    if content_type == "json":
-        if input_path is None:
-            input_str = sys.stdin.read()
+    with _simulate_serving_environment():
+        pyfunc_model = load_model(model_uri)
+
+        should_parse_as_unified_llm_input = False
+        if content_type == "json":
+            if input_path is None:
+                input_str = sys.stdin.read()
+            else:
+                with open(input_path) as f:
+                    input_str = f.read()
+            parsed_json_input = _parse_json_data(
+                data=input_str,
+                metadata=pyfunc_model.metadata,
+                input_schema=pyfunc_model.metadata.get_input_schema(),
+            )
+            df = parsed_json_input.data
+            params = parsed_json_input.params
+            should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
+        elif content_type == "csv":
+            df = (
+                parse_csv_input(input_path)
+                if input_path is not None
+                else parse_csv_input(sys.stdin)
+            )
+            params = None
         else:
-            with open(input_path) as f:
-                input_str = f.read()
-        parsed_json_input = _parse_json_data(
-            data=input_str,
-            metadata=pyfunc_model.metadata,
-            input_schema=pyfunc_model.metadata.get_input_schema(),
+            raise Exception(f"Unknown content type '{content_type}'")
+
+        if "params" in inspect.signature(pyfunc_model.predict).parameters:
+            raw_predictions = pyfunc_model.predict(df, params=params)
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+            raw_predictions = pyfunc_model.predict(df)
+
+        parse_output_func = (
+            unwrapped_predictions_to_json
+            if should_parse_as_unified_llm_input
+            else predictions_to_json
         )
-        df = parsed_json_input.data
-        params = parsed_json_input.params
-        should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
-    elif content_type == "csv":
-        df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
-        params = None
-    else:
-        raise Exception(f"Unknown content type '{content_type}'")
 
-    if "params" in inspect.signature(pyfunc_model.predict).parameters:
-        raw_predictions = pyfunc_model.predict(df, params=params)
-    else:
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        raw_predictions = pyfunc_model.predict(df)
-
-    parse_output_func = (
-        unwrapped_predictions_to_json if should_parse_as_unified_llm_input else predictions_to_json
-    )
-
-    if output_path is None:
-        parse_output_func(raw_predictions, sys.stdout)
-    else:
-        with open(output_path, "w") as fout:
-            parse_output_func(raw_predictions, fout)
+        if output_path is None:
+            parse_output_func(raw_predictions, sys.stdout)
+        else:
+            with open(output_path, "w") as fout:
+                parse_output_func(raw_predictions, fout)
 
 
 def _serve(model_uri, port, host):

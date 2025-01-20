@@ -324,7 +324,6 @@ def get_trace(request_id: str) -> Optional[Trace]:
         return None
 
 
-@experimental
 def search_traces(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -571,7 +570,6 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-@experimental
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
 ):
