@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cachetools import TTLCache
 import contextlib
 import functools
 import importlib
@@ -15,6 +16,7 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -34,7 +36,6 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.tracing.utils.cache import TTLCache
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
@@ -732,6 +733,17 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
         )
+
+
+def flush():
+    """
+    Clear all the aggregated trace data. This should only be used for testing purposes.
+    """
+    TRACE_BUFFER.flush()
+    if MLFLOW_ENABLE_ASYNC_LOGGING.get():
+        from mlflow.tracking.fluent import flush_trace_async_logging
+
+        flush_trace_async_logging(terminate=False)
 
 
 def _merge_trace(

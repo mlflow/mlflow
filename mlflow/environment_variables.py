@@ -598,10 +598,6 @@ MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
 # How long a trace can be buffered at the in-memory trace client before being abandoned.
 MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
 
-# When the trace buffer TTL is set, this is the interval at which the trace buffer is checked
-# for expired traces. By default, this is set to 10 second.
-MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", int, 10)
-
 # How many traces to be buffered at the in-memory trace client.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
