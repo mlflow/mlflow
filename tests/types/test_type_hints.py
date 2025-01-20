@@ -13,7 +13,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
-    PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
     UnsupportedTypeHintException,
     _convert_data_to_type_hint,
@@ -24,6 +23,7 @@ from mlflow.types.type_hints import (
     _validate_data_against_type_hint,
 )
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 class CustomModel(pydantic.BaseModel):
@@ -191,7 +191,7 @@ def test_infer_schema_from_type_hints_errors():
     class InvalidModel(pydantic.BaseModel):
         bool_field: Optional[bool]
 
-    if not PYDANTIC_V1_OR_OLDER:
+    if IS_PYDANTIC_V2_OR_NEWER:
         message = (
             r"Optional field `bool_field` in Pydantic model `InvalidModel` "
             r"doesn't have a default value. Please set default value to None for this field."
