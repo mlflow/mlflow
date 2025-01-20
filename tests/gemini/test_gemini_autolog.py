@@ -37,11 +37,15 @@ def _get_candidate(content):
 
 
 def _generate_content_response(content):
-    return {
+    res = {
         "candidates": [_get_candidate(content)],
         "usage_metadata": _USER_METADATA,
-        "model_version": "gemini-1.5-flash-002",
     }
+
+    if hasattr(genai.types.GenerateContentResponse, "model_version"):
+        res["model_version"] = "gemini-1.5-flash-002"
+
+    return res
 
 
 _GENERATE_CONTENT_RESPONSE = _generate_content_response(_CONTENT)
