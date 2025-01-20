@@ -431,7 +431,7 @@ pmdarima:
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
           "holidays!=0.25",
           "numpy<2",
-          # Pin boto3 for https://github.com/boto/boto3/issues/4392
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
     run: |
@@ -453,7 +453,7 @@ diviner:
           "cmdstanpy!=1.0.2",
           "holidays!=0.25",
           "numpy<2",
-          # Pin boto3 for https://github.com/boto/boto3/issues/4392
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
       "<= 0.1.0": ["pmdarima<2.0.0"]
@@ -534,7 +534,7 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
-          # Pin boto3 for https://github.com/boto/boto3/issues/4392
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
@@ -578,7 +578,7 @@ transformers:
           "setfit",
           "optuna",
           "accelerate<1",
-          # Pin boto3 for https://github.com/boto/boto3/issues/4392
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
