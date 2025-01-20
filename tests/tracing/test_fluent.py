@@ -1475,3 +1475,40 @@ def test_add_trace_logging_model_from_code():
     trace = mlflow.get_last_active_trace()
     assert trace is not None
     assert len(trace.data.spans) == 2
+
+
+def test_trace_halted_after_ttl_when_enabled(monkeypatch, async_logging_enabled):
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "3")
+    monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
+
+    @mlflow.trace
+    def predict():
+        for _ in range(5):
+            slow_function()
+        return
+
+    @mlflow.trace
+    def slow_function():
+        time.sleep(1)
+
+    predict()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.execution_time_ms >= 3000
+    assert trace.info.status == SpanStatusCode.ERROR
+    assert len(trace.data.spans) >= 3
+
+    root_span = trace.data.spans[0]
+    assert root_span.name == "predict"
+    assert root_span.status.status_code == SpanStatusCode.ERROR
+    assert root_span.events[0].name == "exception"
+    assert root_span.events[0].attributes["exception.message"].startswith("This trace is automatically")
+
+    first_span = trace.data.spans[1]
+    assert first_span.name == "slow_function_1"
+    assert first_span.status.status_code == SpanStatusCode.OK

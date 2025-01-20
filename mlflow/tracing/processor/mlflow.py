@@ -157,11 +157,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # Processing the trace only when the root span is found.
         if span._parent is not None:
             return
-
         request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
-                _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
             self._update_trace_info(trace, span)

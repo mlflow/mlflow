@@ -3,6 +3,8 @@ from threading import Thread
 from typing import Optional
 
 from mlflow.entities import LiveSpan, Span, Trace
+from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -105,23 +107,32 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
     # Clear singleton instance to patch TTL
     InMemoryTraceManager._instance = None
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
+    monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id_1 = "tr-1"
-    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
+    trace_info = create_test_trace_info(request_id_1, "test")
+    trace_manager.register_trace(12345, trace_info)
 
     span_1_1 = _create_test_span(request_id_1)
     trace_manager.register_span(span_1_1)
 
-    assert request_id_1 in trace_manager._traces
+    assert trace_manager._traces.get(request_id_1) is not None
     assert len(trace_manager._traces[request_id_1].span_dict) == 1
 
-    time.sleep(1)
+    assert request_id_1 in trace_manager._traces
+
+    time.sleep(3)
 
     assert request_id_1 not in trace_manager._traces
 
     # Clear singleton instance again to avoid side effects to other tests
     InMemoryTraceManager._instance = None
+
+    # Expired trace should be marked as ERROR
+    assert span_1_1.status.status_code == SpanStatusCode.ERROR
+    assert span_1_1.events[0].name == "exception"
+    assert span_1_1.events[0].attributes["exception.message"].startswith("This trace is automatically halted")
 
 
 def test_traces_buffer_max_size_limit(monkeypatch):

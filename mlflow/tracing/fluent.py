@@ -8,7 +8,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
-from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
@@ -35,6 +34,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracing.utils.cache import TTLCache
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
