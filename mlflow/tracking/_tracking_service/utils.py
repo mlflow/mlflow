@@ -74,6 +74,8 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
             # Set 'MLFLOW_TRACKING_URI' environment variable
             # so that subprocess can inherit it.
             MLFLOW_TRACKING_URI.set(_tracking_uri)
+        else:
+            MLFLOW_TRACKING_URI.unset()
 
         # Tracer provider uses tracking URI to determine where to export traces.
         # Tracer provider stores the URI as its state so we need to reset
