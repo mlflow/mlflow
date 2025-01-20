@@ -131,7 +131,7 @@ async def test_litellm_tracing_async(is_in_databricks):
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
 
     # Await the logger task to ensure that the trace is logged.
-    logger_task = next(t for t in asyncio.all_tasks() if "async" in t.get_coro().__name__)
+    logger_task = next(t for t in asyncio.all_tasks() if "async_" in t.get_coro().__name__)
     await logger_task
 
     trace = mlflow.get_last_active_trace()
