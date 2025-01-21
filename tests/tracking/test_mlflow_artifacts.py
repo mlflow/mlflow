@@ -392,6 +392,10 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
             url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": path}
         )
         get_artifact_response.raise_for_status()
+        assert (
+            "attachment; filename=dog%25step%100%25timestamp%100%"
+            in get_artifact_response.headers["Content-Disposition"]
+        )
 
 
 @pytest.mark.parametrize(
