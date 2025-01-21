@@ -19,34 +19,38 @@ _LLM_ANSWER = "What about Tokyo?"
 
 
 def create_sample_llm_response(content):
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "model": "gpt-4o",
-        "system_fingerprint": "fp_44709d6fcb",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
+    from litellm import ModelResponse
+
+    return ModelResponse(
+        **{
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "gpt-4o",
+            "system_fingerprint": "fp_44709d6fcb",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    },
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 9,
+                "completion_tokens": 12,
+                "total_tokens": 21,
+                "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "accepted_prediction_tokens": 0,
+                    "rejected_prediction_tokens": 0,
                 },
-                "logprobs": None,
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 12,
-            "total_tokens": 21,
-            "completion_tokens_details": {
-                "reasoning_tokens": 0,
-                "accepted_prediction_tokens": 0,
-                "rejected_prediction_tokens": 0,
             },
-        },
-    }
+        }
+    )
 
 
 _SIMPLE_CHAT_COMPLETION = create_sample_llm_response(f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}")
