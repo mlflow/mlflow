@@ -112,10 +112,10 @@ class AsyncArtifactsLoggingQueue:
                 run_artifact.completion_event.set()
 
             except Exception as e:
+                run_artifact.completion_event.set()
                 _logger.error(f"Failed to log artifact {run_artifact.filename}. Exception: {e}")
                 run_artifact.exception = e
                 run_artifact.close()
-                run_artifact.completion_event.set()
 
         self._artifact_logging_worker_threadpool.submit(logging_func, run_artifact)
 

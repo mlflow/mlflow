@@ -1,4 +1,5 @@
 import io
+import os
 import pickle
 import posixpath
 import random
@@ -9,7 +10,6 @@ import pytest
 from PIL import Image
 
 from mlflow import MlflowException
-import os
 from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 
@@ -61,7 +61,8 @@ def _assert_sent_received_artifacts(
 
 def _assert_file_cleanup(filelist):
     for file in filelist:
-        assert not os.path.exists(file) and not os.path.exists(posixpath.dirname(file))
+        assert not os.path.exists(file)
+        assert not os.path.exists(posixpath.dirname(file))
 
 
 def test_single_thread_publish_consume_queue():
@@ -71,9 +72,7 @@ def test_single_thread_publish_consume_queue():
     local_paths_sent = []
     artifact_paths_sent = []
     for artifact in _get_run_artifacts():
-        async_logging_queue.log_artifacts_async(
-            artifact
-        )
+        async_logging_queue.log_artifacts_async(artifact)
         local_paths_sent.append(artifact.local_filepath)
         artifact_paths_sent.append(artifact.artifact_path)
     async_logging_queue.flush()
@@ -95,9 +94,7 @@ def test_queue_activation():
 
     for artifact in _get_run_artifacts(1):
         with pytest.raises(MlflowException, match="AsyncArtifactsLoggingQueue is not activated."):
-            async_logging_queue.log_artifacts_async(
-                artifact
-            )
+            async_logging_queue.log_artifacts_async(artifact)
 
     async_logging_queue.activate()
     assert async_logging_queue._is_activated
@@ -117,15 +114,9 @@ def test_partial_logging_failed():
     for artifact in _get_run_artifacts():
         if batch_id in [3, 4]:
             with pytest.raises(MlflowException, match="Failed to log run data"):
-                async_logging_queue.log_artifacts_async(
-                    artifact
-                ).wait()
+                async_logging_queue.log_artifacts_async(artifact).wait()
         else:
-            run_operations.append(
-                async_logging_queue.log_artifacts_async(
-                    artifact
-                )
-            )
+            run_operations.append(async_logging_queue.log_artifacts_async(artifact))
             local_paths_sent.append(artifact.local_filepath)
             artifact_paths_sent.append(artifact.artifact_path)
 
@@ -156,11 +147,7 @@ def test_publish_multithread_consume_single_thread():
         artifact_paths_sent = []
 
         for artifact in _get_run_artifacts():
-            run_operations.append(
-                run_data_queueing_processor.log_artifacts_async(
-                    artifact
-                )
-            )
+            run_operations.append(run_data_queueing_processor.log_artifacts_async(artifact))
 
             time.sleep(random.randint(1, 3))
             local_paths_sent.append(artifact.local_filepath)
@@ -208,11 +195,7 @@ def test_async_logging_queue_pickle():
 
     run_operations = []
     for artifact in _get_run_artifacts():
-        run_operations.append(
-            async_logging_queue.log_artifacts_async(
-                artifact
-            )
-        )
+        run_operations.append(async_logging_queue.log_artifacts_async(artifact))
 
     # Pickle the queue
     buffer = io.BytesIO()
@@ -235,11 +218,7 @@ def test_async_logging_queue_pickle():
     run_operations = []
 
     for artifact in _get_run_artifacts():
-        run_operations.append(
-            deserialized_queue.log_artifacts_async(
-                artifact
-            )
-        )
+        run_operations.append(deserialized_queue.log_artifacts_async(artifact))
 
     for run_operation in run_operations:
         run_operation.wait()

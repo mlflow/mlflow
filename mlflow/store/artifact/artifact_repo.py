@@ -84,7 +84,10 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(self.log_artifact)
+
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(
+            self._async_artifact_logging_function
+        )
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
@@ -135,6 +138,19 @@ class ArtifactRepository:
             self._async_logging_queue.activate()
 
         return self._async_logging_queue.log_artifacts_async(artifact=artifact)
+
+    def _async_artifact_logging_function(self, local_dir, artifact_path=None):
+        """
+        Used within the async logging queue to route artifact logging to the correct method.
+
+        Args:
+            local_dir: Directory or filepath of local artifact(s) to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+        """
+        if os.path.isdir(local_dir):
+            self.log_artifacts(local_dir, artifact_path)
+        else:
+            self.log_artifact(local_dir, artifact_path)
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):

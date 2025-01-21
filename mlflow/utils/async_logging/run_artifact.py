@@ -8,7 +8,7 @@ class RunArtifact:
     def __init__(
         self,
         filename: str,
-        artifact_path: str,
+        artifact_path: Optional[str] = None,
         local_dir: Optional[str] = None,
     ) -> None:
         """Initializes an instance of `RunArtifacts`.
@@ -25,22 +25,22 @@ class RunArtifact:
         self.filename = filename
         if local_dir is None:
             self._tmpdir = tempfile.TemporaryDirectory()
-            self.local_dir = self._tmpdir.name
+            local_dir = self._tmpdir.name
 
-        self.local_filepath = posixpath.join(self.local_dir, filename)
+        self.local_filepath = posixpath.join(local_dir, filename)
         self.completion_event = threading.Event()
         self._exception = None
 
     def close(self):
         """Explicitly cleanup temp resources."""
-        self._tmpdir.cleanup()
+        if self._tmpdir:
+            self._tmpdir.cleanup()
 
     def __del__(self):
         """
         Fallback cleanup if `close()` wasn't called.
         """
-        if self._tmpdir:
-            self._tmpdir.cleanup()
+        self.close()
 
     @property
     def exception(self):

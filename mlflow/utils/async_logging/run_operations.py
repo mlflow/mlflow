@@ -4,14 +4,14 @@ class RunOperations:
     def __init__(self, operation_futures):
         self._operation_futures = operation_futures or []
 
-    def wait(self):
+    def wait(self, timeout=None):
         """Blocks on completion of all futures."""
         from mlflow.exceptions import MlflowException
 
         failed_operations = []
         for future in self._operation_futures:
             try:
-                future.result()
+                future.result(timeout=timeout)
             except Exception as e:
                 failed_operations.append(e)
 
