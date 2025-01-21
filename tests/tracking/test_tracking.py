@@ -42,6 +42,13 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 
+from tests.tracking.conftest import (
+    _log_artifact_with_sync,
+    _log_artifacts_with_sync,
+    _log_table_with_sync,
+    _log_text_with_sync,
+)
+
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
 
@@ -567,7 +574,7 @@ def test_log_batch_validates_entity_names_and_values():
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_log_artifact_with_dirs(tmp_path):
+def test_log_artifact_with_dirs(tmp_path, synchronous):
     # Test log artifact with a directory
     art_dir = tmp_path / "parent"
     art_dir.mkdir()
@@ -580,7 +587,7 @@ def test_log_artifact_with_dirs(tmp_path):
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir))
+        _log_artifact_with_sync(mlflow, synchronous, str(art_dir))
         base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
         assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {
@@ -597,7 +604,7 @@ def test_log_artifact_with_dirs(tmp_path):
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir), "some_parent")
+        _log_artifact_with_sync(mlflow, synchronous, str(art_dir), "some_parent")
         assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
         assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == [
             os.path.basename(str(art_dir))
@@ -607,7 +614,7 @@ def test_log_artifact_with_dirs(tmp_path):
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        mlflow.log_artifact(str(art_dir), "parent/and_child")
+        _log_artifact_with_sync(mlflow, synchronous, str(art_dir), "parent/and_child")
         assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == [
             os.path.basename(str(art_dir))
         ]
@@ -623,7 +630,7 @@ def test_log_artifact_with_dirs(tmp_path):
         ) == {os.path.basename(str(sub_dir))}
 
 
-def test_log_artifact(tmp_path):
+def test_log_artifact(tmp_path, synchronous):
     # Create artifacts
     artifact_dir = tmp_path.joinpath("artifact_dir")
     artifact_dir.mkdir()
@@ -638,7 +645,7 @@ def test_log_artifact(tmp_path):
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
-            mlflow.log_artifact(path0, parent_dir)
+            _log_artifact_with_sync(mlflow, synchronous, path0, parent_dir)
         expected_dir = (
             os.path.join(run_artifact_dir, parent_dir)
             if parent_dir is not None
@@ -652,8 +659,7 @@ def test_log_artifact(tmp_path):
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
-
-            mlflow.log_artifacts(artifact_dir, parent_dir)
+            _log_artifacts_with_sync(mlflow, synchronous, artifact_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = (
             os.path.join(run_artifact_dir, parent_dir)
@@ -668,13 +674,13 @@ def test_log_artifact(tmp_path):
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_text(subdir):
+def test_log_text(subdir, synchronous):
     filename = "file.txt"
     text = "a"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
 
     with mlflow.start_run():
-        mlflow.log_text(text, artifact_file)
+        _log_text_with_sync(mlflow, synchronous, text, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
@@ -947,7 +953,7 @@ def read_data(artifact_path):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table(file_type):
+def test_log_table(file_type, synchronous):
     import pandas as pd
 
     table_dict = {
@@ -964,12 +970,14 @@ def test_log_table(file_type):
     ) as e:
         with mlflow.start_run() as run:
             # Log the incorrect data format as a table
-            mlflow.log_table(data="incorrect-data-format", artifact_file=artifact_file)
+            _log_table_with_sync(
+                mlflow, synchronous, data="incorrect-data-format", artifact_file=artifact_file
+            )
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id = run.info.run_id
 
     run = mlflow.get_run(run_id)
@@ -986,7 +994,7 @@ def test_log_table(file_type):
     table_df = pd.DataFrame.from_dict(table_dict)
     with mlflow.start_run(run_id=run_id):
         # Log the dataframe as a table
-        mlflow.log_table(data=table_df, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_df, artifact_file=artifact_file)
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
@@ -1001,7 +1009,7 @@ def test_log_table(file_type):
     artifact_file_new = f"qabot_eval_results_new.{file_type}"
     with mlflow.start_run(run_id=run_id):
         # Log the dataframe as a table to new artifact file
-        mlflow.log_table(data=table_df, artifact_file=artifact_file_new)
+        _log_table_with_sync(mlflow, synchronous, data=table_df, artifact_file=artifact_file_new)
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(
@@ -1021,7 +1029,7 @@ def test_log_table(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_subdirectory(file_type):
+def test_log_table_with_subdirectory(file_type, synchronous):
     import pandas as pd
 
     table_dict = {
@@ -1035,7 +1043,7 @@ def test_log_table_with_subdirectory(file_type):
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id = run.info.run_id
 
     run = mlflow.get_run(run_id)
@@ -1052,7 +1060,7 @@ def test_log_table_with_subdirectory(file_type):
     table_df = pd.DataFrame.from_dict(table_dict)
     with mlflow.start_run(run_id=run_id):
         # Log the dataframe as a table
-        mlflow.log_table(data=table_df, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_df, artifact_file=artifact_file)
 
     run = mlflow.get_run(run_id)
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
@@ -1070,7 +1078,7 @@ def test_log_table_with_subdirectory(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_load_table(file_type):
+def test_load_table(file_type, synchronous):
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
         "outputs": ["MLflow is ...", "Databricks is ..."],
@@ -1082,17 +1090,17 @@ def test_load_table(file_type):
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file_2)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file_2)
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id_2 = run.info.run_id
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id_3 = run.info.run_id
 
     extra_columns = ["run_id", "tags.mlflow.loggedArtifacts"]
@@ -1155,7 +1163,7 @@ def test_load_table(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_datetime_columns(file_type):
+def test_log_table_with_datetime_columns(file_type, synchronous):
     import pandas as pd
 
     start_time = str(datetime.now(timezone.utc))
@@ -1168,7 +1176,7 @@ def test_log_table_with_datetime_columns(file_type):
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
@@ -1179,7 +1187,9 @@ def test_log_table_with_datetime_columns(file_type):
     assert table_data["start_time"][0] == start_time
 
     # append the same table to the same artifact file
-    mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
+    _log_table_with_sync(
+        mlflow, synchronous, data=table_dict, artifact_file=artifact_file, run_id=run_id
+    )
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
     if file_type == "parquet":
         df = pd.read_parquet(artifact_path)
@@ -1193,7 +1203,7 @@ def test_log_table_with_datetime_columns(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_image_columns(file_type):
+def test_log_table_with_image_columns(file_type, synchronous):
     import numpy as np
     from PIL import Image
 
@@ -1207,7 +1217,7 @@ def test_log_table_with_image_columns(file_type):
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
@@ -1220,7 +1230,9 @@ def test_log_table_with_image_columns(file_type):
     assert np.abs(image.to_array() - np.array(image2)).sum() == 0
 
     # append the same table to the same artifact file
-    mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
+    _log_table_with_sync(
+        mlflow, synchronous, data=table_dict, artifact_file=artifact_file, run_id=run_id
+    )
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
     df = read_data(artifact_path)
     assert df["image"][2]["type"] == "image"
@@ -1231,7 +1243,7 @@ def test_log_table_with_image_columns(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_pil_image_columns(file_type):
+def test_log_table_with_pil_image_columns(file_type, synchronous):
     import numpy as np
     from PIL import Image
 
@@ -1247,7 +1259,7 @@ def test_log_table_with_pil_image_columns(file_type):
 
     with mlflow.start_run() as run:
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
         run_id = run.info.run_id
 
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
@@ -1260,7 +1272,9 @@ def test_log_table_with_pil_image_columns(file_type):
     assert np.abs(np.array(image) - np.array(image2)).sum() == 0
 
     # append the same table to the same artifact file
-    mlflow.log_table(data=table_dict, artifact_file=artifact_file, run_id=run_id)
+    _log_table_with_sync(
+        mlflow, synchronous, data=table_dict, artifact_file=artifact_file, run_id=run_id
+    )
     artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
     df = read_data(artifact_path)
     assert df["image"][2]["type"] == "image"
@@ -1271,7 +1285,7 @@ def test_log_table_with_pil_image_columns(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_invalid_image_columns(file_type):
+def test_log_table_with_invalid_image_columns(file_type, synchronous):
     image = mlflow.Image([[1, 2, 3]])
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
@@ -1282,7 +1296,7 @@ def test_log_table_with_invalid_image_columns(file_type):
     with pytest.raises(ValueError, match="Column `image` contains a mix of images and non-images"):
         with mlflow.start_run():
             # Log the dictionary as a table
-            mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+            _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
 
 
 @pytest.mark.skipif(
@@ -1290,7 +1304,7 @@ def test_log_table_with_invalid_image_columns(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
-def test_log_table_with_valid_image_columns(file_type):
+def test_log_table_with_valid_image_columns(file_type, synchronous):
     class ImageObj:
         def __init__(self):
             self.size = (1, 1)
@@ -1314,7 +1328,7 @@ def test_log_table_with_valid_image_columns(file_type):
     artifact_file = f"test_time.{file_type}"
     with mlflow.start_run():
         # Log the dictionary as a table
-        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        _log_table_with_sync(mlflow, synchronous, data=table_dict, artifact_file=artifact_file)
 
 
 def test_set_async_logging_threadpool_size():

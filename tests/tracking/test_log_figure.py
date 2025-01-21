@@ -6,13 +6,10 @@ import pytest
 
 import mlflow
 from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.os import is_windows
 
-def _log_figure_with_sync(synchronous, *args, **kwargs):
-    task = mlflow.log_figure(*args, **kwargs, synchronous=synchronous)
-    if isinstance(task, RunOperations):
-        task.wait()
+from tests.tracking.conftest import _log_figure_with_sync
+
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_matplotlib(subdir, synchronous):
@@ -25,7 +22,7 @@ def test_log_figure_matplotlib(subdir, synchronous):
     ax.plot([0, 1], [2, 3])
 
     with mlflow.start_run():
-        _log_figure_with_sync(synchronous, fig, artifact_file)
+        _log_figure_with_sync(mlflow, synchronous, fig, artifact_file)
         plt.close(fig)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
@@ -44,7 +41,7 @@ def test_log_figure_plotly_html(subdir, synchronous):
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
 
     with mlflow.start_run():
-        _log_figure_with_sync(synchronous, fig, artifact_file)
+        _log_figure_with_sync(mlflow, synchronous, fig, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
@@ -64,7 +61,7 @@ def test_log_figure_plotly_image(extension, synchronous):
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
 
     with mlflow.start_run():
-        _log_figure_with_sync(synchronous, fig, artifact_file)
+        _log_figure_with_sync(mlflow, synchronous, fig, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
@@ -79,7 +76,7 @@ def test_log_figure_save_kwargs(synchronous):
     with mlflow.start_run():
         name = "figure.html"
         div_id = uuid.uuid4().hex
-        _log_figure_with_sync(synchronous, fig, name, save_kwargs={"div_id": div_id})
+        _log_figure_with_sync(mlflow, synchronous, fig, name, save_kwargs={"div_id": div_id})
         artifact_uri = mlflow.get_artifact_uri(name)
         local_path = local_file_uri_to_path(artifact_uri)
         with open(local_path) as f:
@@ -101,9 +98,9 @@ def test_log_figure_raises_error_for_unsupported_file_extension(extension, synch
             TypeError, match=f"Unsupported file extension for plotly figure: '{extension}'"
         ),
     ):
-        _log_figure_with_sync(synchronous, fig, artifact_file)
+        _log_figure_with_sync(mlflow, synchronous, fig, artifact_file)
 
 
 def test_log_figure_raises_error_for_unsupported_figure_object_type(synchronous):
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
-        _log_figure_with_sync(synchronous, "not_figure", "figure.png")
+        _log_figure_with_sync(mlflow, synchronous, "not_figure", "figure.png")

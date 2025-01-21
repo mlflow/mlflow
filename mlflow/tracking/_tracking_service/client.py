@@ -10,7 +10,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Optional, List
+from typing import Optional
 
 from mlflow.entities import (
     ExperimentTag,

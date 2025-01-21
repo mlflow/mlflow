@@ -1147,7 +1147,7 @@ def log_artifact(
     local_path: str,
     artifact_path: Optional[str] = None,
     run_id: Optional[str] = None,
-    synchronous: Optional[bool] = None
+    synchronous: Optional[bool] = None,
 ) -> Optional[RunOperations]:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
@@ -1187,7 +1187,10 @@ def log_artifact(
 
 
 def log_artifacts(
-    local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None, synchronous: Optional[bool] = None
+    local_dir: str,
+    artifact_path: Optional[str] = None,
+    run_id: Optional[str] = None,
+    synchronous: Optional[bool] = None,
 ) -> Optional[RunOperations]:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
@@ -1231,10 +1234,7 @@ def log_artifacts(
 
 
 def log_text(
-    text: str,
-    artifact_file: str,
-    run_id: Optional[str] = None,
-    synchronous: Optional[bool] = None
+    text: str, artifact_file: str, run_id: Optional[str] = None, synchronous: Optional[bool] = None
 ) -> Optional[RunOperations]:
     """
     Log text as an artifact.
@@ -1275,7 +1275,7 @@ def log_dict(
     dictionary: dict[str, Any],
     artifact_file: str,
     run_id: Optional[str] = None,
-    synchronous: Optional[bool] = None
+    synchronous: Optional[bool] = None,
 ) -> Optional[RunOperations]:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
@@ -1324,7 +1324,7 @@ def log_figure(
     artifact_file: str,
     *,
     save_kwargs: Optional[dict[str, Any]] = None,
-    synchronous: Optional[bool] = None
+    synchronous: Optional[bool] = None,
 ) -> Optional[RunOperations]:
     """
     Log a figure as an artifact. The following figure objects are supported:
@@ -1374,7 +1374,9 @@ def log_figure(
             mlflow.log_figure(fig, "figure.html")
     """
     run_id = _get_or_start_run().info.run_id
-    return MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs, synchronous=synchronous)
+    return MlflowClient().log_figure(
+        run_id, figure, artifact_file, save_kwargs=save_kwargs, synchronous=synchronous
+    )
 
 
 def log_image(

@@ -5,14 +5,11 @@ import posixpath
 import pytest
 
 import mlflow
-from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.time import get_current_time_millis
 
-def _log_image_with_sync(synchronous, *args, **kwargs):
-    task = mlflow.log_image(*args, **kwargs, synchronous=synchronous)
-    if isinstance(task, RunOperations):
-        task.wait()
+from tests.tracking.conftest import _log_image_with_sync
+
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_numpy(subdir, synchronous):
@@ -25,7 +22,7 @@ def test_log_image_numpy(subdir, synchronous):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, artifact_file)
+        _log_image_with_sync(mlflow, synchronous, image, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
@@ -47,7 +44,7 @@ def test_log_image_pillow(subdir, synchronous):
     image = Image.new("RGB", (100, 100))
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, artifact_file)
+        _log_image_with_sync(mlflow, synchronous, image, artifact_file)
 
         artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
@@ -63,7 +60,7 @@ def test_log_image_pillow(subdir, synchronous):
 def test_log_image_raises_for_unsupported_objects(synchronous):
     with mlflow.start_run():
         with pytest.raises(TypeError, match="Unsupported image object type"):
-            _log_image_with_sync(synchronous, "not_image", "image.png")
+            _log_image_with_sync(mlflow, synchronous, "not_image", "image.png")
 
 
 @pytest.mark.parametrize(
@@ -82,7 +79,7 @@ def test_log_image_numpy_shape(size, synchronous):
     image = np.random.randint(0, 256, size=size, dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, filename)
+        _log_image_with_sync(mlflow, synchronous, image, filename)
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
@@ -113,7 +110,7 @@ def test_log_image_numpy_dtype(dtype, synchronous):
     image = np.random.randint(0, 2, size=(100, 100, 3)).astype(np.dtype(dtype))
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, filename)
+        _log_image_with_sync(mlflow, synchronous, image, filename)
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
@@ -133,39 +130,39 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array, synchronou
             mlflow.start_run(),
             pytest.raises(ValueError, match="Integer pixel values out of acceptable range"),
         ):
-            _log_image_with_sync(synchronous, image, "image.png")
+            _log_image_with_sync(mlflow, synchronous, image, "image.png")
     else:
         with (
             mlflow.start_run(),
             pytest.warns(UserWarning, match="Float pixel values out of acceptable range"),
         ):
-            _log_image_with_sync(synchronous, image, "image.png")
+            _log_image_with_sync(mlflow, synchronous, image, "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type(synchronous):
     import numpy as np
 
     with mlflow.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
-        _log_image_with_sync(synchronous, np.tile("a", (1, 1, 3)), "image.png")
+        _log_image_with_sync(mlflow, synchronous, np.tile("a", (1, 1, 3)), "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_array_shape(synchronous):
     import numpy as np
 
     with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
-        _log_image_with_sync(synchronous, np.zeros((1,), dtype=np.uint8), "image.png")
+        _log_image_with_sync(mlflow, synchronous, np.zeros((1,), dtype=np.uint8), "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_channel_length(synchronous):
     import numpy as np
 
     with mlflow.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
-        _log_image_with_sync(synchronous, np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
+        _log_image_with_sync(mlflow, synchronous, np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
 
 
 def test_log_image_raises_exception_for_unsupported_image_object_type(synchronous):
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
-        _log_image_with_sync(synchronous, "not_image", "image.png")
+        _log_image_with_sync(mlflow, synchronous, "not_image", "image.png")
 
 
 def test_log_image_with_steps(synchronous):
@@ -175,7 +172,7 @@ def test_log_image_with_steps(synchronous):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, key="dog", step=0)
+        _log_image_with_sync(mlflow, synchronous, image, key="dog", step=0)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -206,7 +203,7 @@ def test_log_image_with_timestamp(synchronous):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image, key="dog", timestamp=100)
+        _log_image_with_sync(mlflow, synchronous, image, key="dog", timestamp=100)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -241,8 +238,8 @@ def test_duplicated_log_image_with_step(synchronous):
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image1, key="dog", step=100)
-        _log_image_with_sync(synchronous, image2, key="dog", step=100)
+        _log_image_with_sync(mlflow, synchronous, image1, key="dog", step=100)
+        _log_image_with_sync(mlflow, synchronous, image2, key="dog", step=100)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -262,8 +259,8 @@ def test_duplicated_log_image_with_timestamp(synchronous):
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        _log_image_with_sync(synchronous, image1, key="dog", step=100, timestamp=100)
-        _log_image_with_sync(synchronous, image2, key="dog", step=100, timestamp=100)
+        _log_image_with_sync(mlflow, synchronous, image1, key="dog", step=100, timestamp=100)
+        _log_image_with_sync(mlflow, synchronous, image2, key="dog", step=100, timestamp=100)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -290,10 +287,14 @@ def test_log_image_raises_exception_for_unexpected_arguments_used(args, synchron
     exception = "The `artifact_file` parameter cannot be used in conjunction"
     if isinstance(args, dict):
         with mlflow.start_run(), pytest.raises(TypeError, match=exception):
-            _log_image_with_sync(synchronous, np.zeros((1,), dtype=np.uint8), "image.png", **args)
+            _log_image_with_sync(
+                mlflow, synchronous, np.zeros((1,), dtype=np.uint8), "image.png", **args
+            )
     elif isinstance(args, list):
         with mlflow.start_run(), pytest.raises(TypeError, match=exception):
-            _log_image_with_sync(synchronous, np.zeros((1,), dtype=np.uint8), "image.png", *args)
+            _log_image_with_sync(
+                mlflow, synchronous, np.zeros((1,), dtype=np.uint8), "image.png", *args
+            )
 
 
 def test_log_image_raises_exception_for_missing_arguments(synchronous):
@@ -301,7 +302,7 @@ def test_log_image_raises_exception_for_missing_arguments(synchronous):
 
     exception = "Invalid arguments: Please specify exactly one of `artifact_file` or `key`"
     with mlflow.start_run(), pytest.raises(TypeError, match=exception):
-        _log_image_with_sync(synchronous, np.zeros((1,), dtype=np.uint8))
+        _log_image_with_sync(mlflow, synchronous, np.zeros((1,), dtype=np.uint8))
 
 
 def test_async_log_image_flush(synchronous):
@@ -310,7 +311,7 @@ def test_async_log_image_flush(synchronous):
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
     with mlflow.start_run():
         for i in range(100):
-            _log_image_with_sync(synchronous, image1, key="dog", step=i, timestamp=i)
+            _log_image_with_sync(mlflow, synchronous, image1, key="dog", step=i, timestamp=i)
 
         mlflow.flush_artifact_async_logging()
 

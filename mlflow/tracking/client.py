@@ -15,7 +15,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, List
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 import yaml
 
@@ -1979,6 +1979,12 @@ class MlflowClient:
         if synchronous:
             self._tracking_client.log_artifact(run_id, local_path, artifact_path)
         else:
+            if os.path.isdir(local_path):
+                dir_name = os.path.basename(os.path.normpath(local_path))
+                path_name = (
+                    os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+                )
+                return self.log_artifacts(run_id, local_path, path_name, synchronous=synchronous)
             artifact = RunArtifact(
                 artifact_path=artifact_path,
                 local_dir=posixpath.dirname(local_path),
@@ -1987,7 +1993,11 @@ class MlflowClient:
             return self._tracking_client._log_artifact_async(run_id, artifact)
 
     def log_artifacts(
-        self, run_id: str, local_dir: str, artifact_path: Optional[str] = None, synchronous: Optional[bool] = None
+        self,
+        run_id: str,
+        local_dir: str,
+        artifact_path: Optional[str] = None,
+        synchronous: Optional[bool] = None,
     ) -> Optional[RunOperations]:
         """Write a directory of files to the remote ``artifact_uri``.
 
@@ -1995,7 +2005,7 @@ class MlflowClient:
             run_id: String ID of run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the artifact is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2040,17 +2050,18 @@ class MlflowClient:
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
-        if synchronous or True:
+        if synchronous:
             self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
         else:
             task = RunOperations(None)
-            for file in os.listdir(local_dir):
-                artifact = RunArtifact(
-                    artifact_path=artifact_path,
-                    local_dir=local_dir,
-                    filename=file,
-                )
-                task._operation_futures.extend(self._tracking_client._log_artifact_async(run_id, artifact)._operation_futures)
+            artifact = RunArtifact(
+                artifact_path=artifact_path,
+                local_dir=local_dir,
+                filename="",
+            )
+            task._operation_futures.extend(
+                self._tracking_client._log_artifact_async(run_id, artifact)._operation_futures
+            )
             return task
 
     @contextlib.contextmanager
@@ -2306,7 +2317,7 @@ class MlflowClient:
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
         synchronous: Optional[bool] = None,
-    ) -> Optional[List[RunOperations]]:
+    ) -> Optional[list[RunOperations]]:
         """
         Logs an image in MLflow, supporting two use cases:
 
@@ -2535,12 +2546,14 @@ class MlflowClient:
                 )
                 image.save(compressed_artifact.local_filepath)
                 task._operation_futures.extend(
-                    self._tracking_client._log_artifact_async(run_id, compressed_artifact)._operation_futures
+                    self._tracking_client._log_artifact_async(
+                        run_id, compressed_artifact
+                    )._operation_futures
                 )
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
-            return task
+        return task
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
@@ -2752,7 +2765,7 @@ class MlflowClient:
                 artifact_path=posixpath.dirname(normalized_path),
             )
             write_to_file(data, artifact.local_filepath)
-            task = self._log_artifact_async_helper(run_id, artifact)
+            task = self._tracking_client._log_artifact_async(run_id, artifact)
 
         run = self.get_run(run_id)
 

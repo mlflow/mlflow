@@ -19,8 +19,6 @@ def flush_async_logging():
     mlflow.flush_async_logging()
 
 
-
-
 def test_async_logging_mlflow_client_pickle():
     experiment_name = f"mlflow-async-logging-pickle-test-{str(uuid.uuid4())[:8]}"
     mlflow_client = MlflowClient()
