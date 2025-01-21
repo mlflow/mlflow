@@ -900,6 +900,8 @@ sentence_transformers:
           "hf_transfer",
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
