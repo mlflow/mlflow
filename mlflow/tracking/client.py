@@ -15,7 +15,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, List
 
 import yaml
 
@@ -74,6 +74,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -1922,13 +1923,19 @@ class MlflowClient:
         """
         self._tracking_client.log_inputs(run_id, datasets)
 
-    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
+    def log_artifact(
+        self, run_id, local_path, artifact_path=None, synchronous: Optional[bool] = None
+    ) -> Optional[RunOperations]:
         """Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
             run_id: String ID of run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -1962,21 +1969,36 @@ class MlflowClient:
             is_dir: False
 
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         if run_id.startswith(TRACE_REQUEST_ID_PREFIX):
             raise MlflowException(
                 f"Invalid run id: {run_id}. `log_artifact` run id must map to a valid run."
             )
-        self._tracking_client.log_artifact(run_id, local_path, artifact_path)
+        if synchronous:
+            self._tracking_client.log_artifact(run_id, local_path, artifact_path)
+        else:
+            artifact = RunArtifact(
+                artifact_path=artifact_path,
+                local_dir=posixpath.dirname(local_path),
+                filename=posixpath.basename(local_path),
+            )
+            return self._tracking_client._log_artifact_async(run_id, artifact)
 
     def log_artifacts(
-        self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
-    ) -> None:
+        self, run_id: str, local_dir: str, artifact_path: Optional[str] = None, synchronous: Optional[bool] = None
+    ) -> Optional[RunOperations]:
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
             run_id: String ID of run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -2015,7 +2037,21 @@ class MlflowClient:
             is_dir: True
 
         """
-        self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
+        if synchronous or True:
+            self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
+        else:
+            task = RunOperations(None)
+            for file in os.listdir(local_dir):
+                artifact = RunArtifact(
+                    artifact_path=artifact_path,
+                    local_dir=local_dir,
+                    filename=file,
+                )
+                task._operation_futures.extend(self._tracking_client._log_artifact_async(run_id, artifact)._operation_futures)
+            return task
 
     @contextlib.contextmanager
     def _log_artifact_helper(self, run_id, artifact_file):
@@ -2038,24 +2074,9 @@ class MlflowClient:
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
-        """Log artifact asynchronously.
-
-        Args:
-            run_id: The unique identifier for the run. This ID is used to associate the
-                artifact with a specific run.
-            artifact_file: The file path of the artifact relative to the run's directory.
-                The path should be in POSIX format, using forward slashes (/) as directory
-                separators.
-            artifact: The artifact to be logged.
-        """
-        norm_path = posixpath.normpath(artifact_file)
-        filename = posixpath.basename(norm_path)
-        artifact_dir = posixpath.dirname(norm_path)
-        artifact_dir = None if artifact_dir == "" else artifact_dir
-        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
-
-    def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
+    def log_text(
+        self, run_id: str, text: str, artifact_file: str, synchronous: Optional[bool] = None
+    ) -> Optional[RunOperations]:
         """Log text as an artifact.
 
         Args:
@@ -2063,6 +2084,10 @@ class MlflowClient:
             text: String containing text to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the text is saved (e.g. "dir/file.txt").
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -2082,11 +2107,30 @@ class MlflowClient:
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
 
         """
-        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w", encoding="utf-8") as f:
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
+        if synchronous:
+            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(text)
+        else:
+            normalized_path = posixpath.normpath(artifact_file)
+            artifact = RunArtifact(
+                filename=posixpath.basename(normalized_path),
+                artifact_path=posixpath.dirname(normalized_path),
+            )
+            with open(artifact.local_filepath, "w", encoding="utf-8") as f:
                 f.write(text)
+            return self._tracking_client._log_artifact_async(run_id, artifact)
 
-    def log_dict(self, run_id: str, dictionary: dict[str, Any], artifact_file: str) -> None:
+    def log_dict(
+        self,
+        run_id: str,
+        dictionary: dict[str, Any],
+        artifact_file: str,
+        synchronous: Optional[bool] = None,
+    ) -> Optional[RunOperations]:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
@@ -2097,6 +2141,10 @@ class MlflowClient:
             dictionary: Dictionary to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the dictionary is saved (e.g. "dir/data.json").
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example
@@ -2121,16 +2169,62 @@ class MlflowClient:
             mlflow.log_dict(run_id, dictionary, "data.txt")
 
         """
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         extension = os.path.splitext(artifact_file)[1]
 
-        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w") as f:
-                # Specify `indent` to prettify the output
+        if synchronous:
+            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                with open(tmp_path, "w") as f:
+                    # Specify `indent` to prettify the output
+                    if extension in [".yml", ".yaml"]:
+                        yaml.dump(dictionary, f, indent=2, default_flow_style=False)
+                    else:
+                        # Stringify objects that can't be JSON-serialized
+                        json.dump(dictionary, f, indent=2, default=str)
+        else:
+            normalized_path = posixpath.normpath(artifact_file)
+            artifact = RunArtifact(
+                filename=posixpath.basename(normalized_path),
+                artifact_path=posixpath.dirname(normalized_path),
+            )
+            with open(artifact.local_filepath, "w") as f:
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
-                    # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
+            return self._tracking_client._log_artifact_async(run_id, artifact)
+
+    @staticmethod
+    def _write_figure(figure, tmp_path, artifact_file, save_kwargs):
+        def _is_matplotlib_figure(fig):
+            import matplotlib.figure
+
+            return isinstance(fig, matplotlib.figure.Figure)
+
+        def _is_plotly_figure(fig):
+            import plotly
+
+            return isinstance(fig, plotly.graph_objects.Figure)
+
+        # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
+        # This allows logging a `plotly` figure in an environment where `matplotlib` is not
+        # installed.
+        if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
+            figure.savefig(tmp_path, **save_kwargs)
+        elif "plotly" in sys.modules and _is_plotly_figure(figure):
+            file_extension = os.path.splitext(artifact_file)[1]
+            if file_extension == ".html":
+                save_kwargs.setdefault("include_plotlyjs", "cdn")
+                save_kwargs.setdefault("auto_open", False)
+                figure.write_html(tmp_path, **save_kwargs)
+            elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
+                figure.write_image(tmp_path, **save_kwargs)
+            else:
+                raise TypeError(f"Unsupported file extension for plotly figure: '{file_extension}'")
+        else:
+            raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
 
     def log_figure(
         self,
@@ -2139,7 +2233,8 @@ class MlflowClient:
         artifact_file: str,
         *,
         save_kwargs: Optional[dict[str, Any]] = None,
-    ) -> None:
+        synchronous: Optional[bool] = None,
+    ) -> Optional[RunOperations]:
         """Log a figure as an artifact. The following figure objects are supported:
 
         - `matplotlib.figure.Figure`_
@@ -2157,6 +2252,10 @@ class MlflowClient:
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the figure is saved (e.g. "dir/file.png").
             save_kwargs: Additional keyword arguments passed to the method that saves the figure.
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Matplotlib Example
@@ -2182,38 +2281,21 @@ class MlflowClient:
             client.log_figure(run.info.run_id, fig, "figure.html")
 
         """
-
-        def _is_matplotlib_figure(fig):
-            import matplotlib.figure
-
-            return isinstance(fig, matplotlib.figure.Figure)
-
-        def _is_plotly_figure(fig):
-            import plotly
-
-            return isinstance(fig, plotly.graph_objects.Figure)
-
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
         save_kwargs = save_kwargs or {}
-        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
-            # This allows logging a `plotly` figure in an environment where `matplotlib` is not
-            # installed.
-            if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
-                figure.savefig(tmp_path, **save_kwargs)
-            elif "plotly" in sys.modules and _is_plotly_figure(figure):
-                file_extension = os.path.splitext(artifact_file)[1]
-                if file_extension == ".html":
-                    save_kwargs.setdefault("include_plotlyjs", "cdn")
-                    save_kwargs.setdefault("auto_open", False)
-                    figure.write_html(tmp_path, **save_kwargs)
-                elif file_extension in [".png", ".jpeg", ".webp", ".svg", ".pdf"]:
-                    figure.write_image(tmp_path, **save_kwargs)
-                else:
-                    raise TypeError(
-                        f"Unsupported file extension for plotly figure: '{file_extension}'"
-                    )
-            else:
-                raise TypeError(f"Unsupported figure object type: '{type(figure)}'")
+        if synchronous:
+            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                self._write_figure(figure, tmp_path, artifact_file, save_kwargs)
+        else:
+            normalized_path = posixpath.normpath(artifact_file)
+            artifact = RunArtifact(
+                filename=posixpath.basename(normalized_path),
+                artifact_path=posixpath.dirname(normalized_path),
+            )
+            self._write_figure(figure, artifact.local_filepath, artifact_file, save_kwargs)
+            return self._tracking_client._log_artifact_async(run_id, artifact)
 
     def log_image(
         self,
@@ -2224,7 +2306,7 @@ class MlflowClient:
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
         synchronous: Optional[bool] = None,
-    ) -> None:
+    ) -> Optional[List[RunOperations]]:
         """
         Logs an image in MLflow, supporting two use cases:
 
@@ -2352,6 +2434,7 @@ class MlflowClient:
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+        task = None if synchronous else RunOperations(None)
         if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
             raise TypeError(
                 "The `artifact_file` parameter cannot be used in conjunction with `key`, "
@@ -2383,8 +2466,19 @@ class MlflowClient:
                 )
 
         if artifact_file is not None:
-            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-                image.save(tmp_path)
+            if synchronous:
+                with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                    image.save(tmp_path)
+            else:
+                normalized_path = posixpath.normpath(artifact_file)
+                artifact = RunArtifact(
+                    filename=posixpath.basename(normalized_path),
+                    artifact_path=posixpath.dirname(normalized_path),
+                )
+                image.save(artifact.local_filepath)
+                task._operation_futures.extend(
+                    self._tracking_client._log_artifact_async(run_id, artifact)._operation_futures
+                )
 
         elif key is not None:
             # Check image key for invalid characters
@@ -2420,16 +2514,33 @@ class MlflowClient:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                     image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, image_filepath, image)
+                normalized_path = posixpath.normpath(image_filepath)
+                artifact = RunArtifact(
+                    filename=posixpath.basename(normalized_path),
+                    artifact_path=posixpath.dirname(normalized_path),
+                )
+                image.save(artifact.local_filepath)
+                task._operation_futures.extend(
+                    self._tracking_client._log_artifact_async(run_id, artifact)._operation_futures
+                )
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     compressed_image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
+                normalized_compressed_path = posixpath.normpath(compressed_image_filepath)
+                compressed_artifact = RunArtifact(
+                    filename=posixpath.basename(normalized_compressed_path),
+                    artifact_path=posixpath.dirname(normalized_compressed_path),
+                )
+                image.save(compressed_artifact.local_filepath)
+                task._operation_futures.extend(
+                    self._tracking_client._log_artifact_async(run_id, compressed_artifact)._operation_futures
+                )
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
+            return task
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
@@ -2458,7 +2569,8 @@ class MlflowClient:
         run_id: str,
         data: Union[dict[str, Any], "pandas.DataFrame"],
         artifact_file: str,
-    ) -> None:
+        synchronous: Optional[bool] = None,
+    ) -> Optional[RunOperations]:
         """
         Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
         in the run, the data would be appended to the existing artifact_file.
@@ -2468,6 +2580,10 @@ class MlflowClient:
             data: Dictionary or pandas.DataFrame to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the table is saved (e.g. "dir/file.json").
+            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                If False, logs the metric asynchronously and returns a future representing the
+                logging operation. If None, read from environment variable
+                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :test:
@@ -2524,6 +2640,10 @@ class MlflowClient:
                 client.log_table(run.info.run_id, data=df, artifact_file="image_gen.json")
         """
         import pandas as pd
+
+        synchronous = (
+            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+        )
 
         self._check_artifact_file_string(artifact_file)
         if not artifact_file.endswith((".json", ".parquet")):
@@ -2615,14 +2735,24 @@ class MlflowClient:
                 f"{artifact_file} for run {run_id}."
             )
 
-        with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
-            try:
-                write_to_file(data, artifact_path)
-            except Exception as e:
-                raise MlflowException(
-                    f"Failed to save {data} as table as the data is not JSON serializable. "
-                    f"Error: {e}"
-                )
+        if synchronous:
+            with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
+                try:
+                    write_to_file(data, artifact_path)
+                except Exception as e:
+                    raise MlflowException(
+                        f"Failed to save {data} as table as the data is not JSON serializable. "
+                        f"Error: {e}"
+                    )
+            task = None
+        else:
+            normalized_path = posixpath.normpath(artifact_file)
+            artifact = RunArtifact(
+                filename=posixpath.basename(normalized_path),
+                artifact_path=posixpath.dirname(normalized_path),
+            )
+            write_to_file(data, artifact.local_filepath)
+            task = self._log_artifact_async_helper(run_id, artifact)
 
         run = self.get_run(run_id)
 
@@ -2635,6 +2765,8 @@ class MlflowClient:
             current_tag_value.append(tag_value)
             # Set the tag with the updated list
             self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
+
+        return task
 
     @experimental
     def load_table(

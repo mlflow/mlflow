@@ -1144,8 +1144,11 @@ def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Option
 
 
 def log_artifact(
-    local_path: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
-) -> None:
+    local_path: str,
+    artifact_path: Optional[str] = None,
+    run_id: Optional[str] = None,
+    synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
@@ -1155,6 +1158,10 @@ def log_artifact(
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         run_id: If specified, log the artifact to the specified run. If not specified, log the
             artifact to the currently active run.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1176,12 +1183,12 @@ def log_artifact(
                 mlflow.log_artifact(path)
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_artifact(run_id, local_path, artifact_path)
+    return MlflowClient().log_artifact(run_id, local_path, artifact_path, synchronous)
 
 
 def log_artifacts(
-    local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
-) -> None:
+    local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None, synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
@@ -1191,6 +1198,10 @@ def log_artifacts(
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         run_id: If specified, log the artifacts to the specified run. If not specified, log the
             artifacts to the currently active run.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1216,10 +1227,15 @@ def log_artifacts(
                 mlflow.log_artifacts(tmp_dir, artifact_path="states")
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+    return MlflowClient().log_artifacts(run_id, local_dir, artifact_path, synchronous)
 
 
-def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_text(
+    text: str,
+    artifact_file: str,
+    run_id: Optional[str] = None,
+    synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log text as an artifact.
 
@@ -1229,6 +1245,10 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
             the text is saved (e.g. "dir/file.txt").
         run_id: If specified, log the artifact to the specified run. If not specified, log the
             artifact to the currently active run.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1248,10 +1268,15 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
 
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_text(run_id, text, artifact_file)
+    return MlflowClient().log_text(run_id, text, artifact_file, synchronous)
 
 
-def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_dict(
+    dictionary: dict[str, Any],
+    artifact_file: str,
+    run_id: Optional[str] = None,
+    synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1264,6 +1289,10 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[st
             the dictionary is saved (e.g. "dir/data.json").
         run_id: If specified, log the dictionary to the specified run. If not specified, log the
             dictionary to the currently active run.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1287,7 +1316,7 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[st
 
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_dict(run_id, dictionary, artifact_file)
+    return MlflowClient().log_dict(run_id, dictionary, artifact_file, synchronous)
 
 
 def log_figure(
@@ -1295,7 +1324,8 @@ def log_figure(
     artifact_file: str,
     *,
     save_kwargs: Optional[dict[str, Any]] = None,
-) -> None:
+    synchronous: Optional[bool] = None
+) -> Optional[RunOperations]:
     """
     Log a figure as an artifact. The following figure objects are supported:
 
@@ -1313,6 +1343,10 @@ def log_figure(
         artifact_file: The run-relative artifact file path in posixpath format to which
             the figure is saved (e.g. "dir/file.png").
         save_kwargs: Additional keyword arguments passed to the method that saves the figure.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1340,7 +1374,7 @@ def log_figure(
             mlflow.log_figure(fig, "figure.html")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
+    return MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs, synchronous=synchronous)
 
 
 def log_image(
@@ -1349,8 +1383,8 @@ def log_image(
     key: Optional[str] = None,
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
-    synchronous: Optional[bool] = False,
-) -> None:
+    synchronous: Optional[bool] = None,
+) -> Optional[RunOperations]:
     """
     Logs an image in MLflow, supporting two use cases:
 
@@ -1410,7 +1444,10 @@ def log_image(
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
-        synchronous: *Experimental* If True, blocks until the image is logged successfully.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1470,7 +1507,7 @@ def log_image(
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
+    return MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
 @experimental
@@ -1478,7 +1515,8 @@ def log_table(
     data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
     run_id: Optional[str] = None,
-) -> None:
+    synchronous: Optional[bool] = None,
+) -> Optional[RunOperations]:
     """
     Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
     in the run, the data would be appended to the existing artifact_file.
@@ -1489,6 +1527,10 @@ def log_table(
             the table is saved (e.g. "dir/file.json").
         run_id: If specified, log the table to the specified run. If not specified, log the
             table to the currently active run.
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
+            If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
+            defaults to False if not set.
 
     .. code-block:: python
         :test:
@@ -1523,7 +1565,7 @@ def log_table(
             mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    MlflowClient().log_table(run_id, data, artifact_file)
+    return MlflowClient().log_table(run_id, data, artifact_file, synchronous)
 
 
 @experimental
