@@ -368,6 +368,32 @@ def test_mime_type_for_download_artifacts_api(
     assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
 
 
+def test_rest_get_artifact_api_log_image(artifacts_server):
+    url = artifacts_server.url
+    mlflow.set_tracking_uri(url)
+
+    import numpy as np
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    mlflow.set_experiment("rest_get_artifact_api_test")
+
+    with mlflow.start_run() as run:
+        mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
+
+    artifact_list_response = requests.get(
+        url=f"{url}/ajax-api/2.0/mlflow/artifacts/list",
+        params={"path": "images", "run_id": run.info.run_id},
+    )
+    artifact_list_response.raise_for_status()
+
+    for file in artifact_list_response.json()["files"]:
+        path = file["path"]
+        get_artifact_response = requests.get(
+            url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": path}
+        )
+        get_artifact_response.raise_for_status()
+
+
 @pytest.mark.parametrize(
     ("filename", "requested_mime_type", "responded_mime_type"),
     [

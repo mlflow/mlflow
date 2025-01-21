@@ -562,7 +562,14 @@ def _send_artifact(artifact_repository, path):
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
     mime_type = _guess_mime_type(file_path)
-    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
+    # We need to explicitly encode a filename in case the filename includes invalid characters
+    filename = os.path.basename(file_path)
+    file_sender_response = send_file(
+        file_path,
+        mimetype=mime_type,
+        as_attachment=True,
+        download_name=urllib.parse.quote(filename),
+    )
     return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
