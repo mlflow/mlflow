@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from cachetools import TTLCache
 import contextlib
 import functools
 import importlib
@@ -9,6 +8,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
+from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
@@ -16,7 +16,6 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -257,7 +256,7 @@ def start_span(
         mlflow_span.set_attributes(attributes or {})
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
-    except Exception as e:
+    except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
         mlflow_span = NoOpSpan()
         yield mlflow_span
@@ -271,7 +270,7 @@ def start_span(
     finally:
         try:
             mlflow_span.end()
-        except Exception as e:
+        except Exception:
             _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
@@ -726,17 +725,6 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
         )
-
-
-def flush():
-    """
-    Clear all the aggregated trace data. This should only be used for testing purposes.
-    """
-    TRACE_BUFFER.flush()
-    if MLFLOW_ENABLE_ASYNC_LOGGING.get():
-        from mlflow.tracking.fluent import flush_trace_async_logging
-
-        flush_trace_async_logging(terminate=False)
 
 
 def _merge_trace(

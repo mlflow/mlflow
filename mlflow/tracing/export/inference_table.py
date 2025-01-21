@@ -1,7 +1,7 @@
-from cachetools import TTLCache
 import logging
 from typing import Any, Optional, Sequence
 
+from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -10,7 +10,6 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-
 
 _logger = logging.getLogger(__name__)
 

@@ -1477,7 +1477,7 @@ def test_add_trace_logging_model_from_code():
     assert len(trace.data.spans) == 2
 
 
-def test_trace_halted_after_ttl_when_enabled(monkeypatch, async_logging_enabled):
+def test_trace_halted_after_ttl(monkeypatch, async_logging_enabled):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "3")
     monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
 
@@ -1507,7 +1507,11 @@ def test_trace_halted_after_ttl_when_enabled(monkeypatch, async_logging_enabled)
     assert root_span.name == "predict"
     assert root_span.status.status_code == SpanStatusCode.ERROR
     assert root_span.events[0].name == "exception"
-    assert root_span.events[0].attributes["exception.message"].startswith("This trace is automatically")
+    assert (
+        root_span.events[0]
+        .attributes["exception.message"]
+        .startswith("This trace is automatically")
+    )
 
     first_span = trace.data.spans[1]
     assert first_span.name == "slow_function_1"
