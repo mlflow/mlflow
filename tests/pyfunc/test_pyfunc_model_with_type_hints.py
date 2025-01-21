@@ -339,7 +339,6 @@ def test_spark_udf(spark, type_hint, result_type, input_example):
     else:
         schema = StructType([StructField("input", result_type)])
         df = spark.createDataFrame(pd.DataFrame({"input": input_example}), schema=schema)
-    df.show()
     df = df.withColumn("response", udf("input"))
     pdf = df.toPandas()
     assert [

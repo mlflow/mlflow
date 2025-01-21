@@ -606,7 +606,8 @@ def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
                 result = data.to_dict(orient="records")
         else:
             if len(data.columns) != 1:
-                # TODO: remove the warning and raise Exception once the bug [ML-48554] is fixed
+                # TODO: remove the warning and raise Exception once the bug about evaluate
+                # DF containing multiple columns is fixed
                 _logger.warning(
                     "`predict` function with list[...] type hints of non-dictionary collection "
                     "type only supports pandas DataFrame with a single column. But got "
