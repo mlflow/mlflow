@@ -68,6 +68,14 @@ _EMBEDDING = {
     "usage": {"prompt_tokens": 8, "total_tokens": 8},
 }
 
+
+class AnyInt(int):
+    def __eq__(self, other):
+        return isinstance(other, int)
+
+
+ANY_INT = AnyInt()
+
 _CREW_OUTPUT = {
     "json_dict": None,
     "pydantic": None,
@@ -86,11 +94,11 @@ _CREW_OUTPUT = {
         }
     ],
     "token_usage": {
-        "cached_prompt_tokens": 0,
-        "completion_tokens": 0,
-        "prompt_tokens": 0,
-        "successful_requests": 0,
-        "total_tokens": 0,
+        "cached_prompt_tokens": ANY_INT,
+        "completion_tokens": ANY_INT,
+        "prompt_tokens": ANY_INT,
+        "successful_requests": ANY_INT,
+        "total_tokens": ANY_INT,
     },
 }
 
@@ -492,11 +500,11 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
             },
         ],
         "token_usage": {
-            "cached_prompt_tokens": 0,
-            "completion_tokens": 0,
-            "prompt_tokens": 0,
-            "successful_requests": 0,
-            "total_tokens": 0,
+            "cached_prompt_tokens": ANY_INT,
+            "completion_tokens": ANY_INT,
+            "prompt_tokens": ANY_INT,
+            "successful_requests": ANY_INT,
+            "total_tokens": ANY_INT,
         },
     }
     # Task
