@@ -562,15 +562,28 @@ def _send_artifact(artifact_repository, path):
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
     mime_type = _guess_mime_type(file_path)
-    # We need to explicitly encode a filename in case the filename includes invalid characters
-    filename = os.path.basename(file_path)
+    # Need to escape control characters from the filename
+    filename = _escape_control_characters(os.path.basename(file_path))
     file_sender_response = send_file(
         file_path,
         mimetype=mime_type,
         as_attachment=True,
-        download_name=urllib.parse.quote(filename),
+        download_name=filename,
     )
     return _response_with_file_attachment_headers(file_path, file_sender_response)
+
+
+def _escape_control_characters(text: str) -> str:
+    # Method to escape control characters (e.g. \u0017)
+    def escape_char(c):
+        code_point = ord(c)
+
+        # If it's a control character (ASCII 0-31 or 127), escape it
+        if (0 <= code_point <= 31) or (code_point == 127):
+            return f"%{code_point:02x}"
+        return c
+
+    return "".join(escape_char(c) for c in text)
 
 
 def catch_mlflow_exception(func):

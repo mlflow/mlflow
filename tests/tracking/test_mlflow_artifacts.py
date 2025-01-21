@@ -375,7 +375,6 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     import numpy as np
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-    mlflow.set_experiment("rest_get_artifact_api_test")
 
     with mlflow.start_run() as run:
         mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
@@ -393,7 +392,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
         )
         get_artifact_response.raise_for_status()
         assert (
-            "attachment; filename=dog%25step%100%25timestamp%100%"
+            "attachment; filename=dog%step%100%timestamp%100"
             in get_artifact_response.headers["Content-Disposition"]
         )
 
