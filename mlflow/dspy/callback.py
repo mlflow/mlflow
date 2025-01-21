@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import dspy
 from dspy.utils.callback import BaseCallback
@@ -9,6 +9,7 @@ from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
 
 _logger = logging.getLogger(__name__)
@@ -64,18 +65,50 @@ class MlflowCallback(BaseCallback):
             "cache": instance.cache,
         }
 
-        self._start_span(
+        inputs = self._unpack_kwargs(inputs)
+
+        span = self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.__call__",
             span_type=span_type,
-            inputs=self._unpack_kwargs(inputs),
+            inputs=inputs,
             attributes=attributes,
         )
+
+        if messages := self._extract_messages_from_lm_inputs(inputs):
+            try:
+                set_span_chat_messages(span, messages)
+            except Exception as e:
+                _logger.debug(f"Failed to set input messages for {span}. Error: {e}")
 
     def on_lm_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
+        st = self._call_id_to_span.get(call_id)
+        try:
+            output_msg = self._extract_messages_from_lm_outputs(outputs)
+            set_span_chat_messages(st.span, output_msg, append=True)
+        except Exception as e:
+            _logger.debug(f"Failed to set output messages for {call_id}. Error: {e}")
+
         self._end_span(call_id, outputs, exception)
+
+    def _extract_messages_from_lm_inputs(self, inputs: dict[str, Any]) -> list[dict[str, str]]:
+        # LM input is either a list of messages or a prompt string
+        # https://github.com/stanfordnlp/dspy/blob/ac5bf56bb1ed7261d9637168563328c1dfeb27af/dspy/clients/lm.py#L92
+        # TODO: Extract tool definition once https://github.com/stanfordnlp/dspy/pull/2023 is merged
+        return inputs.get("messages") or [{"role": "user", "content": inputs.get("prompt")}]
+
+    def _extract_messages_from_lm_outputs(
+        self, outputs: list[Union[str, dict[str, Any]]]
+    ) -> list[dict[str, str]]:
+        # LM output is either a string or a dictionary of text and logprobs
+        # https://github.com/stanfordnlp/dspy/blob/ac5bf56bb1ed7261d9637168563328c1dfeb27af/dspy/clients/lm.py#L105-L114
+        # TODO: Extract tool calls once https://github.com/stanfordnlp/dspy/pull/2023 is merged
+        return [
+            {"role": "assistant", "content": o.get("text") if isinstance(o, dict) else o}
+            for o in outputs
+        ]
 
     def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
@@ -104,6 +137,33 @@ class MlflowCallback(BaseCallback):
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
+
+    def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
+        # DSPy uses the special "finish" tool to signal the end of the agent.
+        if instance.name == "finish":
+            return
+
+        inputs = self._unpack_kwargs(inputs)
+        # Tools are always called with keyword arguments only.
+        inputs.pop("args", None)
+
+        self._start_span(
+            call_id,
+            name=f"Tool.{instance.name}",
+            span_type=SpanType.TOOL,
+            inputs=inputs,
+            attributes={
+                "name": instance.name,
+                "description": instance.desc,
+                "args": instance.args,
+            },
+        )
+
+    def on_tool_end(
+        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+    ):
+        if call_id in self._call_id_to_span:
+            self._end_span(call_id, outputs, exception)
 
     def _start_span(
         self,
@@ -136,6 +196,8 @@ class MlflowCallback(BaseCallback):
 
         token = set_span_in_context(span)
         self._call_id_to_span[call_id] = SpanWithToken(span, token)
+
+        return span
 
     def _end_span(
         self,
@@ -184,10 +246,15 @@ class MlflowCallback(BaseCallback):
         if isinstance(instance, dspy.Predict):
             return {"signature": instance.signature.signature}
         elif isinstance(instance, dspy.ChainOfThought):
-            return {
-                "signature": instance.signature.signature,
-                "extended_signature": instance.extended_signature.signature,
-            }
+            if hasattr(instance, "signature"):
+                signature = instance.signature.signature
+            else:
+                signature = instance.predict.signature.signature
+
+            attributes = {"signature": signature}
+            if hasattr(instance, "extended_signature"):
+                attributes["extended_signature"] = instance.extended_signature.signature
+            return attributes
         return {}
 
     def _unpack_kwargs(self, inputs: dict[str, Any]) -> dict[str, Any]:

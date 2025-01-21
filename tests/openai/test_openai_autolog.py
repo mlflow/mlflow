@@ -148,7 +148,9 @@ def test_chat_completions_autolog_streaming(client):
 def test_chat_completions_autolog_tracing_error(client):
     mlflow.openai.autolog()
     messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.BadRequestError, match="Temperature must be between 0.0 and 2.0"):
+    with pytest.raises(
+        openai.UnprocessableEntityError, match="Input should be less than or equal to 2"
+    ):
         client.chat.completions.create(
             messages=messages,
             model="gpt-4o-mini",
@@ -165,31 +167,7 @@ def test_chat_completions_autolog_tracing_error(client):
     assert span.outputs is None
 
     assert span.events[0].name == "exception"
-    assert span.events[0].attributes["exception.type"] == "openai.BadRequestError"
-
-
-@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_chat_completions_autolog_tracing_error(client):
-    mlflow.openai.autolog()
-    messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.BadRequestError, match="Temperature must be between 0.0 and 2.0"):
-        client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=5.0,
-        )
-
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.status == "ERROR"
-
-    assert len(trace.data.spans) == 1
-    span = trace.data.spans[0]
-    assert span.name == "Completions"
-    assert span.inputs["messages"][0]["content"] == "test"
-    assert span.outputs is None
-
-    assert span.events[0].name == "exception"
-    assert span.events[0].attributes["exception.type"] == "BadRequestError"
+    assert span.events[0].attributes["exception.type"] == "UnprocessableEntityError"
 
 
 def test_chat_completions_streaming_empty_choices(client):

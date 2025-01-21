@@ -4,8 +4,10 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Assessment(_MlflowObject):
     """
     Assessment data associated with an evaluation.

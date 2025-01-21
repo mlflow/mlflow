@@ -1,9 +1,10 @@
 import pytest
+from pydantic import ValidationError
 
 import mlflow
 from mlflow.entities import LiveSpan
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
@@ -107,6 +108,32 @@ def test_set_span_chat_messages_and_tools():
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
 
 
+def test_set_span_chat_messages_append():
+    messages = [
+        {"role": "system", "content": "you are a confident bot"},
+        {"role": "user", "content": "what is 1 + 1?"},
+    ]
+    additional_messages = [{"role": "assistant", "content": "it is definitely 5"}]
+
+    # Append messages
+    with mlflow.start_span(name="foo") as span:
+        set_span_chat_messages(span, messages)
+        set_span_chat_messages(span, additional_messages, append=True)
+
+    trace = mlflow.get_last_active_trace()
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages + additional_messages
+
+    # Overwrite messages
+    with mlflow.start_span(name="bar") as span:
+        set_span_chat_messages(span, messages)
+        set_span_chat_messages(span, additional_messages, append=False)
+
+    trace = mlflow.get_last_active_trace()
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == additional_messages
+
+
 def test_set_chat_messages_validation():
     messages = [{"invalid_field": "user", "content": "hello"}]
 
@@ -116,7 +143,7 @@ def test_set_chat_messages_validation():
         set_span_chat_messages(span, messages)
         return None
 
-    with pytest.raises(MlflowException, match="validation error for RequestMessage"):
+    with pytest.raises(ValidationError, match="validation error for ChatMessage"):
         dummy_call(messages)
 
 
@@ -136,5 +163,5 @@ def test_set_chat_tools_validation():
         set_span_chat_tools(span, tools)
         return None
 
-    with pytest.raises(MlflowException, match="validation error for ChatTool"):
+    with pytest.raises(ValidationError, match="validation error for ChatTool"):
         dummy_call(tools)
