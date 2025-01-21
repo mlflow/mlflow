@@ -62,7 +62,8 @@ const config: Config = {
     navbar: {
       logo: {
         alt: "MLflow Logo",
-        src: "images/logo.png",
+        src: "images/logo-light.svg",
+        srcDark: "images/logo-dark.svg",
       },
       items: [
         {
@@ -104,7 +105,17 @@ const config: Config = {
     prism: {
       // There is an array of languages enabled by default.
       // @see https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9-L26
-      additionalLanguages: ["bash", "diff", "ini", "java", "nginx", "r", "scala", "sql", "toml"],
+      additionalLanguages: [
+        "bash",
+        "diff",
+        "ini",
+        "java",
+        "nginx",
+        "r",
+        "scala",
+        "sql",
+        "toml",
+      ],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
