@@ -381,7 +381,7 @@ def start_client_span_or_trace(
         return client.start_span(
             name=name,
             request_id=parent_span.request_id,
-            span_id=parent_span.span_id,
+            parent_id=parent_span.span_id,
             span_type=span_type,
             inputs=inputs,
             attributes=attributes,
