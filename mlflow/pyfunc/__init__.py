@@ -413,13 +413,13 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
 import pandas
+import pydantic
 import yaml
 from packaging.version import Version
 
@@ -569,6 +569,7 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.pydantic_utils import model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
@@ -1440,9 +1441,9 @@ _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
 def _convert_spec_type_to_spark_type(spec_type):
-    from pyspark.sql.types import ArrayType, StructField, StructType
+    from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-    from mlflow.types.schema import Array, DataType, Object
+    from mlflow.types.schema import Array, DataType, Map, Object
 
     if isinstance(spec_type, DataType):
         return spec_type.to_spark()
@@ -1463,6 +1464,14 @@ def _convert_spec_type_to_spark_type(spec_type):
                 for property in spec_type.properties
             ]
         )
+
+    # Map only supports string as key
+    if isinstance(spec_type, Map):
+        return MapType(
+            keyType=StringType(), valueType=_convert_spec_type_to_spark_type(spec_type.value_type)
+        )
+
+    raise MlflowException(f"Failed to convert schema type `{spec_type}` to spark type.")
 
 
 def _cast_output_spec_to_spark_type(spec):
@@ -1568,7 +1577,6 @@ def _convert_array_values(values, result_type):
     )
 
 
-@lru_cache
 def _get_spark_primitive_types():
     from pyspark.sql import types
 
@@ -1582,7 +1590,6 @@ def _get_spark_primitive_types():
     )
 
 
-@lru_cache
 def _get_spark_primitive_type_to_np_type():
     from pyspark.sql import types
 
@@ -1596,63 +1603,36 @@ def _get_spark_primitive_type_to_np_type():
     }
 
 
-def _check_udf_return_struct_type(struct_type):
-    from pyspark.sql.types import ArrayType, StructType
+def _get_spark_primitive_type_to_python_type():
+    from pyspark.sql import types
 
-    primitive_types = _get_spark_primitive_types()
-
-    for field in struct_type.fields:
-        field_type = field.dataType
-        if isinstance(field_type, primitive_types):
-            continue
-
-        if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
-            field_type, allow_struct=True
-        ):
-            continue
-
-        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
-            continue
-
-        return False
-
-    return True
-
-
-def _check_udf_return_array_type(array_type, allow_struct):
-    from pyspark.sql.types import ArrayType, StructType
-
-    elem_type = array_type.elementType
-    primitive_types = _get_spark_primitive_types()
-
-    if isinstance(elem_type, primitive_types):
-        return True
-
-    if isinstance(elem_type, ArrayType):
-        return _check_udf_return_array_type(elem_type, allow_struct)
-
-    if isinstance(elem_type, StructType):
-        if allow_struct:
-            # Array of struct values.
-            return _check_udf_return_struct_type(elem_type)
-
-        return False
-
-    return False
+    return {
+        types.IntegerType: int,
+        types.LongType: int,
+        types.FloatType: float,
+        types.DoubleType: float,
+        types.BooleanType: bool,
+        types.StringType: str,
+    }
 
 
 def _check_udf_return_type(data_type):
-    from pyspark.sql.types import ArrayType, StructType
+    from pyspark.sql.types import ArrayType, MapType, StringType, StructType
 
     primitive_types = _get_spark_primitive_types()
     if isinstance(data_type, primitive_types):
         return True
 
     if isinstance(data_type, ArrayType):
-        return _check_udf_return_array_type(data_type, allow_struct=True)
+        return _check_udf_return_type(data_type.elementType)
 
     if isinstance(data_type, StructType):
-        return _check_udf_return_struct_type(data_type)
+        return all(_check_udf_return_type(field.dataType) for field in data_type.fields)
+
+    if isinstance(data_type, MapType):
+        return isinstance(data_type.keyType, StringType) and _check_udf_return_type(
+            data_type.valueType
+        )
 
     return False
 
@@ -1665,7 +1645,7 @@ def _convert_struct_values(
     Convert spark StructType values to spark dataframe column values.
     """
 
-    from pyspark.sql.types import ArrayType, StructType
+    from pyspark.sql.types import ArrayType, MapType, StructType
 
     if not isinstance(result_type, StructType):
         raise MlflowException.invalid_parameter_value(
@@ -1687,7 +1667,10 @@ def _convert_struct_values(
         if type(field_type) in spark_primitive_type_to_np_type:
             np_type = spark_primitive_type_to_np_type[type(field_type)]
             if is_pandas_df:
-                field_values = field_values.astype(np_type)
+                # it's possible that field_values contain only Nones
+                # in this case, we don't need to cast the type
+                if not all(_is_none_or_nan(field_value) for field_value in field_values):
+                    field_values = field_values.astype(np_type)
             else:
                 field_values = (
                     None
@@ -1711,6 +1694,22 @@ def _convert_struct_values(
                 )
             else:
                 field_values = _convert_struct_values(field_values, field_type)
+        elif isinstance(field_type, MapType):
+            if is_pandas_df:
+                field_values = pandas.Series(
+                    [
+                        {
+                            key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                            for key, value in field_value.items()
+                        }
+                        for field_value in field_values
+                    ]
+                ).astype(object)
+            else:
+                field_values = {
+                    key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                    for key, value in field_values.items()
+                }
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported field type {field_type.simpleString()} in struct type.",
@@ -1720,6 +1719,32 @@ def _convert_struct_values(
     if is_pandas_df:
         return pandas.DataFrame(result_dict)
     return result_dict
+
+
+def _convert_value_based_on_spark_type(value, spark_type):
+    """
+    Convert value to python types based on the given spark type.
+    """
+
+    from pyspark.sql.types import ArrayType, MapType, StructType
+
+    spark_primitive_type_to_python_type = _get_spark_primitive_type_to_python_type()
+
+    if type(spark_type) in spark_primitive_type_to_python_type:
+        python_type = spark_primitive_type_to_python_type[type(spark_type)]
+        return None if _is_none_or_nan(value) else python_type(value)
+    if isinstance(spark_type, StructType):
+        return _convert_struct_values(value, spark_type)
+    if isinstance(spark_type, ArrayType):
+        return [_convert_value_based_on_spark_type(v, spark_type.elementType) for v in value]
+    if isinstance(spark_type, MapType):
+        return {
+            key: _convert_value_based_on_spark_type(value[key], spark_type.valueType)
+            for key in value
+        }
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported type {spark_type} for value {value}"
+    )
 
 
 # This location is used to prebuild python environment in Databricks runtime.
@@ -1933,6 +1958,18 @@ def build_model_env(model_uri, save_path):
             os.remove(tmp_archive_path)
 
 
+def _convert_data_to_spark_compat(data):
+    if isinstance(data, list):
+        return [_convert_data_to_spark_compat(d) for d in data]
+    if isinstance(data, dict):
+        return {k: _convert_data_to_spark_compat(v) for k, v in data.items()}
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pydantic.BaseModel):
+        return model_dump_compat(data)
+    return data
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -2103,6 +2140,7 @@ def spark_udf(
         FloatType,
         IntegerType,
         LongType,
+        MapType,
         StringType,
     )
     from pyspark.sql.types import StructType as SparkStructType
@@ -2318,24 +2356,25 @@ def spark_udf(
         if isinstance(result_type, str):
             result_type = _parse_spark_datatype(result_type)
 
-    if not _check_udf_return_type(result_type):
-        raise MlflowException.invalid_parameter_value(
-            f"""Invalid 'spark_udf' result type: {result_type}.
+        # if result type is inferred by MLflow, we don't need to check it
+        if not _check_udf_return_type(result_type):
+            raise MlflowException.invalid_parameter_value(
+                f"""Invalid 'spark_udf' result type: {result_type}.
 It must be one of the following types:
 Primitive types:
- - int
- - long
- - float
- - double
- - string
- - boolean
+- int
+- long
+- float
+- double
+- string
+- boolean
 Compound types:
- - ND array of primitives / structs.
- - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
-   A struct with primitive, ND array<primitive/structs>,
-   e.g., struct<a:int, b:array<int>>.
+- ND array of primitives / structs.
+- struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
+A struct with primitive, ND array<primitive/structs>,
+e.g., struct<a:int, b:array<int>>.
 """
-        )
+            )
     params = _validate_params(params, model_metadata)
 
     def _predict_row_batch(predict_fn, args):
@@ -2371,6 +2410,7 @@ Compound types:
             )
 
         result = predict_fn(pdf, params)
+        result = _convert_data_to_spark_compat(result)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2380,7 +2420,13 @@ Compound types:
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
+            if isinstance(result_type, MapType):
+                # list of dicts should be converted into a single column
+                result = pandas.DataFrame([result])
+            else:
+                result = (
+                    pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
+                )
 
         if isinstance(result_type, SparkStructType):
             return _convert_struct_values(result, result_type)
