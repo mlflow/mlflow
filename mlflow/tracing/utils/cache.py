@@ -13,10 +13,10 @@ from mlflow.tracing.trace_manager import _Trace
 _logger = logging.getLogger(__name__)
 
 _TRACE_EXPIRATION_MSG = (
-    "This trace is automatically halted by MLflow due to the time-to-live (TTL) expiration. "
-    "The operation may be stuck or taking too long to complete. To increase the TTL duration, "
-    "set the environment variable MLFLOW_TRACE_BUFFER_TTL_SECONDS to a larger value. "
-    "(Current: {ttl} seconds.)"
+    "Trace {request_id} is automatically halted by MLflow due to the time-to-live (TTL) "
+    "expiration. The operation may be stuck or taking too long to complete. To increase "
+    "the TTL duration, set the environment variable MLFLOW_TRACE_BUFFER_TTL_SECONDS to a "
+    "larger value. (Current: {ttl} seconds.)"
 )
 
 
@@ -54,20 +54,16 @@ class TTLCacheWithLogging(TTLCache):
                 if root_span := trace.get_root_span():
                     try:
                         root_span.set_status(SpanStatusCode.ERROR)
-                        exception_event = SpanEvent.from_exception(
-                            MlflowTracingException(_TRACE_EXPIRATION_MSG.format(ttl=self.ttl))
-                        )
+                        msg = _TRACE_EXPIRATION_MSG.format(request_id=request_id, ttl=self.ttl)
+                        exception_event = SpanEvent.from_exception(MlflowTracingException(msg))
                         root_span.add_event(exception_event)
                         root_span.end()  # Calling end() triggers span export
+                        _logger.info(msg)
+                    except Exception as e:
+                        _logger.debug(f"Failed to export an expired trace {request_id}: {e}")
 
-                        _logger.info(f"Trace `{request_id}` is aborted due to TTL expiration.")
-
-                    except Exception:
-                        _logger.debug(f"Failed to expire a trace {request_id}", exc_info=True)
-
-                # NB: Remove the trace from the cache after logging it, because
-                #   the span exporter requires the trace to be in the cache
-                del self[request_id]
+                if request_id in self:
+                    del self[request_id]
 
         thread = threading.Thread(target=_expire_traces, daemon=True)
         thread.start()

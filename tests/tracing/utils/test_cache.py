@@ -35,7 +35,7 @@ def test_expire_traces(monkeypatch):
     event = span_1_1.add_event.call_args[0][0]
     assert isinstance(event, SpanEvent)
     assert event.name == "exception"
-    assert event.attributes["exception.message"].startswith("This trace is automatically halted")
+    assert event.attributes["exception.message"].startswith("Trace tr_1 is automatically halted")
 
     # Non-root span should not be touched
     span_1_2.assert_not_called()

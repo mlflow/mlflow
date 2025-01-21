@@ -1507,11 +1507,6 @@ def test_trace_halted_after_ttl(monkeypatch, async_logging_enabled):
     assert root_span.name == "predict"
     assert root_span.status.status_code == SpanStatusCode.ERROR
     assert root_span.events[0].name == "exception"
-    assert (
-        root_span.events[0]
-        .attributes["exception.message"]
-        .startswith("This trace is automatically")
-    )
 
     first_span = trace.data.spans[1]
     assert first_span.name == "slow_function_1"
