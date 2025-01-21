@@ -1477,8 +1477,10 @@ def test_add_trace_logging_model_from_code():
     assert len(trace.data.spans) == 2
 
 
-def test_trace_halted_after_ttl(monkeypatch, async_logging_enabled):
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "3")
+def test_trace_halted_after_timeout(monkeypatch, async_logging_enabled):
+    # When MLFLOW_TRACE_TIMEOUT_SECONDS is set, MLflow should halt the trace after
+    # the timeout and log it to the backend with an error status
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "3")
     monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
 
     @mlflow.trace

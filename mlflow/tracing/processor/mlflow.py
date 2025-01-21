@@ -162,6 +162,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
+                print(f"Trace data with request ID {request_id} not found.")
                 return
 
             self._update_trace_info(trace, span)

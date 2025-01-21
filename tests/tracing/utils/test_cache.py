@@ -1,11 +1,12 @@
 import time
-from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
+
+import pytest
 
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.trace_manager import _Trace
-from mlflow.tracing.utils.cache import TTLCacheWithLogging
+from mlflow.tracing.utils.cache import MLflowTraceTimeoutCache
 
 
 def _mock_span(span_id, parent_id=None):
@@ -15,18 +16,23 @@ def _mock_span(span_id, parent_id=None):
     return span
 
 
-def test_expire_traces(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
-    cache = TTLCacheWithLogging(maxsize=1, ttl=1)
+@pytest.fixture
+def set_env(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", "1")
 
+
+@pytest.fixture
+def cache():
+    timeout_cache = MLflowTraceTimeoutCache(timeout=1, maxsize=10)
+    yield timeout_cache
+    timeout_cache.clear()
+
+
+def test_expire_traces(cache):
     span_1_1 = _mock_span("span_1")
     span_1_2 = _mock_span("span_2", parent_id="span_1")
     cache["tr_1"] = _Trace(None, span_dict={"span_1": span_1_1, "span_2": span_1_2})
-
-    time.sleep(1)
-
-    cache.get("tr-2")  # Accessing any item in the cache should trigger expiration
-    time.sleep(1)  # Wait for the expiration to complete
+    time.sleep(2)
 
     assert "tr_1" not in cache
     span_1_1.end.assert_called_once()
@@ -41,74 +47,34 @@ def test_expire_traces(monkeypatch):
     span_1_2.assert_not_called()
 
 
-def test_expire_traces_no_expired_trace(monkeypatch):
-    cache = TTLCacheWithLogging(maxsize=1, ttl=3600)
+def test_expire_traces_timeout_update(monkeypatch, cache):
+    cache._timeout = 3600
+
+    # Update timeout env var after cache creation
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "1")
+    time.sleep(2)
 
     span = _mock_span("span_1")
     cache["tr_1"] = _Trace(None, span_dict={"span": span})
 
-    cache.get("tr-2")
-    assert "tr_1" in cache
-    span.end.assert_not_called()
-
-
-def test_expire_traces_empty_cache(monkeypatch):
-    cache = TTLCacheWithLogging(maxsize=1, ttl=3600)
-    cache.expire()
-    assert len(cache) == 0
-
-
-def test_expire_traces_handle_ttl_update(monkeypatch):
-    cache = TTLCacheWithLogging(maxsize=1, ttl=3600)
-
-    # Update TTL after cache creation
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
-
-    span = _mock_span("span_1")
-    cache["tr_1"] = _Trace(None, span_dict={"span": span})
-
-    time.sleep(1)
-    cache.get("tr-2")
-    time.sleep(1)
+    time.sleep(2)
 
     assert "tr_1" not in cache
     span.end.assert_called_once()
 
 
-def test_expire_traces_thread_safe(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
-    cache = TTLCacheWithLogging(maxsize=1, ttl=1)
+@mock.patch("mlflow.tracing.utils.cache._logger")
+def test_expire_traces_timeout_update_warn_when_traces_exist(mock_logger, monkeypatch, cache):
+    cache._timeout = 3600
 
     span = _mock_span("span_1")
-    span.end.side_effect = lambda: time.sleep(1)  # Simulate slow span export
     cache["tr_1"] = _Trace(None, span_dict={"span": span})
 
-    time.sleep(1)
+    # Update timeout env var while there are non-expired traces in the cache
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "1")
 
-    def access_cache():
-        cache.get("tr-1")
+    time.sleep(2)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for _ in range(10):
-            executor.submit(access_cache)
-
-    time.sleep(3)
-
-    assert "tr_1" not in cache
-    # Span should only be expired once
-    span.end.assert_called_once()
-
-
-def test_expire_traces_with_blocking(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_TTL_SECONDS", "1")
-    cache = TTLCacheWithLogging(maxsize=1, ttl=1)
-
-    span = _mock_span("span_1")
-    span.end.side_effect = lambda: time.sleep(1)  # Simulate slow span export
-    cache["tr_1"] = _Trace(None, span_dict={"span": span})
-
-    time.sleep(1)
-
-    cache.expire(block=True)
-    assert "tr_1" not in cache
-    span.end.assert_called_once()
+    mock_logger.warning.assert_called_once()
+    warns = mock_logger.warning.call_args_list[0][0]
+    assert warns[0].startswith("The timeout of the trace buffer has been updated")

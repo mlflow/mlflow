@@ -4,10 +4,13 @@ import threading
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
+from cachetools import TTLCache
+
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
+    MLFLOW_TRACE_TIMEOUT_SECONDS,
 )
 from mlflow.tracing.constant import SpanAttributeKey
 
@@ -56,13 +59,19 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
-        from mlflow.tracing.utils.cache import TTLCacheWithLogging
+        from mlflow.tracing.utils.cache import MLflowTraceTimeoutCache
 
         # In-memory cache to store request_id -> _Trace mapping.
-        self._traces: dict[str, _Trace] = TTLCacheWithLogging(
-            maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-            ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-        )
+        if MLFLOW_TRACE_TIMEOUT_SECONDS.get() is not None:
+            self._traces = MLflowTraceTimeoutCache(
+                timeout=MLFLOW_TRACE_TIMEOUT_SECONDS.get(),
+                maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+            )
+        else:
+            self._traces = TTLCache(
+                ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+                maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+            )
         # Store mapping between OpenTelemetry trace ID and MLflow request ID
         self._trace_id_to_request_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
@@ -163,8 +172,10 @@ class InMemoryTraceManager:
             trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
 
-    def flush(self):
+    @classmethod
+    def reset(self):
         """Clear all the aggregated trace data. This should only be used for testing."""
-        with self._lock:
-            self._traces.expire(block=True)
-            self._traces.clear()
+        if self._instance:
+            with self._instance._lock:
+                self._instance._traces.clear()
+            self._instance = None

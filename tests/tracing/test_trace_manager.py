@@ -107,6 +107,30 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
+
+    span_1_1 = _create_test_span(request_id_1)
+    trace_manager.register_span(span_1_1)
+
+    assert request_id_1 in trace_manager._traces
+    assert len(trace_manager._traces[request_id_1].span_dict) == 1
+
+    time.sleep(1)
+
+    assert request_id_1 not in trace_manager._traces
+
+    # Clear singleton instance again to avoid side effects to other tests
+    InMemoryTraceManager._instance = None
+
+
+def test_traces_buffer_expires_and_log_when_timeout_is_set(monkeypatch):
+    # Setting MLFLOW_TRACE_TIMEOUT_SECONDS let MLflow to periodically check the
+    # expired traces and log expired ones to the backend.
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "1")
+    monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    request_id_1 = "tr-1"
     trace_info = create_test_trace_info(request_id_1, "test")
     trace_manager.register_trace(12345, trace_info)
 
@@ -119,9 +143,6 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
     assert request_id_1 in trace_manager._traces
 
     time.sleep(3)
-
-    # NB: TTLCache only expire items when some item is accessed, so flush explicitly
-    trace_manager.flush()
 
     assert request_id_1 not in trace_manager._traces
     assert span_1_1.status.status_code == SpanStatusCode.ERROR

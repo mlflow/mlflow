@@ -595,10 +595,23 @@ MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
     "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
 )
 
-# How long a trace can be buffered at the in-memory trace client before being abandoned.
+# How long a trace can be "in-progress". When this is set to a positive value and a trace is
+# not completed within this time, it will be automatically halted and exported to the specified
+# backend destination with status "ERROR".
+MLFLOW_TRACE_TIMEOUT_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_TIMEOUT_SECONDS", int, None)
+
+# How frequently to check for timed-out traces. For example, if this is set to 10, MLflow will
+# check for timed-out traces every 10 seconds (in a background worker) and halt any traces that
+# have exceeded the timeout. This is only effective if MLFLOW_TRACE_TIMEOUT_SECONDS is set to a
+# positive value.
+MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", int, 1
+)
+
+# How long a trace can be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
 
-# How many traces to be buffered at the in-memory trace client.
+# How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
 #: Private configuration option.

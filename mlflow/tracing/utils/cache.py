@@ -1,125 +1,155 @@
+import atexit
 import logging
 import threading
-from typing import Optional
+import time
+from collections import OrderedDict
 
-from cachetools import TTLCache
+from cachetools import Cache, TTLCache, _TimedCache
 
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.environment_variables import MLFLOW_TRACE_BUFFER_TTL_SECONDS
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS,
+    MLFLOW_TRACE_TIMEOUT_SECONDS,
+)
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.trace_manager import _Trace
 
 _logger = logging.getLogger(__name__)
 
 _TRACE_EXPIRATION_MSG = (
     "Trace {request_id} is automatically halted by MLflow due to the time-to-live (TTL) "
     "expiration. The operation may be stuck or taking too long to complete. To increase "
-    "the TTL duration, set the environment variable MLFLOW_TRACE_BUFFER_TTL_SECONDS to a "
+    "the TTL duration, set the environment variable MLFLOW_TRACE_TIMEOUT_SECONDS to a "
     "larger value. (Current: {ttl} seconds.)"
 )
 
 
-class TTLCacheWithLogging(TTLCache):
-    """An extension of cachetools.TTLCache that logs the expired traces to the backend."""
+class MLflowTraceTimeoutCache(_TimedCache):
+    """
+    An extension of cachetools.TTLCache that logs the expired traces to the backend.
 
-    def __init__(self, maxsize: int, ttl: int):
-        super().__init__(maxsize=maxsize, ttl=ttl)
-        self._expire_traces_lock = threading.Lock()
-        self._oldest_alive_node = None
+    NB: Do not use this class outside a singleton context. This class is not thread-safe.
+    """
 
-    def expire(self, time: Optional[int] = None, block=False):
+    def __init__(self, timeout: int, maxsize: int):
+        super().__init__(maxsize=maxsize)
+
+        self._timeout = timeout
+
+        self._root = TTLCache._Link()
+        self._root.prev = self._root
+        self._root.next = self._root
+        self._links = OrderedDict()
+
+        self._start_expire_check_loop()
+
+    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
+        with self.timer as time:
+            cache_setitem(self, key, value)
+        if key not in self._links:
+            tail = self._root.prev
+            link = TTLCache._Link(key)
+            link.expires = time + self._timeout
+            link.next = self._root
+            link.prev = tail
+            tail.next = link
+            self._links[key] = link
+
+    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
+        cache_delitem(self, key)
+        link = self._links.pop(key)
+        link.unlink()
+
+    def _start_expire_check_loop(self):
+        # Close the thread when the main thread exits
+        atexit.register(self.clear)
+
+        self._expire_checker_thread = threading.Thread(
+            target=self._expire_check_loop, daemon=True, name="TTLCacheExpireLoop"
+        )
+        self._expire_checker_stop_event = threading.Event()
+        self._expire_checker_thread.start()
+
+    def _expire_check_loop(self):
+        while not self._expire_checker_stop_event.is_set():
+            try:
+                # NB: This cache is used in a singleton (InMemoryTraceManager) so guaranteed to be
+                # accessed by a single thread. Therefore, no need to lock the cache.
+                self.expire()
+            except Exception as e:
+                _logger.debug(f"Failed to expire traces: {e}")
+                # If an error is raised from the expiration method, stop running the loop.
+                # Otherwise, the expire task might get heavier and heavier due to the
+                # increasing number of expired items.
+                break
+
+            time.sleep(MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS.get())
+
+    def expire(self, time=None):
         """
-        Trigger the TTL cache expiration (non-blocking).
+        Trigger the TTL cache expiration.
 
         In addition to removing the expired traces from the cache, this method also mark it
         completed with an error status, and log it to the backend, so users can see the
         timeout traces on the UI. Since logging takes time, it is done in a background
         thread and this method returns immediately.
-
-        Args:
-            time: This parameter is not used but kept for compatibility with the base class.
-            block: If True, wait for the expiration to complete before returning.
         """
-        # TTL may be updated by users after initial creation
-        if self.ttl != MLFLOW_TRACE_BUFFER_TTL_SECONDS.get():
-            _logger.warning()
+        # TTL may be updated by users after initial creation. Warn users because it does not
+        # change the TTL of existing traces and may cause confusion.
+        new_timeout = MLFLOW_TRACE_TIMEOUT_SECONDS.get()
+        if new_timeout and self._timeout != new_timeout:
+            if len(self._links) > 0:
+                _logger.warning(
+                    f"The timeout of the trace buffer has been updated to {new_timeout} seconds. "
+                    "However the timeout won't be applied to existing traces and may cause "
+                    "unexpected behavior. To ensure the new timeout is applied correctly, please "
+                    "restart the application or update timeout when there is no active trace. "
+                )
+            self._timeout = new_timeout
 
         expired = self._get_expired_traces()
-        if not expired:
-            return
 
         # End the expired traces and set the status to ERROR in background thread
-        def _expire_traces():
-            for request_id, trace in expired:
-                if root_span := trace.get_root_span():
-                    try:
-                        root_span.set_status(SpanStatusCode.ERROR)
-                        msg = _TRACE_EXPIRATION_MSG.format(request_id=request_id, ttl=self.ttl)
-                        exception_event = SpanEvent.from_exception(MlflowTracingException(msg))
-                        root_span.add_event(exception_event)
-                        root_span.end()  # Calling end() triggers span export
-                        _logger.info(msg + " You can find the aborted trace in the MLflow UI.")
-                    except Exception as e:
-                        _logger.debug(f"Failed to export an expired trace {request_id}: {e}")
+        for request_id in expired:
+            trace = self[request_id]
+            if root_span := trace.get_root_span():
+                try:
+                    root_span.set_status(SpanStatusCode.ERROR)
+                    msg = _TRACE_EXPIRATION_MSG.format(request_id=request_id, ttl=self._timeout)
+                    exception_event = SpanEvent.from_exception(MlflowTracingException(msg))
+                    root_span.add_event(exception_event)
+                    root_span.end()  # Calling end() triggers span export
+                    _logger.info(msg + " You can find the aborted trace in the MLflow UI.")
+                except Exception as e:
+                    _logger.debug(f"Failed to export an expired trace {request_id}: {e}")
 
-                if request_id in self:
-                    del self[request_id]
+                # Remove the expired trace from the linked list
+                del self[request_id]
 
-        thread = threading.Thread(target=_expire_traces, daemon=True)
-        thread.start()
-        if block:
-            thread.join()
+            super().expire()
 
-    def __getitem__(self, key):
-        """
-        The original TTLCache only trigger expiration when an item is set or deleted.
-        This is not enough, because it means a trace is only expired when a new trace is created.
-
-        To increase the cadence of expiring the traces, we trigger expiration whenever an item
-        is accessed. Checking the expired trace is fairy lightweight if there is no expired span
-        (most of the time). Even if there are, the expiration is done in a non-blocking way,
-        so the performance impact should be minimal.
-
-        NB: This is still a 'best-effort' approach, because expiration won't be triggered when
-        there is only one span running and it hangs forever.
-        """
-        self.expire(block=False)
-        return super().__getitem__(key)
-
-    def get(self, key):
-        # Call expire() with the same reason as __getitem__.
-        self.expire(block=False)
-        return super().get(key)
-
-    def _get_expired_traces(self) -> list[tuple[str, _Trace]]:
+    def _get_expired_traces(self) -> list[str]:
         """
         Fine all TTL expired traces.
         Ref: https://github.com/tkem/cachetools/blob/d44c98407030d2e91cbe82c3997be042d9c2f0de/src/cachetools/__init__.py#L469-L489
         """
         time = self.timer()
-        root = self._TTLCache__root
-        curr = root.next
+        curr = self._root.next
 
         if curr.expires and time < curr.expires:
             return []
 
         expired = []
         # Traversal linked list to find expired traces (linear time to number of expired traces)
-        # Requires a lock to ensure only one thread is checking the linked list at a time
-        with self._expire_traces_lock:
-            # If the last expired node is still in the linked list (it breaches the TTL but still not
-            # handled by the async expire() task), we start traversing from the last expired node to
-            # avoid duplicate processing.
-            if self._oldest_alive_node is not None:
-                curr = self._oldest_alive_node
+        while curr is not self._root and not (time < curr.expires):
+            # Direct access to underlying data, to avoid infinite recursion of expire() call
+            expired.append(curr.key)
+            curr = curr.next
+            # print(f"Updated oldest alive node: {self._oldest_alive_node.key}")
 
-                #print(f"Setting curr based on oldest alive node: {curr.key} {self._oldest_alive_node.key}")
-
-            while curr is not root and not (time < curr.expires):
-                # Direct access to underlying data, to avoid infinite recursion of expire() call
-                expired.append((curr.key, self._Cache__data[curr.key]))
-                curr = curr.next
-               #print(f"Updated oldest alive node: {self._oldest_alive_node.key}")
-                self._oldest_alive_node = curr
         return expired
+
+    def clear(self):
+        super().clear()
+        self._expire_checker_stop_event.set()
+        self._expire_checker_thread.join()
