@@ -284,6 +284,12 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert len(traces) == 1
 
 
+@pytest.mark.skip(
+    reason=(
+        "https://github.com/crewAIInc/crewAI/issues/1934. "
+        "Remove skip when the issue is resolved."
+    )
+)
 def test_kickoff_failure(simple_agent_1, task_1, autolog):
     crew = Crew(
         agents=[
