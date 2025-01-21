@@ -459,7 +459,7 @@ def test_maybe_convert_data_for_type_hint_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Only `list\[...\]` type hint supports pandas DataFrame input",
+        match=r"Only `list\[\.\.\.\]` type hint supports pandas DataFrame input",
     ):
         _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)
 

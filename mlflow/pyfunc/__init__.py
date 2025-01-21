@@ -413,7 +413,6 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -1578,7 +1577,6 @@ def _convert_array_values(values, result_type):
     )
 
 
-@lru_cache
 def _get_spark_primitive_types():
     from pyspark.sql import types
 
@@ -1592,7 +1590,6 @@ def _get_spark_primitive_types():
     )
 
 
-@lru_cache
 def _get_spark_primitive_type_to_np_type():
     from pyspark.sql import types
 
@@ -1606,7 +1603,6 @@ def _get_spark_primitive_type_to_np_type():
     }
 
 
-@lru_cache
 def _get_spark_primitive_type_to_python_type():
     from pyspark.sql import types
 
