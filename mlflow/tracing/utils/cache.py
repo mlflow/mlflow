@@ -26,6 +26,7 @@ class TTLCacheWithLogging(TTLCache):
     def __init__(self, maxsize: int, ttl: int):
         super().__init__(maxsize=maxsize, ttl=ttl)
         self._expire_traces_lock = threading.Lock()
+        self._oldest_alive_node = None
 
     def expire(self, time: Optional[int] = None, block=False):
         """
@@ -42,7 +43,7 @@ class TTLCacheWithLogging(TTLCache):
         """
         # TTL may be updated by users after initial creation
         if self.ttl != MLFLOW_TRACE_BUFFER_TTL_SECONDS.get():
-            self._TTLCache__ttl = MLFLOW_TRACE_BUFFER_TTL_SECONDS.get()
+            _logger.warning()
 
         expired = self._get_expired_traces()
         if not expired:
@@ -58,7 +59,7 @@ class TTLCacheWithLogging(TTLCache):
                         exception_event = SpanEvent.from_exception(MlflowTracingException(msg))
                         root_span.add_event(exception_event)
                         root_span.end()  # Calling end() triggers span export
-                        _logger.info(msg)
+                        _logger.info(msg + " You can find the aborted trace in the MLflow UI.")
                     except Exception as e:
                         _logger.debug(f"Failed to export an expired trace {request_id}: {e}")
 
@@ -107,10 +108,18 @@ class TTLCacheWithLogging(TTLCache):
         # Traversal linked list to find expired traces (linear time to number of expired traces)
         # Requires a lock to ensure only one thread is checking the linked list at a time
         with self._expire_traces_lock:
+            # If the last expired node is still in the linked list (it breaches the TTL but still not
+            # handled by the async expire() task), we start traversing from the last expired node to
+            # avoid duplicate processing.
+            if self._oldest_alive_node is not None:
+                curr = self._oldest_alive_node
+
+                #print(f"Setting curr based on oldest alive node: {curr.key} {self._oldest_alive_node.key}")
+
             while curr is not root and not (time < curr.expires):
-                # Set the expiration time to a far future to avoid expiring it twice
-                curr.expires = 1e9
-                self._TTLCache__links.move_to_end(curr.key)
-                expired.append((curr.key, self[curr.key]))
+                # Direct access to underlying data, to avoid infinite recursion of expire() call
+                expired.append((curr.key, self._Cache__data[curr.key]))
                 curr = curr.next
+               #print(f"Updated oldest alive node: {self._oldest_alive_node.key}")
+                self._oldest_alive_node = curr
         return expired
