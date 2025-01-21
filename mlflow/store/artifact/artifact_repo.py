@@ -84,19 +84,7 @@ class ArtifactRepository:
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
-
-        def log_artifact_handler(filename, artifact_path=None, artifact=None):
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_path = os.path.join(tmp_dir, filename)
-                if artifact is not None:
-                    # User should already have installed PIL to log a PIL image
-                    from PIL import Image
-
-                    if isinstance(artifact, Image.Image):
-                        artifact.save(tmp_path)
-                self.log_artifact(tmp_path, artifact_path)
-
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(self.log_artifact)
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
@@ -124,7 +112,7 @@ class ArtifactRepository:
                 artifact.
         """
 
-    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, artifact):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -146,9 +134,7 @@ class ArtifactRepository:
         if not self._async_logging_queue.is_active():
             self._async_logging_queue.activate()
 
-        return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, artifact=artifact
-        )
+        return self._async_logging_queue.log_artifacts_async(artifact=artifact)
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
