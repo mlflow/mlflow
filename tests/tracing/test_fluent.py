@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER, pop_trace
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
@@ -1477,26 +1478,25 @@ def test_add_trace_logging_model_from_code():
     assert len(trace.data.spans) == 2
 
 
-def test_trace_halted_after_timeout(monkeypatch, async_logging_enabled):
+class _SlowModel:
+    @mlflow.trace
+    def predict(self, x):
+        for _ in range(x):
+            self.slow_function()
+        return
+
+    @mlflow.trace
+    def slow_function(self):
+        time.sleep(1)
+
+
+def test_trace_halted_after_timeout(monkeypatch):
     # When MLFLOW_TRACE_TIMEOUT_SECONDS is set, MLflow should halt the trace after
     # the timeout and log it to the backend with an error status
     monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "3")
     monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
 
-    @mlflow.trace
-    def predict():
-        for _ in range(5):
-            slow_function()
-        return
-
-    @mlflow.trace
-    def slow_function():
-        time.sleep(1)
-
-    predict()
-
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
+    _SlowModel().predict(5)  # takes 5 seconds
 
     traces = get_traces()
     assert len(traces) == 1
@@ -1509,7 +1509,48 @@ def test_trace_halted_after_timeout(monkeypatch, async_logging_enabled):
     assert root_span.name == "predict"
     assert root_span.status.status_code == SpanStatusCode.ERROR
     assert root_span.events[0].name == "exception"
+    assert (
+        root_span.events[0]
+        .attributes["exception.message"]
+        .startswith(f"Trace {trace.info.request_id} is automatically halted")
+    )
 
     first_span = trace.data.spans[1]
     assert first_span.name == "slow_function_1"
     assert first_span.status.status_code == SpanStatusCode.OK
+
+    # The rest of the spans should not be logged to the backend.
+    in_progress_traces = mlflow.search_traces(filter_string="status = 'IN_PROGRESS'")
+    assert len(in_progress_traces) == 0
+
+
+def test_trace_halted_after_timeout_in_model_serving(
+    monkeypatch, mock_databricks_serving_with_tracing_env
+):
+    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "3")
+    monkeypatch.setenv("MLFLOW_TRACE_TTL_CHECK_INTERVAL_SECONDS", "1")
+
+    # Simulate model serving env where multiple requests are processed concurrently
+    def _run_single(request_id, seconds):
+        with set_prediction_context(Context(request_id=request_id)):
+            _SlowModel().predict(seconds)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        executor.map(_run_single, ["request-id-1", "request-id-2", "request-id-3"], [5, 6, 1])
+
+    # All traces should be logged
+    assert len(_TRACE_BUFFER) == 3
+
+    # Long operation should be halted
+    trace = pop_trace(request_id="request-id-1")
+    trace = Trace.from_dict(trace)
+    assert trace.info.execution_time_ms >= 2000
+    assert trace.info.status == SpanStatusCode.ERROR
+    assert len(trace.data.spans) >= 2
+
+    # Short operation should complete successfully
+    trace = pop_trace(request_id="request-id-3")
+    trace = Trace.from_dict(trace)
+    assert trace.info.execution_time_ms < 2000
+    assert trace.info.status == SpanStatusCode.OK
+    assert len(trace.data.spans) >= 1

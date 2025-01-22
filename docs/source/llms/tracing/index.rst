@@ -1653,3 +1653,42 @@ Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_
     spans = trace.search_spans(name=re.compile(r"add.*"))
     print(spans)
     # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
+
+
+Q: The model execution gets stuck and my trace is "in progress" forever.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Sometimes a model or an agent get stuck in a long-running operation or an infinite loop, causing the trace to be stuck in the "in progress" state.
+
+To prevent this, you can set a timeout for the trace using the ``MLFLOW_TRACE_TIMEOUT_SECONDS`` environment variable. If the trace exceeds the timeout, MLflow will automatically halt the trace with ``ERROR`` status and export it to the backend, so that you can analyze the spans to identify the issue. By default, the timeout is not set.
+
+
+For example, the following code sets the timeout to 5 seconds and simulate how MLflow handles a long-running operation:
+
+.. code-block:: python
+
+
+    import mlflow
+    import os
+    import time
+
+    # Set the timeout to 5 seconds for demonstration purposes
+    os.environ["MLFLOW_TRACE_TIMEOUT_SECONDS"] = "5"
+
+
+    # Simulate a long-running operation
+    @mlflow.trace
+    def long_running():
+        for _ in range(10):
+            child()
+
+
+    @mlflow.trace
+    def child():
+        time.sleep(1)
+
+
+
+.. note::
+
+    MLflow monitors the trace execution time and expiration in a background thread. By default, this check is performed every second and  resource consumption is negligible. If you want to adjust the interval, you can set the ``MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS`` environment variable.

@@ -68,6 +68,14 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 on it.
         """
         request_id = self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
+
+        if not request_id and span.parent is not None:
+            _logger.debug(
+                "Received a non-root span but the request ID is not found."
+                "The trace is likely be halted due to timeout expiration."
+            )
+            return
+
         if not request_id:
             # If the user started trace/span with fixed start time, this attribute is set
             start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
@@ -162,7 +170,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
-                print(f"Trace data with request ID {request_id} not found.")
                 return
 
             self._update_trace_info(trace, span)

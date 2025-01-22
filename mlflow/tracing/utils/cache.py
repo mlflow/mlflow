@@ -26,16 +26,16 @@ _TRACE_EXPIRATION_MSG = (
 
 class MLflowTraceTimeoutCache(_TimedCache):
     """
-    An extension of cachetools.TTLCache that logs the expired traces to the backend.
+    A different implementation of cachetools.TTLCache that logs the expired traces to the backend.
 
     NB: Do not use this class outside a singleton context. This class is not thread-safe.
     """
 
     def __init__(self, timeout: int, maxsize: int):
         super().__init__(maxsize=maxsize)
-
         self._timeout = timeout
 
+        # Set up the linked list ordered by expiration time
         self._root = TTLCache._Link()
         self._root.prev = self._root
         self._root.next = self._root
@@ -44,24 +44,30 @@ class MLflowTraceTimeoutCache(_TimedCache):
         self._start_expire_check_loop()
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
+        """Set the item in the cache, and also in the linked list if it is a new key"""
         with self.timer as time:
             cache_setitem(self, key, value)
+
         if key not in self._links:
+            # Add the new item to the tail of the linked list
+            # Inspired by https://github.com/tkem/cachetools/blob/d44c98407030d2e91cbe82c3997be042d9c2f0de/src/cachetools/__init__.py#L432
             tail = self._root.prev
             link = TTLCache._Link(key)
             link.expires = time + self._timeout
             link.next = self._root
             link.prev = tail
             tail.next = link
+            self._root.prev = link
             self._links[key] = link
 
     def __delitem__(self, key, cache_delitem=Cache.__delitem__):
+        """Delete the item from the cache and the linked list."""
         cache_delitem(self, key)
         link = self._links.pop(key)
         link.unlink()
 
     def _start_expire_check_loop(self):
-        # Close the thread when the main thread exits
+        # Close the daemon thread when the main thread exits
         atexit.register(self.clear)
 
         self._expire_checker_thread = threading.Thread(
@@ -73,8 +79,6 @@ class MLflowTraceTimeoutCache(_TimedCache):
     def _expire_check_loop(self):
         while not self._expire_checker_stop_event.is_set():
             try:
-                # NB: This cache is used in a singleton (InMemoryTraceManager) so guaranteed to be
-                # accessed by a single thread. Therefore, no need to lock the cache.
                 self.expire()
             except Exception as e:
                 _logger.debug(f"Failed to expire traces: {e}")
@@ -87,12 +91,10 @@ class MLflowTraceTimeoutCache(_TimedCache):
 
     def expire(self, time=None):
         """
-        Trigger the TTL cache expiration.
+        Trigger the expiration of traces that have exceeded the timeout.
 
-        In addition to removing the expired traces from the cache, this method also mark it
-        completed with an error status, and log it to the backend, so users can see the
-        timeout traces on the UI. Since logging takes time, it is done in a background
-        thread and this method returns immediately.
+        Args:
+            time: Unused. Only for compatibility with the parent class.
         """
         # TTL may be updated by users after initial creation. Warn users because it does not
         # change the TTL of existing traces and may cause confusion.
@@ -126,12 +128,12 @@ class MLflowTraceTimeoutCache(_TimedCache):
                 # Remove the expired trace from the linked list
                 del self[request_id]
 
-            super().expire()
-
     def _get_expired_traces(self) -> list[str]:
         """
-        Fine all TTL expired traces.
-        Ref: https://github.com/tkem/cachetools/blob/d44c98407030d2e91cbe82c3997be042d9c2f0de/src/cachetools/__init__.py#L469-L489
+        Find all expired traces and return their request IDs.
+
+        The linked list is ordered by expiration time, so we can traverse the list from the head
+        and return early whenever we find a trace that has not expired yet.
         """
         time = self.timer()
         curr = self._root.next
@@ -140,13 +142,9 @@ class MLflowTraceTimeoutCache(_TimedCache):
             return []
 
         expired = []
-        # Traversal linked list to find expired traces (linear time to number of expired traces)
         while curr is not self._root and not (time < curr.expires):
-            # Direct access to underlying data, to avoid infinite recursion of expire() call
             expired.append(curr.key)
             curr = curr.next
-            # print(f"Updated oldest alive node: {self._oldest_alive_node.key}")
-
         return expired
 
     def clear(self):
