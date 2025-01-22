@@ -57,6 +57,10 @@
 
   /* Increase h4 font-size to differentiate from regular bold text */
   --ifm-h4-font-size: 1.125rem;
+
+  --ifm-footer-background-color: #303846;
+  --ifm-footer-color: #ebedf0;
+  --ifm-footer-link-color: #ebedf0;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
