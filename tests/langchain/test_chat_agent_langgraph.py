@@ -1,0 +1,121 @@
+import pytest
+from langchain_core.messages import AIMessage, ToolMessage
+
+from mlflow.langchain.chat_agent_langgraph import parse_message
+from mlflow.types.agent import ChatAgentMessage
+
+LC_TOOL_CALL_MSG = AIMessage(
+    **{
+        "content": "",
+        "additional_kwargs": {
+            "tool_calls": [
+                {
+                    "id": "call_a9b9afd5-d23a-4973-8417-ac283b1413d5",
+                    "type": "function",
+                    "function": {
+                        "name": "system__ai__python_exec",
+                        "arguments": '{ "code": "print(5+5)" }',
+                    },
+                }
+            ]
+        },
+        "response_metadata": {"prompt_tokens": 2658, "completion_tokens": 24, "total_tokens": 2682},
+        "type": "ai",
+        "name": None,
+        "id": "run-3a2ad83b-a5cf-4d51-97c8-9f68205df787-0",
+        "example": False,
+        "tool_calls": [
+            {
+                "name": "system__ai__python_exec",
+                "args": {"code": "print(5+5)"},
+                "id": "call_a9b9afd5-d23a-4973-8417-ac283b1413d5",
+                "type": "tool_call",
+            }
+        ],
+        "invalid_tool_calls": [],
+        "usage_metadata": None,
+    }
+)
+
+CHAT_AGENT_TOOL_CALL_MSG = ChatAgentMessage(
+    **{
+        "role": "assistant",
+        "content": "",
+        "name": "llm",
+        "id": "run-3a2ad83b-a5cf-4d51-97c8-9f68205df787-0",
+        "tool_calls": [
+            {
+                "id": "call_a9b9afd5-d23a-4973-8417-ac283b1413d5",
+                "type": "function",
+                "function": {
+                    "name": "system__ai__python_exec",
+                    "arguments": '{"code": "print(5+5)"}',
+                },
+            }
+        ],
+    },
+)
+
+LC_TOOL_MSG = ToolMessage(
+    **{
+        "content": '{"content": "Successfully generated array of 5 random ints in [1, 100].", "attachments": {"key1": "attach1", "key2": "attach2"}, "custom_outputs": {"random_nums": [1, 82, 9, 12, 22]}}',  # noqa: E501
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "tool",
+        "name": "generate_random_ints",
+        "id": None,
+        "tool_call_id": "call_ee823299-62d7-4407-95e8-168412904471",
+        "artifact": None,
+        "status": "success",
+    }
+)
+
+CHAT_AGENT_TOOL_MSG = ChatAgentMessage(
+    role="tool",
+    content='{"content": "Successfully generated array of 5 random ints in [1, 100].", "attachments": {"key1": "attach1", "key2": "attach2"}, "custom_outputs": {"random_nums": [1, 82, 9, 12, 22]}}',  # noqa: E501
+    name=None,
+    id="c7ec22ae-beb6-467a-800e-e8ab3a2bc96b",
+    tool_calls=None,
+    tool_call_id="call_ee823299-62d7-4407-95e8-168412904471",
+    attachments={"key1": "attach1", "key2": "attach2"},
+    finish_reason=None,
+)
+TOOL_MSG_ATTACHMENTS = {"key1": "attach1", "key2": "attach2"}
+
+LC_ASSISTANT_MSG = AIMessage(
+    **{
+        "content": "The generated random numbers are 1, 82, 9, 12, and 22.",
+        "additional_kwargs": {},
+        "response_metadata": {"prompt_tokens": 2763, "completion_tokens": 22, "total_tokens": 2785},
+        "type": "ai",
+        "name": None,
+        "id": "run-4972ab0f-8b90-4650-8a84-a689fbd912f1-0",
+        "example": False,
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "usage_metadata": None,
+    }
+)
+
+CHAT_AGENT_ASSISTANT_MSG = ChatAgentMessage(
+    role="assistant",
+    content="The generated random numbers are 1, 82, 9, 12, and 22.",
+    name="llm",
+    id="run-4972ab0f-8b90-4650-8a84-a689fbd912f1-0",
+    tool_calls=None,
+    tool_call_id=None,
+    attachments=None,
+    finish_reason=None,
+)
+
+
+@pytest.mark.parametrize(
+    ("lc_msg", "chat_agent_msg", "name", "attachments"),
+    [
+        (LC_TOOL_CALL_MSG, CHAT_AGENT_TOOL_CALL_MSG, None, None),
+        (LC_TOOL_MSG, CHAT_AGENT_TOOL_MSG, None, TOOL_MSG_ATTACHMENTS),
+        (LC_ASSISTANT_MSG, CHAT_AGENT_ASSISTANT_MSG, None, None),
+    ],
+)
+def test_parse_message(lc_msg, chat_agent_msg, name, attachments):
+    assert parse_message(lc_msg, name, attachments) == chat_agent_msg
