@@ -35,12 +35,13 @@ def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
     tool_call_id = None
     for content in message["content"]:
         if tool_call := content.get("toolUse"):
+            input = tool_call.get("input")
             tool_calls.append(
                 ToolCall(
                     id=tool_call["toolUseId"],
                     function=Function(
                         name=tool_call["name"],
-                        arguments=json.dumps(tool_call["input"]),
+                        arguments=input if isinstance(input, str) else json.dumps(input),
                     ),
                     type="function",
                 )

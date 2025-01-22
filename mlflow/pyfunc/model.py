@@ -68,12 +68,6 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
 
-_INVALID_SIGNATURE_ERROR_MSG = (
-    "The underlying model's `{func_name}` method contains invalid parameters: {invalid_params}. "
-    "Only the following parameter names are allowed: context, model_input, and params. "
-    "Note that invalid parameters will no longer be permitted in future versions."
-)
-
 _logger = logging.getLogger(__name__)
 
 
@@ -735,8 +729,10 @@ class _PythonModelPyfuncWrapper:
                     len(self.signature.inputs) == 1
                     and next(iter(self.signature.inputs)).name is None
                 ):
-                    first_string_column = _get_first_string_column(model_input)
-                    return model_input[[first_string_column]].to_dict(orient="records")
+                    if first_string_column := _get_first_string_column(model_input):
+                        return model_input[[first_string_column]].to_dict(orient="records")
+                    if len(model_input.columns) == 1:
+                        return model_input.to_dict("list")[0]
                 return model_input.to_dict(orient="records")
             elif isinstance(hints.input, type) and (
                 issubclass(hints.input, ChatCompletionRequest)

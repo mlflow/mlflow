@@ -191,52 +191,52 @@ with your favorite provider!
 
     <section>
         <div class="logo-grid">
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_models/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/bedrock/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/aws-logo.svg" alt="AWS BedLock Logo" style="max-height: 3rem;"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/ai21_labs/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/azure_openai/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/azure-ml-logo.png" alt="Azure OpenAI Logo"/>
                 </div>
             </a>
-            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/gateway/huggingface/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo"/>
                 </div>

@@ -4,8 +4,10 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.evaluation_tag import EvaluationTag  # Assuming EvaluationTag is in this module
 from mlflow.entities.metric import Metric
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Evaluation(_MlflowObject):
     """
     Evaluation result data, including inputs, outputs, targets, assessments, and more.

@@ -2945,6 +2945,12 @@ tasks: :ref:`custom-python-models` and :ref:`custom-flavors`.
   :local:
   :depth: 2
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    model/python_model
+
 .. _custom-python-models:
 
 Custom Python Models
@@ -2962,6 +2968,67 @@ The following examples demonstrate how you can use the :py:mod:`mlflow.pyfunc` m
 custom Python models. For additional information about model customization with MLflow's
 ``python_function`` utilities, see the
 :ref:`python_function custom models documentation <pyfunc-create-custom>`.
+
+Example: Creating a model with type hints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how to create a custom Python model with type hints, enabling MLflow to perform data 
+validation based on the type hints specified for the model input. For additional information about
+PythonModel type hints support, see the `PythonModel Type Hints Guide <model/python_model.html#type-hints>`_.
+
+.. note::
+    PythonModel with type hints supports data validation starting from MLflow version 2.20.0.
+
+
+.. code-block:: python
+
+    import pydantic
+    import mlflow
+    from mlflow.pyfunc import PythonModel
+
+
+    # Define the pydantic model input
+    class Message(pydantic.BaseModel):
+        role: str
+        content: str
+
+
+    class CustomModel(PythonModel):
+        # Define the model_input type hint
+        # NB: it must be list[...], check the python model type hints guide for more information
+        def predict(self, model_input: list[Message], params=None) -> list[str]:
+            return [m.content for m in model_input]
+
+
+    # Construct the model and test
+    model = CustomModel()
+
+    # The input_example can be a list of Message objects as defined in the type hint
+    input_example = [
+        Message(role="system", content="Hello"),
+        Message(role="user", content="Hi"),
+    ]
+    assert model.predict(input_example) == ["Hello", "Hi"]
+
+    # The input example can also be a list of dictionaries that match the Message schema
+    input_example = [
+        {"role": "system", "content": "Hello"},
+        {"role": "user", "content": "Hi"},
+    ]
+    assert model.predict(input_example) == ["Hello", "Hi"]
+
+    # Log the model
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=model,
+            input_example=input_example,
+        )
+
+    # Load the model as pyfunc
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.predict(input_example) == ["Hello", "Hi"]
+
 
 Example: Creating a custom "add n" model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
