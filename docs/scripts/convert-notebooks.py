@@ -51,9 +51,7 @@ def add_frontmatter(
     body: str,
     nb_path: Path,
 ) -> str:
-    frontmatter = {
-        "custom_edit_url": NOTEBOOK_BASE_EDIT_URL + str(nb_path)
-    }
+    frontmatter = {"custom_edit_url": NOTEBOOK_BASE_EDIT_URL + str(nb_path)}
     formatted_frontmatter = "\n".join(f"{key}: {value}" for key, value in frontmatter.items())
 
     return f"""---
@@ -61,6 +59,7 @@ def add_frontmatter(
 ---
 
 {body}"""
+
 
 def add_download_button(
     body: str,
@@ -80,7 +79,9 @@ def add_download_button(
 
     # should not occur due to maxsplit=1
     if len(parts) > 3:
-        raise Exception(f"Error while parsing notebook at {nb_path}. Please check the format of the notebook.")
+        raise Exception(
+            f"Error while parsing notebook at {nb_path}. Please check the format of the notebook."
+        )
 
     # parts[0] = everything before the first header
     # parts[1] = the first header (match group from the regex)
