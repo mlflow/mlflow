@@ -6,7 +6,7 @@ import { postProcessSidebar } from "./postProcessSidebar";
 const config: Config = {
   title: "MLflow",
   tagline: "MLflow Documentation",
-  favicon: "img/favicon.ico",
+  favicon: "images/favicon.ico",
 
   // Set the production url of your site here
   url: "https://mlflow.org",
