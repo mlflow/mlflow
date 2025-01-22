@@ -83,27 +83,43 @@ const config: Config = {
       ],
     },
     footer: {
-      style: "dark",
       links: [
         {
           title: "Community",
           items: [
             {
               label: "Stack Overflow",
-              href: "https://stackoverflow.com/questions/tagged/docusaurus",
+              href: "https://stackoverflow.com/questions/tagged/mlflow",
             },
             {
-              label: "Discord",
-              href: "https://discordapp.com/invite/docusaurus",
+              label: "LinkedIn",
+              href: "https://www.linkedin.com/company/mlflow-org",
             },
             {
-              label: "Twitter",
-              href: "https://twitter.com/docusaurus",
+              label: "X",
+              href: "https://x.com/mlflow",
+            },
+          ],
+        },
+        {
+          title: "Resources",
+          items: [
+            {
+              label: "Docs",
+              to: "/",
+            },
+            {
+              label: "Releases",
+              to: "https://mlflow.org/releases",
+            },
+            {
+              label: "Blog",
+              to: "https://mlflow.org/releases",
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} MLflow Project, a Series of LF Projects, LLC.`,
     },
     prism: {
       // There is an array of languages enabled by default.
