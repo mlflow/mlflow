@@ -1,7 +1,11 @@
 import langchain
 import pytest
-from langchain_core.messages import AIMessage, ToolMessage
 from packaging.version import Version
+
+if Version(langchain.__version__) < Version("0.2.0"):
+    pytest.skip("Tests require langchain version 0.2.0 or higher", allow_module_level=True)
+
+from langchain_core.messages import AIMessage, ToolMessage
 
 from mlflow.langchain.chat_agent_langgraph import parse_message
 from mlflow.types.agent import ChatAgentMessage
@@ -105,10 +109,6 @@ CHAT_AGENT_ASSISTANT_MSG = ChatAgentMessage(
 ).model_dump_compat(exclude_none=True)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message and other utilities aren't available in older versions",
-)
 @pytest.mark.parametrize(
     ("lc_msg", "chat_agent_msg", "name", "attachments"),
     [
