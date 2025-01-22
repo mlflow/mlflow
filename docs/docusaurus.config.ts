@@ -34,6 +34,14 @@ const config: Config = {
     locales: ["en"],
   },
 
+  // runllm
+  scripts: [
+    {
+      src: "js/runllm.js",
+      defer: true,
+    },
+  ],
+
   presets: [
     [
       "classic",
