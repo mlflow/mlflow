@@ -5,10 +5,15 @@ from packaging.version import Version
 if Version(langchain.__version__) < Version("0.2.0"):
     pytest.skip("Tests require langchain version 0.2.0 or higher", allow_module_level=True)
 
+import json
+
 from langchain_core.messages import AIMessage, ToolMessage
 
+import mlflow
 from mlflow.langchain.chat_agent_langgraph import parse_message
 from mlflow.types.agent import ChatAgentMessage
+
+from tests.tracing.helper import get_traces
 
 LC_TOOL_CALL_MSG = AIMessage(
     **{
@@ -122,3 +127,68 @@ def test_parse_message(lc_msg, chat_agent_msg, name, attachments):
     if lc_msg.id is None:
         lc_msg.id = chat_agent_msg.get("id")
     assert parse_message(lc_msg, name, attachments) == chat_agent_msg
+
+
+def test_langgraph_chat_agent_save_as_code():
+    # (role, content)
+    expected_messages = [
+        ("assistant", ""),  # tool message does not have content
+        (
+            "tool",
+            json.dumps(
+                {
+                    "format": "SCALAR",
+                    "value": '{"content":"hi","attachments":{"a":"b"},"custom_outputs":{"c":"d"}}',
+                    "truncated": False,
+                }
+            ),
+        ),
+        ("assistant", ""),
+        (
+            "tool",
+            json.dumps(
+                {
+                    "content": f"Successfully generated array of 2 random ints: {[1, 2]}.",
+                    "attachments": {"key1": "attach1", "key2": "attach2"},
+                    "custom_outputs": {"random_nums": [1, 2]},
+                }
+            ),
+        ),
+        ("assistant", "Successfully generated"),
+    ]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="agent",
+            python_model="sample_code/langgraph_chat_agent.py",
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict({"messages": [{"role": "user", "content": "hi"}]})
+    messages = response["messages"]
+    assert len(messages) == len(expected_messages)
+    for msg, (role, expected_content) in zip(messages, expected_messages):
+        assert msg["role"] == role
+        assert msg["content"] == expected_content
+
+
+def test_langgraph_chat_agent_trace():
+    input_example = {"messages": [{"role": "user", "content": "hi"}]}
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="agent",
+            python_model="sample_code/langgraph_chat_agent.py",
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # No trace should be created for loading it in
+    assert mlflow.get_last_active_trace() is None
+
+    loaded_model.predict(input_example)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "LangGraph"
+    # delete the generated uuid
+    del traces[0].data.spans[0].inputs["messages"][0]["id"]
+    assert traces[0].data.spans[0].inputs == input_example
