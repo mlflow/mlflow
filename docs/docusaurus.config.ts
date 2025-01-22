@@ -60,8 +60,6 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: "img/docusaurus-social-card.jpg",
     navbar: {
       logo: {
         alt: "MLflow Logo",
@@ -76,7 +74,7 @@ const config: Config = {
           label: "Docs",
         },
         {
-          href: "https://github.com/facebook/docusaurus",
+          href: "https://github.com/mlflow/mlflow",
           label: "GitHub",
           position: "right",
         },
