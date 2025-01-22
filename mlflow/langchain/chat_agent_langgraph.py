@@ -1,30 +1,19 @@
 import json
-import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, TypedDict, Union
 
-from langchain_core.messages import (
-    AIMessage,
-    AnyMessage,
-    HumanMessage,
-    ToolMessage,
-)
-from langchain_core.messages import (
-    ToolCall as LCToolCall,
-)
+from langchain_core.messages import AnyMessage
+from langchain_core.messages import ToolCall as LCToolCall
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables.utils import Input
 from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 
+from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
 from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
-from mlflow.types.chat import (
-    Function,
-    ToolCall,
-)
 
 
 def add_agent_messages(left: list[dict], right: list[dict]):
@@ -47,7 +36,6 @@ def add_agent_messages(left: list[dict], right: list[dict]):
     return merged
 
 
-# We create the ChatAgentState that we will pass around
 class ChatAgentState(TypedDict):
     """The state of the agent."""
 
@@ -60,63 +48,20 @@ class SystemMessage(ChatAgentMessage):
     role: Literal["system"] = field(default="system")
 
 
-def parse_tool_calls(id, tool_calls: list[dict[str, Any]]) -> dict:
-    return ChatAgentMessage(
-        role="assistant",
-        content="",
-        id=id,
-        tool_calls=[
-            ToolCall(
-                id=tool_call.get("id"),
-                function=Function(
-                    arguments=json.dumps(tool_call.get("args", {})), name=tool_call.get("name")
-                ),
-                type="function",
-            )
-            for tool_call in tool_calls
-        ],
-        # attachments = ...
-    ).model_dump(exclude_none=True)
-
-
-def parse_tool_result(tool_msg: ToolMessage, attachments=None) -> dict:
-    return ChatAgentMessage(
-        role="tool",
-        content=tool_msg.content,
-        name=tool_msg.name,
-        id=tool_msg.tool_call_id,
-        tool_call_id=tool_msg.tool_call_id,
-        attachments=attachments,
-    ).model_dump(exclude_none=True)
-
-
-def parse_message(msg, key: Optional[str] = None, attachments: Optional[dict] = None) -> dict:
+def parse_message(
+    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
+) -> dict:
     """Parse different message types into their string representations"""
-    # tool call result
-    if isinstance(msg, ToolMessage):
-        return parse_tool_result(msg, attachments=attachments)
-    # tool call
-    elif isinstance(msg, AIMessage) and msg.tool_calls:
-        return parse_tool_calls(msg.id, msg.tool_calls)
-    elif isinstance(msg, AIMessage):
-        args = {
-            "role": "assistant",
-            "id": msg.id,
-            "content": msg.content,
-            # "attachments": ...
-        }
-        if key:
-            args["name"] = key
-        return ChatAgentMessage(**args).model_dump(exclude_none=True)
-    elif isinstance(msg, HumanMessage):
-        return ChatAgentMessage(
-            role="user",
-            id=msg.id,
-            content=msg.content,
-            # attachments = ...
-        ).model_dump(exclude_none=True)
-    else:
-        logging.warning(f"Unexpected message type: {type(msg), str(msg)}")
+    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
+    chat_message_dict["attachments"] = attachments
+    chat_message_dict["name"] = name
+    chat_message_dict["id"] = msg.id
+    # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
+    if not chat_message_dict.get("content"):
+        chat_message_dict["content"] = ""
+
+    chat_agent_msg = ChatAgentMessage(**chat_message_dict)
+    return chat_agent_msg.model_dump_compat(exclude_none=True)
 
 
 class ChatAgentToolNode(ToolNode):
@@ -130,6 +75,12 @@ class ChatAgentToolNode(ToolNode):
         for m in result["messages"]:
             try:
                 return_obj = json.loads(m.content)
+                if all(key in return_obj for key in ("format", "value", "truncated")):
+                    # Dictionary output with custom_outputs and attachments from a UC function
+                    try:
+                        return_obj = json.loads(return_obj["value"])
+                    except Exception:
+                        pass
                 if "custom_outputs" in return_obj:
                     custom_outputs = return_obj["custom_outputs"]
                 messages.append(parse_message(m, attachments=return_obj.get("attachments")))
@@ -162,7 +113,7 @@ class ChatAgentToolNode(ToolNode):
     ) -> tuple[list[LCToolCall], Literal["list", "dict"]]:
         if isinstance(input, list):
             output_type = "list"
-            message: AnyMessage = input[-1]
+            message = input[-1]
         elif isinstance(input, dict) and (messages := input.get(self.messages_key, [])):
             output_type = "dict"
             message = messages[-1]
