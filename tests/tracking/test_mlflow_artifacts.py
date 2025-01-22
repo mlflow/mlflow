@@ -4,6 +4,7 @@ import pathlib
 import subprocess
 import tempfile
 from collections import namedtuple
+from io import BytesIO
 
 import pytest
 import requests
@@ -366,6 +367,41 @@ def test_mime_type_for_download_artifacts_api(
     assert params["filename"] == filename
     assert artifact_response.headers["Content-Type"] == expected_mime_type
     assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_rest_get_artifact_api_log_image(artifacts_server):
+    url = artifacts_server.url
+    mlflow.set_tracking_uri(url)
+
+    import numpy as np
+    from PIL import Image
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run() as run:
+        mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
+
+    artifact_list_response = requests.get(
+        url=f"{url}/ajax-api/2.0/mlflow/artifacts/list",
+        params={"path": "images", "run_id": run.info.run_id},
+    )
+    artifact_list_response.raise_for_status()
+
+    for file in artifact_list_response.json()["files"]:
+        path = file["path"]
+        get_artifact_response = requests.get(
+            url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": path}
+        )
+        get_artifact_response.raise_for_status()
+        assert (
+            "attachment; filename=dog%step%100%timestamp%100"
+            in get_artifact_response.headers["Content-Disposition"]
+        )
+        if path.endswith("png"):
+            loaded_image = np.asarray(
+                Image.open(BytesIO(get_artifact_response.content)), dtype=np.uint8
+            )
+            np.testing.assert_array_equal(loaded_image, image)
 
 
 @pytest.mark.parametrize(
