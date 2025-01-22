@@ -9,6 +9,8 @@ from cachetools import Cache, TTLCache, _TimedCache
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.environment_variables import (
+    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
     MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS,
     MLFLOW_TRACE_TIMEOUT_SECONDS,
 )
@@ -17,11 +19,34 @@ from mlflow.exceptions import MlflowTracingException
 _logger = logging.getLogger(__name__)
 
 _TRACE_EXPIRATION_MSG = (
-    "Trace {request_id} is automatically halted by MLflow due to the time-to-live (TTL) "
-    "expiration. The operation may be stuck or taking too long to complete. To increase "
-    "the TTL duration, set the environment variable MLFLOW_TRACE_TIMEOUT_SECONDS to a "
-    "larger value. (Current: {ttl} seconds.)"
+    "Trace {request_id} is automatically halted by MLflow due to timeout ({ttl} seconds). "
+    "The operation may be stuck or taking too long to complete. To increase the timeout, "
+    "set the environment variable MLFLOW_TRACE_TIMEOUT_SECONDS to a larger value."
 )
+
+
+def get_trace_cache_with_timeout() -> Cache:
+    """
+    Return a cache object that stores traces in-memory while they are in-progress.
+
+    If the timeout is specified, this returns a customized cache that logs the
+    expired traces to the backend. Otherwise, this returns a regular cache.
+    """
+
+    if timeout := MLFLOW_TRACE_TIMEOUT_SECONDS.get():
+        return MLflowTraceTimeoutCache(
+            timeout=timeout,
+            maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+        )
+
+    # NB: Ideally we should return the vanilla Cache object only with maxsize.
+    # But we used TTLCache before introducing the timeout feature (that does not
+    # monitor timeout periodically nor log the expired traces). To keep the
+    # backward compatibility, we return TTLCache.
+    return TTLCache(
+        ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+        maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+    )
 
 
 class MLflowTraceTimeoutCache(_TimedCache):
@@ -42,6 +67,12 @@ class MLflowTraceTimeoutCache(_TimedCache):
         self._links = OrderedDict()
 
         self._start_expire_check_loop()
+
+    @property
+    def timeout(self) -> int:
+        # Timeout should not be changed after the cache is created
+        # because the linked list will not be updated accordingly.
+        return self._timeout
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
         """Set the item in the cache, and also in the linked list if it is a new key"""
@@ -96,19 +127,6 @@ class MLflowTraceTimeoutCache(_TimedCache):
         Args:
             time: Unused. Only for compatibility with the parent class.
         """
-        # TTL may be updated by users after initial creation. Warn users because it does not
-        # change the TTL of existing traces and may cause confusion.
-        new_timeout = MLFLOW_TRACE_TIMEOUT_SECONDS.get()
-        if new_timeout and self._timeout != new_timeout:
-            if len(self._links) > 0:
-                _logger.warning(
-                    f"The timeout of the trace buffer has been updated to {new_timeout} seconds. "
-                    "However the timeout won't be applied to existing traces and may cause "
-                    "unexpected behavior. To ensure the new timeout is applied correctly, please "
-                    "restart the application or update timeout when there is no active trace. "
-                )
-            self._timeout = new_timeout
-
         expired = self._get_expired_traces()
 
         # End the expired traces and set the status to ERROR in background thread
@@ -125,8 +143,10 @@ class MLflowTraceTimeoutCache(_TimedCache):
                 except Exception as e:
                     _logger.debug(f"Failed to export an expired trace {request_id}: {e}")
 
-                # Remove the expired trace from the linked list
-                del self[request_id]
+                # NB: root_span.end() should pop the trace from the cache. But we need to
+                # double-check it because it may not happens due to some errors.
+                if request_id in self:
+                    del self[request_id]
 
     def _get_expired_traces(self) -> list[str]:
         """
