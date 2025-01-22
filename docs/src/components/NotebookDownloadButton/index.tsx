@@ -34,6 +34,7 @@ export function NotebookDownloadButton({
   return (
     <a
       className="button button--primary"
+      style={{ marginBottom: "1rem", display: "block", width: "min-content" }}
       href={href}
       download
       onClick={handleClick}
