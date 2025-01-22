@@ -104,7 +104,7 @@ def convert_path(nb_path: Path):
 
 
 def main():
-    nb_paths = list(SOURCE_DIR.rglob("transformers-peft.ipynb"))
+    nb_paths = list(SOURCE_DIR.rglob("*.ipynb"))
 
     with multiprocessing.Pool() as pool:
         pool.map(convert_path, nb_paths)
