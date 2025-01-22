@@ -1,5 +1,7 @@
+import langchain
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
+from packaging.version import Version
 
 from mlflow.langchain.chat_agent_langgraph import parse_message
 from mlflow.types.agent import ChatAgentMessage
@@ -36,7 +38,6 @@ LC_TOOL_CALL_MSG = AIMessage(
         "usage_metadata": None,
     }
 )
-
 CHAT_AGENT_TOOL_CALL_MSG = ChatAgentMessage(
     **{
         "role": "assistant",
@@ -53,9 +54,8 @@ CHAT_AGENT_TOOL_CALL_MSG = ChatAgentMessage(
                 },
             }
         ],
-    },
-)
-
+    }
+).model_dump_compat(exclude_none=True)
 LC_TOOL_MSG = ToolMessage(
     **{
         "content": '{"content": "Successfully generated array of 5 random ints in [1, 100].", "attachments": {"key1": "attach1", "key2": "attach2"}, "custom_outputs": {"random_nums": [1, 82, 9, 12, 22]}}',  # noqa: E501
@@ -69,7 +69,6 @@ LC_TOOL_MSG = ToolMessage(
         "status": "success",
     }
 )
-
 CHAT_AGENT_TOOL_MSG = ChatAgentMessage(
     role="tool",
     content='{"content": "Successfully generated array of 5 random ints in [1, 100].", "attachments": {"key1": "attach1", "key2": "attach2"}, "custom_outputs": {"random_nums": [1, 82, 9, 12, 22]}}',  # noqa: E501
@@ -79,9 +78,8 @@ CHAT_AGENT_TOOL_MSG = ChatAgentMessage(
     tool_call_id="call_ee823299-62d7-4407-95e8-168412904471",
     attachments={"key1": "attach1", "key2": "attach2"},
     finish_reason=None,
-)
+).model_dump_compat(exclude_none=True)
 TOOL_MSG_ATTACHMENTS = {"key1": "attach1", "key2": "attach2"}
-
 LC_ASSISTANT_MSG = AIMessage(
     **{
         "content": "The generated random numbers are 1, 82, 9, 12, and 22.",
@@ -96,7 +94,6 @@ LC_ASSISTANT_MSG = AIMessage(
         "usage_metadata": None,
     }
 )
-
 CHAT_AGENT_ASSISTANT_MSG = ChatAgentMessage(
     role="assistant",
     content="The generated random numbers are 1, 82, 9, 12, and 22.",
@@ -106,9 +103,13 @@ CHAT_AGENT_ASSISTANT_MSG = ChatAgentMessage(
     tool_call_id=None,
     attachments=None,
     finish_reason=None,
+).model_dump_compat(exclude_none=True)
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message and other utilities aren't available in older versions",
 )
-
-
 @pytest.mark.parametrize(
     ("lc_msg", "chat_agent_msg", "name", "attachments"),
     [
