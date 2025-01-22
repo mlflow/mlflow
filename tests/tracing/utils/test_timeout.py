@@ -10,7 +10,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER, pop_trace
 from mlflow.tracing.trace_manager import _Trace
-from mlflow.tracing.utils.timeout import MLflowTraceTimeoutCache
+from mlflow.tracing.utils.timeout import MlflowTraceTimeoutCache
 
 from tests.tracing.helper import get_traces
 
@@ -23,13 +23,8 @@ def _mock_span(span_id, parent_id=None):
 
 
 @pytest.fixture
-def set_env(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", "1")
-
-
-@pytest.fixture
 def cache():
-    timeout_cache = MLflowTraceTimeoutCache(timeout=1, maxsize=10)
+    timeout_cache = MlflowTraceTimeoutCache(timeout=1, maxsize=10)
     yield timeout_cache
     timeout_cache.clear()
 
@@ -47,7 +42,7 @@ def test_expire_traces(cache):
     event = span_1_1.add_event.call_args[0][0]
     assert isinstance(event, SpanEvent)
     assert event.name == "exception"
-    assert event.attributes["exception.message"].startswith("Trace tr_1 is automatically halted")
+    assert event.attributes["exception.message"].startswith("Trace tr_1 is timed out")
 
     # Non-root span should not be touched
     span_1_2.assert_not_called()
@@ -86,7 +81,7 @@ def test_trace_halted_after_timeout(monkeypatch):
     assert (
         root_span.events[0]
         .attributes["exception.message"]
-        .startswith(f"Trace {trace.info.request_id} is automatically halted")
+        .startswith(f"Trace {trace.info.request_id} is timed out")
     )
 
     first_span = trace.data.spans[1]

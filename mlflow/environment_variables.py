@@ -590,20 +590,16 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
-# How many traces to be buffered at the Trace Client.
-MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
-    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
-)
 
-# How long a trace can be "in-progress". When this is set to a positive value and a trace is
-# not completed within this time, it will be automatically halted and exported to the specified
-# backend destination with status "ERROR".
+#: How long a trace can be "in-progress". When this is set to a positive value and a trace is
+#: not completed within this time, it will be automatically halted and exported to the specified
+#: backend destination with status "ERROR".
 MLFLOW_TRACE_TIMEOUT_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_TIMEOUT_SECONDS", int, None)
 
-# How frequently to check for timed-out traces. For example, if this is set to 10, MLflow will
-# check for timed-out traces every 10 seconds (in a background worker) and halt any traces that
-# have exceeded the timeout. This is only effective if MLFLOW_TRACE_TIMEOUT_SECONDS is set to a
-# positive value.
+#: How frequently to check for timed-out traces. For example, if this is set to 10, MLflow will
+#: check for timed-out traces every 10 seconds (in a background worker) and halt any traces that
+#: have exceeded the timeout. This is only effective if MLFLOW_TRACE_TIMEOUT_SECONDS is set to a
+#: positive value.
 MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS = _EnvironmentVariable(
     "MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", int, 1
 )

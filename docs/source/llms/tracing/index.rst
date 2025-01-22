@@ -1662,6 +1662,9 @@ Sometimes a model or an agent get stuck in a long-running operation or an infini
 
 To prevent this, you can set a timeout for the trace using the ``MLFLOW_TRACE_TIMEOUT_SECONDS`` environment variable. If the trace exceeds the timeout, MLflow will automatically halt the trace with ``ERROR`` status and export it to the backend, so that you can analyze the spans to identify the issue. By default, the timeout is not set.
 
+.. note::
+
+    The timeout only applies to MLflow trace. The main program, model, or agent, will continue to run even if the trace is halted.
 
 For example, the following code sets the timeout to 5 seconds and simulate how MLflow handles a long-running operation:
 
@@ -1688,6 +1691,7 @@ For example, the following code sets the timeout to 5 seconds and simulate how M
         time.sleep(1)
 
 
+    long_running()
 
 .. note::
 
