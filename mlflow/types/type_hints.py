@@ -39,13 +39,13 @@ except ImportError:
 # special type hint that can be used to convert data to
 # the input example type after data validation
 TypeFromExample = TypeVar("TypeFromExample")
-# TODO: add link to mlflow documentation to include examples
 OPTIONAL_INPUT_MSG = (
     "Input cannot be Optional type. Fix this by removing the "
     "Optional wrapper from the type hint. To use optional fields, "
     "use a Pydantic-based type hint definition. See "
     "https://docs.pydantic.dev/latest/api/base_model/ for pydantic "
-    "BaseModel examples."
+    "BaseModel examples. Check https://mlflow.org/docs/latest/model/python_model.html#supported-type-hints"
+    " for more details."
 )
 
 
@@ -59,11 +59,11 @@ TYPE_HINTS_TO_DATATYPE_MAPPING = {
     datetime: DataType.datetime,
 }
 
-# TODO: add link to documentation
 SUPPORTED_TYPE_HINT_MSG = (
     "Type hints must be a list[...] where collection element type is one of these types: "
     f"{list(TYPE_HINTS_TO_DATATYPE_MAPPING.keys())}, pydantic BaseModel subclasses, "
-    "lists and dictionaries of primitive types, or typing.Any."
+    "lists and dictionaries of primitive types, or typing.Any. Check "
+    "https://mlflow.org/docs/latest/model/python_model.html#supported-type-hints for more details."
 )
 
 
@@ -428,10 +428,11 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
         try:
             model_validate(type_hint, data_dict)
         except pydantic.ValidationError as e:
-            # TODO: add link to documentation
             raise MlflowException.invalid_parameter_value(
                 message=f"Data doesn't match type hint, error: {e}. Expected fields in the "
-                f"type hint: {model_fields(type_hint)}; passed data: {data_dict}",
+                f"type hint: {model_fields(type_hint)}; passed data: {data_dict}. Check "
+                "https://mlflow.org/docs/latest/model/python_model.html#pydantic-model-type-hints-data-conversion"
+                " for more details.",
             ) from e
         else:
             return type_hint(**data_dict) if isinstance(data, dict) else data
