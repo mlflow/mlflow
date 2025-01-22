@@ -1017,6 +1017,21 @@ def test_type_hint_from_example(input_example, type_from_example_model):
         assert_equal(json.loads(scoring_response.content)["predictions"], input_example)
 
 
+def test_type_hint_from_example_invalid_input(type_from_example_model):
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+            model_info = mlflow.pyfunc.log_model(
+                "model", python_model=type_from_example_model, input_example=[1, 2, 3]
+            )
+        assert not any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with pytest.raises(MlflowException, match="Failed to enforce schema of data"):
+        pyfunc_model.predict(["1", "2", "3"])
+
+
 @pytest.mark.skipif(
     Version(pydantic.VERSION).major <= 1,
     reason="pydantic v1 has default value None if the field is Optional",
