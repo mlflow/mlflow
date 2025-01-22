@@ -27,7 +27,7 @@ Set up
 ------
 
 For a comprehensive guide on getting an MLflow environment setup that will give you options on how to configure MLflow tracking 
-capabilities, you can `read the guide here <../running-notebooks/index.html>`_.
+capabilities, you can `read the guide here <../running-notebooks.html>`_.
 
 Run a hyperparameter sweep
 --------------------------
@@ -47,7 +47,7 @@ our MLflow tracking server:
 .. note:: 
     
     If you would like to explore the possibilities of other tracking server deployments, including a fully-managed 
-    free-of-charge solution with Databricks Community Edition, please see `this page <../running-notebooks/index.html>`_.
+    free-of-charge solution with Databricks Community Edition, please see `this page <../running-notebooks.html>`_.
 
 Import the following packages
 
