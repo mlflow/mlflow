@@ -124,13 +124,13 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         """Returns the input text as a ChatAgentResponse."""
         return ChatAgentResponse(
             messages=[ChatAgentMessage(content=text, role="assistant")]
-        ).model_dump(exclude_none=True)
+        ).model_dump_compat(exclude_none=True)
 
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
         """Returns a generator of ChatAgentResponse objects"""
-        id = str(uuid4())
+        uuid = str(uuid4())
         for chunk in input:
             if chunk.content:
                 yield ChatAgentResponse(
-                    messages=[ChatAgentMessage(content=chunk.content, role="assistant", id=id)]
-                ).model_dump(exclude_none=True)
+                    messages=[ChatAgentMessage(content=chunk.content, role="assistant", id=uuid)]
+                ).model_dump_compat(exclude_none=True)
