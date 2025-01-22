@@ -95,7 +95,7 @@ Using a Managed MLflow Tracking Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For details on options for using a managed MLflow Tracking Server, including how to create a free Databricks Community Edition account with 
-managed MLflow, `see the guide for tracking server options <../running-notebooks/index.html>`_.
+managed MLflow, `see the guide for tracking server options <../running-notebooks.html>`_.
 
 (Optional) Run a local Tracking Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
