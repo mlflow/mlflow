@@ -9,6 +9,7 @@ how to use MLflow to solve a particular task.
 Guidance on Running Tutorials
 -----------------------------
 
+
 If you are new to MLflow and have never interfaced with the `MLflow Tracking Server <../tracking/server.html>`_, we highly encourage you to head on over to quickly **read the guide below**. It 
 will help you get started as quickly as possible with tutorial content throughout the documentation.
 
@@ -17,9 +18,9 @@ will help you get started as quickly as possible with tutorial content throughou
      <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="running-notebooks/index.html" >
+                <a href="running-notebooks.html" >
                     <div class="header">
-                        Tracking Server Options
+                        How to Run Tutorials
                     </div>
                     <p>
                     Learn about your options for running an MLflow Tracking Server for executing any of the guides and tutorials in the MLflow documentation
@@ -33,7 +34,7 @@ will help you get started as quickly as possible with tutorial content throughou
     :maxdepth: 1
     :hidden:
 
-    running-notebooks/index
+    running-notebooks
 
 Getting Started Guides
 ----------------------
