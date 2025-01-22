@@ -13,13 +13,13 @@
   --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
     0 7px 14px 0 var(--card-shadow2), 0 3px 6px 0 var(--card-shadow3);
 
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #0194e2;
+  --ifm-color-primary-dark: #0086cf;
+  --ifm-color-primary-darker: #0072b0;
+  --ifm-color-primary-darkest: #02659c;
+  --ifm-color-primary-light: #43c9ed;
+  --ifm-color-primary-lighter: #4accf0;
+  --ifm-color-primary-lightest: #54cef0;
 
   /* Temporary secondary styles */
   --ifm-color-secondary: #85552e;
@@ -65,13 +65,13 @@
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-color-primary: #0194e2;
+  --ifm-color-primary-dark: #0086cf;
+  --ifm-color-primary-darker: #0072b0;
+  --ifm-color-primary-darkest: #02659c;
+  --ifm-color-primary-light: #43c9ed;
+  --ifm-color-primary-lighter: #4accf0;
+  --ifm-color-primary-lightest: #54cef0;
 
   /* Inverted shadows */
   --card-shadow1: rgba(205, 205, 162, 0.99);
