@@ -4,6 +4,7 @@ import pathlib
 import subprocess
 import tempfile
 from collections import namedtuple
+from io import BytesIO
 
 import pytest
 import requests
@@ -373,6 +374,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     mlflow.set_tracking_uri(url)
 
     import numpy as np
+    from PIL import Image
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
@@ -395,6 +397,11 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
             "attachment; filename=dog%step%100%timestamp%100"
             in get_artifact_response.headers["Content-Disposition"]
         )
+        if path.endswith("png"):
+            loaded_image = np.asarray(
+                Image.open(BytesIO(get_artifact_response.content)), dtype=np.uint8
+            )
+            np.testing.assert_array_equal(loaded_image, image)
 
 
 @pytest.mark.parametrize(
