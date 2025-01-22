@@ -58,9 +58,9 @@ def rm_data(registered_model_names, tmp_path):
 
 def test_create_registered_model(store):
     # Error cases
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.create_registered_model(None)
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.create_registered_model("")
 
     name = random_str()
@@ -123,7 +123,7 @@ def test_list_registered_model(store, registered_model_names, rm_data):
 def test_rename_registered_model(store, registered_model_names):
     # Error cases
     model_name = registered_model_names[0]
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.rename_registered_model(model_name, None)
 
     # test that names of existing registered models are checked before renaming
@@ -376,7 +376,7 @@ def test_set_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -424,7 +424,7 @@ def test_delete_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.delete_registered_model_tag(None, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1410,7 +1410,7 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1473,7 +1473,7 @@ def test_delete_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

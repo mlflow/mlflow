@@ -461,9 +461,9 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
-def _validate_model_name(model_name):
+def  _validate_model_name(model_name):
     if model_name is None or model_name == "":
-        raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version(model_version):
