@@ -949,6 +949,22 @@ def assert_equal(data1, data2):
         assert data1 == data2
 
 
+def _type_from_example_models():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: TypeFromExample):
+            return model_input
+
+    def predict(model_input: TypeFromExample):
+        return model_input
+
+    return [Model(), predict]
+
+
+@pytest.fixture(params=_type_from_example_models())
+def type_from_example_model(request):
+    return request.param
+
+
 @pytest.mark.parametrize(
     "input_example",
     [
@@ -965,18 +981,16 @@ def assert_equal(data1, data2):
         pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
     ],
 )
-def test_type_hint_from_example(input_example):
-    class Model(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: TypeFromExample):
-            return model_input
-
-    model = Model()
-    assert_equal(model.predict(input_example), input_example)
+def test_type_hint_from_example(input_example, type_from_example_model):
+    if callable(type_from_example_model):
+        assert_equal(type_from_example_model(input_example), input_example)
+    else:
+        assert_equal(type_from_example_model.predict(input_example), input_example)
 
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=model, input_example=input_example
+                "model", python_model=type_from_example_model, input_example=input_example
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]

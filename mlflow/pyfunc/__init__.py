@@ -490,6 +490,7 @@ from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
     PythonModelContext,
+    _FunctionPythonModel,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
@@ -3075,9 +3076,10 @@ def save_model(
         )
     elif python_model is not None:
         if callable(python_model):
-            # TODO: support input_example and TypeFromExample for callables
+            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
+            type_hint_from_example = _is_type_hint_from_example(type_hints.input)
             if not _signature_cannot_be_inferred_from_type_hint(type_hints.input):
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=python_model, type_hints=type_hints, input_example=input_example
@@ -3094,6 +3096,33 @@ def save_model(
                     stacklevel=1,
                     color="yellow",
                 )
+
+            # only infer signature based on input example when signature
+            # and type hints are not provided
+            if signature is None and signature_from_type_hints is None:
+                if saved_example is not None:
+                    _logger.info("Inferring model signature from input example")
+                    try:
+                        function_model = _FunctionPythonModel(python_model)
+                        mlflow_model.signature = _infer_signature_from_input_example(
+                            saved_example,
+                            _PythonModelPyfuncWrapper(function_model, None, None),
+                        )
+                    except Exception as e:
+                        _logger.warning(
+                            f"Failed to infer model signature from input example, error: {e}",
+                        )
+                    else:
+                        if type_hint_from_example:
+                            update_signature_for_type_hint_from_example(
+                                input_example, mlflow_model.signature
+                            )
+                else:
+                    if type_hint_from_example:
+                        _logger.warning(
+                            _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
+                            extra={"color": "red"},
+                        )
         elif isinstance(python_model, PythonModel):
             saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             type_hints = python_model.predict_type_hints
