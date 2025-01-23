@@ -454,7 +454,8 @@ def test_functional_python_model_only_output_type_hints():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=python_model, input_example=["a"]
         )
-    assert model_info.signature is None
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
+    assert model_info.signature.outputs == Schema([ColSpec(type=DataType.string, name=0)])
 
 
 class CallableObject:
@@ -834,6 +835,22 @@ def assert_equal(data1, data2):
         assert data1 == data2
 
 
+def _type_from_example_models():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: TypeFromExample):
+            return model_input
+
+    def predict(model_input: TypeFromExample):
+        return model_input
+
+    return [Model(), predict]
+
+
+@pytest.fixture(params=_type_from_example_models())
+def type_from_example_model(request):
+    return request.param
+
+
 @pytest.mark.parametrize(
     "input_example",
     [
@@ -850,18 +867,16 @@ def assert_equal(data1, data2):
         pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}),
     ],
 )
-def test_type_hint_from_example(input_example):
-    class Model(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: TypeFromExample):
-            return model_input
-
-    model = Model()
-    assert_equal(model.predict(input_example), input_example)
+def test_type_hint_from_example(input_example, type_from_example_model):
+    if callable(type_from_example_model):
+        assert_equal(type_from_example_model(input_example), input_example)
+    else:
+        assert_equal(type_from_example_model.predict(input_example), input_example)
 
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=model, input_example=input_example
+                "model", python_model=type_from_example_model, input_example=input_example
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]
@@ -886,6 +901,21 @@ def test_type_hint_from_example(input_example):
         )
     else:
         assert_equal(json.loads(scoring_response.content)["predictions"], input_example)
+
+
+def test_type_hint_from_example_invalid_input(type_from_example_model):
+    with mlflow.start_run():
+        with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+            model_info = mlflow.pyfunc.log_model(
+                "model", python_model=type_from_example_model, input_example=[1, 2, 3]
+            )
+        assert not any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with pytest.raises(MlflowException, match="Failed to enforce schema of data"):
+        pyfunc_model.predict(["1", "2", "3"])
 
 
 @pytest.mark.skipif(
