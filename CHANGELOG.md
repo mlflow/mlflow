@@ -35,7 +35,7 @@ Bug fixes:
 - [Tracking] Fix filename encoding issue in `log_image` (#14281, @TomeHirata)
 - [Models] Fix the faithfulness metric for custom override parameters supplied to the callable metric implementation (#14220, @BenWilson2)
 - [Artifacts] Update presigned URL list_artifacts to return an empty list instead of an exception (#14203, @arpitjasa-db)
-- [Tracking] fix rename permission model registry (#14139, @MohamedKHALILRouissi)
+- [Tracking] Fix rename permission model registry (#14139, @MohamedKHALILRouissi)
 - [Tracking] Fix hard-dependency to langchain package in autologging (#14125, @B-Step62)
 - [Tracking] Fix constraint name for MSSQL in migration 0584bdc529eb (#14146, @daniellok-db)
 - [Scoring] Fix uninitialized `loaded_model` variable (#14109, @yang-chengg)
@@ -44,7 +44,7 @@ Bug fixes:
 Documentation updates:
 
 - [Docs] Add a quick guide for how to host MLflow on various platforms (#14289, @B-Step62)
-- [Docs] [DOC-FIX #14183] Improve documentation for 'artifact_uri' in 'download_artifacts' (#14225, @vinayakkgarg)
+- [Docs] Improve documentation for 'artifact_uri' in 'download_artifacts' (#14225, @vinayakkgarg)
 - [Docs] Add a page for search_traces (#14033, @TomeHirata)
 
 Small bug fixes and documentation updates:
