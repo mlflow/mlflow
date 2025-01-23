@@ -444,58 +444,6 @@ def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
     """
-    import flask
-
-    app = flask.Flask(__name__)
-    input_schema = model.metadata.get_input_schema()
-    # set the environment variable to indicate that we are in a serving environment
-    os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
-
-    @app.route("/ping", methods=["GET"])
-    @app.route("/health", methods=["GET"])
-    def ping():
-        """
-        Determine if the container is working and healthy.
-        We declare it healthy if we can load the model successfully.
-        """
-        health = model is not None
-        status = 200 if health else 404
-        return flask.Response(response="\n", status=status, mimetype="application/json")
-
-    @app.route("/version", methods=["GET"])
-    def version():
-        """
-        Returns the current mlflow version.
-        """
-        return flask.Response(response=VERSION, status=200, mimetype="application/json")
-
-    @app.route("/invocations", methods=["POST"])
-    @catch_mlflow_exception
-    def transformation():
-        """
-        Do an inference on a single batch of data. In this sample server,
-        we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
-        generate predictions and convert them back to json.
-        """
-
-        # Content-Type can include other attributes like CHARSET
-        # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
-        # TODO: Support ";" in quoted parameter values
-        data = flask.request.data.decode("utf-8")
-        content_type = flask.request.content_type
-        result = invocations(data, content_type, model, input_schema)
-
-        return flask.Response(
-            response=result.response, status=result.status, mimetype=result.mimetype
-        )
-
-    return app
-
-
-def fast_api_init(model: PyFuncModel):
-    """
-    Initialize the server. Loads pyfunc model from the path.
-    """
     from fastapi import FastAPI, Request
     from fastapi.responses import Response
 
@@ -605,7 +553,7 @@ def get_cmd(
 ) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
-    
+
     args = [f"--timeout-keep-alive {timeout}"]
     if host:
         args.append(f"--host {shlex.quote(host)}")
@@ -616,7 +564,7 @@ def get_cmd(
     if nworkers:
         args.append(f"--workers {nworkers}")
 
-    command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.asgi:app"
+    command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.app:app"
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
