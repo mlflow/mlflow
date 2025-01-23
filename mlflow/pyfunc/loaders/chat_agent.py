@@ -55,6 +55,7 @@ class _ChatAgentPyfuncWrapper:
             )
 
         messages = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
+        messages = [msgs_convo_1, msgs_convo_2, msgs_convo_3]
         params = ChatAgentParams(**dict_input)
         return messages, params
 
