@@ -2,6 +2,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { PageCard, CardGroup } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
+import Link from "@docusaurus/Link";
 
 # MLflow LangChain Flavor
 
@@ -47,7 +48,7 @@ These features ensure consistency between development and production environment
 
 ## Automatic Logging
 
-Autologging is a powerful one stop solution to achieve all the above benefits with just one line of code `mlflow.langchain.autolog()`. By enabling autologging, you can automatically log all the components of your LangChain application, including chains, agents, and retrievers, with minimal effort. This feature simplifies the process of tracking and managing your LangChain application, allowing you to focus on developing and improving your models. For more information on how to use this feature, refer to the [MLflow LangChain Autologging Documentation](/llms/langchain/autologging)`.
+Autologging is a powerful one stop solution to achieve all the above benefits with just one line of code `mlflow.langchain.autolog()`. By enabling autologging, you can automatically log all the components of your LangChain application, including chains, agents, and retrievers, with minimal effort. This feature simplifies the process of tracking and managing your LangChain application, allowing you to focus on developing and improving your models. For more information on how to use this feature, refer to the [MLflow LangChain Autologging Documentation](/llms/langchain/autologging).
 
 ## Supported Elements in MLflow LangChain Integration
 
@@ -149,7 +150,7 @@ After having this set within your code that defines your chain, when logging you
 
 The following example demonstrates how to log a simple chain with this method:
 
-1. Define the chain in a separate Python file.\*\*
+1. Define the chain in a separate Python file
 
    :::tip
    If you are using Jupyter Notebook, you can use the `%%writefile` magic command to write the code cell directly to a file, without leaving the notebook to create it manually.
@@ -256,7 +257,9 @@ When logging models from code, make sure that your code does not contain any sen
 
 To learn more about the details of the MLflow LangChain flavor, read the detailed guide below.
 
-<button href="/llms/langchain/guide/">View the Comprehensive Guide</button>
+<Link to="/llms/langchain/guide/">
+  <button className="button button--primary">View the Comprehensive Guide</button>
+</Link>
 
 ## FAQ
 
@@ -316,7 +319,7 @@ feature documentation to determine if logging your model from a script file prov
 - **Declaring Extra Dependencies**: Use the `extra_pip_requirements` parameter when saving and logging.
 
   When saving or logging your model that contains external dependencies that are not part of the core langchain installation, you will need these additional
-  dependencies. The model flavor contains two options for declaring these dependencies: `extra_pip_requirements` and``pip_requirements`. While specifying
+  dependencies. The model flavor contains two options for declaring these dependencies: `extra_pip_requirements` and `pip_requirements`. While specifying
   `pip_requirements` is entirely valid, we recommend using `extra_pip_requirements` as it does not rely on defining all of the core dependent packages that
   are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
 
