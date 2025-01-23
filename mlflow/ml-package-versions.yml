@@ -261,7 +261,7 @@ spacy:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.8.3"
+    maximum: "3.8.4"
     python:
       ">= 3.8.4": "3.10"
     requirements:
@@ -512,7 +512,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.48.0"
+    maximum: "4.48.1"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -561,7 +561,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.48.0"
+    maximum: "4.48.1"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -610,7 +610,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.59.6"
+    maximum: "1.59.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -629,7 +629,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.59.6"
+    maximum: "1.59.9"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -680,7 +680,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.14"
+    maximum: "0.3.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -727,7 +727,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.14"
+    maximum: "0.3.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -776,7 +776,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.10"
+    maximum: "0.12.12"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -794,7 +794,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.10"
+    maximum: "0.12.12"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -815,7 +815,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.40"
+    maximum: "0.4.3"
     python:
       "== dev": "3.10"
     requirements:
@@ -834,7 +834,7 @@ gemini:
       pip install git+https://github.com/google-gemini/generative-ai-python
   autologging:
     minimum: "0.8.0"
-    maximum: "0.8.3"
+    maximum: "0.8.4"
     requirements:
     run: pytest tests/gemini
 
@@ -845,7 +845,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.42.0"
+    maximum: "0.44.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -861,7 +861,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.95.0"
+    maximum: "0.98.0"
     python:
       ">= 0.80.0": "3.10"
     requirements:
@@ -880,7 +880,7 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
-    maximum: "1.2.6"
+    maximum: "1.4.0"
     requirements:
     run: pytest tests/mistral
 
@@ -949,7 +949,7 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.58.0"
+    maximum: "1.59.2"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -978,5 +978,5 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.35.97"
+    maximum: "1.36.3"
     run: pytest tests/bedrock
