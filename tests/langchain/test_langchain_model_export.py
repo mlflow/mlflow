@@ -29,7 +29,6 @@ from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.provider import reset_tracer_setup
 from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
 
 from tests.tracing.helper import get_traces
@@ -2550,7 +2549,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
-    reset_tracer_setup()
+    mlflow.tracing.reset()
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
