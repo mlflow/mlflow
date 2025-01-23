@@ -306,8 +306,6 @@ class InvocationsResponse(NamedTuple):
 
 
 def invocations(data, content_type, model, input_schema):
-    import flask
-
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
@@ -355,7 +353,7 @@ def invocations(data, content_type, model, input_schema):
             response=(
                 "This predictor only supports the following content types:"
                 f" Types: {CONTENT_TYPES}."
-                f" Got '{flask.request.content_type}'."
+                f" Got '{content_type}'."
             ),
             status=415,
             mimetype="text/plain",
@@ -494,6 +492,55 @@ def init(model: PyFuncModel):
     return app
 
 
+def fast_api_init(model: PyFuncModel):
+    """
+    Initialize the server. Loads pyfunc model from the path.
+    """
+    from fastapi import FastAPI, Request
+    from fastapi.responses import Response
+
+    app = FastAPI()
+    input_schema = model.metadata.get_input_schema()
+    # set the environment variable to indicate that we are in a serving environment
+    os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
+
+    @app.route("/ping", methods=["GET"])
+    @app.route("/health", methods=["GET"])
+    async def ping(request: Request):
+        """
+        Determine if the container is working and healthy.
+        We declare it healthy if we can load the model successfully.
+        """
+        health = model is not None
+        status = 200 if health else 404
+        return Response(content="\n", status_code=status, media_type="application/json")
+
+    @app.route("/version", methods=["GET"])
+    async def version(request: Request):
+        """
+        Returns the current mlflow version.
+        """
+        return Response(content=VERSION, status_code=200, media_type="application/json")
+
+    @app.route("/invocations", methods=["POST"])
+    async def transformation(request: Request):
+        """
+        Do an inference on a single batch of data. In this sample server,
+        we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
+        generate predictions and convert them back to json.
+        """
+
+        data = await request.body()
+        content_type = request.headers.get("content-type")
+        result = invocations(data, content_type, model, input_schema)
+
+        return Response(
+            content=result.response, status_code=result.status, media_type=result.mimetype
+        )
+
+    return app
+
+
 def _predict(model_uri, input_path, output_path, content_type):
     from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
@@ -555,39 +602,53 @@ def get_cmd(
     host: Optional[int] = None,
     timeout: Optional[int] = None,
     nworkers: Optional[int] = None,
+    use_fastapi: bool = False,
 ) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
-    if not is_windows():
-        args = [f"--timeout={timeout}"]
-        if port and host:
-            address = shlex.quote(f"{host}:{port}")
-            args.append(f"-b {address}")
-        elif host:
-            args.append(f"-b {shlex.quote(host)}")
+    if not use_fastapi:
+        if not is_windows():
+            args = [f"--timeout={timeout}"]
+            if port and host:
+                address = shlex.quote(f"{host}:{port}")
+                args.append(f"-b {address}")
+            elif host:
+                args.append(f"-b {shlex.quote(host)}")
 
-        if nworkers:
-            args.append(f"-w {nworkers}")
+            if nworkers:
+                args.append(f"-w {nworkers}")
 
-        command = (
-            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
-            " -- mlflow.pyfunc.scoring_server.wsgi:app"
-        )
+            command = (
+                f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
+                " -- mlflow.pyfunc.scoring_server.wsgi:app"
+            )
+        else:
+            args = []
+            if host:
+                args.append(f"--host={shlex.quote(host)}")
+
+            if port:
+                args.append(f"--port={port}")
+
+            command = (
+                f"waitress-serve {' '.join(args)} "
+                "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
+            )
     else:
-        args = []
+        args = [f"--timeout-keep-alive {timeout}"]
         if host:
-            args.append(f"--host={shlex.quote(host)}")
+            args.append(f"--host {shlex.quote(host)}")
 
         if port:
-            args.append(f"--port={port}")
+            args.append(f"--port {port}")
 
-        command = (
-            f"waitress-serve {' '.join(args)} "
-            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
-        )
+        if nworkers:
+            args.append(f"--workers {nworkers}")
+
+        command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.asgi:app"
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
