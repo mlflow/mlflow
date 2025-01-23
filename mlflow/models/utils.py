@@ -1791,7 +1791,7 @@ def _convert_llm_input_data(data: Any) -> Union[list, dict]:
     return _convert_llm_ndarray_to_list(data)
 
 
-def _databricks_path_exists(path: str) -> bool:
+def _databricks_path_exists(path: Path) -> bool:
     """
     Check if a path exists in Databricks workspace.
     """
@@ -1802,7 +1802,9 @@ def _databricks_path_exists(path: str) -> bool:
         return False
 
     try:
-        WorkspaceClient().workspace.get_status(path)
+        client = WorkspaceClient()
+        client.workspace.get_status(str(path))
+        client.workspace.get_status(str(path.with_suffix("")))
         return True
     except NotFound:
         return False
@@ -1819,7 +1821,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
     # If the path is not a absolute path then convert it
     model_code_path = Path(model_code_path).resolve()
 
-    if not (model_code_path.exists() or _databricks_path_exists(str(model_code_path))):
+    if not (model_code_path.exists() or _databricks_path_exists(model_code_path)):
         additional_message = (
             f" Perhaps you meant '{model_code_path}.py'?" if not model_code_path.suffix else ""
         )
