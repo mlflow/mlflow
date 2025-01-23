@@ -1802,12 +1802,14 @@ def _databricks_path_exists(path: Path) -> bool:
         return False
 
     client = WorkspaceClient()
-    try:
-        client.workspace.get_status(str(path))
-        client.workspace.get_status(str(path.with_suffix("")))
-        return True
-    except ResourceDoesNotExist:
-        return False
+    for p in [path, path.with_suffix("")]:
+        try:
+            client.workspace.get_status(str(p))
+            return True
+        except ResourceDoesNotExist:
+            pass
+
+    return False
 
 
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
