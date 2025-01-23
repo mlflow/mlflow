@@ -60,7 +60,7 @@ def reset_tracing():
     # Clear other global state and singletons
     TRACE_BUFFER.clear()
     _TRACE_BUFFER.clear()
-    InMemoryTraceManager._instance = None
+    InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
 
 
