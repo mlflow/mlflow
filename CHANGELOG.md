@@ -15,7 +15,9 @@ pip install mlflow==2.20.0
 - **🧠 Bedrock / Groq Tracing Support**: [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now offers a one-line auto-tracing experience for **Amazon Bedrock** and **Groq** LLMs. Track LLM invocation within your model by simply adding `mlflow.bedrock.tracing` or `mlflow.groq.tracing` call to the code. ([#14018](https://github.com/mlflow/mlflow/pull/14018), [@B-Step62](https://github.com/B-Step62), [#14006](https://github.com/mlflow/mlflow/pull/14006), [@anumita0203](https://github.com/anumita0203))
 
 - **🗒️ Inline Trace Rendering in Jupyter Notebook**: MLflow now supports rendering a trace UI **within** the notebook where you are running models. This eliminates the need to frequently switch between the notebook and browser, creating a seamless local model debugging experience. ([#13955](https://github.com/mlflow/mlflow/pull/13955), [@daniellok-db](https://github.com/daniellok-db))
+
 - **⚡️Faster Model Validation with `uv` Package Manager**: MLflow has adopted [uv](https://github.com/astral-sh/uv), a new Rust-based, super-fast Python package manager. This release adds support for the new package manager in the [mlflow.models.predict](https://www.mlflow.org/docs/latest/model/dependencies.html#validating-environment-for-prediction) API, enabling faster model environment validation. Stay tuned for more updates! ([#13824](https://github.com/mlflow/mlflow/pull/13824), [@serena-ruan](https://github.com/serena-ruan))
+
 - **🖥️ New Chat Panel in Trace UI**: THe MLflow Trace UI now shows a unified `chat` panel for LLM invocations. The update allows you to view chat messages and function calls in a rich and consistent UI across LLM providers, as well as inspect the raw input and output payloads. ([#14211](https://github.com/mlflow/mlflow/pull/14211), [@TomuHirata](https://github.com/TomuHirata))
 
 Other Features:
