@@ -29,7 +29,6 @@ def cache():
     timeout_cache.clear()
 
 
-@pytest.mark.repeat(100)
 def test_expire_traces(cache):
     span_1_1 = _mock_span("span_1")
     span_1_2 = _mock_span("span_2", parent_id="span_1")

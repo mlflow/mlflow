@@ -92,10 +92,9 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest tests/tracing/utils/test_timeout.py::test_expire_traces
-          # pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-          #   --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-          #   --ignore tests/deployments/server tests
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore tests/deployments/server tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
