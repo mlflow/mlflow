@@ -1835,27 +1835,31 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
         # a Python file.
         with open(model_code_path):
             pass
-        return str(model_code_path)
+
+        if model_code_path.suffix != ".ipynb":
+            return str(model_code_path)
     except Exception:
-        try:
-            from databricks.sdk import WorkspaceClient
-            from databricks.sdk.service.workspace import ExportFormat
+        pass
 
-            w = WorkspaceClient()
-            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
-            decoded_content = base64.b64decode(response.content)
-        except Exception:
-            raise MlflowException.invalid_parameter_value(
-                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
-                "Databricks Notebook file path containing the code for defining the chain "
-                "instance. Ensure the file path is valid and try again."
-            )
+    try:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.service.workspace import ExportFormat
 
-        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        path = os.path.join(temp_dir, "model.py")
-        with open(path, "wb") as f:
-            f.write(decoded_content)
-        return path
+        w = WorkspaceClient()
+        response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+        decoded_content = base64.b64decode(response.content)
+    except Exception:
+        raise MlflowException.invalid_parameter_value(
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain "
+            "instance. Ensure the file path is valid and try again."
+        )
+
+    _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+    path = os.path.join(temp_dir, "model.py")
+    with open(path, "wb") as f:
+        f.write(decoded_content)
+    return path
 
 
 @contextmanager
