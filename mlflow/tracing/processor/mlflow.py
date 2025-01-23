@@ -72,7 +72,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if not request_id and span.parent is not None:
             _logger.debug(
                 "Received a non-root span but the request ID is not found."
-                "The trace is likely be halted due to timeout expiration."
+                "The trace has likely been halted due to a timeout expiration."
             )
             return
 

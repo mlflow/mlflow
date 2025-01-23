@@ -1658,7 +1658,7 @@ Then you can use the :py:meth:`Trace.search_spans <mlflow.entities.Trace.search_
 Q: The model execution gets stuck and my trace is "in progress" forever.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Sometimes a model or an agent get stuck in a long-running operation or an infinite loop, causing the trace to be stuck in the "in progress" state.
+Sometimes a model or an agent gets stuck in a long-running operation or an infinite loop, causing the trace to be stuck in the "in progress" state.
 
 To prevent this, you can set a timeout for the trace using the ``MLFLOW_TRACE_TIMEOUT_SECONDS`` environment variable. If the trace exceeds the timeout, MLflow will automatically halt the trace with ``ERROR`` status and export it to the backend, so that you can analyze the spans to identify the issue. By default, the timeout is not set.
 
@@ -1666,7 +1666,7 @@ To prevent this, you can set a timeout for the trace using the ``MLFLOW_TRACE_TI
 
     The timeout only applies to MLflow trace. The main program, model, or agent, will continue to run even if the trace is halted.
 
-For example, the following code sets the timeout to 5 seconds and simulate how MLflow handles a long-running operation:
+For example, the following code sets the timeout to 5 seconds and simulates how MLflow handles a long-running operation:
 
 .. code-block:: python
 
