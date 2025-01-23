@@ -1,6 +1,6 @@
 import logging
 
-from mlflow.tracing.utils.token import suppress_token_detach_warning_to_debug_level
+from mlflow.tracing.utils.warning import suppress_warning
 
 
 def test_suppress_token_detach_warning(caplog):
@@ -12,7 +12,7 @@ def test_suppress_token_detach_warning(caplog):
     assert caplog.records[0].message == "Failed to detach context"
     assert caplog.records[0].levelname == "ERROR"
 
-    suppress_token_detach_warning_to_debug_level()
+    suppress_warning("opentelemetry.context", "Failed to detach context")
 
     logger.exception("Failed to detach context")
     assert len(caplog.records) == 1  # If the log level is not debug, the log shouldn't be recorded
