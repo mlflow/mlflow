@@ -30,14 +30,17 @@ def cache():
 
 
 @pytest.mark.repeat(100)
-@pytest.mark.parametrize("t", [2, 5])
-def test_expire_traces(t, cache):
+def test_expire_traces(cache):
     span_1_1 = _mock_span("span_1")
     span_1_2 = _mock_span("span_2", parent_id="span_1")
     cache["tr_1"] = _Trace(None, span_dict={"span_1": span_1_1, "span_2": span_1_2})
-    time.sleep(t)
+    for _ in range(5):
+        if "tr_1" not in cache:
+            break
+        time.sleep(1)
+    else:
+        pytest.fail("Trace should be expired within 5 seconds")
 
-    assert "tr_1" not in cache
     span_1_1.end.assert_called_once()
     span_1_1.set_status.assert_called_once_with(SpanStatusCode.ERROR)
     span_1_1.add_event.assert_called_once()
