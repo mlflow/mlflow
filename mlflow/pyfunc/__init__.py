@@ -3096,8 +3096,6 @@ def save_model(
             predict_func = python_model
         elif isinstance(python_model, PythonModel):
             type_hints = python_model.predict_type_hints
-            context = PythonModelContext(artifacts, model_config)
-            python_model.load_context(context)
             model_for_signature_inference = python_model
             predict_func = python_model.predict
 
@@ -3121,6 +3119,8 @@ def save_model(
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
+                    context = PythonModelContext(artifacts, model_config)
+                    model_for_signature_inference.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         saved_example,
                         _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),

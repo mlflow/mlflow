@@ -2201,7 +2201,21 @@ def test_predict_as_code():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "asdf"
-    expected_output = f"This was the input: {model_input}"
+    expected_output = pd.DataFrame([model_input])
+    pandas.testing.assert_frame_equal(loaded_model.predict([model_input]), expected_output)
+
+
+def test_predict_as_code_with_type_hint():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/func_code_with_type_hint.py",
+            input_example=["string"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = [model_input]
     assert loaded_model.predict([model_input]) == expected_output
 
 
