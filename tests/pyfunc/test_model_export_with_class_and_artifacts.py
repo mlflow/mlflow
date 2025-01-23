@@ -1236,7 +1236,8 @@ def test_functional_python_model_no_type_hints(tmp_path):
 
     mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=[{"a": "b"}])
     model = Model.load(tmp_path)
-    assert model.signature is None
+    assert model.signature.inputs == Schema([ColSpec("string", name="a")])
+    assert model.signature.outputs == Schema([ColSpec("string", name="a")])
 
 
 def list_to_list(x: List[str]) -> List[str]:  # noqa: UP006
@@ -2195,13 +2196,27 @@ def test_predict_as_code():
         model_info = mlflow.pyfunc.log_model(
             "model",
             python_model="tests/pyfunc/sample_code/func_code.py",
-            input_example="string",
+            input_example=["string"],
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "asdf"
-    expected_output = f"This was the input: {model_input}"
-    assert loaded_model.predict(model_input) == expected_output
+    expected_output = pd.DataFrame([model_input])
+    pandas.testing.assert_frame_equal(loaded_model.predict([model_input]), expected_output)
+
+
+def test_predict_as_code_with_type_hint():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model="tests/pyfunc/sample_code/func_code_with_type_hint.py",
+            input_example=["string"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = [model_input]
+    assert loaded_model.predict([model_input]) == expected_output
 
 
 def test_predict_as_code_with_config():
@@ -2209,14 +2224,14 @@ def test_predict_as_code_with_config():
         model_info = mlflow.pyfunc.log_model(
             "model",
             python_model="tests/pyfunc/sample_code/func_code_with_config.py",
-            input_example="string",
+            input_example=["string"],
             model_config="tests/pyfunc/sample_code/config.yml",
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "asdf"
     expected_output = f"This was the input: {model_input}, timeout 300"
-    assert loaded_model.predict(model_input) == expected_output
+    assert loaded_model.predict([model_input]) == expected_output
 
 
 def test_model_as_code_pycache_cleaned_up():
