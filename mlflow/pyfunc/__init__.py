@@ -1452,10 +1452,6 @@ def _is_variant_type(spark_type):
         return False
 
 
-def _convert_data_to_variant_type():
-    pass
-
-
 def _convert_spec_type_to_spark_type(spec_type):
     from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
