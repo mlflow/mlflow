@@ -183,7 +183,7 @@ def test_langgraph_chat_agent_trace():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="agent",
-            python_model="sample_code/langgraph_chat_agent.py",
+            python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
