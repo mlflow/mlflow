@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import json
 import os
 import sys
@@ -15,6 +16,7 @@ from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
+from mlflow.pyfunc.model import ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
@@ -929,3 +931,26 @@ def test_python_model_without_type_hint_warning():
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=msg):
             mlflow.pyfunc.log_model("model", python_model=predict, input_example="abc")
+
+
+@mock.patch("mlflow.pyfunc.utils.data_validation.color_warning")
+def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
+    # Class outside "mlflow" module should warn
+    class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input, params=None):
+            return model_input
+
+    assert mock_warning.call_count == 1
+    assert "Add type hints to the `predict` method" in mock_warning.call_args[0][0]
+    mock_warning.reset_mock()
+
+    # Class inside "mlflow" module should not warn
+    ChatModel.__init_subclass__()
+    assert mock_warning.call_count == 0
+
+    _FunctionPythonModel.__init_subclass__()
+    assert mock_warning.call_count == 0
+
+    # Check import does not trigger any warning (from builtin sub-classes)
+    importlib.reload(mlflow.pyfunc.model)
+    assert mock_warning.call_count == 0
