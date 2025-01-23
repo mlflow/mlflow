@@ -2395,6 +2395,7 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             # Add a prefix to prevent percent encoding when '%' precedes the filename.
+            # For example, if `filename_uuid` starts with '28', it will be interpreted as '('.
             filename_uuid = "a" + str(uuid.uuid4())[1:]
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
