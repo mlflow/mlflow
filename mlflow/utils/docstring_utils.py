@@ -329,7 +329,9 @@ instead only saving the reference to the HuggingFace Hub model repository and it
 This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
 it to MLflow without modifying the model weights. In such case, specifying this flag to
 ``False`` will save the storage space and reduce time to save the model. Please refer to the
-:ref:`Storage-Efficient Model Logging <transformers-save-pretrained-guide>` for more detailed usage.
+`Storage-Efficient Model Logging
+<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed
+usage.
 
 
 .. warning::
@@ -338,7 +340,8 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     registered to the MLflow Model Registry. In order to convert the model to the one that
     can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
     to download the model weights from the HuggingFace Hub and save it in the existing model
-    artifacts. Please refer to :ref:`Transformers flavor documentation <persist-pretrained-guide>`
+    artifacts. Please refer to `Transformers flavor documentation
+    <../../llms/transformers/large-models.html#persist-pretrained-guide>`_
     for more detailed usage.
 
     .. code-block:: python
