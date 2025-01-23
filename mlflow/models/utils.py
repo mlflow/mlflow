@@ -1851,7 +1851,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
         w = WorkspaceClient()
         response = w.workspace.export(
-            path=model_code_path.with_suffix("."), format=ExportFormat.SOURCE
+            path=model_code_path.with_suffix(""), format=ExportFormat.SOURCE
         )
         decoded_content = base64.b64decode(response.content)
     except Exception:
