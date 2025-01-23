@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Optional, Sequence, Union
 
 from langchain_core.language_models import LanguageModelLike
@@ -18,6 +19,8 @@ from mlflow.langchain.chat_agent_langgraph import (
     LangGraphChatAgent,
     parse_message,
 )
+
+os.environ["OPENAI_API_KEY"] = "test"
 
 
 class FakeOpenAI(ChatOpenAI, extra="allow"):
