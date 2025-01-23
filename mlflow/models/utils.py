@@ -1796,17 +1796,17 @@ def _databricks_path_exists(path: Path) -> bool:
     Check if a path exists in Databricks workspace.
     """
     from databricks.sdk import WorkspaceClient
-    from databricks.sdk.errors import NotFound
+    from databricks.sdk.errors import ResourceDoesNotExist
 
     if not is_in_databricks_runtime():
         return False
 
+    client = WorkspaceClient()
     try:
-        client = WorkspaceClient()
         client.workspace.get_status(str(path))
         client.workspace.get_status(str(path.with_suffix("")))
         return True
-    except NotFound:
+    except ResourceDoesNotExist:
         return False
 
 
