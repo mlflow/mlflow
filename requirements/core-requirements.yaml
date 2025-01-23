@@ -84,5 +84,4 @@ graphene:
 
 fastapi:
   pip_release: fastapi
-  minimum: "0.112"
   max_major_version: 0

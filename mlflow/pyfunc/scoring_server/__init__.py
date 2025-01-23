@@ -38,7 +38,6 @@ from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
     MlflowInvalidInputException,
     NumpyEncoder,
@@ -471,6 +470,7 @@ def init(model: PyFuncModel):
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
     @app.route("/invocations", methods=["POST"])
+    @catch_mlflow_exception
     async def transformation(request: Request):
         """
         Do an inference on a single batch of data. In this sample server,
@@ -564,7 +564,7 @@ def get_cmd(
     if nworkers:
         args.append(f"--workers {nworkers}")
 
-    command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.app:app"
+    command = f"uvicorn {' '.join(args)} mlflow.pyfunc.scoring_server.app:app"
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
