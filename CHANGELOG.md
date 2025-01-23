@@ -2,7 +2,7 @@
 
 ## 2.20.0 (2025-01-23)
 
-We are excited to announce the release of MLflow 2.20.0!
+We are excited to announce the release of MLflow 2.20.0! This release includes a number of significant features, enhancements, and bug fixes.
 
 ```bash
 pip install mlflow==2.20.0
