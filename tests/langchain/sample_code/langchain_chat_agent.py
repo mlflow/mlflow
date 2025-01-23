@@ -1,4 +1,3 @@
-# import os
 from operator import itemgetter
 
 from langchain_core.messages import AIMessage
@@ -10,8 +9,6 @@ from langchain_openai import ChatOpenAI
 import mlflow
 from mlflow.langchain.chat_agent_langchain import LangChainChatAgent
 from mlflow.langchain.output_parsers import ChatAgentOutputParser
-
-# os.environ["OPENAI_API_KEY"] = "test"
 
 
 class FakeOpenAI(ChatOpenAI, extra="allow"):

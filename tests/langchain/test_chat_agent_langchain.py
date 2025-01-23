@@ -8,7 +8,7 @@ if Version(langchain.__version__) < Version("0.2.0"):
 import mlflow
 
 
-def test_langgraph_chat_agent_save_as_code():
+def test_langchain_chat_agent_save_as_code():
     # (role, content)
     expected_messages = [
         ("assistant", "1"),
@@ -18,7 +18,7 @@ def test_langgraph_chat_agent_save_as_code():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="agent",
+            "agent",
             python_model="tests/langchain/sample_code/langchain_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

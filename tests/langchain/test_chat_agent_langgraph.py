@@ -159,7 +159,7 @@ def test_langgraph_chat_agent_save_as_code():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="agent",
+            "agent",
             python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -182,7 +182,7 @@ def test_langgraph_chat_agent_trace():
     input_example = {"messages": [{"role": "user", "content": "hi"}]}
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="agent",
+            "agent",
             python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
