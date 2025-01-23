@@ -2398,7 +2398,9 @@ class MlflowClient:
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%20{filename_uuid[2:]}"
+                #                                                          ^
+                #                                                          prevent percent encoding
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
 
