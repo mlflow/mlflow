@@ -13,6 +13,7 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -1789,6 +1790,25 @@ def _convert_llm_input_data(data: Any) -> Union[list, dict]:
     return _convert_llm_ndarray_to_list(data)
 
 
+def _databricks_path_exists(path: str) -> bool:
+    """
+    Check if a path exists in Databricks workspace.
+    """
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import NotFound
+
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
+
+    if not is_in_databricks_runtime():
+        return False
+
+    try:
+        WorkspaceClient().workspace.get_status(path)
+        return True
+    except NotFound:
+        return False
+
+
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
     Validate model code path exists. When failing to open the model file on Databricks,
@@ -1798,11 +1818,12 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
     """
 
     # If the path is not a absolute path then convert it
-    model_code_path = os.path.abspath(model_code_path)
+    model_code_path = Path(model_code_path).resolve()
 
-    if not os.path.exists(model_code_path):
-        _, ext = os.path.splitext(model_code_path)
-        additional_message = f" Perhaps you meant '{model_code_path}.py'?" if not ext else ""
+    if not (model_code_path.exists() or _databricks_path_exists(str(model_code_path))):
+        additional_message = (
+            f" Perhaps you meant '{model_code_path}.py'?" if not model_code_path.suffix else ""
+        )
 
         raise MlflowException.invalid_parameter_value(
             f"The provided model path '{model_code_path}' does not exist. "
@@ -1810,8 +1831,12 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
         )
 
     try:
-        with open(model_code_path) as _:
-            return model_code_path
+        # If `model_code_path` points to a notebook on Databricks, this line throws either
+        # a `FileNotFoundError` or an `OSError`. In this case, try to export the notebook as
+        # a Python file.
+        with open(model_code_path):
+            pass
+        return str(model_code_path)
     except Exception:
         try:
             from databricks.sdk import WorkspaceClient
