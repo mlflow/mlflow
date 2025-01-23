@@ -147,9 +147,8 @@ class PythonModel:
         super().__init_subclass__(**kwargs)
 
         # automatically wrap the predict method with pyfunc to ensure data validation
-        # NB: subclasses of PythonModel in MLflow that has customized predict method
-        # should set _skip_wrapping_predict = True to skip this wrapping
-        if not getattr(cls, "_skip_wrapping_predict", False):
+        # NB: skip wrapping for built-in classes defined in MLflow e.g, ChatModel
+        if not cls.__module__.startswith("mlflow."):
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
                 func_info = _get_func_info_if_type_hint_supported(predict_attr)
@@ -199,8 +198,6 @@ class _FunctionPythonModel(PythonModel):
     When a user specifies a ``python_model`` argument that is a function, we wrap the function
     in an instance of this class.
     """
-
-    _skip_wrapping_predict = True
 
     def __init__(self, func, signature=None):
         self.signature = signature
@@ -287,8 +284,6 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     outputs that are expected by the ``ChatModel`` API.
     """
 
-    _skip_wrapping_predict = True
-
     @abstractmethod
     def predict(
         self, context, messages: list[ChatMessage], params: ChatParams
@@ -368,8 +363,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     After logging, you can pass in a single dictionary that conforms to a ChatAgentRequest schema.
     Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.agent for an example.
     """
-
-    _skip_wrapping_predict = True
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump_compat(exclude_none=True) for m in messages]
@@ -805,8 +798,6 @@ class ModelFromDeploymentEndpoint(PythonModel):
     A PythonModel wrapper for invoking an MLflow Deployments endpoint.
     This class is particularly used for running evaluation against an MLflow Deployments endpoint.
     """
-
-    _skip_wrapping_predict = True
 
     def __init__(self, endpoint, params):
         self.endpoint = endpoint
