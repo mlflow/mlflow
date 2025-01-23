@@ -131,10 +131,11 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
         else:
             return FuncInfo(input_type_hint=type_hint, input_param_name=input_param_name)
     else:
-        # TODO: add link to documentation
         color_warning(
             "Add type hints to the `predict` method to enable data validation "
-            "and automatic signature inference during model logging.",
+            "and automatic signature inference during model logging. "
+            "Check https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel"
+            " for more details.",
             stacklevel=1,
             color="yellow",
         )
