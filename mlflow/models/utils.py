@@ -1795,11 +1795,11 @@ def _databricks_path_exists(path: Path) -> bool:
     """
     Check if a path exists in Databricks workspace.
     """
-    from databricks.sdk import WorkspaceClient
-    from databricks.sdk.errors import ResourceDoesNotExist
-
     if not is_in_databricks_runtime():
         return False
+
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import ResourceDoesNotExist
 
     client = WorkspaceClient()
     try:
