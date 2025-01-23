@@ -30,7 +30,7 @@ def test_langchain_chat_agent_save_as_code():
         assert msg["content"] == expected_content
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    response = loaded_model.predict_stream({"messages": [{"role": "user", "content": "hi"}]})
-    for event, (role, expected_content) in zip(response, expected_messages):
-        assert event["messages"][0]["content"] == expected_content
-        assert event["messages"][0]["role"] == role
+    messages = loaded_model.predict_stream({"messages": [{"role": "user", "content": "hi"}]})
+    for msg, (role, expected_content) in zip(messages, expected_messages):
+        assert msg["role"] == role
+        assert msg["content"] == expected_content

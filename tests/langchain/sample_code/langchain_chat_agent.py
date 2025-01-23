@@ -1,7 +1,7 @@
 from operator import itemgetter
 
-from langchain_core.messages import AIMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
@@ -15,16 +15,21 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._responses = iter(
+        self._responses = iter([AIMessage(content="1")])
+        self._stream_responses = iter(
             [
-                AIMessage(content="1"),
-                AIMessage(content="2"),
-                AIMessage(content="3"),
+                AIMessageChunk(content="1"),
+                AIMessageChunk(content="2"),
+                AIMessageChunk(content="3"),
             ]
         )
 
     def _generate(self, *args, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
+
+    def _stream(self, *args, **kwargs):
+        for r in self._stream_responses:
+            yield ChatGenerationChunk(message=r)
 
 
 mlflow.langchain.autolog()
