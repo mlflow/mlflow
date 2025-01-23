@@ -36,6 +36,7 @@ from mlflow.types.utils import (
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -1796,8 +1797,6 @@ def _databricks_path_exists(path: str) -> bool:
     """
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.errors import NotFound
-
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if not is_in_databricks_runtime():
         return False
