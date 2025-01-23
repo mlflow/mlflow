@@ -4,6 +4,7 @@ sidebar_position: 2
 
 import Link from "@docusaurus/Link";
 import BorderedContainer from "@site/src/components/BorderedContainer";
+import Platform from "@site/src/content/platform.mdx"
 
 # MLflow Overview
 
@@ -113,17 +114,10 @@ team.
 
 </BorderedContainer>
 
-## Use Cases of MLflow
 
-MLflow is versatile, catering to diverse machine learning scenarios. Here are some typical use cases:
+## Running MLflow Anywhere
 
-- **Experiment Tracking**: A data science team leverages MLflow Tracking to log parameters and metrics for experiments within a particular domain. Using the MLflow UI, they can compare results and fine-tune their solution approach. The outcomes of these experiments are preserved as MLflow models.
-
-- **Model Selection and Deployment**: MLOps engineers employ the MLflow UI to assess and pick the top-performing models. The chosen model is registered in the MLflow Registry, allowing for monitoring its real-world performance.
-
-- **Model Performance Monitoring**: Post deployment, MLOps engineers utilize the MLflow Registry to gauge the model's efficacy, juxtaposing it against other models in a live environment.
-
-- **Collaborative Projects**: Data scientists embarking on new ventures organize their work as an MLflow Project. This structure facilitates easy sharing and parameter modifications, promoting collaboration.
+<Platform />
 
 ## Scalability in MLflow
 

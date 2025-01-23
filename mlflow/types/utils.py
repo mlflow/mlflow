@@ -138,13 +138,14 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
     if isinstance(data, pydantic.BaseModel):
-        # TODO: add link to documentation
         raise InvalidDataForSignatureInferenceError(
             message="MLflow does not support inferring model signature from input example "
             "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
             "`predict` method with a Pydantic type hint, and model signature will be automatically "
             "inferred when logging the model. e.g. "
-            "`def predict(self, model_input: list[PydanticType])`"
+            "`def predict(self, model_input: list[PydanticType])`. Check "
+            "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel "
+            "for more details."
         )
 
     if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
