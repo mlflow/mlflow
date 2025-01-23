@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2.20.0 (2025-01-23)
+
+We are excited to announce the release of MLflow 2.20.0! This release includes a number of significant features, enhancements, and bug fixes.
+
+### Major New Features
+
+- **💡Type Hint-Based Model Signature**: Define your model's [signature](https://www.mlflow.org/docs/latest/model/signatures.html) in the most **Pythonic** way. MLflow now supports defining a model signature based on the type hints in your `PythonModel`'s `predict` function, and validating input data payloads against it. ([#14182](https://github.com/mlflow/mlflow/pull/14182), [#14168](https://github.com/mlflow/mlflow/pull/14168), [#14130](https://github.com/mlflow/mlflow/pull/14130), [#14100](https://github.com/mlflow/mlflow/pull/14100), [#14099](https://github.com/mlflow/mlflow/pull/14099), [@serena-ruan](https://github.com/serena-ruan))
+
+- **🧠 Bedrock / Groq Tracing Support**: [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now offers a one-line auto-tracing experience for **Amazon Bedrock** and **Groq** LLMs. Track LLM invocation within your model by simply adding `mlflow.bedrock.tracing` or `mlflow.groq.tracing` call to the code. ([#14018](https://github.com/mlflow/mlflow/pull/14018), [@B-Step62](https://github.com/B-Step62), [#14006](https://github.com/mlflow/mlflow/pull/14006), [@anumita0203](https://github.com/anumita0203))
+
+- **🗒️ Inline Trace Rendering in Jupyter Notebook**: MLflow now supports rendering a trace UI **within** the notebook where you are running models. This eliminates the need to frequently switch between the notebook and browser, creating a seamless local model debugging experience. ([#13955](https://github.com/mlflow/mlflow/pull/13955), [@daniellok-db](https://github.com/daniellok-db))
+
+- **⚡️Faster Model Validation with `uv` Package Manager**: MLflow has adopted [uv](https://github.com/astral-sh/uv), a new Rust-based, super-fast Python package manager. This release adds support for the new package manager in the [mlflow.models.predict](https://www.mlflow.org/docs/latest/model/dependencies.html#validating-environment-for-prediction) API, enabling faster model environment validation. Stay tuned for more updates! ([#13824](https://github.com/mlflow/mlflow/pull/13824), [@serena-ruan](https://github.com/serena-ruan))
+
+- **🖥️ New Chat Panel in Trace UI**: THe MLflow Trace UI now shows a unified `chat` panel for LLM invocations. The update allows you to view chat messages and function calls in a rich and consistent UI across LLM providers, as well as inspect the raw input and output payloads. ([#14211](https://github.com/mlflow/mlflow/pull/14211), [@TomuHirata](https://github.com/TomuHirata))
+
+Other Features:
+
+- Introduced `ChatAgent` base class for defining custom python agent (#13797, @bbqiu)
+- Supported Tool Calling in DSPy Tracing (#14196, @B-Step62)
+- Applied timeout override to within-request local scoring server for Spark UDF inference (#14202, @BenWilson2)
+- Supported dictionary type for inference params (#14091, @serena-ruan)
+- Make `context` parameter optional for calling `PythonModel` instance (#14059, @serena-ruan)
+- Set default task for `ChatModel` (#14068, @stevenchen-db)
+
+Bug fixes:
+
+- [Tracking] Fix filename encoding issue in `log_image` (#14281, @TomeHirata)
+- [Models] Fix the faithfulness metric for custom override parameters supplied to the callable metric implementation (#14220, @BenWilson2)
+- [Artifacts] Update presigned URL list_artifacts to return an empty list instead of an exception (#14203, @arpitjasa-db)
+- [Tracking] Fix rename permission model registry (#14139, @MohamedKHALILRouissi)
+- [Tracking] Fix hard-dependency to langchain package in autologging (#14125, @B-Step62)
+- [Tracking] Fix constraint name for MSSQL in migration 0584bdc529eb (#14146, @daniellok-db)
+- [Scoring] Fix uninitialized `loaded_model` variable (#14109, @yang-chengg)
+- [Model Registry] Return empty array when `DatabricksSDKModelsArtifactRepository.list_artifacts` is called on a file (#14027, @shichengzhou-db)
+
+Documentation updates:
+
+- [Docs] Add a quick guide for how to host MLflow on various platforms (#14289, @B-Step62)
+- [Docs] Improve documentation for 'artifact_uri' in 'download_artifacts' (#14225, @vinayakkgarg)
+- [Docs] Add a page for search_traces (#14033, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#14294, #14252, #14233, #14205, #14217, #14172, #14188, #14167, #14166, #14163, #14162, #14161, #13971, @TomeHirata; #14299, #14280, #14279, #14278, #14272, #14270, #14268, #14269, #14263, #14258, #14222, #14248, #14128, #14112, #14111, #14093, #14096, #14095, #14090, #14089, #14085, #14078, #14074, #14070, #14053, #14060, #14035, #14014, #14002, #14000, #13997, #13996, #13995, @harupy; #14298, #14286, #14249, #14276, #14259, #14242, #14254, #14232, #14207, #14206, #14185, #14196, #14193, #14173, #14164, #14159, #14165, #14152, #14151, #14126, #14069, #13987, @B-Step62; #14295, #14265, #14271, #14262, #14235, #14239, #14234, #14228, #14227, #14229, #14218, #14216, #14213, #14208, #14204, #14198, #14187, #14181, #14177, #14176, #14156, #14169, #14099, #14086, #13983, @serena-ruan; #14155, #14067, #14140, #14132, #14072, @daniellok-db; #14178, @emmanuel-ferdman; #14247, @dbczumar; #13789, #14108, @dsuhinin; #14212, @aravind-segu; #14223, #14191, #14084, @dsmilkov; #13804, @kriscon-db; #14158, @Lodewic; #14148, #14147, #14115, #14079, #14116, @WeichenXu123; #14135, @brilee; #14133, @manos02; #14121, @LeahKorol; #14025, @nojaf; #13948, @benglewis; #13942, @justsomerandomdude264; #14003, @Ajay-Satish-01; #13982, @prithvikannan; #13638, @MaxwellSalmon
+
 ## 2.19.0 (2024-12-11)
 
 We are excited to announce the release of MLflow 2.19.0! This release includes a number of significant features, enhancements, and bug fixes.
