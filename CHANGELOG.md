@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2.20.0 (2025-01-23)
+
+MLflow 2.20.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support timeout for a trace (#14288, @B-Step62)
+- [] Add Mistral AI autolog tracing integration (#14195, @gabrielfu)
+- [Tracking] Bedrock streaming tracing (#14199, @B-Step62)
+- [Artifacts] Implement `delete_artifacts` in `mlflow/store/artifact/azure_blob_artifact_repo.py` (#13992, @benglewis)
+
+Bug fixes:
+
+- [] Fix filename encoding issue in log_image (#14281, @TomeHirata)
+
+Documentation updates:
+
+- [] Docusaurus migration initial commit (#13645, @daniellok-db)
+- [Docs] Add a quick guide for how to host MLflow on various platforms (#14289, @B-Step62)
+- [] Type hint docs (#14253, @serena-ruan)
+- [Artifacts] [DOC-FIX #14183] Improve documentation for 'artifact_uri' in 'download_artifacts' (#14225, @vinayakkgarg)
+
+Small bug fixes and documentation updates:
+
+#14294, #14252, @TomeHirata; #14299, #14280, #14279, #14278, #14272, #14270, #14268, #14269, #14263, #14258, #14222, #14248, @harupy; #14298, #14286, #14249, #14276, #14259, #14242, #14254, @B-Step62; #14295, #14265, #14271, #14262, #14235, #14239, @serena-ruan; #14155, @daniellok-db; #14178, @emmanuel-ferdman; #14247, @dbczumar; #13789, @dsuhinin
+
 ## 2.19.0 (2024-12-11)
 
 We are excited to announce the release of MLflow 2.19.0! This release includes a number of significant features, enhancements, and bug fixes.
