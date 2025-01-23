@@ -20,7 +20,6 @@ Other Features:
 
 - Introduced `ChatAgent` base class for defining custom python agent (#13797, @bbqiu)
 - Supported Tool Calling in DSPy Tracing (#14196, @B-Step62)
-- Added support for invokers rights in Databricks Resources (#14212, @aravind-segu)
 - Applied timeout override to within-request local scoring server for Spark UDF inference (#14202, @BenWilson2)
 - Supported dictionary type for inference params (#14091, @serena-ruan)
 - Make `context` parameter optional for calling `PythonModel` instance (#14059, @serena-ruan)
