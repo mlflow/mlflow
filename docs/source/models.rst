@@ -2730,7 +2730,7 @@ With the :py:func:`mlflow.validate_evaluation_results()` API, you can validate m
 
 More information on model evaluation behavior and outputs can be found in the :py:func:`mlflow.evaluate()` API documentation.
 
-Validating a Model Agasint a Baseline Model
+Validating a Model Against a Baseline Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Below is an example of how to validate a candidate model's performance against a baseline using predefined thresholds.
@@ -2759,7 +2759,7 @@ Below is an example of how to validate a candidate model's performance against a
 
     with mlflow.start_run(run_name="candidate") as run:
         candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model", signature=signature
+            candidate_model, "candidate_model"
         ).model_uri
 
         candidate_result = mlflow.evaluate(
@@ -2774,7 +2774,7 @@ Below is an example of how to validate a candidate model's performance against a
 
     with mlflow.start_run(run_name="baseline") as run:
         baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model", signature=signature
+            baseline_model, "baseline_model"
         ).model_uri
 
         baseline_result = mlflow.evaluate(
@@ -2794,7 +2794,7 @@ Below is an example of how to validate a candidate model's performance against a
         ),
     }
 
-    # Validate the candidate model agaisnt baseline
+    # Validate the candidate model against baseline
     mlflow.validate_evaluation_results(
         candidate_result=candidate_result,
         baseline_result=baseline_result,
