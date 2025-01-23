@@ -1802,14 +1802,11 @@ def _databricks_path_exists(path: Path) -> bool:
         return False
 
     client = WorkspaceClient()
-    for p in [path, path.with_suffix("")]:
-        try:
-            client.workspace.get_status(str(p))
-            return True
-        except ResourceDoesNotExist:
-            pass
-
-    return False
+    try:
+        client.workspace.get_status(str(path))
+        return True
+    except ResourceDoesNotExist:
+        return False
 
 
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
@@ -1840,8 +1837,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
         with open(model_code_path):
             pass
 
-        if model_code_path.suffix != ".ipynb":
-            return str(model_code_path)
+        return str(model_code_path)
     except Exception:
         pass
 
@@ -1850,9 +1846,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
         from databricks.sdk.service.workspace import ExportFormat
 
         w = WorkspaceClient()
-        response = w.workspace.export(
-            path=model_code_path.with_suffix(""), format=ExportFormat.SOURCE
-        )
+        response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
         decoded_content = base64.b64decode(response.content)
     except Exception:
         raise MlflowException.invalid_parameter_value(
