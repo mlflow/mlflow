@@ -1062,6 +1062,7 @@ The example below demonstrates how to use a gateway server from within a custom 
     def predict(data):
         from mlflow.deployments import get_deploy_client
 
+        # Use "export MLFLOW_TRACKING_TOKEN=token" for secure targets (optional)
         client = get_deploy_client(os.environ["MLFLOW_DEPLOYMENTS_TARGET"])
 
         payload = data.to_dict(orient="records")
