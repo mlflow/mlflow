@@ -6,7 +6,7 @@ We are excited to announce the release of MLflow 2.20.0! This release includes a
 
 ### Major New Features
 
-- **💡Type Hint-Based Model Signature**: Define your model's [signature](https://www.mlflow.org/docs/latest/model/signatures.html) in the most **Pythonic** way. MLflow now supports defining a model signature based on the type hints in your `PythonModel`'s `predict` function, and validating input data payloads against it. (#14182, #14168, #14130, #14100, #14099, [@serena-ruan](https://github.com/serena-ruan))
+- **💡Type Hint-Based Model Signature**: Define your model's [signature](https://www.mlflow.org/docs/latest/model/signatures.html) in the most **Pythonic** way. MLflow now supports defining a model signature based on the type hints in your `PythonModel`'s `predict` function, and validating input data payloads against it. (#14182, #14168, #14130, #14100, #14099, @serena-ruan)
 
 - **🧠 Bedrock / Groq Tracing Support**: [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now offers a one-line auto-tracing experience for **Amazon Bedrock** and **Groq** LLMs. Track LLM invocation within your model by simply adding `mlflow.bedrock.tracing` or `mlflow.groq.tracing` call to the code. (#14018, @B-Step62, #14006, @anumita0203)
 
