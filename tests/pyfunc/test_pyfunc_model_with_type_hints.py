@@ -569,7 +569,8 @@ def test_functional_python_model_only_output_type_hints():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=python_model, input_example=["a"]
         )
-    assert model_info.signature is None
+    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
+    assert model_info.signature.outputs == Schema([ColSpec(type=DataType.string, name=0)])
 
 
 class CallableObject:
