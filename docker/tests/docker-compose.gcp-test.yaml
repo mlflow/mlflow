@@ -1,0 +1,24 @@
+version: "2.4"
+
+services:
+  gcs:
+    container_name: mlflow-gcp-test-storage
+    image: fsouza/fake-gcs-server
+    entrypoint: sh -c "mkdir -p /data/mlflow && /bin/fake-gcs-server -data /data -scheme http"
+    expose:
+      - 4443
+
+  mlflow:
+    container_name: mlflow-gcp-test
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
+    command: "mlflow server --artifacts-destination=gs://mlflow/ --host=0.0.0.0 --port=5000"
+    environment:
+      GOOGLE_CLOUD_PROJECT: mlflow
+      STORAGE_EMULATOR_HOST: http://gcs:4443
+    ports:
+      - "5000:5000"
+    depends_on:
+      - gcs
