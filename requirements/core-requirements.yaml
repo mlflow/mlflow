@@ -81,3 +81,8 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+fastapi:
+  pip_release: fastapi
+  minimum: "0.112"
+  max_major_version: 0

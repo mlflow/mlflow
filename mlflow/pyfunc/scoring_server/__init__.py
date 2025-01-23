@@ -602,53 +602,21 @@ def get_cmd(
     host: Optional[int] = None,
     timeout: Optional[int] = None,
     nworkers: Optional[int] = None,
-    use_fastapi: bool = False,
 ) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+    
+    args = [f"--timeout-keep-alive {timeout}"]
+    if host:
+        args.append(f"--host {shlex.quote(host)}")
 
-    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-    # platform compatibility.
-    if not use_fastapi:
-        if not is_windows():
-            args = [f"--timeout={timeout}"]
-            if port and host:
-                address = shlex.quote(f"{host}:{port}")
-                args.append(f"-b {address}")
-            elif host:
-                args.append(f"-b {shlex.quote(host)}")
+    if port:
+        args.append(f"--port {port}")
 
-            if nworkers:
-                args.append(f"-w {nworkers}")
+    if nworkers:
+        args.append(f"--workers {nworkers}")
 
-            command = (
-                f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
-                " -- mlflow.pyfunc.scoring_server.wsgi:app"
-            )
-        else:
-            args = []
-            if host:
-                args.append(f"--host={shlex.quote(host)}")
-
-            if port:
-                args.append(f"--port={port}")
-
-            command = (
-                f"waitress-serve {' '.join(args)} "
-                "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
-            )
-    else:
-        args = [f"--timeout-keep-alive {timeout}"]
-        if host:
-            args.append(f"--host {shlex.quote(host)}")
-
-        if port:
-            args.append(f"--port {port}")
-
-        if nworkers:
-            args.append(f"--workers {nworkers}")
-
-        command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.asgi:app"
+    command = f"uvicorn {' '.join(args)} " "mlflow.pyfunc.scoring_server.asgi:app"
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri

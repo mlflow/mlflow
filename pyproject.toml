@@ -53,6 +53,7 @@ dependencies = [
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
   "waitress<4; platform_system == 'Windows'",
+  "fastapi<1,>=0.112",
 ]
 [[project.maintainers]]
 name = "Databricks"
