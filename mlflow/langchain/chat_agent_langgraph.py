@@ -54,7 +54,7 @@ def parse_message(
     """Parse different message types into their string representations"""
     chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
     chat_message_dict["attachments"] = attachments
-    chat_message_dict["name"] = name
+    chat_message_dict["name"] = msg.name or name
     chat_message_dict["id"] = msg.id
     # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
     if not chat_message_dict.get("content"):
