@@ -2394,13 +2394,12 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
-            filename_uuid = uuid.uuid4()
+            # Add a prefix to prevent percent encoding when '%' precedes the filename.
+            filename_uuid = "a" + str(uuid.uuid4())[1:]
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%28{filename_uuid[2:]}"
-                #                                                          ^
-                #                                                          prevent percent encoding
+                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
 
