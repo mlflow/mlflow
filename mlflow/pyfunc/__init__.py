@@ -597,7 +597,9 @@ _CHAT_PARAMS_WARNING_MESSAGE = (
 )
 _TYPE_FROM_EXAMPLE_ERROR_MESSAGE = (
     "Input example must be provided when using TypeFromExample as type hint. "
-    "Fix this by passing `input_example` when logging your model."
+    "Fix this by passing `input_example` when logging your model. Check "
+    "https://mlflow.org/docs/latest/model/python_model.html#typefromexample-type-hint-usage "
+    "for more details."
 )
 
 
@@ -3038,10 +3040,11 @@ def save_model(
             # only show the warning here if @pyfunc is not applied on the function
             # since @pyfunc will trigger the warning instead
             if type_hints.input is None and not pyfunc_decorator_used:
-                # TODO: add link to documentation
                 color_warning(
                     "Add type hints to the `predict` method to enable "
-                    "data validation and automatic signature inference.",
+                    "data validation and automatic signature inference. Check "
+                    "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel"
+                    " for more details.",
                     stacklevel=1,
                     color="yellow",
                 )
@@ -3120,7 +3123,6 @@ def save_model(
         if type_hint_from_example:
             if saved_example is None:
                 _logger.warning(
-                    # TODO: add link to documentation
                     _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
                     extra={"color": "red"},
                 )
@@ -3204,9 +3206,10 @@ def update_signature_for_type_hint_from_example(input_example: Any, signature: M
         signature._is_type_hint_from_example = True
     else:
         _logger.warning(
-            # TODO: add link to documentation
             "Input example must be one of pandas.DataFrame, pandas.Series "
             f"or list when using TypeFromExample as type hint, got {type(input_example)}. "
+            "Check https://mlflow.org/docs/latest/model/python_model.html#typefromexample-type-hint-usage"
+            " for more details.",
         )
 
 
