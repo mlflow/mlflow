@@ -4,10 +4,6 @@
 
 We are excited to announce the release of MLflow 2.20.0! This release includes a number of significant features, enhancements, and bug fixes.
 
-```bash
-pip install mlflow==2.20.0
-```
-
 ### Major New Features
 
 - **💡Type Hint-Based Model Signature**: Define your model's [signature](https://www.mlflow.org/docs/latest/model/signatures.html) in the most **Pythonic** way. MLflow now supports defining a model signature based on the type hints in your `PythonModel`'s `predict` function, and validating input data payloads against it. ([#14182](https://github.com/mlflow/mlflow/pull/14182), [#14168](https://github.com/mlflow/mlflow/pull/14168), [#14130](https://github.com/mlflow/mlflow/pull/14130), [#14100](https://github.com/mlflow/mlflow/pull/14100), [#14099](https://github.com/mlflow/mlflow/pull/14099), [@serena-ruan](https://github.com/serena-ruan))
