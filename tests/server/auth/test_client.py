@@ -220,6 +220,20 @@ def test_client_get_experiment_permission(client, monkeypatch):
         client.get_experiment_permission(experiment_id, username)
 
 
+def test_client_list_experiment_permissions(client, monkeypatch):
+    experiment_id = random_str()
+    userpass_list = [create_user(client.tracking_uri) for _ in range(3)]
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        for username, _ in userpass_list:
+            client.create_experiment_permission(experiment_id, username, PERMISSION)
+
+    with assert_unauthenticated():
+        client.list_experiment_permissions(experiment_id)
+
+    with User(*userpass_list[0], monkeypatch), assert_unauthorized():
+        client.list_experiment_permissions(experiment_id)
+
 def test_client_update_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
     username, password = create_user(client.tracking_uri)
