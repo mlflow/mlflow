@@ -160,7 +160,7 @@ def test_langgraph_chat_agent_save_as_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="agent",
-            python_model="sample_code/langgraph_chat_agent.py",
+            python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_model.predict({"messages": [{"role": "user", "content": "hi"}]})
