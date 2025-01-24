@@ -55,7 +55,7 @@ from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
-from mlflow.server.handlers import catch_mlflow_exception
+from mlflow.server.handlers import async_catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
@@ -470,7 +470,7 @@ def init(model: PyFuncModel):
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
     @app.route("/invocations", methods=["POST"])
-    @catch_mlflow_exception
+    @async_catch_mlflow_exception
     async def transformation(request: Request):
         """
         Do an inference on a single batch of data. In this sample server,

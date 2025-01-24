@@ -19,3 +19,4 @@ Jinja2<4,>=3.0; platform_system == 'Windows'
 matplotlib<4
 graphene<4
 fastapi<1
+uvicorn<1

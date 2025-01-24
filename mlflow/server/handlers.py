@@ -572,12 +572,27 @@ def catch_mlflow_exception(func):
         try:
             return func(*args, **kwargs)
         except MlflowException as e:
-            response = Response(mimetype="application/json")
-            response.set_data(e.serialize_as_json())
-            response.status_code = e.get_http_status_code()
-            return response
+            return _exception_handler(e)
 
     return wrapper
+
+
+def async_catch_mlflow_exception(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except MlflowException as e:
+            return _exception_handler(e)
+
+    return wrapper
+
+
+def _exception_handler(e: MlflowException):
+    response = Response(mimetype="application/json")
+    response.set_data(e.serialize_as_json())
+    response.status_code = e.get_http_status_code()
+    return response
 
 
 def _disable_unless_serve_artifacts(func):
