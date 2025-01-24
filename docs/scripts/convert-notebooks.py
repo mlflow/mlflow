@@ -88,7 +88,7 @@ import {{ NotebookDownloadButton }} from "@site/src/components/NotebookDownloadB
 
 
 def convert_path(nb_path: Path):
-    mdx_path = nb_path.with_suffix(".ipynb.mdx")
+    mdx_path = nb_path.with_stem(nb_path.stem + "-ipynb").with_suffix(".mdx")
     with open(nb_path) as f:
         nb = nbformat.read(f, as_version=4)
 
