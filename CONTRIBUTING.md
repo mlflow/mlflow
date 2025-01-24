@@ -835,7 +835,7 @@ There are two separate build systems for the MLflow documentation:
 
 #### API Docs
 
-The [API reference](https://mlflow.org/docs/latest/api_reference/) is managed by [Sphinx](https://www.sphinx-doc.org/en/master/), and the source is contained within the `api_reference/` directory in this folder. The content is primarily populated by our Python docstrings, which are written in reStructuredText (RST).
+The [API reference](https://mlflow.org/docs/latest/api_reference/) is managed by [Sphinx](https://www.sphinx-doc.org/en/master/). The content is primarily populated by our Python docstrings, which are written in reStructuredText (RST).
 
 For instructions on how to build the API docs, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/api_reference/README.md) in the `docs/api_reference/` subfolder.
 
