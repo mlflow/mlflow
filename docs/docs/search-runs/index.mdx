@@ -412,7 +412,7 @@ metrics.accuracy > 0.72 AND metrics.batch_size != 0 AND attributes.run_id IN ('a
 ```
 
 You can also apply multiple conditions on the same field, for example searching for all loss metrics
-`BETWEEEN` 0.1 and 0.15, inclusive:
+`BETWEEN` 0.1 and 0.15, inclusive:
 
 ```sql
 metrics.loss <= 0.15 AND metrics.loss >= 0.1
@@ -440,7 +440,7 @@ outside the MLflow UI. This can be done programmatically using the MLflow client
 
 {""}<APILink fn="mlflow.client.MlflowClient.search_runs" /> or <APILink fn="mlflow.search_runs" /> take
 the same arguments as the above UI examples and more! They return all the runs that match the specified
-filters. Your best resource is the dosctrings for each of these functions, but here are some useful examples.
+filters. Your best resource is the docstrings for each of these functions, but here are some useful examples.
 
 #### 1 - Complex Filter
 
@@ -549,13 +549,13 @@ gpt_4_runs_global = mlflow.search_runs(
 )
 ```
 
-Finally, there are additioanl useful features in the <APILink fn="mlflow.client.MlflowClient.search_runs" />
+Finally, there are additional useful features in the <APILink fn="mlflow.client.MlflowClient.search_runs" />
 or <APILink fn="mlflow.search_runs" /> methods, so be sure to
 check out the documentation for more details.
 
 ### R
 
-The R API is similar to the Python API, with the exeption that the filter conditions must be string wrapped. Due to this
+The R API is similar to the Python API, with the exception that the filter conditions must be string wrapped. Due to this
 behavior, right-hand side conditional elements must be wrapped in single quotes for parameters, attributes, and tags.
 
 ```r
