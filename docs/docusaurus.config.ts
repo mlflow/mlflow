@@ -171,6 +171,14 @@ const config: Config = {
             to: "/tracing",
             from: ["/llms/tracing"],
           },
+          {
+            to: "dataset",
+            from: ["/tracking/data-api/index"],
+          },
+          {
+            to: "model",
+            from: ["/models"],
+          }
         ],
       },
     ],

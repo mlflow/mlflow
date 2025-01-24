@@ -159,3 +159,16 @@ In headlines Ducousaurus adds this for us. */
 .anchor-with-sticky-navbar {
   scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
 }
+
+.sidebar-top-level-category > .menu__link {
+  font-weight: bold;
+}
+
+
+.sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-weight: bold;
+}
+
+.theme-doc-sidebar-item-link:not(.sidebar-top-level-category) > .menu__link {
+  font-size: 0.95rem;
+}
