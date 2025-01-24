@@ -438,7 +438,7 @@ Then send the request to your inference service:
     $ INGRESS_GATEWAY_SERVICE=$(kubectl get svc -n istio-system --selector="app=istio-ingressgateway" -o jsonpath='{.items[0].metadata.name}')
     $ kubectl port-forward -n istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80
 
-    Forwaring from 127.0.0.1:8080 -> 8080
+    Forwarding from 127.0.0.1:8080 -> 8080
     Forwarding from [::1]:8080 -> 8080
     ```
 
