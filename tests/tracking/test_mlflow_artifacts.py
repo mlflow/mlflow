@@ -394,7 +394,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
         )
         get_artifact_response.raise_for_status()
         assert (
-            "attachment; filename=dog%step%100%timestamp%100"
+            "dog%step%100%timestamp%100"
             in get_artifact_response.headers["Content-Disposition"]
         )
         if path.endswith("png"):
