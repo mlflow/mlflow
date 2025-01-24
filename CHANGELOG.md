@@ -10,7 +10,7 @@ We are excited to announce the release of MLflow 2.20.0! This release includes a
 
 - **🧠 Bedrock / Groq Tracing Support**: [MLflow Tracing](https://mlflow.org/docs/latest/llms/tracing/index.html) now offers a one-line auto-tracing experience for **Amazon Bedrock** and **Groq** LLMs. Track LLM invocation within your model by simply adding `mlflow.bedrock.tracing` or `mlflow.groq.tracing` call to the code. (#14018, @B-Step62, #14006, @anumita0203)
 
-- **🗒️ Inline Trace Rendering in Jupyter Notebook**: MLflow now supports rendering a trace UI **within** the notebook where you are running models. This eliminates the need to frequently switch between the notebook and browser, creating a seamless local model debugging experience. (#13955, @daniellok-db)
+- **🗒️ Inline Trace Rendering in Jupyter Notebook**: MLflow now supports rendering a trace UI **within** the notebook where you are running models. This eliminates the need to frequently switch between the notebook and browser, creating a seamless local model debugging experience. Check out [this blog post](https://mlflow.org/blog/mlflow-tracing-in-jupyter) for a quick demo! (#13955, @daniellok-db)
 
 - **⚡️Faster Model Validation with `uv` Package Manager**: MLflow has adopted [uv](https://github.com/astral-sh/uv), a new Rust-based, super-fast Python package manager. This release adds support for the new package manager in the [mlflow.models.predict](https://www.mlflow.org/docs/latest/model/dependencies.html#validating-environment-for-prediction) API, enabling faster model environment validation. Stay tuned for more updates! (#13824, @serena-ruan)
 
