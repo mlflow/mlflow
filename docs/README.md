@@ -29,7 +29,7 @@ This command starts a local development server and opens up a browser window. Mo
 
 In order to build the full MLflow documentation (i.e. the contents of https://mlflow.org/docs/latest/), please follow the following steps:
 
-1. Run `yarn build-api-docs` in order to build the API reference
+1. Run `yarn build-api-docs` in order to build the API reference and copy the generated HTML to `static/api_reference`.
 2. Run `yarn update-api-modules` to keep API references up-to-date (this is used by the [APILink component](https://github.com/mlflow/mlflow/blob/master/docs/src/components/APILink/index.tsx)).
 3. Run `yarn convert-notebooks` to convert `.ipynb` files to `.mdx` files (do not commit the results)
 4. **⚠️ Important!** Run `export DOCS_BASE_URL=/docs/latest` (or wherever the docs are expected to be served). This configures the [Docusaurus baseUrl](https://docusaurus.io/docs/api/docusaurus-config#baseUrl), and the site may not render correctly if this is improperly set.
