@@ -161,7 +161,7 @@ script.
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=model_path,  # Define the model as the path to the script that was just saved
-            artifact_path="arithemtic_model",
+            artifact_path="arithmetic_model",
             input_example=[42.0, 24.0],
         )
     ```
@@ -252,14 +252,14 @@ script.
     ```python
     import mlflow
 
-    mlflow.set_experiment("Arithemtic Model From Code")
+    mlflow.set_experiment("Arithmetic Model From Code")
 
     model_path = "math_model.py"
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=model_path,  # The model is defined as the path to the script containing the model definition
-            artifact_path="arithemtic_model",
+            artifact_path="arithmetic_model",
             code_paths=[
                 "calculator.py"
             ],  # dependency definition included for the model to successfully import the implementation
