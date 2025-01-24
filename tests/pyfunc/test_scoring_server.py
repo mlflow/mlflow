@@ -746,20 +746,24 @@ def test_parse_json_input_including_path():
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout=60 -b 0.0.0.0:5000 -w 4",
+            "--timeout-keep-alive 60 --host 0.0.0.0 --port 5000 --workers 4",
         ),
-        ({"host": "0.0.0.0", "nworkers": 4, "timeout": 60}, "--timeout=60 -b 0.0.0.0 -w 4"),
-        ({"port": 5000, "nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"timeout": 60}, "--timeout=60"),
+        (
+            {"host": "0.0.0.0", "nworkers": 4, "timeout": 60},
+            "--timeout-keep-alive 60 --host 0.0.0.0 --workers 4",
+        ),
+        (
+            {"port": 5000, "nworkers": 4, "timeout": 60},
+            "--timeout-keep-alive 60 --port 5000 --workers 4",
+        ),
+        ({"nworkers": 4, "timeout": 60}, "--timeout-keep-alive 60 --workers 4"),
+        ({"timeout": 60}, "--timeout-keep-alive 60"),
     ],
 )
 def test_get_cmd(args: dict, expected: str):
     cmd, _ = get_cmd(model_uri="foo", **args)
 
-    assert cmd == (
-        f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
-    )
+    assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")
 
 
 def test_scoring_server_client(sklearn_model, model_path):

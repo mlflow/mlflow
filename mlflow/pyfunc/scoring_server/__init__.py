@@ -20,6 +20,7 @@ import os
 import shlex
 import sys
 import traceback
+from functools import wraps
 from typing import Any, NamedTuple, Optional
 
 from mlflow.environment_variables import (
@@ -55,7 +56,6 @@ from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
-from mlflow.server.handlers import async_catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
@@ -339,6 +339,8 @@ def invocations(data, content_type, model, input_schema):
 
     if mime_type == CONTENT_TYPE_CSV:
         # Convert from CSV to pandas
+        if isinstance(data, bytes):
+            data = data.decode("utf-8")
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
@@ -439,6 +441,23 @@ def _parse_json_data(data, metadata, input_schema):
     return ParsedJsonInput(data, params, _is_unified_llm_input)
 
 
+def _async_catch_mlflow_exception(func):
+    from fastapi.responses import Response
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except MlflowException as e:
+            return Response(
+                content=e.serialize_as_json(),
+                status_code=e.get_http_status_code(),
+                media_type="application/json",
+            )
+
+    return wrapper
+
+
 def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
@@ -470,7 +489,7 @@ def init(model: PyFuncModel):
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
     @app.route("/invocations", methods=["POST"])
-    @async_catch_mlflow_exception
+    @_async_catch_mlflow_exception
     async def transformation(request: Request):
         """
         Do an inference on a single batch of data. In this sample server,
