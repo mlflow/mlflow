@@ -141,8 +141,7 @@ repos:
       - id: typos
         name: typos
         entry: dev/typos.sh
-        # TODO: Add more file types
-        files: '\.py$'
+        files: '(\.py$|^docs/.*\.mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true
