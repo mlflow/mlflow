@@ -31,7 +31,7 @@ Each run meticulously records:
 - **Predictions**: To understand and evaluate LLM outputs, MLflow allows for the logging of predictions. This encompasses the prompts or inputs sent to the LLM and
   the outputs or responses received. For structured storage and easy retrieval, these predictions are stored as artifacts in CSV format, ensuring that each interaction
   is preserved in its entirety. This logging is achieved using the dedicated <APILink fn="mlflow.log_table" />.
-- **Artifacts**: Beyond predictions, MLflow's LLM Tracking can store a myriad of output files, ranging from visualization images (e.g., ONGs), serialized models
+- **Artifacts**: Beyond predictions, MLflow's LLM Tracking can store a myriad of output files, ranging from visualization images (e.g., PNGs), serialized models
   (e.g., an _openai_ model), to structured data files (e.g., a [Parquet](https://parquet.apache.org) file). The <APILink fn="mlflow.log_artifact" /> function is
   at the heart of this, allowing users to log and organize their artifacts with ease.
 

@@ -316,4 +316,9 @@ extend-ignore-re = [
   "lightning",
   # `typos` flags 'lok' as a typo of 'look'
   "(?i)daniel lok",
+  "PNGs",
+  # Azure Container Instances
+  "\\(ACI\\)",
+  # Azure Kubernetes Service
+  "\\(AKS\\)",
 ]
