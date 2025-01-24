@@ -9,7 +9,7 @@ This README covers information about the main MLflow documentation. The API refe
 
 **Optional**
 - (For building MDX files from `.ipynb` files) Python 3.9+ and [nbconvert](https://pypi.org/project/nbconvert/).
-- (For building API docs) See [doc-requirements.txt] for API doc requirements.
+- (For building API docs) See [doc-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/doc-requirements.txt) for API doc requirements.
 
 ## Installation
 
