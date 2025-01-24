@@ -107,8 +107,8 @@ Failed to find a documentation preview for {args.commit_sha}.
     # Post the artifact URL as a comment
     comment_body = f"""
 Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url})
-completes successfully. You may encounter a `{"message":"not found"}` error when refreshing
-the page. If so, add `/index.html` to the URL.
+completes successfully. You may encounter a `{"message":"not found"}` error when reloading
+a page. If so, add `/index.html` to the URL.
 
 - [Top page]({top_page})
 - [Changed pages]({changed_pages})
