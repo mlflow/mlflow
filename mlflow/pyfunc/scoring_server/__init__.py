@@ -573,7 +573,7 @@ def get_cmd(
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
-    args = [f"--timeout-keep-alive {timeout}"]
+    args = [f"--timeout-graceful-shutdown {timeout}"]
     if host:
         args.append(f"--host {shlex.quote(host)}")
 

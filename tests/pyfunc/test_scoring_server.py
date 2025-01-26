@@ -746,18 +746,18 @@ def test_parse_json_input_including_path():
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout-keep-alive 60 --host 0.0.0.0 --port 5000 --workers 4",
+            "--timeout-graceful-shutdown 60 --host 0.0.0.0 --port 5000 --workers 4",
         ),
         (
             {"host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout-keep-alive 60 --host 0.0.0.0 --workers 4",
+            "--timeout-graceful-shutdown 60 --host 0.0.0.0 --workers 4",
         ),
         (
             {"port": 5000, "nworkers": 4, "timeout": 60},
-            "--timeout-keep-alive 60 --port 5000 --workers 4",
+            "--timeout-graceful-shutdown 60 --port 5000 --workers 4",
         ),
-        ({"nworkers": 4, "timeout": 60}, "--timeout-keep-alive 60 --workers 4"),
-        ({"timeout": 60}, "--timeout-keep-alive 60"),
+        ({"nworkers": 4, "timeout": 60}, "--timeout-graceful-shutdown 60 --workers 4"),
+        ({"timeout": 60}, "--timeout-graceful-shutdown 60"),
     ],
 )
 def test_get_cmd(args: dict, expected: str):
