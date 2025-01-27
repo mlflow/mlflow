@@ -41,6 +41,7 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_name,
+    _validate_model_new_name,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -253,7 +254,7 @@ class SqlAlchemyStore(AbstractStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        _validate_model_name(new_name)
+        _validate_model_new_name(new_name)
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
