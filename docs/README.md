@@ -25,7 +25,9 @@ $ yarn start
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
 
-## Build
+**Note**: Some server-side rendering features will not work in this mode (e.g. the [client redirects plugin](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-client-redirects)). To test these, please use the "Build and Serve" workflow below.
+
+## Build and Serve
 
 In order to build the full MLflow documentation (i.e. the contents of https://mlflow.org/docs/latest/), please follow the following steps:
 
@@ -34,3 +36,4 @@ In order to build the full MLflow documentation (i.e. the contents of https://ml
 2. Run `yarn convert-notebooks` to convert `.ipynb` files to `.mdx` files. The generated files are git-ignored.
 3. **⚠️ Important!** Run `export DOCS_BASE_URL=/docs/latest` (or wherever the docs are expected to be served). This configures the [Docusaurus baseUrl](https://docusaurus.io/docs/api/docusaurus-config#baseUrl), and the site may not render correctly if this is improperly set.
 4. Finally, run `yarn build`. This generates static files in the `build` directory, which can then be served.
+5. (Optional) To serve the artifacts generated in the above step, run `yarn serve`.
