@@ -85,18 +85,9 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(filename, artifact_path=None, artifact=None):
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_path = os.path.join(tmp_dir, filename)
-                if artifact is not None:
-                    # User should already have installed PIL to log a PIL image
-                    from PIL import Image
-
-                    if isinstance(artifact, Image.Image):
-                        artifact.save(tmp_path)
-                self.log_artifact(tmp_path, artifact_path)
-
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(
+            self._async_artifact_logging_function
+        )
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
@@ -124,7 +115,7 @@ class ArtifactRepository:
                 artifact.
         """
 
-    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, artifact):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -146,9 +137,20 @@ class ArtifactRepository:
         if not self._async_logging_queue.is_active():
             self._async_logging_queue.activate()
 
-        return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, artifact=artifact
-        )
+        return self._async_logging_queue.log_artifacts_async(artifact=artifact)
+
+    def _async_artifact_logging_function(self, local_dir, artifact_path=None):
+        """
+        Used within the async logging queue to route artifact logging to the correct method.
+
+        Args:
+            local_dir: Directory or filepath of local artifact(s) to log.
+            artifact_path: Directory within the run's artifact directory in which to log the
+        """
+        if os.path.isdir(local_dir):
+            self.log_artifacts(local_dir, artifact_path)
+        else:
+            self.log_artifact(local_dir, artifact_path)
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
