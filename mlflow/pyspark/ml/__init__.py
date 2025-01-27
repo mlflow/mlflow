@@ -1098,6 +1098,14 @@ def autolog(
                         )
                         log_model_signatures = False
 
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 input_example_spark_df, signature = resolve_input_example_and_signature(
                     _get_input_example_spark_df,
                     _infer_model_signature,
