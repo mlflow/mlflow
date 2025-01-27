@@ -466,6 +466,11 @@ def _validate_model_name(model_name):
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
 
 
+def _validate_model_renaming(model_new_name):
+    if model_new_name is None or model_new_name == "":
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
+
+
 def _validate_model_version(model_version):
     try:
         model_version = int(model_version)
