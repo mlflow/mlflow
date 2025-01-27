@@ -184,7 +184,7 @@ fetch('/docs/versions.json')
     };
     versions.forEach(function (version) {
       var option = document.createElement('option');
-      option.value = version;
+      option.value = version === latestVersion ? "latest" : version;
       option.selected = version === currentVersion;
       option.text = version === latestVersion ? `${version} (latest)` : version;
       dropDown.appendChild(option);
