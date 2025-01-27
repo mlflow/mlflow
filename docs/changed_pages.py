@@ -24,14 +24,16 @@ def main() -> None:
         return
 
     BUILD_DIR = Path("build/")
+    DOCS_DIR = Path("docs/")
     changed_pages: list[Path] = []
     for f in fetch_changed_files(pr):
         if f.suffix == ".mdx":
-            changed_pages.append(
+            path = (
                 f.parent / "index.html"
                 if f.name == "index.mdx"
                 else f.parent / f.stem / "index.html"
             )
+            changed_pages.append(path.relative_to(DOCS_DIR))
 
     links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
     diff_html = f"""
