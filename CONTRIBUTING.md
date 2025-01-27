@@ -839,7 +839,6 @@ The [API reference](https://mlflow.org/docs/latest/api_reference/) is managed by
 
 For instructions on how to build the API docs, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/api_reference/README.md) in the `docs/api_reference/` subfolder.
 
-
 #### Main Docs
 
 The main MLflow docs (e.g. feature docs, tutorials, etc) are written using [Docusaurus](https://docusaurus.io/). The only prerequisite for building these docs is NodeJS >= 18.0. Please check out the [official NodeJS docs](https://nodejs.org/en/download) for platform-specific installation instructions.
