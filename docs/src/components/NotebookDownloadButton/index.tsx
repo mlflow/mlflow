@@ -14,9 +14,13 @@ export function NotebookDownloadButton({
       e.preventDefault();
 
       if ((window as any).gtag) {
-        (window as any).gtag("event", "notebook-download", {
-          href,
-        });
+        try {
+          (window as any).gtag("event", "notebook-download", {
+            href,
+          });
+        } catch {
+          // do nothing if the gtag call fails
+        }
       }
 
       const response = await fetch(href);
