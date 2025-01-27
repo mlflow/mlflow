@@ -33,7 +33,7 @@ class PackageType(Enum):
             return f"""{WARNING}
 # This file defines the package metadata of `mlflow` **during development**. To install `mlflow`
 # from the source code, `mlflow-skinny` is NOT included in the requirements.
-# `pyproject.release.toml` will replace this file when releasing a new version.
+# This file will be replaced by `pyproject.release.toml` when releasing a new version.
 """
         raise ValueError(f"Unreachable: {self}")
 
