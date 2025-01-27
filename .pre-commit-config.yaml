@@ -10,7 +10,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/|charts/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: local
@@ -153,3 +153,12 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+  - repo: https://github.com/norwoodj/helm-docs
+    rev: "v1.13.1"
+    hooks:
+      - id: helm-docs
+        args:
+          # Make the tool search for charts only under the `charts` directory
+          - --chart-search-root=charts
+          - --template-files=README.md.gotmpl

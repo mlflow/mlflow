@@ -119,3 +119,7 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# Helm
+charts/**/.debug
+charts/**/__snapshot__
