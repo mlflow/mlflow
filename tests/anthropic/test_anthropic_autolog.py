@@ -19,7 +19,7 @@ DUMMY_CREATE_MESSAGE_REQUEST = {
 
 DUMMY_CREATE_MESSAGE_RESPONSE = Message(
     id="test_id",
-    content=[TextBlock(text="test answer", type="text")],
+    content=[TextBlock(text="test answer", type="text", citations=None)],
     model="test_model",
     role="assistant",
     stop_reason="end_turn",
@@ -101,7 +101,11 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST = {
 DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
     id="test_id",
     content=[
-        TextBlock(text="<thinking>Next, I need to use the get_weather</thinking>", type="text"),
+        TextBlock(
+            text="<thinking>Next, I need to use the get_weather</thinking>",
+            type="text",
+            citations=None,
+        ),
         ToolUseBlock(
             id="tool_456",
             name="get_weather",
