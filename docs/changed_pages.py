@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 import os
-import pathlib
+from pathlib import Path
 
 import requests
 
 
-def fetch_changed_files(pr: str) -> list[str]:
+def fetch_changed_files(pr: str) -> list[Path]:
     pr_num = pr.rsplit("/", 1)[-1]
     url = f"https://api.github.com/repos/mlflow/mlflow/pulls/{pr_num}/files"
     per_page = 100
@@ -17,7 +15,7 @@ def fetch_changed_files(pr: str) -> list[str]:
         files = r.json()
         changed_files.extend(f["filename"] for f in files)
         if len(files) < per_page:
-            return changed_files
+            return [Path(f) for f in changed_files]
 
 
 def main() -> None:
@@ -25,16 +23,19 @@ def main() -> None:
     if pr is None:
         return
 
-    BUILD_DIR = pathlib.Path("build/")
-
-    # TODO: improve this when docusaurus launches
-    changed_pages = [f[5:-4] + "/index.html" for f in fetch_changed_files(pr) if f.endswith(".mdx")]
+    BUILD_DIR = Path("build/")
+    changed_pages: list[Path] = []
+    for f in fetch_changed_files(pr):
+        if f.suffix == ".mdx":
+            path = "index.html" if f.name == "index.mdx" else f.stem / "index.html"
+            changed_pages.append(f.parent / path)
 
     links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
     diff_html = f"""
 <h1>Changed Pages</h1>
 <ul>{links}</ul>
 """
+    BUILD_DIR.mkdir(exist_ok=True)
     BUILD_DIR.joinpath("diff.html").write_text(diff_html)
 
 
