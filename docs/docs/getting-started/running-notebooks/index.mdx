@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 ---
-
+import Link from "@docusaurus/Link";
 import Platform from "@site/src/content/platform.mdx"
 
 # How to Run Tutorials
@@ -40,16 +40,14 @@ While this mode is the easiest way to get started, it is not recommended for gen
 
 ### Running with Tracking Server (recommended)
 
-**MLflow Tracking Server** is a centralized HTTP server that allows you to access your experiments artifacts regardless of where you run your code.
-
-To use the Tracking Server, you can either run it locally or use a managed service. Click on the following links to learn more about each option:
+**MLflow Tracking Server** is a centralized HTTP server that allows you to access your experiments artifacts regardless of where you run your code. To use the Tracking Server, you can either run it locally or use a managed service. Click on the following links to learn more about each option:
 
 <Platform />
 
 
 :::tip
 💡 If you are not an Databricks user but want to try out its managed MLflow experience for free, we recommend using the 
-`Databricks Community Edition <community-edition.html>`_. It offers an expedited access for a Databricks workspace and services without the enterprise setup, let you get started with MLflow and other ML/AI tools in minutes.
+<Link to="/community-edition.html" target="_blank">Databricks Community Edition </Link>. It offers an expedited access for a Databricks workspace and services without the enterprise setup, let you get started with MLflow and other ML/AI tools in minutes.
 :::
 
 ## 4. Connecting Notebook with Tracking Server
