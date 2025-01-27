@@ -84,3 +84,7 @@ typing-extensions:
   pip_release: typing-extensions
   minimum: "4.0.0"
   max_major_version: 4
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
