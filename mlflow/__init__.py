@@ -115,6 +115,7 @@ from mlflow.config import (
     set_tracking_uri,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.mismatch import _check_version_mismatch
 from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
@@ -258,3 +259,6 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+
+_check_version_mismatch()
