@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "推广模型",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "依据性 LLM 裁判会返回二元评估和书面理由，说明生成的回答是否与代理检索到的上下文事实一致。",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "提升 {sourceModelName} 版本 {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "需选择计算横向扩展。",

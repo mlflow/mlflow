@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Promouvoir le modèle",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "Le juge LLM d’ancrage renvoie une évaluation binaire et une justification écrite indiquant si la réponse générée est, dans les faits, conforme au contexte récupéré par l’agent.",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "Promouvoir {sourceModelName} version {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "L'option Compute Scale-out est nécessaire.",

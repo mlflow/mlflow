@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Modell bewerben",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "Der LLM-Richter für Fundiertheit gibt eine binäre Bewertung und eine schriftliche Begründung dazu ab, ob die generierte Antwort faktisch mit dem vom Agenten abgerufenen Kontext übereinstimmt.",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "{sourceModelName} Version {sourceModelVersion}bewerben",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "Compute Scale-out ist erforderlich.",

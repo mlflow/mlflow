@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Promuovi il modello",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "Il giudice della fondatezza LLM restituisce una valutazione binaria e una motivazione scritta per stabilire se la risposta generata è di fatto coerente con il contesto recuperato dall'agente.",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "Promuovi {sourceModelName} versione {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "La scalabilità orizzontale del compute è obbligatoria.",

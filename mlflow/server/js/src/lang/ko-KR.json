@@ -53,7 +53,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "모델 프로모션",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+Wd9fs" : {
     "defaultMessage" : "근거성 LLM judge는 생성된 응답이 에이전트가 검색한 컨텍스트와 사실적으로 일치하는지에 대한 이진 평가와 서면 근거를 제공합니다.",
@@ -6246,7 +6246,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "{sourceModelName} 버전 {sourceModelVersion} 승격",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "compute 스케일 아웃이 필요합니다.",
