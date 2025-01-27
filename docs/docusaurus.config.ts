@@ -72,9 +72,10 @@ const config: Config = {
       ? {
           announcementBar: {
             id: "pr_preview",
-            content: "⚠️ Reloading the page causes 404. Add /index.html to the URL to avoid it ⚠️",
-            backgroundColor: "#fafbfc",
-            textColor: "#091E42",
+            content:
+              "<strong>⚠️ Reloading the page causes 404. Add /index.html to the URL to avoid it ⚠️</strong>",
+            backgroundColor: "#0194e2",
+            textColor: "#ffffff",
             isCloseable: true,
           },
         }
