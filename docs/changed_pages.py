@@ -27,8 +27,11 @@ def main() -> None:
     changed_pages: list[Path] = []
     for f in fetch_changed_files(pr):
         if f.suffix == ".mdx":
-            path = "index.html" if f.name == "index.mdx" else f.stem / "index.html"
-            changed_pages.append(f.parent / path)
+            changed_pages.append(
+                f.parent / "index.html"
+                if f.name == "index.mdx"
+                else f.parent / f.stem / "index.html"
+            )
 
     links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
     diff_html = f"""
