@@ -45,7 +45,7 @@ def autolog(
         from litellm.integrations.mlflow import MlflowLogger
     except ImportError:
         _logger.warning(
-            "MLflow LiteLLM integration is not supported for the installed LiteLLM version."
+            "MLflow LiteLLM integration is not supported for the installed LiteLLM version. "
             "Please upgrade to a newer version to enable MLflow LiteLLM autologging."
         )
         return
