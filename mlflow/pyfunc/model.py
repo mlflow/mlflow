@@ -575,7 +575,9 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
 
     if model_code_path:
-        loader_module = mlflow.pyfunc.loaders.code_model.__name__
+        from mlflow.pyfunc.loaders import code_model
+
+        loader_module = code_model.__name__
     elif python_model:
         loader_module = _get_pyfunc_loader_module(python_model)
     else:
@@ -815,9 +817,13 @@ class _PythonModelPyfuncWrapper:
 
 def _get_pyfunc_loader_module(python_model):
     if isinstance(python_model, ChatModel):
-        return mlflow.pyfunc.loaders.chat_model.__name__
+        from mlflow.pyfunc.loaders import chat_model
+
+        return chat_model.__name__
     elif isinstance(python_model, ChatAgent):
-        return mlflow.pyfunc.loaders.chat_agent.__name__
+        from mlflow.pyfunc.loaders import chat_agent
+
+        return chat_agent.__name__
     return __name__
 
 

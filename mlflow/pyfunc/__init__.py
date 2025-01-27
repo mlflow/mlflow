@@ -425,6 +425,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.models.signature
+import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
