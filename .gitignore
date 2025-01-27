@@ -36,6 +36,7 @@ wheels/
 MANIFEST
 node_modules
 .docusaurus
+*-ipynb.mdx
 docs/static/api_reference
 
 # PyInstaller
