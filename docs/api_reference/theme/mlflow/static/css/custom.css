@@ -361,37 +361,34 @@ table > colgroup:first-child {
 }
 
 .wy-nav-top .wy-nav-top-menu-button {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 54px;
-  width: 54px;
+  width: 16px;
   text-align: center;
   z-index: 2;
   background-color: #EFEFEF;
 }
 
 .wy-nav-top-logo {
+  flex-shrink: 0;
   line-height: 54px;
   text-align: left;
-  margin-left: 14px;
-  float: left;
-}
-
-@media screen and (max-width: 768px) {
-  .wy-nav-top-logo {
-    line-height: 54px;
-    text-align: center;
-    margin-left: 0;
-  }
 }
 
 .wy-nav-top-logo img {
   border-radius: 0;
   max-width: 100%;
   margin: 0 auto;
-  width: 107px;
-  height: 41px;
+  max-height: 30px;
+  width: auto;
   padding: 0;
   background-color: transparent;
+}
+
+@media screen and (max-width: 768px) {
+  .wy-nav-top-logo img {
+    max-height: 25px;
+  }
 }
 
 /**
