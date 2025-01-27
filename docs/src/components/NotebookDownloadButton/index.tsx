@@ -12,6 +12,17 @@ export function NotebookDownloadButton({
   const handleClick = useCallback(
     async (e: MouseEvent) => {
       e.preventDefault();
+
+      if ((window as any).gtag) {
+        try {
+          (window as any).gtag("event", "notebook-download", {
+            href,
+          });
+        } catch {
+          // do nothing if the gtag call fails
+        }
+      }
+
       const response = await fetch(href);
       const blob = await response.blob();
 
