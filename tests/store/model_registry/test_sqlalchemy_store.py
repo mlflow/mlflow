@@ -209,12 +209,12 @@ def test_rename_registered_model(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
     # invalid model name will fail
     with pytest.raises(
-        MlflowException, match=r"Missing value for required parameter 'name'"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Missing value for required parameter 'name'"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
