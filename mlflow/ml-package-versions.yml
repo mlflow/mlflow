@@ -260,14 +260,13 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.0.0"
+    minimum: "3.1.0"
     maximum: "3.8.3"
     python:
       ">= 3.8.4": "3.10"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
-      "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
-      ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
+      ">= 3.1.0, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
       "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
