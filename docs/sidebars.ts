@@ -434,27 +434,27 @@ const sidebars: SidebarsConfig = {
         {
           type: 'link',
           label: 'Python API',
-          href: 'https://mlflow.org/docs/latest/python_api/index.html',
+          href: 'https://mlflow.org/docs/latest/api_reference/python_api/index.html',
         },
         {
           type: 'link',
           label: 'Java API',
-          href: 'https://mlflow.org/docs/latest/java_api/index.html',
+          href: 'https://mlflow.org/docs/latest/api_reference/java_api/index.html',
         },
         {
           type: 'link',
           label: 'R API',
-          href: 'https://mlflow.org/docs/latest/R-api/index.html',
+          href: 'https://mlflow.org/docs/latest/api_reference/R-api/index.html',
         },
         {
           type: 'link',
           label: 'REST API',
-          href: 'https://mlflow.org/docs/latest/rest-api/index.html',
+          href: 'https://mlflow.org/docs/latest/api_reference/rest-api/index.html',
         },
         {
           type: 'link',
           label: 'CLI',
-          href: 'https://mlflow.org/docs/latest/cli.html',
+          href: 'https://mlflow.org/docs/latest/api_reference/cli.html',
         }
       ]
     },
