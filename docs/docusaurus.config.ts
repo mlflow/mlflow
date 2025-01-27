@@ -72,8 +72,7 @@ const config: Config = {
       ? {
           announcementBar: {
             id: "pr_preview",
-            content:
-              "⚠️ Reloading the page may result in a 404 error. To prevent this, add /index.html to the URL ⚠️",
+            content: "⚠️ Reloading the page causes 404. Add /index.html to the URL to avoid it ⚠️",
             backgroundColor: "#fafbfc",
             textColor: "#091E42",
             isCloseable: true,
