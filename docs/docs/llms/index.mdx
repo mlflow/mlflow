@@ -7,15 +7,23 @@ import { APILink } from "@site/src/components/APILink";
 
 # LLM / GenAI
 
-LLMs, or Large Language Models, have rapidly become a cornerstone in the machine learning domain, offering
-immense capabilities ranging from natural language understanding to code generation and more.
-However, harnessing the full potential of LLMs often involves intricate processes, from interfacing with
-multiple providers to fine-tuning specific models to achieve desired outcomes.
-
-Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM
-capabilities into their applications.
+LLMs (Large Language Models) have become essential in machine learning, enabling tasks like natural language understanding and code generation. However, fully leveraging their potential often involves complex processes of managing many moving pieces such as prompts, LLM providers, frameworks, knowledge base, tools, and more.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind.
+
+
+
+<details>
+  <summary>Key Challenges in LLM / GenAI Applications</summary>
+
+
+</details>
+
+
+* Model Tracking 
+* Tracing
+* Evaluation
+
 
 ## Tutorials
 
@@ -34,24 +42,16 @@ Note that there are additional tutorials within the ["Explore the Native LLM Fla
   <PageCard link="/llms/rag/notebooks/" headerText="Evaluation for RAG" text={["Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API."]} />
 </CardGroup>
 
-## MLflow Tracing
+## MLflow Tracing for Observability
 
-MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
-LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality
-allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows.
-Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations
-of your GenAI models and retain your traced data within the tracking server for further analysis.
+MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications, integrated with 15+ GenAI Frameworks. [➡︎ Learn more](/tracing) 
 
-- [Automated tracing with GenAI libraries](/llms/tracing#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
-- [Manual trace instrumentation with high-level fluent APIs](/llms/tracing#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
-- [Low-level client APIs for tracing](/llms/tracing#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
-
-To learn more about what tracing is, see our [Tracing Concepts Overview](/llms/tracing/overview) guide. For an in-depth exploration into the structure of
-MLflow traces and their schema, see the [Tracing Schema](/llms/tracing/tracing-schema) guide.
-
-If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](/llms/tracing/contribute) guide.
+<details>
+  <summary>Key Benefit</summary>
+</details>
 
 ![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+
 
 ## MLflow AI Gateway for LLMs
 
