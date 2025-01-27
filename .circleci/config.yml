@@ -75,6 +75,7 @@ jobs:
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
+            PR_PREVIEW: "true"
           command: |
             yarn install
             yarn build-api-docs:no-r

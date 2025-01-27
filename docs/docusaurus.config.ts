@@ -68,6 +68,18 @@ const config: Config = {
   ],
 
   themeConfig: {
+    ...(process.env.PR_PREVIEW
+      ? {
+          announcementBar: {
+            id: "pr_preview",
+            content:
+              "⚠️ Reloading the page may result in a 404 error. To prevent this, add /index.html to the URL ⚠️",
+            backgroundColor: "#fafbfc",
+            textColor: "#091E42",
+            isCloseable: true,
+          },
+        }
+      : {}),
     navbar: {
       logo: {
         alt: "MLflow Logo",
