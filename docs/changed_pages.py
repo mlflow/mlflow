@@ -24,7 +24,7 @@ def main() -> None:
         return
 
     BUILD_DIR = Path("build/")
-    DOCS_DIR = Path("docs/")
+    DOCS_DIR = Path("docs/docs/")
     changed_pages: list[Path] = []
     for f in fetch_changed_files(pr):
         if f.suffix == ".mdx":
