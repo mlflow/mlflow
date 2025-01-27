@@ -413,17 +413,18 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
 import pandas
+import pydantic
 import yaml
 from packaging.version import Version
 
 import mlflow
+import mlflow.models.signature
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
@@ -451,7 +452,6 @@ from mlflow.models.signature import (
     _extract_type_hints,
     _infer_signature_from_input_example,
     _infer_signature_from_type_hints,
-    _should_infer_signature_from_type_hints,
 )
 from mlflow.models.utils import (
     PyFuncInput,
@@ -484,10 +484,13 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
     extract_archive_to_dir,
 )
 from mlflow.pyfunc.model import (
+    _DEFAULT_CHAT_AGENT_METADATA_TASK,
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    ChatAgent,
     ChatModel,
     PythonModel,
     PythonModelContext,
+    _FunctionPythonModel,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
@@ -497,6 +500,14 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.agent import (
+    CHAT_AGENT_INPUT_EXAMPLE,
+    CHAT_AGENT_INPUT_SCHEMA,
+    CHAT_AGENT_OUTPUT_SCHEMA,
+    ChatAgentMessage,
+    ChatAgentParams,
+    ChatAgentResponse,
+)
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
@@ -504,6 +515,13 @@ from mlflow.types.llm import (
     ChatCompletionResponse,
     ChatMessage,
     ChatParams,
+)
+from mlflow.types.type_hints import (
+    _convert_dataframe_to_example_format,
+    _is_example_valid_for_type_from_example,
+    _is_type_hint_from_example,
+    _signature_cannot_be_inferred_from_type_hint,
+    model_validate,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -552,12 +570,14 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.pydantic_utils import model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.warnings_utils import color_warning
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
@@ -576,6 +596,12 @@ _MODEL_DATA_SUBPATH = "data"
 _CHAT_PARAMS_WARNING_MESSAGE = (
     "Default values for temperature, n and stream in ChatParams will be removed in the "
     "next release. Specify them in the input example explicitly if needed."
+)
+_TYPE_FROM_EXAMPLE_ERROR_MESSAGE = (
+    "Input example must be provided when using TypeFromExample as type hint. "
+    "Fix this by passing `input_example` when logging your model. Check "
+    "https://mlflow.org/docs/latest/model/python_model.html#typefromexample-type-hint-usage "
+    "for more details."
 )
 
 
@@ -744,6 +770,7 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        self._input_example = None
 
     @property
     @developer_stable
@@ -754,6 +781,17 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
+
+    @property
+    def input_example(self) -> Optional[Any]:
+        """
+        The input example provided when the model was saved.
+        """
+        return self._input_example
+
+    @input_example.setter
+    def input_example(self, value: Any) -> None:
+        self._input_example = value
 
     @contextmanager
     def _try_get_or_generate_prediction_context(self):
@@ -810,6 +848,12 @@ class PyFuncModel:
             data, params = _validate_prediction_input(
                 data, params, self.input_schema, self.params_schema, self.loader_module
             )
+            if (
+                isinstance(data, pandas.DataFrame)
+                and self.metadata._is_type_hint_from_example()
+                and self.input_example is not None
+            ):
+                data = _convert_dataframe_to_example_format(data, self.input_example)
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -931,7 +975,7 @@ class PyFuncModel:
         return self._model_meta == other._model_meta
 
     @property
-    def metadata(self):
+    def metadata(self) -> Model:
         """Model metadata."""
         if self._model_meta is None:
             raise MlflowException("Model is missing metadata.")
@@ -1098,12 +1142,20 @@ def load_model(
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
 
-    return PyFuncModel(
+    pyfunc_model = PyFuncModel(
         model_meta=model_meta,
         model_impl=model_impl,
         predict_fn=predict_fn,
         predict_stream_fn=predict_stream_fn,
     )
+
+    try:
+        model_input_example = model_meta.load_input_example(path=local_path)
+        pyfunc_model.input_example = model_input_example
+    except Exception as e:
+        _logger.debug(f"Failed to load input example from model metadata: {e}.")
+
+    return pyfunc_model
 
 
 class _ServedPyFuncModel(PyFuncModel):
@@ -1392,9 +1444,9 @@ _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
 def _convert_spec_type_to_spark_type(spec_type):
-    from pyspark.sql.types import ArrayType, StructField, StructType
+    from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-    from mlflow.types.schema import Array, DataType, Object
+    from mlflow.types.schema import Array, DataType, Map, Object
 
     if isinstance(spec_type, DataType):
         return spec_type.to_spark()
@@ -1415,6 +1467,14 @@ def _convert_spec_type_to_spark_type(spec_type):
                 for property in spec_type.properties
             ]
         )
+
+    # Map only supports string as key
+    if isinstance(spec_type, Map):
+        return MapType(
+            keyType=StringType(), valueType=_convert_spec_type_to_spark_type(spec_type.value_type)
+        )
+
+    raise MlflowException(f"Failed to convert schema type `{spec_type}` to spark type.")
 
 
 def _cast_output_spec_to_spark_type(spec):
@@ -1520,7 +1580,6 @@ def _convert_array_values(values, result_type):
     )
 
 
-@lru_cache
 def _get_spark_primitive_types():
     from pyspark.sql import types
 
@@ -1534,7 +1593,6 @@ def _get_spark_primitive_types():
     )
 
 
-@lru_cache
 def _get_spark_primitive_type_to_np_type():
     from pyspark.sql import types
 
@@ -1548,63 +1606,36 @@ def _get_spark_primitive_type_to_np_type():
     }
 
 
-def _check_udf_return_struct_type(struct_type):
-    from pyspark.sql.types import ArrayType, StructType
+def _get_spark_primitive_type_to_python_type():
+    from pyspark.sql import types
 
-    primitive_types = _get_spark_primitive_types()
-
-    for field in struct_type.fields:
-        field_type = field.dataType
-        if isinstance(field_type, primitive_types):
-            continue
-
-        if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
-            field_type, allow_struct=True
-        ):
-            continue
-
-        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
-            continue
-
-        return False
-
-    return True
-
-
-def _check_udf_return_array_type(array_type, allow_struct):
-    from pyspark.sql.types import ArrayType, StructType
-
-    elem_type = array_type.elementType
-    primitive_types = _get_spark_primitive_types()
-
-    if isinstance(elem_type, primitive_types):
-        return True
-
-    if isinstance(elem_type, ArrayType):
-        return _check_udf_return_array_type(elem_type, allow_struct)
-
-    if isinstance(elem_type, StructType):
-        if allow_struct:
-            # Array of struct values.
-            return _check_udf_return_struct_type(elem_type)
-
-        return False
-
-    return False
+    return {
+        types.IntegerType: int,
+        types.LongType: int,
+        types.FloatType: float,
+        types.DoubleType: float,
+        types.BooleanType: bool,
+        types.StringType: str,
+    }
 
 
 def _check_udf_return_type(data_type):
-    from pyspark.sql.types import ArrayType, StructType
+    from pyspark.sql.types import ArrayType, MapType, StringType, StructType
 
     primitive_types = _get_spark_primitive_types()
     if isinstance(data_type, primitive_types):
         return True
 
     if isinstance(data_type, ArrayType):
-        return _check_udf_return_array_type(data_type, allow_struct=True)
+        return _check_udf_return_type(data_type.elementType)
 
     if isinstance(data_type, StructType):
-        return _check_udf_return_struct_type(data_type)
+        return all(_check_udf_return_type(field.dataType) for field in data_type.fields)
+
+    if isinstance(data_type, MapType):
+        return isinstance(data_type.keyType, StringType) and _check_udf_return_type(
+            data_type.valueType
+        )
 
     return False
 
@@ -1617,7 +1648,7 @@ def _convert_struct_values(
     Convert spark StructType values to spark dataframe column values.
     """
 
-    from pyspark.sql.types import ArrayType, StructType
+    from pyspark.sql.types import ArrayType, MapType, StructType
 
     if not isinstance(result_type, StructType):
         raise MlflowException.invalid_parameter_value(
@@ -1639,7 +1670,10 @@ def _convert_struct_values(
         if type(field_type) in spark_primitive_type_to_np_type:
             np_type = spark_primitive_type_to_np_type[type(field_type)]
             if is_pandas_df:
-                field_values = field_values.astype(np_type)
+                # it's possible that field_values contain only Nones
+                # in this case, we don't need to cast the type
+                if not all(_is_none_or_nan(field_value) for field_value in field_values):
+                    field_values = field_values.astype(np_type)
             else:
                 field_values = (
                     None
@@ -1663,6 +1697,22 @@ def _convert_struct_values(
                 )
             else:
                 field_values = _convert_struct_values(field_values, field_type)
+        elif isinstance(field_type, MapType):
+            if is_pandas_df:
+                field_values = pandas.Series(
+                    [
+                        {
+                            key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                            for key, value in field_value.items()
+                        }
+                        for field_value in field_values
+                    ]
+                ).astype(object)
+            else:
+                field_values = {
+                    key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                    for key, value in field_values.items()
+                }
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported field type {field_type.simpleString()} in struct type.",
@@ -1672,6 +1722,32 @@ def _convert_struct_values(
     if is_pandas_df:
         return pandas.DataFrame(result_dict)
     return result_dict
+
+
+def _convert_value_based_on_spark_type(value, spark_type):
+    """
+    Convert value to python types based on the given spark type.
+    """
+
+    from pyspark.sql.types import ArrayType, MapType, StructType
+
+    spark_primitive_type_to_python_type = _get_spark_primitive_type_to_python_type()
+
+    if type(spark_type) in spark_primitive_type_to_python_type:
+        python_type = spark_primitive_type_to_python_type[type(spark_type)]
+        return None if _is_none_or_nan(value) else python_type(value)
+    if isinstance(spark_type, StructType):
+        return _convert_struct_values(value, spark_type)
+    if isinstance(spark_type, ArrayType):
+        return [_convert_value_based_on_spark_type(v, spark_type.elementType) for v in value]
+    if isinstance(spark_type, MapType):
+        return {
+            key: _convert_value_based_on_spark_type(value[key], spark_type.valueType)
+            for key in value
+        }
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported type {spark_type} for value {value}"
+    )
 
 
 # This location is used to prebuild python environment in Databricks runtime.
@@ -1885,6 +1961,18 @@ def build_model_env(model_uri, save_path):
             os.remove(tmp_archive_path)
 
 
+def _convert_data_to_spark_compat(data):
+    if isinstance(data, list):
+        return [_convert_data_to_spark_compat(d) for d in data]
+    if isinstance(data, dict):
+        return {k: _convert_data_to_spark_compat(v) for k, v in data.items()}
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pydantic.BaseModel):
+        return model_dump_compat(data)
+    return data
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -2021,6 +2109,8 @@ def spark_udf(
         params: Additional parameters to pass to the model for inference.
 
         extra_env: Extra environment variables to pass to the UDF executors.
+            For overrides that need to propagate to the Spark workers (i.e.,
+            overriding the scoring server timeout via `MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT`).
 
         prebuilt_env_uri: The path of the prebuilt env archive file created by
             `mlflow.pyfunc.build_model_env` API.
@@ -2053,6 +2143,7 @@ def spark_udf(
         FloatType,
         IntegerType,
         LongType,
+        MapType,
         StringType,
     )
     from pyspark.sql.types import StructType as SparkStructType
@@ -2268,24 +2359,25 @@ def spark_udf(
         if isinstance(result_type, str):
             result_type = _parse_spark_datatype(result_type)
 
-    if not _check_udf_return_type(result_type):
-        raise MlflowException.invalid_parameter_value(
-            f"""Invalid 'spark_udf' result type: {result_type}.
+        # if result type is inferred by MLflow, we don't need to check it
+        if not _check_udf_return_type(result_type):
+            raise MlflowException.invalid_parameter_value(
+                f"""Invalid 'spark_udf' result type: {result_type}.
 It must be one of the following types:
 Primitive types:
- - int
- - long
- - float
- - double
- - string
- - boolean
+- int
+- long
+- float
+- double
+- string
+- boolean
 Compound types:
- - ND array of primitives / structs.
- - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
-   A struct with primitive, ND array<primitive/structs>,
-   e.g., struct<a:int, b:array<int>>.
+- ND array of primitives / structs.
+- struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
+A struct with primitive, ND array<primitive/structs>,
+e.g., struct<a:int, b:array<int>>.
 """
-        )
+            )
     params = _validate_params(params, model_metadata)
 
     def _predict_row_batch(predict_fn, args):
@@ -2321,6 +2413,7 @@ Compound types:
             )
 
         result = predict_fn(pdf, params)
+        result = _convert_data_to_spark_compat(result)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2330,7 +2423,13 @@ Compound types:
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
+            if isinstance(result_type, MapType):
+                # list of dicts should be converted into a single column
+                result = pandas.DataFrame([result])
+            else:
+                result = (
+                    pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
+                )
 
         if isinstance(result_type, SparkStructType):
             return _convert_struct_values(result, result_type)
@@ -2900,11 +2999,11 @@ def save_model(
             "should be a python module. A `python_model` should be a subclass of PythonModel"
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
-
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = None
     signature_from_type_hints = None
+    type_hint_from_example = None
     if isinstance(python_model, ChatModel):
         if signature is not None:
             raise MlflowException(
@@ -2971,56 +3070,89 @@ def save_model(
                 "returns a dict, you can instantiate a ChatCompletionResponse using "
                 "`from_dict()`, e.g. `ChatCompletionResponse.from_dict(output)`",
             )
-    elif python_model is not None:
+    elif isinstance(python_model, ChatAgent):
+        input_example = _save_model_chat_agent_helper(
+            python_model, mlflow_model, signature, input_example
+        )
+    elif callable(python_model) or isinstance(python_model, PythonModel):
+        model_for_signature_inference = None
+        predict_func = None
         if callable(python_model):
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
-            if _should_infer_signature_from_type_hints(type_hints):
-                signature_from_type_hints = _infer_signature_from_type_hints(
-                    func=python_model, type_hints=type_hints, input_example=input_example
+            pyfunc_decorator_used = getattr(python_model, "_is_pyfunc", False)
+            # only show the warning here if @pyfunc is not applied on the function
+            # since @pyfunc will trigger the warning instead
+            if type_hints.input is None and not pyfunc_decorator_used:
+                color_warning(
+                    "Add type hints to the `predict` method to enable "
+                    "data validation and automatic signature inference. Check "
+                    "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel"
+                    " for more details.",
+                    stacklevel=1,
+                    color="yellow",
                 )
+            model_for_signature_inference = _FunctionPythonModel(python_model)
+            predict_func = python_model
         elif isinstance(python_model, PythonModel):
-            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             type_hints = python_model.predict_type_hints
-            infer_signature_from_type_hints = _should_infer_signature_from_type_hints(type_hints)
-            if infer_signature_from_type_hints:
+            model_for_signature_inference = python_model
+            predict_func = python_model.predict
+
+        type_hint_from_example = _is_type_hint_from_example(type_hints.input)
+        if type_hint_from_example:
+            should_infer_signature_from_type_hints = False
+        else:
+            should_infer_signature_from_type_hints = (
+                not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
+            )
+            if should_infer_signature_from_type_hints:
                 signature_from_type_hints = _infer_signature_from_type_hints(
-                    func=python_model.predict,
-                    type_hints=python_model.predict_type_hints,
+                    func=predict_func,
+                    type_hints=type_hints,
                     input_example=input_example,
                 )
-            # only infer signature based on input example when signature
-            # and type hints are not provided
-            if signature is None and signature_from_type_hints is None:
-                if saved_example is not None:
-                    try:
-                        context = PythonModelContext(artifacts, model_config)
-                        python_model.load_context(context)
-                        mlflow_model.signature = _infer_signature_from_input_example(
-                            saved_example,
-                            _PythonModelPyfuncWrapper(python_model, None, None),
-                        )
-                    except Exception as e:
-                        if infer_signature_from_type_hints:
-                            _logger.warning(
-                                "Failed to infer model signature from type hints or input example. "
-                                f"Inferring model signature from input example failure: {e}",
-                            )
-                        else:
-                            _logger.warning(
-                                "Failed to infer model signature: "
-                                f"Type hint {type_hints} cannot be used to infer model signature."
-                                f"Inferring model signature from input example failure: {e}"
-                            )
+        # only infer signature based on input example when signature
+        # and type hints are not provided
+        if signature is None and signature_from_type_hints is None:
+            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+            if saved_example is not None:
+                _logger.info("Inferring model signature from input example")
+                try:
+                    context = PythonModelContext(artifacts, model_config)
+                    model_for_signature_inference.load_context(context)
+                    mlflow_model.signature = _infer_signature_from_input_example(
+                        saved_example,
+                        _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),
+                    )
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to infer model signature from input example, error: {e}",
+                    )
                 else:
-                    # if infer_signature_from_type_hints, warnings are emitted
-                    # in _infer_signature_from_type_hints
-                    if not infer_signature_from_type_hints:
-                        _logger.warning(
-                            "Failed to infer model signature: "
-                            f"Type hint {type_hints} cannot be used to infer model signature."
-                            "Input example is not provided, model signature cannot be inferred."
+                    if type_hint_from_example and mlflow_model.signature:
+                        update_signature_for_type_hint_from_example(
+                            input_example, mlflow_model.signature
                         )
+            else:
+                if type_hint_from_example:
+                    _logger.warning(
+                        _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
+                        extra={"color": "red"},
+                    )
+                # if signature is inferred from type hints, warnings are emitted
+                # in _infer_signature_from_type_hints
+                elif not should_infer_signature_from_type_hints:
+                    _logger.warning(
+                        "Failed to infer model signature: "
+                        f"Type hint {type_hints} cannot be used to infer model signature and "
+                        "input example is not provided, model signature cannot be inferred."
+                    )
+
+    if metadata is not None:
+        mlflow_model.metadata = metadata
+    if saved_example is None:
+        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
@@ -3028,21 +3160,48 @@ def save_model(
             # is a behavior change
             _logger.warning(
                 "Provided signature does not match the signature inferred from the Python model's "
-                "`predict` function type hint. Signature inferred from type hint: "
-                f"`{signature_from_type_hints}`. Remove the `signature` parameter or ensure it "
+                "`predict` function type hint. Signature inferred from type hint will be used:\n"
+                f"{signature_from_type_hints}\nRemove the `signature` parameter or ensure it "
                 "matches the inferred signature. In a future release, this warning will become an "
                 "exception, and the signature must align with the type hint.",
                 extra={"color": "red"},
             )
         mlflow_model.signature = signature_from_type_hints
-    # TODO: if signature is provided, we should validate input_example against it
     elif signature:
         mlflow_model.signature = signature
-
-    if metadata is not None:
-        mlflow_model.metadata = metadata
-    if saved_example is None:
-        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+        if type_hint_from_example:
+            if saved_example is None:
+                _logger.warning(
+                    _TYPE_FROM_EXAMPLE_ERROR_MESSAGE,
+                    extra={"color": "red"},
+                )
+            else:
+                # TODO: validate input example against signature
+                update_signature_for_type_hint_from_example(input_example, mlflow_model.signature)
+        else:
+            if saved_example is None:
+                color_warning(
+                    message="An input example was not provided when logging the model. To ensure "
+                    "the model signature functions correctly, specify the `input_example` "
+                    "parameter. See "
+                    "https://mlflow.org/docs/latest/model/signatures.html#model-input-example "
+                    "for more details about the benefits of using input_example.",
+                    stacklevel=1,
+                    color="yellow_bold",
+                )
+            else:
+                _logger.info("Validating input example against model signature")
+                try:
+                    _validate_prediction_input(
+                        data=saved_example.inference_data,
+                        params=saved_example.inference_params,
+                        input_schema=signature.inputs,
+                        params_schema=signature.params,
+                    )
+                except Exception as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Input example does not match the model signature. Error: {e}"
+                    )
 
     with _get_dependencies_schemas() as dependencies_schemas:
         schema = dependencies_schemas.to_dict()
@@ -3088,6 +3247,18 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
+        )
+
+
+def update_signature_for_type_hint_from_example(input_example: Any, signature: ModelSignature):
+    if _is_example_valid_for_type_from_example(input_example):
+        signature._is_type_hint_from_example = True
+    else:
+        _logger.warning(
+            "Input example must be one of pandas.DataFrame, pandas.Series "
+            f"or list when using TypeFromExample as type hint, got {type(input_example)}. "
+            "Check https://mlflow.org/docs/latest/model/python_model.html#typefromexample-type-hint-usage"
+            " for more details.",
         )
 
 
@@ -3438,3 +3609,69 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
+
+
+def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+    """Helper method for save_model for ChatAgent models
+
+    Returns: a dict input_example
+    """
+    if signature is not None:
+        raise MlflowException(
+            "ChatAgent subclasses have a standard signature that is set "
+            "automatically. Please remove the `signature` parameter from "
+            "the call to log_model() or save_model().",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    mlflow_model.signature = ModelSignature(
+        inputs=CHAT_AGENT_INPUT_SCHEMA,
+        outputs=CHAT_AGENT_OUTPUT_SCHEMA,
+    )
+    # For ChatAgent we set default metadata to indicate its task
+    default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    # We accept either a tuple of either dicts or pydantic models, or a single dict
+    if input_example:
+        if isinstance(input_example, tuple):
+            messages, params = input_example
+        else:
+            messages = input_example
+            params = None
+        if isinstance(messages, list):
+            messages = [
+                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg for msg in messages
+            ]
+            params = (
+                ChatAgentParams(**params)
+                if isinstance(params, dict)
+                else params or ChatAgentParams()
+            )
+        else:
+            # If the input example is a single dictionary
+            # convert it to a list of ChatAgentMessages and ChatAgentParams
+            messages = [
+                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg
+                for msg in input_example["messages"]
+            ]
+            params = ChatAgentParams(**input_example)
+        input_example = {
+            "messages": [m.model_dump_compat(exclude_none=True) for m in messages],
+            **params.model_dump_compat(exclude_none=True),
+        }
+    else:
+        input_example = CHAT_AGENT_INPUT_EXAMPLE
+        messages = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
+        params = ChatAgentParams(**input_example)
+
+    _logger.info("Predicting on input example to validate output")
+    output = python_model.predict(messages, params)
+    try:
+        model_validate(ChatAgentResponse, output)
+    except Exception as e:
+        raise MlflowException(
+            "Failed to save ChatAgent. Ensure your model's predict() method returns a "
+            "ChatAgentResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
+    return input_example

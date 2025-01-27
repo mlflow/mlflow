@@ -1,5 +1,9 @@
+import importlib.metadata
+import logging
 from contextlib import contextmanager
 from threading import Thread
+
+from packaging.version import Version
 
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -9,6 +13,8 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 FLAVOR_NAME = "litellm"
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -35,9 +41,25 @@ def autolog(
     # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
+    try:
+        from litellm.integrations.mlflow import MlflowLogger
+    except ImportError:
+        _logger.warning(
+            "MLflow LiteLLM integration is not supported for the installed LiteLLM version. "
+            "Please upgrade to a newer version to enable MLflow LiteLLM autologging."
+        )
+        return
+
     if log_traces and not disable:
         litellm.success_callback = _append_mlflow_callbacks(litellm.success_callback)
         litellm.failure_callback = _append_mlflow_callbacks(litellm.failure_callback)
+
+        # Workaround for https://github.com/BerriAI/litellm/issues/8013
+        # TODO: Add upper bound version check when the issue is fixed.
+        if Version(importlib.metadata.version("litellm")) >= Version("1.59.4"):
+            litellm.failure_callback = [
+                cb if cb != "mlflow" else MlflowLogger() for cb in litellm.failure_callback
+            ]
 
         if is_in_databricks_runtime():
             # Patch main APIs e.g. completion to inject custom handling for threading.
@@ -138,15 +160,16 @@ def _patch_thread_start():
 
 
 def _append_mlflow_callbacks(callbacks):
-    if not any(cb == "mlflow" for cb in callbacks):
+    from litellm.integrations.mlflow import MlflowLogger
+
+    # MLflow callback can be stored as a string or the actual logger object
+    if not any(cb == "mlflow" or isinstance(cb, MlflowLogger) for cb in callbacks):
         return callbacks + ["mlflow"]
+
     return callbacks
 
 
 def _remove_mlflow_callbacks(callbacks):
-    try:
-        from litellm.integrations.mlflow import MlflowLogger
+    from litellm.integrations.mlflow import MlflowLogger
 
-        return [cb for cb in callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]
-    except ImportError:
-        return callbacks
+    return [cb for cb in callbacks if not (cb == "mlflow" or isinstance(cb, MlflowLogger))]

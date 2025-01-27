@@ -4,6 +4,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pydantic
 import pyspark
 import pytest
 from sklearn.ensemble import RandomForestRegressor
@@ -22,6 +23,7 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
+from mlflow.types.utils import InvalidDataForSignatureInferenceError
 
 
 def test_model_signature_with_colspec():
@@ -374,3 +376,17 @@ def test_infer_signature_with_optional_and_child_dataclass():
     assert any(
         schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
     )
+
+
+def test_infer_signature_for_pydantic_objects_error():
+    class Message(pydantic.BaseModel):
+        content: str
+        role: str
+
+    m = Message(content="test", role="user")
+    with pytest.raises(
+        InvalidDataForSignatureInferenceError,
+        match=r"MLflow does not support inferring model signature from "
+        r"input example with Pydantic objects",
+    ):
+        infer_signature([m])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional, Union
+from uuid import uuid4
 
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
@@ -32,12 +33,18 @@ class ImageUrl(BaseModel):
     """
     Represents an image URL.
 
-    The `url`` field can be either URL of an image, or base64 encoded data.
-    # Ref: https://platform.openai.com/docs/guides/vision?lang=curl#uploading-base64-encoded-images
+    Attributes:
+        url: Either a URL of an image or base64 encoded data.
+            https://platform.openai.com/docs/guides/vision?lang=curl#uploading-base64-encoded-images
+        detail: The level of resolution for the image when the model receives it.
+            For example, when set to "low", the model will see a image resized to
+            512x512 pixels, which consumes fewer tokens. In OpenAI, this is optional
+            and defaults to "auto".
+            https://platform.openai.com/docs/guides/vision?lang=curl#low-or-high-fidelity-image-understanding
     """
 
     url: str
-    detail: Literal["auto", "low", "high"]
+    detail: Optional[Literal["auto", "low", "high"]] = None
 
 
 class ImageContentPart(BaseModel):
@@ -69,10 +76,15 @@ class Function(BaseModel):
     name: str
     arguments: str
 
+    def to_tool_call(self, id=None) -> ToolCall:
+        if id is None:
+            id = str(uuid4())
+        return ToolCall(id=id, type="function", function=self)
+
 
 class ToolCall(BaseModel):
-    id: str
-    type: Literal["function"]
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    type: str = Field(default="function")
     function: Function
 
 
@@ -153,6 +165,46 @@ class BaseRequestPayload(BaseModel):
     model: Optional[str] = None
 
 
+# NB: For interface constructs that rely on other BaseModel implementations, in
+# pydantic 1 the **order** in which classes are defined in this module is absolutely
+# critical to prevent ForwardRef errors. Pydantic 2 does not have this limitation.
+# To maintain compatibility with Pydantic 1, ensure that all classes that are defined in
+# this file have dependencies defined higher than the line of usage.
+
+
+class ChatChoice(BaseModel):
+    index: int
+    message: ChatMessage
+    finish_reason: Optional[str] = None
+
+
+class ChatUsage(BaseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class ChatChoiceDelta(BaseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ChatChunkChoice(BaseModel):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: ChatChoiceDelta
+
+
+class ChatCompletionChunk(BaseModel):
+    """A chunk of a chat completion stream response."""
+
+    id: Optional[str] = None
+    object: str = "chat.completion.chunk"
+    created: int
+    model: str
+    choices: list[ChatChunkChoice]
+
+
 class ChatCompletionRequest(BaseRequestPayload):
     """
     A request to the chat completion API.
@@ -179,36 +231,3 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatChoice]
     usage: ChatUsage
-
-
-class ChatChoice(BaseModel):
-    index: int
-    message: ChatMessage
-    finish_reason: Optional[str] = None
-
-
-class ChatUsage(BaseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-
-
-class ChatCompletionChunk(BaseModel):
-    """A chunk of a chat completion stream response."""
-
-    id: Optional[str] = None
-    object: str = "chat.completion.chunk"
-    created: int
-    model: str
-    choices: list[ChatChunkChoice]
-
-
-class ChatChoiceDelta(BaseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
-
-
-class ChatChunkChoice(BaseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: ChatChoiceDelta

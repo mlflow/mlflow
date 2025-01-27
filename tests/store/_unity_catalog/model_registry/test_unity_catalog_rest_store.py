@@ -257,7 +257,70 @@ def langchain_local_model_dir_with_resources(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    return tmp_path
+
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+    ]
+
+    return (tmp_path, model_version_dependencies)
+
+
+@pytest.fixture
+def langchain_local_model_dir_with_invoker_resources(tmp_path):
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
+    )
+    fake_mlmodel_contents = {
+        "artifact_path": "some-artifact-path",
+        "run_id": "abc123",
+        "signature": fake_signature.to_dict(),
+        "resources": {
+            "databricks": {
+                "serving_endpoint": [
+                    {"name": "embedding_endpoint"},
+                    {"name": "llm_endpoint"},
+                    {"name": "chat_endpoint"},
+                ],
+                "vector_search_index": [
+                    {"name": "index1", "on_behalf_of_user": False},
+                    {"name": "index2"},
+                ],
+                "function": [
+                    {"name": "test.schema.test_function", "on_behalf_of_user": True},
+                    {"name": "test.schema.test_function_2"},
+                ],
+                "uc_connection": [{"name": "test_connection", "on_behalf_of_user": False}],
+                "table": [
+                    {"name": "test.schema.test_table", "on_behalf_of_user": True},
+                    {"name": "test.schema.test_table_2"},
+                ],
+            }
+        },
+    }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+    ]
+
+    return (tmp_path, model_version_dependencies)
 
 
 @pytest.fixture
@@ -345,6 +408,8 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
 
 
 def test_create_model_version_with_resources(store, langchain_local_model_dir_with_resources):
+    source, model_version_dependencies = langchain_local_model_dir_with_resources
+    source = str(source)
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -356,24 +421,75 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
         )
     )
     storage_location = "s3://blah"
-    source = str(langchain_local_model_dir_with_resources)
     model_name = "model_1"
     version = "1"
     tags = [
         ModelVersionTag(key="key", value="value"),
         ModelVersionTag(key="anotherKey", value="some other value"),
     ]
-    model_version_dependencies = [
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
-        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
-        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
-        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
-        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
-        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            side_effect=get_request_mock(
+                name=model_name,
+                version=version,
+                temp_credentials=aws_temp_creds,
+                storage_location=storage_location,
+                source=source,
+                tags=tags,
+                model_version_dependencies=model_version_dependencies,
+            ),
+        ) as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ) as optimized_s3_artifact_repo_class_mock,
+        mock.patch.dict("sys.modules", {"boto3": {}}),
+    ):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+            credential_refresh_def=ANY,
+            s3_upload_extra_args={},
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        )
+
+
+def test_create_model_version_with_invoker_resources(
+    store, langchain_local_model_dir_with_invoker_resources
+):
+    source, model_version_dependencies = langchain_local_model_dir_with_invoker_resources
+    source = str(source)
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)

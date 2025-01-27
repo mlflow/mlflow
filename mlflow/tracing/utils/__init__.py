@@ -22,6 +22,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
+    from mlflow.client import MlflowClient
     from mlflow.entities import LiveSpan
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -239,6 +240,7 @@ def generate_request_id() -> str:
 def set_span_chat_messages(
     span: LiveSpan,
     messages: Union[dict, ChatMessage],
+    append=False,
 ):
     """
     Set the `mlflow.chat.messages` attribute on the specified span. This
@@ -250,6 +252,10 @@ def set_span_chat_messages(
         messages: A list of standardized chat messages (refer to the
                  `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
                  for details)
+        append: If True, the messages will be appended to the existing messages. Otherwise,
+                the attribute will be overwritten entirely. Default is False.
+                This is useful when you want to record messages incrementally, e.g., log
+                input messages first, and then log output messages later.
 
     Example:
 
@@ -283,6 +289,10 @@ def set_span_chat_messages(
             #   Those fields should not be recorded unless set explicitly, so we set
             #   exclude_unset=True here to avoid recording unset fields.
             sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
+
+    if append:
+        existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
+        sanitized_messages = existing_messages + sanitized_messages
 
     span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
@@ -352,3 +362,36 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
+
+
+def start_client_span_or_trace(
+    client: MlflowClient,
+    name: str,
+    span_type: str,
+    inputs: Optional[dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
+    start_time_ns: Optional[int] = None,
+) -> LiveSpan:
+    """
+    An utility to start a span or trace using MlflowClient based on the current active span.
+    """
+    from mlflow.tracing.fluent import get_current_active_span
+
+    if parent_span := get_current_active_span():
+        return client.start_span(
+            name=name,
+            request_id=parent_span.request_id,
+            parent_id=parent_span.span_id,
+            span_type=span_type,
+            inputs=inputs,
+            attributes=attributes,
+            start_time_ns=start_time_ns,
+        )
+    else:
+        return client.start_trace(
+            name=name,
+            span_type=span_type,
+            inputs=inputs,
+            attributes=attributes,
+            start_time_ns=start_time_ns,
+        )
