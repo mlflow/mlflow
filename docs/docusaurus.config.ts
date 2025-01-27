@@ -63,6 +63,10 @@ const config: Config = {
         googleTagManager: {
           containerId: process.env.GTM_ID || "GTM-TEST",
         },
+        gtag: {
+          trackingID: process.env.GTM_ID || "GTM-TEST",
+          anonymizeIP: true,
+        },
       } satisfies Preset.Options,
     ],
   ],
