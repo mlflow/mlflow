@@ -41,7 +41,8 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMe
         if tool_calls := _get_tool_calls_from_ai_message(lc_message):
             return ChatMessage(
                 role="assistant",
-                # If tool calls present, content null value should be None not empty string.
+                # If tool calls present, content null value should be None not empty string
+                # according to the OpenAI spec, which ChatMessage is following
                 # Ref: https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/partners/openai/langchain_openai/chat_models/base.py#L116-L117
                 content=lc_message.content or None,
                 tool_calls=tool_calls,
