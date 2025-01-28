@@ -200,6 +200,17 @@ class TrainStep(BaseStep):
                 hp_tuning_fn = getattr(hp, param_details["distribution"])
                 param_details_to_pass = param_details.copy()
                 param_details_to_pass.pop("distribution")
+                # convert boundaries to float in case yaml is parsed to str scientific notation
+                for boundary_name, boundary_value in param_details_to_pass.items():
+                    if isinstance(boundary_value, str):
+                        try:
+                            param_details_to_pass[boundary_name] = float(boundary_value)
+                        except ValueError:
+                            raise MlflowException(
+                                f"Distribution value for {param_name} {boundary_name} must be "
+                                f"a valid number",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            )
                 search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
             else:
                 raise MlflowException(
