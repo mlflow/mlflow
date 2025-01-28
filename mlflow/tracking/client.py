@@ -2398,9 +2398,9 @@ class MlflowClient:
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+                f"images/{sanitized_key}+step+{step}+timestamp+{timestamp}+{filename_uuid}"
             )
-            compressed_filename = f"{uncompressed_filename}%compressed"
+            compressed_filename = f"{uncompressed_filename}+compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
