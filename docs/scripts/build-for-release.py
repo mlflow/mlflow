@@ -28,16 +28,15 @@ def build_docs(version):
 
 @click.command()
 def main():
-    env = os.environ.copy()
-    gtm_id = env.get("GTM_ID")
+    gtm_id = os.environ.get("GTM_ID")
 
     assert (
         gtm_id
     ), "Google Tag Manager ID is missing, please ensure that the GTM_ID environment variable is set"
 
     subprocess.run(["yarn", "install"])
-    subprocess.run(["yarn", "build-api-docs"], env=env)
-    subprocess.run(["yarn", "convert-notebooks"], env=env)
+    subprocess.run(["yarn", "build-api-docs"])
+    subprocess.run(["yarn", "convert-notebooks"])
 
     if os.path.exists("_build"):
         shutil.rmtree("_build")
