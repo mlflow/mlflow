@@ -2,12 +2,10 @@ import importlib.metadata
 import warnings
 from typing import Optional
 
-from packaging.version import Version
 
-
-def _get_version(package_name: str) -> Optional[Version]:
+def _get_version(package_name: str) -> Optional[str]:
     try:
-        return Version(importlib.metadata.version(package_name))
+        return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:
         return None
 
@@ -20,9 +18,9 @@ def _check_version_mismatch() -> None:
     """
     if (
         (mlflow_ver := _get_version("mlflow"))
-        and (not mlflow_ver.is_devrelease)
+        and ("dev" not in mlflow_ver)
         and (skinny_ver := _get_version("mlflow-skinny"))
-        and (not skinny_ver.is_devrelease)
+        and ("dev" not in skinny_ver)
         and mlflow_ver != skinny_ver
     ):
         return warnings.warn(
