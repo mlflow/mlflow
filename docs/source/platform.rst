@@ -1,4 +1,4 @@
-MLflow cn be used in a variety of environments, including your local environment, on-premises clusters, cloud platforms, and managed services. Being an open-source platform, MLflow is **vendor-neutral**; no matter where you are doing machine learning, you have access to the MLflow's core capabilities sets such as tracking, evaluation, observability, and more.
+MLflow can be used in a variety of environments, including your local environment, on-premises clusters, cloud platforms, and managed services. Being an open-source platform, MLflow is **vendor-neutral**; no matter where you are doing machine learning, you have access to the MLflow's core capabilities sets such as tracking, evaluation, observability, and more.
 
 
 .. raw:: html
@@ -6,7 +6,7 @@ MLflow cn be used in a variety of environments, including your local environment
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="../getting-started/intro-quickstart/index.html">
+                <a href="/getting-started/intro-quickstart/index.html">
                     <div class="header-with-image">
                        Hosting MLflow Locally
                     </div>
