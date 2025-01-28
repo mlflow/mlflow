@@ -33,6 +33,7 @@ dependencies = [
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
   "alembic<2,!=1.10.0",
   "docker<8,>=4.0.0",
+  "fastapi<1",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
   "markdown<4,>=3.3",
@@ -43,6 +44,7 @@ dependencies = [
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",
+  "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
 ]
 [[project.maintainers]]
