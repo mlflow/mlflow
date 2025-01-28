@@ -31,5 +31,6 @@ def _check_version_mismatch() -> None:
                 "are different. This may lead to unexpected behavior. "
                 "Please install the same version of both packages."
             ),
+            stacklevel=2,
             category=UserWarning,
         )
