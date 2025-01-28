@@ -32,6 +32,8 @@ import contextlib
 from mlflow.version import VERSION
 
 __version__ = VERSION
+import logging
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -258,3 +260,4 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
