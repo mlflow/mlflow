@@ -23,7 +23,7 @@ def _check_version_mismatch() -> None:
         and ("dev" not in skinny_ver)
         and mlflow_ver != skinny_ver
     ):
-        return warnings.warn(
+        warnings.warn(
             (
                 f"Versions of mlflow ({mlflow_ver}) and mlflow-skinny ({skinny_ver}) "
                 "are different. This may lead to unexpected behavior. "
