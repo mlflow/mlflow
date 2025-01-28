@@ -1652,7 +1652,7 @@ def test_delete_model_version_tag(store):
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Parameter version must be an integer, got 'I am not a version'"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
