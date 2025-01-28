@@ -34,7 +34,6 @@ def main():
   subprocess.run(["yarn", "install"])
   subprocess.run(["yarn", "build-api-docs"], env=env)
   subprocess.run(["yarn", "convert-notebooks"], env=env)
-  subprocess.run(["yarn", "update-api-modules"], env=env)
 
   if os.path.exists("_build"):
     shutil.rmtree("_build")
