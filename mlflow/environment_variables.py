@@ -368,6 +368,13 @@ MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
 )
 
+#: Sets the ``key`` param in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``None``)
+MLFLOW_TRACKING_CLIENT_KEY_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_CLIENT_KEY_PATH", str, None
+)
+
 #: Specified the ID of the run to log data to.
 #: (default: ``None``)
 MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)

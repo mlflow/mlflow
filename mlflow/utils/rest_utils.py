@@ -166,6 +166,8 @@ def http_request(
 
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
+        if host_creds.client_key_path is not None:
+            kwargs["cert"] = (host_creds.client_cert_path,host_creds.client_key_path)
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
@@ -442,6 +444,7 @@ class MlflowHostCreds:
         auth=None,
         ignore_tls_verification=False,
         client_cert_path=None,
+        client_key_path=None,
         server_cert_path=None,
         use_databricks_sdk=False,
         databricks_auth_profile=None,
@@ -473,6 +476,7 @@ class MlflowHostCreds:
         self.auth = auth
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
+        self.client_key_path = client_key_path
         self.server_cert_path = server_cert_path
         self.use_databricks_sdk = use_databricks_sdk
         self.databricks_auth_profile = databricks_auth_profile
