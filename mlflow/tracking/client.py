@@ -704,11 +704,17 @@ class MlflowClient:
         Returns:
             The request ID of the logged trace.
         """
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        # If the trace is created outside MLflow experiment (e.g. model serving), it does
+        # not have an experiment ID, but we need to log it to the tracking server.
+        experiment_id = trace.info.experiment_id or _get_experiment_id()
+
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
         # no way to insert the trace with a specific request ID given by the user.
         new_info = self._tracking_client.start_trace(
-            experiment_id=trace.info.experiment_id,
+            experiment_id=experiment_id,
             timestamp_ms=trace.info.timestamp_ms,
             request_metadata={},
             tags={},
