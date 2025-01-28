@@ -115,7 +115,7 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 def not_integer_value(path, value):
-    return f"Parameter {path} must be an integer, got '{value}'."
+    return f"Parameter '{path}' must be an integer, got '{value}'."
 
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
