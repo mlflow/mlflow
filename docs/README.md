@@ -37,3 +37,13 @@ In order to build the full MLflow documentation (i.e. the contents of https://ml
 3. **⚠️ Important!** Run `export DOCS_BASE_URL=/docs/latest` (or wherever the docs are expected to be served). This configures the [Docusaurus baseUrl](https://docusaurus.io/docs/api/docusaurus-config#baseUrl), and the site may not render correctly if this is improperly set.
 4. Finally, run `yarn build`. This generates static files in the `build` directory, which can then be served.
 5. (Optional) To serve the artifacts generated in the above step, run `yarn serve`.
+
+## Building for release
+
+The generated `build` folder is expected to be hosted at https://mlflow.org/docs/latest. However, as our docs are versioned, we also have to generate the documentation for `https://mlflow.org/docs/{version}`. To do this conveniently, you can run the following command:
+
+```
+yarn build-for-release
+```
+
+This command will run all the necessary steps from the "Build and Serve" workflow above, and set the correct values for `DOCS_BASE_URL`. The generated HTML will be dumped to `_build/latest` and `_build/{version}`. These two folders can then be copied to the [docs repo](https://github.com/mlflow/mlflow-legacy-website/tree/main/docs) and uploaded to the website.
