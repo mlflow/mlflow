@@ -1589,7 +1589,7 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter version must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.set_model_version_tag(
             name2, "I am not a version", ModelVersionTag(key="key", value="value")

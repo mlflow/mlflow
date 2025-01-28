@@ -114,6 +114,8 @@ def invalid_value(path, value, message=None):
 def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
+def not_integer_value(path, value):
+    return f"Parameter {path} must be an integer, got '{value}'."
 
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
@@ -475,10 +477,7 @@ def _validate_model_version(model_version):
     try:
         model_version = int(model_version)
     except ValueError:
-        raise MlflowException(
-            f"Model version must be an integer, got '{model_version}'",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_alias_name(model_alias_name):
