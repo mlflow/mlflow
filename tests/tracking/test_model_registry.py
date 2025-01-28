@@ -440,7 +440,7 @@ def test_get_model_version(client):
     assert model_version.version == "1"
 
     with pytest.raises(
-        MlflowException, match="INVALID_PARAMETER_VALUE: Model version must be an integer"
+        MlflowException, match="INVALID_PARAMETER_VALUE: Parameter 'version' must be an integer, got 'something not correct'."
     ):
         client.get_model_version(name=name, version="something not correct")
 
