@@ -434,7 +434,7 @@ const sidebars: SidebarsConfig = {
         {
           type: 'link',
           label: 'Python API',
-          href: `${process.env.URL}${process.env.DOCS_BASE_URL}api_reference/python_api/index.html`,
+          href: `${process.env.DOCS_HOST}${process.env.DOCS_BASE_URL}api_reference/python_api/index.html`,
         },
         {
           type: 'link',
