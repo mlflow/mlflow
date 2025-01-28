@@ -6,7 +6,7 @@ MLflow can be used in a variety of environments, including your local environmen
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="/getting-started/intro-quickstart/index.html">
+                <a href="https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html">
                     <div class="header-with-image">
                        Hosting MLflow Locally
                     </div>
