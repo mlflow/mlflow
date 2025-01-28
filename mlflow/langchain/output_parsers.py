@@ -107,7 +107,8 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
 class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
     OutputParser that wraps the string output into a dictionary representation of a
-    :py:class:`ChatAgentResponse`
+     :py:class:`ChatAgentResponse` for easy interoperability. Use this with the helper class
+     :py:class:`mlflow.langchain.chat_agent_langchain.LangChainChatAgent`.
     """
 
     @classmethod
@@ -121,7 +122,9 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         return "mlflow_chat_agent"
 
     def parse(self, text: str) -> dict[str, Any]:
-        """Returns the input text as a ChatAgentResponse."""
+        """Returns the output text as a dictionary representation of a
+        :py:class:`ChatAgentResponse`.
+        """
         return ChatAgentResponse(
             messages=[ChatAgentMessage(content=text, role="assistant")]
         ).model_dump_compat(exclude_none=True)
