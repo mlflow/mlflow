@@ -19,7 +19,7 @@ from mlflow.mismatch import _check_version_mismatch
         (None, None),
     ],
 )
-def test_check_version_mismatch_warn(mlflow_version: str, skinny_version: str):
+def test_check_version_mismatch_no_warn(mlflow_version: str, skinny_version: str):
     def mock_version(package_name: str) -> str:
         if package_name == "mlflow":
             if mlflow_version is None:
@@ -46,7 +46,7 @@ def test_check_version_mismatch_warn(mlflow_version: str, skinny_version: str):
         ("1.0.0rc0", "1.0.0"),
     ],
 )
-def test_check_version_mismatch_warning(mlflow_version: str, skinny_version: str):
+def test_check_version_mismatch_warn(mlflow_version: str, skinny_version: str):
     def mock_version(package_name: str) -> str:
         if package_name == "mlflow":
             return mlflow_version
