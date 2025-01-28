@@ -185,7 +185,6 @@ def test_langgraph_chat_agent_trace():
             python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-
     # No trace should be created for loading it in
     assert mlflow.get_last_active_trace() is None
 
@@ -193,6 +192,16 @@ def test_langgraph_chat_agent_trace():
 
     traces = get_traces()
     assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "LangGraph"
+    # delete the generated uuid
+    del traces[0].data.spans[0].inputs["messages"][0]["id"]
+    assert traces[0].data.spans[0].inputs == input_example
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    list(loaded_model.predict_stream(input_example))
+    traces = get_traces()
+    assert len(traces) == 2
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "LangGraph"
     # delete the generated uuid
