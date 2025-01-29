@@ -15,8 +15,11 @@ you are required to use the legacy serialization methods outlined in the [Custom
 :::
 
 :::note
-Models from code is only available for [LangChain](/llms/langchain), [LlamaIndex](/llm/llama-index), and custom `pyfunc` (PythonModel instances) models. If you are
-using other libraries directly, using the provided saving and logging functionality within specific model flavors is recommended.
+Models from code is only available for [LangChain](/llms/langchain), [LlamaIndex](/llms/llama-index), and custom `pyfunc` models. If you are
+writing a custom Python model or GenAI agent/app, use models from code. For conversational GenAI agents, use authoring interfaces
+like [ChatModel](/llms/chat-model-guide) to define your agent, which is supported regardless of which other libraries or frameworks
+you're using. For other use cases (e.g. classic ML with xgboost), if you are using ML libraries directly, using the provided saving and
+logging functionality within specific model flavors is recommended.
 :::
 
 The models from code feature is a comprehensive overhaul of the process of defining, storing, and loading both custom models and specific flavor
