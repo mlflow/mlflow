@@ -17,6 +17,7 @@ from sklearn import datasets
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
@@ -742,28 +743,32 @@ def test_parse_json_input_including_path():
 
 
 @pytest.mark.parametrize(
-    ("args", "expected"),
+    ("args", "expected", "timeout"),
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout-graceful-shutdown 60 --host 0.0.0.0 --port 5000 --workers 4",
+            "--host 0.0.0.0 --port 5000 --workers 4",
+            "60",
         ),
         (
             {"host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout-graceful-shutdown 60 --host 0.0.0.0 --workers 4",
+            "--host 0.0.0.0 --workers 4",
+            "60",
         ),
         (
             {"port": 5000, "nworkers": 4, "timeout": 60},
-            "--timeout-graceful-shutdown 60 --port 5000 --workers 4",
+            "--port 5000 --workers 4",
+            "60",
         ),
-        ({"nworkers": 4, "timeout": 60}, "--timeout-graceful-shutdown 60 --workers 4"),
-        ({"timeout": 60}, "--timeout-graceful-shutdown 60"),
+        ({"nworkers": 4, "timeout": 60}, "--workers 4", "60"),
+        ({"timeout": 30}, "", "30"),
     ],
 )
-def test_get_cmd(args: dict, expected: str):
-    cmd, _ = get_cmd(model_uri="foo", **args)
+def test_get_cmd(args: dict, expected: str, timeout: str):
+    cmd, env = get_cmd(model_uri="foo", **args)
 
     assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")
+    assert env[MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.name] == timeout
 
 
 def test_scoring_server_client(sklearn_model, model_path):

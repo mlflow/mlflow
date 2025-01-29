@@ -13,6 +13,7 @@ Defines four endpoints:
     /invocations used for scoring
 """
 
+import asyncio
 import inspect
 import json
 import logging
@@ -469,6 +470,18 @@ def init(model: PyFuncModel):
     input_schema = model.metadata.get_input_schema()
     # set the environment variable to indicate that we are in a serving environment
     os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
+    timeout = MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+
+    @app.middleware("http")
+    async def timeout_middleware(request: Request, call_next):
+        try:
+            return await asyncio.wait_for(call_next(request), timeout=timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            return Response(
+                content="Request processing time exceeded limit",
+                status_code=504,
+                media_type="application/json",
+            )
 
     @app.route("/ping", methods=["GET"])
     @app.route("/health", methods=["GET"])
@@ -499,7 +512,8 @@ def init(model: PyFuncModel):
 
         data = await request.body()
         content_type = request.headers.get("content-type")
-        result = invocations(data, content_type, model, input_schema)
+        # TODO: convert "invocations" to an async method to make iternal logic fully non-blocking.
+        result = await asyncio.to_thread(invocations, data, content_type, model, input_schema)
 
         return Response(
             content=result.response, status_code=result.status, media_type=result.mimetype
@@ -573,7 +587,7 @@ def get_cmd(
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
-    args = [f"--timeout-graceful-shutdown {timeout}"]
+    args = []
     if host:
         args.append(f"--host {shlex.quote(host)}")
 
@@ -587,5 +601,6 @@ def get_cmd(
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
+    command_env[MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.name] = str(timeout)
 
     return command, command_env
