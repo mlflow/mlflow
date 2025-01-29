@@ -32,7 +32,12 @@ import contextlib
 from mlflow.version import VERSION
 
 __version__ = VERSION
-import logging
+
+import mlflow.mismatch
+
+# `check_version_mismatch` must be called here before importing any other modules
+with contextlib.suppress(Exception):
+    mlflow.mismatch._check_version_mismatch()
 
 from mlflow import (
     artifacts,  # noqa: F401
