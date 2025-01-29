@@ -26,10 +26,12 @@ from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
-from mlflow.pyfunc.model import ChatModel, _FunctionPythonModel
+from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
+from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
+from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import TypeFromExample
 from mlflow.utils.env_manager import VIRTUALENV
@@ -1098,4 +1100,20 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
 
     # Check import does not trigger any warning (from builtin sub-classes)
     importlib.reload(mlflow.pyfunc.model)
+    assert mock_warning.call_count == 0
+
+    # Subclass of ChatModel should not warn (exception to the rule)
+    class ChatModelSubclass(ChatModel):
+        def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
+            return model_input
+
+    assert mock_warning.call_count == 0
+
+    # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
+    class SimpleChatAgent(ChatAgent):
+        def predict(
+            self, messages: list[ChatAgentMessage], params: ChatAgentParams
+        ) -> ChatAgentResponse:
+            pass
+
     assert mock_warning.call_count == 0
