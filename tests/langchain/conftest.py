@@ -27,6 +27,16 @@ def mock_openai():
         yield base_url
 
 
+@pytest.fixture(autouse=True)
+def clean_up_autolog():
+    """Disable autologging after each test to avoid side effects in other tests."""
+    yield
+
+    import mlflow
+
+    mlflow.langchain.autolog(disable=True)
+
+
 # Define a special embedding for testing
 class DeterministicDummyEmbeddings(Embeddings, BaseModel):
     size: int
