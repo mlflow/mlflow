@@ -178,7 +178,7 @@ CHAT_AGENT_INPUT_SCHEMA = Schema(
 CHAT_AGENT_OUTPUT_SCHEMA = Schema(
     [
         _chat_agent_messages_col_spec,
-        Property("finish_reason", DataType.string, False),
+        ColSpec(name="finish_reason", type=DataType.string, required=False),
         _custom_outputs_col_spec,
         _token_usage_stats_col_spec,
     ]
