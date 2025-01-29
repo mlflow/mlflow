@@ -1,6 +1,5 @@
 import json
 import uuid
-from dataclasses import dataclass, field
 from typing import Annotated, Any, Generator, Literal, Optional, TypedDict, Union
 
 from langchain_core.messages import AnyMessage
@@ -47,9 +46,10 @@ class ChatAgentState(TypedDict):
     custom_outputs: Optional[dict[str, Any]]
 
 
-@dataclass
 class SystemMessage(ChatAgentMessage):
-    role: Literal["system"] = field(default="system")
+    """Helper class to create a ChatAgentMessage with role="system"."""
+
+    role: Literal["system"] = "system"
 
 
 def parse_message(
