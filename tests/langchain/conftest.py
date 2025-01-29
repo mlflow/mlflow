@@ -7,6 +7,7 @@ from langchain.embeddings.base import Embeddings
 from pydantic import BaseModel
 
 from tests.helper_functions import start_mock_openai_server
+from tests.tracing.helper import reset_autolog_state  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
