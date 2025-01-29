@@ -606,11 +606,11 @@ agent = BasicAgent()
 mlflow.models.set_model(agent)
 ```
 
-The snippet above defines our agent as a subclass of ChatModel. With the models from code approach, we call
-`mlflow.models.set_model`, passing an instance of our `BasicAgent`, to indicate which model object to use for
+The snippet above defines our agent as a subclass of `ChatModel`. With the models from code approach, we call
+<APILink fn="mlflow.models.set_model">`mlflow.models.set_model`</APILink>, passing an instance of our `BasicAgent`, to indicate which model object to use for
 inference when our agent is loaded back.
 
-Save the agent code in a Python file, e.g. `basic_agent.py`. This is a key part of models from code - it enables
+Save the agent code in a Python file, e.g. `basic_agent.py`. **This is a key part of models from code** - it enables
 logging a file containing the model's code, rather than a serialized model object, bypassing serialization issues.
 
 With our model defined in a code file, there's only one step left before we can log it:
