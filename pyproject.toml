@@ -36,6 +36,7 @@ dependencies = [
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
+  "fastapi<1",
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
@@ -57,6 +58,7 @@ dependencies = [
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
+  "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
 ]
 [[project.maintainers]]
