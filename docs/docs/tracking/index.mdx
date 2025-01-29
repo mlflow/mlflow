@@ -1,5 +1,6 @@
 ---
-sidebar_position: 11
+sidebar_label: Overview
+sidebar_position: 0
 ---
 
 import Link from "@docusaurus/Link";
@@ -151,7 +152,7 @@ MLflow supports two types of storage for the backend: **file-system-based** like
 
 #### [Artifact Store](/tracking/artifacts-stores) \{#artifact-stores}
 
-Artifact store persists (typicaly large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
+Artifact store persists (typically large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 
@@ -218,7 +219,7 @@ the basic setup and continue to the following materials for advanced configurati
     </div>
 
   </TabItem>
-  <TabItem label="Artifacts-only Mode" value="artifacs-only-mode">
+  <TabItem label="Artifacts-only Mode" value="artifacts-only-mode">
     #### Running MLflow Tracking Server in Artifacts-only Mode
 
     MLflow Tracking Server has `--artifacts-only` option, which lets the server to serve (proxy) only artifacts
@@ -286,7 +287,7 @@ To use the Model Registry functionality with MLflow tracking, you **must use dat
 Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API.
 See [Backend Stores](/tracking/backend-stores) and [Common Setups](#tracking_setup) for how to configures backend store properly for your workflow.
 
-#### How to include additional decription texts about the run?
+#### How to include additional description texts about the run?
 
 A system tag `mlflow.note.content` can be used to add descriptive note about this run. While the other [system tags](/tracking/tracking-api#system_tags) are set automatically,
 this tag is **not set by default** and users can override it to include additional information about the run. The content will be displayed on the run's page under

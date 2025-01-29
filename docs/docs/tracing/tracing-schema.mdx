@@ -366,9 +366,9 @@ The sections below provide a detailed view of the structure of a span.
       <td>**request_id**</td>
       <td>
         The `request_id` property is a unique identifier that is generated for
-        each **trace** and is propogated to each span that is a member of that trace.
+        each **trace** and is propagated to each span that is a member of that trace.
       </td>
-      <td>The `request_id` is a system-generated propoerty and is immutable.</td>
+      <td>The `request_id` is a system-generated property and is immutable.</td>
     </tr>
     <tr>
       <td>**name**</td>
@@ -393,7 +393,7 @@ The sections below provide a detailed view of the structure of a span.
       <td>
         The status of a span is reflected in a value from the enumeration object
         `SpanStatusCode`. The span status object contains an optional description
-        if the `status_code` is reflecting an error that occured. The values that
+        if the `status_code` is reflecting an error that occurred. The values that
         the status may have are:
         - **OK** - The span and the underlying instrumented
         call were successful.
@@ -586,7 +586,7 @@ outputs.
 
 However, it is still important to have a common schema in order to enable certain UI features (e.g. rich
 conversation display), and to make authoring evaluation functions easier. To support this, we specify some
-custom attributes for standardized chat messages and tool defintions:
+custom attributes for standardized chat messages and tool definitions:
 
 <table>
   <thead>

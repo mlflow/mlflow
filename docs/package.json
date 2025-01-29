@@ -7,8 +7,8 @@
     "start": "docusaurus start",
     "preview": "yarn build && yarn serve",
     "build": "docusaurus build",
-    "build-api-docs": "python scripts/build-api-docs.py --with-r",
-    "build-api-docs:no-r": "python scripts/build-api-docs.py",
+    "build-api-docs": "python scripts/build-api-docs.py --with-r && tsx scripts/update-api-modules.ts",
+    "build-api-docs:no-r": "python scripts/build-api-docs.py && tsx scripts/update-api-modules.ts",
     "update-api-modules": "tsx scripts/update-api-modules.ts",
     "convert-notebooks": "python scripts/convert-notebooks.py",
     "swizzle": "docusaurus swizzle",
@@ -21,6 +21,7 @@
     "format": "remark --use \"remark-mdx=printWidth:80\" docs/**/*.mdx -o"
   },
   "dependencies": {
+    "@datalayer/jupyter-docusaurus-plugin": "^0.1.1",
     "@docusaurus/core": "^3.6.3",
     "@docusaurus/plugin-client-redirects": "^3.6.3",
     "@docusaurus/preset-classic": "^3.6.3",

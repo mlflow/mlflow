@@ -165,6 +165,46 @@ class BaseRequestPayload(BaseModel):
     model: Optional[str] = None
 
 
+# NB: For interface constructs that rely on other BaseModel implementations, in
+# pydantic 1 the **order** in which classes are defined in this module is absolutely
+# critical to prevent ForwardRef errors. Pydantic 2 does not have this limitation.
+# To maintain compatibility with Pydantic 1, ensure that all classes that are defined in
+# this file have dependencies defined higher than the line of usage.
+
+
+class ChatChoice(BaseModel):
+    index: int
+    message: ChatMessage
+    finish_reason: Optional[str] = None
+
+
+class ChatUsage(BaseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class ChatChoiceDelta(BaseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ChatChunkChoice(BaseModel):
+    index: int
+    finish_reason: Optional[str] = None
+    delta: ChatChoiceDelta
+
+
+class ChatCompletionChunk(BaseModel):
+    """A chunk of a chat completion stream response."""
+
+    id: Optional[str] = None
+    object: str = "chat.completion.chunk"
+    created: int
+    model: str
+    choices: list[ChatChunkChoice]
+
+
 class ChatCompletionRequest(BaseRequestPayload):
     """
     A request to the chat completion API.
@@ -191,36 +231,3 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatChoice]
     usage: ChatUsage
-
-
-class ChatChoice(BaseModel):
-    index: int
-    message: ChatMessage
-    finish_reason: Optional[str] = None
-
-
-class ChatUsage(BaseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-
-
-class ChatCompletionChunk(BaseModel):
-    """A chunk of a chat completion stream response."""
-
-    id: Optional[str] = None
-    object: str = "chat.completion.chunk"
-    created: int
-    model: str
-    choices: list[ChatChunkChoice]
-
-
-class ChatChoiceDelta(BaseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
-
-
-class ChatChunkChoice(BaseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: ChatChoiceDelta

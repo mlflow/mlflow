@@ -1,11 +1,10 @@
 MLflow API Docs
 ===============
 
-Placeholder landing page for the API docs
+This page hosts the API documentation for MLflow.
 
 .. toctree::
     :maxdepth: 1
-    :hidden:
 
     python_api/index
     cli

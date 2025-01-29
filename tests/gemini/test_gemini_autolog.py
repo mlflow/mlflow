@@ -301,6 +301,12 @@ def test_generate_content_tool_calling_chat_history_autolog():
         genai.protos.GenerateContentResponse(raw_response)
     )
 
+    # Gemini added "id" field in the tool response from version 0.8.3
+    if Version(genai.__version__) < Version("0.8.3"):
+        tool_result = "{'name': 'multiply', 'response': {'result': 2508.0}}"
+    else:
+        tool_result = "{'name': 'multiply', 'response': {'result': 2508.0}, 'id': ''}"
+
     chat_messages = [
         {
             "content": [
@@ -324,12 +330,7 @@ def test_generate_content_tool_calling_chat_history_autolog():
         },
         {
             "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "{'name': 'multiply', 'response': {'result': 2508.0}}",
-                },
-            ],
+            "content": [{"type": "text", "text": tool_result}],
         },
         {
             "role": "assistant",
