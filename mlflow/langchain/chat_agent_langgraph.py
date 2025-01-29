@@ -46,12 +46,6 @@ class ChatAgentState(TypedDict):
     custom_outputs: Optional[dict[str, Any]]
 
 
-class SystemMessage(ChatAgentMessage):
-    """Helper class to create a ChatAgentMessage with role="system"."""
-
-    role: Literal["system"] = "system"
-
-
 def parse_message(
     msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
 ) -> dict[str, Any]:
