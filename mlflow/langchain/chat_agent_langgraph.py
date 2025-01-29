@@ -162,6 +162,7 @@ class LangGraphChatAgent(ChatAgent):
     def __init__(self, agent: CompiledStateGraph):
         self.agent = agent
 
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
         self, model_input: list[ChatAgentMessage], params: Optional[ChatAgentParams] = None
     ):
@@ -178,6 +179,7 @@ class LangGraphChatAgent(ChatAgent):
                     response.custom_outputs = node_data["custom_outputs"]
         return response
 
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
         self, model_input: list[ChatAgentMessage], params: Optional[ChatAgentParams] = None
     ) -> Generator[Any, Any, ChatAgentResponse]:
