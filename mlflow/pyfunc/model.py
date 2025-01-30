@@ -413,16 +413,16 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         Evaluates a ChatAgent input and produces a ChatAgent output.
 
         Args:
-            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
-                A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
                 objects representing the chat history.
-            params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
-                A :py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>` object
+            params (:py:class:`ChatAgentParams <mlflow.types.agent.ChatAgentParams>`):
+                A :py:class:`ChatAgentParams <mlflow.types.agent.ChatAgentParams>` object
                 containing various parameters used to modify model behavior during
                 inference.
 
         Returns:
-            A :py:class:`ChatAgentResponse <mlflow.types.llm.ChatAgentResponse>` object containing
+            A :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` object containing
             the model's response(s), as well as other metadata.
         """
 
@@ -434,11 +434,11 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         Override this function to implement a real stream prediction.
 
         Args:
-            messages (List[:py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`]):
-                A list of :py:class:`ChatAgentMessage <mlflow.types.llm.ChatAgentMessage>`
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
                 objects representing the chat history.
-            params (:py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>`):
-                A :py:class:`ChatAgentParams <mlflow.types.llm.ChatAgentParams>` object
+            params (:py:class:`ChatAgentParams <mlflow.types.agent.ChatAgentParams>`):
+                A :py:class:`ChatAgentParams <mlflow.types.agent.ChatAgentParams>` object
                 containing various parameters used to modify model behavior during
                 inference.
         """

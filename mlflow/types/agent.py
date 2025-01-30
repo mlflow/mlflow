@@ -37,8 +37,8 @@ class ChatAgentMessage(BaseModel):
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
         id (str): The ID of the message. **Optional** defaults to a random UUID
-        tool_calls (List[:py:class:`ToolCallPydantic`]): A list of tool calls made by the model.
-            **Optional** defaults to ``None``
+        tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
+        model. **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
             **Optional** defaults to ``None``
         attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
@@ -131,6 +131,18 @@ class ChatAgentRequest(ChatAgentParams):
 
 
 class ChatAgentResponse(BaseModel):
+    """
+    Format of a ChatAgent interface response
+
+    Args:
+        messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+        usage (:py:class:`mlflow.types.chat.ChatUsage`): The token usage of the request
+        **Optional**, defaults to None
+    """
+
     messages: list[ChatAgentMessage]
     finish_reason: Optional[str] = None
     custom_outputs: Optional[dict[str, Any]] = None
