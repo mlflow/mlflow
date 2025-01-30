@@ -147,8 +147,16 @@ class PythonModel:
         super().__init_subclass__(**kwargs)
 
         # automatically wrap the predict method with pyfunc to ensure data validation
-        # NB: skip wrapping for built-in classes defined in MLflow e.g, ChatModel
+        # NB: skip wrapping for built-in classes defined in MLflow e.g. ChatModel
         if not cls.__module__.startswith("mlflow."):
+            #  TODO: ChatModel uses dataclass type hints which are not supported now, hence
+            #    we need to skip type hint based validation for user-defined subclasses
+            #    of ChatModel. Once we either (1) support dataclass type hints or (2) migrate
+            #    ChatModel to pydantic, we can remove this exclusion.
+            #    NB: issubclass(cls, ChatModel) does not work so we use a hacky attribute check
+            if getattr(cls, "_skip_type_hint_validation", False):
+                return
+
             predict_attr = cls.__dict__.get("predict")
             if predict_attr is not None and callable(predict_attr):
                 func_info = _get_func_info_if_type_hint_supported(predict_attr)
@@ -283,6 +291,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
     See the documentation of the ``predict()`` method below for details on that parameters and
     outputs that are expected by the ``ChatModel`` API.
     """
+
+    _skip_type_hint_validation = True
 
     @abstractmethod
     def predict(
@@ -722,8 +732,10 @@ class _PythonModelPyfuncWrapper:
                     len(self.signature.inputs) == 1
                     and next(iter(self.signature.inputs)).name is None
                 ):
-                    first_string_column = _get_first_string_column(model_input)
-                    return model_input[[first_string_column]].to_dict(orient="records")
+                    if first_string_column := _get_first_string_column(model_input):
+                        return model_input[[first_string_column]].to_dict(orient="records")
+                    if len(model_input.columns) == 1:
+                        return model_input.to_dict("list")[0]
                 return model_input.to_dict(orient="records")
             elif isinstance(hints.input, type) and (
                 issubclass(hints.input, ChatCompletionRequest)

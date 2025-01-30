@@ -6,7 +6,6 @@ from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_orig
 
 import pydantic
 import pydantic.fields
-from packaging.version import Version
 
 from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
@@ -22,10 +21,10 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_dump_compat
 from mlflow.utils.warnings_utils import color_warning
 
-PYDANTIC_V1_OR_OLDER = Version(pydantic.VERSION).major <= 1
-FIELD_TYPE = pydantic.fields.ModelField if PYDANTIC_V1_OR_OLDER else pydantic.fields.FieldInfo
+FIELD_TYPE = pydantic.fields.FieldInfo if IS_PYDANTIC_V2_OR_NEWER else pydantic.fields.ModelField
 _logger = logging.getLogger(__name__)
 NONE_TYPE = type(None)
 UNION_TYPES = (Union,)
@@ -66,6 +65,15 @@ SUPPORTED_TYPE_HINT_MSG = (
     "lists and dictionaries of primitive types, or typing.Any. Check "
     "https://mlflow.org/docs/latest/model/python_model.html#supported-type-hints for more details."
 )
+
+
+def _try_import_numpy():
+    try:
+        import numpy
+
+        return numpy
+    except ImportError:
+        return
 
 
 @lru_cache(maxsize=1)
@@ -317,24 +325,24 @@ def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
 def model_fields(
     model: pydantic.BaseModel,
 ) -> dict[str, type[FIELD_TYPE]]:
-    if PYDANTIC_V1_OR_OLDER:
-        return model.__fields__
-    return model.model_fields
+    if IS_PYDANTIC_V2_OR_NEWER:
+        return model.model_fields
+    return model.__fields__
 
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
-    if PYDANTIC_V1_OR_OLDER:
-        model.validate(values)
-    else:
+    if IS_PYDANTIC_V2_OR_NEWER:
         # use strict mode to avoid any data conversion here
         # e.g. "123" will not be converted to 123 if the type is int
         model.model_validate(values, strict=True)
+    else:
+        model.validate(values)
 
 
 def field_required(field: type[FIELD_TYPE]) -> bool:
-    if PYDANTIC_V1_OR_OLDER:
-        return field.required
-    return field.is_required()
+    if IS_PYDANTIC_V2_OR_NEWER:
+        return field.is_required()
+    return field.required
 
 
 def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
@@ -409,7 +417,7 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
     if _is_pydantic_type_hint(type_hint):
         # if data is a pydantic model instance, convert it to a dictionary for validation
         if isinstance(data, pydantic.BaseModel):
-            data_dict = data.dict() if PYDANTIC_V1_OR_OLDER else data.model_dump()
+            data_dict = model_dump_compat(data)
         elif isinstance(data, dict):
             data_dict = data
         else:
@@ -570,28 +578,70 @@ def _get_origin_type(type_hint: type[Any]) -> Any:
 def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
     """
     Convert data to the expected format based on the type hint.
-    This function should only used in limited situations such as mlflow.evaluate.
+    This function is used in data validation of @pyfunc to support compatibility with
+    functions such as mlflow.evaluate and spark_udf since they accept pandas DF as input.
+    NB: the input pandas DataFrame must contain a single column with the same type as the type hint.
     Supported conversions:
         - pandas DataFrame with a single column + list[...] type hint -> list
+        - pandas DataFrame with multiple columns + list[dict[...]] type hint -> list[dict[...]]
     """
     import pandas as pd
 
+    result = data
     if isinstance(data, pd.DataFrame) and type_hint != pd.DataFrame:
         origin_type = _get_origin_type(type_hint)
-        if type_hint == Any or origin_type == Any:
-            return data
-        if len(data.columns) != 1:
-            # TODO: remove the warning and raise Exception once the bug [ML-48554] is fixed
-            _logger.warning(
-                "`predict` function with type hints only supports pandas DataFrame "
-                f"with a single column. But got {len(data.columns)} columns. "
-                "The data will be converted to a list of the first column."
-            )
         if origin_type is not list:
             raise MlflowException(
-                "Only `list[...]` or `Any` type hint supports pandas DataFrame input "
+                "Only `list[...]` type hint supports pandas DataFrame input "
                 f"with a single column. But got {_type_hint_repr(type_hint)}."
             )
-        return data.iloc[:, 0].tolist()
+        element_type = _get_element_type_of_list_type_hint(type_hint)
+        # This is needed for list[dict] or list[pydantic.BaseModel] type hints
+        # since the data can be converted to pandas DataFrame with multiple columns
+        # inside spark_udf
+        if element_type is dict or _is_pydantic_type_hint(element_type):
+            # if the column is 0, then each row is a dictionary
+            if list(data.columns) == [0]:
+                result = data.iloc[:, 0].tolist()
+            else:
+                result = data.to_dict(orient="records")
+        else:
+            if len(data.columns) != 1:
+                # TODO: remove the warning and raise Exception once the bug about evaluate
+                # DF containing multiple columns is fixed
+                _logger.warning(
+                    "`predict` function with list[...] type hints of non-dictionary collection "
+                    "type only supports pandas DataFrame with a single column. But got "
+                    f"{len(data.columns)} columns. The data will be converted to a list "
+                    "of the first column."
+                )
+            result = data.iloc[:, 0].tolist()
+        # only sanitize the data when it's converted from pandas DataFrame
+        # since spark_udf implicitly converts lists into numpy arrays
+        return _sanitize_data(result)
 
+    return data
+
+
+def _sanitize_data(data: Any) -> Any:
+    """
+    Sanitize the data by converting any numpy lists to Python lists.
+    This is needed because spark_udf (pandas_udf) implicitly converts lists into numpy arrays.
+
+    For example, below udf demonstrates the behavior:
+        df = spark.createDataFrame(pd.DataFrame({"input": [["a", "b"], ["c", "d"]]}))
+        @pandas_udf(ArrayType(StringType()))
+        def my_udf(input_series: pd.Series) -> pd.Series:
+            print(type(input_series.iloc[0]))
+        df.withColumn("output", my_udf("input")).show()
+    """
+    if np := _try_import_numpy():
+        if isinstance(data, np.ndarray):
+            data = data.tolist()
+        if isinstance(data, list):
+            data = [_sanitize_data(elem) for elem in data]
+        if isinstance(data, dict):
+            data = {key: _sanitize_data(value) for key, value in data.items()}
+        if isinstance(data, float) and np.isnan(data):
+            data = None
     return data

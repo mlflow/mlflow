@@ -10,21 +10,40 @@ import pandas as pd
 import pydantic
 import pytest
 from packaging.version import Version
+from pyspark.sql import SparkSession
+from pyspark.sql.types import (
+    ArrayType,
+    IntegerType,
+    MapType,
+    Row,
+    StringType,
+    StructField,
+    StructType,
+)
 
 import mlflow
 from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
-from mlflow.pyfunc.model import ChatModel, _FunctionPythonModel
+from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
+from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
+from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import PYDANTIC_V1_OR_OLDER, TypeFromExample
+from mlflow.types.type_hints import TypeFromExample
 from mlflow.utils.env_manager import VIRTUALENV
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+
+
+@pytest.fixture(scope="module")
+def spark():
+    with SparkSession.builder.master("local[*]").getOrCreate() as s:
+        yield s
 
 
 class CustomExample(pydantic.BaseModel):
@@ -219,7 +238,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     result = pyfunc_model.predict(input_example)
     if isinstance(result[0], pydantic.BaseModel):
-        result = [r.dict() if PYDANTIC_V1_OR_OLDER else r.model_dump() for r in result]
+        result = [model_dump_compat(r) for r in result]
     assert result == input_example
 
     # test serving
@@ -231,6 +250,104 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
+
+
+class CustomExample3(pydantic.BaseModel):
+    custom_field: dict[str, list[str]]
+    messages: list[Message]
+    optional_int: Optional[int] = None
+
+
+@pytest.mark.parametrize(
+    ("type_hint", "result_type", "input_example"),
+    [
+        # scalars
+        # bytes and datetime are not supported in spark_udf
+        (list[int], None, [1, 2, 3]),
+        (list[str], None, ["a", "b", "c"]),
+        (list[bool], None, [True, False, True]),
+        (list[float], None, [1.23, 2.34, 3.45]),
+        # lists
+        (list[list[str]], ArrayType(StringType()), [["a", "b"], ["c", "d"]]),
+        # dictionaries
+        (
+            list[dict[str, str]],
+            MapType(StringType(), StringType()),
+            [{"a": "b"}, {"c": "d"}],
+        ),
+        (
+            list[dict[str, list[str]]],
+            MapType(StringType(), ArrayType(StringType())),
+            [{"a": ["b"]}, {"c": ["d"]}],
+        ),
+        # Union type is not supported because fields in the same column of spark DataFrame
+        # must be of same type
+        # Any type is not supported yet
+        # (list[Any], Schema([ColSpec(type=AnyType())]), ["a", "b", "c"]),
+        # Pydantic Models
+        (
+            list[CustomExample3],
+            StructType(
+                [
+                    StructField("custom_field", MapType(StringType(), ArrayType(StringType()))),
+                    StructField(
+                        "messages",
+                        ArrayType(
+                            StructType(
+                                [
+                                    StructField("role", StringType(), False),
+                                    StructField("content", StringType(), False),
+                                ]
+                            )
+                        ),
+                    ),
+                    StructField("optional_int", IntegerType()),
+                ]
+            ),
+            [
+                {
+                    "custom_field": {"a": ["a", "b", "c"]},
+                    "messages": [
+                        {"role": "admin", "content": "hello"},
+                        {"role": "user", "content": "hi"},
+                    ],
+                    "optional_int": 123,
+                },
+                {
+                    "custom_field": {"a": ["a", "b", "c"]},
+                    "messages": [
+                        {"role": "admin", "content": "hello"},
+                    ],
+                    "optional_int": None,
+                },
+            ],
+        ),
+    ],
+)
+def test_spark_udf(spark, type_hint, result_type, input_example):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: type_hint) -> type_hint:
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=Model(), input_example=input_example
+        )
+
+    # test spark_udf
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type=result_type)
+    # the spark dataframe must put the input data in a single column
+    if result_type is None:
+        # rely on spark to auto-infer schema
+        df = spark.createDataFrame(pd.DataFrame({"input": input_example}))
+    else:
+        schema = StructType([StructField("input", result_type)])
+        df = spark.createDataFrame(pd.DataFrame({"input": input_example}), schema=schema)
+    df = df.withColumn("response", udf("input"))
+    pdf = df.toPandas()
+    assert [
+        x.asDict(recursive=True) if isinstance(x, Row) else x for x in pdf["response"].tolist()
+    ] == input_example
 
 
 def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
@@ -983,4 +1100,20 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
 
     # Check import does not trigger any warning (from builtin sub-classes)
     importlib.reload(mlflow.pyfunc.model)
+    assert mock_warning.call_count == 0
+
+    # Subclass of ChatModel should not warn (exception to the rule)
+    class ChatModelSubclass(ChatModel):
+        def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
+            return model_input
+
+    assert mock_warning.call_count == 0
+
+    # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
+    class SimpleChatAgent(ChatAgent):
+        def predict(
+            self, messages: list[ChatAgentMessage], params: ChatAgentParams
+        ) -> ChatAgentResponse:
+            pass
+
     assert mock_warning.call_count == 0
