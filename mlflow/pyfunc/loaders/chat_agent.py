@@ -3,6 +3,7 @@ from typing import Any, Generator, Optional
 import pydantic
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
@@ -41,19 +42,17 @@ class _ChatAgentPyfuncWrapper:
 
     # TODO: bbqiu
     def _convert_input(self, model_input):
-        # import pandas
+        import pandas
 
         if isinstance(model_input, dict):
             dict_input = model_input
-        elif isinstance(model_input, ChatAgentRequest):
+        if isinstance(model_input, ChatAgentRequest):
             dict_input = model_input.model_dump_compat(exclude_none=True)
-        # TODO: does this case ever happen?
-        # elif isinstance(model_input, pandas.DataFrame):
-        #     pass
-        # dict_input = {
-        #     k: _convert_llm_ndarray_to_list(v[0])
-        #     for k, v in messages.to_dict(orient="list").items()
-        # }
+        elif isinstance(model_input, pandas.DataFrame):
+            dict_input = {
+                k: _convert_llm_ndarray_to_list(v[0])
+                for k, v in model_input.to_dict(orient="list").items()
+            }
         else:
             raise MlflowException(
                 "Unsupported model input type. Expected a dict or pandas.DataFrame, "
