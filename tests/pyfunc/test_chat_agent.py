@@ -108,10 +108,13 @@ def test_chat_agent_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert [{k: v for k, v in msg.items() if k != "id"} for msg in request["messages"]] == [
+    assert [
+        {k: v for k, v in msg.items() if k != "id"} for msg in request["model_input"]["messages"]
+    ] == [
         {k: v for k, v in ChatAgentMessage(**msg).model_dump_compat().items() if k != "id"}
         for msg in messages
     ]
+    assert False
 
 
 def test_chat_agent_save_throws_with_signature(tmp_path):
