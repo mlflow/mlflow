@@ -41,12 +41,12 @@ class _ChatAgentPyfuncWrapper:
         return self.chat_agent
 
     # TODO: bbqiu
-    def _convert_input(self, model_input):
+    def _convert_input(self, model_input) -> ChatAgentRequest:
         import pandas
 
         if isinstance(model_input, dict):
             dict_input = model_input
-        if isinstance(model_input, ChatAgentRequest):
+        elif isinstance(model_input, ChatAgentRequest):
             dict_input = model_input.model_dump_compat(exclude_none=True)
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
@@ -59,6 +59,8 @@ class _ChatAgentPyfuncWrapper:
                 f"but got {type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
+
+        print(dict_input)
 
         return ChatAgentRequest(**dict_input)
 
