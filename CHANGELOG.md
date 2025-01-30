@@ -2,11 +2,23 @@
 
 ## 2.20.1 (2025-01-30)
 
-MLflow 2.20.1 includes several major features and improvements
+MLflow 2.20.1 is a patch release includes several bug fixes and features:
 
-Small bug fixes and documentation updates:
+Features:
 
-#14382, @B-Step62; #14356, @daniellok-db
+- Spark_udf support for the model signatures based on type hints (#14265, @serena-ruan)
+- Helper connectors to use ChatAgent with LangChain and LangGraph (#14215, @bbqiu)
+- Update classifier evaluator to draw RUC/Lift curves for CatBoost models by default (#14333, @singh-kristian)
+
+Bug fixes:
+
+- Fix Pydantic 1.x incompatibility issue (#14332, @BenWilson2)
+- Apply temporary fix for LiteLLM tracing to workaround https://github.com/BerriAI/litellm/issues/8013 (#14340, @B-Step62)
+- Fix false alert from type hint based model signature for ChatModel (#14343, @B-Step62)
+
+Other small updates:
+
+#14337, #14382, @B-Step62; #14356, @daniellok-db, #14354, @artjen, #14360, @TomuHirata,
 
 ## 2.20.0 (2025-01-23)
 
