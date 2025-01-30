@@ -196,7 +196,7 @@ class OpenAIAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=c["index"],
                     finish_reason=c["finish_reason"],
-                    delta=completions.StreamDelta(
+                    text=completions.StreamDelta(
                         content=c["delta"].get("content"),
                     ),
                 )
