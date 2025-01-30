@@ -29,6 +29,8 @@ from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.config import RunnableConfig
 
+from mlflow.entities.trace import Trace
+
 # NB: We run this test suite twice - once with langchain_community installed and once without.
 try:
     from langchain_community.chat_models import ChatOpenAI
@@ -61,11 +63,11 @@ from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, score_in_model_serving
 
 MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
@@ -1171,3 +1173,89 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
         traces = get_traces()
         assert len(traces) == 2
         assert all(len(trace.data.spans) == 11 for trace in traces)
+
+
+def test_langchain_auto_tracing_in_serving_runnable():
+    mlflow.langchain.autolog()
+
+    chain = create_openai_runnable()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain,
+            "model",
+            input_example={"product": "MLflow"},
+        )
+
+    expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
+
+    request_id, predictions, trace = score_in_model_serving(
+        model_info.model_uri,
+        [{"product": "MLflow"}],
+    )
+
+    assert predictions == [expected_output]
+    trace = Trace.from_dict(trace)
+    assert trace.info.request_id == request_id
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
+    spans = trace.data.spans
+    assert len(spans) == 4
+
+    root_span = spans[0]
+    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
+    # there might be slight difference when we truncate nano seconds to milliseconds
+    assert (
+        root_span.end_time_ns // 1_000_000
+        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
+    ) <= 1
+    assert root_span.inputs == {"product": "MLflow"}
+    assert root_span.outputs == expected_output
+    assert root_span.span_type == "CHAIN"
+
+    root_span_id = root_span.span_id
+    child_span = spans[2]
+    assert child_span.parent_id == root_span_id
+    assert child_span.inputs[0][0]["content"] == "What is MLflow?"
+    assert child_span.outputs["generations"][0][0]["text"] == expected_output
+    assert child_span.span_type == "CHAT_MODEL"
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="ToolCall message is not available in older versions",
+)
+def test_langchain_auto_tracing_in_serving_agent():
+    mlflow.langchain.autolog()
+
+    input_example = {"input": "What is 2 * 3?"}
+    expected_output = {"output": "The result of 2 * 3 is 6."}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            "tests/langchain/sample_code/openai_agent.py",
+            "langchain_model",
+            input_example=input_example,
+        )
+
+    request_id, response, trace_dict = score_in_model_serving(
+        model_info.model_uri,
+        input_example,
+    )
+
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.request_id == request_id
+    assert trace.info.status == "OK"
+
+    spans = trace.data.spans
+    assert len(spans) == 16
+
+    root_span = spans[0]
+    assert root_span.name == "AgentExecutor"
+    assert root_span.span_type == "CHAIN"
+    assert root_span.inputs == input_example
+    assert root_span.outputs == expected_output
+    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
+    assert (
+        root_span.end_time_ns // 1_000_000
+        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
+    ) <= 1

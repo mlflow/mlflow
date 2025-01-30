@@ -1,6 +1,10 @@
+import os
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional
+from unittest import mock
 
 import opentelemetry.trace as trace_api
 import pytest
@@ -10,6 +14,8 @@ import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
@@ -165,3 +171,30 @@ def reset_autolog_state():
         revert_patches(flavor)
 
     AUTOLOGGING_INTEGRATIONS.clear()
+
+
+def score_in_model_serving(model_uri: str, model_input: dict):
+    """ """
+    with mock.patch.dict(
+        "os.environ",
+        os.environ | {"IS_IN_DB_MODEL_SERVING_ENV": "true", "ENABLE_MLFLOW_TRACING": "true"},
+        clear=True,
+    ):
+        # Reset tracing setup to start fresh w/ model serving environment
+        mlflow.tracing.reset()
+
+        # Load model in a background thread
+        def _load_model():
+            return mlflow.pyfunc.load_model(model_uri)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_load_model)
+            model = future.result()
+
+        # Score the model
+        request_id = uuid.uuid4().hex
+        with set_prediction_context(Context(request_id=request_id)):
+            predictions = model.predict(model_input)
+
+        trace = pop_trace(request_id)
+        return (request_id, predictions, trace)
