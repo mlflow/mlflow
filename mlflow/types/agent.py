@@ -198,7 +198,6 @@ CHAT_AGENT_OUTPUT_SCHEMA = Schema(
 
 CHAT_AGENT_INPUT_EXAMPLE = {
     "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ],
     "stream": False,

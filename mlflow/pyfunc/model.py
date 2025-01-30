@@ -404,6 +404,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.agent for an example.
     """
 
+    _skip_type_hint_validation = True
+
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump_compat(exclude_none=True) for m in messages]
 

@@ -3,12 +3,14 @@ from typing import Any, Generator, Optional
 import pydantic
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
+from mlflow.types.agent import (
+    ChatAgentRequest,
+    ChatAgentResponse,
+)
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
 
@@ -38,26 +40,28 @@ class _ChatAgentPyfuncWrapper:
         return self.chat_agent
 
     # TODO: bbqiu
-    def _convert_input(self, messages, params):
-        import pandas
+    def _convert_input(self, model_input):
+        # import pandas
 
-        if isinstance(messages, dict):
-            dict_input = messages
-        elif isinstance(messages, pandas.DataFrame):
-            dict_input = {
-                k: _convert_llm_ndarray_to_list(v[0])
-                for k, v in messages.to_dict(orient="list").items()
-            }
+        if isinstance(model_input, dict):
+            dict_input = model_input
+        elif isinstance(model_input, ChatAgentRequest):
+            dict_input = model_input.model_dump_compat(exclude_none=True)
+        # TODO: does this case ever happen?
+        # elif isinstance(model_input, pandas.DataFrame):
+        #     pass
+        # dict_input = {
+        #     k: _convert_llm_ndarray_to_list(v[0])
+        #     for k, v in messages.to_dict(orient="list").items()
+        # }
         else:
             raise MlflowException(
                 "Unsupported model input type. Expected a dict or pandas.DataFrame, "
-                f"but got {type(messages)} instead.",
+                f"but got {type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
 
-        messages = [ChatAgentMessage(**message) for message in dict_input.pop("messages", [])]
-        params = ChatAgentParams(**dict_input)
-        return messages, params
+        return ChatAgentRequest(**dict_input)
 
     def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
         try:
