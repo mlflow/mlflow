@@ -60,8 +60,6 @@ class _ChatAgentPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        print(dict_input)
-
         return ChatAgentRequest(**dict_input)
 
     def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
