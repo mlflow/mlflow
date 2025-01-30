@@ -37,6 +37,7 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
+    # TODO: bbqiu
     def _convert_input(self, messages, params):
         import pandas
 
@@ -73,32 +74,30 @@ class _ChatAgentPyfuncWrapper:
             return response.model_dump_compat(exclude_none=True)
         return response
 
-    def predict(
-        self, messages: dict[str, Any], params: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
+    def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
         """
         Args:
-            messages: Model input dict in the form of a ChatAgent request.
-            params: Additional parameters to pass to the model for inference.
+            model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.
+            types.agent.ChatAgentRequest>`) schema.
 
         Returns:
-            Model predictions in :py:class:`~ChatAgentResponse` format.
+            A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
+            ChatAgentResponse>`) schema.
         """
-        messages, params = self._convert_input(messages, params)
-        response = self.chat_agent.predict(messages, params)
+        model_input = self._convert_input(model_input)
+        response = self.chat_agent.predict(model_input)
         return self._response_to_dict(response)
 
-    def predict_stream(
-        self, messages: dict[str, Any], params: Optional[dict[str, Any]] = None
-    ) -> Generator[dict[str, Any], None, None]:
+    def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
         """
         Args:
-            messages: Model input data in the form of a ChatAgent request.
-            params: Additional parameters to pass to the model for inference.
+             model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.
+             types.agent.ChatAgentRequest>`) schema.
 
-        Returns:
-            Generator over model predictions in :py:class:`~ChatAgentResponse` format.
+         Returns:
+             A generator over dicts with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
+             ChatAgentResponse>`) schema.
         """
-        messages, params = self._convert_input(messages, params)
-        for response in self.chat_agent.predict_stream(messages, params):
+        model_input = self._convert_input(model_input)
+        for response in self.chat_agent.predict_stream(model_input):
             yield self._response_to_dict(response)
