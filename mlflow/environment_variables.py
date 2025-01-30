@@ -724,3 +724,10 @@ _MLFLOW_GO_STORE_TESTING = _BooleanEnvironmentVariable("MLFLOW_GO_STORE_TESTING"
 _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
     "_MLFLOW_IS_IN_SERVING_ENVIRONMENT", None
 )
+
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable(
+    "MLFLOW_LOGGING_LEVEL",
+    str,
+    "INFO",
+    "Set the logging level for MLflow. Valid values are 'DEBUG', 'INFO', 'WARNING', 'ERROR', and 'CRITICAL'.",
+)

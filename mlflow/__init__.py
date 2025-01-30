@@ -265,4 +265,3 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
-
