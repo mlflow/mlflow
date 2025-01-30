@@ -3651,7 +3651,7 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
-    output = python_model.predict(input_example)
+    output = python_model.predict(ChatAgentRequest(**input_example))
     try:
         model_validate(ChatAgentResponse, output)
     except Exception as e:

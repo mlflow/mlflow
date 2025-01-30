@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
+from mlflow.types.agent import ChatAgentMessage, ChatAgentRequest, ChatAgentResponse
 from mlflow.utils.annotations import experimental
 
 
@@ -157,13 +157,9 @@ class LangGraphChatAgent(ChatAgent):
         self.agent = agent
 
     # TODO trace this by default once manual tracing of predict_stream is supported
-    def predict(
-        self, model_input: list[ChatAgentMessage], params: Optional[ChatAgentParams] = None
-    ):
+    def predict(self, model_input: ChatAgentRequest) -> ChatAgentResponse:
         response = ChatAgentResponse(messages=[])
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(model_input)}, stream_mode="updates"
-        ):
+        for event in self.agent.stream(model_input.model_dump_compat(), stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
@@ -175,11 +171,9 @@ class LangGraphChatAgent(ChatAgent):
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
-        self, model_input: list[ChatAgentMessage], params: Optional[ChatAgentParams] = None
+        self, model_input: ChatAgentRequest
     ) -> Generator[Any, Any, ChatAgentResponse]:
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(model_input)}, stream_mode="updates"
-        ):
+        for event in self.agent.stream(model_input.model_dump_compat(), stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
