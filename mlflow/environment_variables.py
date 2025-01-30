@@ -729,5 +729,4 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable(
     "MLFLOW_LOGGING_LEVEL",
     str,
     "INFO",
-    "Set the logging level for MLflow. Valid values are 'DEBUG', 'INFO', 'WARNING', 'ERROR', and 'CRITICAL'.",
 )
