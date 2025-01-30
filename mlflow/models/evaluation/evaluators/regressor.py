@@ -1,6 +1,7 @@
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 from sklearn import metrics as sk_metrics
 
 import mlflow
@@ -51,7 +52,13 @@ class RegressorEvaluator(BuiltInEvaluator):
 
     def _generate_model_predictions(self, model, input_df):
         if predict_fn := _extract_predict_fn(model):
-            return predict_fn(input_df)
+            preds = predict_fn(input_df)
+            if isinstance(preds, pd.DataFrame):
+                if preds.shape[1] != 1:
+                    raise ValueError(f"Predictions must be a 1D array, but got shape {preds.shape}")
+                return preds.iloc[:, 0].values
+            else:
+                return preds
         else:
             return self.dataset.predictions_data
 
