@@ -728,5 +728,5 @@ _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
 MLFLOW_LOGGING_LEVEL = _EnvironmentVariable(
     "MLFLOW_LOGGING_LEVEL",
     str,
-    "INFO",
+    "INFO"
 )
