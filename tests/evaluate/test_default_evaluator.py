@@ -4273,10 +4273,17 @@ def test_evaluate_errors_invalid_pos_label():
         )
 
 
-def test_regressor_returning_pandas_dataframe():
+@pytest.mark.parametrize(
+    "model_output",
+    [
+        pd.DataFrame({"output": [0, 1, 2]}),
+        pd.Series([0, 1, 2]),
+    ],
+)
+def test_regressor_returning_pandas_object(model_output):
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
-            return pd.DataFrame({"output": range(len(model_input))})
+            return model_output
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=Model())
