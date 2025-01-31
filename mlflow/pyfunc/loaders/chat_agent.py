@@ -77,11 +77,11 @@ class _ChatAgentPyfuncWrapper:
         """
         Args:
             model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.types.agent.
-            ChatAgentRequest>`) schema.
+                ChatAgentRequest>`) schema.
 
         Returns:
             A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
-            schema.
+                schema.
         """
         model_input = self._convert_input(model_input)
         response = self.chat_agent.predict(model_input)
@@ -93,8 +93,8 @@ class _ChatAgentPyfuncWrapper:
              model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.
                 types.agent.ChatAgentRequest>`) schema.
 
-         Returns:
-             A generator over dicts with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
+        Returns:
+            A generator over dicts with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
                 ChatAgentResponse>`) schema.
         """
         model_input = self._convert_input(model_input)
