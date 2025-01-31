@@ -24,7 +24,7 @@ def is_in_databricks(request):
 
 def _wait_if_not_in_databricks():
     if not is_in_databricks_runtime():
-        time.sleep(1)
+        time.sleep(2)
 
 
 @pytest.fixture(autouse=True)
@@ -186,22 +186,23 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
 
 
-async def test_litellm_tracing_disable(is_in_databricks):
+@pytest.mark.repeat(100)
+def test_litellm_tracing_disable(is_in_databricks):
     mlflow.litellm.autolog()
 
-    await litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
+    litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()
     assert mlflow.get_last_active_trace() is not None
     assert len(get_traces()) == 1
 
     mlflow.litellm.autolog(disable=True)
-    await litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
+    litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()
     # no additional trace should be created
     assert len(get_traces()) == 1
 
     mlflow.litellm.autolog(log_traces=False)
-    await litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
+    litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()
     # no additional trace should be created
     assert len(get_traces()) == 1
