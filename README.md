@@ -2,9 +2,7 @@
 
 ### 📢 Announcements 📢
 
----
-
-[The upcoming office hours (Feb 5, 2025 5:00 PM PST / 8:00 PM EST)](https://lu.ma/gfcdbuz4)
+### [The upcoming office hours (Feb 5, 2025 5:00 PM PST / 8:00 PM EST)](https://lu.ma/gfcdbuz4)
 
 ---
 
