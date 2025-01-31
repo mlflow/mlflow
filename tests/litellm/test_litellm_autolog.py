@@ -24,7 +24,7 @@ def is_in_databricks(request):
 
 def _wait_if_not_in_databricks():
     if not is_in_databricks_runtime():
-        time.sleep(2)
+        time.sleep(3)
 
 
 @pytest.fixture(autouse=True)
