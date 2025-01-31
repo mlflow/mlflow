@@ -40,7 +40,6 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
-    # TODO: bbqiu
     def _convert_input(self, model_input) -> ChatAgentRequest:
         import pandas
 
@@ -55,8 +54,8 @@ class _ChatAgentPyfuncWrapper:
             }
         else:
             raise MlflowException(
-                "Unsupported model input type. Expected a dict or pandas.DataFrame, "
-                f"but got {type(model_input)} instead.",
+                "Unsupported model input type. Expected a dict, ChatAgentRequest, or pandas."
+                f"DataFrame, but got {type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
 
@@ -80,12 +79,12 @@ class _ChatAgentPyfuncWrapper:
     def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
         """
         Args:
-            model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.
-            types.agent.ChatAgentRequest>`) schema.
+            model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.types.agent.
+            ChatAgentRequest>`) schema.
 
         Returns:
-            A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
-            ChatAgentResponse>`) schema.
+            A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
+            schema.
         """
         model_input = self._convert_input(model_input)
         response = self.chat_agent.predict(model_input)
