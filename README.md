@@ -16,14 +16,6 @@ This month's topics:
   ​
 - MLflow Tracing is an observability feature designed for debugging, evaluating, and monitoring your GenAI application. We'll highlight 15+ integrations and key improvements we've made this year, and preview exciting updates for 2025, including human annotation, metrics integration, and more!
 
----
-
-### MLflow Community Survey
-
-Help us improve MLflow by taking our [survey](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)!
-
----
-
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
 [![Total Downloads](https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi&logoColor=white)](https://pepy.tech/project/mlflow)
