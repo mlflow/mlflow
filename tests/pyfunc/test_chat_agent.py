@@ -114,7 +114,6 @@ def test_chat_agent_trace(tmp_path):
         {k: v for k, v in ChatAgentMessage(**msg).model_dump_compat().items() if k != "id"}
         for msg in messages
     ]
-    assert False
 
 
 def test_chat_agent_save_throws_with_signature(tmp_path):
@@ -259,7 +258,7 @@ def test_chat_agent_works_with_chat_agent_request_input_example():
     )
 
     input_example_with_params = ChatAgentRequest(
-        messages=[ChatAgentMessage(role="user", content="What is Retrieval-augmented Generation?")],
+        messages=[ChatAgentMessage(role="user", content="What is rag?")],
         context={"conversation_id": "121", "user_id": "123"},
     )
     with mlflow.start_run():
