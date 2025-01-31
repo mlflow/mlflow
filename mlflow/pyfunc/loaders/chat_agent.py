@@ -8,10 +8,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.agent import (
-    ChatAgentRequest,
-    ChatAgentResponse,
-)
+from mlflow.types.agent import ChatAgentRequest, ChatAgentResponse
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
 

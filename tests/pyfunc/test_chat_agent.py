@@ -301,12 +301,9 @@ def test_chat_agent_predict_stream(tmp_path):
 
 def test_chat_agent_can_receive_and_return_custom():
     messages = [{"role": "user", "content": "Hello!"}]
-    params = {
-        "custom_inputs": {"image_url": "example", "detail": "high", "other_dict": {"key": "value"}},
-    }
     input_example = {
         "messages": messages,
-        **params,
+        "custom_inputs": {"image_url": "example", "detail": "high", "other_dict": {"key": "value"}},
     }
 
     model = ChatAgentWithCustomInputs()
@@ -320,8 +317,8 @@ def test_chat_agent_can_receive_and_return_custom():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     # test that it works for normal pyfunc predict
-    response = loaded_model.predict({"messages": messages, **params})
-    assert response["custom_outputs"] == params["custom_inputs"]
+    response = loaded_model.predict(input_example)
+    assert response["custom_outputs"] == input_example["custom_inputs"]
 
     # test that it works in serving
     inference_payload = load_serving_example(model_info.model_uri)
@@ -333,4 +330,4 @@ def test_chat_agent_can_receive_and_return_custom():
     )
 
     serving_response = json.loads(response.content)
-    assert serving_response["custom_outputs"] == params["custom_inputs"]
+    assert serving_response["custom_outputs"] == input_example["custom_inputs"]
