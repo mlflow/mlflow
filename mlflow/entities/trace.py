@@ -231,3 +231,23 @@ class Trace(_MlflowObject):
             "spans",
             "tags",
         ]
+
+    @property
+    def intermediate_outputs(self) -> Optional[dict[str, Any]]:
+        """
+        Returns intermediate outputs within the trace.
+        There are mainly two flows to return intermediate outputs:
+        1. When a trace only has one dummy root span,
+        return `intermediate_outputs` attribute of the span.
+        2. When a trace is created normally with a tree of spans,
+        aggregate the outputs of non-root spans.
+        """
+        root_span = self._get_root_span()
+        if root_span and root_span._intermediate_outputs:
+            return root_span._intermediate_outputs
+        # TODO: handle the second case for a normal trace with spans
+
+    def _get_root_span(self) -> Optional[Span]:
+        for span in self.data.spans:
+            if span.parent_id is None:
+                return span
