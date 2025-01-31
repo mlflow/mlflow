@@ -186,7 +186,6 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
 
 
-@pytest.mark.repeat(100)
 def test_litellm_tracing_disable(is_in_databricks):
     mlflow.litellm.autolog()
 
