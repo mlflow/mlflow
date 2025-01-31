@@ -4,6 +4,8 @@
 
 ### [Join us at the upcoming office hours (Feb 5, 2025 5:00 PM PST / 8:00 PM EST)](https://lu.ma/gfcdbuz4)
 
+To view all upcoming MLflow community events, check out [lu.ma/mlflow](https://lu.ma/mlflow)
+
 ---
 
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
