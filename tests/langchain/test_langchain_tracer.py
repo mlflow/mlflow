@@ -506,6 +506,51 @@ def test_multiple_components():
     _validate_trace_json_serialization(trace)
 
 
+def test_tool_success(mock_databricks_serving_with_tracing_env):
+    prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
+    llm = OpenAI(temperature=0.9)
+
+    chain = prompt | llm | StrOutputParser()
+    chain_tool = tool("chain_tool", chain)
+
+    tool_input = {"question": "What up"}
+    response = chain_tool.invoke(tool_input)
+
+    # str output is converted to _ChatResponse
+    output = response["choices"][0]["message"]["content"]
+    trace = mlflow.get_last_active_trace()
+    spans = trace.data.spans
+    assert len(spans) == 5
+
+    # Tool
+    tool_span = spans[0]
+    assert tool_span.span_type == "TOOL"
+    assert tool_span.inputs == tool_input
+    assert tool_span.outputs is not None
+    tool_span_id = tool_span.span_id
+
+    # RunnableSequence
+    runnable_sequence_span = spans[1]
+    assert runnable_sequence_span.parent_id == tool_span_id
+    assert runnable_sequence_span.span_type == "CHAIN"
+    assert runnable_sequence_span.inputs == tool_input
+    assert runnable_sequence_span.outputs is not None
+
+    # PromptTemplate
+    prompt_template_span = spans[2]
+    assert prompt_template_span.span_type == "CHAIN"
+    # LLM
+    llm_span = spans[3]
+    assert llm_span.span_type == "LLM"
+    # StrOutputParser
+    output_parser_span = spans[4]
+    assert output_parser_span.span_type == "CHAIN"
+    assert output_parser_span.outputs == output
+
+    _validate_trace_json_serialization(trace)
+
+
+
 def test_tracer_thread_safe():
     tracer = MlflowLangchainTracer()
 
@@ -650,44 +695,3 @@ def test_tracer_with_manual_traces():
     assert spans[5].name == "PromptTemplate"
     assert spans[5].parent_id == spans[1].span_id
 
-
-def test_langchain_auto_log_tool_chain():
-    prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
-    llm = OpenAI(temperature=0.9)
-
-    chain = prompt | llm | StrOutputParser()
-    chain_tool = tool("chain_tool", chain)
-
-    tool_input = {"question": "What up"}
-    response = chain_tool.invoke(**tool_input)
-
-    # str output is converted to _ChatResponse
-    output = response["choices"][0]["message"]["content"]
-    trace = mlflow.get_last_active_trace()
-    spans = trace.data.spans
-    assert len(spans) == 5
-
-    # Tool
-    tool_span = spans[0]
-    assert tool_span.span_type == "TOOL"
-    assert tool_span.inputs == tool_input
-    assert tool_span.outputs is not None
-    tool_span_id = tool_span.span_id
-
-    # RunnableSequence
-    runnable_sequence_span = spans[1]
-    assert runnable_sequence_span.parent_id == tool_span_id
-    assert runnable_sequence_span.span_type == "CHAIN"
-    assert runnable_sequence_span.inputs == tool_input
-    assert runnable_sequence_span.outputs is not None
-
-    # PromptTemplate
-    prompt_template_span = spans[2]
-    assert prompt_template_span.span_type == "CHAIN"
-    # LLM
-    llm_span = spans[3]
-    assert llm_span.span_type == "LLM"
-    # StrOutputParser
-    output_parser_span = spans[4]
-    assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == output
