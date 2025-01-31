@@ -77,16 +77,74 @@ summarizer(
 ```
 
 
-### LlamaIndex workflow
+### Tracing Evaluation
 
-The `Workflow` is LlamaIndex’s next-generation GenAI orchestration framework. It is designed as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc. MLflow supports tracking, evaluating, and tracing the Workflow objects, which makes them more observable and maintainable.
+DSPy provides a [built-in evaluation suite](https://dspy.ai/learn/evaluation/overview/) for measuring the performance of your programs. After the evaluation, it is important to understand the individual results and identify gaps to improve the program. MLflow help you to track the evaluation results and inspect why the model is performing well or poorly.
 
-Automatic tracing for LlamaIndex workflow works off-the-shelf by calling the same `mlflow.llama_index.autolog()`.
+:::note
 
-To learn more about MLflow's integration with LlamaIndex Workflow, continue to the following tutorials:
+    By default, MLflow does not generate traces during DSPy evaluation. You can enable tracing for evaluation by calling the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_eval` parameter set to `True`.
 
-* [Building a Tool-calling Agent with LlamaIndex Workflow and MLflow](/llms/llama-index/notebooks/llama_index_workflow_tutorial)
-* [Building Advanced RAG with MLflow and LlamaIndex Workflow](https://mlflow.org/blog/mlflow-llama-index-workflow)
+:::
+
+```python
+import dspy
+from dspy.evaluate.metrics import answer_exact_match
+
+import mlflow
+
+# Enabling tracing for DSPy evaluation
+mlflow.dspy.autolog(log_traces_from_eval=True)
+
+# Define a simple evaluation set
+eval_set = [
+    dspy.Example(
+        question="How many 'r's are in the word 'strawberry'?", answer="3"
+    ).with_inputs("question"),
+    dspy.Example(
+        question="How many 'a's are in the word 'banana'?", answer="3"
+    ).with_inputs("question"),
+    dspy.Example(
+        question="How many 'e's are in the word 'elephant'?", answer="2"
+    ).with_inputs("question"),
+]
+
+
+# Define a program
+class Counter(dspy.Signature):
+    question: str = dspy.InputField()
+    answer: str = dspy.OutputField(
+        desc="Should only contain a single number as an answer"
+    )
+
+
+cot = dspy.ChainOfThought(Counter)
+
+# Evaluate the programs
+with mlflow.start_run(run_name="CoT Evaluation"):
+    evaluator = dspy.evaluate.Evaluate(
+        devset=eval_set,
+        return_all_scores=True,
+        return_outputs=True,
+        show_progress=True,
+    )
+    aggregated_score, outputs, all_scores = evaluator(cot, metric=answer_exact_match)
+
+    # Log the aggregated score
+    mlflow.log_metric("exact_match", aggregated_score)
+    # Log the detailed evaluation results as a table
+    mlflow.log_table(
+        {
+            "question": [example.question for example in eval_set],
+            "answer": [example.answer for example in eval_set],
+            "output": outputs,
+            "exact_match": all_scores,
+        },
+        artifact_file="eval_results.json",
+    )
+```
+
+If you open the MLflow UI and go to the "CoT Evaluation" run, you will see the evaluation result and the list of traces generated for each input question.
 
 
 ### Disable auto-tracing
