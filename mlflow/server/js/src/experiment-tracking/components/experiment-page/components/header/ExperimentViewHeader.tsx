@@ -13,7 +13,10 @@ import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifact
 import { LegacyTooltip } from '@databricks/design-system';
 import { InfoIcon } from '@databricks/design-system';
 import { Popover } from '@databricks/design-system';
-import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT,
+  EXPERIMENT_PAGE_FEEDBACK_URL,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -94,7 +97,7 @@ export const ExperimentViewHeader = React.memo(
                 }}
                 data-testid="experiment-view-header-info-tooltip-content"
               >
-                <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ whiteSpace: 'nowrap', display: 'flex', flexDirection: 'row' }}>
                   <FormattedMessage
                     defaultMessage="Path"
                     description="Label for displaying the current experiment path"
@@ -102,7 +105,7 @@ export const ExperimentViewHeader = React.memo(
                   : {experiment.name + ' '}
                   <ExperimentViewCopyTitle experiment={experiment} size="md" />
                 </div>
-                <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ whiteSpace: 'nowrap', display: 'flex', flexDirection: 'row' }}>
                   <FormattedMessage
                     defaultMessage="Experiment ID"
                     description="Label for displaying the current experiment in view"
@@ -110,13 +113,15 @@ export const ExperimentViewHeader = React.memo(
                   : {experiment.experimentId + ' '}
                   <ExperimentViewCopyExperimentId experiment={experiment} />
                 </div>
-                <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ whiteSpace: 'nowrap', display: 'flex', flexDirection: 'row' }}>
                   <FormattedMessage
                     defaultMessage="Artifact Location"
                     description="Label for displaying the experiment artifact location"
                   />
                   : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
-                  <ExperimentViewCopyArtifactLocation experiment={experiment} />
+                  {experiment.artifactLocation.length <= EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT && (
+                    <ExperimentViewCopyArtifactLocation experiment={experiment} />
+                  )}
                 </div>
               </div>
             }
