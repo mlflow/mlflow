@@ -14,7 +14,6 @@ import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
@@ -174,7 +173,15 @@ def reset_autolog_state():
 
 
 def score_in_model_serving(model_uri: str, model_input: dict):
-    """ """
+    """
+    A helper function to emulate model prediction inside a Databricks model serving environment.
+
+    This is highly simplified version, but captures important aspects for testing tracing:
+      1. Setting env vars that users set for enable tracing in model serving
+      2. Load the model in a background thread
+    """
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     with mock.patch.dict(
         "os.environ",
         os.environ | {"IS_IN_DB_MODEL_SERVING_ENV": "true", "ENABLE_MLFLOW_TRACING": "true"},
@@ -183,7 +190,6 @@ def score_in_model_serving(model_uri: str, model_input: dict):
         # Reset tracing setup to start fresh w/ model serving environment
         mlflow.tracing.reset()
 
-        # Load model in a background thread
         def _load_model():
             return mlflow.pyfunc.load_model(model_uri)
 
