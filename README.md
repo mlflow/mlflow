@@ -1,6 +1,12 @@
 # MLflow: A Machine Learning Lifecycle Platform
 
-<!-- ### 📢 Announcements 📢 -->
+### 📢 Announcements 📢
+
+---
+
+[The upcoming office hours (Feb 5, 2025 5:00 PM PST / 8:00 PM EST)](https://lu.ma/gfcdbuz4)
+
+---
 
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
