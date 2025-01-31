@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pyspark
 import pytest
+import torch
+import torch.nn as nn
 from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -20,6 +22,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import SparkModelWithData
 
+torch.serialization.add_safe_globals([nn.Sequential, nn.Linear, nn.Softmax])
 
 def _get_spark_connect_session():
     builder = SparkSession.builder.remote("local[2]").config(
