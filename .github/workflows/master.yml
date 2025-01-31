@@ -375,7 +375,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - run: |
           # UTF8 mode
-          python -X utf8=0 test.py
+          python -X utf8=1 test.py
           python test.py
       # - uses: ./.github/actions/setup-pyenv
       # - uses: ./.github/actions/setup-java
