@@ -506,7 +506,8 @@ def test_multiple_components():
     _validate_trace_json_serialization(trace)
 
 
-def test_tool_success(mock_databricks_serving_with_tracing_env):
+def test_tool_success():
+    callback = MlflowLangchainTracer()
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
@@ -514,10 +515,9 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     chain_tool = tool("chain_tool", chain)
 
     tool_input = {"question": "What up"}
-    response = chain_tool.invoke(tool_input)
+    response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
-    output = response["choices"][0]["message"]["content"]
     trace = mlflow.get_last_active_trace()
     spans = trace.data.spans
     assert len(spans) == 5
@@ -545,10 +545,9 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == output
+    assert output_parser_span.outputs == response
 
     _validate_trace_json_serialization(trace)
-
 
 
 def test_tracer_thread_safe():
@@ -694,4 +693,3 @@ def test_tracer_with_manual_traces():
     assert spans[4].parent_id == spans[3].span_id
     assert spans[5].name == "PromptTemplate"
     assert spans[5].parent_id == spans[1].span_id
-
