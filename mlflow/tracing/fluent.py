@@ -63,16 +63,13 @@ TRACE_BUFFER = TTLCache(
     ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
 )
 
-# TODO: Add description
-STREAM_OUTPUT_PLACEHOLDER = "<generator object - see 'Events' tab to view streamed items>"
-
 
 def trace(
     func: Optional[Callable] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    stream_reducer: Optional[Callable] = None,
+    output_reducer: Optional[Callable] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -208,18 +205,25 @@ def trace(
 
                 return span, generator
 
-            def _end_stream_span(client, span: LiveSpan, e: Optional[Exception] = None):
+            def _end_stream_span(
+                client,
+                span: LiveSpan,
+                outputs: Optional[list[Any]] = None,
+                output_reducer: Optional[Callable] = None,
+                e: Optional[Exception] = None
+            ):
                 if e:
                     span.add_event(SpanEvent.from_exception(e))
                     span.set_status(SpanStatusCode.ERROR)
-                    end_client_span_or_trace(
-                        client,
-                        span,
-                        outputs=STREAM_OUTPUT_PLACEHOLDER,
-                        status=SpanStatusCode.ERROR,
-                    )
+                    end_client_span_or_trace(client, span, status=SpanStatusCode.ERROR)
                 else:
-                    end_client_span_or_trace(client, span, STREAM_OUTPUT_PLACEHOLDER)
+                    try:
+                        if output_reducer:
+                            outputs = output_reducer(outputs)
+                    except Exception as e:
+                        _logger.debug(f"Failed to reduce outputs from stream: {e}")
+
+                    end_client_span_or_trace(client, span, outputs=outputs)
 
             def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
                 try:
@@ -237,6 +241,7 @@ def trace(
                     client = MlflowClient()
                     span, generator = _start_stream_span(client, fn, args, kwargs)
                     i = 0
+                    outputs = []
                     while True:
                         try:
                             with safe_set_span_in_context(span):
@@ -244,18 +249,25 @@ def trace(
                         except StopIteration:
                             break
                         except Exception as e:
-                            _end_stream_span(client, span, e)
+                            _end_stream_span(client, span, e=e)
                             raise
                         else:
+                            outputs.append(value)
                             _record_chunk_event(span, value, i)
                             yield value
                             i += 1
-                    _end_stream_span(client, span)
+                    _end_stream_span(
+                        client=client,
+                        span=span,
+                        outputs=outputs,
+                        output_reducer=output_reducer
+                    )
             else:
                 async def wrapper(*args, **kwargs):
                     client = MlflowClient()
                     span, generator = _start_stream_span(client, fn, args, kwargs)
                     i = 0
+                    outputs = []
                     while True:
                         try:
                             with safe_set_span_in_context(span):
@@ -263,22 +275,30 @@ def trace(
                         except StopAsyncIteration:
                             break
                         except Exception as e:
-                            _end_stream_span(client, span, e)
+                            _end_stream_span(client, span, e=e)
                             raise
                         else:
+                            outputs.append(value)
                             _record_chunk_event(span, value, i)
                             yield value
                             i += 1
-                    _end_stream_span(client, span)
+                    _end_stream_span(
+                        client=client,
+                        span=span,
+                        outputs=outputs,
+                        output_reducer=output_reducer
+                    )
 
         # Async function
         elif inspect.iscoroutinefunction(fn):
+            # TODO: Raise when output_reducer is provided
             async def wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(await fn(*args, **kwargs))
 
         # Sync function
         else:
+            # TODO: Raise when output_reducer is provided
             def wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                     return wrapping_coro.send(fn(*args, **kwargs))

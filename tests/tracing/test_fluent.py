@@ -32,7 +32,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.fluent import STREAM_OUTPUT_PLACEHOLDER, TRACE_BUFFER
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -78,7 +78,7 @@ class DefaultAsyncTestModel:
 
 
 class StreamTestModel:
-    @mlflow.trace
+    @mlflow.trace(output_reducer=lambda x: sum(x))
     def predict_stream(self, x, y):
         z = x + y
         for i in range(z):
@@ -96,13 +96,14 @@ class StreamTestModel:
         time.sleep(0.1)
         return t**2
 
+    # No output_reducer -> record the list of outputs
     @mlflow.trace
     def generate_numbers(self, z):
         for i in range(z):
             yield i
 
 class AsyncStreamTestModel:
-    @mlflow.trace
+    @mlflow.trace(output_reducer=lambda x: sum(x))
     async def predict_stream(self, x, y):
         z = x + y
         for i in range(z):
@@ -269,12 +270,14 @@ def test_trace_stream(wrap_sync_func):
     assert trace.info.status == SpanStatusCode.OK
     metadata = trace.info.request_metadata
     assert metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert metadata[TraceMetadataKey.OUTPUTS] == json.dumps(STREAM_OUTPUT_PLACEHOLDER)
+    assert metadata[TraceMetadataKey.OUTPUTS] == "11"  # sum of the outputs
 
     assert len(trace.data.spans) == 5  # 1 root span + 3 square + 1 generate_numbers
 
     root_span = trace.data.spans[0]
     assert root_span.name == "predict_stream"
+    assert root_span.inputs == {"x": 1, "y": 2}
+    assert root_span.outputs == 11
     assert len(root_span.events) == 9
     assert root_span.events[0].name == "item_0"
     assert root_span.events[0].attributes == {"value": "0"}
@@ -290,7 +293,7 @@ def test_trace_stream(wrap_sync_func):
     # Span for the 'generate_numbers' function
     assert trace.data.spans[4].name == "generate_numbers"
     assert trace.data.spans[4].inputs == {"z": 3}
-    assert trace.data.spans[4].outputs == STREAM_OUTPUT_PLACEHOLDER
+    assert trace.data.spans[4].outputs == [0, 1, 2] # list of outputs
     assert len(trace.data.spans[4].events) == 3
 
 
@@ -580,7 +583,7 @@ def test_trace_ignore_exception(monkeypatch, model):
             output = model.predict(2, 5)
             assert output == 64
         elif isinstance(model, DefaultAsyncTestModel):
-            output = asyncio.run(model.predict_stream(2, 5))
+            output = asyncio.run(model.predict(2, 5))
             assert output == 64
         elif isinstance(model, StreamTestModel):
             stream = model.predict_stream(2, 5)
