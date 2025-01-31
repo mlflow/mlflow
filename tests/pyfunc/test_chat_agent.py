@@ -185,7 +185,7 @@ def test_chat_agent_works_with_infer_signature_input_example():
     input_example = {
         "messages": [
             {
-                "role": "assistant",
+                "role": "system",
                 "content": "You are in helpful assistant!",
             },
             {
