@@ -505,8 +505,6 @@ from mlflow.types.agent import (
     CHAT_AGENT_INPUT_EXAMPLE,
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
-    ChatAgentMessage,
-    ChatAgentParams,
     ChatAgentRequest,
     ChatAgentResponse,
 )
