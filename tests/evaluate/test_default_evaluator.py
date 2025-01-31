@@ -4271,3 +4271,42 @@ def test_evaluate_errors_invalid_pos_label():
             predictions="prediction",
             evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
         )
+
+
+@pytest.mark.parametrize(
+    "model_output",
+    [
+        pd.DataFrame({"output": [0, 1, 2]}),
+        pd.Series([0, 1, 2]),
+    ],
+)
+def test_regressor_returning_pandas_object(model_output):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_output
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        result = mlflow.evaluate(
+            model_info.model_uri,
+            data=pd.DataFrame(
+                {
+                    "input": [0, 1, 2],
+                    "output": [0, 1, 2],
+                }
+            ),
+            targets="output",
+            model_type="regressor",
+            evaluators=["regressor"],
+        )
+        assert result.metrics == {
+            "example_count": 3,
+            "max_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_absolute_percentage_error": 0.0,
+            "mean_on_target": 1.0,
+            "mean_squared_error": 0.0,
+            "r2_score": 1.0,
+            "root_mean_squared_error": 0.0,
+            "sum_on_target": 3,
+        }
