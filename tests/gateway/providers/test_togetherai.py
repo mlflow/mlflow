@@ -173,7 +173,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "text": "test",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -185,7 +185,11 @@ async def test_completions_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "text": "test",
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -195,7 +199,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "text": "test",
                         "finish_reason": "length",
                         "index": 0,
                     }
