@@ -751,7 +751,7 @@ To log and load the model using MLflow, use:
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         "model",
-        # If needed, update `python_model` to the Python file containing your agent definition
+        # If needed, update `python_model` to the Python file containing your agent code
         python_model="basic_agent.py",
         model_config=model_config,
         input_example=input_example,
