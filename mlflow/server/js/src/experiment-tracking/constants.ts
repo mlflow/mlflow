@@ -119,6 +119,7 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
 export const EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT = 10000;
+export const EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE = '(artifact location too long to display)';
 
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';

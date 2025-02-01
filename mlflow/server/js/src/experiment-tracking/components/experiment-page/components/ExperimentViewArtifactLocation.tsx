@@ -15,7 +15,7 @@ export const ExperimentViewArtifactLocation = ({ artifactLocation }: ExperimentV
         textOverflow: 'ellipsis',
       }}
     >
-      {artifactLocation.slice(0, EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT)}
+      {artifactLocation}
     </span>
   );
 };

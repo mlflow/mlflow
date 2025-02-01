@@ -15,6 +15,7 @@ import { InfoIcon } from '@databricks/design-system';
 import { Popover } from '@databricks/design-system';
 import {
   EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT,
+  EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE,
   EXPERIMENT_PAGE_FEEDBACK_URL,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
@@ -119,7 +120,7 @@ export const ExperimentViewHeader = React.memo(
                     description="Label for displaying the experiment artifact location"
                   />
                   : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
-                  {experiment.artifactLocation.length <= EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT && (
+                  {experiment.artifactLocation !== EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE && (
                     <ExperimentViewCopyArtifactLocation experiment={experiment} />
                   )}
                 </div>

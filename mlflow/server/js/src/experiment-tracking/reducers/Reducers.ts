@@ -44,6 +44,10 @@ import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { imagesByRunUuid } from './ImageReducer';
 import { colorByRunUuid } from './RunColorReducer';
 import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import {
+  EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT,
+  EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 export type ApisReducerReduxState = Record<
   string,
@@ -80,6 +84,9 @@ export const experimentsById = (state = {}, action: any): any => {
         newState = {};
         action.payload.experiments.forEach((eJson: any) => {
           const experiment: ExperimentEntity = eJson;
+          if ((experiment?.artifactLocation ?? '').length > EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT) {
+            experiment.artifactLocation = EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE;
+          }
           newState = Object.assign(newState, { [experiment.experimentId]: experiment });
         });
       }
@@ -87,6 +94,9 @@ export const experimentsById = (state = {}, action: any): any => {
     }
     case fulfilled(GET_EXPERIMENT_API): {
       const { experiment } = action.payload;
+      if ((experiment?.artifactLocation ?? '').length > EXPERIMENT_ARTIFACT_LOCATION_CHAR_LIMIT) {
+        experiment.artifactLocation = EXPERIMENT_ARTIFACT_LOCATION_TRUNCATED_MESSAGE;
+      }
 
       const existingExperiment = (state as any)[experiment.experimentId] || {};
 
