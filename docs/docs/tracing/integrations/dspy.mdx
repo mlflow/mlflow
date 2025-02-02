@@ -77,15 +77,13 @@ summarizer(
 ```
 
 
-### Tracing Evaluation
+### Tracing during Compilation and Evaluation
 
-DSPy provides a [built-in evaluation suite](https://dspy.ai/learn/evaluation/overview/) for measuring the performance of your programs. After the evaluation, it is important to understand the individual results and identify gaps to improve the program. MLflow help you to track the evaluation results and inspect why the model is performing well or poorly.
+Compilation (optimization) and evaluation are two important steps in the development of a DSPy program. MLflow Tracing can help you track the performance of your programs during these steps.
 
-:::note
+Since those steps involves many invocation of DSPy modules, MLflow by default does not generate traces during compilation and evaluation. You can enable tracing for these steps by calling the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_compile` and `log_traces_from_eval` parameters set to `True`.
 
-    By default, MLflow does not generate traces during DSPy evaluation. You can enable tracing for evaluation by calling the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_eval` parameter set to `True`.
-
-:::
+The following example demonstrates how to enable tracing for evaluation:
 
 ```python
 import dspy

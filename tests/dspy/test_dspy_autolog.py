@@ -330,7 +330,7 @@ def test_autolog_custom_module():
     ]
 
 
-def test_autolog_tracing_during_compile_evaluate():
+def test_autolog_tracing_during_compilation_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
@@ -356,6 +356,42 @@ def test_autolog_tracing_during_compile_evaluate():
 
     assert len(get_traces()) == 0
 
+    # If opted in, traces should be generated during compilation
+    mlflow.dspy.autolog(log_traces_from_compile=True)
+
+    teleprompter.compile(program, trainset=trainset)
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+
+    # Opt-out again
+    mlflow.dspy.autolog(log_traces_from_compile=False)
+
+    teleprompter.compile(program, trainset=trainset)
+    assert len(get_traces()) == 2  # no new traces
+
+
+def test_autolog_tracing_during_evaluation_by_default():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+
+    # Samples from HotpotQA dataset
+    trainset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+
+    program = Predict("question -> answer")
+
     # Evaluate should NOT generate traces by default
     evaluator = Evaluate(devset=trainset)
     score = evaluator(program, metric=answer_exact_match)
@@ -377,7 +413,7 @@ def test_autolog_tracing_during_compile_evaluate():
     mlflow.dspy.autolog(log_traces_from_eval=False)
 
     score = evaluator(program, metric=answer_exact_match)
-    assert len(get_traces()) == 2
+    assert len(get_traces()) == 2  # no new traces
 
 
 def test_autolog_should_not_override_existing_callbacks():
