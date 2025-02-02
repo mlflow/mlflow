@@ -49,9 +49,11 @@ def _extract_raw_model(model):
     # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
     # with a pyfunc wrapper. We need to extract the raw model so that shap
     # explainer uses the raw model instead of the wrapper and skips data schema validation.
-    if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
-        model, _ServedPyFuncModel
-    ):
+    if model_loader_module in [
+        "mlflow.catboost",
+        "mlflow.sklearn",
+        "mlflow.xgboost",
+    ] and not isinstance(model, _ServedPyFuncModel):
         if hasattr(model._model_impl, "get_raw_model"):
             return model_loader_module, model._model_impl.get_raw_model()
         return model_loader_module, model._model_impl
@@ -864,13 +866,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         import matplotlib
 
-        with (
-            TempDir() as temp_dir,
-            matplotlib.rc_context(_matplotlib_config),
-            mlflow.utils.autologging_utils.disable_autologging(
-                exemptions=[mlflow.langchain.FLAVOR_NAME]
-            ),
-        ):
+        with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.temp_dir = temp_dir
             return self._evaluate(model, extra_metrics, custom_artifacts)
 

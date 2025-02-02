@@ -1,4 +1,5 @@
 import json
+import sys
 from unittest import mock
 
 import pytest
@@ -17,6 +18,7 @@ from mlflow.metrics.genai.model_utils import (
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
+            "OPENAI_API_TYPE": "openai",
             "OPENAI_API_KEY": "test",
         }
     )
@@ -44,16 +46,14 @@ def set_azure_envs(monkeypatch):
     )
 
 
-@pytest.fixture
-def set_bad_azure_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_VERSION": "2023-05-15",
-            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
-        }
-    )
+@pytest.fixture(autouse=True)
+def force_reload_openai():
+    # Force reloading OpenAI module in the next test case. This is because they store
+    # configuration like api_key, api_version, at the global variable, which is not
+    # updated once set. Even if we reset the environment variable, it will retain the
+    # old value and cause unexpected side effects.
+    # https://github.com/openai/openai-python/blob/ea049cd0c42e115b90f1b9c7db80b2659a0bb92a/src/openai/__init__.py#L134
+    sys.modules.pop("openai", None)
 
 
 def test_parse_model_uri():
@@ -89,7 +89,9 @@ def test_score_model_on_payload_throws_for_invalid():
 
 
 def test_score_model_openai_without_key():
-    with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
+    with pytest.raises(
+        MlflowException, match="OpenAI API key must be set in the ``OPENAI_API_KEY``"
+    ):
         score_model_on_payload("openai:/gpt-4o-mini", "")
 
 
@@ -119,32 +121,25 @@ _OAI_RESPONSE = {
 
 def test_score_model_openai(set_envs):
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
     ) as mock_post:
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
-            {
+        assert resp == "\n\nThis is a test!"
+        mock_post.assert_called_once_with(
+            endpoint="https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": "Bearer test"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
                 "model": "gpt-4o-mini",
                 "temperature": 0.1,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            }
-        ],
-        "https://api.openai.com/v1/chat/completions",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers={},
-    )
+            },
+        )
 
 
 def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
     ) as mock_post:
         resp = score_model_on_payload(
             model_uri="openai:/gpt-4o-mini",
@@ -154,81 +149,42 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
             proxy_url="https://my-proxy.com/chat",
         )
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
-            {
+        assert resp == "\n\nThis is a test!"
+        mock_post.assert_called_once_with(
+            endpoint="https://my-proxy.com/chat",
+            headers={"Authorization": "Bearer test", "foo": "bar"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
                 "model": "gpt-4o-mini",
                 "temperature": 0.1,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            }
-        ],
-        "https://my-proxy.com/chat",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers={"foo": "bar"},
-    )
-
-
-def test_openai_authentication_error(set_envs):
-    mock_response = mock.Mock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {
-        "error": {
-            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
-            "type": "invalid_request_error",
-            "param": None,
-            "code": "invalid_api_key",
-        }
-    }
-
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
-        with pytest.raises(
-            MlflowException, match="Authentication Error for OpenAI. Error response"
-        ):
-            score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
+            },
+        )
 
 
 def test_openai_other_error(set_envs):
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        "mlflow.metrics.genai.model_utils._send_request",
         side_effect=Exception("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI"):
+    ):
+        with pytest.raises(Exception, match="foo"):
             score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
 
 
 def test_score_model_azure_openai(set_azure_envs):
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[_OAI_RESPONSE],
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
     ) as mock_post:
         resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
-    assert resp == "\n\nThis is a test!"
-    mock_post.assert_called_once_with(
-        [
-            {
-                "temperature": 0.1,
+        assert resp == "\n\nThis is a test!"
+        mock_post.assert_called_once_with(
+            endpoint="https://openai-for.openai.azure.com/openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
+            headers={"api-key": "test"},
+            payload={
                 "messages": [{"role": "user", "content": "my prompt"}],
-            }
-        ],
-        "https://openai-for.openai.azure.com//openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
-        api_token=mock.ANY,
-        throw_original_error=True,
-        max_workers=1,
-        extra_headers={},
-    )
-
-
-def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
-    with pytest.raises(
-        MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
-    ):
-        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+                "temperature": 0.1,
+            },
+        )
 
 
 def test_score_model_anthropic(monkeypatch):

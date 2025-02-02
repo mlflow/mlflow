@@ -65,9 +65,9 @@ def test_predict_openai(mock_openai_creds):
         "headers": {"Content-Type": "application/json"},
     }
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[mock_resp],
-    ) as mock_request:
+        "openai.OpenAI",
+    ) as mock_client:
+        mock_client().chat.completions.create().model_dump.return_value = mock_resp
         resp = client.predict(
             endpoint="test",
             inputs={
@@ -76,12 +76,8 @@ def test_predict_openai(mock_openai_creds):
                 ],
             },
         )
-        mock_request.assert_called_once_with(
-            [{"model": "test", "messages": [{"role": "user", "content": "Hello!"}]}],
-            "https://api.openai.com/v1/chat/completions",
-            api_token=mock.ANY,
-            throw_original_error=mock.ANY,
-            max_workers=1,
+        mock_client().chat.completions.create.assert_called_with(
+            messages=[{"role": "user", "content": "Hello!"}], model="test"
         )
         assert resp == mock_resp
 
@@ -182,10 +178,8 @@ def test_predict_azure_openai(mock_azure_openai_creds):
         ],
         "headers": {"Content-Type": "application/json"},
     }
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        return_value=[mock_resp],
-    ) as mock_request:
+    with mock.patch("openai.AzureOpenAI") as mock_client:
+        mock_client().chat.completions.create().model_dump.return_value = mock_resp
         resp = client.predict(
             endpoint="test",
             inputs={
@@ -194,12 +188,9 @@ def test_predict_azure_openai(mock_azure_openai_creds):
                 ],
             },
         )
-        mock_request.assert_called_once_with(
-            [{"messages": [{"role": "user", "content": "Hello!"}]}],
-            "my-base/openai/deployments/my-deployment/chat/completions?api-version=2023-05-15",
-            api_token=mock.ANY,
-            throw_original_error=mock.ANY,
-            max_workers=1,
+        mock_client().chat.completions.create.assert_called_with(
+            messages=[{"role": "user", "content": "Hello!"}],
+            model="test",
         )
         assert resp == mock_resp
 
@@ -217,71 +208,11 @@ def test_no_openai_api_key():
         )
 
 
-def test_score_model_azure_openai_bad_envs(mock_bad_azure_openai_creds):
-    client = get_deploy_client("openai")
-    with pytest.raises(
-        MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
-    ):
-        client.predict(
-            endpoint="test",
-            inputs={
-                "messages": [
-                    {"role": "user", "content": "Hello!"},
-                ],
-            },
-        )
-
-
-def test_openai_authentication_error(mock_openai_creds):
-    client = get_deploy_client("openai")
-    mock_response = mock.Mock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {
-        "error": {
-            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
-            "type": "invalid_request_error",
-            "param": None,
-            "code": "invalid_api_key",
-        }
-    }
-
-    with mock.patch("requests.post", return_value=mock_response):
-        with pytest.raises(MlflowException, match="Authentication Error for OpenAI"):
-            client.predict(
-                endpoint="test",
-                inputs={
-                    "messages": [
-                        {"role": "user", "content": "Hello!"},
-                    ],
-                },
-            )
-
-
-def test_openai_mlflow_exception(mock_openai_creds):
-    client = get_deploy_client("openai")
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=MlflowException("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="foo"):
-            client.predict(
-                endpoint="test",
-                inputs={
-                    "messages": [
-                        {"role": "user", "content": "Hello!"},
-                    ],
-                },
-            )
-        mock_post.assert_called_once()
-
-
 def test_openai_exception(mock_openai_creds):
     client = get_deploy_client("openai")
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=Exception("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI:\n foo"):
+    with mock.patch("openai.OpenAI") as mock_client:
+        mock_client().chat.completions.create.side_effect = (Exception("foo"),)
+        with pytest.raises(Exception, match="foo"):
             client.predict(
                 endpoint="test",
                 inputs={
@@ -290,4 +221,4 @@ def test_openai_exception(mock_openai_creds):
                     ],
                 },
             )
-        mock_post.assert_called_once()
+        mock_client().chat.completions.create.assert_called_once()

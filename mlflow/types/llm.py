@@ -1,9 +1,9 @@
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
-from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
 # TODO: Switch to pydantic in a future version of MLflow.
 #       For now, to prevent adding pydantic as a core dependency,
@@ -159,12 +159,12 @@ class ToolCall(_BaseDataclass):
     Args:
         function (:py:class:`FunctionToolCallArguments`): The arguments of the function tool call.
         id (str): The ID of the tool call. Defaults to a random UUID.
-        type (str): The type of the object. Currently only "function" is supported.
+        type (str): The type of the object. Defaults to "function".
     """
 
     function: FunctionToolCallArguments
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    type: Literal["function"] = "function"
+    type: str = "function"
 
     def __post_init__(self):
         self._validate_field("id", str, True)
@@ -186,9 +186,9 @@ class ChatMessage(_BaseDataclass):
             **Optional** Supplied if a refusal response is provided.
         name (str): The name of the entity that sent the message. **Optional**.
         tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
-            **Optional**
+            **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
-            **Optional**
+            **Optional** defaults to ``None``
     """
 
     role: str
@@ -213,6 +213,45 @@ class ChatMessage(_BaseDataclass):
         self._validate_field("name", str, False)
         self._convert_dataclass_list("tool_calls", ToolCall, False)
         self._validate_field("tool_call_id", str, False)
+
+
+@dataclass
+class ChatChoiceDelta(_BaseDataclass):
+    """
+    A streaming message delta in a chat response.
+
+    Args:
+        role (str): The role of the entity that sent the message (e.g. ``"user"``,
+            ``"system"``, ``"assistant"``, ``"tool"``).
+            **Optional** defaults to ``"assistant"``
+            This is optional because OpenAI clients can explicitly return None for
+            the role
+        content (str): The content of the new token being streamed
+            **Optional** Can be ``None`` on the last delta chunk or if refusal or
+            tool_calls are provided
+        refusal (str): The refusal message content.
+            **Optional** Supplied if a refusal response is provided.
+        name (str): The name of the entity that sent the message. **Optional**.
+        tool_calls (List[:py:class:`ToolCall`]): A list of tool calls made by the model.
+            **Optional** defaults to ``None``
+    """
+
+    role: Optional[str] = "assistant"
+    content: Optional[str] = None
+    refusal: Optional[str] = None
+    name: Optional[str] = None
+    tool_calls: Optional[list[ToolCall]] = None
+
+    def __post_init__(self):
+        self._validate_field("role", str, False)
+
+        if self.refusal:
+            self._validate_field("refusal", str, True)
+            if self.content:
+                raise ValueError("Both `content` and `refusal` cannot be set")
+        self._validate_field("content", str, False)
+        self._validate_field("name", str, False)
+        self._convert_dataclass_list("tool_calls", ToolCall, False)
 
 
 @dataclass
@@ -305,7 +344,7 @@ class FunctionToolDefinition(_BaseDataclass):
 
     def to_tool_definition(self):
         """
-        Convenience function for wrapping this in a ToolDefiniton
+        Convenience function for wrapping this in a ToolDefinition
         """
         return ToolDefinition(type="function", function=self)
 
@@ -333,11 +372,6 @@ class ChatParams(_BaseDataclass):
     """
     Common parameters used for chat inference
 
-    .. warning::
-
-        In an upcoming MLflow release, we will be renaming the ``metadata`` field to
-        ``custom_inputs``
-
     Args:
         temperature (float): A param used to control randomness and creativity during inference.
             **Optional**, defaults to ``1.0``
@@ -353,7 +387,7 @@ class ChatParams(_BaseDataclass):
             the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
-            (sorted in descending order by their probabilites).
+            (sorted in descending order by their probabilities).
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat
@@ -361,11 +395,15 @@ class ChatParams(_BaseDataclass):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        metadata (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     temperature: float = 1.0
@@ -379,7 +417,7 @@ class ChatParams(_BaseDataclass):
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
-    metadata: Optional[dict[str, str]] = None
+    custom_inputs: Optional[dict[str, Any]] = None
     tools: Optional[list[ToolDefinition]] = None
 
     def __post_init__(self):
@@ -395,35 +433,32 @@ class ChatParams(_BaseDataclass):
         self._validate_field("presence_penalty", float, False)
         self._convert_dataclass_list("tools", ToolDefinition, False)
 
-        # validate that the metadata field is a map from string to string
-        if self.metadata is not None:
-            if not isinstance(self.metadata, dict):
+        # validate that the custom_inputs field is a map from string to string
+        if self.custom_inputs is not None:
+            if not isinstance(self.custom_inputs, dict):
                 raise ValueError(
-                    "Expected `metadata` to be a dictionary, "
-                    f"received `{type(self.metadata).__name__}`"
+                    "Expected `custom_inputs` to be a dictionary, "
+                    f"received `{type(self.custom_inputs).__name__}`"
                 )
-            for key, value in self.metadata.items():
+            for key, value in self.custom_inputs.items():
                 if not isinstance(key, str):
                     raise ValueError(
-                        "Expected `metadata` to be of type `Dict[str, str]`, "
+                        "Expected `custom_inputs` to be of type `Dict[str, Any]`, "
                         f"received key of type `{type(key).__name__}` (key: {key})"
                     )
-                if not isinstance(value, str):
-                    raise ValueError(
-                        "Expected `metadata` to be of type `Dict[str, str]`, "
-                        f"received value of type `{type(value).__name__}` in `metadata['{key}']`)"
-                    )
+
+    @classmethod
+    def keys(cls) -> set[str]:
+        """
+        Return the keys of the dataclass
+        """
+        return {field.name for field in fields(cls)}
 
 
 @dataclass()
-class ChatRequest(ChatParams):
+class ChatCompletionRequest(ChatParams):
     """
     Format of the request object expected by the chat endpoint.
-
-    .. warning::
-
-        In an upcoming MLflow release, we will be changing ``ChatRequest`` to a new
-        ``ChatCompletionRequest`` type and renaming the ``metadata`` field to ``custom_inputs``
 
     Args:
         messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage`
@@ -432,12 +467,33 @@ class ChatRequest(ChatParams):
             **Optional**, defaults to ``1.0``
         max_tokens (int): The maximum number of new tokens to generate.
             **Optional**, defaults to ``None`` (unlimited)
-        stop (List[str]): A list of tokens at which to stop generation. **Optional**,
-            defaults to ``None``
-        n (int): The number of responses to generate. **Optional**,
-            defaults to ``1``
-        stream (bool): Whether to stream back responses as they are generated. **Optional**,
-            defaults to ``False``
+        stop (List[str]): A list of tokens at which to stop generation.
+            **Optional**, defaults to ``None``
+        n (int): The number of responses to generate.
+            **Optional**, defaults to ``1``
+        stream (bool): Whether to stream back responses as they are generated.
+            **Optional**, defaults to ``False``
+        top_p (float): An optional param to control sampling with temperature, the model considers
+            the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
+            comprising the top 10% probability mass are considered.
+        top_k (int): An optional param for reducing the vocabulary size to top k tokens
+            (sorted in descending order by their probabilities).
+        frequency_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's likelihood to repeat
+            the same line verbatim.
+        presence_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on whether they appear in the text so far,
+            increasing the model's likelihood to talk about new topics.
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
+        tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
+            the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     messages: list[ChatMessage] = field(default_factory=list)
@@ -528,15 +584,17 @@ class ChatChoice(_BaseDataclass):
     ref: https://platform.openai.com/docs/api-reference/chat/object
 
     Args:
-        index (int): The index of the response in the list of responses.
         message (:py:class:`ChatMessage`): The message that was generated.
+        index (int): The index of the response in the list of responses.
+            Defaults to ``0``
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``"stop"``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
+            **Optional**, defaults to ``None``
     """
 
-    index: int
     message: ChatMessage
+    index: int = 0
     finish_reason: str = "stop"
     logprobs: Optional[ChatChoiceLogProbs] = None
 
@@ -544,6 +602,34 @@ class ChatChoice(_BaseDataclass):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, True)
         self._convert_dataclass("message", ChatMessage, True)
+        self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
+
+
+@dataclass
+class ChatChunkChoice(_BaseDataclass):
+    """
+    A single chat response chunk generated by the model.
+    ref: https://platform.openai.com/docs/api-reference/chat/streaming
+
+    Args:
+        index (int): The index of the response in the list of responses.
+            defaults to ``0``
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        finish_reason (str): The reason why generation stopped.
+            **Optional**, defaults to ``None``
+        logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
+            **Optional**, defaults to ``None``
+    """
+
+    delta: ChatChoiceDelta
+    index: int = 0
+    finish_reason: Optional[str] = None
+    logprobs: Optional[ChatChoiceLogProbs] = None
+
+    def __post_init__(self):
+        self._validate_field("index", int, True)
+        self._validate_field("finish_reason", str, False)
+        self._convert_dataclass("delta", ChatChoiceDelta, True)
         self._convert_dataclass("logprobs", ChatChoiceLogProbs, False)
 
 
@@ -572,14 +658,9 @@ class TokenUsageStats(_BaseDataclass):
 
 
 @dataclass
-class ChatResponse(_BaseDataclass):
+class ChatCompletionResponse(_BaseDataclass):
     """
     The full response object returned by the chat endpoint.
-
-    .. warning::
-
-        In an upcoming MLflow release, we will be changing ``ChatResponse`` to a new
-        ``ChatCompletionResponse`` type and renaming the ``metadata`` field to ``custom_outputs``
 
     Args:
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
@@ -591,7 +672,8 @@ class ChatResponse(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        metadata (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -601,7 +683,7 @@ class ChatResponse(_BaseDataclass):
     model: Optional[str] = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    metadata: Optional[dict[str, str]] = None
+    custom_outputs: Optional[dict[str, Any]] = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -612,8 +694,61 @@ class ChatResponse(_BaseDataclass):
         self._convert_dataclass("usage", TokenUsageStats, False)
 
 
+@dataclass
+class ChatCompletionChunk(_BaseDataclass):
+    """
+    The streaming chunk returned by the chat endpoint.
+    ref: https://platform.openai.com/docs/api-reference/chat/streaming
+
+    Args:
+        choices (List[:py:class:`ChatChunkChoice`]): A list of :py:class:`ChatChunkChoice` objects
+            containing the generated chunk of a streaming response
+        usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+            **Optional**, defaults to ``None``.
+        id (str): The ID of the response. **Optional**, defaults to ``None``
+        model (str): The name of the model used. **Optional**, defaults to ``None``
+        object (str): The object type. Defaults to 'chat.completion.chunk'
+        created (int): The time the response was created.
+            **Optional**, defaults to the current time.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
+            **Optional**, defaults to ``None``
+    """
+
+    choices: list[ChatChunkChoice]
+    usage: Optional[TokenUsageStats] = None
+    id: Optional[str] = None
+    model: Optional[str] = None
+    object: str = "chat.completion.chunk"
+    created: int = field(default_factory=lambda: int(time.time()))
+    custom_outputs: Optional[dict[str, Any]] = None
+
+    def __post_init__(self):
+        self._validate_field("id", str, False)
+        self._validate_field("object", str, True)
+        self._validate_field("created", int, True)
+        self._validate_field("model", str, False)
+        self._convert_dataclass_list("choices", ChatChunkChoice)
+        self._convert_dataclass("usage", TokenUsageStats, False)
+
+
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+    name="usage",
+    type=Object(
+        [
+            Property("prompt_tokens", DataType.long),
+            Property("completion_tokens", DataType.long),
+            Property("total_tokens", DataType.long),
+        ]
+    ),
+    required=False,
+)
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(AnyType()), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -672,7 +807,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="metadata", type=Map(DataType.string), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -704,18 +839,8 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="metadata", type=Map(DataType.string), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 

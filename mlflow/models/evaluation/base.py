@@ -24,6 +24,7 @@ from mlflow.data.evaluation_dataset import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
@@ -50,6 +51,9 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
+    # This model type is used for Mosaic AI Agent evaluation and only available in Databricks
+    # https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html
+    DATABRICKS_AGENT = "databricks-agent"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -704,7 +708,6 @@ class ModelEvaluator(metaclass=ABCMeta):
             True if the evaluator can evaluate the specified model on the
             specified dataset. False otherwise.
         """
-        raise NotImplementedError()
 
     @abstractmethod
     def evaluate(
@@ -747,7 +750,6 @@ class ModelEvaluator(metaclass=ABCMeta):
             A :py:class:`mlflow.models.EvaluationResult` instance containing
             evaluation metrics and artifacts for the model.
         """
-        raise NotImplementedError()
 
 
 def list_evaluators():
@@ -842,6 +844,21 @@ def resolve_evaluators_and_configs(
         A list of EvaluatorBundle that contains name, evaluator, config for each evaluator.
     """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry as rg
+
+    # NB: The `databricks-agents` package must be installed to use the 'databricks-agent' model
+    # type. Ideally this check should be done in the 'databricks-agent' evaluator implementation,
+    # but we need to do it here because the code won't reach the evaluator implementation if the
+    # package is not installed.
+    if model_type == _ModelType.DATABRICKS_AGENT:
+        try:
+            import databricks.agents  # noqa: F401
+        except ImportError as e:
+            raise MlflowException(
+                message="Databricks Agents SDK must be installed to use the "
+                f"`{_ModelType.DATABRICKS_AGENT}` model type. Run `pip install databricks-agents` "
+                "to install the package and try again.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
 
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
         return isinstance(_evaluator_name_to_conf_map, dict) and all(
@@ -943,7 +960,7 @@ def resolve_evaluators_and_configs(
 def _model_validation_contains_model_comparison(validation_thresholds):
     """
     Helper function for determining if validation_thresholds contains
-    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    thresholds for model comparison: either min_relative_change or min_absolute_change
     """
     if not validation_thresholds:
         return False
@@ -999,21 +1016,24 @@ def _evaluate(
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
+    should_enable_tracing = model is not None  # Do not enable tracing if static dataset is provided
     for eval_ in evaluators:
         _logger.debug(f"Evaluating the model with the {eval_.name} evaluator.")
         _last_failed_evaluator = eval_.name
         if eval_.evaluator.can_evaluate(model_type=model_type, evaluator_config=eval_.config):
-            eval_result = eval_.evaluator.evaluate(
-                model=model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_config=eval_.config,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                predictions=predictions,
-            )
+            with configure_autologging_for_evaluation(enable_tracing=should_enable_tracing):
+                eval_result = eval_.evaluator.evaluate(
+                    model=model,
+                    model_type=model_type,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_config=eval_.config,
+                    custom_metrics=custom_metrics,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions,
+                )
+
             if eval_result is not None:
                 eval_results.append(eval_result)
 
@@ -1100,7 +1120,7 @@ def evaluate(  # noqa: D417
     specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
     Users can also skip setting ``model`` and put the model outputs in ``data`` directly for
     evaluation. For detailed information, please read
-    :ref:`the Model Evaluation documentation <model-evaluation>`.
+    `the Model Evaluation documentation <../../model-evaluation/index.html>`_.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
@@ -1251,7 +1271,7 @@ def evaluate(  # noqa: D417
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+        - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
@@ -1455,7 +1475,7 @@ def evaluate(  # noqa: D417
 
 
                 def root_mean_squared_error(eval_df, _builtin_metrics):
-                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
+                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean())
 
 
                 rmse_metric = mlflow.models.make_metric(

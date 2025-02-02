@@ -63,6 +63,19 @@ def test_authenticate(client, monkeypatch):
         client.search_experiments()
 
 
+@pytest.mark.parametrize(
+    ("username", "password"),
+    [
+        ("", "password"),
+        ("username", ""),
+        ("", ""),
+    ],
+)
+def test_validate_username_and_password(client, username, password):
+    with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
+        create_user(client.tracking_uri, username=username, password=password)
+
+
 def _mlflow_search_experiments_rest(base_uri, headers):
     response = requests.post(
         f"{base_uri}/api/2.0/mlflow/experiments/search",

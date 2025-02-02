@@ -360,14 +360,18 @@ def _parse_aws_sse_credential(scoped_token: TemporaryCredentials):
 
     sse_encryption_details = encryption_details.sse_encryption_details
 
-    if sse_encryption_details.algorithm != SseEncryptionAlgorithm.AWS_SSE_KMS:
+    if sse_encryption_details.algorithm == SseEncryptionAlgorithm.AWS_SSE_S3:
+        return {
+            "ServerSideEncryption": "AES256",
+        }
+    if sse_encryption_details.algorithm == SseEncryptionAlgorithm.AWS_SSE_KMS:
+        key_id = sse_encryption_details.aws_kms_key_arn.split("/")[-1]
+        return {
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": key_id,
+        }
+    else:
         return {}
-
-    key_id = sse_encryption_details.aws_kms_key_arn.split("/")[-1]
-    return {
-        "ServerSideEncryption": "aws:kms",
-        "SSEKMSKeyId": key_id,
-    }
 
 
 def get_full_name_from_sc(name, spark) -> str:

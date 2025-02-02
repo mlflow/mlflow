@@ -42,6 +42,7 @@ from sklearn.preprocessing import FunctionTransformer
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.models.signature import infer_signature
@@ -56,6 +57,7 @@ from mlflow.pyfunc import (
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, DataType, Object, Property
+from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
@@ -1369,7 +1371,7 @@ def test_spark_df_schema_inference_for_map_type(spark):
     with pytest.raises(
         MlflowException, match=r"Please construct spark DataFrame with schema using StructType"
     ):
-        infer_signature(complex_df)
+        _infer_schema(complex_df)
 
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
@@ -1654,3 +1656,52 @@ def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager
         )
         result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
     assert all(result.id + 3 == result.prediction)
+
+
+def test_spark_udf_model_server_timeout(spark, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", "1")
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            time.sleep(2)
+            return pd.DataFrame({k: [v] * len(model_input) for k, v in params.items()})
+
+    test_params = {
+        "str_array": np.array(["str_a", "str_b"]),
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        f"runs:/{run.info.run_id}/model",
+        result_type=StructType(
+            [
+                StructField("str_array", ArrayType(StringType())),
+            ]
+        ),
+        params=test_params,
+        env_manager="virtualenv",
+        extra_env={
+            "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT": str(
+                MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+            )
+        },
+    )
+    # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient,
+    # but handled as a PythonException from a subprocess failure for a timeout exception.
+    # Broad exception catching here due to PySpark / DBConnect stacktrace handling.
+    with pytest.raises(Exception, match="An exception was thrown from the Python worker"):
+        spark_df.withColumn("res", udf("input_col")).select("res").toPandas()

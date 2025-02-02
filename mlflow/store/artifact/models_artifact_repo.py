@@ -80,13 +80,22 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Split 'models:/<name>/<version>/path/to/model' into
         ('models:/<name>/<version>', 'path/to/model').
+        Split 'models://<scope>:<prefix>@databricks/<name>/<version>/path/to/model' into
+        ('models://<scope>:<prefix>@databricks/<name>/<version>', 'path/to/model').
+        Split 'models:/<name>@alias/path/to/model' into
+        ('models:/<name>@alias', 'path/to/model').
         """
-        path = urllib.parse.urlparse(uri).path
-        if path.count("/") >= 3 and not path.endswith("/"):
+        uri = uri.rstrip("/")
+        parsed_url = urllib.parse.urlparse(uri)
+        path = parsed_url.path
+        netloc = parsed_url.netloc
+        if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)
-            model_name_and_version = splits[:3]
-            artifact_path = splits[-1]
-            return "models:" + "/".join(model_name_and_version), artifact_path
+            cut_index = 2 if "@" in splits[1] else 3
+            model_name_and_version = splits[:cut_index]
+            artifact_path = "/".join(splits[cut_index:])
+            base_part = f"models://{netloc}" if netloc else "models:"
+            return base_part + "/".join(model_name_and_version), artifact_path
         return uri, ""
 
     @staticmethod

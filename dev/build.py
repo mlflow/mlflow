@@ -43,8 +43,8 @@ def main():
     with restore_changes():
         pyproject = Path("pyproject.toml")
         if args.package_type == "skinny":
-            readme = Path("README.rst")
-            readme_skinny = Path("README_SKINNY.rst")
+            readme = Path("README.md")
+            readme_skinny = Path("README_SKINNY.md")
             readme.write_text(readme_skinny.read_text() + "\n" + readme.read_text())
 
             pyproject.write_text(Path("pyproject.skinny.toml").read_text())

@@ -292,7 +292,7 @@ def ndcg_at_k(k) -> EvaluationMetric:
     3. If ground truth doc IDs are provided and no documents are retrieved, the score is 0.
     4. If duplicate doc IDs are retrieved and the duplicate doc IDs are in the ground truth,
        they will be treated as different docs. For example, if the ground truth doc IDs are
-       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equavalent to
+       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equivalent to
        ground truth doc IDs [10, 11, 12, 2] and retrieved doc IDs [10, 11, 12, 3].
 
     .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
@@ -467,7 +467,7 @@ __all__ = [
     "make_metric",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
-    "accuracy",
+    "exact_match",
     "rouge1",
     "rouge2",
     "rougeL",
@@ -479,9 +479,9 @@ __all__ = [
     "r2_score",
     "max_error",
     "mape",
-    "binary_recall",
-    "binary_precision",
-    "binary_f1_score",
+    "recall_score",
+    "precision_score",
+    "f1_score",
     "token_count",
     "latency",
     "genai",

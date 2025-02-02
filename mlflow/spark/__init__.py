@@ -233,7 +233,7 @@ def log_model(
                         signature=signature,
                     )
 
-                # The following signature is outputed:
+                # The following signature is outputted:
                 # inputs:
                 #   ['features': SparkML vector (required)]
                 # outputs:
@@ -769,6 +769,14 @@ def save_model(
             spark = _get_active_spark_session()
             if spark is not None:
                 input_example_spark_df = spark.createDataFrame(input_ex)
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 signature = mlflow.pyspark.ml._infer_spark_model_signature(
                     spark_model, input_example_spark_df
                 )

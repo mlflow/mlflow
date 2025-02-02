@@ -159,7 +159,7 @@ def test_model_logging_and_inference(basic_model):
             "Just a small town girl",
             "livin in a lonely world",
             "she took the midnight train",
-            "goin anywhere",
+            "going anywhere",
         ]
     )
 
@@ -383,7 +383,7 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     emb0 = loaded_pyfunc.predict(sentence, params)
     assert emb0.shape == (1, embedding_dim)
 
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
 
     model_path = tmp_path / "model3"

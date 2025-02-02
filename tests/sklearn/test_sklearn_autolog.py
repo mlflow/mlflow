@@ -963,7 +963,7 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
             return self
 
         def transform(self, X, y=None):
-            # Perform arbitary transformation
+            # Perform arbitrary transformation
             if "XXLarge Bags" in X.columns:
                 raise Exception("Found unexpected 'XXLarge Bags' column!")
             X["XXLarge Bags"] = X["XLarge Bags"] + 1
@@ -1728,7 +1728,7 @@ def test_log_post_training_metrics_configuration():
     model = LogisticRegression()
     metric_name = sklearn.metrics.r2_score.__name__
 
-    # Ensure post-traning metrics autologging can be toggled on / off
+    # Ensure post-training metrics autologging can be toggled on / off
     for log_post_training_metrics in [True, False, True]:
         mlflow.sklearn.autolog(log_post_training_metrics=log_post_training_metrics)
 

@@ -1,4 +1,3 @@
-import functools
 import logging
 import os
 import time
@@ -135,7 +134,6 @@ class DefaultEvaluator(BuiltInEvaluator):
         Helper method for generating model predictions
         """
         predict_fn = _extract_predict_fn(model)
-        predict_fn = _restrict_langchain_autologging_to_traces_only(predict_fn)
 
         def predict_with_latency(X_copy):
             y_pred_list = []
@@ -232,19 +230,6 @@ class DefaultEvaluator(BuiltInEvaluator):
         self.artifacts[artifact_name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
         )
-
-
-def _restrict_langchain_autologging_to_traces_only(pred_fn):
-    if pred_fn is None:
-        return None
-
-    # In non-langchain environments, nothing would be autologged.
-    @functools.wraps(pred_fn)
-    def new_pred_fn(*args, **kwargs):
-        with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
-            return pred_fn(*args, **kwargs)
-
-    return new_pred_fn
 
 
 def _extract_output_and_other_columns(model_predictions, output_column_name):

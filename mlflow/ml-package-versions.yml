@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.5.2"
+    maximum: "1.6.1"
     requirements:
       "< 1.3.0": ["numpy<2"]
       "< 1.0": ["scipy==1.7.3"]
@@ -15,7 +15,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.5.2"
+    maximum: "1.6.1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.3.0": ["numpy<2"]
@@ -55,13 +55,14 @@ pytorch:
 pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
+    module_name: "lightning"
     install_dev: |
       export PACKAGE_NAME=pytorch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.5.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
     run: |
@@ -75,7 +76,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.6.0"
+    maximum: "3.8.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -84,7 +85,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.6.0"
+    maximum: "3.8.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -105,9 +106,9 @@ tensorflow:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
-      # incompatible with SQLAlchemy 2.0.25 with error
+      # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
@@ -125,7 +126,7 @@ tensorflow:
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -137,7 +138,7 @@ xgboost:
 
   models:
     minimum: "1.4.2"
-    maximum: "2.1.2"
+    maximum: "2.1.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -148,7 +149,7 @@ xgboost:
 
   autologging:
     minimum: "1.4.2"
-    maximum: "2.1.2"
+    maximum: "2.1.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -166,7 +167,7 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "3.1.1"
+    minimum: "3.3.5"
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -175,7 +176,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "3.1.1"
+    minimum: "3.3.5"
     maximum: "4.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -196,37 +197,6 @@ catboost:
       "< 1.2": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
-
-gluon:
-  package_info:
-    pip_release: "mxnet"
-    install_dev: |
-      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
-
-  models:
-    minimum: "1.5.1"
-    maximum: "1.9.1"
-    requirements:
-      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
-      # which is unlikely to happen given the fact it's been open for 4 months.
-      ">= 0.0.0": ["numpy<1.24.0"]
-    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
-    run: |
-      # Install libopenblas-dev for mxnet 1.8.0.post0
-      sudo apt-get update -y
-      sudo apt-get install libopenblas-dev -y
-      pytest tests/gluon/test_gluon_model_export.py
-
-  autologging:
-    minimum: "1.5.1"
-    maximum: "1.9.1"
-    requirements:
-      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
-      # which is unlikely to happen given the fact it's been open for 4 months.
-      ">= 0.0.0": ["numpy<1.24.0"]
-    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
-    run: |
-      pytest tests/gluon/test_gluon_autolog.py
 
 fastai:
   package_info:
@@ -290,12 +260,12 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.0.0"
-    maximum: "3.8.2"
+    minimum: "3.3.3"
+    maximum: "3.8.3"
+    python:
+      ">= 3.8.4": "3.10"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
-      "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
-      ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
+      "< 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
       "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
@@ -340,7 +310,7 @@ spark:
 
   models:
     minimum: "3.1.2"
-    maximum: "3.5.3"
+    maximum: "3.5.4"
     java:
       "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -369,7 +339,7 @@ spark:
 
   autologging:
     minimum: "3.1.2"
-    maximum: "3.5.3"
+    maximum: "3.5.4"
     runs_on:
       # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
       "== 3.3.4": "ubuntu-24.04"
@@ -409,7 +379,7 @@ mleap:
 
   models:
     minimum: "0.18.0"
-    maximum: "0.23.1"
+    maximum: "0.23.3"
     requirements:
       ">= 0.0.0": ["pandas<2"]
       "< 0.22.0": ["numpy<1.24.0"]
@@ -429,9 +399,6 @@ mleap:
 prophet:
   package_info:
     pip_release: "prophet"
-    install_dev: |
-      sudo apt-get -y install libtbb2
-      pip install git+https://github.com/facebook/prophet.git#subdirectory=python
 
   models:
     minimum: "1.1.1"
@@ -459,8 +426,14 @@ pmdarima:
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0.0": ["prophet", "holidays!=0.25", "numpy<2"]
+      ">= 0.0.0": [
+          "prophet",
+          # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+          "holidays!=0.25",
+          "numpy<2",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
+        ]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -476,7 +449,13 @@ diviner:
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25", "numpy<2"]
+      ">= 0.0": [
+          "cmdstanpy!=1.0.2",
+          "holidays!=0.25",
+          "numpy<2",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
+        ]
       "<= 0.1.0": ["pmdarima<2.0.0"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
@@ -531,7 +510,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.46.2"
+    maximum: "4.48.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -555,16 +534,20 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
-      "< 4.30.0": ["tensorflow<2.13.0"]
+      "< 4.30.0": ["tensorflow<2.13.0", "pydantic<2"]
+      # peft >= 0.14 relies on classes from newer versions of transformers
+      "< 4.43": ["peft<0.14.0"]
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
-      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
     pre_test: |
       export PYTHONPATH=./
@@ -576,7 +559,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.46.2"
+    maximum: "4.48.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -587,16 +570,16 @@ transformers:
       ">= 0.0.0": [
           "datasets",
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          # 0.24.0 contains a breaking change for setfit: https://github.com/huggingface/setfit/issues/544
-          "huggingface_hub<0.24.0,!=0.22.0",
+          "huggingface_hub!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
           "tensorflow",
-          "accelerate",
           "setfit",
           "optuna",
           "accelerate<1",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
@@ -608,8 +591,13 @@ transformers:
       # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
       # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
       "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
-      "< 4.38": ["tensorflow<2.14"] # Older versions of transformers are incompatible with tensorflow >= 2.14
+      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
+      # that version of setfit requires tranformers>=4.41
+      # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
+      # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
+      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -620,7 +608,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.54.4"
+    maximum: "1.59.6"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -631,11 +619,15 @@ openai:
           "fastapi",
           "uvicorn",
         ]
+      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai tests/openai/test_openai_model_export.py
+    # Our CI runs tests for every minor version of the library by default, which results in
+    # many test tasks for openai. Reducing the number of testing only for every 10 version.
+    test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.54.4"
+    maximum: "1.59.6"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -653,8 +645,10 @@ openai:
           # Install OpenAI Swarm from the main branch as it's not available on pip
           "git+https://github.com/openai/swarm.git",
         ]
+      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
+    test_every_n_versions: 10
 
 dspy:
   package_info:
@@ -662,15 +656,15 @@ dspy:
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.5.6"
-    maximum: "2.5.31"
+    minimum: "2.5.17"
+    maximum: "2.5.43"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.31"
+    maximum: "2.5.43"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -684,7 +678,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.7"
+    maximum: "0.3.14"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -725,13 +719,13 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>2' 'fastapi>=0.100.0'
+        pip install 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.7"
+    maximum: "0.3.14"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -758,7 +752,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>2' 'fastapi>=0.100.0'
+        pip install 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
       fi
@@ -780,7 +774,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.11.23"
+    maximum: "0.12.10"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -798,7 +792,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.11.23"
+    maximum: "0.12.10"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -819,7 +813,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.38"
+    maximum: "0.2.40"
     python:
       "== dev": "3.10"
     requirements:
@@ -842,6 +836,52 @@ gemini:
     requirements:
     run: pytest tests/gemini
 
+anthropic:
+  package_info:
+    pip_release: "anthropic"
+    install_dev: |
+      pip install git+https://github.com/anthropics/anthropic-sdk-python
+  autologging:
+    minimum: "0.30.0"
+    maximum: "0.42.0"
+    requirements:
+      "< 0.40.0": ["httpx<0.28.0"]
+    run: pytest tests/anthropic
+    # Our CI runs tests for every minor version of the library by default, which results in
+    # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
+    test_every_n_versions: 5
+
+crewai:
+  package_info:
+    pip_release: "crewai"
+    module_name: "crewai"
+    install_dev: |
+      pip install git+https://github.com/crewAIInc/crewAI
+  autologging:
+    minimum: "0.80.0"
+    maximum: "0.95.0"
+    python:
+      ">= 0.80.0": "3.10"
+    requirements:
+    run: pytest tests/crewai
+
+mistral:
+  package_info:
+    pip_release: "mistralai"
+    module_name: "mistralai"
+    install_dev: |
+      TMP_DIR=$(mktemp -d)
+      git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
+      cd $TMP_DIR
+      python scripts/prepare-readme.py
+      pip install .
+      rm -rf $TMP_DIR
+  autologging:
+    minimum: "1.0.0"
+    maximum: "1.2.6"
+    requirements:
+    run: pytest tests/mistral
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
@@ -849,7 +889,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -858,7 +898,10 @@ sentence_transformers:
           "hf_transfer",
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
+      "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
@@ -867,7 +910,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.5.1"
+    maximum: "5.5.2"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -886,10 +929,12 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.16.1"
+    maximum: "1.17.1"
     requirements:
       # Requirements to run sparkudf predict test
-      ">= 0.0.0": ["pyspark", "jinja2"]
+      # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
+      # inside promptflow
+      ">= 0.0.0": ["pyspark", "jinja2", "marshmallow<3.24.0"]
       ">= 1.11.0": ["openai>=1"]
       "< 1.18": ["numpy<2"]
     run: |
@@ -902,7 +947,7 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.52.9"
+    maximum: "1.58.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -912,3 +957,24 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
+
+groq:
+  package_info:
+    pip_release: "groq"
+    install_dev: |
+      pip install git+https://github.com/groq/groq-python
+  autologging:
+    minimum: "0.13.0"
+    maximum: "0.15.0"
+    requirements:
+    run: pytest tests/groq
+
+bedrock:
+  package_info:
+    pip_release: "boto3"
+    module_name: "boto3"
+  autologging:
+    # BedrockRuntime client is added in boto3 1.33
+    minimum: "1.33.0"
+    maximum: "1.35.97"
+    run: pytest tests/bedrock

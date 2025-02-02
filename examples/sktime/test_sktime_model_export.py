@@ -250,7 +250,7 @@ def test_predict_var_signature_saved_correctly(
 
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
-def test_signature_and_example_for_pyfunc_predict_inteval(
+def test_signature_and_example_for_pyfunc_predict_interval(
     auto_arima_model, model_path, data_airline, use_signature, use_example
 ):
     """Test saving of mlflow signature and example for pyfunc predict."""

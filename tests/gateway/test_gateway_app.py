@@ -151,6 +151,7 @@ def test_dynamic_route():
                 "message": {
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
+                    "refusal": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -183,6 +184,7 @@ def test_dynamic_route():
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

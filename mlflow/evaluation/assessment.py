@@ -7,17 +7,34 @@ from mlflow.entities.assessment import Assessment as AssessmentEntity
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Assessment(_MlflowObject):
     """
     Assessment data associated with an evaluation result.
+
+    Assessment is an enriched output from the evaluation that provides more context,
+    such as the rationale, source, and metadata for the evaluation result.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.evaluation import Assessment
+
+        assessment = Assessment(
+            name="answer_correctness",
+            value=0.5,
+            rationale="The answer is partially correct.",
+        )
     """
 
     def __init__(
         self,
         name: str,
-        source: AssessmentSource,
+        source: Optional[AssessmentSource] = None,
         value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -83,7 +100,7 @@ class Assessment(_MlflowObject):
         return self._rationale
 
     @property
-    def source(self) -> AssessmentSource:
+    def source(self) -> Optional[AssessmentSource]:
         """The source of the assessment."""
         return self._source
 
@@ -110,7 +127,7 @@ class Assessment(_MlflowObject):
     def to_dictionary(self) -> dict[str, Any]:
         return {
             "name": self.name,
-            "source": self.source.to_dictionary(),
+            "source": self.source.to_dictionary() if self.source is not None else None,
             "value": self.value,
             "rationale": self.rationale,
             "metadata": self.metadata,
@@ -140,6 +157,15 @@ class Assessment(_MlflowObject):
         )
 
     def _to_entity(self, evaluation_id: str) -> AssessmentEntity:
+        # We require that the source be specified for an assessment before sending it to the backend
+        if self._source is None:
+            raise MlflowException(
+                message=(
+                    f"Assessment source must be specified."
+                    f"Got empty source for assessment with name {self._name}"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return AssessmentEntity(
             evaluation_id=evaluation_id,
             name=self._name,

@@ -215,8 +215,8 @@ class AsyncLoggingQueue:
                 _logger.error(
                     f"Failed to submit batch for logging: {e}. Usually this means you are not "
                     "shutting down MLflow properly before exiting. Please make sure you are using "
-                    "context mananger, e.g., `with mlflow.start_run():` or call `mlflow.end_run()`"
-                    "explicilty to terminate MLflow logging before exiting."
+                    "context manager, e.g., `with mlflow.start_run():` or call `mlflow.end_run()`"
+                    "explicitly to terminate MLflow logging before exiting."
                 )
                 run_batch.exception = e
                 run_batch.complete()
@@ -324,7 +324,7 @@ class AsyncLoggingQueue:
         """
         Sets up the logging thread.
 
-        This method shouldn't be called directly without shuting down the async
+        This method shouldn't be called directly without shutting down the async
         logging first if an existing async logging exists, otherwise it might
         hang the program.
         """

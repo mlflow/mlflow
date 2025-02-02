@@ -31,7 +31,7 @@ for line in sys.stdin:
     data = scoring_server.infer_and_parse_data(data, input_schema)
 
     _logger.info("Making predictions")
-    if inspect.signature(model.predict).parameters.get("params"):
+    if "params" in inspect.signature(model.predict).parameters:
         preds = model.predict(data, params=params)
     else:
         _log_warning_if_params_not_in_predict_signature(_logger, params)

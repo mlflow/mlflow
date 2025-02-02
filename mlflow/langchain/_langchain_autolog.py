@@ -14,7 +14,7 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer, should_attach_span_to_context
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
@@ -24,7 +24,7 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
 
-UNSUPPORT_LOG_MODEL_MESSAGE = (
+UNSUPPORTED_LOG_MODEL_MESSAGE = (
     "MLflow autologging does not support logging models containing BaseRetriever because "
     "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
@@ -85,26 +85,37 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+    should_trace = not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces
 
-    if not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces:
-        args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)
+    if should_trace:
+        tracer = MlflowLangchainTracer(
+            set_span_in_context=should_attach_span_to_context(func_name, self)
+        )
+        args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, args, kwargs)
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
-    if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
-        with _setup_autolog_run(config, self) as run_id:
+    try:
+        if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
+            with _setup_autolog_run(config, self) as run_id:
+                result = _invoke(self, *args, **kwargs)
+                _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+        else:
             result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
-    else:
-        result = _invoke(self, *args, **kwargs)
+    finally:
+        if should_trace:
+            # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
+            # callbacks are not guaranteed to be invoked always, which results in leaking the active
+            # span context to the next inference call. Flushing the tracer ensures that all spans
+            # are finished and detached from the context.
+            tracer.flush()
+
     return result
 
 
-def _get_args_with_mlflow_tracer(func_name, args, kwargs):
+def _get_args_with_mlflow_tracer(mlflow_tracer, func_name, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
-    mlflow_tracer = MlflowLangchainTracer()
-
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
         # `config` is the second positional argument of runnable APIs such as
         # invoke, batch, stream, ainvoke, abatch, and astream
@@ -157,7 +168,7 @@ def _get_runnable_config_with_callback(
         original_config: the original RunnableConfig passed by the user
         new_callback: a new callback to be injected
     """
-    from langchain.schema.runnable.config import RunnableConfig
+    from langchain_core.runnables.config import RunnableConfig
 
     if original_config is None:
         _logger.debug("Injected MLflow callbacks into the model call args.")
@@ -407,10 +418,10 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
             or _runnable_with_retriever(self)
             or _chain_with_retriever(self)
         ):
-            _logger.info(UNSUPPORT_LOG_MODEL_MESSAGE)
+            _logger.info(UNSUPPORTED_LOG_MODEL_MESSAGE)
         else:
             # warn user in case we did't capture some cases where retriever is used
-            warnings.warn(UNSUPPORT_LOG_MODEL_MESSAGE)
+            warnings.warn(UNSUPPORTED_LOG_MODEL_MESSAGE)
             if autolog_config.log_input_examples:
                 input_example = deepcopy(
                     _get_input_data_from_function(func_name, self, args, kwargs)

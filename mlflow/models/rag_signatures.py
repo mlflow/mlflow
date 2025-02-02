@@ -10,38 +10,38 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
+@deprecated("mlflow.types.llm.ChatMessage")
 @dataclass
-@experimental
 class Message:
     role: str = "user"  # "system", "user", or "assistant"
     content: str = "What is mlflow?"
 
 
+@deprecated("mlflow.types.llm.ChatCompletionRequest")
 @dataclass
-@experimental
 class ChatCompletionRequest:
     messages: list[Message] = field(default_factory=lambda: [Message()])
 
 
+@deprecated("mlflow.types.llm.ChatCompletionRequest")
 @dataclass
-@experimental
 class SplitChatMessagesRequest:
     query: str = "What is mlflow?"
     history: Optional[list[Message]] = field(default_factory=list)
 
 
+@deprecated("mlflow.types.llm.ChatCompletionRequest")
 @dataclass
-@experimental
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
     history: Optional[list[Message]] = field(default_factory=list)
 
 
+@deprecated("mlflow.types.llm.ChatChoice")
 @dataclass
-@experimental
 class ChainCompletionChoice:
     index: int = 0
     message: Message = field(
@@ -53,8 +53,8 @@ class ChainCompletionChoice:
     finish_reason: str = "stop"
 
 
+@deprecated("mlflow.types.llm.ChatCompletionChunk")
 @dataclass
-@experimental
 class ChainCompletionChunk:
     index: int = 0
     delta: Message = field(
@@ -66,16 +66,16 @@ class ChainCompletionChunk:
     finish_reason: str = "stop"
 
 
+@deprecated("mlflow.types.llm.ChatCompletionResponse")
 @dataclass
-@experimental
 class ChatCompletionResponse:
     choices: list[ChainCompletionChoice] = field(default_factory=lambda: [ChainCompletionChoice()])
     object: str = "chat.completion"
     # TODO: support ChainCompletionChunk in the future
 
 
+@deprecated("mlflow.types.llm.ChatCompletionResponse")
 @dataclass
-@experimental
 class StringResponse:
     content: str = "MLflow is an open source platform for the machine learning lifecycle."
 

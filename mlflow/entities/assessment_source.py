@@ -3,8 +3,10 @@ from typing import Any, Optional
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class AssessmentSource(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
@@ -68,10 +70,12 @@ class AssessmentSource(_MlflowObject):
         return cls(source_type=source_type, source_id=source_id, metadata=metadata)
 
 
+@experimental
 class AssessmentSourceType:
     AI_JUDGE = "AI_JUDGE"
     HUMAN = "HUMAN"
-    _SOURCE_TYPES = [AI_JUDGE, HUMAN]
+    CODE = "CODE"
+    _SOURCE_TYPES = [AI_JUDGE, HUMAN, CODE]
 
     def __init__(self, source_type: str):
         self._source_type = AssessmentSourceType._parse(source_type)

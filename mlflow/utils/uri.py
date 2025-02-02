@@ -299,7 +299,7 @@ def append_to_uri_path(uri, *paths):
 
     parsed_uri = urllib.parse.urlparse(uri)
 
-    # Validate query string not to contain any traveral path (../) before appending
+    # Validate query string not to contain any traversal path (../) before appending
     # to the end of the path, otherwise they will be resolved as part of the path.
     validate_query_string(parsed_uri.query)
 
@@ -479,6 +479,8 @@ def validate_path_is_safe(path):
 
     # We must decode path before validating it
     path = _decode(path)
+    # If control characters are included in the path, escape them.
+    path = _escape_control_characters(path)
 
     exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     if "#" in path:
@@ -498,9 +500,22 @@ def validate_path_is_safe(path):
     return path
 
 
+def _escape_control_characters(text: str) -> str:
+    # Method to escape control characters (e.g. \u0017)
+    def escape_char(c):
+        code_point = ord(c)
+
+        # If it's a control character (ASCII 0-31 or 127), escape it
+        if (0 <= code_point <= 31) or (code_point == 127):
+            return f"%{code_point:02x}"
+        return c
+
+    return "".join(escape_char(c) for c in text)
+
+
 def validate_query_string(query):
     query = _decode(query)
-    # Block query strings contain any traveral path (../) because they
+    # Block query strings contain any traversal path (../) because they
     # could be resolved as part of the path and allow path traversal.
     if ".." in query:
         raise MlflowException("Invalid query string", error_code=INVALID_PARAMETER_VALUE)

@@ -1,5 +1,8 @@
 """
 This module defines environment variables used in MLflow.
+MLflow's environment variables adhere to the following naming conventions:
+- Public variables: environment variable names begin with `MLFLOW_`
+- Internal-use variables: For variables used only internally, names start with `_MLFLOW_`
 """
 
 import os
@@ -92,9 +95,17 @@ MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 #: (default: ``/tmp/mlflow``)
 MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
 
-#: Specifies the maximum number of retries for MLflow HTTP requests
-#: (default: ``5``)
-MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
+#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests
+#: (default: ``7``)
+MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_HTTP_REQUEST_MAX_RETRIES",
+    int,
+    # Important: It's common for MLflow backends to rate limit requests for more than 1 minute.
+    # To remain resilient to rate limiting, the MLflow client needs to retry for more than 1
+    # minute. Assuming 2 seconds per retry, 7 retries with backoff will take ~ 4 minutes,
+    # which is appropriate for most rate limiting scenarios
+    7,
+)
 
 #: Specifies the backoff increase factor between MLflow HTTP request failures
 #: (default: ``2``)
@@ -579,15 +590,24 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
-# How many traces to be buffered at the Trace Client.
-MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
-    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
+
+#: How long a trace can be "in-progress". When this is set to a positive value and a trace is
+#: not completed within this time, it will be automatically halted and exported to the specified
+#: backend destination with status "ERROR".
+MLFLOW_TRACE_TIMEOUT_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_TIMEOUT_SECONDS", int, None)
+
+#: How frequently to check for timed-out traces. For example, if this is set to 10, MLflow will
+#: check for timed-out traces every 10 seconds (in a background worker) and halt any traces that
+#: have exceeded the timeout. This is only effective if MLFLOW_TRACE_TIMEOUT_SECONDS is set to a
+#: positive value.
+MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", int, 1
 )
 
-# How long a trace can be buffered at the in-memory trace client before being abandoned.
+# How long a trace can be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
 
-# How many traces to be buffered at the in-memory trace client.
+# How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
 #: Private configuration option.
@@ -679,4 +699,14 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
 # is not an AgentExecutor and the input schema doesn't contain a 'messages' field.
 MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN = _BooleanEnvironmentVariable(
     "MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", None
+)
+
+#: A boolean flag which enables additional functionality in Python tests for GO backend.
+_MLFLOW_GO_STORE_TESTING = _BooleanEnvironmentVariable("MLFLOW_GO_STORE_TESTING", False)
+
+# Specifies whether the current environment is a serving environment.
+# This should only be used internally by MLflow to add some additional logic when running in a
+# serving environment.
+_MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
+    "_MLFLOW_IS_IN_SERVING_ENVIRONMENT", None
 )

@@ -33,10 +33,11 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
+from tests.tracing.helper import create_test_trace_info, get_traces
 
 
 class DefaultTestModel:
@@ -773,15 +774,20 @@ def test_search_traces_with_default_experiment_id(mock_client):
 
 
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
-    traces_to_return = [create_trace("a"), create_trace("b"), create_trace("c")]
+    model = DefaultTestModel()
+    client = mlflow.MlflowClient()
+    expected_traces = []
+    for _ in range(10):
+        model.predict(2, 5)
+        time.sleep(0.1)
 
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return traces_to_return
+        # The in-memory trace returned from get_last_active_trace() is not guaranteed to be
+        # exactly same as the trace stored in the backend (e.g., tags created by the backend).
+        # Therefore, we fetch the trace from the backend to compare the results.
+        trace = client.get_trace(mlflow.get_last_active_trace().info.request_id)
+        expected_traces.append(trace)
 
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-    df = mlflow.search_traces()
+    df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"])
     assert df.columns.tolist() == [
         "request_id",
         "trace",
@@ -794,16 +800,16 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         "spans",
         "tags",
     ]
-    for idx, trace in enumerate(traces_to_return):
+    for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].request_id == trace.info.request_id
-        assert df.iloc[idx].trace == trace
+        assert df.iloc[idx].trace.info.request_id == trace.info.request_id
         assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
         assert df.iloc[idx].status == trace.info.status
         assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
-        assert df.iloc[idx].request == trace.data.request
-        assert df.iloc[idx].response == trace.data.response
+        assert df.iloc[idx].request == json.loads(trace.data.request)
+        assert df.iloc[idx].response == json.loads(trace.data.response)
         assert df.iloc[idx].request_metadata == trace.info.request_metadata
-        assert df.iloc[idx].spans == trace.data.spans
+        assert df.iloc[idx].spans == [s.to_dict() for s in trace.data.spans]
         assert df.iloc[idx].tags == trace.info.tags
 
 
@@ -1134,6 +1140,40 @@ def test_get_last_active_trace():
     trace.info.status = TraceStatus.ERROR
     original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
     assert original_trace.info.status == TraceStatus.OK
+
+
+def test_update_current_trace():
+    @mlflow.trace
+    def f(x):
+        mlflow.update_current_trace(tags={"fruit": "apple", "animal": "dog"})
+        return g(x) + 1
+
+    @mlflow.trace
+    def g(y):
+        with mlflow.start_span():
+            mlflow.update_current_trace(tags={"fruit": "orange", "vegetable": "carrot"})
+            return y * 2
+
+    f(1)
+
+    expected_tags = {
+        "animal": "dog",
+        "fruit": "orange",
+        "vegetable": "carrot",
+    }
+
+    # Validate in-memory trace
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.status == "OK"
+    tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+    assert tags == expected_tags
+
+    # Validate backend trace
+    traces = mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
+    assert tags == expected_tags
 
 
 def test_non_ascii_characters_not_encoded_as_unicode():

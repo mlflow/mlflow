@@ -5,9 +5,6 @@ on:
   issue_comment:
     types: [created, edited]
 
-permissions:
-  contents: read
-
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -159,22 +156,38 @@ jobs:
     timeout-minutes: 5
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
+    permissions: {}
+    outputs:
+      head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
+          # for how to rotate the private key
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
-          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          # As reported in https://github.com/orgs/community/discussions/25702, if an action pushes
+          # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
+          # A personal access token is required to trigger new workflow runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Merge base branch
+        env:
+          BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
+          BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
-          git fetch base ${{ needs.check-comment.outputs.base_ref }}
-          git merge base/${{ needs.check-comment.outputs.base_ref }}
+          git remote add base https://github.com/${BASE_REPO}.git
+          git fetch base $BASE_REF
+          git merge base/${BASE_REF}
 
       - name: Download patch
         uses: actions/download-artifact@v4
@@ -183,9 +196,14 @@ jobs:
           path: /tmp
 
       - name: Apply patch and push
+        id: push
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          git apply /tmp/${{ github.run_id }}.diff
-          git commit -sam "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git apply /tmp/${RUN_ID}.diff
+          git commit -sam "Autoformat: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+          echo "head_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           git push
 
   update-status:
@@ -194,7 +212,8 @@ jobs:
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
-      statuses: write # autoformat.updateStatus
+      statuses: write # To update check statuses
+      actions: write # To approve workflow runs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -207,4 +226,13 @@ jobs:
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
             const autoformat = require('./.github/workflows/autoformat.js');
+            // TODO: Remove try-catch block once we are confident that the code works fine.
+            try {
+              const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+              if (push_head_sha) {
+                await autoformat.approveWorkflowRuns(context, github, push_head_sha);
+              }
+            } catch (error) {
+              core.warning(`Failed to approve workflow runs: ${error}`);
+            }
             await autoformat.updateStatus(context, github, head_sha, needs);

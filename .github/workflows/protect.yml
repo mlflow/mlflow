@@ -14,9 +14,6 @@ on:
     types:
       - checks_requested
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -27,6 +24,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      checks: read # to read check statuses
     steps:
       - uses: actions/checkout@v4
         with:

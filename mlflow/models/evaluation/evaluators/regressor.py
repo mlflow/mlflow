@@ -1,6 +1,7 @@
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 from sklearn import metrics as sk_metrics
 
 import mlflow
@@ -51,7 +52,13 @@ class RegressorEvaluator(BuiltInEvaluator):
 
     def _generate_model_predictions(self, model, input_df):
         if predict_fn := _extract_predict_fn(model):
-            return predict_fn(input_df)
+            preds = predict_fn(input_df)
+            if isinstance(preds, pd.DataFrame):
+                if preds.shape[1] != 1:
+                    raise ValueError(f"Predictions must be a 1D array, but got shape {preds.shape}")
+                return preds.iloc[:, 0].values
+            else:
+                return preds
         else:
             return self.dataset.predictions_data
 
@@ -65,6 +72,8 @@ class RegressorEvaluator(BuiltInEvaluator):
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
+    from mlflow.metrics.metric_definitions import _root_mean_squared_error
+
     sum_on_target = (
         (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
     )
@@ -76,8 +85,10 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
         "mean_squared_error": sk_metrics.mean_squared_error(
             y, y_pred, sample_weight=sample_weights
         ),
-        "root_mean_squared_error": sk_metrics.mean_squared_error(
-            y, y_pred, sample_weight=sample_weights, squared=False
+        "root_mean_squared_error": _root_mean_squared_error(
+            y_true=y,
+            y_pred=y_pred,
+            sample_weight=sample_weights,
         ),
         "sum_on_target": sum_on_target,
         "mean_on_target": sum_on_target / len(y),

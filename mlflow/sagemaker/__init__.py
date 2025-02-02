@@ -198,7 +198,7 @@ def _deploy(
 
     This function creates a SageMaker endpoint. For more information about the input data
     formats accepted by this endpoint, see the
-    :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+    `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
     Args:
         app_name: Name of the deployed application.
@@ -320,7 +320,7 @@ def _deploy(
 
                 data_capture_config = {
                     "EnableCapture": True,
-                    "InitalSamplingPercentage": 100,
+                    "InitialSamplingPercentage": 100,
                     "DestinationS3Uri": "s3://my-bucket/path",
                     "CaptureOptions": [{"CaptureMode": "Output"}],
                 }
@@ -2030,7 +2030,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     Initialize a deployment client for SageMaker. The default region and assumed role ARN will
     be set according to the value of the `target_uri`.
 
-    This class is meant to supercede the other ``mlflow.sagemaker`` real-time serving API's.
+    This class is meant to supersede the other ``mlflow.sagemaker`` real-time serving API's.
     It is also designed to be used through the :py:mod:`mlflow.deployments` module.
     This means that you can deploy to SageMaker using the
     `mlflow deployments CLI <https://www.mlflow.org/docs/latest/cli.html#mlflow-deployments>`_ and
@@ -2152,7 +2152,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         This function creates a SageMaker endpoint. For more information about the input data
         formats accepted by this endpoint, see the
-        :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+        `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
         Args:
             name: Name of the deployed application.
@@ -2327,7 +2327,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\
-                    'InitalSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
+                    'InitialSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
                     'CaptureOptions': [{'CaptureMode': 'Output'}]}'
                     -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\
@@ -2520,7 +2520,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             }
             data_capture_config = {
                 "EnableCapture": True,
-                "InitalSamplingPercentage": 100,
+                "InitialSamplingPercentage": 100,
                 "DestinationS3Uri": "s3://my-bucket/path",
                 "CaptureOptions": [{"CaptureMode": "Output"}],
             }
@@ -2570,7 +2570,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\
-                    "InitalSamplingPercentage": 100, "DestinationS3Uri": "s3://my-bucket/path", \\
+                    "InitialSamplingPercentage": 100, "DestinationS3Uri": "s3://my-bucket/path", \\
                     "CaptureOptions": [{"CaptureMode": "Output"}]}'
                     -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\

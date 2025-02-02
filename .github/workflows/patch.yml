@@ -7,9 +7,6 @@ on:
       - edited
       - synchronize
 
-permissions:
-  contents: read
-
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}

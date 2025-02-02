@@ -101,7 +101,7 @@ tracking store."""
 
 def invalid_value(path, value, message=None):
     """
-    Compose a standarized error message for invalid parameter values.
+    Compose a standardized error message for invalid parameter values.
     """
     formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
 
@@ -115,18 +115,22 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 
+def not_integer_value(path, value):
+    return f"Parameter '{path}' must be an integer, got '{value}'."
+
+
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
 
 
-def append_to_json_path(currenPath, value):
-    if not currenPath:
+def append_to_json_path(currentPath, value):
+    if not currentPath:
         return value
 
     if value.startswith("["):
-        return f"{currenPath}{value}"
+        return f"{currentPath}{value}"
 
-    return f"{currenPath}.{value}"
+    return f"{currentPath}.{value}"
 
 
 def bad_path_message(name):
@@ -463,7 +467,12 @@ def _validate_experiment_id_type(experiment_id):
 
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
-        raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_renaming(model_new_name):
+    if model_new_name is None or model_new_name == "":
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version(model_version):
@@ -471,8 +480,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            f"Model version must be an integer, got '{model_version}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 

@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from unittest import mock
 
 import pytest
@@ -6,17 +7,20 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
+from mlflow.tracing.destination import MlflowExperiment, TraceDestination
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
     is_tracing_enabled,
-    reset_tracer_setup,
     start_span_in_context,
     trace_disabled,
 )
@@ -52,7 +56,7 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
     start_span_in_context("test1")
     assert mock_setup_tracer_provider.call_count == 1
 
-    reset_tracer_setup()
+    mlflow.tracing.reset()
     assert mock_setup_tracer_provider.call_count == 2
 
     start_span_in_context("test2")
@@ -72,6 +76,51 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert len(processors) == 1
     assert isinstance(processors[0], InferenceTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
+
+
+def test_set_destination_mlflow_experiment():
+    default_tracking_uri = mlflow.get_tracking_uri()
+
+    # Set destination with experiment_id
+    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowSpanProcessor)
+    assert processors[0]._experiment_id == "123"
+    assert processors[0]._client.tracking_uri == default_tracking_uri
+    assert isinstance(processors[0].span_exporter, MlflowSpanExporter)
+
+    # Set destination with experiment_id and tracking_uri
+    mlflow.tracing.set_destination(
+        destination=MlflowExperiment(experiment_id="456", tracking_uri="http://localhost")
+    )
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert processors[0]._experiment_id == "456"
+    assert processors[0]._client.tracking_uri == "http://localhost"
+
+
+def test_set_destination_databricks_agent():
+    @dataclass
+    class DatabricksAgentMonitoring(TraceDestination):
+        databricks_monitor_id: str
+
+        @property
+        def type(self):
+            return "databricks_agent_monitoring"
+
+    mlflow.tracing.set_destination(
+        destination=DatabricksAgentMonitoring(databricks_monitor_id="foo")
+    )
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksAgentSpanProcessor)
+    assert processors[0].span_exporter._databricks_monitor_id == "foo"
 
 
 def test_disable_enable_tracing():

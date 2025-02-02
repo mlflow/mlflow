@@ -74,7 +74,7 @@ def test_file_artifact_is_logged_with_content_metadata(
     s3_client = s3_artifact_repo._get_s3_client()
     response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
     assert response.get("ContentType") == "text/plain"
-    assert response.get("ContentEncoding") is None
+    assert response.get("ContentEncoding") == "aws-chunked"
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
@@ -184,15 +184,15 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")
     assert response_a.get("ContentType") == "text/plain"
-    assert response_a.get("ContentEncoding") is None
+    assert response_a.get("ContentEncoding") == "aws-chunked"
 
     response_b = s3_client.head_object(Bucket=bucket, Key="some/path/b.tar.gz")
     assert response_b.get("ContentType") == "application/x-tar"
-    assert response_b.get("ContentEncoding") == "gzip"
+    assert response_b.get("ContentEncoding") == "gzip,aws-chunked"
 
     response_c = s3_client.head_object(Bucket=bucket, Key="some/path/nested/c.csv")
     assert response_c.get("ContentType") == "text/csv"
-    assert response_c.get("ContentEncoding") is None
+    assert response_c.get("ContentEncoding") == "aws-chunked"
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(

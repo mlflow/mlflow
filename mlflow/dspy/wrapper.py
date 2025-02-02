@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -9,6 +10,8 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
 from mlflow.pyfunc import PythonModel
+
+_logger = logging.getLogger(__name__)
 
 
 class DspyModelWrapper(PythonModel):
@@ -32,8 +35,11 @@ class DspyModelWrapper(PythonModel):
         self.model_config = model_config or {}
 
     def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
+        import dspy
         import numpy as np
         import pandas as pd
+
+        dspy.settings.configure(**self.dspy_settings)
 
         supported_input_types = (np.ndarray, pd.DataFrame, str, dict)
         if not isinstance(inputs, supported_input_types):
@@ -68,6 +74,10 @@ class DspyChatModelWrapper(DspyModelWrapper):
     def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
         import dspy
         import pandas as pd
+
+        # `dspy.settings` cannot be shared across threads, so we are setting it at every predict
+        # call.
+        dspy.settings.configure(**self.dspy_settings)
 
         if isinstance(inputs, dict):
             converted_inputs = inputs["messages"]
@@ -104,7 +114,10 @@ class DspyChatModelWrapper(DspyModelWrapper):
             choices.append(
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": json.dumps(outputs.toDict())},
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(outputs.toDict()),
+                    },
                     "finish_reason": "stop",
                 }
             )
@@ -123,7 +136,10 @@ class DspyChatModelWrapper(DspyModelWrapper):
                     choices.append(
                         {
                             "index": 0,
-                            "message": {"role": role, "content": json.dumps(outputs.toDict())},
+                            "message": {
+                                "role": role,
+                                "content": json.dumps(outputs.toDict()),
+                            },
                             "finish_reason": "stop",
                         }
                     )

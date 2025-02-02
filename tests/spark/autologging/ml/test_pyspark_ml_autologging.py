@@ -23,7 +23,14 @@ from pyspark.ml.evaluation import (
     MulticlassClassificationEvaluator,
     RegressionEvaluator,
 )
-from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenizer, VectorAssembler
+from pyspark.ml.feature import (
+    HashingTF,
+    IndexToString,
+    StandardScaler,
+    StringIndexer,
+    Tokenizer,
+    VectorAssembler,
+)
 from pyspark.ml.functions import array_to_vector
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
@@ -507,7 +514,10 @@ def test_pipeline(dataset_text):
         assert run_data.tags == get_expected_class_tags(estimator)
         assert MODEL_DIR in run_data.artifacts
         loaded_model = load_model_by_run_id(run_id)
-        assert loaded_model.uid == model.uid
+        pd.testing.assert_frame_equal(
+            loaded_model.transform(dataset_text).toPandas(),
+            model.transform(dataset_text).toPandas(),
+        )
         assert run_data.artifacts == ["estimator_info.json", "model"]
 
 
@@ -953,7 +963,7 @@ def test_log_post_training_metrics_configuration(dataset_iris_binomial):
     mce = MulticlassClassificationEvaluator()
     metric_name = mce.getMetricName()
 
-    # Ensure post-traning metrics autologging can be toggled on / off
+    # Ensure post-training metrics autologging can be toggled on / off
     for log_post_training_metrics in [True, False, True]:
         mlflow.pyspark.ml.autolog(log_post_training_metrics=log_post_training_metrics)
 
@@ -1331,3 +1341,22 @@ def test_model_with_vector_input_vector_output(spark_session):
 
     test_pdf = pd.DataFrame({"features": [[1.0, 2.0], [3.0, 4.0]]})
     model.predict(test_pdf)  # ensure enforcing input / output schema passing
+
+
+def test_autolog_custom_output_col_pipeline(spark_session):
+    mlflow.pyspark.ml.autolog()
+    scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+    pipeline = Pipeline(stages=[scaler])
+    train_df = spark_session.createDataFrame(
+        [
+            (Vectors.dense([0.0]), 1.0),
+            (Vectors.dense([2.0]), 2.0),
+        ],
+        ["features", "label"],
+    )
+    with mlflow.start_run():
+        pipeline_model = pipeline.fit(train_df)
+
+    assert pipeline_model.stages[-1].getOutputCol() == "scaled_features"
+    pred_df = pipeline_model.transform(train_df)
+    assert "scaled_features" in pred_df.columns

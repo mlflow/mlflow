@@ -61,7 +61,7 @@ export const TraceDataDrawer = ({
       return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
     }
     return requestId;
-  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId, theme]);
+  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId]);
 
   // Construct the model trace object with the trace info and trace data
   const combinedModelTrace = useMemo(
@@ -154,7 +154,7 @@ export const TraceDataDrawer = ({
       return (
         <div
           css={{
-            height: '100%',
+            height: `calc(100% - ${theme.spacing.sm}px)`,
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
             marginBottom: -theme.spacing.lg,

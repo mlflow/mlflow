@@ -80,6 +80,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,
@@ -319,7 +320,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": ""},
+                        "text": "",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -331,7 +332,11 @@ async def test_completions_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "text": "test",
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -341,7 +346,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "text": None,
                         "finish_reason": "length",
                         "index": 0,
                     }

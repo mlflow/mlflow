@@ -5,6 +5,9 @@ import fastapi
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
+from mlflow.types.chat import ChatCompletionRequest
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+
 EMPTY_CHOICES = "EMPTY_CHOICES"
 
 app = fastapi.FastAPI()
@@ -15,18 +18,11 @@ def health():
     return {"status": "healthy"}
 
 
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class ChatPayload(BaseModel):
-    messages: list[Message]
-    temperature: float = 0
-    stream: bool = False
-
-
-def chat_response(payload: ChatPayload):
+def chat_response(payload: ChatCompletionRequest):
+    if IS_PYDANTIC_V2_OR_NEWER:
+        dumped_input = json.dumps([m.model_dump(exclude_unset=True) for m in payload.messages])
+    else:
+        dumped_input = json.dumps([m.dict(exclude_unset=True) for m in payload.messages])
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -38,7 +34,7 @@ def chat_response(payload: ChatPayload):
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": json.dumps([m.dict() for m in payload.messages]),
+                    "content": dumped_input,
                 },
                 "logprobs": None,
                 "finish_reason": "stop",
@@ -102,13 +98,8 @@ async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk("Hello")
 
 
-@app.post("/chat/completions")
-async def chat(payload: ChatPayload):
-    if not 0.0 <= payload.temperature <= 2.0:
-        return fastapi.Response(
-            content="Temperature must be between 0.0 and 2.0",
-            status_code=400,
-        )
+@app.post("/chat/completions", response_model_exclude_unset=True)
+async def chat(payload: ChatCompletionRequest):
     if payload.stream:
         # SSE stream
         if EMPTY_CHOICES == payload.messages[0].content:

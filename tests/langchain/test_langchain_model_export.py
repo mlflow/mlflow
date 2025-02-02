@@ -29,7 +29,7 @@ from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
 
 from tests.tracing.helper import get_traces
 
@@ -37,6 +37,8 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain_community.llms import HuggingFacePipeline
+from unittest.mock import ANY
+
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models.base import SimpleChatModel
 from langchain.llms.base import LLM
@@ -97,7 +99,7 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
+from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.langchain.conftest import DeterministicDummyEmbeddings
@@ -905,7 +907,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     ]
     # "id" field was added to Document model in langchain 0.2.7
     if Version(langchain.__version__) >= Version("0.2.7"):
-        expected_result = [{**d, "id": None} for d in expected_result]
+        expected_result = [{**d, "id": ANY} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever
@@ -1275,11 +1277,14 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
         "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
+        "model": "",
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": "Databricks"},
+                "message": {
+                    "role": "assistant",
+                    "content": "Databricks",
+                },
                 "finish_reason": None,
             }
         ],
@@ -2133,28 +2138,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "ai: What would you like to ask?\n"
         "human: Who owns MLflow?"
     )
-    example_output = {
-        "id": "some_id",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "some_model",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-    }
-    signature = infer_signature(model_input=input_example, model_output=example_output)
 
     chain = ChatModel() | StrOutputParser()
     assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
@@ -2162,9 +2145,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         chain.invoke(input_example)
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert (
@@ -2176,7 +2157,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         "id": None,
         "object": "chat.completion",
         "created": 1677858242,
-        "model": None,
+        "model": "",
         "choices": [
             {
                 "index": 0,
@@ -2226,7 +2207,6 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     chain = ChatModel()
     result = chain.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2234,9 +2214,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     assert result.content == "You own MLflow"
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain, "model_path", signature=signature, input_example=input_example
-        )
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     result = loaded_model.invoke([HumanMessage(content="Who owns MLflow?")])
@@ -2253,7 +2231,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
                 "id": None,
                 "object": "chat.completion",
                 "created": 1677858242,
-                "model": None,
+                "model": "",
                 "choices": [
                     {
                         "index": 0,
@@ -2308,18 +2286,18 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     ]
     assert pyfunc_loaded_model.predict(
         {
-            "messages": [{"role": "user", "content": "blah"}, {"role": "blah"}],
+            "messages": [{"role": "user", "content": "blah"}, {}],
         }
     ) == [
         {"role": "user", "content": "blah"},
-        {"role": "blah"},
+        {},
     ]
     assert pyfunc_loaded_model.predict(
         {
-            "messages": [{"role": "role", "content": "content", "extra": "extra"}],
+            "messages": [{"role": "user", "content": 123}],
         }
     ) == [
-        {"role": "role", "content": "content", "extra": "extra"},
+        {"role": "user", "content": 123},
     ]
 
     # Verify behavior for batches of message histories
@@ -2353,12 +2331,15 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
                 "messages": [{"role": "user", "content": "content"}],
             },
             {
-                "messages": [{"role": "user", "content": "content"}, {"role": "user"}],
+                "messages": [
+                    {"role": "user", "content": "content"},
+                    {"role": "user", "content": 123},
+                ],
             },
         ]
     ) == [
         [{"role": "user", "content": "content"}],
-        [{"role": "user", "content": "content"}, {"role": "user"}],
+        [{"role": "user", "content": "content"}, {"role": "user", "content": 123}],
     ]
 
 
@@ -2378,15 +2359,15 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
             {"role": "user", "content": "Who owns MLflow?"},
         ]
     }
-    signature = infer_signature(model_input=input_example)
 
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             chain,
             "langchain_model",
-            signature=signature,
             input_example=input_example,
         )
+    assert logged_model.signature is not None
+    assert logged_model.signature.outputs is not None
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict(input_example)
     # Verify that the chat request format was converted into LangChain messages correctly, but
@@ -2568,7 +2549,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
-    reset_tracer_setup()
+    mlflow.tracing.reset()
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
@@ -2957,7 +2938,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -2970,7 +2951,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -2983,7 +2964,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
                     "id": None,
                     "object": "chat.completion.chunk",
                     "created": 1677858242,
-                    "model": None,
+                    "model": "",
                     "choices": [
                         {
                             "index": 0,
@@ -3174,11 +3155,14 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
             "id": None,
             "object": "chat.completion",
             "created": 1677858242,
-            "model": None,
+            "model": "",
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": "Databricks"},
+                    "message": {
+                        "role": "assistant",
+                        "content": "Databricks",
+                    },
                     "finish_reason": None,
                 }
             ],
@@ -3485,7 +3469,7 @@ def test_agent_executor_model_with_messages_input():
     assert list(response) == expected_response
 
 
-def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
+def test_signature_inference_succeeds_with_any_type(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     model = RunnableLambda(lambda x: x)
@@ -3494,10 +3478,12 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
         model_info = mlflow.langchain.log_model(
             model,
             "model",
-            # Use an empty array to trigger an error in signature inference
             input_example={"chat": []},
         )
-        assert model_info.signature is None
+
+    schema = Schema([ColSpec(AnyType(), name="chat")])
+    assert model_info.signature.inputs == schema
+    assert model_info.signature.outputs == schema
 
 
 @pytest.mark.skipif(
@@ -3516,7 +3502,7 @@ def test_invoking_model_with_params():
     params = {"config": {"temperature": 3.0}}
     with mock.patch("mlflow.pyfunc._validate_prediction_input", return_value=(data, params)):
         # This proves the temperature is passed to the model
-        with pytest.raises(MlflowException, match=r"Temperature must be between 0.0 and 2.0"):
+        with pytest.raises(MlflowException, match=r"Input should be less than or equal to 2"):
             pyfunc_model.predict(data=data, params=params)
 
 
@@ -3688,3 +3674,35 @@ def test_pyfunc_converts_chat_request_correctly(
     else:
         assert inspect.isgenerator(response)
         assert list(response) == ["Databricks"], list(response)
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Langgraph are not supported the way we want in earlier versions",
+)
+def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
+    input_example = {"messages": [{"role": "user", "content": "What's the weather in nyc?"}]}
+    params = {"config": {"configurable": {"thread_id": "1"}}}
+
+    monkeypatch.setenv("MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", "false")
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            "tests/langchain/sample_code/langgraph_prebuilt.py",
+            "model",
+            input_example=(input_example, params),
+        )
+    assert model_info.signature.params == ParamSchema(
+        [
+            ParamSpec(
+                "config",
+                Object([Property("configurable", Object([Property("thread_id", "string")]))]),
+                params["config"],
+            )
+        ]
+    )
+    langchain_model = mlflow.langchain.load_model(model_info.model_uri)
+    result = langchain_model.invoke(input_example, **params)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert len(pyfunc_model.predict(input_example, params)[0]["messages"]) == len(
+        result["messages"]
+    )
