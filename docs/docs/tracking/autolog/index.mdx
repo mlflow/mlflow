@@ -145,7 +145,7 @@ Autologging captures the following information:
       <td>user-specified metrics</td>
       <td>Logs optimizer data as parameters. For example, `epochs`, `lr`, `opt_func`, etc; Logs the parameters of the [EarlyStoppingCallback](https://docs.fast.ai/callback.tracker.html#earlystoppingcallback) and [OneCycleScheduler](https://fastai1.fast.ai/callbacks.one_cycle.html#OneCycleScheduler) callbacks</td>
       <td>--</td>
-      <td>Model checkpoints are logged to a ‘models’ directory; [MLflow Model](/models) (fastai Learner model) on training end; Model summary text is logged</td>
+      <td>Model checkpoints are logged to a ‘models’ directory; [MLflow Model](/model) (fastai Learner model) on training end; Model summary text is logged</td>
     </tr>
   </tbody>
 </table>
@@ -176,7 +176,7 @@ Autologging captures the following information:
       <td>Training loss; validation loss; user-specified metrics</td>
       <td>`fit()` parameters; optimizer name; learning rate; epsilon</td>
       <td>--</td>
-      <td>Model summary on training start; [MLflow Model](/models) (Keras model); TensorBoard logs on training end</td>
+      <td>Model summary on training start; [MLflow Model](/model) (Keras model); TensorBoard logs on training end</td>
     </tr>
     <tr>
       <td>`tf.keras.callbacks.EarlyStopping`</td>
@@ -217,7 +217,7 @@ Autologging captures the following information:
       <td>--</td>
       <td>
       - Traces;
-      - [MLflow Model](/models) (LangChain model) with model signature on training end;
+      - [MLflow Model](/model) (LangChain model) with model signature on training end;
       - Input example
 
       </td>
@@ -279,7 +279,7 @@ Autologging captures the following information:
       <td>user-specified metrics</td>
       <td>[lightgbm.train](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train) parameters</td>
       <td>--</td>
-      <td>[MLflow Model](/models) (LightGBM model) with model signature on training end; feature importance; input example;</td>
+      <td>[MLflow Model](/model) (LightGBM model) with model signature on training end; feature importance; input example;</td>
     </tr>
   </tbody>
 </table>
@@ -310,7 +310,7 @@ Autologging captures the following information:
       <td>--</td>
       <td>--</td>
       <td>
-      - [MLflow Model](/models) (OpenAI model) with model signature on training end;
+      - [MLflow Model](/model) (OpenAI model) with model signature on training end;
       - Input example
 
       </td>
@@ -341,7 +341,7 @@ Autologging captures the following information:
       <td>user-specified metrics</td>
       <td>[paddle.Model.fit](https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html) parameters</td>
       <td>--</td>
-      <td>[MLflow Model](/models) (Paddle model) with model signature on training end</td>
+      <td>[MLflow Model](/model) (Paddle model) with model signature on training end</td>
     </tr>
   </tbody>
 </table>
@@ -372,7 +372,7 @@ Autologging for pyspark ml estimators captures the following information:
 
       </td>
       <td>
-        - [MLflow Model](/models) containing a fitted estimator
+        - [MLflow Model](/model) containing a fitted estimator
         - `metric_info.json` for post training metrics
 
       </td>
@@ -404,14 +404,14 @@ Autologging is triggered on calls to `pytorch_lightning.trainer.Trainer.fit` and
       <td>Training loss; validation loss; average_test_accuracy; user-defined-metrics</td>
       <td>`fit()` parameters; optimizer name; learning rate; epsilon.</td>
       <td>--</td>
-      <td>Model summary on training start, [MLflow Model](/models) (PyTorch model) on training end;</td>
+      <td>Model summary on training start, [MLflow Model](/model) (PyTorch model) on training end;</td>
     </tr>
     <tr>
       <td>`pytorch_lightning.callbacks.earlystopping`</td>
       <td>Training loss; validation loss; average_test_accuracy; user-defined-metrics. Metrics from the `EarlyStopping` callbacks. For example, `spotted_epoch`, `restored_epoch`, `restore_best_weight`, etc</td>
       <td>`fit()` parameters; optimizer name; learning rate; epsilon. Parameters from the `EarlyStopping` callbacks. For example, `min_delta`, `patience`, `baseline`, `restore_best_weights`, etc</td>
       <td>--</td>
-      <td>Model summary on training start; [MLflow Model](/models) (PyTorch model) on training end; Best PyTorch model checkpoint, if training stops due to early stopping callback.</td>
+      <td>Model summary on training start; [MLflow Model](/model) (PyTorch model) on training end; Best PyTorch model checkpoint, if training stops due to early stopping callback.</td>
     </tr>
   </tbody>
 </table>
@@ -579,7 +579,7 @@ Autologging captures the following information:
       <td>user-specified metrics</td>
       <td>[statsmodels.base.model.Model.fit](https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html) parameters</td>
       <td>--</td>
-      <td>[MLflow Model](/models) (statsmodels.base.wrapper.ResultsWrapper) on training end</td>
+      <td>[MLflow Model](/model) (statsmodels.base.wrapper.ResultsWrapper) on training end</td>
     </tr>
   </tbody>
 </table>
@@ -612,7 +612,7 @@ Autologging captures the following information:
       <td>user-specified metrics</td>
       <td>[xgboost.train](https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train) parameters</td>
       <td>--</td>
-      <td>[MLflow Model](/models) (XGBoost model) with model signature on training end; feature importance; input example</td>
+      <td>[MLflow Model](/model) (XGBoost model) with model signature on training end; feature importance; input example</td>
     </tr>
   </tbody>
 </table>
