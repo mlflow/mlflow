@@ -42,14 +42,14 @@ allows you to capture detailed trace data, enabling better debugging, performanc
 Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
-- [Automated tracing with GenAI libraries](/llms/tracing#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
-- [Manual trace instrumentation with high-level fluent APIs](/llms/tracing#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
-- [Low-level client APIs for tracing](/llms/tracing#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
+- [Automated tracing with GenAI libraries](/tracing#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
+- [Manual trace instrumentation with high-level fluent APIs](/tracing#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
+- [Low-level client APIs for tracing](/tracing#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
 
-To learn more about what tracing is, see our [Tracing Concepts Overview](/llms/tracing/overview) guide. For an in-depth exploration into the structure of
-MLflow traces and their schema, see the [Tracing Schema](/llms/tracing/tracing-schema) guide.
+To learn more about what tracing is, see our [Tracing Concepts Overview](/tracing/concept) guide. For an in-depth exploration into the structure of
+MLflow traces and their schema, see the [Tracing Schema](/tracing/tracing-schema) guide.
 
-If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](/llms/tracing/contribute) guide.
+If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](/tracing/integrations/contribute) guide.
 
 ![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
 
@@ -134,7 +134,7 @@ with your favorite provider!
 :::note
 The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source
 LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source
-models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`\_.
+models from the [Hugging Face Hub](https://huggingface.co/docs/hub/index).
 :::
 
 ## LLM Evaluation

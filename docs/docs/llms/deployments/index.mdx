@@ -1,5 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # MLflow AI Gateway (Experimental)
 
@@ -1396,7 +1397,7 @@ loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(loaded_model.predict(df))
 ```
 
-This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a `spark_udf`, used with <APILink fn="mlflow.evaluate" />, or [deploy](/models#built-in-deployment) like any other model.
+This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a `spark_udf`, used with <APILink fn="mlflow.evaluate" />, or [deploy](/model#built-in-deployment) like any other model.
 
 #### REST API \{#deployments-rest-api}
 
@@ -1581,7 +1582,7 @@ A working example can be found in the MLflow repository at
 
 ## MLflow AI Gateway API Documentation
 
-[API documentation](/llms/deployments/api.html)
+<Link to={useBaseUrl("/api_reference/llms/deployments/api.html")} target="_blank">API documentation</Link>
 
 ## OpenAI Compatibility
 

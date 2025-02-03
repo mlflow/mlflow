@@ -11,7 +11,7 @@ import TabItem from "@theme/TabItem";
 
 # Manual Tracing
 
-In addition to the [Auto Tracing](/tracing#automatic-tracing) integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.
+In addition to the [Auto Tracing](/tracing/#automatic-tracing) integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.
 
 ## Decorator
 
@@ -88,7 +88,7 @@ def invoke(prompt: str):
 
 ### Adding Trace Tags
 
-Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/tracing/sdk/how-to#setting-trace-tags) for the other methods.
+Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/tracing/api/how-to/#setting-trace-tags) for the other methods.
 
 ```python
 @mlflow.trace
@@ -221,7 +221,7 @@ start_session()
 
 ## (Advanced) Low-level Client APIs
 
-When the decorator or context manager does not meet your requirements, you can use the low-level client APIs. For example, you might need to start and end a span from different functions. The client API is designed as a thin wrapper over the MLflow REST APIs, giving you more control over the trace lifecycle. For more details, please refer to the [MLflow Tracing Client APIs](/tracing/sdk/client) guide.
+When the decorator or context manager does not meet your requirements, you can use the low-level client APIs. For example, you might need to start and end a span from different functions. The client API is designed as a thin wrapper over the MLflow REST APIs, giving you more control over the trace lifecycle. For more details, please refer to the [MLflow Tracing Client APIs](/tracing/api/client) guide.
 
 :::warning
 When using client APIs, please be aware of the following limitations:
