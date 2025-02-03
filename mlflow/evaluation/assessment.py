@@ -7,11 +7,28 @@ from mlflow.entities.assessment import Assessment as AssessmentEntity
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Assessment(_MlflowObject):
     """
     Assessment data associated with an evaluation result.
+
+    Assessment is an enriched output from the evaluation that provides more context,
+    such as the rationale, source, and metadata for the evaluation result.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.evaluation import Assessment
+
+        assessment = Assessment(
+            name="answer_correctness",
+            value=0.5,
+            rationale="The answer is partially correct.",
+        )
     """
 
     def __init__(

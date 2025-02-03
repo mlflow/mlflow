@@ -399,7 +399,6 @@ class MlflowClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
-    @experimental
     def delete_traces(
         self,
         experiment_id: str,
@@ -457,7 +456,6 @@ class MlflowClient:
             request_ids=request_ids,
         )
 
-    @experimental
     def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
@@ -483,7 +481,6 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
-    @experimental
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -530,7 +527,6 @@ class MlflowClient:
         get_display_handler().display_traces(traces)
         return traces
 
-    @experimental
     def start_trace(
         self,
         name: str,
@@ -647,7 +643,6 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
     def end_trace(
         self,
         request_id: str,
@@ -716,11 +711,17 @@ class MlflowClient:
         Returns:
             The request ID of the logged trace.
         """
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        # If the trace is created outside MLflow experiment (e.g. model serving), it does
+        # not have an experiment ID, but we need to log it to the tracking server.
+        experiment_id = trace.info.experiment_id or _get_experiment_id()
+
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
         # no way to insert the trace with a specific request ID given by the user.
         new_info = self._tracking_client.start_trace(
-            experiment_id=trace.info.experiment_id,
+            experiment_id=experiment_id,
             timestamp_ms=trace.info.timestamp_ms,
             request_metadata={},
             tags={},
@@ -765,7 +766,6 @@ class MlflowClient:
             json.dumps(parsed_spans, ensure_ascii=False),
         )
 
-    @experimental
     def start_span(
         self,
         name: str,
@@ -931,7 +931,6 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
     def end_span(
         self,
         request_id: str,
@@ -1033,7 +1032,6 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
-    @experimental
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1076,7 +1074,6 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(request_id, key, value)
 
-    @experimental
     def delete_trace_tag(self, request_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
@@ -2432,6 +2429,8 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
+            # TODO: reconsider the separator used here since % has special meaning in URL encoding.
+            # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )

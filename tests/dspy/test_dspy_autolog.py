@@ -9,16 +9,19 @@ from dspy.evaluate import Evaluate
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
-from dspy.utils.dummies import DSPDummyLM, DummyLM
+from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+
+_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
 
 def test_autolog_lm():
@@ -46,6 +49,17 @@ def test_autolog_lm():
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
 
+    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test input",
+        },
+        {
+            "role": "assistant",
+            "content": "[[ ## output ## ]]\ntest output",
+        },
+    ]
+
 
 def test_autolog_cot():
     mlflow.dspy.autolog()
@@ -72,10 +86,12 @@ def test_autolog_cot():
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert spans[0].attributes["signature"] == "question -> answer"
+    assert spans[0].attributes["signature"] == (
+        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
+    )
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
-    assert spans[1].inputs == {"question": "How are you?", "signature": mock.ANY}
+    assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
     assert spans[2].span_type == SpanType.PARSER
@@ -97,6 +113,8 @@ def test_autolog_cot():
     for i in range(3):
         assert spans[4 + i].name == f"ChatAdapter.parse_{i+1}"
         assert spans[4 + i].span_type == SpanType.PARSER
+
+    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5
 
 
 def test_mlflow_callback_exception():
@@ -138,13 +156,16 @@ def test_mlflow_callback_exception():
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
 
+    # Chat attribute should capture input message only when an error occurs
+    messages = spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+
 
 @pytest.mark.skipif(
-    # NB: We also need to filter out version < 2.5.17 because installing DSPy
-    # from source will have hard-coded version number 2.5.15.
-    # https://github.com/stanfordnlp/dspy/blob/803dff03c42d2f436aa67398ce5aba17e7b45611/pyproject.toml#L8-L9
-    _DSPY_VERSION >= Version("2.5.19") or _DSPY_VERSION < Version("2.5.17"),
-    reason="dspy.ReAct is broken in >=2.5.19",
+    _DSPY_VERSION < Version("2.5.42"),
+    reason="DSPy callback does not handle Tool in versions < 2.5.42",
 )
 def test_autolog_react():
     mlflow.dspy.autolog()
@@ -153,24 +174,29 @@ def test_autolog_react():
         lm=DummyLM(
             [
                 {
-                    "Thought_1": "I need to search for the highest mountain in the world",
-                    "Action_1": "Search['Highest mountain in the world']",
+                    "next_thought": "I need to search for the highest mountain in the world",
+                    "next_tool_name": "search",
+                    "next_tool_args": {"query": "Highest mountain in the world"},
                 },
                 {
-                    "Thought_2": "I found the highest mountain in the world",
-                    "Action_2": "Finish[Mount Everest]",
+                    "next_thought": "I found the highest mountain in the world",
+                    "next_tool_name": "finish",
+                    "next_tool_args": {"answer": "Mount Everest"},
+                },
+                {
+                    "answer": "Mount Everest",
+                    "reasoning": "No more responses",
                 },
             ]
         ),
+        adapter=dspy.ChatAdapter(),
     )
 
-    class BasicQA(dspy.Signature):
-        """Answer questions with short factoid answers."""
+    def search(query: str) -> list[str]:
+        return "Mount Everest"
 
-        question = dspy.InputField()
-        answer = dspy.OutputField(desc="often between 1 and 5 words")
-
-    react = dspy.ReAct(BasicQA, tools=[])
+    tools = [dspy.Tool(search)]
+    react = dspy.ReAct("question -> answer", tools=tools)
     result = react(question="What is the highest mountain in the world?")
     assert result["answer"] == "Mount Everest"
 
@@ -180,19 +206,27 @@ def test_autolog_react():
     assert trace.info.execution_time_ms > 0
 
     spans = trace.data.spans
-    assert len(spans) == 10
+    assert len(spans) == 15
     assert [span.name for span in spans] == [
         "ReAct.forward",
         "Predict.forward_1",
         "ChatAdapter.format_1",
         "DummyLM.__call___1",
         "ChatAdapter.parse_1",
-        "Retrieve.forward",
+        "Tool.search",
         "Predict.forward_2",
         "ChatAdapter.format_2",
         "DummyLM.__call___2",
         "ChatAdapter.parse_2",
+        "ChainOfThought.forward",
+        "Predict.forward_3",
+        "ChatAdapter.format_3",
+        "DummyLM.__call___3",
+        "ChatAdapter.parse_3",
     ]
+
+    assert spans[3].span_type == SpanType.CHAT_MODEL
+    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 3
 
 
 def test_autolog_retriever():
@@ -376,7 +410,9 @@ def test_disable_autolog():
 
 def test_autolog_set_retriever_schema():
     mlflow.dspy.autolog()
-    dspy.settings.configure(lm=DSPDummyLM(answers=["4", "6", "8", "10"]))
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    )
 
     class CoT(dspy.Module):
         def __init__(self):

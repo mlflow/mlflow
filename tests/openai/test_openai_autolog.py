@@ -5,11 +5,30 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.conftest import is_v1
 from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces
+
+MOCK_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add",
+            "description": "Add two numbers",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "a": {"type": "number"},
+                    "b": {"type": "number"},
+                },
+                "required": ["a", "b"],
+            },
+        },
+    }
+]
 
 
 @pytest.fixture
@@ -118,19 +137,24 @@ def test_chat_completions_autolog_streaming(client):
     }
     assert span.outputs == "Hello world"  # aggregated string of streaming response
 
-    stream_event_data = trace.data.spans[0].attributes["events"]
-
-    assert stream_event_data[0]["id"] == "chatcmpl-123"
-    assert stream_event_data[0]["choices"][0]["delta"]["content"] == "Hello"
-    assert stream_event_data[1]["id"] == "chatcmpl-123"
-    assert stream_event_data[1]["choices"][0]["delta"]["content"] == " world"
+    stream_event_data = trace.data.spans[0].events
+    assert stream_event_data[0].name == "chunk_0"
+    chunk_1 = json.loads(stream_event_data[0].attributes["ChatCompletionChunk"])
+    assert chunk_1["id"] == "chatcmpl-123"
+    assert chunk_1["choices"][0]["delta"]["content"] == "Hello"
+    assert stream_event_data[1].name == "chunk_1"
+    chunk_2 = json.loads(stream_event_data[1].attributes["ChatCompletionChunk"])
+    assert chunk_2["id"] == "chatcmpl-123"
+    assert chunk_2["choices"][0]["delta"]["content"] == " world"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_chat_completions_autolog_tracing_error(client):
     mlflow.openai.autolog()
     messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.BadRequestError, match="Temperature must be between 0.0 and 2.0"):
+    with pytest.raises(
+        openai.UnprocessableEntityError, match="Input should be less than or equal to 2"
+    ):
         client.chat.completions.create(
             messages=messages,
             model="gpt-4o-mini",
@@ -147,31 +171,48 @@ def test_chat_completions_autolog_tracing_error(client):
     assert span.outputs is None
 
     assert span.events[0].name == "exception"
-    assert span.events[0].attributes["exception.type"] == "openai.BadRequestError"
+    assert span.events[0].attributes["exception.type"] == "UnprocessableEntityError"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_chat_completions_autolog_tracing_error(client):
+def test_chat_completions_autolog_tracing_error_with_parent_span(client):
     mlflow.openai.autolog()
-    messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.BadRequestError, match="Temperature must be between 0.0 and 2.0"):
-        client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=5.0,
-        )
+
+    @mlflow.trace
+    def create_completions(text: str) -> str:
+        try:
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": text}],
+                model="gpt-4o-mini",
+                temperature=5.0,
+            )
+            return response.choices[0].delta.content
+        except openai.OpenAIError as e:
+            raise MlflowException("Failed to create completions") from e
+
+    with pytest.raises(MlflowException, match="Failed to create completions"):
+        create_completions("test")
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "ERROR"
 
-    assert len(trace.data.spans) == 1
-    span = trace.data.spans[0]
-    assert span.name == "Completions"
-    assert span.inputs["messages"][0]["content"] == "test"
-    assert span.outputs is None
+    assert len(trace.data.spans) == 2
+    parent_span = trace.data.spans[0]
+    assert parent_span.name == "create_completions"
+    assert parent_span.inputs == {"text": "test"}
+    assert parent_span.outputs is None
+    assert parent_span.status.status_code == "ERROR"
+    assert parent_span.events[0].name == "exception"
+    assert parent_span.events[0].attributes["exception.type"] == "mlflow.exceptions.MlflowException"
+    assert parent_span.events[0].attributes["exception.message"] == "Failed to create completions"
 
-    assert span.events[0].name == "exception"
-    assert span.events[0].attributes["exception.type"] == "BadRequestError"
+    child_span = trace.data.spans[1]
+    assert child_span.name == "Completions"
+    assert child_span.inputs["messages"][0]["content"] == "test"
+    assert child_span.outputs is None
+    assert child_span.status.status_code == "ERROR"
+    assert child_span.events[0].name == "exception"
+    assert child_span.events[0].attributes["exception.type"] == "UnprocessableEntityError"
 
 
 def test_chat_completions_streaming_empty_choices(client):
@@ -274,12 +315,16 @@ def test_completions_autolog_streaming(client):
     }
     assert span.outputs == "Hello world"  # aggregated string of streaming response
 
-    stream_event_data = trace.data.spans[0].attributes["events"]
+    stream_event_data = trace.data.spans[0].events
 
-    assert stream_event_data[0]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-    assert stream_event_data[0]["choices"][0]["text"] == "Hello"
-    assert stream_event_data[1]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-    assert stream_event_data[1]["choices"][0]["text"] == " world"
+    assert stream_event_data[0].name == "chunk_0"
+    chunk_1 = json.loads(stream_event_data[0].attributes["Completion"])
+    assert chunk_1["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    assert chunk_1["choices"][0]["text"] == "Hello"
+    assert stream_event_data[1].name == "chunk_1"
+    chunk_2 = json.loads(stream_event_data[1].attributes["Completion"])
+    assert chunk_2["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    assert chunk_2["choices"][0]["text"] == " world"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
@@ -369,10 +414,13 @@ def test_autolog_use_active_run_id(client, log_models):
 def test_autolog_raw_response(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
         )
         resp = resp.parse()  # ensure the raw response is returned
 
@@ -384,15 +432,22 @@ def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
+    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
+        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
+    )
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 
 def test_autolog_raw_response_stream(client):
     mlflow.openai.autolog()
 
+    messages = [{"role": "user", "content": "test"}]
+
     with mlflow.start_run():
         resp = client.chat.completions.with_raw_response.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "test"}],
+            messages=messages,
+            tools=MOCK_TOOLS,
             stream=True,
         )
         resp = resp.parse()  # ensure the raw response is returned
@@ -402,3 +457,7 @@ def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs == "Hello world"
+    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
+        messages + [{"role": "assistant", "content": "Hello world"}]
+    )
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS

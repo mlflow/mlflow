@@ -4,7 +4,7 @@ from typing import Optional
 
 import opentelemetry.trace as trace_api
 import pytest
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
@@ -67,8 +67,8 @@ def create_mock_otel_span(
         def set_status(self, status):
             self._status = status
 
-        def add_event():
-            pass
+        def add_event(self, name, attributes=None, timestamp=None):
+            self._events.append(Event(name, attributes, timestamp))
 
         def get_span_context(self):
             return self._context
@@ -79,7 +79,7 @@ def create_mock_otel_span(
         def update_name(self, name):
             self.name = name
 
-        def end(self):
+        def end(self, end_time=None):
             pass
 
         def record_exception():

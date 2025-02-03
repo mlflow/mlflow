@@ -16,6 +16,7 @@ from langchain_community.embeddings import FakeEmbeddings
 from langchain_community.llms.openai import OpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableLambda
@@ -31,7 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
 
@@ -117,6 +118,16 @@ def test_llm_success():
     assert llm_span.inputs == ["test prompt"]
     assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -144,6 +155,12 @@ def test_llm_error():
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -165,6 +182,152 @@ def test_llm_internal_exception():
             callback.on_llm_end(LLMResult(generations=[[{"text": "generated"}]]), run_id="dummy")
     finally:
         callback.flush()
+
+
+def test_chat_model():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [SystemMessage("system prompt"), HumanMessage("test prompt")]
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.name == "test_chat_model"
+    assert chat_model_span.span_type == "CHAT_MODEL"
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.inputs == [[msg.dict() for msg in input_messages]]
+    assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "system",
+            "content": "system prompt",
+        },
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+
+
+def test_chat_model_with_tool():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [HumanMessage("test prompt")]
+    # OpenAI tool format
+    tool_definition = {
+        "type": "function",
+        "function": {
+            "name": "GetWeather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+                "properties": {
+                    "location": {
+                        "description": "The city and state, e.g. San Francisco, CA",
+                        "type": "string",
+                    }
+                },
+                "required": ["location"],
+                "type": "object",
+            },
+        },
+    }
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"tools": [tool_definition]},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [tool_definition]
+
+
+def test_chat_model_with_non_openai_tool():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    input_messages = [HumanMessage("test prompt")]
+    # Anthropic tool format
+    tool_definition = {
+        "name": "get_weather",
+        "description": "Get the weather for a location.",
+        "input_schema": {
+            "properties": {
+                "location": {
+                    "description": "The city and state, e.g. San Francisco, CA",
+                    "type": "string",
+                }
+            },
+            "required": ["location"],
+            "type": "object",
+        },
+    }
+    callback.on_chat_model_start(
+        {},
+        [input_messages],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"tools": [tool_definition]},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.status.status_code == SpanStatusCode.OK
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test prompt",
+        },
+        {
+            "role": "assistant",
+            "content": "generated text",
+        },
+    ]
+    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather for a location.",
+            },
+        }
+    ]
 
 
 def test_retriever_success():
@@ -318,6 +481,16 @@ def test_multiple_components():
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
         assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
+        assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+            {
+                "role": "user",
+                "content": f"test prompt {i}",
+            },
+            {
+                "role": "assistant",
+                "content": f"generated text {i}",
+            },
+        ]
 
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"

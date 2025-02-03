@@ -479,6 +479,8 @@ def validate_path_is_safe(path):
 
     # We must decode path before validating it
     path = _decode(path)
+    # If control characters are included in the path, escape them.
+    path = _escape_control_characters(path)
 
     exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     if "#" in path:
@@ -496,6 +498,19 @@ def validate_path_is_safe(path):
         raise exc
 
     return path
+
+
+def _escape_control_characters(text: str) -> str:
+    # Method to escape control characters (e.g. \u0017)
+    def escape_char(c):
+        code_point = ord(c)
+
+        # If it's a control character (ASCII 0-31 or 127), escape it
+        if (0 <= code_point <= 31) or (code_point == 127):
+            return f"%{code_point:02x}"
+        return c
+
+    return "".join(escape_char(c) for c in text)
 
 
 def validate_query_string(query):

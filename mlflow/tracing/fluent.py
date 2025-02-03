@@ -264,11 +264,9 @@ def start_span(
             attributes[SpanAttributeKey.MODEL_ID] = model_id
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
-    except Exception as e:
-        _logger.warning(
-            f"Failed to start span: {e}. For full traceback, set logging level to debug.",
-            exc_info=_logger.isEnabledFor(logging.DEBUG),
-        )
+
+    except Exception:
+        _logger.debug(f"Failed to start span {name}.", exc_info=True)
         mlflow_span = NoOpSpan()
         yield mlflow_span
         return
@@ -281,12 +279,8 @@ def start_span(
     finally:
         try:
             mlflow_span.end()
-        except Exception as e:
-            _logger.warning(
-                f"Failed to end span {mlflow_span.span_id}: {e}. "
-                "For full traceback, set logging level to debug.",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
+        except Exception:
+            _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
 def get_trace(request_id: str) -> Optional[Trace]:
@@ -332,7 +326,6 @@ def get_trace(request_id: str) -> Optional[Trace]:
         return None
 
 
-@experimental
 def search_traces(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -582,7 +575,6 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-@experimental
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
 ):

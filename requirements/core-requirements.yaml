@@ -81,3 +81,11 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
+
+uvicorn:
+  pip_release: uvicorn
+  max_major_version: 0

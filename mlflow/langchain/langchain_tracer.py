@@ -3,9 +3,9 @@ import logging
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema.runnable import RunnableSequence
+import pydantic
 from langchain_core.agents import AgentAction, AgentFinish
+from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.documents import Document
 from langchain_core.load.dump import dumps
 from langchain_core.messages import BaseMessage
@@ -14,6 +14,7 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
+from langchain_core.runnables import RunnableSequence
 from tenacity import RetryCallState
 
 import mlflow
@@ -21,10 +22,16 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.langchain.utils.chat import (
+    convert_lc_generation_to_chat_message,
+    convert_lc_message_to_chat_message,
+)
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -223,7 +230,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when a chat model starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        self._start_span(
+
+        span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAT_MODEL,
@@ -231,6 +239,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=messages,
             attributes=kwargs,
         )
+
+        mlflow_messages = [
+            convert_lc_message_to_chat_message(msg)
+            for message_list in messages
+            for msg in message_list
+        ]
+        set_span_chat_messages(span, mlflow_messages)
+
+        if tools := self._extract_tool_definitions(kwargs):
+            set_span_chat_tools(span, tools)
 
     def on_llm_start(
         self,
@@ -247,7 +265,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        self._start_span(
+
+        span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
             parent_run_id=parent_run_id,
             span_type=SpanType.LLM,
@@ -255,6 +274,35 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=prompts,
             attributes=kwargs,
         )
+
+        mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
+        set_span_chat_messages(span, mlflow_messages)
+
+        if tools := self._extract_tool_definitions(kwargs):
+            set_span_chat_tools(span, tools)
+
+    def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
+        raw_tools = kwargs.get("invocation_params", {}).get("tools", [])
+        tools = []
+        for raw_tool in raw_tools:
+            # First, try to parse the raw tool dictionary as OpenAI-style tool
+            try:
+                tool = ChatTool.validate_compat(raw_tool)
+                tools.append(tool)
+            except pydantic.ValidationError:
+                # If not OpenAI style, just try to extract the name and descriptions.
+                if name := raw_tool.get("name"):
+                    tool = ChatTool(
+                        type="function",
+                        function=FunctionToolDefinition(
+                            name=name, description=raw_tool.get("description")
+                        ),
+                    )
+                    tools.append(tool)
+                else:
+                    _logger.warning(f"Failed to parse tool definition for tracing: {raw_tool}.")
+
+        return tools
 
     def on_llm_new_token(
         self,
@@ -310,8 +358,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
-        outputs = response.dict()
-        self._end_span(run_id, llm_span, outputs=outputs)
+
+        # Record the chat messages attribute
+        input_messages = llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
+        output_messages = [
+            convert_lc_generation_to_chat_message(gen)
+            for gen_list in response.generations
+            for gen in gen_list
+        ]
+        set_span_chat_messages(llm_span, input_messages + output_messages)
+        self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(
         self,

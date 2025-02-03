@@ -1,5 +1,29 @@
 # MLflow: A Machine Learning Lifecycle Platform
 
+### 📢 Announcements 📢
+
+---
+
+### MLflow Virtual Meetup
+
+​Join us for our virtual meetup for the global MLflow user and contributor base! Core contributors will be sharing updates on the latest direction in MLflow development, with feature demos and Q&A.
+
+Register here: https://lu.ma/pmcwcenq?tk=FHui91
+
+This month's topics:
+
+- ​Explore how to utilize Unity Catalog to safely store, use, and integrate your python functions for use in GenAI Agent applications. In this demo, we'll go through how to use the Unity Catalog AI function client, how to store functions for use in multiple Agent authoring libraries, and how using MLflow's tracing capabilities allow you to inspect the inner workings of complex tool-calling agents with no additional work or configuration needed.
+  ​
+- MLflow Tracing is an observability feature designed for debugging, evaluating, and monitoring your GenAI application. We'll highlight 15+ integrations and key improvements we've made this year, and preview exciting updates for 2025, including human annotation, metrics integration, and more!
+
+---
+
+### MLflow Community Survey
+
+Help us improve MLflow by taking our [survey](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)!
+
+---
+
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
 [![Total Downloads](https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi&logoColor=white)](https://pepy.tech/project/mlflow)
@@ -41,6 +65,10 @@ Alternatively, you can install MLflow from on differnet package hosting platform
 ## Documentation 📘
 
 Official documentation for MLflow can be found at [here](https://mlflow.org/docs/latest/index.html).
+
+## Running Anywhare 🌐
+
+You can run MLflow on many different environments, including local development, Amazon SageMaker, AzureML, and Databricks. Please refer to [this guidance](https://mlflow.org/docs/index.html#running-mlflow-anywhere) for how to setup MLflow on your environment.
 
 ## Usage
 

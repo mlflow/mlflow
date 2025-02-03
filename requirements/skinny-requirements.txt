@@ -16,3 +16,4 @@ opentelemetry-api<3,>=1.9.0
 opentelemetry-sdk<3,>=1.9.0
 databricks-sdk<1,>=0.20.0
 pydantic<3,>=1.0
+typing-extensions<5,>=4.0.0

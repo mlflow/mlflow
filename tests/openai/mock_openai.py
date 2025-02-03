@@ -1,9 +1,12 @@
 import json
-from typing import Literal, Union
+from typing import Union
 
 import fastapi
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from starlette.responses import StreamingResponse
+
+from mlflow.types.chat import ChatCompletionRequest
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 EMPTY_CHOICES = "EMPTY_CHOICES"
 
@@ -15,45 +18,11 @@ def health():
     return {"status": "healthy"}
 
 
-class TextContentPart(BaseModel):
-    type: Literal["text"]
-    text: str
-
-
-class ImageUrl(BaseModel):
-    url: str
-    detail: Literal["auto", "low", "high"]
-
-
-class ImageContentPart(BaseModel):
-    type: Literal["image_url"]
-    image_url: ImageUrl
-
-
-class InputAudio(BaseModel):
-    data: str
-    format: Literal["wav", "mp3"]
-
-
-class AudioContentPart(BaseModel):
-    type: Literal["input_audio"]
-    input_audio: InputAudio
-
-
-class Message(BaseModel):
-    role: str
-    content: Union[str, list[Union[TextContentPart, ImageContentPart, AudioContentPart]]] = Field(
-        union_mode="left_to_right"
-    )
-
-
-class ChatPayload(BaseModel):
-    messages: list[Message]
-    temperature: float = 0
-    stream: bool = False
-
-
-def chat_response(payload: ChatPayload):
+def chat_response(payload: ChatCompletionRequest):
+    if IS_PYDANTIC_V2_OR_NEWER:
+        dumped_input = json.dumps([m.model_dump(exclude_unset=True) for m in payload.messages])
+    else:
+        dumped_input = json.dumps([m.dict(exclude_unset=True) for m in payload.messages])
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -65,7 +34,7 @@ def chat_response(payload: ChatPayload):
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": json.dumps([m.dict() for m in payload.messages]),
+                    "content": dumped_input,
                 },
                 "logprobs": None,
                 "finish_reason": "stop",
@@ -129,13 +98,8 @@ async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk("Hello")
 
 
-@app.post("/chat/completions")
-async def chat(payload: ChatPayload):
-    if not 0.0 <= payload.temperature <= 2.0:
-        return fastapi.Response(
-            content="Temperature must be between 0.0 and 2.0",
-            status_code=400,
-        )
+@app.post("/chat/completions", response_model_exclude_unset=True)
+async def chat(payload: ChatCompletionRequest):
     if payload.stream:
         # SSE stream
         if EMPTY_CHOICES == payload.messages[0].content:

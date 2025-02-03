@@ -184,6 +184,7 @@ async def test_chat(payload, expected_llm_input):
                         "role": "assistant",
                         "content": "This is a test",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
