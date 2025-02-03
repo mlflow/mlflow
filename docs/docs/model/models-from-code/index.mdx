@@ -15,15 +15,17 @@ you are required to use the legacy serialization methods outlined in the [Custom
 :::
 
 :::note
-Models from code is only available for [LangChain](/llms/langchain), [LlamaIndex](/llm/llama-index), and custom `pyfunc` (PythonModel instances) models. If you are
-using other libraries directly, using the provided saving and logging functionality within specific model flavors is recommended.
+Models from code is only available for [LangChain](/llms/langchain), [LlamaIndex](/llms/llama-index), and custom Python agents
+or GenAI apps written using `pyfunc`. For other use cases (e.g. classic ML with xgboost), if you are using ML libraries
+directly, using the saving and logging functionality within the corresponding model flavor is recommended.
 :::
 
 The models from code feature is a comprehensive overhaul of the process of defining, storing, and loading both custom models and specific flavor
 implementations that do not depend on serialized model weights (such as [LangChain](/llms/langchain) and
-[LlamaIndex](/llms/llama-index)).
+[LlamaIndex](/llms/llama-index)). If you are writing a custom Python model or GenAI agent/app, you should use models from
+code.
 
-The key difference between legacy serialization of these models and the Models from Code approach is in how a model is represented during serialization.
+The key difference between Models from Code and legacy serialization of these models is in how a model is represented during serialization.
 
 In the legacy approach, serialization is done on the model object using either `cloudpickle` (custom pyfunc and LangChain) or a custom serializer that has incomplete coverage
 (in the case of LlamaIndex) of all functionality within the underlying package. For custom pyfunc, the usage of `cloudpickle` to serialize object instances creates a binary file that is used to reconstruct the object when loaded.
