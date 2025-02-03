@@ -806,6 +806,7 @@ class PyFuncModel:
                 }
             )
 
+    @property
     def input_example(self) -> Optional[Any]:
         """
         The input example provided when the model was saved.
