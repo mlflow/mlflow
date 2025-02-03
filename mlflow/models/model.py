@@ -807,13 +807,13 @@ class Model:
     def log(
         cls,
         artifact_path,
-        name,
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         run_id=None,
         resources=None,
+        name: Optional[str] = None,
         model_type: Optional[str] = None,
         params: Optional[dict[str, Any]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -827,7 +827,6 @@ class Model:
 
         Args:
             artifact_path: Deprecated. Use `name` instead.
-            name: The name of the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
                 MLflow model.
@@ -842,6 +841,7 @@ class Model:
             run_id: The run ID to associate with this model. If not provided, a new run will be
                 started.
             resources: {{ resources }}
+            name: The name of the model.
             model_type: {{ model_type }}
             params: {{ params }}
             tags: {{ tags }}
