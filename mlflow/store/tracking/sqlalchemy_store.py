@@ -1335,7 +1335,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.join(non_attr_filter)
             for idx, dataset_filter in enumerate(dataset_filters):
                 # need to reference the anon table in the join condition
-                anon_table_name = f"anon_{idx+1}"
+                anon_table_name = f"anon_{idx + 1}"
                 stmt = stmt.join(
                     dataset_filter,
                     text(f"runs.run_uuid = {anon_table_name}.destination_id"),
