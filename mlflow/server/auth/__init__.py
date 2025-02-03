@@ -10,9 +10,7 @@ Usage
 import functools
 import importlib
 import logging
-import os
 import re
-import uuid
 from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
@@ -25,12 +23,12 @@ from flask import (
     render_template_string,
     request,
 )
-from flask_wtf.csrf import CSRFProtect
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -83,7 +81,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
-from mlflow.server import FLASK_SERVER_SECRET_KEY, app
+from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
@@ -117,6 +115,14 @@ from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+
+try:
+    from flask_wtf.csrf import CSRFProtect
+except ImportError as e:
+    raise ImportError(
+        "The MLflow basic auth app requires the Flask-WTF package to perform CSRF "
+        "validation. Please run `pip install mlflow[auth]` to install it."
+    ) from e
 
 _logger = logging.getLogger(__name__)
 
@@ -788,7 +794,7 @@ def signup():
 
 
 @catch_mlflow_exception
-def create_user_ui():
+def create_user_ui(csrf):
     csrf.protect()
     content_type = request.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
@@ -927,9 +933,6 @@ def delete_registered_model_permission():
     return make_response({})
 
 
-csrf = CSRFProtect()
-
-
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -947,12 +950,23 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    app.secret_key = os.environ.get(FLASK_SERVER_SECRET_KEY, str(uuid.uuid4()))
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    app.secret_key = secret_key
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
     # APIs that do not have access to the CSRF token for validation
     app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+    csrf = CSRFProtect()
     csrf.init_app(app)
 
     store.init_db(auth_config.database_uri)
@@ -965,7 +979,7 @@ def create_app(app: Flask = app):
     )
     app.add_url_rule(
         rule=CREATE_USER_UI,
-        view_func=create_user_ui,
+        view_func=lambda: create_user_ui(csrf),
         methods=["POST"],
     )
     app.add_url_rule(

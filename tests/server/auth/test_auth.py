@@ -16,7 +16,11 @@ import requests
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
@@ -39,11 +43,13 @@ from tests.tracking.integration_test_utils import (
 def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    extra_env = getattr(request, "param", {})
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
 
     with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
-        extra_env=getattr(request, "param", {}),
+        extra_env=extra_env,
         app="mlflow.server.auth:create_app",
     ) as url:
         yield MlflowClient(url)

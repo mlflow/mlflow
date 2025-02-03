@@ -5,11 +5,11 @@ import shlex
 import sys
 import textwrap
 import types
-import uuid
 
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -39,7 +39,6 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
-FLASK_SERVER_SECRET_KEY = "_MLFLOW_SERVER_SECRET_KEY"
 
 REL_STATIC_DIR = "js/build"
 
@@ -283,7 +282,7 @@ def _run_server(  # noqa: D417
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    env_map[FLASK_SERVER_SECRET_KEY] = str(uuid.uuid4())
+    env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
 
     if app_name is None:
         app = f"{__name__}:app"
