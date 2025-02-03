@@ -319,8 +319,7 @@ def get_or_create_conda_env(
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):
                 _logger.warning(
-                    "Encountered unexpected error while creating conda environment. "
-                    "Removing %s.",
+                    "Encountered unexpected error while creating conda environment. Removing %s.",
                     project_env_path,
                 )
                 process._exec_cmd(

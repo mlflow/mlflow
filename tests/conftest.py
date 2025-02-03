@@ -110,10 +110,10 @@ def clean_up_leaked_runs():
     """
     try:
         yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
+        assert not mlflow.active_run(), (
+            "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
+                mlflow.active_run().info, mlflow.active_run().data
+            )
         )
     finally:
         while mlflow.active_run():

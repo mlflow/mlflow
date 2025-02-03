@@ -585,17 +585,17 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, dat
     flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME, None)
     assert flavor_conf is not None
     assert flavor_conf.get("save_format") == "tf"
-    assert not os.path.exists(
-        os.path.join(model_path, "data", "model.h5")
-    ), "TF model was saved with HDF5 format; expected SavedModel"
+    assert not os.path.exists(os.path.join(model_path, "data", "model.h5")), (
+        "TF model was saved with HDF5 format; expected SavedModel"
+    )
     if Version(tf.__version__).release < (2, 16):
-        assert os.path.isdir(
-            os.path.join(model_path, "data", "model")
-        ), "Expected directory containing saved_model.pb"
+        assert os.path.isdir(os.path.join(model_path, "data", "model")), (
+            "Expected directory containing saved_model.pb"
+        )
     else:
-        assert os.path.exists(
-            os.path.join(model_path, "data", "model.keras")
-        ), "Expected model saved as model.keras"
+        assert os.path.exists(os.path.join(model_path, "data", "model.keras")), (
+            "Expected model saved as model.keras"
+        )
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
     np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))

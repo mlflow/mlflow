@@ -145,8 +145,7 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                f"Unsupported Databricks profile name: {scope}."
-                f" Profile names cannot contain '{c}'."
+                f"Unsupported Databricks profile name: {scope}. Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
@@ -155,8 +154,7 @@ def validate_db_scope_prefix_info(scope, prefix):
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            f"Unsupported Databricks profile key prefix: '{prefix}'."
-            " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'. Key prefixes cannot be empty."
         )
 
 
