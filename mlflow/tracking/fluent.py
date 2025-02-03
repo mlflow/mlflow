@@ -2183,23 +2183,26 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
         :test:
         :caption: Example
 
+        import tempfile
+
         import mlflow
 
         features = "rooms, zipcode, median_price, school_rating, transport"
-        with open("features.txt", "w") as f:
-            f.write(features)
+        with tempfile.NamedTemporaryFile("w") as tmp_file:
+            tmp_file.write(features)
+            tmp_file.flush()
 
-        # Log the artifact in a directory "features" under the root artifact_uri/features
-        with mlflow.start_run():
-            mlflow.log_artifact("features.txt", artifact_path="features")
+            # Log the artifact in a directory "features" under the root artifact_uri/features
+            with mlflow.start_run():
+                mlflow.log_artifact(tmp_file.name, artifact_path="features")
 
-            # Fetch the artifact uri root directory
-            artifact_uri = mlflow.get_artifact_uri()
-            print(f"Artifact uri: {artifact_uri}")
+                # Fetch the artifact uri root directory
+                artifact_uri = mlflow.get_artifact_uri()
+                print(f"Artifact uri: {artifact_uri}")
 
-            # Fetch a specific artifact uri
-            artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
-            print(f"Artifact uri: {artifact_uri}")
+                # Fetch a specific artifact uri
+                artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
+                print(f"Artifact uri: {artifact_uri}")
 
     .. code-block:: text
         :caption: Output
