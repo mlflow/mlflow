@@ -312,6 +312,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     rep: pytest.TestReport = outcome.get_result()
     if (
         rep.failed
+        and rep.when == "call"
         and call.excinfo
         and isinstance(call.excinfo.value, NotImplementedError)
         and str(call.excinfo.value) == "SqlAlchemyStore"
