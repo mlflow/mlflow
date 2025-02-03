@@ -43,7 +43,7 @@ In order to build the full MLflow documentation (i.e. the contents of https://ml
 The generated `build` folder is expected to be hosted at https://mlflow.org/docs/latest. However, as our docs are versioned, we also have to generate the documentation for `https://mlflow.org/docs/{version}`. To do this conveniently, you can run the following command:
 
 ```
-yarn build-for-release
+yarn build-all
 ```
 
 This command will run all the necessary steps from the "Build and Serve" workflow above, and set the correct values for `DOCS_BASE_URL`. The generated HTML will be dumped to `_build/latest` and `_build/{version}`. These two folders can then be copied to the [docs repo](https://github.com/mlflow/mlflow-legacy-website/tree/main/docs) and uploaded to the website.
