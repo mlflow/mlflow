@@ -6,6 +6,7 @@ sidebar_position: 0
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # MLflow Models
 
@@ -544,8 +545,8 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to="/api_reference/R-api.html#mlflow-save-model-h2o" target="_blank">mlflow_save_model</Link>
-and <Link to="/api_reference/R-api.html#mlflow-log-model" target="_blank">mlflow_log_model</Link> in R for saving H2O
+and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="_blank">mlflow_save_model</Link>
+and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="_blank">mlflow_log_model</Link> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
@@ -1038,8 +1039,8 @@ print(predictions)
 
 The `xgboost` model flavor enables logging of [XGBoost models](https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster)
 in MLflow format via the <APILink fn="mlflow.xgboost.save_model" /> and <APILink fn="mlflow.xgboost.log_model" />
-methods in python and <Link to="/api_reference/R-api.html#mlflow-save-model-crate">`mlflow_save_model`</Link>
-and <Link to="/api_reference/R-api.html#mlflow-log-model">`mlflow_log_model`</Link> in R respectively.
+methods in python and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-crate")} target="_blank">`mlflow_save_model`</Link>
+and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="_blank">`mlflow_log_model`</Link> in R respectively.
 These methods also add the `python_function` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can only be scored with DataFrame input. You can also use the <APILink fn="mlflow.xgboost.load_model" />
@@ -4212,7 +4213,7 @@ After logging your model with MLflow Tracking, it is highly recommended to valid
 The <APILink fn="mlflow.models.predict" /> API provides a convenient way to test your model in a virtual environment, offering isolated execution and several advantages:
 
 - Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
-  For more details, refer to [Validating Environment for Prediction](/model/dependecies/#validating-environment-for-prediction>).
+  For more details, refer to [Validating Environment for Prediction](/model/dependencies/#validating-environment-for-prediction).
 - Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
   Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
 - Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.

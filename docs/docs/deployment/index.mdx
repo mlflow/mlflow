@@ -34,9 +34,9 @@ By using MLflow deployment toolset, you can enjoy the following benefits:
 
 ## Concepts
 
-### [MLflow Model](/models)
+### [MLflow Model](/model)
 
-[MLflow Model](/models) is a standard format that packages a machine learning model with its metadata, such as dependencies and inference schema.
+[MLflow Model](/model) is a standard format that packages a machine learning model with its metadata, such as dependencies and inference schema.
 You typically create a model as a result of training execution using the [MLflow Tracking APIs](/tracking), for instance, <APILink fn="mlflow.pyfunc.log_model" />.
 Alternatively, models can be registered and retrieved via the [MLflow Model Registry](/model-registry).
 To use MLflow deployment, you must first create a model.
@@ -55,7 +55,7 @@ cloud services (AWS, Azure), Kubernetes clusters, and others.
 
 ## How it works
 
-An [MLflow Model](/models) already packages your model and its dependencies, hence MLflow can create either a virtual environment (for local deployment)
+An [MLflow Model](/model) already packages your model and its dependencies, hence MLflow can create either a virtual environment (for local deployment)
 or a Docker container image containing everything needed to run your model. Subsequently, MLflow launches an inference server with REST endpoints using
 frameworks like [Flask](https://flask.palletsprojects.com/en/1.1.x), preparing it for deployment to various destinations to handle inference requests.
 Detailed information about the server and endpoints is available in [Inference Server Specification](/deployment/deploy-model-locally#local-inference-server-spec).
@@ -120,5 +120,5 @@ Almost all functionalities available in MLflow deployment can also be accessed v
 
 ## FAQ
 
-If you encounter any dependency issues during model deployment, please refer to [Model Dependencies FAQ](/model/dependencies/model-dependencies-troubleshooting)
+If you encounter any dependency issues during model deployment, please refer to [Model Dependencies FAQ](/model/dependencies/#model-dependencies-troubleshooting)
 for guidance on how to troubleshoot and validate fixes.

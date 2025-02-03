@@ -278,7 +278,7 @@ plugin:
       <td>[PluginDeploymentClient](https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py)</td>
     </tr>
     <tr>
-      <td>Plugins for [MLflow Model Evaluation](/models#model-evaluation)</td>
+      <td>Plugins for [MLflow Model Evaluation](/model#model-evaluation)</td>
       <td>mlflow.model_evaluator</td>
       <td>
         The entry point name (e.g. `dummy_evaluator`) is the evaluator name which is used in the `evaluators` argument of the `mlflow.evaluate` API.
@@ -438,7 +438,7 @@ and the conda.yaml file associated with the model.
 ### Deployment Plugins
 
 The following known plugins provide support for deploying models to custom serving tools using
-MLflow's [model deployment APIs](/models#deployment-plugin). See the individual plugin pages
+MLflow's [model deployment APIs](/model#deployment-plugin). See the individual plugin pages
 for installation instructions, and see the <APILink fn="mlflow.deployments">Python API docs</APILink>
 and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">CLI docs</Link> for usage instructions and examples.
 
@@ -454,7 +454,7 @@ and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">CLI do
 
 ### Model Evaluation Plugins
 
-The following known plugins provide support for evaluating models with custom validation tools using MLflow's [mlflow.evaluate() API](/models#model-evaluation):
+The following known plugins provide support for evaluating models with custom validation tools using MLflow's [mlflow.evaluate() API](/model#model-evaluation):
 
 - [mlflow-giskard](https://docs.giskard.ai/en/latest/integrations/mlflow/index.html): Detect hidden vulnerabilities in ML models, from tabular to LLMs, before moving to production.
   Anticipate issues such as [Performance bias](https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html),
