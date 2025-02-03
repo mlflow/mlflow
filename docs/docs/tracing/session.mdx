@@ -15,7 +15,7 @@ In conversational AI applications, it is common that users interact with the mod
 
 ![Traces with session IDs](/images/llms/tracing/trace-session-id.gif)
 
-The following example shows how to use session ID in a chat model that has been implemented using the <APILink fn="mlflow.pyfunc.ChatModel" /> class. Refer to the [Trace Tags](#trace-tags) section for more information on how to set tags on traces.
+The following example shows how to use session ID in a chat model that has been implemented using the <APILink fn="mlflow.pyfunc.ChatModel" /> class. Refer to the [Setting Trace Tags](/tracing/api/how-to/#setting-trace-tags) section in the [How-To Guide](/tracing/api/how-to/) for more information on how to set tags on traces.
 
 ```python
 import mlflow
@@ -66,7 +66,7 @@ response = model.predict(
 
 The above code creates two new traces with the same session ID tag. Within the MLflow UI, you can search for these traces that have this defined session ID using `tag.session_id = '123'`.
 
-Alternatively, you can use the <APILink fn="mlflow.search_traces" /> function to get these traces programmatically. Refer to [Searching and Retrieving Traces](/tracing/sdk/search) for more details.
+Alternatively, you can use the <APILink fn="mlflow.search_traces" /> function to get these traces programmatically. Refer to [Searching and Retrieving Traces](/tracing/api/search) for more details.
 
 ```python
 traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")

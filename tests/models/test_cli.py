@@ -725,9 +725,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
     with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
-            assert (
-                scoring_response.status_code == 200
-            ), f"Failed to serve prediction, got response {scoring_response.text}"
+            assert scoring_response.status_code == 200, (
+                f"Failed to serve prediction, got response {scoring_response.text}"
+            )
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)["predictions"]), sk_model.predict(x)
             )

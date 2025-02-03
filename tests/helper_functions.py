@@ -681,7 +681,7 @@ def flaky(max_tries=3):
                 try:
                     return test_func(*args, **kwargs)
                 except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    _logger.warning(f"Attempt {i + 1} failed with error: {e}")
                     if i == max_tries - 1:
                         raise
                     time.sleep(3)

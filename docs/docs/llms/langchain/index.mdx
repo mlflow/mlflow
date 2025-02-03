@@ -108,7 +108,7 @@ use a chain.
 
 <CardGroup>
   <PageCard
-    link="/notebooks/langchain-quickstart"
+    link="/llms/langchain/notebooks/langchain-quickstart"
     headerText="LangChain Quickstart"
     text={[
       "Get started with MLflow and LangChain by exploring the simplest possible chain configuration of a prompt and model chained to create a single-purpose utility application.",
@@ -123,7 +123,7 @@ exploring these more advanced use cases.
 
 <CardGroup>
   <PageCard
-    link="/notebooks/langchain-retriever"
+    link="/llms/langchain/notebooks/langchain-retriever"
     headerText="RAG tutorial with LangChain"
     text={[
       "Learn how to build a LangChain RAG with MLflow integration to answer highly specific questions about the legality of business ventures.",
@@ -143,7 +143,7 @@ The feature provides several benefits to manage LangChain models:
 
 3. **Readability**: The serialized objects are often hardly readable by humans. Model-from-code allows you to review your model definition via code.
 
-Refer to the [Models From Code feature documentation](/models/#models-from-code) for more information about this feature.
+Refer to the [Models From Code feature documentation](/model/#models-from-code) for more information about this feature.
 
 In order to use this feature, you will utilize the <APILink fn="mlflow.models.set_model" /> API to define the chain that you would like to log as an MLflow model.
 After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain.
@@ -279,13 +279,13 @@ To learn more about the details of the MLflow LangChain flavor, read the detaile
   logging the model. LangChain components that do not set this value will be saved without issue, but a `ValueError` will be raised when loading if unset.
 
   To fix this, simply re-log your model, specifying the option `allow_dangerous_deserialization=True` in your defined loader function. See the tutorial
-  [for LangChain retrievers](/llms/langchain/notebooks/langchain-retriever.html#Establishing-RetrievalQA-Chain-and-Logging-with-MLflow) for an example of specifying this
+  [for LangChain retrievers](/llms/langchain/notebooks/langchain-retriever/#establishing-retrievalqa-chain-and-logging-with-mlflow) for an example of specifying this
   option when logging a `FAISS` vector store instance within a `loader_fn` declaration.
 
 ### I can't save my chain, agent, or retriever with MLflow.
 
 :::tip
-If you're encountering issues with logging or saving LangChain components with MLflow, see the [models from code](/models/#models-from-code)
+If you're encountering issues with logging or saving LangChain components with MLflow, see the [models from code](/model/#models-from-code)
 feature documentation to determine if logging your model from a script file provides a simpler and more robust logging solution!
 :::
 

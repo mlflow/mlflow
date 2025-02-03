@@ -447,7 +447,7 @@ answer_similarity = mlflow.metrics.genai.answer_similarity(
 
 [MLflow AI Gateway](/llms/deployments/) is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
 
-1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/llms/deployments/#quickstart).
+1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/llms/deployments/#deployments-quickstart).
 2. Set the MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
 3. Set `endpoints:/<endpoint-name>` to the `model` parameter in the metrics definition.
 
@@ -709,7 +709,7 @@ This is particularly useful when you want to evaluate a deployed model hosted by
 
 Please don't forget to set the target deployment client by using <APILink fn="mlflow.deployments.set_deployments_target" /> before calling <APILink fn="mlflow.evaluate" /> with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like `MlflowException: No deployments target has been set...`.
 
-:::hint
+:::info
 When you want to use an endpoint **not** hosted by an MLflow AI Gateway or Databricks, you can create a custom Python function following the [Evaluating with a Custom Function](#llm-eval-custom-function) guide and use it as the `model` argument.
 :::
 
@@ -762,7 +762,7 @@ The input data can be either of the following format when using an URI of the ML
                 )
                 ```
             </td>
-            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/llms/deployments/#standard-query-parameters) for more information about the request format for different model endpoint types.</td>
+            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/llms/deployments/#standard-deployments-parameters) for more information about the request format for different model endpoint types.</td>
         </tr>
         <tr>
             <td>A list of input strings.</td>

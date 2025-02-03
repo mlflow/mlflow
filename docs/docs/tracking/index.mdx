@@ -4,7 +4,7 @@ sidebar_position: 0
 ---
 
 import Link from "@docusaurus/Link";
-import { Card } from "@site/src/components/Card";
+import { PageCard, CardGroup } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
@@ -27,7 +27,13 @@ and <Link to="/api_reference/java_api/index.html" target="_blank">Java</Link> AP
 
 If you haven't used MLflow Tracking before, we strongly recommend going through the following quickstart tutorial.
 
-<Card headerText="MLflow Tracking Quickstart" link="/getting-started/intro-quickstart" text="A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. " />
+<CardGroup>
+  <PageCard 
+    headerText="MLflow Tracking Quickstart"
+    link="/getting-started/intro-quickstart"
+    text="A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference."
+  />
+</CardGroup>
 
 ## Concepts
 
@@ -48,7 +54,7 @@ for more details on how to organize your runs into experiments.
 
 MLflow Tracing is an integrated part of the MLflow Tracking API that allows you to instrument your GenAI applications. Whether you're using the `LangChain`
 integration with MLflow Tracing, the Fluent APIs for tracing, or the lower-level Client APIs, MLflow tracking will record your trace data for future review,
-debugging, or analysis. See the [MLflow Tracing Guide](/llms/tracing) for more details.
+debugging, or analysis. See the [MLflow Tracing Guide](/tracing) for more details.
 
 ## Tracking Runs \{#start-logging}
 
@@ -90,7 +96,7 @@ your team, follow the instructions in the [Set up MLflow Tracking Environment](#
 ## Tracking Datasets
 
 MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the <APILink fn="mlflow.log_input" /> API.
-To learn more, please visit the [MLflow data documentation](/tracking/data-api) to see the features available in this API.
+To learn more, please visit the [MLflow data documentation](/dataset/) to see the features available in this API.
 
 ## Explore Runs and Results
 
@@ -225,7 +231,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server has `--artifacts-only` option, which lets the server to serve (proxy) only artifacts
     and not metadata. This is particularly useful when you are in a large organization or training huge models, you might have high artifact
     transfer volumes and want to split out the traffic for serving artifacts to not impact tracking functionality. Please read
-    [Optionally using a Tracking Server instance exclusively for artifact handling](/tracking/server#optionally-using-a-tracking-server-instance-exclusively-for-artifact-handling)
+    [Optionally using a Tracking Server instance exclusively for artifact handling](/tracking/server#tracking-server-artifacts-only)
     for more details on how to use this mode.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -239,7 +245,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
     to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality
     of metadata tracking. This can be done by disabling artifact proxying by starting server with `--no-serve-artifacts` option.
-    Refer to [Use Tracking Server without Proxying Artifacts Access](/tracking/server#use-tracking-server-w-o-proxying-artifacts-access)
+    Refer to [Use Tracking Server without Proxying Artifacts Access](/tracking/server#tracking-server-no-proxy)
     for how to set this up.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -262,7 +268,7 @@ MLflow provides a few ways to organize your runs:
 
 - [Organize runs into experiments](/tracking/tracking-api#organizing-runs-in-experiments) - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
 - [Create child runs](/tracking/tracking-api#child_runs) - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
-- [Add tags to runs](/tracking/tracking-api#add-tags-to-runs) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
+- [Add tags to runs](/tracking/tracking-api#adding-tags-to-runs) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
 
 ### Can I directly access remote storage without running the Tracking Server?
 

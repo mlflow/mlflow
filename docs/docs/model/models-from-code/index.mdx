@@ -11,7 +11,7 @@ import { APILink } from "@site/src/components/APILink";
 
 :::warning attention
 Models from Code is available in MLflow 2.12.2 and above. If you are using a version earlier than what supports this feature,
-you are required to use the legacy serialization methods outlined in the [Custom Python Model](/models#custom-python-models) documentation.
+you are required to use the legacy serialization methods outlined in the [Custom Python Model](/model#custom-python-models) documentation.
 :::
 
 :::note
@@ -319,7 +319,7 @@ script.
     #### Defining the Model with LCEL
 
     First, we will create a Python script named `mfc.py`, which defines the chain of operations for generating landscape design recommendations.
-    This script utilizes the LangChain library along with MLflow's `autolog` feature for enabling the [capture of traces](/llms/tracing).
+    This script utilizes the LangChain library along with MLflow's `autolog` feature for enabling the [capture of traces](/tracing).
 
     In this script:
 
@@ -528,5 +528,5 @@ appropriate authentication configured so that your code can run.
 
 For additional related context topics that can enhance your understanding of MLflow's "Models From Code" feature, consider exploring the following sections in the MLflow documentation:
 
-- [Model API Documentation](/models#model-api)
+- [Model API Documentation](/model#model-api)
 - [Managing Dependencies in MLflow Models](/model/dependencies)

@@ -23,8 +23,9 @@ const config: Config = {
   staticDirectories: ["static"],
 
   // change to throw when migration is done
-  onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+  onBrokenLinks: "throw",
+  onBrokenMarkdownLinks: "throw",
+  onBrokenAnchors: "throw",
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -194,7 +195,7 @@ const config: Config = {
           {
             to: "model",
             from: ["/models"],
-          }
+          },
         ],
       },
     ],

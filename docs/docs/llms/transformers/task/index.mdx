@@ -21,7 +21,7 @@ The `task` is a fundamental concept in the Transformers library, which describe 
 (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model.
 
 MLflow utilizes this concept to determine the input and output format of the model, persists the correct
-[Model Signature](/models#model-signatures-and-input-examples), and provides a consistent <Link to="/api_reference/python_api/mlflow.pyfunc.html#inference-api" target="_blank">Pyfunc Inference API</Link>
+[Model Signature](/model#model-signatures-and-input-examples), and provides a consistent <Link to="/api_reference/python_api/mlflow.pyfunc.html#inference-api" target="_blank">Pyfunc Inference API</Link>
 for serving different types of models. Additionally, on top of the native Transformers task types, MLflow defines a few additional task types to support more complex use cases, such as chat-style applications.
 
 ## Native Transformers Task Types
@@ -120,7 +120,7 @@ The Completion API is considered as legacy, but it is still supported in MLflow 
 ### Code Example of Using `llm/v1` Tasks
 
 The following code snippet demonstrates how to log a Transformers pipeline with the `llm/v1/chat` task type, and use the model for chat-style inference. Check out the
-[notebook tutorial](/llms/tutorials/conversational/pyfunc-chat-model.html) to see more examples in action!
+[notebook tutorial](/llms/transformers/tutorials/conversational/pyfunc-chat-model/) to see more examples in action!
 
 ```python
 import mlflow
