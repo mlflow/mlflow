@@ -166,7 +166,7 @@ message ModelVersion {
   // Optional parameters for the model.
   repeated ModelParam model_params = 17;
 
-  // Optional parameters for the model.
+  // Optional metrics for the model.
   repeated ModelMetric model_metrics = 18;
 }
 
