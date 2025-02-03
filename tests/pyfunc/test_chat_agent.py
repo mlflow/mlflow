@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import pytest
 
@@ -17,6 +18,7 @@ from mlflow.types.agent import (
     ChatAgentMessage,
     ChatAgentRequest,
     ChatAgentResponse,
+    Context,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -43,29 +45,37 @@ def get_mock_response(messages: list[ChatAgentMessage], message=None):
 
 class SimpleChatAgent(ChatAgent):
     @mlflow.trace
-    def predict(self, model_input: ChatAgentRequest) -> ChatAgentResponse:
-        mock_response = get_mock_response(model_input.messages)
+    def predict(
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response)
 
-    def predict_stream(self, model_input: ChatAgentRequest):
+    def predict_stream(
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+    ):
         for i in range(5):
-            mock_response = get_mock_response(model_input.messages, f"message {i}")
+            mock_response = get_mock_response(messages, f"message {i}")
             yield ChatAgentResponse(**mock_response)
 
 
 class SimpleDictChatAgent(ChatAgent):
     @mlflow.trace
-    def predict(self, model_input: ChatAgentRequest) -> ChatAgentResponse:
-        mock_response = get_mock_response(model_input.messages)
+    def predict(
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response).model_dump_compat()
 
 
 class ChatAgentWithCustomInputs(ChatAgent):
-    def predict(self, model_input: ChatAgentRequest) -> ChatAgentResponse:
-        mock_response = get_mock_response(model_input.messages)
+    def predict(
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
         return ChatAgentResponse(
             **mock_response,
-            custom_outputs=model_input.custom_inputs,
+            custom_outputs=custom_inputs,
         )
 
 
@@ -108,9 +118,7 @@ def test_chat_agent_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert [
-        {k: v for k, v in msg.items() if k != "id"} for msg in request["model_input"]["messages"]
-    ] == [
+    assert [{k: v for k, v in msg.items() if k != "id"} for msg in request["messages"]] == [
         {k: v for k, v in ChatAgentMessage(**msg).model_dump_compat().items() if k != "id"}
         for msg in messages
     ]
@@ -153,7 +161,9 @@ def mock_predict():
 )
 def test_save_throws_on_invalid_output(tmp_path, ret):
     class BadChatAgent(ChatAgent):
-        def predict(self, model_input) -> ChatAgentResponse:
+        def predict(
+            self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        ) -> ChatAgentResponse:
             return ret
 
     model = BadChatAgent()
@@ -244,32 +254,26 @@ def test_chat_agent_logs_default_metadata_task():
 
 def test_chat_agent_works_with_chat_agent_request_input_example():
     model = SimpleChatAgent()
-    input_example_no_params = ChatAgentRequest(
-        **{"messages": [ChatAgentMessage(role="user", content="What is rag?")]}
-    )
+    input_example_no_params = {"messages": [{"role": "user", "content": "What is rag?"}]}
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=model, input_example=input_example_no_params
         )
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
-    assert mlflow_model.load_input_example(local_path) == input_example_no_params.model_dump_compat(
-        exclude_none=True
-    )
+    assert mlflow_model.load_input_example(local_path) == input_example_no_params
 
-    input_example_with_params = ChatAgentRequest(
-        messages=[ChatAgentMessage(role="user", content="What is rag?")],
-        context={"conversation_id": "121", "user_id": "123"},
-    )
+    input_example_with_params = {
+        "messages": [{"role": "user", "content": "What is rag?"}],
+        "context": {"conversation_id": "121", "user_id": "123"},
+    }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "model", python_model=model, input_example=input_example_with_params
         )
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
-    assert mlflow_model.load_input_example(
-        local_path
-    ) == input_example_with_params.model_dump_compat(exclude_none=True)
+    assert mlflow_model.load_input_example(local_path) == input_example_with_params
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -330,3 +334,30 @@ def test_chat_agent_can_receive_and_return_custom():
 
     serving_response = json.loads(response.content)
     assert serving_response["custom_outputs"] == input_example["custom_inputs"]
+
+
+def test_chat_agent_predict_wrapper():
+    model = ChatAgentWithCustomInputs()
+    dict_input_example = {
+        "messages": [{"role": "user", "content": "What is rag?"}],
+        "context": {"conversation_id": "121", "user_id": "123"},
+        "custom_inputs": {"image_url": "example", "detail": "high", "other_dict": {"key": "value"}},
+    }
+    chat_agent_request = ChatAgentRequest(**dict_input_example)
+    pydantic_input_example = (
+        chat_agent_request.messages,
+        chat_agent_request.context,
+        chat_agent_request.custom_inputs,
+    )
+    assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+
+    model = SimpleChatAgent()
+    assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+    assert list(model.predict_stream(dict_input_example)) == list(
+        model.predict_stream(*pydantic_input_example)
+    )
+
+    with pytest.raises(MlflowException, match="Invalid dictionary input for a ChatAgent"):
+        model.predict({"malformed dict": "bad"})
+    with pytest.raises(MlflowException, match="Invalid dictionary input for a ChatAgent"):
+        model.predict_stream({"malformed dict": "bad"})

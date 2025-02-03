@@ -116,7 +116,6 @@ class ChatAgentRequest(ChatAgentParams):
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that will be passed to the model.
-            **Optional**, defaults to empty list (``[]``)
         context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
             conversation_id and user_id. **Optional** defaults to ``None``
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
@@ -126,7 +125,7 @@ class ChatAgentRequest(ChatAgentParams):
             **Optional**, defaults to ``False``
     """
 
-    messages: list[ChatAgentMessage] = Field(default_factory=list)
+    messages: list[ChatAgentMessage]
 
 
 class ChatAgentResponse(BaseModel):
