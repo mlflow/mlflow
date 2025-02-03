@@ -26,6 +26,9 @@ class SpanAttributeKey:
     # such as evaluation
     CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
+    # This attribute is not empty only on the root span.
+    # Used to populate `intermediate_output` field of a trace.
+    INTERMEDIATE_OUTPUTS = "mlflow.trace.intermediate_outputs"
 
 
 # All storage backends are guaranteed to support key values up to 250 characters
