@@ -296,3 +296,30 @@ def test_search_spans_raise_for_invalid_param_type():
 
     with pytest.raises(MlflowException, match="Invalid type for 'name'"):
         trace.search_spans(name=123)
+
+
+def test_intermediate_outputs_from_attribute():
+    intermediate_outputs = {
+        "retrieved_documents": ["document 1", "document 2"],
+        "generative_prompt": "prompt",
+    }
+
+    def run():
+        with mlflow.start_span(name="run") as span:
+            span.set_attribute("mlflow.trace.intermediate_outputs", intermediate_outputs)
+
+    run()
+    trace = mlflow.get_last_active_trace()
+
+    assert trace.intermediate_outputs == intermediate_outputs
+
+
+def test_intermediate_outputs_no_value():
+    def run():
+        with mlflow.start_span(name="run") as span:
+            span.set_outputs(1)
+
+    run()
+    trace = mlflow.get_last_active_trace()
+
+    assert trace.intermediate_outputs is None
