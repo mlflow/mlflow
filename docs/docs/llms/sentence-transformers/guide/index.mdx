@@ -31,7 +31,7 @@ Looking to get right in to some usable examples and tutorials that show how to l
 
 ## Input and Output Types for PyFunc
 
-The `sentence_transformers` [python_function (pyfunc) model flavor](/models#pyfunc-model-flavor) standardizes
+The `sentence_transformers` [python_function (pyfunc) model flavor](/model#pyfunc-model-flavor) standardizes
 the process of embedding sentences and computing semantic similarity. This standardization allows for serving
 and batch inference by adapting the required data structures for `sentence_transformers` into formats compatible with JSON serialization and casting to Pandas DataFrames.
 
@@ -85,7 +85,7 @@ When `task` is set as `"llm/v1/embeddings"`, MLflow handles the following for yo
 
 - Setting an embeddings compatible signature for the model
 - Performing data pre- and post-processing to ensure the inputs and outputs conform to
-  the [Embeddings API spec](https://mlflow.org/docs/latest/llms/deployments/index.html#embeddings),
+  the [Embeddings API spec](/llms/deployments/#embeddings),
   which is compatible with OpenAI's API spec.
 
 Note that these modifications only apply when the model is loaded with <APILink fn="mlflow.pyfunc.load_model" /> (e.g. when
@@ -93,7 +93,7 @@ serving the model with the `mlflow models serve` CLI tool). If you want to load 
 always do so via <APILink fn="mlflow.sentence_transformers.load_model" />.
 
 Aside from the `sentence-transformers` flavor, the `transformers` flavor also support OpenAI-compatible inference interface (`"llm/v1/chat"` and `"llm/v1/completions"`). Refer to
-[the Transformers flavor guide](/llms/transformers/conversational/pyfunc-chat-model) for more information.
+[the Transformers flavor guide](/llms/transformers/tutorials/conversational/pyfunc-chat-model) for more information.
 
 ## Custom Python Function Implementation
 
