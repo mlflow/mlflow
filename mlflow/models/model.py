@@ -642,7 +642,7 @@ class Model:
     def _is_type_hint_from_example(self):
         return self.signature._is_type_hint_from_example if self.signature is not None else False
 
-    def get_model_info(self, logged_model) -> ModelInfo:
+    def get_model_info(self, logged_model: Optional[LoggedModel] = None) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
