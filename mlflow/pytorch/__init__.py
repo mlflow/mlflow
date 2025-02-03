@@ -695,7 +695,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):  # noqa: D417
+def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -716,6 +716,11 @@ def _load_pyfunc(path, model_config=None):  # noqa: D417
             device = _TORCH_DEFAULT_GPU_DEVICE_NAME
         else:
             device = _TORCH_CPU_DEVICE_NAME
+
+    if Version(torch.__version__) >= Version("2.6.0"):
+        return _PyTorchWrapper(
+            _load_model(path, device=device, weights_only=weights_only), device=device
+        )
 
     return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
