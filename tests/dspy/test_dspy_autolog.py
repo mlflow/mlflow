@@ -111,7 +111,7 @@ def test_autolog_cot():
     assert len(spans[3].outputs) == 3
     # Output parser will run per completion output (n=3)
     for i in range(3):
-        assert spans[4 + i].name == f"ChatAdapter.parse_{i+1}"
+        assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
 
     assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5

@@ -127,7 +127,7 @@ def test_authenticate_jwt(client):
 
     # authenticate with the newly created user
     headers = {
-        "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
+        "Authorization": f"Bearer {jwt.encode({'username': username}, 'secret', algorithm='HS256')}"
     }
     _mlflow_search_experiments_rest(client.tracking_uri, headers)
 

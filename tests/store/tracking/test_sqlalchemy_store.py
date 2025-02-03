@@ -1238,8 +1238,7 @@ def test_log_null_param(store: SqlAlchemyStore):
 @pytest.mark.skipif(
     Version(sqlalchemy.__version__) < Version("2.0")
     and mlflow.get_tracking_uri().startswith("mssql"),
-    reason="large string parameters are sent as TEXT/NTEXT; "
-    "see tests/db/compose.yml for details",
+    reason="large string parameters are sent as TEXT/NTEXT; see tests/db/compose.yml for details",
 )
 def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
@@ -3298,7 +3297,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         # made to the input tags
         overwrite_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(
             run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
@@ -3359,7 +3358,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
         new_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -4424,7 +4423,7 @@ def test_search_traces_pagination_tie_breaker(store):
         _create_trace(store, rid, exp1, timestamp_ms=0)
 
     # Insert 5 more traces with newer timestamp
-    request_ids = [f"tr-{i+5}" for i in range(5)]
+    request_ids = [f"tr-{i + 5}" for i in range(5)]
     random.shuffle(request_ids)
     for rid in request_ids:
         _create_trace(store, rid, exp1, timestamp_ms=1)
