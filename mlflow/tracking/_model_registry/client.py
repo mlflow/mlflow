@@ -237,13 +237,7 @@ class ModelRegistryClient:
             # local_model_path since old model registry store implementations may not
             # support the local_model_path argument.
             mv = self.store.create_model_version(
-                name,
-                source,
-                run_id,
-                tags,
-                run_link,
-                description,
-                model_id=model_id
+                name, source, run_id, tags, run_link, description, model_id=model_id
             )
         if await_creation_for and await_creation_for > 0:
             self.store._await_model_version_creation(mv, await_creation_for)

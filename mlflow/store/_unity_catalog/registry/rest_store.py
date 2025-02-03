@@ -40,10 +40,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionResponse,
     GetRegisteredModelRequest,
     GetRegisteredModelResponse,
-    ModelParam,
     Job,
     Lineage,
     LineageHeaderInfo,
+    ModelParam,
     Notebook,
     SearchModelVersionsRequest,
     SearchModelVersionsResponse,
@@ -727,8 +727,8 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]: 
-        # load the MLflow LoggedModel by model_id and 
+    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]:
+        # load the MLflow LoggedModel by model_id and
         if model_id is None:
             return None
         return mlflow.get_logged_model(model_id)

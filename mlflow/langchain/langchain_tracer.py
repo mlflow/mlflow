@@ -21,8 +21,8 @@ from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
