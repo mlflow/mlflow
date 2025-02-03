@@ -1475,3 +1475,41 @@ def test_add_trace_logging_model_from_code():
     trace = mlflow.get_last_active_trace()
     assert trace is not None
     assert len(trace.data.spans) == 2
+
+
+def test_log_trace_success():
+    request = {"question": "Does mlflow support tracing?"}
+    response = {"answer": "Yes"}
+    intermediate_outputs = {
+        "retrieved_documents": ["mlflow documentation"],
+        "system_prompt": ["answer the question with yes or no"],
+    }
+    start_time_ms = 1736144700
+    execution_time_ms = 5129
+
+    mlflow.log_trace(
+        request=request,
+        response=response,
+        intermediate_outputs=intermediate_outputs,
+        start_time_ms=start_time_ms,
+        execution_time_ms=execution_time_ms,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.data.request == json.dumps(request)
+    assert trace.data.response == json.dumps(response)
+    assert trace.data.intermediate_outputs == intermediate_outputs
+    spans = trace.data.spans
+    assert len(spans) == 1
+    root_span = spans[0]
+    assert root_span.start_time_ns == start_time_ms * 1000000
+    assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
+
+
+def test_log_trace_fail_within_span_context():
+    with pytest.raises(MlflowException, match="Another trace is already set in the global context"):
+        with mlflow.start_span("span"):
+            mlflow.log_trace(
+                request="Does mlflow support tracing?",
+                response="Yes",
+            )

@@ -727,6 +727,79 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
         )
 
 
+@experimental
+def log_trace(
+    request: Optional[Union[dict[str, Any], str]] = None,
+    response: Optional[Union[dict[str, Any], str]] = None,
+    intermediate_outputs: Optional[dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, str]] = None,
+    start_time_ms: Optional[int] = None,
+    execution_time_ms: Optional[int] = None,
+) -> str:
+    """
+    Create a trace with a single root span.
+    This API is useful when you want to log an arbitrary (request, response) pair
+    without structured OpenTelemetry Spans. The trace is linked to the active experiment.
+
+    Args:
+        request: Input data for the entire trace. This is also set on the root span of the trace.
+        response: Output data for the entire trace. This is also set on the root span of the trace.
+        intermediate_outputs: A dictionary of intermediate outputs produced by the model or agent
+            while handling the request. Keys are the names of the outputs,
+            and values are the outputs themselves. Values must be JSON-serializable.
+        attributes: A dictionary of attributes to set on the root span of the trace.
+        tags: A dictionary of tags to set on the trace.
+        start_time_ms: The start time of the trace in milliseconds since the UNIX epoch.
+        execution_time_ms: The execution time of the trace in milliseconds since the UNIX epoch.
+
+    Returns:
+        The request ID of the logged trace.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import time
+        import mlflow
+
+        mlflow.log_trace(
+            request="Does mlflow support tracing?",
+            response="Yes",
+            intermediate_outputs={
+                "retrieved_documents": ["mlflow documentation"],
+                "system_prompt": ["answer the question with yes or no"],
+            },
+            start_time_ms=int(time.time() * 1000),
+            execution_time_ms=5129,
+        )
+    """
+    client = MlflowClient()
+    if intermediate_outputs:
+        if attributes:
+            attributes.update(SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs)
+        else:
+            attributes = {SpanAttributeKey.INTERMEDIATE_OUTPUTS: intermediate_outputs}
+
+    span = client.start_trace(
+        name="Task",
+        inputs=request,
+        attributes=attributes,
+        tags=tags,
+        start_time_ns=start_time_ms * 1000000 if start_time_ms else None,
+    )
+    client.end_trace(
+        request_id=span.request_id,
+        outputs=response,
+        end_time_ns=(start_time_ms + execution_time_ms) * 1000000
+        if start_time_ms and execution_time_ms
+        else None,
+    )
+
+    return span.request_id
+
+
 def _merge_trace(
     trace: Trace,
     target_request_id: str,
