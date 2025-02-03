@@ -1279,5 +1279,9 @@ def test_load_model_to_device(sequential_model):
                 expected_kwargs["weights_only"] = False
 
             load_model_mock.assert_called_with(mock.ANY, **expected_kwargs)
-            mlflow.pytorch.load_model(model_uri=model_info.model_uri, device="cuda")
+            mlflow.pytorch.load_model(
+                model_uri=model_info.model_uri,
+                device="cuda",
+                weights_only=False,
+            )
             load_model_mock.assert_called_with(path=mock.ANY, **expected_kwargs)
