@@ -264,11 +264,6 @@ class Span:
                 INVALID_PARAMETER_VALUE,
             ) from e
 
-    @property
-    def _intermediate_outputs(self) -> Optional[dict[str, Any]]:
-        """The intermediate outputs attribute of the span."""
-        return self.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
-
 
 class LiveSpan(Span):
     """

@@ -12,6 +12,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.constant import SpanAttributeKey
 
 _logger = logging.getLogger(__name__)
 
@@ -237,14 +238,14 @@ class Trace(_MlflowObject):
         """
         Returns intermediate outputs within the trace.
         There are mainly two flows to return intermediate outputs:
-        1. When a trace only has one dummy root span,
+        1. When a trace only has one root span,
         return `intermediate_outputs` attribute of the span.
         2. When a trace is created normally with a tree of spans,
         aggregate the outputs of non-root spans.
         """
         root_span = self._get_root_span()
-        if root_span and root_span._intermediate_outputs:
-            return root_span._intermediate_outputs
+        if root_span and root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS):
+            return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
         # TODO: handle the second case for a normal trace with spans
 
     def _get_root_span(self) -> Optional[Span]:
