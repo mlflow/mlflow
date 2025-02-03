@@ -27,6 +27,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -1413,13 +1414,20 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
-    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
         Args:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
                 as inputs to the run.
 
         Returns:
