@@ -1872,7 +1872,7 @@ def test_malformed_metric(store):
         pytest.raises(
             MlflowException,
             match=f"Metric 'test' is malformed; persisted metric data contained "
-            f"4 fields. Expected 2 or 3 fields. "
+            f"4 fields. Expected 2, 3, or 5 fields. "
             f"Experiment id: {exp_id}",
         ),
     ):
