@@ -709,7 +709,7 @@ This is particularly useful when you want to evaluate a deployed model hosted by
 
 Please don't forget to set the target deployment client by using <APILink fn="mlflow.deployments.set_deployments_target" /> before calling <APILink fn="mlflow.evaluate" /> with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like `MlflowException: No deployments target has been set...`.
 
-:::hint
+:::info
 When you want to use an endpoint **not** hosted by an MLflow AI Gateway or Databricks, you can create a custom Python function following the [Evaluating with a Custom Function](#llm-eval-custom-function) guide and use it as the `model` argument.
 :::
 

@@ -14,7 +14,7 @@ This guide demonstrates how to use MLflow end-to-end for:
 
 - Training a linear regression model with [MLflow Tracking](/tracking).
 - Conducting hyper-parameter tuning to find the best model.
-- Packaging the model weights and dependencies as an [MLflow Model](/models).
+- Packaging the model weights and dependencies as an [MLflow Model](/model).
 - Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command.
 - Deploying the model to a Kubernetes cluster using [KServe](https://kserve.github.io/website/) with MLflow.
 
@@ -42,7 +42,7 @@ It offers advanced features that aid in operating large-scale machine learning s
 
 While KServe enables highly scalable and production-ready model serving, deploying your model there might require some effort.
 MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management**
-as a single place to manage the entire ML lifecycle. This includes [experiment tracking](/tracking), [model packaging](/models),
+as a single place to manage the entire ML lifecycle. This includes [experiment tracking](/tracking), [model packaging](/model),
 [versioning](/model-registry), [evaluation](/model-evaluation), and [deployment](/deployment), which we will cover in this tutorial.
 
 ## Step 1: Installing MLflow and Additional Dependencies
@@ -208,7 +208,7 @@ To learn more about hyperparameter tuning with MLflow, please refer to [Hyperpar
 
 ## Step 5: Packaging the Model and Dependencies
 
-Since we are using autologging, MLflow automatically logs the [Model](/models) for each run. This process conveniently packages the model weight
+Since we are using autologging, MLflow automatically logs the [Model](/model) for each run. This process conveniently packages the model weight
 and dependencies in a ready-to-deploy format.
 
 :::note
@@ -258,7 +258,7 @@ $ curl -X POST -H "Content-Type:application/json" --data '{"inputs": [[14.23, 1.
 {"predictions": [-0.03416275504140387]}
 ```
 
-For more information about the request format and response formats, refer to [Inference Server Specification](/deployment/deploy-model-locally.html#local-inference-server-spec).
+For more information about the request format and response formats, refer to [Inference Server Specification](/deployment/deploy-model-locally/#local-inference-server-spec).
 
 ## Step 7: Deploying the Model to KServe
 

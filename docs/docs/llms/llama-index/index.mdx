@@ -25,7 +25,7 @@ and other AI-driven applications that require integration of external knowledge.
 The integration of the LlamaIndex library with MLflow provides a seamless experience for managing and deploying LlamaIndex engines. The following are some of the key benefits of using LlamaIndex with MLflow:
 
 - [MLflow Tracking](/tracking) allows you to track your indices within MLflow and manage the many moving parts that comprise your LlamaIndex project, such as prompts, LLMs, workflows, tools, global configurations, and more.
-- [MLflow Model](/models) packages your LlamaIndex index/engine/workflows with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your LlamaIndex models for inference with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
+- [MLflow Model](/model) packages your LlamaIndex index/engine/workflows with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your LlamaIndex models for inference with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
 - [MLflow Evaluate](/llms/llm-evaluate) provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your LlamaIndex models, ensuring robust performance analytics and facilitating quick iterations.
 - [MLflow Tracing](/tracing) is a powerful observability tool for monitoring and debugging what happens inside the LlamaIndex models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your LlamaIndex application without needing to add any code apart from running a single command.
 
@@ -36,12 +36,12 @@ In these introductory tutorials, you will learn the most fundamental components 
 <CardGroup>
   <PageCard
     headerText="LlamaIndex Workflows with MLflow"
-    link="/llms/llama-index/notebooks/llama_index_workflow_tutorial.html"
+    link="/llms/llama-index/notebooks/llama_index_workflow_tutorial/"
     text="Get started with MLflow and LLamaIndex by building a simple agentic Workflow. Learn how to log and load the Workflow for inference, as well as enable tracing for observability."
   />
   <PageCard
     headerText="Building Index with MLflow"
-    link="/llms/llama-index/notebooks/llama_index_quickstart.html"
+    link="/llms/llama-index/notebooks/llama_index_quickstart/"
     text="Get started with MLflow and LlamaIndex by exploring the simplest possible index configuration of a VectorStoreIndex."
   />
 
@@ -201,7 +201,7 @@ support the combination of async and streaming, such as the `astream_chat` metho
 
 If your index uses the default `SimpleVectorStore`, you can log the index directly to MLflow using the <APILink fn="mlflow.llama_index.log_model" /> function. MLflow persists the in-memory index data (embedded documents) to MLflow artifact store, which allows loading the index back with the same data without re-indexing the documents.
 
-However, when the index uses external vector stores like `DatabricksVectorSearch` and `QdrantVectorStore`, the index data is stored remotely and they do not support local serialization. Thereby, you cannot log the index with these stores directly. For such cases, you can use the [Model-from-Code](/models#models-from-code) logging that provides more control over the index saving process and allow you to use the external vector store.
+However, when the index uses external vector stores like `DatabricksVectorSearch` and `QdrantVectorStore`, the index data is stored remotely and they do not support local serialization. Thereby, you cannot log the index with these stores directly. For such cases, you can use the [Model-from-Code](/model#models-from-code) logging that provides more control over the index saving process and allow you to use the external vector store.
 
 To use model-from-code logging, you first need to create a separate Python file that defines the index. If you are on Jupyter notebook, you can use the `%%writefile` magic command to save the cell code to a Python file.
 
@@ -253,7 +253,7 @@ objects support will be added in the future releases.
 
 ### How to log and load a LlamaIndex Workflow?
 
-Mlflow supports logging and loading a LlamaIndex Workflow via the [Model-from-Code](/models#models-from-code) feature. For a detailed example of logging and loading a LlamaIndex Workflow, see the [LlamaIndex Workflows with MLflow](/llms/llama-index/notebooks/llama_index_workflow_tutorial.html) notebook.
+Mlflow supports logging and loading a LlamaIndex Workflow via the [Model-from-Code](/model#models-from-code) feature. For a detailed example of logging and loading a LlamaIndex Workflow, see the [LlamaIndex Workflows with MLflow](/llms/llama-index/notebooks/llama_index_workflow_tutorial/) notebook.
 
 ```python
 import mlflow

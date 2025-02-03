@@ -45,23 +45,23 @@ To learn more about how you can leverage MLflow's evaluation features for your L
 
 <CardGroup>
   <PageCard link="/llms/llm-evaluate/notebooks/rag-evaluation" headerText="RAG Evaluation" text="Learn how to evaluate a Retrieval Augmented Generation setup with MLflow Evaluate" />
-  <PageCard link="/llms/llm-evaluate/notebooks/question-answering-evaluation.html" headerText="Question-Answering Evaluation" text="See a working example of how to evaluate the quality of an LLM Question-Answering solution" />
-  <PageCard link="/llms/rag/notebooks/question-generation-retrieval-evaluation.html" headerText="RAG Question Generation Evaluation" text="See how to generate Questions for RAG generation and how to evaluate a RAG solution using MLflow" />
+  <PageCard link="/llms/llm-evaluate/notebooks/question-answering-evaluation/" headerText="Question-Answering Evaluation" text="See a working example of how to evaluate the quality of an LLM Question-Answering solution" />
+  <PageCard link="/llms/rag/notebooks/question-generation-retrieval-evaluation/" headerText="RAG Question Generation Evaluation" text="See how to generate Questions for RAG generation and how to evaluate a RAG solution using MLflow" />
 </CardGroup>
 
-## [Traditional ML Evaluation](/models#model-evaluation)
+## [Traditional ML Evaluation](/model#model-evaluation)
 
 Traditional machine learning techniques, from classification to regression, have been the bedrock of many industries. MLflow recognizes
 their significance and offers automated evaluation tools tailored for these classic techniques.
 
 **Key Features**:
 
-- [Evaluating a Function](/models#evaluating-with-a-function): To get immediate results, you can evaluate a python function directly without logging the model. This is especially useful when you want a quick evaluation without the overhead of logging.
+- [Evaluating a Function](/model#evaluating-with-a-function): To get immediate results, you can evaluate a python function directly without logging the model. This is especially useful when you want a quick evaluation without the overhead of logging.
 
-- [Evaluating a Dataset](/models#evaluating-with-a-static-dataset): MLflow also supports evaluating a static dataset without specifying a model. This is invaluable when you've saved model outputs in a dataset and want a swift evaluation without having to rerun model inference.
+- [Evaluating a Dataset](/model#evaluating-with-a-static-dataset): MLflow also supports evaluating a static dataset without specifying a model. This is invaluable when you've saved model outputs in a dataset and want a swift evaluation without having to rerun model inference.
 
-- [Evaluating a Model](/models#model-validation): With MLflow, you can set validation thresholds for your metrics. If a model doesn't meet these thresholds compared to a baseline, MLflow will alert you. This automated validation ensures that only high-quality models progress to the next stages.
+- [Evaluating a Model](/model#model-validation): With MLflow, you can set validation thresholds for your metrics. If a model doesn't meet these thresholds compared to a baseline, MLflow will alert you. This automated validation ensures that only high-quality models progress to the next stages.
 
-- [Common Metrics and Visualizations](/models#model-evaluation): MLflow automatically logs common metrics like accuracy, precision, recall, and more. Additionally, visual graphs such as the confusion matrix, lift_curve_plot, and others are auto-logged, providing a comprehensive view of your model's performance.
+- [Common Metrics and Visualizations](/model#model-evaluation): MLflow automatically logs common metrics like accuracy, precision, recall, and more. Additionally, visual graphs such as the confusion matrix, lift_curve_plot, and others are auto-logged, providing a comprehensive view of your model's performance.
 
 - **SHAP Integration**: MLflow is integrated with SHAP, allowing for the auto-logging of SHAP's summarization importances validation visualizations when using the evaluate APIs.
