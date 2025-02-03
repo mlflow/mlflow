@@ -294,6 +294,7 @@ async def test_embeddings(prompt):
         mock_post.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_embeddings_batch():
     config = embeddings_config()
     with mock.patch(
