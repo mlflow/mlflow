@@ -42,7 +42,7 @@ thus preventing miscommunication and errors that can arise from incorrect or une
 In MLflow, a model signature precisely defines the schema for model inputs, outputs, and any additional parameters required for effective model
 operation. This definition serves as a uniform interface, guiding users in the appropriate and accurate use of their models. Model signatures are
 integral to the MLflow ecosystem, enabling both the MLflow Tracking UI and Model Registry UI to clearly display the model's required inputs,
-outputs, and parameters. Additionally, [MLflow model deployment tools](/models#built-in-deployment) utilize these signatures to ensure that
+outputs, and parameters. Additionally, [MLflow model deployment tools](/model#built-in-deployment) utilize these signatures to ensure that
 the data used at inference aligns with the model's established specifications, thus maintaining the model's integrity and performance. For
 more insights into how these signatures enforce data accuracy, see the [Signature enforcement](#signature-enforcement) section.
 
@@ -461,7 +461,7 @@ For example, `np.float32(0.1)` will be converted to `float(0.1)`.
 MLflow's schema enforcement rigorously validates the provided inputs and parameters against the model's signature. It raises an exception
 if the inputs are incompatible and either issues a warning or raises an exception for incompatible parameters. This enforcement is applied
 prior to invoking the underlying model implementation and throughout the model inference process. Note, however, that this enforcement is
-specific to scenarios where [MLflow model deployment tools](/models#built-in-deployment) are used or when models are loaded as `python_function`.
+specific to scenarios where [MLflow model deployment tools](/model#built-in-deployment) are used or when models are loaded as `python_function`.
 It does not apply to models loaded in their native format, such as through <APILink fn="mlflow.sklearn.load_model" />.
 
 <div className="center-div" style={{ width: "90%" }}>
@@ -529,11 +529,11 @@ predictions made on the training dataset), and valid model parameters (like a di
 [Generation Configs for transformers](https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig)).
 
 :::note
-Model signatures play a crucial role in [MLflow model deployment tools](/models#built-in-deployment), particularly for serving models in the Python
+Model signatures play a crucial role in [MLflow model deployment tools](/model#built-in-deployment), particularly for serving models in the Python
 Function (PyFunc) flavor. Therefore, when attaching a signature to your log_model or save_model call, it's important to ensure that the signature
 accurately reflects the inputs and outputs expected by the model's PyFunc representation. This consideration becomes especially significant if the
 model's input schema, when loaded as a PyFunc, differs from that of the dataset used for testing (an example of this scenario is with the
-[pmdarima model flavor](/models#pmdarima-flavor)).
+[pmdarima model flavor](/model#pmdarima-flavor)).
 :::
 
 ### Column-based Signature Example
@@ -728,7 +728,7 @@ Taking a langchain model as an example, you can log a model with signature with 
 
 1. Define the langchain model in a separate python file named _langchain_model.py_:
 
-To log a langchain model successfully, **it is highly recommended to use** [models from code](/models#models-from-code) feature.
+To log a langchain model successfully, **it is highly recommended to use** [models from code](/model#models-from-code) feature.
 
 ```python
 import os

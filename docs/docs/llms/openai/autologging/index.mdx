@@ -35,7 +35,7 @@ will allow you to log additional elements.
 
 :::tip
 The only element that is **enabled by default** when autologging is activated is the recording of trace information. You can read more about MLflow tracing
-[here](/llms/tracing).
+[here](/tracing).
 :::
 
 ```python
@@ -88,7 +88,7 @@ The available options and their default values are shown below. To learn more ab
       <td>Traces</td>
       <td>`true`</td>
       <td>`log_traces`</td>
-      <td>Whether to generate and log traces for the model. See [MLflow Tracing](/llms/tracing) for more details about the tracing feature.</td>
+      <td>Whether to generate and log traces for the model. See [MLflow Tracing](/tracing) for more details about the tracing feature.</td>
     </tr>
     <tr>
       <td>Model Artifacts</td>
@@ -230,7 +230,7 @@ The logged trace, associated with the `OpenAI Swarm` experiment, can be seen in 
 
 The MLflow OpenAI autologging feature **does not support asynchronous APIs** for logging models or traces.
 
-Saving your async implementation is best done by using the [models from code feature](/models#models-from-code).
+Saving your async implementation is best done by using the [models from code feature](/model#models-from-code).
 
 If you would like to log trace events for an async OpenAI API, below is a simplified example of logging the trace for a streaming async request:
 
