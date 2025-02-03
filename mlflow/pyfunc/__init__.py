@@ -3631,7 +3631,7 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
     mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
-    # We accept a ChatAgentRequest or a dict with its schema
+    # We accept a dict with ChatAgentRequest schema
     if input_example:
         try:
             model_validate(ChatAgentRequest, input_example)
@@ -3649,7 +3649,8 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
-    output = python_model.predict(ChatAgentRequest(**input_example))
+    request = ChatAgentRequest(**input_example)
+    output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:
         model_validate(ChatAgentResponse, output)
     except Exception as e:

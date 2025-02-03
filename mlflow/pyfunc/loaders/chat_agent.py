@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, Tuple
 
 import pydantic
 
@@ -8,7 +8,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.agent import ChatAgentRequest, ChatAgentResponse
+from mlflow.types.agent import ChatAgentMessage, ChatAgentRequest, ChatAgentResponse, Context
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
 
@@ -37,7 +37,7 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
-    def _convert_input(self, model_input) -> ChatAgentRequest:
+    def _convert_input(self, model_input) -> Tuple[list[ChatAgentMessage], Context, dict[str, Any]]:
         import pandas
 
         if isinstance(model_input, dict):
@@ -56,9 +56,13 @@ class _ChatAgentPyfuncWrapper:
                 error_code=INTERNAL_ERROR,
             )
 
-        return ChatAgentRequest(**dict_input)
+        messages = [ChatAgentMessage(**message) for message in dict_input.get("messages", [])]
+        context = Context(**dict_input.get("context", {}))
+        custom_inputs = dict_input.get("custom_inputs", None)
 
-    def _response_to_dict(self, response: ChatAgentResponse) -> dict[str, Any]:
+        return messages, context, custom_inputs
+
+    def _response_to_dict(self, response) -> dict[str, Any]:
         try:
             model_validate(ChatAgentResponse, response)
         except pydantic.ValidationError as e:
@@ -76,27 +80,32 @@ class _ChatAgentPyfuncWrapper:
     def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
         """
         Args:
-            model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.types.agent.
-                ChatAgentRequest>`) schema.
+            model_input: A dict with the
+            :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
 
         Returns:
             A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
                 schema.
         """
-        model_input = self._convert_input(model_input)
-        response = self.chat_agent.predict(model_input)
+        messages, context, custom_inputs = self._convert_input(model_input)
+        response = self.chat_agent.predict(messages, context, custom_inputs)
         return self._response_to_dict(response)
 
     def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
         """
         Args:
-             model_input: A dict with the (:py:class:`ChatAgentRequest <mlflow.
-                types.agent.ChatAgentRequest>`) schema.
+            messages (dict[str, Any]): A list of dicts with the
+                :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>` schema.
+            context (dict[str, Any]): A dict with the
+                :py:class:`Context <mlflow.types.agent.Context>` schema.
+            custom_inputs (dict[str, Any]):
+                An optional param to provide arbitrary additional inputs
+                to the model. The dictionary values must be JSON-serializable.
 
         Returns:
             A generator over dicts with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
                 ChatAgentResponse>`) schema.
         """
-        model_input = self._convert_input(model_input)
-        for response in self.chat_agent.predict_stream(model_input):
+        messages, context, custom_inputs = self._convert_input(model_input)
+        for response in self.chat_agent.predict_stream(messages, context, custom_inputs):
             yield self._response_to_dict(response)
