@@ -41,9 +41,9 @@ class TraceData:
     @property
     def intermediate_outputs(self) -> Optional[dict[str, Any]]:
         """
-        Returns intermediate outputs within the trace.
+        Returns intermediate outputs produced by the model or agent while handling the request.
         There are mainly two flows to return intermediate outputs:
-        1. When a trace only has one root span,
+        1. When a trace is generate by the `mlflow.log_trace` API,
         return `intermediate_outputs` attribute of the span.
         2. When a trace is created normally with a tree of spans,
         aggregate the outputs of non-root spans.
