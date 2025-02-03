@@ -185,7 +185,7 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
 
 When you reopen the MLflow UI, you should notice that the run "hyperparameter-tuning" contains 5 child runs. MLflow utilizes parent-child relationship, which is particularly
 useful for grouping a set of runs, such as those in hyper parameter tuning. Here the auto-logging is enabled and MLflow automatically create child runs for the top 5 runs
-based on the `scoring` metric, which is negative mean absolute error in this example. You can also create parent and child runs manually, please refer to [Create Child Runs](#child_runs)
+based on the `scoring` metric, which is negative mean absolute error in this example. You can also create parent and child runs manually, please refer to [Create Child Runs](/tracking/tracking-api/#child_runs)
 for more details.
 
 <div className="center-div" style={{ width: "80%" }}>

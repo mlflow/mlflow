@@ -447,7 +447,7 @@ answer_similarity = mlflow.metrics.genai.answer_similarity(
 
 [MLflow AI Gateway](/llms/deployments/) is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
 
-1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/llms/deployments/#quickstart).
+1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/llms/deployments/#deployments-quickstart).
 2. Set the MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
 3. Set `endpoints:/<endpoint-name>` to the `model` parameter in the metrics definition.
 
@@ -762,7 +762,7 @@ The input data can be either of the following format when using an URI of the ML
                 )
                 ```
             </td>
-            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/llms/deployments/#standard-query-parameters) for more information about the request format for different model endpoint types.</td>
+            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/llms/deployments/#standard-deployments-parameters) for more information about the request format for different model endpoint types.</td>
         </tr>
         <tr>
             <td>A list of input strings.</td>

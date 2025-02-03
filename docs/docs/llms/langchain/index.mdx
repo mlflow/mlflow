@@ -279,7 +279,7 @@ To learn more about the details of the MLflow LangChain flavor, read the detaile
   logging the model. LangChain components that do not set this value will be saved without issue, but a `ValueError` will be raised when loading if unset.
 
   To fix this, simply re-log your model, specifying the option `allow_dangerous_deserialization=True` in your defined loader function. See the tutorial
-  [for LangChain retrievers](/llms/langchain/notebooks/langchain-retriever/#Establishing-RetrievalQA-Chain-and-Logging-with-MLflow) for an example of specifying this
+  [for LangChain retrievers](/llms/langchain/notebooks/langchain-retriever/#establishing-retrievalqa-chain-and-logging-with-mlflow) for an example of specifying this
   option when logging a `FAISS` vector store instance within a `loader_fn` declaration.
 
 ### I can't save my chain, agent, or retriever with MLflow.
