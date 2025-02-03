@@ -9,7 +9,7 @@
     "build": "docusaurus build",
     "build-api-docs": "python scripts/build-api-docs.py --with-r && tsx scripts/update-api-modules.ts",
     "build-api-docs:no-r": "python scripts/build-api-docs.py && tsx scripts/update-api-modules.ts",
-    "build-for-release": "python scripts/build-for-release.py",
+    "build-all": "python scripts/build-all.py",
     "update-api-modules": "tsx scripts/update-api-modules.ts",
     "convert-notebooks": "python scripts/convert-notebooks.py",
     "swizzle": "docusaurus swizzle",
