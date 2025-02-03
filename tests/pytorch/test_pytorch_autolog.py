@@ -181,9 +181,9 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
     ]:
         assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
-        assert (
-            len(metric_history) == expected_len
-        ), f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
+        assert len(metric_history) == expected_len, (
+            f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
+        )
 
 
 @pytest.mark.skipif(
@@ -205,9 +205,9 @@ def test_pytorch_autolog_log_on_step_with_multiple_optimizers(
     ]:
         assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
-        assert (
-            len(metric_history) == expected_len
-        ), f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
+        assert len(metric_history) == expected_len, (
+            f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
+        )
 
 
 @pytest.mark.skipif(

@@ -1363,8 +1363,7 @@ def autolog(
 
                 except Exception as e:
                     _logger.warning(
-                        "Failed to log training dataset information to "
-                        "MLflow Tracking. Reason: %s",
+                        "Failed to log training dataset information to MLflow Tracking. Reason: %s",
                         e,
                     )
 

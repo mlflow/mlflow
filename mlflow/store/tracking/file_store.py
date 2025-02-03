@@ -519,8 +519,8 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore experiment with ID %d. "
-                "An experiment with same ID already exists." % experiment_id,
+                f"Cannot restore experiment with ID {experiment_id}. "
+                "An experiment with same ID already exists.",
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)

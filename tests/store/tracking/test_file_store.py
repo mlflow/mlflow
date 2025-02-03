@@ -1147,8 +1147,7 @@ def test_get_metric_history(store):
 def test_get_metric_history_paginated_request_raises(store):
     with pytest.raises(
         MlflowException,
-        match="The FileStore backend does not support pagination for the `get_metric_history` "
-        "API.",
+        match="The FileStore backend does not support pagination for the `get_metric_history` API.",
     ):
         store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 
@@ -2559,7 +2558,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         # made to the input tags
         overwrite_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
 
@@ -2612,7 +2611,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         )
         new_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
