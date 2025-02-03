@@ -282,7 +282,9 @@ def _run_server(  # noqa: D417
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if secret_key:
+        env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     if app_name is None:
         app = f"{__name__}:app"
