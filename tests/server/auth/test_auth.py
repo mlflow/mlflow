@@ -402,7 +402,8 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             "--workers",
             "1",
             "--dev",
-        ]
+        ],
+        env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:
         try:
             url = f"http://{host}:{port}"
