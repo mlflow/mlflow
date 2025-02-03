@@ -585,7 +585,7 @@ For pipelines that support `pyfunc`, there are 3 means of attaching a model sign
 
 - Do nothing. The `transformers` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
 
-## Scale Inference with Overriding Pytorch dtype
+## Scale Inference with Overriding Pytorch dtype \{#scalability-for-inference}
 
 A common configuration for lowering the total memory pressure for pytorch models within `transformers` pipelines is to modify the
 processing data type. This is achieved through setting the `torch_dtype` argument when creating a `Pipeline`.
