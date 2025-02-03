@@ -301,15 +301,33 @@ def test_validate_batch_log_data(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("location", ["abcde", None])
+@pytest.mark.parametrize(
+    "location",
+    [
+        "abcde",
+        None,
+        "s3://test-bucket/",
+        "file:///path/to/artifacts",
+        "mlflow-artifacts:/path/to/artifacts",
+        "dbfs:/databricks/mlflow-tracking/some-id",
+    ],
+)
 def test_validate_experiment_artifact_location_good(location):
     _validate_experiment_artifact_location(location)
 
 
 @pytest.mark.parametrize("location", ["runs:/blah/bleh/blergh"])
-def test_validate_experiment_artifact_location_bad(location):
+def test_validate_experiment_artifact_location_bad_runs(location):
     with pytest.raises(MlflowException, match="Artifact location cannot be a runs:/ URI"):
         _validate_experiment_artifact_location(location)
+
+
+@pytest.mark.parametrize(
+    "artifact_location", ["s3://test-bucket/" + "a" * 10000, "file:///path/" + "directory" * 1000]
+)
+def test_validate_experiment_artifact_location_bad_length(artifact_location):
+    with pytest.raises(MlflowException, match="Invalid artifact location"):
+        _validate_experiment_artifact_location(artifact_location)
 
 
 @pytest.mark.parametrize("experiment_name", ["validstring", b"test byte string".decode("utf-8")])

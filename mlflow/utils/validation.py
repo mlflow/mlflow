@@ -9,7 +9,10 @@ import posixpath
 import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
+from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_TRUNCATE_LONG_VALUES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -512,11 +515,21 @@ def _validate_model_alias_name(model_alias_name):
 
 
 def _validate_experiment_artifact_location(artifact_location):
-    if artifact_location is not None and artifact_location.startswith("runs:"):
-        raise MlflowException(
-            f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    if artifact_location is not None:
+        if artifact_location.startswith("runs:"):
+            raise MlflowException(
+                f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        max_length = MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.get()
+        if len(artifact_location) > max_length:
+            raise MlflowException(
+                "Invalid artifact location. The length of the artifact location cannot be "
+                f"greater than {max_length} characters. To configure this limit, please set the "
+                "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+                INVALID_PARAMETER_VALUE,
+            )
 
 
 def _validate_db_type_string(db_type):
