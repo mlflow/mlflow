@@ -7,8 +7,8 @@ import mlflow
 with mlflow.start_run():
     model = LinearRegression().fit([[1], [2]], [3, 4])
     model_info = mlflow.sklearn.log_model(
-        model, 
-        "model", 
+        model,
+        "model",
         params={
             "alpha": 0.5,
             "l1_ratio": 0.5,
@@ -29,11 +29,11 @@ print(m.tags)
 client = mlflow.MlflowClient()
 
 client.create_registered_model("model_client")
-client.create_model_version("model_client", model_info.model_uri, model_id = model_info.model_id)
+client.create_model_version("model_client", model_info.model_uri, model_id=model_info.model_id)
 m = client.get_model_version("model_client", 1)
 print(m)
 assert m.model_id == model_info.model_id
 assert m.params == {
-    "alpha": '0.5',
-    "l1_ratio": '0.5',
+    "alpha": "0.5",
+    "l1_ratio": "0.5",
 }

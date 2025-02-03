@@ -361,6 +361,9 @@ message ModelVersion {
 
   // Optional parameters for the model.
   repeated ModelParam model_params = 16;
+
+  // Optional metrics for the model.
+  repeated ModelMetric model_metrics = 17;
 }
 
 message CreateRegisteredModel {
@@ -636,6 +639,38 @@ message ModelParam {
 
   // Value of the param associated with the name, could be empty
   optional string value = 2;
+}
+
+// Metric associated with a model, represented as a key-value pair.
+// Copied from MLflow metric
+message ModelMetric {
+  // Key identifying this metric.
+  optional string key = 1;
+
+  // Value associated with this metric.
+  optional double value = 2;
+
+  // The timestamp at which this metric was recorded.
+  optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
+
+  // The name of the dataset associated with the metric.
+  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // Dataset digest of the dataset associated with the metric,
+  // e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string dataset_digest = 6 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the LoggedModel or Registered Model Version associated with
+  // the metric
+  optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the run containing the metric.
+  optional string run_id = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 }
 
 // Tag for a registered model

@@ -9,6 +9,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
 from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
 from mlflow.environment_variables import MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC
@@ -77,6 +78,9 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         params=[
             ModelParam(key=param.name, value=param.value) for param in (uc_proto.model_params or [])
         ],
+        metrics=[
+            Metric(key=metric.key, value=metric.value, timestamp=metric.timestamp, step=metric.step, dataset_name=metric.dataset_name, dataset_digest=metric.dataset_digest, model_id=metric.model_id, run_id=metric.run_id) for metric in (uc_proto.model_metrics or [])
+        ]
     )
 
 
