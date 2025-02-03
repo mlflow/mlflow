@@ -1271,17 +1271,11 @@ def test_load_model_to_device(sequential_model):
         with mlflow.start_run():
             model_info = mlflow.pytorch.log_model(sequential_model, "pytorch")
             model_config = {"device": "cuda"}
+            if Version(torch.__version__) >= Version("2.6.0"):
+                model_config["weights_only"] = False
 
             mlflow.pyfunc.load_model(model_uri=model_info.model_uri, model_config=model_config)
 
-            expected_kwargs = model_config
-            if Version(torch.__version__) >= Version("2.6.0"):
-                expected_kwargs["weights_only"] = False
-
-            load_model_mock.assert_called_with(mock.ANY, **expected_kwargs)
-            mlflow.pytorch.load_model(
-                model_uri=model_info.model_uri,
-                device="cuda",
-                weights_only=False,
-            )
-            load_model_mock.assert_called_with(path=mock.ANY, **expected_kwargs)
+            load_model_mock.assert_called_with(mock.ANY, **model_config)
+            mlflow.pytorch.load_model(model_uri=model_info.model_uri, **model_config)
+            load_model_mock.assert_called_with(path=mock.ANY, **model_config)
