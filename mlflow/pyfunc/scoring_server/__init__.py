@@ -512,7 +512,7 @@ def init(model: PyFuncModel):
 
         data = await request.body()
         content_type = request.headers.get("content-type")
-        # TODO: convert "invocations" to an async method to make iternal logic fully non-blocking.
+        # TODO: convert "invocations" to an async method to make internal logic fully non-blocking.
         result = await asyncio.to_thread(invocations, data, content_type, model, input_schema)
 
         return Response(
