@@ -133,5 +133,5 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         for chunk in input:
             if chunk.content:
                 yield ChatAgentChunk(
-                    message=ChatAgentMessage(content=chunk.content, role="assistant", id=chunk.id)
+                    delta=ChatAgentMessage(content=chunk.content, role="assistant", id=chunk.id)
                 ).model_dump_compat(exclude_none=True)

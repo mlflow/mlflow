@@ -57,7 +57,7 @@ class SimpleChatAgent(ChatAgent):
     ):
         for i in range(5):
             mock_response = get_mock_response(messages, f"message {i}")
-            mock_response["message"] = mock_response["messages"][0]
+            mock_response["delta"] = mock_response["messages"][0]
             yield ChatAgentChunk(**mock_response)
 
 
@@ -304,7 +304,7 @@ def test_chat_agent_predict_stream(tmp_path):
 
     responses = list(loaded_model.predict_stream({"messages": messages}))
     for i, resp in enumerate(responses[:-1]):
-        assert resp["message"]["content"] == f"message {i}"
+        assert resp["delta"]["content"] == f"message {i}"
 
 
 def test_chat_agent_can_receive_and_return_custom():

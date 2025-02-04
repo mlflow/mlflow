@@ -194,4 +194,4 @@ class LangGraphChatAgent(ChatAgent):
             for node_data in event.values():
                 if not node_data:
                     continue
-                yield from (ChatAgentChunk(**{"message": msg}) for msg in node_data["messages"])
+                yield from (ChatAgentChunk(**{"delta": msg}) for msg in node_data["messages"])
