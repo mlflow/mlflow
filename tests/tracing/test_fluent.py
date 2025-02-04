@@ -1496,6 +1496,7 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
     execution_time_ms = 5129
 
     mlflow.log_trace(
+        name="test",
         request=inputs,
         response=outputs,
         intermediate_outputs=intermediate_outputs,
@@ -1517,6 +1518,7 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
     spans = trace.data.spans
     assert len(spans) == 1
     root_span = spans[0]
+    assert root_span.name == "test"
     assert root_span.start_time_ns == start_time_ms * 1000000
     assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
 
