@@ -59,6 +59,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("torch") else ["--env-manager", "local"]
 )
 
+# in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
+# `False` to `True`. this can cause pickle deserialization errors when loading
+# models, unless the model classes have been explicitly marked as safe using
+# `torch.serialization.add_safe_globals()`
 ENABLE_LEGACY_DESERIALIZATION = Version(torch.__version__) >= Version("2.6.0")
 
 
