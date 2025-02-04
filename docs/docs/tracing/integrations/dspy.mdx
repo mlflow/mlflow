@@ -112,6 +112,7 @@ class Counter(dspy.Signature):
         desc="Should only contain a single number as an answer"
     )
 
+
 cot = dspy.ChainOfThought(Counter)
 
 # Evaluate the programs
@@ -153,6 +154,17 @@ You can enable tracing for these steps by calling the <APILink fn="mlflow.dspy.a
 
 By default, MLflow does **NOT** generate traces during complication, because complication can trigger hundreds or thousands of invocations of DSPy modules. To enable tracing for compilation, you can call the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_compile` parameter set to `True`.
 
+```python
+import dspy
+import mlflow
+
+# Enable auto-tracing for compilation
+mlflow.dspy.autolog(log_traces_from_compile=True)
+
+# Optimize the DSPy program as usual
+tp = dspy.MIPROv2(metric=metric, auto="medium", num_threads=24)
+optimized = tp.compile(cot, trainset=trainset, ...)
+```
 
 ### Disable auto-tracing
 
