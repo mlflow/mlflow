@@ -173,13 +173,12 @@ def test_langgraph_chat_agent_save_as_code():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_model.predict_stream({"messages": [{"role": "user", "content": "hi"}]})
     for event, (role, expected_content) in zip(response, expected_messages):
-        assert event["messages"][0]["content"] == expected_content
-        assert event["messages"][0]["role"] == role
+        assert event["message"]["content"] == expected_content
+        assert event["message"]["role"] == role
 
 
 def test_langgraph_chat_agent_trace():
     input_example = {"messages": [{"role": "user", "content": "hi"}]}
-    # need to have the unset fields that will be traced
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -208,3 +207,5 @@ def test_langgraph_chat_agent_trace():
     # delete the generated uuid
     del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
+    print(traces[0].data.spans[0].outputs)
+    assert False

@@ -13,22 +13,23 @@ from pydantic import BaseModel
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, Context
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, Context
 from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(left: list[dict], right: list[dict]):
     # assign missing ids
-    for m in left:
+    for i, m in enumerate(left):
         if isinstance(m, BaseMessage):
-            m = parse_message(m)
-        if m.get("id") is None:
-            m["id"] = str(uuid.uuid4())
-    for m in right:
+            left[i] = parse_message(m)
+        if left[i].get("id") is None:
+            left[i]["id"] = str(uuid.uuid4())
+
+    for i, m in enumerate(right):
         if isinstance(m, BaseMessage):
-            m = parse_message(m)
-        if m.get("id") is None:
-            m["id"] = str(uuid.uuid4())
+            right[i] = parse_message(m)
+        if right[i].get("id") is None:
+            right[i]["id"] = str(uuid.uuid4())
 
     # merge
     left_idx_by_id = {m.get("id"): i for i, m in enumerate(left)}
@@ -186,11 +187,11 @@ class LangGraphChatAgent(ChatAgent):
         messages: list[ChatAgentMessage],
         context: Optional[Context] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> Generator[Any, Any, ChatAgentResponse]:
+    ) -> Generator[ChatAgentChunk, Any, Any]:
         for event in self.agent.stream(
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
         ):
             for node_data in event.values():
                 if not node_data:
                     continue
-                yield ChatAgentResponse(**node_data)
+                yield ChatAgentChunk(**{"message": node_data["messages"][0]})

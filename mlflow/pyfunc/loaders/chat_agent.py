@@ -8,7 +8,13 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.agent import ChatAgentMessage, ChatAgentRequest, ChatAgentResponse, Context
+from mlflow.types.agent import (
+    ChatAgentChunk,
+    ChatAgentMessage,
+    ChatAgentRequest,
+    ChatAgentResponse,
+    Context,
+)
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
 
@@ -62,9 +68,9 @@ class _ChatAgentPyfuncWrapper:
 
         return messages, context, custom_inputs
 
-    def _response_to_dict(self, response) -> dict[str, Any]:
+    def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         try:
-            model_validate(ChatAgentResponse, response)
+            model_validate(pydantic_class, response)
         except pydantic.ValidationError as e:
             raise MlflowException(
                 message=(
@@ -73,7 +79,7 @@ class _ChatAgentPyfuncWrapper:
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e
-        if isinstance(response, ChatAgentResponse):
+        if isinstance(response, pydantic_class):
             return response.model_dump_compat(exclude_none=True)
         return response
 
@@ -89,7 +95,7 @@ class _ChatAgentPyfuncWrapper:
         """
         messages, context, custom_inputs = self._convert_input(model_input)
         response = self.chat_agent.predict(messages, context, custom_inputs)
-        return self._response_to_dict(response)
+        return self._response_to_dict(response, ChatAgentResponse)
 
     def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
         """
@@ -108,4 +114,4 @@ class _ChatAgentPyfuncWrapper:
         """
         messages, context, custom_inputs = self._convert_input(model_input)
         for response in self.chat_agent.predict_stream(messages, context, custom_inputs):
-            yield self._response_to_dict(response)
+            yield self._response_to_dict(response, ChatAgentChunk)
