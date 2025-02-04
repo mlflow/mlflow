@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, Context
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.utils.annotations import experimental
 
 
@@ -165,7 +165,7 @@ class LangGraphChatAgent(ChatAgent):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[Context] = None,
+        context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         response = ChatAgentResponse(messages=[])
@@ -185,7 +185,7 @@ class LangGraphChatAgent(ChatAgent):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[Context] = None,
+        context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, Any, Any]:
         for event in self.agent.stream(

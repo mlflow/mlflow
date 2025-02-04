@@ -13,7 +13,7 @@ from mlflow.types.agent import (
     ChatAgentMessage,
     ChatAgentRequest,
     ChatAgentResponse,
-    Context,
+    ChatContext,
 )
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
@@ -43,7 +43,9 @@ class _ChatAgentPyfuncWrapper:
         """
         return self.chat_agent
 
-    def _convert_input(self, model_input) -> Tuple[list[ChatAgentMessage], Context, dict[str, Any]]:
+    def _convert_input(
+        self, model_input
+    ) -> Tuple[list[ChatAgentMessage], ChatContext, dict[str, Any]]:
         import pandas
 
         if isinstance(model_input, dict):
@@ -63,7 +65,7 @@ class _ChatAgentPyfuncWrapper:
             )
 
         messages = [ChatAgentMessage(**message) for message in dict_input.get("messages", [])]
-        context = Context(**dict_input.get("context", {}))
+        context = ChatContext(**dict_input.get("context", {}))
         custom_inputs = dict_input.get("custom_inputs", None)
 
         return messages, context, custom_inputs
@@ -87,7 +89,7 @@ class _ChatAgentPyfuncWrapper:
         """
         Args:
             model_input: A dict with the
-            :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+                :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
 
         Returns:
             A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
@@ -100,17 +102,12 @@ class _ChatAgentPyfuncWrapper:
     def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
         """
         Args:
-            messages (dict[str, Any]): A list of dicts with the
-                :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>` schema.
-            context (dict[str, Any]): A dict with the
-                :py:class:`Context <mlflow.types.agent.Context>` schema.
-            custom_inputs (dict[str, Any]):
-                An optional param to provide arbitrary additional inputs
-                to the model. The dictionary values must be JSON-serializable.
+            model_input: A dict with the
+                :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
 
         Returns:
-            A generator over dicts with the (:py:class:`ChatAgentResponse <mlflow.types.agent.
-                ChatAgentResponse>`) schema.
+            A generator over dicts with the
+                (:py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`) schema.
         """
         messages, context, custom_inputs = self._convert_input(model_input)
         for response in self.chat_agent.predict_stream(messages, context, custom_inputs):

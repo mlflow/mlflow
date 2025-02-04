@@ -37,7 +37,12 @@ from mlflow.pyfunc.utils.data_validation import (
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, Context
+from mlflow.types.agent import (
+    ChatAgentChunk,
+    ChatAgentMessage,
+    ChatAgentResponse,
+    ChatContext,
+)
 from mlflow.types.llm import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -421,7 +426,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[Context] = None,
+        context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         """
@@ -432,8 +437,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
                 A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
                 objects representing the chat history.
-            context (:py:class:`Context <mlflow.types.agent.Context>`):
-                A :py:class:`Context <mlflow.types.agent.Context>` object
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
                 containing conversation_id and user_id. **Optional** Defaults to None.
             custom_inputs (Dict[str, Any]):
                 An optional param to provide arbitrary additional inputs
@@ -450,7 +455,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[Context] = None,
+        context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         """
@@ -463,8 +468,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
                 A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
                 objects representing the chat history.
-            context (:py:class:`Context <mlflow.types.agent.Context>`):
-                A :py:class:`Context <mlflow.types.agent.Context>` object
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
                 containing conversation_id and user_id. **Optional** Defaults to None.
             custom_inputs (Dict[str, Any]):
                 An optional param to provide arbitrary additional inputs
@@ -473,7 +478,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         Returns:
             A generator over :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`
-            object containing the model's response(s), as well as other metadata.
+            objects containing the model's response(s), as well as other metadata.
         """
         raise NotImplementedError(
             "Streaming implementation not provided. Please override the "

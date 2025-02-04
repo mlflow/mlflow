@@ -19,7 +19,7 @@ from mlflow.types.agent import (
     ChatAgentMessage,
     ChatAgentRequest,
     ChatAgentResponse,
-    Context,
+    ChatContext,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -47,13 +47,13 @@ def get_mock_response(messages: list[ChatAgentMessage], message=None):
 class SimpleChatAgent(ChatAgent):
     @mlflow.trace
     def predict(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ) -> ChatAgentResponse:
         mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response)
 
     def predict_stream(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ):
         for i in range(5):
             mock_response = get_mock_response(messages, f"message {i}")
@@ -64,7 +64,7 @@ class SimpleChatAgent(ChatAgent):
 class SimpleDictChatAgent(ChatAgent):
     @mlflow.trace
     def predict(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ) -> ChatAgentResponse:
         mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response).model_dump_compat()
@@ -72,7 +72,7 @@ class SimpleDictChatAgent(ChatAgent):
 
 class ChatAgentWithCustomInputs(ChatAgent):
     def predict(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ) -> ChatAgentResponse:
         mock_response = get_mock_response(messages)
         return ChatAgentResponse(
@@ -164,7 +164,10 @@ def mock_predict():
 def test_save_throws_on_invalid_output(tmp_path, ret):
     class BadChatAgent(ChatAgent):
         def predict(
-            self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+            self,
+            messages: list[ChatAgentMessage],
+            context: ChatContext,
+            custom_inputs: dict[str, Any],
         ) -> ChatAgentResponse:
             return ret
 

@@ -78,7 +78,7 @@ class ChatAgentMessage(BaseModel):
             return values
 
 
-class Context(BaseModel):
+class ChatContext(BaseModel):
     """
     Context to be used in a ChatAgent endpoint.
 
@@ -96,7 +96,7 @@ class ChatAgentParams(BaseModel):
     Common parameters used for the ChatAgent interface.
 
     Args:
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
             conversation_id and user_id. **Optional** defaults to ``None``
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
@@ -105,7 +105,7 @@ class ChatAgentParams(BaseModel):
             **Optional**, defaults to ``False``
     """
 
-    context: Optional[Context] = None
+    context: Optional[ChatContext] = None
     custom_inputs: Optional[dict[str, Any]] = None
     stream: Optional[bool] = False
 
@@ -116,7 +116,7 @@ class ChatAgentRequest(ChatAgentParams):
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that will be passed to the model.
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
             conversation_id and user_id. **Optional** defaults to ``None``
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
