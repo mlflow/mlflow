@@ -4,10 +4,12 @@ from unittest import mock
 import httpx
 import openai
 import pytest
+from packaging.version import Version
 from pydantic import BaseModel
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
@@ -466,6 +468,9 @@ def test_autolog_raw_response_stream(client):
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.40"), reason="Requires OpenAI SDK >= 1.40"
+)
 def test_response_format(client):
     mlflow.openai.autolog()
 
@@ -528,3 +533,4 @@ def test_response_format(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
+    assert span.span_type == SpanType.CHAT_MODEL
