@@ -330,7 +330,7 @@ def test_autolog_custom_module():
     ]
 
 
-def test_autolog_tracing_during_compilation_by_default():
+def test_autolog_tracing_during_compilation_disabled_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
@@ -372,7 +372,7 @@ def test_autolog_tracing_during_compilation_by_default():
     assert len(get_traces()) == 2  # no new traces
 
 
-def test_autolog_tracing_during_evaluation_by_default():
+def test_autolog_tracing_during_evaluation_enabled_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
@@ -392,16 +392,8 @@ def test_autolog_tracing_during_evaluation_by_default():
 
     program = Predict("question -> answer")
 
-    # Evaluate should NOT generate traces by default
+    # Evaluate should generate traces by default
     evaluator = Evaluate(devset=trainset)
-    score = evaluator(program, metric=answer_exact_match)
-
-    assert score == 50.0
-    assert len(get_traces()) == 0
-
-    # If opted in, traces should be generated during evaluation
-    mlflow.dspy.autolog(log_traces_from_eval=True)
-
     score = evaluator(program, metric=answer_exact_match)
 
     assert score == 50.0
@@ -409,7 +401,7 @@ def test_autolog_tracing_during_evaluation_by_default():
     assert len(traces) == 2
     assert all(trace.info.status == "OK" for trace in traces)
 
-    # Opt-out again
+    # If opted out, traces should NOT be generated during evaluation
     mlflow.dspy.autolog(log_traces_from_eval=False)
 
     score = evaluator(program, metric=answer_exact_match)

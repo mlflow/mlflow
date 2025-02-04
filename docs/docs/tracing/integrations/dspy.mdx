@@ -76,14 +76,11 @@ summarizer(
 )
 ```
 
+### Tracing during Evaluation
 
-### Tracing during Compilation and Evaluation
+Evaluating DSPy models is an important step in the development of AI systems. MLflow Tracing can help you track the performance of your programs after the evaluation, by providing detailed information about the execution of your programs for each input.
 
-Compilation (optimization) and evaluation are two important steps in the development of a DSPy program. MLflow Tracing can help you track the performance of your programs during these steps.
-
-Since those steps involves many invocation of DSPy modules, MLflow by default does not generate traces during compilation and evaluation. You can enable tracing for these steps by calling the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_compile` and `log_traces_from_eval` parameters set to `True`.
-
-The following example demonstrates how to enable tracing for evaluation:
+When MLflow auto-tracing is enabled for DSPy, traces will be automatically generated when you execute DSPy's [built-in evaluation suites](https://dspy.ai/learn/evaluation/overview/). The following example demonstrates how to run evaluation and review traces in MLflow:
 
 ```python
 import dspy
@@ -115,7 +112,6 @@ class Counter(dspy.Signature):
         desc="Should only contain a single number as an answer"
     )
 
-
 cot = dspy.ChainOfThought(Counter)
 
 # Evaluate the programs
@@ -142,7 +138,20 @@ with mlflow.start_run(run_name="CoT Evaluation"):
     )
 ```
 
-If you open the MLflow UI and go to the "CoT Evaluation" run, you will see the evaluation result and the list of traces generated for each input question.
+If you open the MLflow UI and go to the "CoT Evaluation" run, you will see the evaluation result, and the list of traces generated during the evaluation on the ``Traces`` tab.
+
+
+:::note
+
+You can enable tracing for these steps by calling the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_eval` parameters set to `False`.
+
+:::
+
+### Tracing during Compilation (Optimization)
+
+[Compilation (optimization)](https://dspy.ai/learn/optimization/overview/) is the core concept of DSPy. Through compilation, DSPy automatically optimizes the prompts and weights of your DSPy program to achieve the best performance.
+
+By default, MLflow does **NOT** generate traces during complication, because complication can trigger hundreds or thousands of invocations of DSPy modules. To enable tracing for compilation, you can call the <APILink fn="mlflow.dspy.autolog" /> function with the `log_traces_from_compile` parameter set to `True`.
 
 
 ### Disable auto-tracing

@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 def autolog(
     log_traces: bool = True,
     log_traces_from_compile: bool = False,
-    log_traces_from_eval: bool = False,
+    log_traces_from_eval: bool = True,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -33,7 +33,7 @@ def autolog(
         log_traces_from_eval: If ``True``, traces are logged for DSPy models when running DSPy's
             `built-in evaluator <https://dspy.ai/learn/evaluation/metrics/#evaluation>`_.
             If ``False``, traces are only logged from normal model inference and disabled when
-            running the evaluator. Default to ``False``.
+            running the evaluator. Default to ``True``.
         disable: If ``True``, disables the DSPy autologging integration. If ``False``,
             enables the DSPy autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during DSPy
@@ -111,12 +111,11 @@ def autolog(
             trace_disabled_fn,
         )
 
-    if not log_traces_from_compile and not log_traces_from_eval:
+    if not log_traces_from_compile:
         _logger.info(
             "Enabled DSPy tracing. By default, MLflow only generates traces for normal"
-            "model inference, and disables tracing when running the compilation and "
-            "evaluation. To enable tracing during evaluation, set log_traces_from_eval=True "
-            "and log_traces_from_compile=True in the autologging call."
+            "model inference and evaluation, but disables it during compilation (optimization). "
+            "To enable it set log_traces_from_compile=True in the autologging call."
         )
 
 
