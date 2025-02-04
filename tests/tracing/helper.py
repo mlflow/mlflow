@@ -194,8 +194,7 @@ def score_in_model_serving(model_uri: str, model_input: dict):
             return mlflow.pyfunc.load_model(model_uri)
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_load_model)
-            model = future.result()
+            model = executor.submit(_load_model).result()
 
         # Score the model
         request_id = uuid.uuid4().hex
