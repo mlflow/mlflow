@@ -1,5 +1,3 @@
-import logging
-
 from mlflow.dspy.save import FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
@@ -8,8 +6,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     safe_patch,
 )
-
-_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -109,13 +105,6 @@ def autolog(
             Evaluate,
             call_patch,
             trace_disabled_fn,
-        )
-
-    if not log_traces_from_compile:
-        _logger.info(
-            "Enabled DSPy tracing. By default, MLflow only generates traces for normal"
-            "model inference and evaluation, but disables it during compilation (optimization). "
-            "To enable it set log_traces_from_compile=True in the autologging call."
         )
 
 
