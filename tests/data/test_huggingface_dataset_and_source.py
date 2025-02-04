@@ -18,7 +18,7 @@ from mlflow.types.utils import _infer_schema
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
@@ -125,7 +125,7 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_data_dir(tmp_
 
 
 def test_from_huggingface_dataset_respects_user_specified_name_and_digest():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(
         ds, path="rotten_tomatoes", name="myname", digest="mydigest"
     )
@@ -155,7 +155,7 @@ def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_dataset
 
 
 def test_from_huggingface_dataset_throws_for_dataset_dict():
-    ds = datasets.load_dataset("rotten_tomatoes")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes")
     assert isinstance(ds, datasets.DatasetDict)
 
     with pytest.raises(
@@ -165,7 +165,7 @@ def test_from_huggingface_dataset_throws_for_dataset_dict():
 
 
 def test_from_huggingface_dataset_no_source_specified():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds)
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
@@ -175,7 +175,7 @@ def test_from_huggingface_dataset_no_source_specified():
 
 
 def test_dataset_conversion_to_json():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
 
     dataset_json = mlflow_ds.to_json()
@@ -227,7 +227,7 @@ def test_dataset_source_conversion_to_json():
 def test_to_evaluation_dataset():
     import numpy as np
 
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")
 
     evaluation_dataset = dataset.to_evaluation_dataset()
