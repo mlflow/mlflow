@@ -187,7 +187,7 @@ class LangGraphChatAgent(ChatAgent):
         messages: list[ChatAgentMessage],
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> Generator[ChatAgentChunk, Any, Any]:
+    ) -> Generator[ChatAgentChunk, None, None]:
         for event in self.agent.stream(
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
         ):

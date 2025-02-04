@@ -81,7 +81,7 @@ def test_chatcompletion_output_parser_parse_response():
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
-    reason="Test requires langchain >= 0.2.0 bc of BaseMessage",
+    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
 )
 def test_chat_agent_output_parser_parse_response():
     parser = ChatAgentOutputParser()

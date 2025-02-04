@@ -410,12 +410,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        predict_attr = cls.__dict__.get("predict")
-        if predict_attr is not None and callable(predict_attr):
-            setattr(cls, "predict", _wrap_chat_agent_predict(predict_attr))
-        predict_stream_attr = cls.__dict__.get("predict_stream")
-        if predict_stream_attr is not None and callable(predict_stream_attr):
-            setattr(cls, "predict_stream", _wrap_chat_agent_predict(predict_stream_attr))
+        for attr_name in ("predict", "predict_stream"):
+            attr = cls.__dict__.get(attr_name)
+            if callable(attr):
+                setattr(cls, attr_name, _wrap_chat_agent_predict(attr))
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump_compat(exclude_none=True) for m in messages]

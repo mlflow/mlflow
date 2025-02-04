@@ -38,7 +38,7 @@ class ChatAgentMessage(BaseModel):
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
         id (str): The ID of the message. **Optional** defaults to a random UUID
         tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
-        model. **Optional** defaults to ``None``
+            model. **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
             **Optional** defaults to ``None``
         attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
@@ -138,7 +138,7 @@ class ChatAgentResponse(BaseModel):
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
         usage (:py:class:`mlflow.types.chat.ChatUsage`): The token usage of the request
-        **Optional**, defaults to None
+            **Optional**, defaults to None
     """
 
     messages: list[ChatAgentMessage]
@@ -158,7 +158,7 @@ class ChatAgentChunk(BaseModel):
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
         usage (:py:class:`mlflow.types.chat.ChatUsage`): The token usage of the request
-        **Optional**, defaults to None
+            **Optional**, defaults to None
     """
 
     message: ChatAgentMessage

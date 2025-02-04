@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional, Tuple
+from typing import Any, Generator, Optional
 
 import pydantic
 
@@ -45,7 +45,7 @@ class _ChatAgentPyfuncWrapper:
 
     def _convert_input(
         self, model_input
-    ) -> Tuple[list[ChatAgentMessage], ChatContext, dict[str, Any]]:
+    ) -> tuple[list[ChatAgentMessage], ChatContext, dict[str, Any]]:
         import pandas
 
         if isinstance(model_input, dict):
@@ -71,6 +71,8 @@ class _ChatAgentPyfuncWrapper:
         return messages, context, custom_inputs
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
+        if isinstance(response, pydantic_class):
+            return response.model_dump_compat(exclude_none=True)
         try:
             model_validate(pydantic_class, response)
         except pydantic.ValidationError as e:
@@ -81,8 +83,6 @@ class _ChatAgentPyfuncWrapper:
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e
-        if isinstance(response, pydantic_class):
-            return response.model_dump_compat(exclude_none=True)
         return response
 
     def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
