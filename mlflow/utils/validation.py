@@ -10,8 +10,8 @@ import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.environment_variables import (
-    MLFLOW_TRUNCATE_LONG_VALUES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE

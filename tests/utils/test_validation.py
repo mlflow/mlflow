@@ -350,7 +350,8 @@ def test_validate_experiment_artifact_location_length_good(artifact_location):
 
 
 @pytest.mark.parametrize(
-    "artifact_location", ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 5000]
+    "artifact_location",
+    ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 5000],
 )
 def test_validate_experiment_artifact_location_length_bad(artifact_location):
     with pytest.raises(MlflowException, match="Invalid artifact location"):
