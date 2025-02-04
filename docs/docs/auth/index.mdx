@@ -24,6 +24,26 @@ MLflow Authentication provides Python and REST API for managing users and permis
 
 ## Overview
 
+### Installation
+
+First, install all dependencies required for the basic auth app:
+
+```bash
+pip install mlflow[auth]
+```
+
+:::note
+The basic auth app requires a secret key for CSRF protection. Please set the `MLFLOW_FLASK_SERVER_SECRET_KEY` environment
+variable before running the `mlflow server` command. For example:
+
+```
+export MLFLOW_FLASK_SERVER_SECRET_KEY="my-secret-key"
+```
+
+If your setup uses multiple servers, please make sure that this key is consistent between them. Otherwise, you may
+run into unexpected validation errors.
+:::
+
 To enable MLflow authentication, launch the MLflow UI with the following command:
 
 ```bash
