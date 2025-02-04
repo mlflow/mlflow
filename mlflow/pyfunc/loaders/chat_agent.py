@@ -11,7 +11,6 @@ from mlflow.pyfunc.model import (
 from mlflow.types.agent import (
     ChatAgentChunk,
     ChatAgentMessage,
-    ChatAgentRequest,
     ChatAgentResponse,
     ChatContext,
 )
@@ -50,8 +49,6 @@ class _ChatAgentPyfuncWrapper:
 
         if isinstance(model_input, dict):
             dict_input = model_input
-        elif isinstance(model_input, ChatAgentRequest):
-            dict_input = model_input.model_dump_compat(exclude_none=True)
         elif isinstance(model_input, pandas.DataFrame):
             dict_input = {
                 k: _convert_llm_ndarray_to_list(v[0])
@@ -59,8 +56,8 @@ class _ChatAgentPyfuncWrapper:
             }
         else:
             raise MlflowException(
-                "Unsupported model input type. Expected a dict, ChatAgentRequest, or pandas."
-                f"DataFrame, but got {type(model_input)} instead.",
+                "Unsupported model input type. Expected a dict or pandas.DataFrame, but got "
+                f"{type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
 

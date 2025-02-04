@@ -100,6 +100,9 @@ def _wrap_chat_agent_predict(func):
                     f"ChatAgentRequest schema. Pydantic validation error: {e}"
                 ) from e
         else:
+            # After logging, signature enforcement happens in the _convert_input method
+            # of _ChatAgentPyfuncWrapper
+            # Before logging, this is equivalent to the behavior from the raw predict method
             return func(self, *args, **kwargs)
 
     wrapper._is_pyfunc = True
