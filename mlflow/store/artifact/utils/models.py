@@ -48,7 +48,7 @@ class ParsedModelUri(NamedTuple):
     alias: Optional[str] = None
 
 
-def _parse_model_uri(uri):
+def _parse_model_uri(uri) -> ParsedModelUri:
     """
     Returns a ParsedModelUri tuple. Since a models:/ URI can only have one of
     {version, stage, 'latest', alias}, it will return
