@@ -1185,7 +1185,7 @@ def log_input(
         [DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)] if dataset else None
     )
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=[model])
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=model and [model])
 
 
 def set_experiment_tags(tags: dict[str, Any]) -> None:
