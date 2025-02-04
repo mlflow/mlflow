@@ -73,7 +73,7 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
             "params": {p.key: p.value for p in params},
             "tags": {t.key: t.value for t in tags},
         },
-        "inputs": {"dataset_inputs": datasets},
+        "inputs": {"dataset_inputs": datasets, "model_inputs": []},
     }
 
     proto = run1.to_proto()
@@ -116,7 +116,7 @@ def test_string_repr():
         "run_uuid='hi', start_time=0, status=4, user_id='user-id'>, inputs=<RunInputs: "
         "dataset_inputs=<DatasetInput: dataset=<Dataset: digest='digest1', "
         "name='name1', profile=None, schema=None, source='source', "
-        "source_type='my_source_type'>, tags=[]>>>"
+        "source_type='my_source_type'>, tags=[]>, model_inputs=[]>, outputs=None>"
     )
     assert str(run1) == expected
 
