@@ -13,6 +13,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_db_type_string,
     _validate_experiment_artifact_location,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_metric_name,
     _validate_model_alias_name,
@@ -301,33 +302,15 @@ def test_validate_batch_log_data(monkeypatch):
     )
 
 
-@pytest.mark.parametrize(
-    "location",
-    [
-        "abcde",
-        None,
-        "s3://test-bucket/",
-        "file:///path/to/artifacts",
-        "mlflow-artifacts:/path/to/artifacts",
-        "dbfs:/databricks/mlflow-tracking/some-id",
-    ],
-)
+@pytest.mark.parametrize("location", ["abcde", None])
 def test_validate_experiment_artifact_location_good(location):
     _validate_experiment_artifact_location(location)
 
 
 @pytest.mark.parametrize("location", ["runs:/blah/bleh/blergh"])
-def test_validate_experiment_artifact_location_bad_runs(location):
+def test_validate_experiment_artifact_location_bad(location):
     with pytest.raises(MlflowException, match="Artifact location cannot be a runs:/ URI"):
         _validate_experiment_artifact_location(location)
-
-
-@pytest.mark.parametrize(
-    "artifact_location", ["s3://test-bucket/" + "a" * 10000, "file:///path/" + "directory" * 1000]
-)
-def test_validate_experiment_artifact_location_bad_length(artifact_location):
-    with pytest.raises(MlflowException, match="Invalid artifact location"):
-        _validate_experiment_artifact_location(artifact_location)
 
 
 @pytest.mark.parametrize("experiment_name", ["validstring", b"test byte string".decode("utf-8")])
@@ -351,3 +334,24 @@ def test_validate_db_type_string_bad(db_type):
     with pytest.raises(MlflowException, match="Invalid database engine") as e:
         _validate_db_type_string(db_type)
     assert "Invalid database engine" in e.value.message
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://test-bucket/",
+        "file:///path/to/artifacts",
+        "mlflow-artifacts:/path/to/artifacts",
+        "dbfs:/databricks/mlflow-tracking/some-id",
+    ],
+)
+def test_validate_experiment_artifact_location_length_good(artifact_location):
+    _validate_experiment_artifact_location_length(artifact_location)
+
+
+@pytest.mark.parametrize(
+    "artifact_location", ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 5000]
+)
+def test_validate_experiment_artifact_location_length_bad(artifact_location):
+    with pytest.raises(MlflowException, match="Invalid artifact location"):
+        _validate_experiment_artifact_location_length(artifact_location)
