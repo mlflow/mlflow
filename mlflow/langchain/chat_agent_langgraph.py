@@ -162,7 +162,10 @@ class LangGraphChatAgent(ChatAgent):
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[Context] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         response = ChatAgentResponse(messages=[])
         for event in self.agent.stream(
@@ -179,7 +182,10 @@ class LangGraphChatAgent(ChatAgent):
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[Context] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[Any, Any, ChatAgentResponse]:
         for event in self.agent.stream(
             {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"

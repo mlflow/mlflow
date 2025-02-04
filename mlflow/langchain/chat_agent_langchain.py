@@ -1,9 +1,9 @@
-from typing import Any, Generator
+from typing import Any, Generator, Optional
 
 from langchain_core.runnables.base import Runnable
 
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, Context
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, Context
 from mlflow.utils.annotations import experimental
 
 
@@ -19,14 +19,20 @@ class LangChainChatAgent(ChatAgent):
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[Context] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         response = self.agent.invoke({"messages": self._convert_messages_to_dict(messages)})
         return ChatAgentResponse(**response)
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
-        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
-    ) -> Generator[ChatAgentResponse, None, None]:
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[Context] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
+    ) -> Generator[ChatAgentChunk, None, None]:
         for event in self.agent.stream({"messages": self._convert_messages_to_dict(messages)}):
-            yield ChatAgentResponse(**event)
+            yield ChatAgentChunk(**event)
