@@ -23,6 +23,7 @@ def test_creation_and_hydration(run_inputs):
     _check(run_inputs, datasets)
     as_dict = {
         "dataset_inputs": datasets,
+        "model_inputs": [],
     }
     assert dict(run_inputs) == as_dict
     proto = run_inputs.to_proto()
