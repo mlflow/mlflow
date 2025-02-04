@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 import mlflow
 from mlflow.langchain.chat_agent_langgraph import parse_message
-from mlflow.types.agent import ChatAgentMessage, ChatAgentRequest
+from mlflow.types.agent import ChatAgentMessage
 
 from tests.tracing.helper import get_traces
 
@@ -180,9 +180,6 @@ def test_langgraph_chat_agent_save_as_code():
 def test_langgraph_chat_agent_trace():
     input_example = {"messages": [{"role": "user", "content": "hi"}]}
     # need to have the unset fields that will be traced
-    converted_input_example = ChatAgentRequest(**input_example).model_dump_compat()
-    # delete the generated uuid
-    del converted_input_example["messages"][0]["id"]
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -200,7 +197,7 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].data.spans[0].name == "LangGraph"
     # delete the generated uuid
     del traces[0].data.spans[0].inputs["messages"][0]["id"]
-    assert traces[0].data.spans[0].inputs == converted_input_example
+    assert traces[0].data.spans[0].inputs == input_example
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     list(loaded_model.predict_stream(input_example))
@@ -210,4 +207,4 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].data.spans[0].name == "LangGraph"
     # delete the generated uuid
     del traces[0].data.spans[0].inputs["messages"][0]["id"]
-    assert traces[0].data.spans[0].inputs == converted_input_example
+    assert traces[0].data.spans[0].inputs == input_example

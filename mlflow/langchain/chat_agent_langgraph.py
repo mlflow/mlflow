@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Annotated, Any, Generator, Literal, Optional, TypedDict, Union
 
-from langchain_core.messages import AnyMessage
+from langchain_core.messages import AnyMessage, BaseMessage
 from langchain_core.messages import ToolCall as LCToolCall
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables.utils import Input
@@ -13,16 +13,20 @@ from pydantic import BaseModel
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentMessage, ChatAgentRequest, ChatAgentResponse
+from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, Context
 from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(left: list[dict], right: list[dict]):
     # assign missing ids
     for m in left:
+        if isinstance(m, BaseMessage):
+            m = parse_message(m)
         if m.get("id") is None:
             m["id"] = str(uuid.uuid4())
     for m in right:
+        if isinstance(m, BaseMessage):
+            m = parse_message(m)
         if m.get("id") is None:
             m["id"] = str(uuid.uuid4())
 
@@ -157,9 +161,13 @@ class LangGraphChatAgent(ChatAgent):
         self.agent = agent
 
     # TODO trace this by default once manual tracing of predict_stream is supported
-    def predict(self, model_input: ChatAgentRequest) -> ChatAgentResponse:
+    def predict(
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
         response = ChatAgentResponse(messages=[])
-        for event in self.agent.stream(model_input.model_dump_compat(), stream_mode="updates"):
+        for event in self.agent.stream(
+            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
+        ):
             for node_data in event.values():
                 if not node_data:
                     continue
@@ -171,9 +179,11 @@ class LangGraphChatAgent(ChatAgent):
 
     # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
-        self, model_input: ChatAgentRequest
+        self, messages: list[ChatAgentMessage], context: Context, custom_inputs: dict[str, Any]
     ) -> Generator[Any, Any, ChatAgentResponse]:
-        for event in self.agent.stream(model_input.model_dump_compat(), stream_mode="updates"):
+        for event in self.agent.stream(
+            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
+        ):
             for node_data in event.values():
                 if not node_data:
                     continue
