@@ -29,6 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 300
       - uses: ./.github/actions/setup-python
       - name:
         env:
