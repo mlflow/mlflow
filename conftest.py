@@ -304,7 +304,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     """
-    A hack to mark tests failing with `NotImplementedError("SqlAlchemyStore")` as passed.
+    A hack to mark tests failing with `NotImplementedError("SqlAlchemyStore")` as xfailed.
 
     TODO: Remove this hack once `SqlAlchemyStore` supports logged-model APIs.
     """
