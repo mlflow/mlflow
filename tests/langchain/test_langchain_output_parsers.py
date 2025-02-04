@@ -92,9 +92,4 @@ def test_chat_agent_output_parser_parse_response():
     base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
     streaming_chunks = parser.transform(base_messages, RunnableConfig())
     for i, chunk in enumerate(streaming_chunks):
-        for msg in chunk["messages"]:
-            assert isinstance(msg["id"], str)
-            del msg["id"]
-        assert chunk == {
-            "messages": [{"content": streaming_messages[i], "role": "assistant"}],
-        }
+        assert chunk == {"message": {"content": streaming_messages[i], "role": "assistant"}}
