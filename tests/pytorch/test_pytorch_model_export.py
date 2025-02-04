@@ -59,6 +59,8 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("torch") else ["--env-manager", "local"]
 )
 
+ENABLE_LEGACY_DESERIALIZATION = Version(torch.__version__) >= Version("2.6.0")
+
 
 @pytest.fixture(scope="module")
 def data():
@@ -699,7 +701,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         pyfunc.load_model(model_path)
 
     expected_kwargs = {"pickle_module": custom_pickle_module}
-    if Version(torch.__version__) >= Version("2.6.0"):
+    if ENABLE_LEGACY_DESERIALIZATION:
         expected_kwargs["weights_only"] = False
 
     torch_load_mock.assert_called_with(mock.ANY, **expected_kwargs)
@@ -735,7 +737,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         pyfunc.load_model(model_uri=model_uri)
 
     expected_kwargs = {"pickle_module": custom_pickle_module}
-    if Version(torch.__version__) >= Version("2.6.0"):
+    if ENABLE_LEGACY_DESERIALIZATION:
         expected_kwargs["weights_only"] = False
 
     torch_load_mock.assert_called_with(mock.ANY, **expected_kwargs)
@@ -1271,7 +1273,7 @@ def test_load_model_to_device(sequential_model):
         with mlflow.start_run():
             model_info = mlflow.pytorch.log_model(sequential_model, "pytorch")
             model_config = {"device": "cuda"}
-            if Version(torch.__version__) >= Version("2.6.0"):
+            if ENABLE_LEGACY_DESERIALIZATION:
                 model_config["weights_only"] = False
 
             mlflow.pyfunc.load_model(model_uri=model_info.model_uri, model_config=model_config)

@@ -717,6 +717,10 @@ def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
+    # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
+    # `False` to `True`. this can cause pickle deserialization errors when loading
+    # models, unless the model classes have been explicitly marked as safe using
+    # `torch.serialization.add_safe_globals()`
     if Version(torch.__version__) >= Version("2.6.0"):
         return _PyTorchWrapper(
             _load_model(path, device=device, weights_only=weights_only), device=device
