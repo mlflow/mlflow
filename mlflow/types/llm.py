@@ -846,7 +846,6 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
 
 CHAT_MODEL_INPUT_EXAMPLE = {
     "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ],
     "temperature": 1.0,
