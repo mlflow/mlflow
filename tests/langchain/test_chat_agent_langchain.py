@@ -2,6 +2,8 @@ import langchain
 import pytest
 from packaging.version import Version
 
+from tests.tracing.helper import get_traces
+
 if Version(langchain.__version__) < Version("0.2.0"):
     pytest.skip("Tests require langchain version 0.2.0 or higher", allow_module_level=True)
 
@@ -28,6 +30,12 @@ def test_langchain_chat_agent_save_as_code():
     for msg, (role, expected_content) in zip(messages, expected_messages[:1]):
         assert msg["role"] == role
         assert msg["content"] == expected_content
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    spans = traces[0].data.spans
+    len(spans) == 1
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     responses = loaded_model.predict_stream({"messages": [{"role": "user", "content": "hi"}]})
