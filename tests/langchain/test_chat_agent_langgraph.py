@@ -207,5 +207,3 @@ def test_langgraph_chat_agent_trace():
     # delete the generated uuid
     del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
-    print(traces[0].data.spans[0].outputs)
-    assert False

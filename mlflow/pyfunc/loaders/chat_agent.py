@@ -74,8 +74,8 @@ class _ChatAgentPyfuncWrapper:
         except pydantic.ValidationError as e:
             raise MlflowException(
                 message=(
-                    f"Model returned an invalid response. Expected a ChatAgentResponse object "
-                    f"or dictionary with the same schema. Pydantic validation error: {e}"
+                    f"Model returned an invalid response. Expected a {pydantic_class.__name__} "
+                    f"object or dictionary with the same schema. Pydantic validation error: {e}"
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e

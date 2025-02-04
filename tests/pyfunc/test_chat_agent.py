@@ -15,6 +15,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
+    ChatAgentChunk,
     ChatAgentMessage,
     ChatAgentRequest,
     ChatAgentResponse,
@@ -56,7 +57,8 @@ class SimpleChatAgent(ChatAgent):
     ):
         for i in range(5):
             mock_response = get_mock_response(messages, f"message {i}")
-            yield ChatAgentResponse(**mock_response)
+            mock_response["message"] = mock_response["messages"][0]
+            yield ChatAgentChunk(**mock_response)
 
 
 class SimpleDictChatAgent(ChatAgent):
@@ -299,7 +301,7 @@ def test_chat_agent_predict_stream(tmp_path):
 
     responses = list(loaded_model.predict_stream({"messages": messages}))
     for i, resp in enumerate(responses[:-1]):
-        assert resp["messages"][0]["content"] == f"message {i}"
+        assert resp["message"]["content"] == f"message {i}"
 
 
 def test_chat_agent_can_receive_and_return_custom():
