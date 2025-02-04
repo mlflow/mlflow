@@ -317,7 +317,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
         and isinstance(call.excinfo.value, NotImplementedError)
         and str(call.excinfo.value) == "SqlAlchemyStore"
     ):
-        rep.outcome = "passed"
+        rep.outcome = "xfailed"
 
 
 @pytest.fixture(scope="module", autouse=True)
