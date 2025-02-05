@@ -11,7 +11,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Managing Dependencies in MLflow Models
 
-[MLflow Model](/models) is a standard format that packages a machine learning model with its dependencies and other metadata.
+[MLflow Model](/model) is a standard format that packages a machine learning model with its dependencies and other metadata.
 Building a model with its dependencies allows for reproducibility and portability across a variety of platforms and tools.
 
 When you create an MLflow model using the [MLflow Tracking APIs](/tracking), for instance, <APILink fn="mlflow.pytorch.log_model" />,
@@ -43,7 +43,7 @@ my_model/
 └── requirements.txt
 ```
 
-Model dependencies are defined by the following files (For other files, please refer to the guidance provided in the section discussing [Storage Format](/models#storage-format)):
+Model dependencies are defined by the following files (For other files, please refer to the guidance provided in the section discussing [Storage Format](/model#storage-format)):
 
 - `python_env.yaml` - This file contains the information required to restore the model environment using virtualenv (1) python version (2) build tools like pip, setuptools, and wheel (3) pip requirements of the model (a reference to requirements.txt)
 - `requirements.txt` - Defines the set of pip dependencies required to run the model.
@@ -177,7 +177,7 @@ issues when deploying the model to production. Since MLflow 2.10.0, you can use 
 test your model in a virtual environment. Please refer to [Validating Environment for Prediction](#validating-environment-for-prediction) for more details.
 :::
 
-## Saving Extra Code dependencies with an MLflow Model - Automatic inference
+## Saving Extra Code dependencies with an MLflow Model - Automatic inference \{#saving-code-dependencies}
 
 :::note
 Automatic code dependency inference is a feature that was introduced in MLflow 2.13.0 and is marked as Experimental. The base implementation may be
@@ -656,7 +656,7 @@ and fix missing dependency errors.
 :::tip hint
 To reduce the possibility of dependency errors, you can add `input_example` when saving your model. This enables MLflow to
 perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
-Please refer to [Model Input Example](/model/signature#input-example) for additional, detailed usage of this parameter.
+Please refer to [Model Input Example](/model/signatures/#input-example) for additional, detailed usage of this parameter.
 :::
 
 #### 1. Check the missing dependencies

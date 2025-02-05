@@ -112,7 +112,7 @@ class ChatMessage(BaseModel):
     # TODO: Define a sub classes for different type of messages (request/response, and
     #   system/user/assistant/tool, etc), and create a factory function to allow users
     #   to create them without worrying about the details.
-    tool_calls: Optional[list[ToolCall]] = Field(None, min_items=1)
+    tool_calls: Optional[list[ToolCall]] = None
     refusal: Optional[str] = None
     tool_call_id: Optional[str] = None
 

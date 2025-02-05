@@ -141,8 +141,7 @@ def load_project(directory):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
-                f"Project specified python_env file {python_env_path}, but no such "
-                "file was found."
+                f"Project specified python_env file {python_env_path}, but no such file was found."
             )
         return Project(
             env_type=env_type.PYTHON,

@@ -2,107 +2,267 @@
 sidebar_position: 5
 ---
 
-import { LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
 # LLM / GenAI
 
-LLMs, or Large Language Models, have rapidly become a cornerstone in the machine learning domain, offering
-immense capabilities ranging from natural language understanding to code generation and more.
-However, harnessing the full potential of LLMs often involves intricate processes, from interfacing with
-multiple providers to fine-tuning specific models to achieve desired outcomes.
+LLMs (Large Language Models) have become essential in machine learning, enabling tasks like natural language understanding and code generation. However, fully leveraging their potential often involves complex processes of managing many moving pieces such as prompts, LLM providers, frameworks, knowledge base, tools, and more.
 
-Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM
-capabilities into their applications.
+
+<details>
+  <summary>Expand to See More about Key Challenges in LLM / GenAI Development</summary>
+
+  #### Complexity in Compound AI Systems
+
+  LLMs are often integral parts of larger, compound AI systems that incorporate multiple models, tools, prompts, and other components. With the rise of autonomous agents, the system's control flow becomes more dynamic and complex. Effectively managing such systems requires well-defined processes and specialized tools to handle their intricacies.
+
+  <div className="center-div" style={{ width: "80%", padding: "20px" }}>
+    ![GenAI Release Cadence](/images/llms/llama-index/llama_index_workflow_graph.png)
+  </div>
+
+  #### Rapidly Evolving Industry
+
+  The GenAI industry is evolving at a fast pace, with new models, tools, and libraries emerging daily. Keeping track of versions and managing dependencies is crucial to maintaining the stability and reproducibility of AI systems.
+
+  The following diagram illustrates the high release frequency of some popular GenAI libraries; LangChain and Openai, compared to those of classical ML and DL. Without keeping track of the versions and dependencies, it can be challenging to maintain the stability and reproducibility of AI systems.
+
+  <div className="center-div" style={{ width: "80%", padding: "20px" }}>
+    ![GenAI Release Cadence](/images/llms/genai-release-cadence.png)
+  </div>
+
+  #### Debugging Challenges
+
+  Debugging LLM-based applications is particularly difficult due to the compound nature of these systems and the high level of abstraction in many frameworks. Gaining a clear understanding of how LLMs and their interacting components behave can be a daunting task without the right tools and techniques.
+
+  #### Quality Assurance
+
+  Ensuring the quality of machine learning systems has always been a challenge. With LLMs, the models’ complexity and the dynamic nature of tasks make it even harder to assess and guarantee quality. Robust QA processes are essential to ensure reliability and performance.
+
+  #### Production Monitoring
+
+  As LLM-based applications become more dynamic, monitoring their performance post-deployment is increasingly critical to business success. Unlike traditional software monitoring, machine learning monitoring requires specialized tools to track model behavior and performance in real-time.
+
+</details>
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind.
 
-## Tutorials
 
-Interested in learning how to leverage MLflow for your GenAI projects?
+## Why Choose MLflow?
 
-Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging GenAI a bit easier!
+- **🪽 Free and Open** - MLflow is **open source** and FREE. Avoid vendor lock-in and secure your ML assets on your own choice of infrastructure. You can invest in the most critical business goals without worrying about the cost of the MLOps platform.
 
-Note that there are additional tutorials within the ["Explore the Native LLM Flavors" section below](#explore-the-native-llm-flavors), so be sure to check those out as well!
+- **🛠️ Native Cloud Integration** - MLflow is not only self-hosting, but also offered managed service on Amazon SageMaker, Azure ML, Databricks, and more. This allows you to getting started quickly and scale easily within your existing cloud infrastructure.
 
-<CardGroup>
-  <PageCard link="/llms/chat-model-intro/" headerText="Custom GenAI Models with ChatModel" text={["Learn the basics of creating custom chat models using MLflow's ", <code>ChatModel</code>, " by wrapping a local LLM provider."]} />
-  <PageCard link="/llms/chat-model-guide/" headerText="Advanced ChatModel Development" text={["Take an in-depth look at the full range of ", <code>ChatModel</code>, " features, such as tracing and configuration management."]} />
-  <PageCard link="/llms/notebooks/chat-model-tool-calling/" headerText="Tool Calling Models" text={["Learn how to build a simple tool-calling model using MLflow's ", <code>ChatModel</code>]} />
-  <PageCard link="/llms/llm-evaluate/" headerText="Evaluating LLMs" text={["Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using ", <code>mlflow.evaluate()</code>, " API."]} />
-  <PageCard link="/llms/custom-pyfunc-for-llms/" headerText="Using Custom PyFunc with LLMs" text={["Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs."]} />
-  <PageCard link="/llms/rag/notebooks/" headerText="Evaluation for RAG" text={["Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API."]} />
+- **🤝 15+ GenAI Framework Support** - MLflow integrates with more than a dozen GenAI libraries, including OpenAI, LangChain, LlamaIndex, DSPy, and more. This allows flexibility in choosing the right tool for your use case.
+
+- **🔄 End-to-End** - MLflow is designed for managing the end-to-end machine learning lifecycle, eliminating the complexity of managing multiple tools and moving assets between them.
+
+- **🌍 Domain Agnostic** - Real world problems are not always solved by GenAI alone. MLflow provides a unified platform for managing traditional ML, deep learning, and GenAI models, making it a versatile tool for all your ML needs.
+
+- **👥 Community** - MLflow boasts a vibrant Open Source community as a part of the Linux Foundation. With **19,000+** GitHub Stars and **15MM+** monthly downloads, MLflow is a trusted standard in the MLOps/LLMOps ecosystem.
+
+
+## How MLflow Solves LLMOps Challenges
+
+MLflow offers a comprehensive suite of tools and features to simplify the development, deployment, and management of LLMs. Here are some of the key features that make MLflow the go-to platform for LLM development:
+
+![LLM products](/images/llms/llm-products.png)
+
+### Experiment Tracking
+
+Experiment Tracking is a core fundamental feature of the MLflow platform, allowing you to organize many assets and artifacts during your LLM/GenAI projects, such as models, prompts, traces, metrics, in a single place. [➡︎ Learn more](/tracking)
+
+<details>
+  <summary>Key Benefit of Experiment Tracking</summary>
+
+  - **Single Source of Truth**: MLflow serves as a centralized location for storing and managing all your LLM assets, including models, prompts, and traces, ensuring that you have a single source of truth for your projects.
+
+  - **Better Collaboration**: Experiment Tracking allows you to share your work with your team members, enabling them to reproduce your results and provide feedback.
+
+  - **Lineage Tracking**: MLflow captures the lineage of your LLM assets throughout the different stages of the project, allowing you to trace the lineage of your models, prompts, and other artifacts.
+
+  - **Comparative Analysis**: MLflow enables you to compare different versions of your LLM models, prompts, and other assets, helping you make informed decisions and improve the quality of your LLM applications.
+
+  - **Governance and Compliance**: With the central repository of machine learning assets in your organization, MLflow helps you maintain governance and compliance standards, ensuring that your important assets are accessible only to authorized users.
+
+</details>
+
+
+<Card>
+![Experiment Tracking](/images/llms/experiment-tracking.png)
+</Card>
+
+
+
+### Tracing / Observability
+
+MLflow Tracing ensures LLM observability in your GenAI applications by capturing LLM calls and other important details, such as document retrieval, data queries and tool calls, allowing you to monitor and get deep insights into the inner workings of your applications. [➡︎ Learn more](/tracing)
+
+<details>
+  <summary>Key Benefit of MLflow Tracing</summary>
+
+  - **Debugging**: Traces provide a detailed view for what happens beneath the abstraction layer, helping you quickly identify and resolve issues in your LLM applications. With the native integration with **Jupyter Notebook**, MLflow offers a seamless debugging experience.
+
+  - **Inspect Quality**: After evaluating your models or agents with [MLflow Evaluation](#evaluation), you can analyze the auto-generated traces to understand the behavior of your LLMs and make informed decisions.
+
+  - **Production Monitoring**: Traces are essential for monitoring the performance of your LLMs in production. MLflow Tracing allows you to identify bottlenecks and performance issues in production, enabling you to take corrective actions and continuously optimize your applications.
+
+  - **OpenTelemetry**: MLflow Traces are compatible with OpenTelemetry, an industry-standard observability framework, allowing you to integrate with popular observability tools like Prometheus, Grafana, and Jaeger for advanced monitoring and analysis.
+
+  - **Framework Support**: MLflow Tracing supports 15+ GenAI libraries, including OpenAI, LangChain, LlamaIndex, DSPy, Anthropic, Amazon Bedrock, and more. With just adding **one line of code**, you can start tracing your LLM applications built with these libraries.
+
+
+</details>
+
+<Card >
+![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+</Card>
+
+
+### Model Packaging
+
+MLflow's model packaging empowers you to manage moving pieces of GenAI systems, including prompts, LLM parameters, fine-tuned weights, along with frozen dependency versions. This allows you to manage experiments with high **reproduceability**.
+
+<details>
+  <summary>Key Benefit of Model Packaging in MLflow</summary>
+
+  - **Reproducibility**: MLflow ensures that all dependencies are captured and frozen during model packaging, ensuring that your models can be reproduced consistently across different environments.
+
+  - **Versioning**: MLflow models are versioned and registered to the [MLflow Model Registry](/model-registry) before production deployment, allowing you to keep track of fast-evolving models and assets with ease.
+
+  - **Native Support for Popular Packages**: Standardized interfaces for tasks like saving, logging, and managing inference configurations.
+
+  - **Unified prediction APIs**: MLflow models can be loaded as a convenient `PyFunc` wrapper that exposes a consistent `predict()` API, regardless of the underlying library. This simplified the process of evaluation, deployment, and production use of GenAI systems.
+
+  - **Model Signature**: MLflow's [model signature](/model/signatures) feature allows you to define the input, optional parameters, and output schema of your model and additional parameters, making it easier to understand how to interface with the model and share it with others.
+
+</details>
+
+
+MLflow provides native integrations for model packaging with major GenAI libraries. Is your favorite library not in the list below? No worries, you can package arbitrary model/agent using the MLflow's `PythonModel` framework. Click the icon below to learn more about each integration.
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/llms/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/llama-index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/transformers">
+    <span>![HuggingFace Logo](/images/logos/huggingface-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/sentence-transformers">
+    <span>![SentenceTransformers Logo](/images/logos/sentence-transformers-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/model#promptflow-promptflow-experimental">
+    <span>![PromptFlow Logo](/images/logos/promptflow-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/llms/chat-model-intro">
+    <b>Custom Packaging with PythonModel / ChatModel</b>
+  </SmallLogoCard>
 </CardGroup>
 
-## MLflow Tracing
 
-MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
-LangChain, OpenAI, LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality
-allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows.
-Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations
-of your GenAI models and retain your traced data within the tracking server for further analysis.
+### Evaluation
 
-- [Automated tracing with GenAI libraries](/llms/tracing#automatic-tracing): Seamless integration with libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, for automatic trace data collection.
-- [Manual trace instrumentation with high-level fluent APIs](/llms/tracing#tracing-fluent-apis): Easy-to-use decorators and context managers for adding tracing with minimal code changes.
-- [Low-level client APIs for tracing](/llms/tracing#tracing-client-apis): Thread-safe methods for detailed and explicit control over trace data management.
+MLflow's LLM Evaluation is designed to simplify the evaluation process, offering a streamlined approach to compare foundational models, prompts, and compound AI systems. [➡︎ Learn more](/llms/llm-evaluate)
 
-To learn more about what tracing is, see our [Tracing Concepts Overview](/llms/tracing/overview) guide. For an in-depth exploration into the structure of
-MLflow traces and their schema, see the [Tracing Schema](/llms/tracing/tracing-schema) guide.
 
-If you're interested in contributing to the development of MLflow Tracing, please refer to the [Contribute to MLflow Tracing](/llms/tracing/contribute) guide.
+<details>
+  <summary>Key Benefit of MLflow LLM Evaluation</summary>
 
-![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+  - **Simplified Evaluation**: Leverage MLflow's <APILink fn="mlflow.evaluate" /> API and built-in harnesses to test your GenAI models with ease.
 
-## MLflow AI Gateway for LLMs
+  - **LLM-as-a-Judge**: MLflow provides built-in LLM-as-a-Judge metrics with flexible configuration for judge LLM providers, allowing you to plug-in complex evaluation criteria into automated evaluation process and to evaluate in bulk.
 
-Serving as a unified interface, the [MLflow AI Gateway](/llms/deployments)
-simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow AI Gateway
-provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
+  - **Customizable Metrics**: Beyond the provided metrics, MLflow supports a plugin-style for custom scoring, enhancing the evaluation's flexibility.
 
-:::note
-The MLflow AI Gateway is in active development and has been marked as **Experimental**.
-APIs may change as this new feature is refined and its functionality is expanded based on feedback.
-:::
+  - **Comparative Analysis**: Effortlessly compare foundational models, providers, and prompts to make informed decisions.
 
-### Benefits of the MLflow AI Gateway
+  - **Deep Insights**: Traces are automatically generated for evaluation runs, allowing you to get deeper insights on the evaluation results and fix quality issues with confidence.
 
-- **Unified Endpoint**: No more juggling between multiple provider APIs.
 
-- **Simplified Integrations**: One-time setup, no repeated complex integrations.
+</details>
 
-- **Secure Credential Management**:
 
-  - Centralized storage prevents scattered API keys.
-  - No hardcoding or user-handled keys.
+<Card >
+![LLM Evaluate Video](/images/llms/llm-evaluate.gif)
+</Card>
 
-- **Consistent API Experience**:
+### Model Serving
 
-  - Uniform API across all providers.
-  - Easy-to-use REST endpoints and Client API.
+MLflow models, once packaged, can be deployed easily to different targets including Kubernetes clusters, cloud providers (Amazon SageMaker, Azure Machine Learning), Databricks, and any serving infrastructure that is based on Docker containers. [➡︎ Learn more](/deployment) 
 
-- **Seamless Provider Swapping**:
 
-  - Swap providers without touching your code.
-  - Zero downtime provider, model, or route swapping.
+<details>
+  <summary>Key Benefit of MLflow Model Serving</summary>
 
-### Explore the Native Providers of the MLflow AI Gateway
+  - **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilerplate code.
+  - **Dependency and Environment Management**: MLflow ensures that the deployment environment mirrors the training environment, capturing all dependencies. This guarantees that models run consistently, regardless of where they're deployed.
+  - **Packaging Models and Code**: With MLflow, not just the model, but any supplementary code and configurations are packaged along with the deployment container. This ensures that the model can be executed seamlessly without any missing components.
+  - **Avoid Vendor Lock-in**: MLflow provides a standard format for packaging models and unified APIs for deployment. You can easily switch between deployment targets without having to rewrite your code.
+</details>
 
-The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your
-own open source model via an integration with MLflow model serving.
+<Card>
+  <div className="center-div" style={{ width: "90%" }}>
+    ![](/images/deployment/mlflow-deployment-overview.png)
+  </div>
+</Card>
 
-Please refer to [Supported Providers](/llms/deployments#providers) for the full list of supported providers and models.
+### Prompt Engineering UI
 
-If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date
-documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as
-the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started
-with your favorite provider!
+MLflow Prompt Engineering UI is a no-code playground for crafting and refining prompts for LLMs, integrated with MLflow's tracking and evaluation framework. [➡︎ Learn more](/llms/prompt-engineering)
+
+<details>
+  <summary>Key Benefit of MLflow Prompt Engineering UI</summary>
+
+  - **Iterative Development**: Streamlined process for trial and error without the overwhelming complexity.
+
+  - **UI-Based Prototyping**: Prototype, iterate, and refine prompts without diving deep into code.
+
+  - **Accessible Engineering**: Makes prompt engineering more user-friendly, speeding up experimentation.
+
+  - **Optimized Configurations**: Quickly hone in on the best model configurations for tasks like question answering or document summarization.
+
+  - **Transparent Tracking**: Every model iteration and configuration is meticulously tracked. Ensures reproducibility and transparency in your development process.
+
+</details>
+
+<Card>
+![Prompt Engineering UI](/images/prompt_modal_2.png)
+</Card>
+
+
+### MLflow AI Gateway
+
+Serving as a unified interface, MLflow AI Gateway simplifies interactions with multiple LLM providers and your own MLflow models. [➡︎ Learn more](/llms/deployments) 
+
+<details>
+  <summary>Key Benefits of the MLflow AI Gateway</summary>
+
+  - **Unified Endpoint**: No more juggling between multiple provider APIs.
+
+  - **Simplified Integrations**: One-time setup, no repeated complex integrations.
+
+  - **Secure Credential Management**: Centralized storage prevents scattered API keys. No hardcoding or user-handled keys.
+
+  - **Consistent API Experience**: Uniform, easy-to-use REST API across all providers.
+
+  - **Seamless Provider Swapping**: Swap providers without touching your code and zero downtime.
+
+</details>
+
 
 <CardGroup isSmall>
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md">
     <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml/README.md">
-    <span>![MosaicML Logo](/images/logos/mosaicml-logo.svg)</span>
   </SmallLogoCard>
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md">
     <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
@@ -110,14 +270,8 @@ with your favorite provider!
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md">
     <span>![Cohere Logo](/images/logos/cohere-logo.png)</span>
   </SmallLogoCard>
-  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_models/README.md">
-    <span>![MLflow Logo](/images/logos/mlflow-logo.svg)</span>
-  </SmallLogoCard>
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/bedrock/README.md">
-    <span style={{ minWidth: "80px" }}>![AWS BedLock Logo](/images/logos/aws-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md">
-    <span>![PaLM Logo](/images/logos/PaLM-logo.png)</span>
+    <span style={{ minWidth: "80px" }}>![AWS BedLock Logo](/images/logos/bedrock-logo.png)</span>
   </SmallLogoCard>
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/ai21_labs/README.md">
     <span>![ai21Labs Logo](/images/logos/ai21labs-logo.svg)</span>
@@ -128,131 +282,8 @@ with your favorite provider!
   <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/huggingface/README.md">
     <span>![Hugging Face Logo](/images/logos/huggingface-logo.svg)</span>
   </SmallLogoCard>
+  <SmallLogoCard link="https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml/README.md">
+    <span>![MosaicML Logo](/images/logos/mosaicml-logo.svg)</span>
+  </SmallLogoCard>
 </CardGroup>
 <br />
-
-:::note
-The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source
-LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source
-models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`\_.
-:::
-
-## LLM Evaluation
-
-Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns
-with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the
-nuanced performance of generative models.
-
-Enter [MLflow LLM Evaluation](/llms/llm-evaluate). This feature is designed to simplify the evaluation process,
-offering a streamlined approach to compare foundational models, providers, and prompts.
-
-### Benefits of MLflow's LLM Evaluation
-
-- **Simplified Evaluation**: Navigate the LLM space with ease, ensuring the best fit for your project with standard metrics that can be used to compare generated text.
-
-- **Use-Case Specific Metrics**: Leverage MLflow's <APILink fn="mlflow.evaluate" /> API for a high-level, frictionless evaluation experience.
-
-- **Customizable Metrics**: Beyond the provided metrics, MLflow supports a plugin-style for custom scoring, enhancing the evaluation's flexibility.
-
-- **Comparative Analysis**: Effortlessly compare foundational models, providers, and prompts to make informed decisions.
-
-- **Deep Insights**: Dive into the intricacies of generative models with a comprehensive suite of LLM-relevant metrics.
-
-MLflow's LLM Evaluation is designed to bridge the gap between traditional machine learning evaluation and the unique challenges posed by LLMs.
-
-## Prompt Engineering UI
-
-Effective utilization of LLMs often hinges on crafting the right prompts.
-The development of a high-quality prompt is an iterative process of trial and error, where subsequent experimentation is not guaranteed to
-result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very
-overwhelming to remember or keep a history of the state of different prompts that were tried.
-
-Serving as a powerful tool for prompt engineering, the [MLflow Prompt Engineering UI](/llms/prompt-engineering) revolutionizes the
-way developers interact with and refine LLM prompts.
-
-### Benefits of the MLflow Prompt Engineering UI
-
-- **Iterative Development**: Streamlined process for trial and error without the overwhelming complexity.
-
-- **UI-Based Prototyping**: Prototype, iterate, and refine prompts without diving deep into code.
-
-- **Accessible Engineering**: Makes prompt engineering more user-friendly, speeding up experimentation.
-
-- **Optimized Configurations**: Quickly hone in on the best model configurations for tasks like question answering or document summarization.
-
-- **Transparent Tracking**:
-
-  - Every model iteration and configuration is meticulously tracked.
-  - Ensures reproducibility and transparency in your development process.
-
-:::note
-The MLflow Prompt Engineering UI is in active development and has been marked as **Experimental**.
-Features and interfaces may evolve as feedback is gathered and the tool is refined.
-:::
-
-## Native MLflow Flavors for LLMs
-
-Harnessing the power of LLMs becomes effortless with flavors designed specifically for working with LLM libraries and frameworks.
-
-- **Native Support for Popular Packages**: Standardized interfaces for tasks like saving, logging, and managing inference configurations.
-
-- **PyFunc Compatibility**:
-
-  - Load models as PyFuncs for broad compatibility across serving infrastructures.
-  - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
-  - Utilize the [Models From Code feature](/model/models-from-code) for simplified GenAI application development.
-
-- **Cohesive Ecosystem**:
-
-  - All essential tools and functionalities consolidated under MLflow.
-  - Focus on deriving value from LLMs without getting bogged down by interfacing and optimization intricacies.
-
-### Explore the Native LLM Flavors
-
-Select the integration below to read the documentation on how to leverage MLflow's native integration with these popular libraries:
-
-<CardGroup>
-  <LogoCard description="Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage MLflow and Transformers to build Open-Source LLM powered solutions." link="/llms/transformers">
-    <span>![HuggingFace Logo](/images/logos/huggingface-logo.svg)</span>
-  </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage MLflow and OpenAI's advanced LLMs to build interesting and fun applications." link="/llms/openai">
-    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
-  </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval." link="/llms/sentence-transformers">
-    <span>![Sentence Transformers Logo](/images/logos/sentence-transformers-logo.png)</span>
-  </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with LangChain and see example notebooks that leverage MLflow and LangChain to build LLM-backed applications." link="/llms/langchain">
-    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
-  </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications." link="/llms/llama-index">
-    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
-  </LogoCard>
-  <LogoCard description="Learn about MLflow's native integration with DSPy and see example notebooks that leverage MLflow and DSPy to optimize your GenAI applications." link="/llms/dspy">
-    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
-  </LogoCard>
-</CardGroup>
-<br />
-
-## LLM Tracking in MLflow
-
-Empowering developers with advanced tracking capabilities, the [MLflow LLM Tracking System](/llms/llm-tracking) stands out as the
-premier solution for managing and analyzing interactions with Large Language Models (LLMs).
-
-### Benefits of the MLflow LLM Tracking System
-
-- **Robust Interaction Management**: Comprehensive tracking of every LLM interaction for maximum insight.
-
-- **Tailor-Made for LLMs**:
-
-  - Unique features specifically designed for LLMs.
-  - From logging prompts to tracking dynamic data, MLflow has it covered.
-
-- **Deep Model Insight**:
-
-  - Introduces 'predictions' as a core entity, alongside the existing artifacts, parameters, and metrics.
-  - Gain unparalleled understanding of text-generating model behavior and performance.
-
-- **Clarity and Repeatability**:
-
-  - Ensures consistent and transparent tracking across all LLM interactions.
-  - Facilitates informed decision-making and optimization in LLM deployment and utilization.

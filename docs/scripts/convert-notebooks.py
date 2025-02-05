@@ -52,7 +52,10 @@ def add_frontmatter(
     body: str,
     nb_path: Path,
 ) -> str:
-    frontmatter = {"custom_edit_url": NOTEBOOK_BASE_EDIT_URL + str(nb_path)}
+    frontmatter = {
+        "custom_edit_url": NOTEBOOK_BASE_EDIT_URL + str(nb_path),
+        "slug": nb_path.stem,
+    }
     formatted_frontmatter = yaml.dump(frontmatter)
 
     return f"""---

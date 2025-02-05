@@ -28,7 +28,7 @@ nuanced metrics.
 The native integration of the DSPy library with MLflow helps users manage the development lifecycle with DSPy. The following are some of the key benefits of using DSPy with MLflow:
 
 - [MLflow Tracking](/tracking) allows you to track your DSPy program's training and execution. With the MLflow APIs, you can log a variety of artifacts and organize training runs, thereby increasing visibility into your model performance.
-- [MLflow Model](/models) packages your compiled DSPy program along with its dependency versions, input and output interfaces and other essential metadata. This allows you to deploy your compiled DSPy program with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
+- [MLflow Model](/model) packages your compiled DSPy program along with its dependency versions, input and output interfaces and other essential metadata. This allows you to deploy your compiled DSPy program with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
 - [MLflow Evaluate](/llms/llm-evaluate) provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your DSPy compiled program, ensuring robust performance analytics and facilitating quick iterations.
 - [MLflow Tracing](/tracing) is a powerful observability tool for monitoring and debugging what happens inside the DSPy models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your DSPy application without needing to add any code apart from running a single command.
 
@@ -40,7 +40,7 @@ use a DSPy program.
 <CardGroup>
   <PageCard
     headerText="DSPy Quickstart"
-    link="/llms/dspy/notebooks/dspy_quickstart.html"
+    link="/llms/dspy/notebooks/dspy_quickstart/"
     text="Get started with MLflow and DSPy by exploring the simplest possible configuration of a DSPy program."
   />
 
@@ -48,25 +48,41 @@ use a DSPy program.
 
 ## Concepts
 
-### `Module`
+#### `Module`
 
 [Modules](https://dspy.ai/learn/programming/modules) are components that handle specific text transformations, like answering questions or summarizing. They replace traditional hand-written prompts and can learn from examples, making them more adaptable.
 
-### `Signature`
+#### `Signature`
 
 A [signature](https://dspy.ai/learn/programming/signatures) is a natural language description of a module's input and output behavior. For example, _"question -> answer"_ specifies that the module should take a question as input and return an answer.
 
-### `Optimizer`
+#### `Optimizer`
 
 A [optimizer](https://dspy.ai/learn/optimization/optimizers) improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
 
-### `Program`
+#### `Program`
 
 A program is a a set of modules connected into a pipeline to perform complex tasks. DSPy programs are flexible, allowing you to optimize and adapt them using the compiler.
 
-## Usage
 
-### Saving and Loading DSPy Program in MLflow Experiment
+## Automatic Tracing
+
+![DSPy Tracing via autolog](/images/llms/tracing/dspy-tracing.gif)
+
+
+[MLflow Tracing](/tracing) tracing is a powerful feature that allows you to monitor and debug your DSPy programs. With MLflow, you can enable auto tracing just by calling the <APILink fn="mlflow.dspy.autolog" /> function in your code.
+
+```python
+import mlflow
+
+mlflow.dspy.autolog()
+```
+
+Once enabled, MLflow will generate traces whenever your DSPy program is executed and record them in your MLflow Experiment.
+
+Learn more about MLflow DSPy tracing capabilities [here](/tracing/integrations/dspy).
+
+## Tracking DSPy Program in MLflow Experiment
 
 #### Creating a DSPy Program
 
@@ -171,20 +187,6 @@ To load the DSPy program itself back instead of the PyFunc-wrapped model, use th
 ```python
 model = mlflow.dspy.load_model(model_uri)
 ```
-
-### Enabling and Disabling Auto Tracing for DSPy Programs
-
-Auto tracing is a powerful feature that allows you to monitor and debug your DSPy programs. With MLflow, you can enable auto tracing just by calling the <APILink fn="mlflow.dspy.autolog" /> function in your code.
-
-```python
-import mlflow
-
-mlflow.dspy.autolog()
-```
-
-Once enabled, MLflow will generate traces whenever your DSPy program is executed and record them in your MLflow Experiment.
-
-You can disable auto-tracing for DSPy by calling _mlflow.dspy.autolog(disabled=True)_.
 
 ## FAQ
 

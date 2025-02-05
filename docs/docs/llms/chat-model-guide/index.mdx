@@ -260,7 +260,7 @@ provider example to use any managed LLM hosting service with ease ([Amazon Bedro
     #### Not using a supported flavor
 
     If you're working with a library that is natively supported in MLflow, leveraging the built-in support for logging and loading your implementation
-    will always be easier than implementing a custom model. It is recommended to check the [supported GenAI flavors](/llms#native-mlflow-flavors-for-llms)
+    will always be easier than implementing a custom model. It is recommended to check the [supported GenAI flavors](/llms#model-packaging)
     to see if there is a built-in solution that will meet your use case needs in one of the many integrations that are available.
 
     #### Misinterpreting what `load_context` does
@@ -422,6 +422,9 @@ The implementation below highlights the following key aspects:
 - **Common Pitfalls Avoided**:
   - **Model Validation via Input Examples**: We provide an input example during model logging, allowing MLflow to validate the input interface and catch
     structural issues early, reducing debugging time during deployment.
+- **Models from code**:
+  - MLflow recommends using [models from code](/model/models-from-code) when authoring GenAI agents or apps, for robust logging and straightforward
+   deployment of agents containing arbitrary Python code.
 
 ```python
 import mlflow
@@ -596,9 +599,22 @@ class BasicAgent(ChatModel):
             "temperature": role_config.get("temperature", 0.5),
             "max_tokens": role_config.get("max_tokens", 500),
         }
+
+
+# IMPORTANT: specifies the Python ChatModel instance to use for inference requests when
+# the model is loaded back
+agent = BasicAgent()
+mlflow.models.set_model(agent)
 ```
 
-Now that we have our model defined, the process of logging it has only a single step that is required to be taken before logging:
+The snippet above defines our agent as a subclass of `ChatModel`. With the models from code approach, we call
+<APILink fn="mlflow.models.set_model">`mlflow.models.set_model`</APILink>, passing an instance of our `BasicAgent`, to indicate which model object to use for
+inference when our agent is loaded back.
+
+Save the agent code in a Python file, e.g. `basic_agent.py`. **This is a key part of models from code** - it enables
+logging a file containing the model's code, rather than a serialized model object, bypassing serialization issues.
+
+With our model defined in a code file, there's only one step left before we can log it:
 we need to define the configuration for our model to be initialized with. This is done by defining our `model_config` configuration.
 
 ## Setting our `model_config` values
@@ -635,7 +651,7 @@ The configuration consists of two main sections:
 :::note
 There are two options available for setting a model configuration: directly within the logging code (shown below) or by writing a configuration file
 in `yaml` format to a local location whose path can be specified when defining the `model_config` argument during logging. To learn more about
-how the `model_config` parameter is utilized, [see the guide on model_config usage](/models#python-function-model-interfaces).
+how the `model_config` parameter is utilized, [see the guide on model_config usage](/model#python-function-model-interfaces).
 :::
 
 Here's how we set the configuration for our agents:
@@ -735,7 +751,8 @@ To log and load the model using MLflow, use:
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         "model",
-        python_model=BasicAgent(),
+        # If needed, update `python_model` to the Python file containing your agent code
+        python_model="basic_agent.py",
         model_config=model_config,
         input_example=input_example,
     )

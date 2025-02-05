@@ -154,7 +154,7 @@ const sidebars: SidebarsConfig = {
                 },
                 {
                   type: 'link',
-                  href: '/tracing/integrations/index.html',
+                  href: '/tracing/integrations/',
                   label: 'More',
                 },
               ],
@@ -162,12 +162,12 @@ const sidebars: SidebarsConfig = {
             {
               type: 'link',
               label: 'Tracing (Observability)',
-              href: '/tracing/index.html',
+              href: '/tracing/',
             },
             {
               type: 'link',
               label: 'Evaluation',
-              href: '/llms/llm-evaluate/index.html',
+              href: '/llms/llm-evaluate/',
             },
             {
               type: 'category',
@@ -263,7 +263,7 @@ const sidebars: SidebarsConfig = {
             /* Using link instead of doc to avoid duplicated select state in sidebar */
             {
               type: 'link',
-              href: '/getting-started/intro-quickstart/index.html',
+              href: '/getting-started/intro-quickstart/',
               label: 'Quickstart',
             },
             {

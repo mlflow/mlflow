@@ -8,7 +8,7 @@ engineering. With no code required, you can try out multiple LLMs from the
 [MLflow AI Gateway](/llms/deployments), parameter configurations, and prompts to build a variety of models for
 question answering, document summarization, and beyond. Using the embedded Evaluation UI, you can
 also evaluate multiple models on a set of inputs and compare the responses to select the best one.
-Every model created with the prompt engineering UI is stored in the [MLflow Model](/models)
+Every model created with the prompt engineering UI is stored in the [MLflow Model](/model)
 format and can be deployed for batch or real time inference. All configurations (prompt templates,
 choice of LLM, parameters, etc.) are tracked as [MLflow Runs](/tracking).
 
@@ -321,7 +321,7 @@ The evaluation results can also be viewed in the MLflow Evaluation UI:
 
 The <APILink fn="mlflow.evaluate" /> API also supports [custom metrics](/llms/llm-evaluate#llm-eval-custom-metrics),
 [static dataset evaluation](/llms/llm-evaluate#llm-eval-static-dataset), and much more. For a
-more in-depth guide, see [llm-eval](/llms/llm-evaluate#llm-eval).
+more in-depth guide, see [MLflow LLM Evaluation](/llms/llm-evaluate).
 
 ## Deployment for real-time serving \{#deploy-prompt-serving}
 

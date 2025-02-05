@@ -235,7 +235,8 @@ def test_trace_in_databricks_model_serving(
         data = json.loads(flask.request.data.decode("utf-8"))
         request_id = flask.request.headers.get("X-Request-ID")
 
-        prediction = TestModel().predict(**data)
+        with set_prediction_context(Context(request_id=request_id)):
+            prediction = TestModel().predict(**data)
 
         trace = pop_trace(request_id=request_id)
 

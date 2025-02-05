@@ -21,17 +21,6 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
-_HEADER_REQUEST_ID_KEY = "X-Request-Id"
-
-
-# Extracting for testing purposes
-def _get_flask_request():
-    import flask
-
-    if flask.has_request_context():
-        return flask.request
-
-
 class InferenceTableSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
@@ -56,21 +45,11 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         """
         request_id = maybe_get_request_id()
         if request_id is None:
-            # If this is invoked outside of a flask request, it raises error about
-            # outside of request context. We should avoid this by skipping the trace processing
-            if flask_request := _get_flask_request():
-                request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
-                if not request_id:
-                    _logger.warning(
-                        "Request ID not found in the request headers. Skipping trace processing."
-                    )
-                    return
-            else:
-                _logger.warning(
-                    "Failed to get request ID from the request headers because "
-                    "request context is not available. Skipping trace processing."
-                )
-                return
+            _logger.warning(
+                "Failed to get request ID from the request headers because "
+                "request context is not available. Skipping trace processing."
+            )
+
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {}
         if dependencies_schema := maybe_get_dependencies_schemas():

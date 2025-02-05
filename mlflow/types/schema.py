@@ -816,7 +816,7 @@ class TensorInfo:
     def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                f"Expected `dtype` to be instance of `{np.dtype}`, received `{ dtype.__class__}`"
+                f"Expected `dtype` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
             )
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
