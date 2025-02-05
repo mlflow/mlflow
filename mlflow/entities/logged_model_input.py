@@ -20,7 +20,7 @@ class LoggedModelInput(_MlflowObject):
 
     def to_proto(self):
         return ProtoModelInput(model_id=self._model_id)
-    
+
     @classmethod
     def from_proto(cls, proto):
         model_output = cls(proto.model_id)

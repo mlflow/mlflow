@@ -20,7 +20,7 @@ class RunOutputs(_MlflowObject):
     def model_outputs(self) -> list[LoggedModelOutput]:
         """Array of model outputs."""
         return self._model_outputs
-    
+
     def to_proto(self):
         run_outputs = ProtoRunOutputs()
         run_outputs.model_outputs.extend(

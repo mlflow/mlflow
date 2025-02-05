@@ -755,14 +755,14 @@ message RunData {
 message RunInputs {
   // Dataset inputs to the Run.
   repeated DatasetInput dataset_inputs = 1;
+  // Model inputs to the Run.
+  repeated ModelInput model_inputs = 2;
 }
 
 // Outputs of a Run.
 message RunOutputs {
   // Model outputs of the Run.
   repeated ModelOutput model_outputs = 1;
-  // Model inputs to the Run.
-  repeated ModelInput model_inputs = 2;
 }
 
 // Tag for a run.

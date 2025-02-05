@@ -86,6 +86,7 @@ type MlflowRunExtension {
   info: MlflowRunInfo
   data: MlflowRunData
   inputs: MlflowRunInputs
+  outputs: MlflowRunOutputs
   experiment: MlflowExperiment
   modelVersions: [MlflowModelVersion!]
 }
@@ -159,6 +160,15 @@ type MlflowDataset {
   source: String
   schema: String
   profile: String
+}
+
+type MlflowRunOutputs {
+  modelOutputs: [MlflowModelOutput!]
+}
+
+type MlflowModelOutput {
+  modelId: String
+  step: LongString
 }
 
 type MlflowModelVersion {
