@@ -133,10 +133,10 @@ jobs:
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
+          python dev/build.py
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
-          python dev/build.py
       - name: Run tests
         run: |
           set +e
