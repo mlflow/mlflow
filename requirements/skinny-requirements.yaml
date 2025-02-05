@@ -77,7 +77,7 @@ databricks-sdk:
 
 pydantic:
   pip_release: pydantic
-  minimum: "1.0"
+  minimum: "1.10.8"
   max_major_version: 2
 
 typing-extensions:
