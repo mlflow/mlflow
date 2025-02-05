@@ -1158,7 +1158,7 @@ def log_artifact(
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         run_id: If specified, log the artifact to the specified run. If not specified, log the
             artifact to the currently active run.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until artifact is logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1201,7 +1201,7 @@ def log_artifacts(
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         run_id: If specified, log the artifacts to the specified run. If not specified, log the
             artifacts to the currently active run.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until artifacts are logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1245,7 +1245,7 @@ def log_text(
             the text is saved (e.g. "dir/file.txt").
         run_id: If specified, log the artifact to the specified run. If not specified, log the
             artifact to the currently active run.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until text logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1289,7 +1289,7 @@ def log_dict(
             the dictionary is saved (e.g. "dir/data.json").
         run_id: If specified, log the dictionary to the specified run. If not specified, log the
             dictionary to the currently active run.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until dict is logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1343,7 +1343,7 @@ def log_figure(
         artifact_file: The run-relative artifact file path in posixpath format to which
             the figure is saved (e.g. "dir/file.png").
         save_kwargs: Additional keyword arguments passed to the method that saves the figure.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until figure is logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1446,7 +1446,7 @@ def log_image(
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until image is logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
@@ -1529,7 +1529,7 @@ def log_table(
             the table is saved (e.g. "dir/file.json").
         run_id: If specified, log the table to the specified run. If not specified, log the
             table to the currently active run.
-        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+        synchronous: *Experimental* If True, blocks until table is logged successfully. If False,
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.

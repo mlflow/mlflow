@@ -1579,7 +1579,7 @@ class MlflowClient:
             value: Parameter value, but will be string-ified if not.
                 All built-in backend stores support values up to length 6000, but some
                 may support larger values.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the parameter is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -1682,7 +1682,7 @@ class MlflowClient:
                 length 250, but some may support larger keys.
             value: Tag value, but will be string-ified if not. All backend stores will support
                 values up to length 5000, but some may support larger values.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the tag is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -1837,7 +1837,7 @@ class MlflowClient:
             metrics: If provided, List of Metric(key, value, timestamp) instances.
             params: If provided, List of Param(key, value) instances.
             tags: If provided, List of RunTag(key, value) instances.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the batch is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -1932,7 +1932,7 @@ class MlflowClient:
             run_id: String ID of run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the artifact is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2005,7 +2005,7 @@ class MlflowClient:
             run_id: String ID of run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the artifact is logged successfully.
+            synchronous: *Experimental* If True, blocks until the artifacts are logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2095,7 +2095,7 @@ class MlflowClient:
             text: String containing text to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the text is saved (e.g. "dir/file.txt").
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the text is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2152,7 +2152,7 @@ class MlflowClient:
             dictionary: Dictionary to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the dictionary is saved (e.g. "dir/data.json").
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the dict is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2263,7 +2263,7 @@ class MlflowClient:
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the figure is saved (e.g. "dir/file.png").
             save_kwargs: Additional keyword arguments passed to the method that saves the figure.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the figure is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2379,7 +2379,7 @@ class MlflowClient:
             step: Integer training step (iteration) at which the image was saved.
                 Defaults to 0.
             timestamp: Time when this image was saved. Defaults to the current system time.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the image is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
@@ -2593,7 +2593,7 @@ class MlflowClient:
             data: Dictionary or pandas.DataFrame to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the table is saved (e.g. "dir/file.json").
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+            synchronous: *Experimental* If True, blocks until the table is logged successfully.
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
