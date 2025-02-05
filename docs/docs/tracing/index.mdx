@@ -34,8 +34,9 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
 
 ## Introduction to Observability and Traces
 
+
 :::tip
-If you are new to the tracing or observability concepts, we recommend starting with the [Tracing Concepts](/tracing/concept) page.
+If you are new to the tracing or observability concepts, we recommend starting with the [Tracing 101](/tracing/tutorials/concept) page.
 :::
 
 Traces empowers your throughout the end-to-end lifecycle of a machine learning project. Click on the tabs below to see how it helps you at each step of the workflow in more details.
@@ -113,7 +114,7 @@ Traces empowers your throughout the end-to-end lifecycle of a machine learning p
         Machine learning projects don’t end with the first launch. Continuous monitoring and incremental improvement are critical to long-term success.
 
         You can put MLflow into your existing observability stack as well. MLflow can export traces to any **OpenTelemetry**-compatible storage, including Grafana, Prometheus, Datadog, and more.
-        Refer to [Export Traces to Other Services] for more details.
+        Refer to [Export Traces to Other Services](/tracing/production#opentelemetry-collector) for more details.
 
         </div>
 
@@ -125,6 +126,27 @@ Traces empowers your throughout the end-to-end lifecycle of a machine learning p
 
   </TabItem>
 </Tabs>
+
+The following is the simplest example of MLflow Tracing with OpenAI Python SDK:
+
+```python
+import mlflow
+import openai
+
+# Enable MLflow automatic tracing for OpenAI with one line of code!
+mlflow.openai.autolog()
+
+# Use OpenAI Python SDK as usual
+openai.OpenAI().chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "You are a chatbot."},
+        {"role": "user", "content": "What is the weather like today?"},
+    ],
+)
+
+# Then go to MLflow UI (if not started, run `mlflow ui` in your terminal) to see the trace!
+```
 
 ## Automatic Tracing
 
@@ -186,7 +208,7 @@ MLflow Tracing is integrated with various GenAI libraries and provide **one-line
 Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](/tracing/integrations/contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
 :::
 
-## Tracing with SDK
+## Manual Tracing
 
 In addition to the one-line auto tracing experience, MLflow offers Python SDK for manually instrumenting
 you code and manipulating traces.
@@ -199,30 +221,15 @@ you code and manipulating traces.
 Refer to the [Tracing How To Guide](/tracing/api/how-to) for more details about the SDK.
 
 
-## Jupyter Notebook integration
+## Reviewing Traces
 
-:::note
-Jupyter integration is available in **MLflow 2.20 and above**
-:::
 
-The trace UI is also available within Jupyter notebooks! 
+MLflow Traces can be reviewed in several ways:
 
-![MLflow Trace UI in Jupyter Notebook](/images/llms/tracing/jupyter-trace-ui.png)
+1. **MLflow UI**: The MLflow UI provides a rich interface for exploring traces. You can view traces for a specific experiment, run, [search and filter traces](/tracing/api/search) based on various criteria. You can start the UI by running `mlflow ui` in your terminal and navigating to `http://localhost:5000`.
 
-This feature requires using an [MLflow Tracking Server](/tracking/server), as
-this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
-Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+2. **Jupyter Notebook**: The trace UI is also available within Jupyter notebooks! The trace UI will automatically be displayed when a cell generates a trace, eliminating the need to switch between the notebook and web browser. See the [Jupyter Notebook Integration](/tracing/api/how-to#render-trace-inside-jupyter-notebook) for more details.
 
-By default, the trace UI will automatically be displayed for the following events:
-
-1. When the cell code generates a trace (e.g. via  [automatic tracing](#automatic-tracing), or by running a manually traced function)
-2. When <APILink fn="mlflow.search_traces" /> is called
-3. When a <APILink fn="mlflow.entities.Trace" /> object is displayed (e.g. via IPython's `display` function, or when it is the last value returned in a cell)
-
-To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell
-containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.
-
-For a more complete example, try running this [demo notebook](/tracing/notebooks/jupyter-trace-demo)!
 
 
 ## Query Traces

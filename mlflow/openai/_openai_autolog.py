@@ -73,7 +73,7 @@ def _set_api_key_env_var(client):
         os.environ.pop("OPENAI_API_KEY")
 
 
-def _get_span_type(task) -> str:
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import Completions
     from openai.resources.embeddings import Embeddings
@@ -83,6 +83,15 @@ def _get_span_type(task) -> str:
         Completions: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        # Only available in openai>=1.40.0
+        from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
+
+        span_type_mapping[BetaChatCompletions] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 

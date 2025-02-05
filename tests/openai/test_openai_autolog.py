@@ -1,10 +1,15 @@
 import json
+from unittest import mock
 
+import httpx
 import openai
 import pytest
+from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
@@ -461,3 +466,71 @@ def test_autolog_raw_response_stream(client):
         messages + [{"role": "assistant", "content": "Hello world"}]
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
+
+
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.40"), reason="Requires OpenAI SDK >= 1.40"
+)
+def test_response_format(client):
+    mlflow.openai.autolog()
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    def send_patch(self, request, *args, **kwargs):
+        return httpx.Response(
+            status_code=200,
+            request=request,
+            json={
+                "id": "chatcmpl-Ax4UAd5xf32KjgLkS1SEEY9oorI9m",
+                "object": "chat.completion",
+                "created": 1738641958,
+                "model": "gpt-4o-2024-08-06",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": '{"name":"Angelo","age":42}',
+                            "refusal": None,
+                        },
+                        "logprobs": None,
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 68,
+                    "completion_tokens": 11,
+                    "total_tokens": 79,
+                    "prompt_tokens_details": {"cached_tokens": 0, "audio_tokens": 0},
+                    "completion_tokens_details": {
+                        "reasoning_tokens": 0,
+                        "audio_tokens": 0,
+                        "accepted_prediction_tokens": 0,
+                        "rejected_prediction_tokens": 0,
+                    },
+                },
+                "service_tier": "default",
+                "system_fingerprint": "fp_50cad350e4",
+            },
+        )
+
+    with mock.patch("httpx.Client.send", send_patch):
+        client = openai.OpenAI()
+        response = client.beta.chat.completions.parse(
+            messages=[
+                {"role": "system", "content": "Extract info from text"},
+                {"role": "user", "content": "I am Angelo and I am 42."},
+            ],
+            model="gpt-4o",
+            temperature=0,
+            response_format=Person,
+        )
+
+    assert response.choices[0].message.parsed == Person(name="Angelo", age=42)
+    trace = mlflow.get_last_active_trace()
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
+    assert span.span_type == SpanType.CHAT_MODEL
