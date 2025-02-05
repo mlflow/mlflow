@@ -37,12 +37,11 @@ class ChatAgentMessage(BaseModel):
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
         id (str): The ID of the message. **Optional** defaults to a random UUID
-        tool_calls (List[:py:class:`ToolCallPydantic`]): A list of tool calls made by the model.
-            **Optional** defaults to ``None``
+        tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
+            model. **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
             **Optional** defaults to ``None``
         attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
-        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
     """
 
     role: str
@@ -53,8 +52,6 @@ class ChatAgentMessage(BaseModel):
     tool_call_id: Optional[str] = None
     # TODO make this a pydantic class with subtypes once we have more details on usage
     attachments: Optional[dict[str, str]] = None
-    finish_reason: Optional[str] = None
-    # TODO: add finish_reason_metadata once we have a plan for usage
 
     if IS_PYDANTIC_V2_OR_NEWER:
 
@@ -80,7 +77,7 @@ class ChatAgentMessage(BaseModel):
             return values
 
 
-class Context(BaseModel):
+class ChatContext(BaseModel):
     """
     Context to be used in a ChatAgent endpoint.
 
@@ -98,7 +95,7 @@ class ChatAgentParams(BaseModel):
     Common parameters used for the ChatAgent interface.
 
     Args:
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
             conversation_id and user_id. **Optional** defaults to ``None``
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
@@ -107,7 +104,7 @@ class ChatAgentParams(BaseModel):
             **Optional**, defaults to ``False``
     """
 
-    context: Optional[Context] = None
+    context: Optional[ChatContext] = None
     custom_inputs: Optional[dict[str, Any]] = None
     stream: Optional[bool] = False
 
@@ -118,8 +115,7 @@ class ChatAgentRequest(ChatAgentParams):
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that will be passed to the model.
-            **Optional**, defaults to empty list (``[]``)
-        context (:py:class:`Context`): The context to be used in the chat endpoint. Includes
+        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
             conversation_id and user_id. **Optional** defaults to ``None``
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
@@ -128,11 +124,47 @@ class ChatAgentRequest(ChatAgentParams):
             **Optional**, defaults to ``False``
     """
 
-    messages: list[ChatAgentMessage] = Field(default_factory=list)
+    messages: list[ChatAgentMessage]
 
 
 class ChatAgentResponse(BaseModel):
+    """
+    Format of a ChatAgent interface response
+
+    Args:
+        messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
+        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+        usage (:py:class:`mlflow.types.chat.ChatUsage`): The token usage of the request
+            **Optional**, defaults to None
+    """
+
     messages: list[ChatAgentMessage]
+    finish_reason: Optional[str] = None
+    # TODO: add finish_reason_metadata once we have a plan for usage
+    custom_outputs: Optional[dict[str, Any]] = None
+    usage: Optional[ChatUsage] = None
+
+
+class ChatAgentChunk(BaseModel):
+    """
+    Format of a ChatAgent interface streaming chunk
+
+    Args:
+        delta: A :py:class:`ChatAgentMessage` that is streamed from the model.
+        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+        usage (:py:class:`mlflow.types.chat.ChatUsage`): The token usage of the request
+            **Optional**, defaults to None
+    """
+
+    delta: ChatAgentMessage
+    finish_reason: Optional[str] = None
+    # TODO: add finish_reason_metadata once we have a plan for usage
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
 
@@ -157,7 +189,6 @@ _chat_agent_messages_col_spec = ColSpec(
                 ])), False),
                 Property("tool_call_id", DataType.string, False),
                 Property("attachments", Map(DataType.string), False),
-                Property("finish_reason", DataType.string, False),
             ]
         )
     ),
@@ -179,6 +210,7 @@ CHAT_AGENT_INPUT_SCHEMA = Schema(
 CHAT_AGENT_OUTPUT_SCHEMA = Schema(
     [
         _chat_agent_messages_col_spec,
+        ColSpec(name="finish_reason", type=DataType.string, required=False),
         _custom_outputs_col_spec,
         _token_usage_stats_col_spec,
     ]

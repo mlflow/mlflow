@@ -17,7 +17,6 @@ from mlflow.langchain.chat_agent_langgraph import (
     ChatAgentState,
     ChatAgentToolNode,
     LangGraphChatAgent,
-    parse_message,
 )
 
 os.environ["OPENAI_API_KEY"] = "test"
@@ -96,7 +95,7 @@ def create_tool_calling_agent(
     ):
         response = model_runnable.invoke(state, config)
 
-        return {"messages": [parse_message(response, "llm")]}
+        return {"messages": [response]}
 
     workflow = StateGraph(ChatAgentState)
 
