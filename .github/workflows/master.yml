@@ -133,6 +133,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
+          pip install build
           python dev/build.py
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images
