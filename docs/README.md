@@ -1,4 +1,4 @@
-# MLflow Documentationa
+# MLflow Documentation
 
 This README covers information about the main MLflow documentation. The API reference is built separately and included as a static folder during the full build process. Please check out the [README](https://github.com/mlflow/mlflow/blob/master/docs/api_reference/README.md) in the `api_reference` folder for more information.
 
