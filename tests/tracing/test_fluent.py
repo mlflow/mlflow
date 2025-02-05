@@ -721,6 +721,7 @@ def test_search_traces(mock_client):
         max_results=10,
         order_by=["timestamp DESC"],
         page_token=None,
+        model_id=None,
     )
 
 
@@ -751,9 +752,9 @@ def test_search_traces_with_pagination(mock_client):
     }
     mock_client.search_traces.assert_has_calls(
         [
-            mock.call(**common_args, page_token=None),
-            mock.call(**common_args, page_token="token-1"),
-            mock.call(**common_args, page_token="token-2"),
+            mock.call(**common_args, page_token=None, model_id=None),
+            mock.call(**common_args, page_token="token-1", model_id=None),
+            mock.call(**common_args, page_token="token-2", model_id=None),
         ]
     )
 
@@ -770,6 +771,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by=None,
         page_token=None,
+        model_id=None,
     )
 
 
