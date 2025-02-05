@@ -51,7 +51,9 @@ class TraceData:
         root_span = self._get_root_span()
         if root_span and root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS):
             return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
-        # TODO: handle the second case for a normal trace with spans
+        
+        if len(self.spans) > 1:
+            return { span.name: span.outputs for span in self.spans if span.parent_id and span.outputs is not None}
 
     def _get_root_span(self) -> Optional[Span]:
         for span in self.spans:
