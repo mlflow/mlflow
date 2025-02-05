@@ -711,7 +711,8 @@ _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
     "_MLFLOW_IS_IN_SERVING_ENVIRONMENT", None
 )
 
-# Specifies the max length (in chars) of an experiment's artifact location
+#: Specifies the max length (in chars) of an experiment's artifact location.
+#: The default is 2048.
 MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH", int, 2048
 )

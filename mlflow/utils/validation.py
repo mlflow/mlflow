@@ -626,7 +626,7 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
     max_length = MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.get()
     if len(artifact_location) > max_length:
         raise MlflowException(
-            "Invalid artifact location. The length of the artifact location cannot be "
+            "Invalid artifact path length. The length of the artifact path cannot be "
             f"greater than {max_length} characters. To configure this limit, please set the "
             "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
             INVALID_PARAMETER_VALUE,

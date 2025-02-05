@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.environment_variables import MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
@@ -354,5 +355,21 @@ def test_validate_experiment_artifact_location_length_good(artifact_location):
     ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 5000],
 )
 def test_validate_experiment_artifact_location_length_bad(artifact_location):
-    with pytest.raises(MlflowException, match="Invalid artifact location"):
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
         _validate_experiment_artifact_location_length(artifact_location)
+
+
+def test_setting_experiment_artifact_location_env_var_works(monkeypatch):
+    artifact_location = "file://aaaa"  # length 11
+
+    # should not throw
+    _validate_experiment_artifact_location_length(artifact_location)
+
+    # reduce limit to 10
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "10")
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+    # increase limit to 11
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "11")
+    _validate_experiment_artifact_location_length(artifact_location)
