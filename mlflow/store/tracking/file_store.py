@@ -2230,7 +2230,7 @@ class FileStore(AbstractStore):
             models = self._list_models(experiment_id)
             all_models.extend(models)
         filtered = SearchUtils.filter_logged_models(models, filter_string)
-        return SearchUtils.sort_logged_models(filtered, order_by)[:max_results]
+        return PagedList(SearchUtils.sort_logged_models(filtered, order_by)[:max_results], None)
 
     def _list_models(self, experiment_id: str) -> list[LoggedModel]:
         self._check_root_dir()

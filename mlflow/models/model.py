@@ -923,8 +923,11 @@ class Model:
                     else None,
                 )
 
+            print(f"BRUH active_run {active_run}")
+
             if active_run is not None:
                 run_id = active_run.info.run_id
+                print(f"BRUH logging output {model.model_id}")
                 client.log_outputs(
                     run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
                 )

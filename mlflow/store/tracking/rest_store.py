@@ -189,7 +189,11 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(GetRun(run_uuid=run_id, run_id=run_id))
         response_proto = self._call_endpoint(GetRun, req_body)
-        return Run.from_proto(response_proto.run)
+
+        run = Run.from_proto(response_proto.run)
+        print(f"BRUH store get run {run.info.run_id}, {run.outputs}")
+        print(f"BRUH store get run proto {response_proto.run}")
+        return run
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
         """Updates the metadata of the specified run."""
@@ -763,5 +767,6 @@ class RestStore(AbstractStore):
         Returns:
             None.
         """
+        print(f"BRUH store logging output {run_id}, {models}")
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)

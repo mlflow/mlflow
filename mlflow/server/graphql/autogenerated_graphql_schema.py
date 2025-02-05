@@ -93,6 +93,15 @@ class MlflowListArtifactsResponse(graphene.ObjectType):
     apiError = graphene.Field(ApiError)
 
 
+class MlflowModelOutput(graphene.ObjectType):
+    model_id = graphene.String()
+    step = LongString()
+
+
+class MlflowRunOutputs(graphene.ObjectType):
+    model_outputs = graphene.List(graphene.NonNull(MlflowModelOutput))
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -160,6 +169,7 @@ class MlflowRun(graphene.ObjectType):
     info = graphene.Field(MlflowRunInfo)
     data = graphene.Field(MlflowRunData)
     inputs = graphene.Field(MlflowRunInputs)
+    outputs = graphene.Field(MlflowRunOutputs)
 
 
 class MlflowSearchRunsResponse(graphene.ObjectType):

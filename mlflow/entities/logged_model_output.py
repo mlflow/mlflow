@@ -26,3 +26,8 @@ class LoggedModelOutput(_MlflowObject):
 
     def to_proto(self):
         return ModelOutput(model_id=self.model_id, step=self.step)
+    
+    @classmethod
+    def from_proto(cls, proto):
+        model_output = cls(proto.model_id, proto.step)
+        return model_output
