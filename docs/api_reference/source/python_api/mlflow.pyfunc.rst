@@ -29,3 +29,9 @@ mlflow.pyfunc
 .. autoclass:: mlflow.pyfunc.ChatModel
     :members:
     :undoc-members:
+
+.. Include ``ChatAgent``, which is imported from `mlflow.pyfunc.model`, in the
+   `mlflow.pyfunc` namespace
+.. autoclass:: mlflow.pyfunc.ChatAgent
+    :members:
+    :undoc-members:

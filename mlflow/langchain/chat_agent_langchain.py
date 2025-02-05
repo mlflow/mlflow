@@ -3,15 +3,19 @@ from typing import Any, Generator, Optional
 from langchain_core.runnables.base import Runnable
 
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext
+from mlflow.types.agent import (
+    ChatAgentChunk,
+    ChatAgentMessage,
+    ChatAgentResponse,
+    ChatContext,
+)
 from mlflow.utils.annotations import experimental
 
 
 @experimental
 class LangChainChatAgent(ChatAgent):
     """
-    Helper class to wrap a LangChain runnable as a ChatAgent. Use this with :py:class:`mlflow.
-    langchain.output_parsers.ChatAgentOutputParser`.
+    Helper class to wrap a LangChain runnable as a :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`. Use this with :py:class:`ChatAgentOutputParser <mlflow.langchain.output_parsers.ChatAgentOutputParser>`.
     """
 
     def __init__(self, agent: Runnable):

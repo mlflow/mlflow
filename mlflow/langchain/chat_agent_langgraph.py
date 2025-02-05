@@ -170,7 +170,8 @@ class LangGraphChatAgent(ChatAgent):
     ) -> ChatAgentResponse:
         response = ChatAgentResponse(messages=[])
         for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
+            {"messages": self._convert_messages_to_dict(messages)},
+            stream_mode="updates",
         ):
             for node_data in event.values():
                 if not node_data:
@@ -189,7 +190,8 @@ class LangGraphChatAgent(ChatAgent):
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
+            {"messages": self._convert_messages_to_dict(messages)},
+            stream_mode="updates",
         ):
             for node_data in event.values():
                 if not node_data:
