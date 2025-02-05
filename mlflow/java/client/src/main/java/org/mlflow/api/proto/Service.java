@@ -7117,6 +7117,50 @@ public final class Service {
      */
     org.mlflow.api.proto.Service.DatasetInputOrBuilder getDatasetInputsOrBuilder(
         int index);
+
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    java.util.List<org.mlflow.api.proto.Service.ModelInput> 
+        getModelInputsList();
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    org.mlflow.api.proto.Service.ModelInput getModelInputs(int index);
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    int getModelInputsCount();
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
+        getModelInputsOrBuilderList();
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
+        int index);
   }
   /**
    * <pre>
@@ -7136,6 +7180,7 @@ public final class Service {
     }
     private RunInputs() {
       datasetInputs_ = java.util.Collections.emptyList();
+      modelInputs_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
@@ -7178,6 +7223,15 @@ public final class Service {
                   input.readMessage(org.mlflow.api.proto.Service.DatasetInput.PARSER, extensionRegistry));
               break;
             }
+            case 18: {
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                modelInputs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ModelInput>();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              modelInputs_.add(
+                  input.readMessage(org.mlflow.api.proto.Service.ModelInput.PARSER, extensionRegistry));
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -7195,6 +7249,9 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) != 0)) {
           datasetInputs_ = java.util.Collections.unmodifiableList(datasetInputs_);
+        }
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          modelInputs_ = java.util.Collections.unmodifiableList(modelInputs_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -7273,6 +7330,66 @@ public final class Service {
       return datasetInputs_.get(index);
     }
 
+    public static final int MODEL_INPUTS_FIELD_NUMBER = 2;
+    private java.util.List<org.mlflow.api.proto.Service.ModelInput> modelInputs_;
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    @java.lang.Override
+    public java.util.List<org.mlflow.api.proto.Service.ModelInput> getModelInputsList() {
+      return modelInputs_;
+    }
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    @java.lang.Override
+    public java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
+        getModelInputsOrBuilderList() {
+      return modelInputs_;
+    }
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    @java.lang.Override
+    public int getModelInputsCount() {
+      return modelInputs_.size();
+    }
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ModelInput getModelInputs(int index) {
+      return modelInputs_.get(index);
+    }
+    /**
+     * <pre>
+     * Model inputs to the Run.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
+        int index) {
+      return modelInputs_.get(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -7290,6 +7407,9 @@ public final class Service {
       for (int i = 0; i < datasetInputs_.size(); i++) {
         output.writeMessage(1, datasetInputs_.get(i));
       }
+      for (int i = 0; i < modelInputs_.size(); i++) {
+        output.writeMessage(2, modelInputs_.get(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -7302,6 +7422,10 @@ public final class Service {
       for (int i = 0; i < datasetInputs_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, datasetInputs_.get(i));
+      }
+      for (int i = 0; i < modelInputs_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, modelInputs_.get(i));
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -7320,6 +7444,8 @@ public final class Service {
 
       if (!getDatasetInputsList()
           .equals(other.getDatasetInputsList())) return false;
+      if (!getModelInputsList()
+          .equals(other.getModelInputsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -7334,6 +7460,10 @@ public final class Service {
       if (getDatasetInputsCount() > 0) {
         hash = (37 * hash) + DATASET_INPUTS_FIELD_NUMBER;
         hash = (53 * hash) + getDatasetInputsList().hashCode();
+      }
+      if (getModelInputsCount() > 0) {
+        hash = (37 * hash) + MODEL_INPUTS_FIELD_NUMBER;
+        hash = (53 * hash) + getModelInputsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -7468,6 +7598,7 @@ public final class Service {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
           getDatasetInputsFieldBuilder();
+          getModelInputsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -7478,6 +7609,12 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         } else {
           datasetInputsBuilder_.clear();
+        }
+        if (modelInputsBuilder_ == null) {
+          modelInputs_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        } else {
+          modelInputsBuilder_.clear();
         }
         return this;
       }
@@ -7514,6 +7651,15 @@ public final class Service {
           result.datasetInputs_ = datasetInputs_;
         } else {
           result.datasetInputs_ = datasetInputsBuilder_.build();
+        }
+        if (modelInputsBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0)) {
+            modelInputs_ = java.util.Collections.unmodifiableList(modelInputs_);
+            bitField0_ = (bitField0_ & ~0x00000002);
+          }
+          result.modelInputs_ = modelInputs_;
+        } else {
+          result.modelInputs_ = modelInputsBuilder_.build();
         }
         onBuilt();
         return result;
@@ -7586,6 +7732,32 @@ public final class Service {
                    getDatasetInputsFieldBuilder() : null;
             } else {
               datasetInputsBuilder_.addAllMessages(other.datasetInputs_);
+            }
+          }
+        }
+        if (modelInputsBuilder_ == null) {
+          if (!other.modelInputs_.isEmpty()) {
+            if (modelInputs_.isEmpty()) {
+              modelInputs_ = other.modelInputs_;
+              bitField0_ = (bitField0_ & ~0x00000002);
+            } else {
+              ensureModelInputsIsMutable();
+              modelInputs_.addAll(other.modelInputs_);
+            }
+            onChanged();
+          }
+        } else {
+          if (!other.modelInputs_.isEmpty()) {
+            if (modelInputsBuilder_.isEmpty()) {
+              modelInputsBuilder_.dispose();
+              modelInputsBuilder_ = null;
+              modelInputs_ = other.modelInputs_;
+              bitField0_ = (bitField0_ & ~0x00000002);
+              modelInputsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getModelInputsFieldBuilder() : null;
+            } else {
+              modelInputsBuilder_.addAllMessages(other.modelInputs_);
             }
           }
         }
@@ -7930,6 +8102,318 @@ public final class Service {
         }
         return datasetInputsBuilder_;
       }
+
+      private java.util.List<org.mlflow.api.proto.Service.ModelInput> modelInputs_ =
+        java.util.Collections.emptyList();
+      private void ensureModelInputsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          modelInputs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ModelInput>(modelInputs_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder> modelInputsBuilder_;
+
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Service.ModelInput> getModelInputsList() {
+        if (modelInputsBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(modelInputs_);
+        } else {
+          return modelInputsBuilder_.getMessageList();
+        }
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public int getModelInputsCount() {
+        if (modelInputsBuilder_ == null) {
+          return modelInputs_.size();
+        } else {
+          return modelInputsBuilder_.getCount();
+        }
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public org.mlflow.api.proto.Service.ModelInput getModelInputs(int index) {
+        if (modelInputsBuilder_ == null) {
+          return modelInputs_.get(index);
+        } else {
+          return modelInputsBuilder_.getMessage(index);
+        }
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder setModelInputs(
+          int index, org.mlflow.api.proto.Service.ModelInput value) {
+        if (modelInputsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureModelInputsIsMutable();
+          modelInputs_.set(index, value);
+          onChanged();
+        } else {
+          modelInputsBuilder_.setMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder setModelInputs(
+          int index, org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
+        if (modelInputsBuilder_ == null) {
+          ensureModelInputsIsMutable();
+          modelInputs_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          modelInputsBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder addModelInputs(org.mlflow.api.proto.Service.ModelInput value) {
+        if (modelInputsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureModelInputsIsMutable();
+          modelInputs_.add(value);
+          onChanged();
+        } else {
+          modelInputsBuilder_.addMessage(value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder addModelInputs(
+          int index, org.mlflow.api.proto.Service.ModelInput value) {
+        if (modelInputsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureModelInputsIsMutable();
+          modelInputs_.add(index, value);
+          onChanged();
+        } else {
+          modelInputsBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder addModelInputs(
+          org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
+        if (modelInputsBuilder_ == null) {
+          ensureModelInputsIsMutable();
+          modelInputs_.add(builderForValue.build());
+          onChanged();
+        } else {
+          modelInputsBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder addModelInputs(
+          int index, org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
+        if (modelInputsBuilder_ == null) {
+          ensureModelInputsIsMutable();
+          modelInputs_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          modelInputsBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder addAllModelInputs(
+          java.lang.Iterable<? extends org.mlflow.api.proto.Service.ModelInput> values) {
+        if (modelInputsBuilder_ == null) {
+          ensureModelInputsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, modelInputs_);
+          onChanged();
+        } else {
+          modelInputsBuilder_.addAllMessages(values);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder clearModelInputs() {
+        if (modelInputsBuilder_ == null) {
+          modelInputs_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000002);
+          onChanged();
+        } else {
+          modelInputsBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public Builder removeModelInputs(int index) {
+        if (modelInputsBuilder_ == null) {
+          ensureModelInputsIsMutable();
+          modelInputs_.remove(index);
+          onChanged();
+        } else {
+          modelInputsBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public org.mlflow.api.proto.Service.ModelInput.Builder getModelInputsBuilder(
+          int index) {
+        return getModelInputsFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
+          int index) {
+        if (modelInputsBuilder_ == null) {
+          return modelInputs_.get(index);  } else {
+          return modelInputsBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
+           getModelInputsOrBuilderList() {
+        if (modelInputsBuilder_ != null) {
+          return modelInputsBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(modelInputs_);
+        }
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public org.mlflow.api.proto.Service.ModelInput.Builder addModelInputsBuilder() {
+        return getModelInputsFieldBuilder().addBuilder(
+            org.mlflow.api.proto.Service.ModelInput.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public org.mlflow.api.proto.Service.ModelInput.Builder addModelInputsBuilder(
+          int index) {
+        return getModelInputsFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.Service.ModelInput.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Model inputs to the Run.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Service.ModelInput.Builder> 
+           getModelInputsBuilderList() {
+        return getModelInputsFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder> 
+          getModelInputsFieldBuilder() {
+        if (modelInputsBuilder_ == null) {
+          modelInputsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder>(
+                  modelInputs_,
+                  ((bitField0_ & 0x00000002) != 0),
+                  getParentForChildren(),
+                  isClean());
+          modelInputs_ = null;
+        }
+        return modelInputsBuilder_;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -8030,50 +8514,6 @@ public final class Service {
      */
     org.mlflow.api.proto.Service.ModelOutputOrBuilder getModelOutputsOrBuilder(
         int index);
-
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    java.util.List<org.mlflow.api.proto.Service.ModelInput> 
-        getModelInputsList();
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    org.mlflow.api.proto.Service.ModelInput getModelInputs(int index);
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    int getModelInputsCount();
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
-        getModelInputsOrBuilderList();
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
-        int index);
   }
   /**
    * <pre>
@@ -8093,7 +8533,6 @@ public final class Service {
     }
     private RunOutputs() {
       modelOutputs_ = java.util.Collections.emptyList();
-      modelInputs_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
@@ -8136,15 +8575,6 @@ public final class Service {
                   input.readMessage(org.mlflow.api.proto.Service.ModelOutput.PARSER, extensionRegistry));
               break;
             }
-            case 18: {
-              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
-                modelInputs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ModelInput>();
-                mutable_bitField0_ |= 0x00000002;
-              }
-              modelInputs_.add(
-                  input.readMessage(org.mlflow.api.proto.Service.ModelInput.PARSER, extensionRegistry));
-              break;
-            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -8162,9 +8592,6 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) != 0)) {
           modelOutputs_ = java.util.Collections.unmodifiableList(modelOutputs_);
-        }
-        if (((mutable_bitField0_ & 0x00000002) != 0)) {
-          modelInputs_ = java.util.Collections.unmodifiableList(modelInputs_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -8243,66 +8670,6 @@ public final class Service {
       return modelOutputs_.get(index);
     }
 
-    public static final int MODEL_INPUTS_FIELD_NUMBER = 2;
-    private java.util.List<org.mlflow.api.proto.Service.ModelInput> modelInputs_;
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    @java.lang.Override
-    public java.util.List<org.mlflow.api.proto.Service.ModelInput> getModelInputsList() {
-      return modelInputs_;
-    }
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    @java.lang.Override
-    public java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
-        getModelInputsOrBuilderList() {
-      return modelInputs_;
-    }
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    @java.lang.Override
-    public int getModelInputsCount() {
-      return modelInputs_.size();
-    }
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.ModelInput getModelInputs(int index) {
-      return modelInputs_.get(index);
-    }
-    /**
-     * <pre>
-     * Model inputs to the Run.
-     * </pre>
-     *
-     * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-     */
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
-        int index) {
-      return modelInputs_.get(index);
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -8320,9 +8687,6 @@ public final class Service {
       for (int i = 0; i < modelOutputs_.size(); i++) {
         output.writeMessage(1, modelOutputs_.get(i));
       }
-      for (int i = 0; i < modelInputs_.size(); i++) {
-        output.writeMessage(2, modelInputs_.get(i));
-      }
       unknownFields.writeTo(output);
     }
 
@@ -8335,10 +8699,6 @@ public final class Service {
       for (int i = 0; i < modelOutputs_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, modelOutputs_.get(i));
-      }
-      for (int i = 0; i < modelInputs_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, modelInputs_.get(i));
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -8357,8 +8717,6 @@ public final class Service {
 
       if (!getModelOutputsList()
           .equals(other.getModelOutputsList())) return false;
-      if (!getModelInputsList()
-          .equals(other.getModelInputsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -8373,10 +8731,6 @@ public final class Service {
       if (getModelOutputsCount() > 0) {
         hash = (37 * hash) + MODEL_OUTPUTS_FIELD_NUMBER;
         hash = (53 * hash) + getModelOutputsList().hashCode();
-      }
-      if (getModelInputsCount() > 0) {
-        hash = (37 * hash) + MODEL_INPUTS_FIELD_NUMBER;
-        hash = (53 * hash) + getModelInputsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -8511,7 +8865,6 @@ public final class Service {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
           getModelOutputsFieldBuilder();
-          getModelInputsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -8522,12 +8875,6 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         } else {
           modelOutputsBuilder_.clear();
-        }
-        if (modelInputsBuilder_ == null) {
-          modelInputs_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-        } else {
-          modelInputsBuilder_.clear();
         }
         return this;
       }
@@ -8564,15 +8911,6 @@ public final class Service {
           result.modelOutputs_ = modelOutputs_;
         } else {
           result.modelOutputs_ = modelOutputsBuilder_.build();
-        }
-        if (modelInputsBuilder_ == null) {
-          if (((bitField0_ & 0x00000002) != 0)) {
-            modelInputs_ = java.util.Collections.unmodifiableList(modelInputs_);
-            bitField0_ = (bitField0_ & ~0x00000002);
-          }
-          result.modelInputs_ = modelInputs_;
-        } else {
-          result.modelInputs_ = modelInputsBuilder_.build();
         }
         onBuilt();
         return result;
@@ -8645,32 +8983,6 @@ public final class Service {
                    getModelOutputsFieldBuilder() : null;
             } else {
               modelOutputsBuilder_.addAllMessages(other.modelOutputs_);
-            }
-          }
-        }
-        if (modelInputsBuilder_ == null) {
-          if (!other.modelInputs_.isEmpty()) {
-            if (modelInputs_.isEmpty()) {
-              modelInputs_ = other.modelInputs_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-            } else {
-              ensureModelInputsIsMutable();
-              modelInputs_.addAll(other.modelInputs_);
-            }
-            onChanged();
-          }
-        } else {
-          if (!other.modelInputs_.isEmpty()) {
-            if (modelInputsBuilder_.isEmpty()) {
-              modelInputsBuilder_.dispose();
-              modelInputsBuilder_ = null;
-              modelInputs_ = other.modelInputs_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-              modelInputsBuilder_ = 
-                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                   getModelInputsFieldBuilder() : null;
-            } else {
-              modelInputsBuilder_.addAllMessages(other.modelInputs_);
             }
           }
         }
@@ -9014,318 +9326,6 @@ public final class Service {
           modelOutputs_ = null;
         }
         return modelOutputsBuilder_;
-      }
-
-      private java.util.List<org.mlflow.api.proto.Service.ModelInput> modelInputs_ =
-        java.util.Collections.emptyList();
-      private void ensureModelInputsIsMutable() {
-        if (!((bitField0_ & 0x00000002) != 0)) {
-          modelInputs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ModelInput>(modelInputs_);
-          bitField0_ |= 0x00000002;
-         }
-      }
-
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder> modelInputsBuilder_;
-
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.ModelInput> getModelInputsList() {
-        if (modelInputsBuilder_ == null) {
-          return java.util.Collections.unmodifiableList(modelInputs_);
-        } else {
-          return modelInputsBuilder_.getMessageList();
-        }
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public int getModelInputsCount() {
-        if (modelInputsBuilder_ == null) {
-          return modelInputs_.size();
-        } else {
-          return modelInputsBuilder_.getCount();
-        }
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ModelInput getModelInputs(int index) {
-        if (modelInputsBuilder_ == null) {
-          return modelInputs_.get(index);
-        } else {
-          return modelInputsBuilder_.getMessage(index);
-        }
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder setModelInputs(
-          int index, org.mlflow.api.proto.Service.ModelInput value) {
-        if (modelInputsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureModelInputsIsMutable();
-          modelInputs_.set(index, value);
-          onChanged();
-        } else {
-          modelInputsBuilder_.setMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder setModelInputs(
-          int index, org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
-        if (modelInputsBuilder_ == null) {
-          ensureModelInputsIsMutable();
-          modelInputs_.set(index, builderForValue.build());
-          onChanged();
-        } else {
-          modelInputsBuilder_.setMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder addModelInputs(org.mlflow.api.proto.Service.ModelInput value) {
-        if (modelInputsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureModelInputsIsMutable();
-          modelInputs_.add(value);
-          onChanged();
-        } else {
-          modelInputsBuilder_.addMessage(value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder addModelInputs(
-          int index, org.mlflow.api.proto.Service.ModelInput value) {
-        if (modelInputsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureModelInputsIsMutable();
-          modelInputs_.add(index, value);
-          onChanged();
-        } else {
-          modelInputsBuilder_.addMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder addModelInputs(
-          org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
-        if (modelInputsBuilder_ == null) {
-          ensureModelInputsIsMutable();
-          modelInputs_.add(builderForValue.build());
-          onChanged();
-        } else {
-          modelInputsBuilder_.addMessage(builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder addModelInputs(
-          int index, org.mlflow.api.proto.Service.ModelInput.Builder builderForValue) {
-        if (modelInputsBuilder_ == null) {
-          ensureModelInputsIsMutable();
-          modelInputs_.add(index, builderForValue.build());
-          onChanged();
-        } else {
-          modelInputsBuilder_.addMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder addAllModelInputs(
-          java.lang.Iterable<? extends org.mlflow.api.proto.Service.ModelInput> values) {
-        if (modelInputsBuilder_ == null) {
-          ensureModelInputsIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(
-              values, modelInputs_);
-          onChanged();
-        } else {
-          modelInputsBuilder_.addAllMessages(values);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder clearModelInputs() {
-        if (modelInputsBuilder_ == null) {
-          modelInputs_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-          onChanged();
-        } else {
-          modelInputsBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public Builder removeModelInputs(int index) {
-        if (modelInputsBuilder_ == null) {
-          ensureModelInputsIsMutable();
-          modelInputs_.remove(index);
-          onChanged();
-        } else {
-          modelInputsBuilder_.remove(index);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ModelInput.Builder getModelInputsBuilder(
-          int index) {
-        return getModelInputsFieldBuilder().getBuilder(index);
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ModelInputOrBuilder getModelInputsOrBuilder(
-          int index) {
-        if (modelInputsBuilder_ == null) {
-          return modelInputs_.get(index);  } else {
-          return modelInputsBuilder_.getMessageOrBuilder(index);
-        }
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public java.util.List<? extends org.mlflow.api.proto.Service.ModelInputOrBuilder> 
-           getModelInputsOrBuilderList() {
-        if (modelInputsBuilder_ != null) {
-          return modelInputsBuilder_.getMessageOrBuilderList();
-        } else {
-          return java.util.Collections.unmodifiableList(modelInputs_);
-        }
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ModelInput.Builder addModelInputsBuilder() {
-        return getModelInputsFieldBuilder().addBuilder(
-            org.mlflow.api.proto.Service.ModelInput.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ModelInput.Builder addModelInputsBuilder(
-          int index) {
-        return getModelInputsFieldBuilder().addBuilder(
-            index, org.mlflow.api.proto.Service.ModelInput.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * Model inputs to the Run.
-       * </pre>
-       *
-       * <code>repeated .mlflow.ModelInput model_inputs = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.ModelInput.Builder> 
-           getModelInputsBuilderList() {
-        return getModelInputsFieldBuilder().getBuilderList();
-      }
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder> 
-          getModelInputsFieldBuilder() {
-        if (modelInputsBuilder_ == null) {
-          modelInputsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              org.mlflow.api.proto.Service.ModelInput, org.mlflow.api.proto.Service.ModelInput.Builder, org.mlflow.api.proto.Service.ModelInputOrBuilder>(
-                  modelInputs_,
-                  ((bitField0_ & 0x00000002) != 0),
-                  getParentForChildren(),
-                  isClean());
-          modelInputs_ = null;
-        }
-        return modelInputsBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -115514,11 +115514,11 @@ public final class Service {
       "(\0132\022.mlflow.RunOutputs\"g\n\007RunData\022\037\n\007met" +
       "rics\030\001 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\002 \003" +
       "(\0132\r.mlflow.Param\022\034\n\004tags\030\003 \003(\0132\016.mlflow" +
-      ".RunTag\"9\n\tRunInputs\022,\n\016dataset_inputs\030\001" +
-      " \003(\0132\024.mlflow.DatasetInput\"b\n\nRunOutputs" +
-      "\022*\n\rmodel_outputs\030\001 \003(\0132\023.mlflow.ModelOu" +
-      "tput\022(\n\014model_inputs\030\002 \003(\0132\022.mlflow.Mode" +
-      "lInput\"$\n\006RunTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002" +
+      ".RunTag\"c\n\tRunInputs\022,\n\016dataset_inputs\030\001" +
+      " \003(\0132\024.mlflow.DatasetInput\022(\n\014model_inpu" +
+      "ts\030\002 \003(\0132\022.mlflow.ModelInput\"8\n\nRunOutpu" +
+      "ts\022*\n\rmodel_outputs\030\001 \003(\0132\023.mlflow.Model" +
+      "Output\"$\n\006RunTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002" +
       " \001(\t\"+\n\rExperimentTag\022\013\n\003key\030\001 \001(\t\022\r\n\005va" +
       "lue\030\002 \001(\t\"\335\001\n\007RunInfo\022\016\n\006run_id\030\017 \001(\t\022\020\n" +
       "\010run_uuid\030\001 \001(\t\022\020\n\010run_name\030\003 \001(\t\022\025\n\rexp" +
@@ -115943,13 +115943,13 @@ public final class Service {
     internal_static_mlflow_RunInputs_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunInputs_descriptor,
-        new java.lang.String[] { "DatasetInputs", });
+        new java.lang.String[] { "DatasetInputs", "ModelInputs", });
     internal_static_mlflow_RunOutputs_descriptor =
       getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_RunOutputs_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunOutputs_descriptor,
-        new java.lang.String[] { "ModelOutputs", "ModelInputs", });
+        new java.lang.String[] { "ModelOutputs", });
     internal_static_mlflow_RunTag_descriptor =
       getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_RunTag_fieldAccessorTable = new
