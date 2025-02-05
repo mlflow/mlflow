@@ -47,7 +47,7 @@ jobs:
           working_directory: docs
           command: |
             echo "export DOCS_BASE_URL=/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/" >> "$BASH_ENV"
-            echo "export DOCS_HOST=https://output.circle-artifacts.com" >> "$BASH_ENV"
+            echo "export API_REFERENCE_PREFIX=https://output.circle-artifacts.com${DOCS_BASE_URL}" >> "$BASH_ENV"
       - run:
           name: Install Java
           command: |

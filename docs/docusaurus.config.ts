@@ -9,7 +9,7 @@ const config: Config = {
   favicon: "images/favicon.ico",
 
   // Set the production url of your site here
-  url: process.env.URL || "https://mlflow.org",
+  url: "https://mlflow.org",
 
   // when building for production, check this environment
   // variable to determine the correct base URL
