@@ -42,7 +42,6 @@ class ChatAgentMessage(BaseModel):
         tool_call_id (str): The ID of the tool call that this message is a response to.
             **Optional** defaults to ``None``
         attachments (Dict[str, str]): A dictionary of attachments. **Optional** defaults to ``None``
-        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
     """
 
     role: str
@@ -134,6 +133,7 @@ class ChatAgentResponse(BaseModel):
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
+        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
@@ -154,6 +154,7 @@ class ChatAgentChunk(BaseModel):
 
     Args:
         delta: A :py:class:`ChatAgentMessage` that is streamed from the model.
+        finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
