@@ -81,9 +81,7 @@ jobs:
             PR_PREVIEW: "true"
           command: |
             yarn install
-            yarn build-api-docs:no-r
-            yarn convert-notebooks
-            yarn build
+            yarn build-all
             python changed_pages.py
       - run:
           name: Test examples
@@ -91,7 +89,7 @@ jobs:
           command: |
             make test-examples
       - store_artifacts:
-          path: docs/build/
+          path: docs/_build/
 
   # TODO: This job can be removed once we drop support MLflow Recipes
   # mlflow-recipes:
