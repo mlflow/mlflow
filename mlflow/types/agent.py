@@ -153,7 +153,7 @@ class ChatAgentChunk(BaseModel):
     Format of a ChatAgent interface streaming chunk
 
     Args:
-        message: A :py:class:`ChatAgentMessage` that is streamed from the model.
+        delta: A :py:class:`ChatAgentMessage` that is streamed from the model.
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
