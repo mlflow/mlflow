@@ -154,6 +154,7 @@ def build(package_type: PackageType) -> None:
                 "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
+                "auth": ["Flask-WTF<2"],
             },
             "urls": {
                 "homepage": "https://mlflow.org",
