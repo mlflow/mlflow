@@ -86,7 +86,7 @@ jobs:
           command: |
             make test-examples
       - store_artifacts:
-          path: docs/_build/
+          path: docs/build/
 
   mlflow-recipes:
     docker:
