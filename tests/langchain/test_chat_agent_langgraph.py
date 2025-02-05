@@ -173,12 +173,13 @@ def test_langgraph_chat_agent_save_as_code():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_model.predict_stream({"messages": [{"role": "user", "content": "hi"}]})
     for event, (role, expected_content) in zip(response, expected_messages):
-        assert event["messages"][0]["content"] == expected_content
-        assert event["messages"][0]["role"] == role
+        assert event["delta"]["content"] == expected_content
+        assert event["delta"]["role"] == role
 
 
 def test_langgraph_chat_agent_trace():
     input_example = {"messages": [{"role": "user", "content": "hi"}]}
+
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "agent",
@@ -189,7 +190,6 @@ def test_langgraph_chat_agent_trace():
     assert mlflow.get_last_active_trace() is None
 
     loaded_model.predict(input_example)
-
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
