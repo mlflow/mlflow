@@ -28,17 +28,21 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatMessage, ChatTool
 
 
-def capture_function_input_args(func, args, kwargs) -> dict[str, Any]:
-    # Avoid capturing `self`
-    func_signature = inspect.signature(func)
-    bound_arguments = func_signature.bind(*args, **kwargs)
-    bound_arguments.apply_defaults()
+def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
+    try:
+        # Avoid capturing `self`
+        func_signature = inspect.signature(func)
+        bound_arguments = func_signature.bind(*args, **kwargs)
+        bound_arguments.apply_defaults()
 
-    # Remove `self` from bound arguments if it exists
-    if bound_arguments.arguments.get("self"):
-        del bound_arguments.arguments["self"]
+        # Remove `self` from bound arguments if it exists
+        if bound_arguments.arguments.get("self"):
+            del bound_arguments.arguments["self"]
 
-    return bound_arguments.arguments
+        return bound_arguments.arguments
+    except Exception:
+        _logger.warning(f"Failed to capture inputs for function {func.__name__}.")
+        return None
 
 
 class TraceJSONEncoder(json.JSONEncoder):
@@ -418,6 +422,8 @@ def end_client_span_or_trace(
             end_time_ns=end_time_ns,
         )
     else:
+        span.set_status(status)
+        span.set_outputs(outputs)
         return client.end_trace(
             request_id=span.request_id,
             outputs=outputs,

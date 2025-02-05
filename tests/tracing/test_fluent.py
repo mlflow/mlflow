@@ -279,9 +279,9 @@ def test_trace_stream(wrap_sync_func):
     assert root_span.inputs == {"x": 1, "y": 2}
     assert root_span.outputs == 11
     assert len(root_span.events) == 9
-    assert root_span.events[0].name == "item_0"
-    assert root_span.events[0].attributes == {"value": "0"}
-    assert root_span.events[8].name == "item_8"
+    assert root_span.events[0].name == "mlflow.chunk.item.0"
+    assert root_span.events[0].attributes == {"mlflow.chunk.value": "0"}
+    assert root_span.events[8].name == "mlflow.chunk.item.8"
 
     # Spans for the chid 'square' function
     for i in range(3):
@@ -565,7 +565,7 @@ def test_trace_handle_exception_during_streaming():
 
     # One chunk event + one exception event
     assert len(spans[0].events) == 2
-    assert spans[0].events[0].name == "item_0"
+    assert spans[0].events[0].name == "mlflow.chunk.item.0"
     assert spans[0].events[1].name == "exception"
 
 
@@ -615,9 +615,7 @@ def test_trace_ignore_exception(monkeypatch, model):
     monkeypatch.undo()
 
     # Exception during inspecting inputs: trace should be logged without inputs field
-    with mock.patch(
-        "mlflow.tracing.fluent.capture_function_input_args", side_effect=ValueError("Some error")
-    ) as mock_input_args:
+    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
         _call_model_and_assert_output(model)
         assert mock_input_args.call_count > 0
 
