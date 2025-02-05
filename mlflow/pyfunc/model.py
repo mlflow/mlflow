@@ -927,10 +927,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(
-                tmp_artifacts_dir.path(),
-                os.path.join(path, saved_artifacts_dir_subpath),
-            )
+            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
@@ -1194,9 +1191,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.params = params
 
     def predict(
-        self,
-        context,
-        model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]],
+        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
     ):
         """
         Run prediction on the input data.
@@ -1254,10 +1249,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         Returns:
             The prediction result from the MLflow Deployments endpoint as a dictionary.
         """
-        from mlflow.metrics.genai.model_utils import (
-            call_deployments_api,
-            get_endpoint_type,
-        )
+        from mlflow.metrics.genai.model_utils import call_deployments_api, get_endpoint_type
 
         endpoint_type = get_endpoint_type(f"endpoints:/{self.endpoint}")
 
