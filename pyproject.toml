@@ -294,6 +294,7 @@ fpr = "fpr"   # false positive rate
 gam = "gam"   # generalized additive models
 ser = "ser"   # serialization
 yhat = "yhat" # ŷ
+iternal = "internal" # iternal typo
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
