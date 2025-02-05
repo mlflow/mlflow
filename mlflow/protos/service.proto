@@ -736,6 +736,8 @@ message Run {
   optional RunData data = 2;
   // Run inputs.
   optional RunInputs inputs = 3;
+  // Run outputs.
+  optional RunOutputs outputs = 4;
 }
 
 // Run data (metrics, params, and tags).
@@ -753,6 +755,14 @@ message RunData {
 message RunInputs {
   // Dataset inputs to the Run.
   repeated DatasetInput dataset_inputs = 1;
+  // Model inputs to the Run.
+  repeated ModelInput model_inputs = 2;
+}
+
+// Outputs of a Run.
+message RunOutputs {
+  // Model outputs of the Run.
+  repeated ModelOutput model_outputs = 1;
 }
 
 // Tag for a run.
