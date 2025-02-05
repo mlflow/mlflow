@@ -32,9 +32,9 @@ def build_docs(version):
 def main():
     gtm_id = os.environ.get("GTM_ID")
 
-    assert (
-        gtm_id
-    ), "Google Tag Manager ID is missing, please ensure that the GTM_ID environment variable is set"
+    assert gtm_id, (
+        "Google Tag Manager ID is missing, please ensure that the GTM_ID environment variable is set"
+    )
 
     subprocess.check_call(["yarn", "install"])
     subprocess.check_call(["yarn", "build-api-docs"])
