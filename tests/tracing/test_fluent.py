@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import json
 import time
 from dataclasses import asdict
@@ -101,6 +100,7 @@ class StreamTestModel:
     def generate_numbers(self, z):
         for i in range(z):
             yield i
+
 
 class AsyncStreamTestModel:
     @mlflow.trace(output_reducer=lambda x: sum(x))
@@ -254,12 +254,13 @@ def test_trace_stream(wrap_sync_func):
             # The `predict` span should not be active here.
             assert mlflow.get_current_active_span() is None
     else:
+
         async def consume_stream():
             async for chunk in stream:
                 chunks.append(chunk)
                 assert mlflow.get_current_active_span() is None
-        asyncio.run(consume_stream())
 
+        asyncio.run(consume_stream())
 
     traces = get_traces()
     assert len(traces) == 1
@@ -285,7 +286,7 @@ def test_trace_stream(wrap_sync_func):
 
     # Spans for the chid 'square' function
     for i in range(3):
-        assert trace.data.spans[i + 1].name == f"square_{i+1}"
+        assert trace.data.spans[i + 1].name == f"square_{i + 1}"
         assert trace.data.spans[i + 1].inputs == {"t": i}
         assert trace.data.spans[i + 1].outputs == i**2
         assert trace.data.spans[i + 1].parent_id == root_span.span_id
@@ -293,7 +294,7 @@ def test_trace_stream(wrap_sync_func):
     # Span for the 'generate_numbers' function
     assert trace.data.spans[4].name == "generate_numbers"
     assert trace.data.spans[4].inputs == {"z": 3}
-    assert trace.data.spans[4].outputs == [0, 1, 2] # list of outputs
+    assert trace.data.spans[4].outputs == [0, 1, 2]  # list of outputs
     assert len(trace.data.spans[4].events) == 3
 
 
@@ -537,7 +538,7 @@ def test_trace_handle_exception_during_streaming():
     stream = model.predict_stream(2)
 
     chunks = []
-    with pytest.raises(ValueError, match=r"Some error"):
+    with pytest.raises(ValueError, match=r"Some error"):  # noqa: PT012
         for chunk in stream:
             chunks.append(chunk)
 
@@ -569,12 +570,15 @@ def test_trace_handle_exception_during_streaming():
     assert spans[0].events[1].name == "exception"
 
 
-@pytest.mark.parametrize("model", [
-    DefaultTestModel(),
-    DefaultAsyncTestModel(),
-    StreamTestModel(),
-    AsyncStreamTestModel(),
-])
+@pytest.mark.parametrize(
+    "model",
+    [
+        DefaultTestModel(),
+        DefaultAsyncTestModel(),
+        StreamTestModel(),
+        AsyncStreamTestModel(),
+    ],
+)
 def test_trace_ignore_exception(monkeypatch, model):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
@@ -590,8 +594,10 @@ def test_trace_ignore_exception(monkeypatch, model):
             assert len(list(stream)) == 21
         elif isinstance(model, AsyncStreamTestModel):
             astream = model.predict_stream(2, 5)
+
             async def _consume_stream():
                 return [chunk async for chunk in astream]
+
             stream = asyncio.run(_consume_stream())
             assert len(list(stream)) == 21
         else:

@@ -9,10 +9,10 @@ from langchain_core.runnables.utils import Input
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.store.base import BaseStore
-import mlflow
-from mlflow.entities.span import SpanType
 from pydantic import BaseModel
 
+import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
 from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext

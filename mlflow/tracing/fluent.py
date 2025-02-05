@@ -4,7 +4,6 @@ import contextlib
 import functools
 import importlib
 import inspect
-import itertools
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
@@ -19,7 +18,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    _MLFLOW_TESTING,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -27,7 +25,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
-from mlflow.tracing.constant import STREAM_CHUNK_EVENT_NAME_FORMAT, STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_NAME_FORMAT,
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.provider import (
     is_tracing_enabled,
@@ -173,7 +175,7 @@ def _wrap_function(
     fn: Callable,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
-    attributes: Optional[dict[str, Any]] = None
+    attributes: Optional[dict[str, Any]] = None,
 ) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -211,6 +213,7 @@ def _wrap_function(
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(await fn(*args, **kwargs))
     else:
+
         def wrapper(*args, **kwargs):
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
@@ -223,7 +226,7 @@ def _wrap_generator(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    output_reducer: Optional[Callable] = None
+    output_reducer: Optional[Callable] = None,
 ) -> Callable:
     """
     Wrap a generator function to create a span.
@@ -237,8 +240,9 @@ def _wrap_generator(
         # B
         for i in range(10):
             # C
-            yield i*2
+            yield i * 2
         # E
+
 
     stream = generate_stream()
     # A
@@ -253,6 +257,7 @@ def _wrap_generator(
     is inside the generator function. Otherwise it will create wrong span tree, or
     even worse, leak span context and pollute subsequent traces.
     """
+
     def _start_stream_span(fn, args, kwargs):
         try:
             return start_client_span_or_trace(
@@ -271,7 +276,7 @@ def _wrap_generator(
         span: LiveSpan,
         outputs: Optional[list[Any]] = None,
         output_reducer: Optional[Callable] = None,
-        error: Optional[Exception] = None
+        error: Optional[Exception] = None,
     ):
         client = MlflowClient()
         if error:
@@ -298,6 +303,7 @@ def _wrap_generator(
             _logger.debug(f"Failing to record chunk event for span {span.name}: {e}")
 
     if inspect.isgeneratorfunction(fn):
+
         def wrapper(*args, **kwargs):
             span = _start_stream_span(fn, args, kwargs)
             generator = fn(*args, **kwargs)
@@ -321,6 +327,7 @@ def _wrap_generator(
                     i += 1
             _end_stream_span(span, outputs, output_reducer)
     else:
+
         async def wrapper(*args, **kwargs):
             span = _start_stream_span(fn, args, kwargs)
             generator = fn(*args, **kwargs)

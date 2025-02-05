@@ -10,10 +10,11 @@ from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.entities.span_status import SpanStatusCode
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
+import mlflow
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -370,7 +371,7 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
 
 
 def start_client_span_or_trace(
-    client,
+    client: MlflowClient,
     name: str,
     span_type: str,
     parent_span: Optional[LiveSpan] = None,
@@ -381,7 +382,7 @@ def start_client_span_or_trace(
     """
     An utility to start a span or trace using MlflowClient based on the current active span.
     """
-    if parent_span:
+    if parent_span or mlflow.get_current_active_span():
         return client.start_span(
             name=name,
             request_id=parent_span.request_id,
@@ -402,7 +403,7 @@ def start_client_span_or_trace(
 
 
 def end_client_span_or_trace(
-    client,
+    client: MlflowClient,
     span: LiveSpan,
     outputs: Optional[dict[str, Any]] = None,
     attributes: Optional[dict[str, Any]] = None,
