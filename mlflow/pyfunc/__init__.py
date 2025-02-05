@@ -468,6 +468,7 @@ from mlflow.models.utils import (
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -504,8 +505,7 @@ from mlflow.types.agent import (
     CHAT_AGENT_INPUT_EXAMPLE,
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
-    ChatAgentMessage,
-    ChatAgentParams,
+    ChatAgentRequest,
     ChatAgentResponse,
 )
 from mlflow.types.llm import (
@@ -3631,41 +3631,26 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     default_metadata = {TASK: _DEFAULT_CHAT_AGENT_METADATA_TASK}
     mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
 
-    # We accept either a tuple of either dicts or pydantic models, or a single dict
+    # We accept a dict with ChatAgentRequest schema
     if input_example:
-        if isinstance(input_example, tuple):
-            messages, params = input_example
-        else:
-            messages = input_example
-            params = None
-        if isinstance(messages, list):
-            messages = [
-                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg for msg in messages
-            ]
-            params = (
-                ChatAgentParams(**params)
-                if isinstance(params, dict)
-                else params or ChatAgentParams()
-            )
-        else:
-            # If the input example is a single dictionary
-            # convert it to a list of ChatAgentMessages and ChatAgentParams
-            messages = [
-                ChatAgentMessage(**msg) if isinstance(msg, dict) else msg
-                for msg in input_example["messages"]
-            ]
-            params = ChatAgentParams(**input_example)
-        input_example = {
-            "messages": [m.model_dump_compat(exclude_none=True) for m in messages],
-            **params.model_dump_compat(exclude_none=True),
-        }
+        try:
+            model_validate(ChatAgentRequest, input_example)
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    f"Invalid input example. Expected a ChatAgentRequest object or dictionary with"
+                    f" its schema. Pydantic validation error: {e}"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        if isinstance(input_example, ChatAgentRequest):
+            input_example = input_example.model_dump_compat(exclude_none=True)
     else:
         input_example = CHAT_AGENT_INPUT_EXAMPLE
-        messages = [ChatAgentMessage(**msg) for msg in input_example["messages"]]
-        params = ChatAgentParams(**input_example)
 
     _logger.info("Predicting on input example to validate output")
-    output = python_model.predict(messages, params)
+    request = ChatAgentRequest(**input_example)
+    output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:
         model_validate(ChatAgentResponse, output)
     except Exception as e:

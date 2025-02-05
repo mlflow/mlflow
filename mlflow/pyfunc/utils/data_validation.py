@@ -3,11 +3,14 @@ import warnings
 from functools import lru_cache, wraps
 from typing import Any, NamedTuple, Optional
 
+import pydantic
+
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
 )
+from mlflow.types.agent import ChatAgentRequest
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _convert_data_to_type_hint,
@@ -15,6 +18,7 @@ from mlflow.types.type_hints import (
     _is_type_hint_from_example,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_data_against_type_hint,
+    model_validate,
 )
 from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.warnings_utils import color_warning
@@ -72,6 +76,34 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
+
+    wrapper._is_pyfunc = True
+    return wrapper
+
+
+def _wrap_chat_agent_predict(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if len(args) == 1 and isinstance(args[0], dict):
+            try:
+                model_validate(ChatAgentRequest, args[0])
+                request = ChatAgentRequest(**args[0])
+                return func(
+                    self,
+                    messages=request.messages,
+                    context=request.context,
+                    custom_inputs=request.custom_inputs,
+                )
+            except pydantic.ValidationError as e:
+                raise MlflowException(
+                    "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
+                    f"ChatAgentRequest schema. Pydantic validation error: {e}"
+                ) from e
+        else:
+            # After logging, signature enforcement happens in the _convert_input method
+            # of _ChatAgentPyfuncWrapper
+            # Before logging, this is equivalent to the behavior from the raw predict method
+            return func(self, *args, **kwargs)
 
     wrapper._is_pyfunc = True
     return wrapper
