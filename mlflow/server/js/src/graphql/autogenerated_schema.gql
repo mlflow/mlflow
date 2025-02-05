@@ -141,6 +141,7 @@ type MlflowRunTag {
 
 type MlflowRunInputs {
   datasetInputs: [MlflowDatasetInput!]
+  modelInputs: [MlflowModelInput!]
 }
 
 type MlflowDatasetInput {
@@ -162,18 +163,17 @@ type MlflowDataset {
   profile: String
 }
 
+type MlflowModelInput {
+  modelId: String
+}
+
 type MlflowRunOutputs {
   modelOutputs: [MlflowModelOutput!]
-  modelInputs: [MlflowModelInput!]
 }
 
 type MlflowModelOutput {
   modelId: String
   step: LongString
-}
-
-type MlflowModelInput {
-  modelId: String
 }
 
 type MlflowModelVersion {
