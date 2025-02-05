@@ -592,8 +592,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     This example is adapted from LangGraph's `create_react_agent <https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/>`__ documentation.
 
     The notable differences are changes to be ChatAgent compatible. They include:
-    - We use :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`, which has an internal state of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>` objects and a custom_outputs attribute under the hood
-    - We use :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>` instead of ToolNode to enable returning attachments and custom_outputs from LangChain tools and UnityCatalog Tools
+    - We use ChatAgentState which has an internal state of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>` objects and a custom_outputs attribute under the hood
+    - We use ChatAgentToolNode instead of ToolNode to enable returning attachments and custom_outputs from LangChain tools and UnityCatalog Tools
 
 
     .. code-block:: python
