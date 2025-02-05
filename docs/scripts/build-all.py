@@ -48,7 +48,13 @@ def main():
     for v in [mlflow_version, "latest"]:
         build_docs(v)
 
-    print("Finished building! Output can be found in the `_build` directory")
+    final_path = Path("build")
+    if final_path.exists():
+        shutil.rmtree(final_path)
+
+    shutil.move(output_path, final_path)
+
+    print("Finished building! Output can be found in the `build` directory")
 
 
 if __name__ == "__main__":

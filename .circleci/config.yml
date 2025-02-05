@@ -89,7 +89,7 @@ jobs:
           command: |
             make test-examples
       - store_artifacts:
-          path: docs/_build/
+          path: docs/build/
 
   # TODO: This job can be removed once we drop support MLflow Recipes
   # mlflow-recipes:

@@ -23,7 +23,7 @@ def main() -> None:
     if pr is None:
         return
 
-    BUILD_DIR = Path("_build/latest/")
+    BUILD_DIR = Path("build/latest/")
     DOCS_DIR = Path("docs/docs/")
     changed_pages: list[Path] = []
     for f in fetch_changed_files(pr):
