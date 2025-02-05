@@ -26,7 +26,14 @@ def restore_changes():
     try:
         yield
     finally:
-        subprocess.check_call(["git", "restore", ":^dev/build.py"])
+        subprocess.check_call(
+            [
+                "git",
+                "restore",
+                "README.md",
+                "pyproject.toml",
+            ]
+        )
 
 
 def main():
