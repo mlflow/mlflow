@@ -551,7 +551,9 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
-# Specifies the timeout for deployment client APIs to declare a request has timed out
+#: Specifies the client-based timeout (in seconds) when making an HTTP request to a deployment
+#: target. Used within the `predict` and `predict_stream` APIs.
+#: (default: ``120``)
 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
 )
