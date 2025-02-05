@@ -3,7 +3,7 @@ set -ex
 
 # Install mlflow (assuming the repository root is mounted to the working directory)
 if [ "$INSTALL_MLFLOW_FROM_REPO" = "true" ]; then
-  pip install --no-deps -e .
+  pip install --no-deps dist/*.whl
 fi
 
 # For Microsoft SQL server, wait until the database is up and running
