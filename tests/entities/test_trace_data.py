@@ -123,3 +123,30 @@ def test_json_deserialization():
     # Convert back from dict to TraceData and compare
     trace_data_from_dict = TraceData.from_dict(trace_data.to_dict())
     assert trace_data.to_dict() == trace_data_from_dict.to_dict()
+
+
+def test_intermediate_outputs_from_attribute():
+    intermediate_outputs = {
+        "retrieved_documents": ["document 1", "document 2"],
+        "generative_prompt": "prompt",
+    }
+
+    def run():
+        with mlflow.start_span(name="run") as span:
+            span.set_attribute("mlflow.trace.intermediate_outputs", intermediate_outputs)
+
+    run()
+    trace = mlflow.get_last_active_trace()
+
+    assert trace.data.intermediate_outputs == intermediate_outputs
+
+
+def test_intermediate_outputs_no_value():
+    def run():
+        with mlflow.start_span(name="run") as span:
+            span.set_outputs(1)
+
+    run()
+    trace = mlflow.get_last_active_trace()
+
+    assert trace.data.intermediate_outputs is None
