@@ -1,6 +1,5 @@
 from dataclasses import asdict
 from typing import Any, Iterator
-from uuid import uuid4
 
 from langchain_core.messages.base import BaseMessage
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
@@ -13,7 +12,7 @@ from mlflow.models.rag_signatures import (
 from mlflow.models.rag_signatures import (
     ChatCompletionResponse as RagChatCompletionResponse,
 )
-from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse
 from mlflow.types.llm import (
     ChatChoice,
     ChatChoiceDelta,
@@ -131,9 +130,8 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
 
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
         """Returns a generator of ChatAgentResponse objects"""
-        uuid = str(uuid4())
         for chunk in input:
             if chunk.content:
-                yield ChatAgentResponse(
-                    messages=[ChatAgentMessage(content=chunk.content, role="assistant", id=uuid)]
+                yield ChatAgentChunk(
+                    delta=ChatAgentMessage(content=chunk.content, role="assistant", id=chunk.id)
                 ).model_dump_compat(exclude_none=True)
