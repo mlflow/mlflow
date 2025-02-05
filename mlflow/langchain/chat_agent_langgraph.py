@@ -11,8 +11,6 @@ from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 
-import mlflow
-from mlflow.entities.span import SpanType
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
 from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext
@@ -308,7 +306,7 @@ class LangGraphChatAgent(ChatAgent):
     def __init__(self, agent: CompiledStateGraph):
         self.agent = agent
 
-    @mlflow.trace(span_type=SpanType.AGENT)
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
         self,
         messages: list[ChatAgentMessage],
@@ -328,7 +326,7 @@ class LangGraphChatAgent(ChatAgent):
                     response.custom_outputs = node_data["custom_outputs"]
         return response
 
-    @mlflow.trace(span_type=SpanType.AGENT)
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],

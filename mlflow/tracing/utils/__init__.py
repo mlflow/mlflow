@@ -382,7 +382,7 @@ def start_client_span_or_trace(
     """
     An utility to start a span or trace using MlflowClient based on the current active span.
     """
-    if parent_span or mlflow.get_current_active_span():
+    if parent_span := parent_span or mlflow.get_current_active_span():
         return client.start_span(
             name=name,
             request_id=parent_span.request_id,

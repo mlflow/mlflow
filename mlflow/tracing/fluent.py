@@ -155,8 +155,6 @@ def trace(
         output_reducer: A function that reduces the outputs of the generator function into a
             single value to be set as the span output.
     """
-    # logger = logging.getLogger("mlflow")
-    # logger.setLevel(logging.DEBUG)
 
     def decorator(fn):
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
@@ -208,7 +206,7 @@ def _wrap_function(
             self.coro.close()
 
     if inspect.iscoroutinefunction(fn):
-        # TODO: Raise when output_reducer is provided
+
         async def wrapper(*args, **kwargs):
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(await fn(*args, **kwargs))
