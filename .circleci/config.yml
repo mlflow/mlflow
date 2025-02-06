@@ -74,8 +74,6 @@ jobs:
           name: Show package release dates
           command: |
             python dev/show_package_release_dates.py
-      - setup_remote_docker:
-          docker_layer_caching: true
       - run:
           name: Build documentation
           working_directory: docs
@@ -84,7 +82,7 @@ jobs:
             PR_PREVIEW: "true"
           command: |
             yarn install
-            yarn build-all
+            yarn build-all -- --no-r
             python changed_pages.py
       - run:
           name: Test examples

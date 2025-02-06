@@ -36,7 +36,14 @@ def build_docs(package_manager, version):
     default=False,
     help="Whether or not to use NPM as a package manager (in case yarn in unavailable)",
 )
-def main(use_npm):
+@click.option(
+    "--no-r",
+    "no_r",
+    is_flag=True,
+    default=False,
+    help="Whether or not to skip building R documentation.",
+)
+def main(use_npm, no_r):
     gtm_id = os.environ.get("GTM_ID")
 
     assert gtm_id, (
@@ -44,8 +51,9 @@ def main(use_npm):
     )
 
     package_manager = ["npm", "run"] if use_npm else ["yarn"]
+    build_command = ["build-api-docs:no-r"] if no_r else ["build-api-docs"]
 
-    subprocess.check_call(package_manager + ["build-api-docs"])
+    subprocess.check_call(package_manager + build_command)
     subprocess.check_call(package_manager + ["convert-notebooks"])
 
     output_path = Path("_build")
