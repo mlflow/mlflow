@@ -101,10 +101,10 @@ class Metric(_MlflowObject):
             proto.value,
             proto.timestamp,
             proto.step,
-            model_id=proto.model_id,
-            dataset_name=proto.dataset_name,
-            dataset_digest=proto.dataset_digest,
-            run_id=proto.run_id,
+            model_id=proto.model_id or None,
+            dataset_name=proto.dataset_name or None,
+            dataset_digest=proto.dataset_digest or None,
+            run_id=proto.run_id or None,
         )
 
     def __eq__(self, __o):

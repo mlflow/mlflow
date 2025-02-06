@@ -37,10 +37,9 @@ class RunInputs(_MlflowObject):
         run_inputs.dataset_inputs.extend(
             [dataset_input.to_proto() for dataset_input in self.dataset_inputs]
         )
-        # TODO: Support proto conversion for model inputs
-        # run_inputs.model_inputs.extend(
-        #     [model_input.to_proto() for model_input in self.model_inputs]
-        # )
+        run_inputs.model_inputs.extend(
+            [model_input.to_proto() for model_input in self.model_inputs]
+        )
         return run_inputs
 
     def to_dictionary(self) -> dict[Any, Any]:
@@ -54,8 +53,7 @@ class RunInputs(_MlflowObject):
         dataset_inputs = [
             DatasetInput.from_proto(dataset_input) for dataset_input in proto.dataset_inputs
         ]
-        # TODO: Support proto conversion for model inputs
-        # model_inputs = [
-        #     ModelInput.from_proto(model_input) for model_input in proto.model_inputs
-        # ]
-        return cls(dataset_inputs, [])
+        model_inputs = [
+            LoggedModelInput.from_proto(model_input) for model_input in proto.model_inputs
+        ]
+        return cls(dataset_inputs, model_inputs)

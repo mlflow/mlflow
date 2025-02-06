@@ -14,8 +14,10 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import TraceJSONEncoder, start_client_span_or_trace
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
@@ -71,15 +73,7 @@ def _set_api_key_env_var(client):
         os.environ.pop("OPENAI_API_KEY")
 
 
-class _OpenAIJsonEncoder(json.JSONEncoder):
-    def default(self, o):
-        try:
-            return super().default(o)
-        except TypeError:
-            return str(o)
-
-
-def _get_span_type(task) -> str:
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import Completions
     from openai.resources.embeddings import Embeddings
@@ -89,6 +83,15 @@ def _get_span_type(task) -> str:
         Completions: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        # Only available in openai>=1.40.0
+        from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
+
+        span_type_mapping[BetaChatCompletions] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
@@ -187,22 +190,13 @@ def patched_call(original, self, *args, **kwargs):
         attributes = {k: v for k, v in kwargs.items() if k != "messages"}
 
         # If there is an active span, create a child span under it, otherwise create a new trace
-        if active_span := mlflow.get_current_active_span():
-            span = mlflow_client.start_span(
-                name=self.__class__.__name__,
-                request_id=active_span.request_id,
-                parent_id=active_span.span_id,
-                span_type=_get_span_type(self.__class__),
-                inputs=kwargs,
-                attributes={**attributes, SpanAttributeKey.MODEL_ID: model_id},
-            )
-        else:
-            span = mlflow_client.start_trace(
-                name=self.__class__.__name__,
-                span_type=_get_span_type(self.__class__),
-                inputs=kwargs,
-                attributes={**attributes, SpanAttributeKey.MODEL_ID: model_id},
-            )
+        span = start_client_span_or_trace(
+            mlflow_client,
+            name=self.__class__.__name__,
+            span_type=_get_span_type(self.__class__),
+            inputs=kwargs,
+            attributes={**attributes, SpanAttributeKey.MODEL_ID: model_id},
+        )
 
         request_id = span.request_id
         # Associate run ID to the trace manually, because if a new run is created by
@@ -220,7 +214,7 @@ def patched_call(original, self, *args, **kwargs):
         if config.log_traces and request_id:
             try:
                 span.add_event(SpanEvent.from_exception(e))
-                mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
+                mlflow_client.end_span(request_id, span.span_id, status=SpanStatusCode.ERROR)
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
@@ -231,25 +225,34 @@ def patched_call(original, self, *args, **kwargs):
         # If the output is a stream, we add a hook to store the intermediate chunks
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            chunks = []
             output = []
-            for chunk in stream:
+            for i, chunk in enumerate(stream):
                 # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
                 if isinstance(chunk, Completion) and chunk.choices:
                     output.append(chunk.choices[0].text or "")
                 elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
                     output.append(chunk.choices[0].delta.content or "")
-                chunks.append(chunk)
+
+                # Record the raw chunks as events
+                span.add_event(
+                    SpanEvent(
+                        name=f"chunk_{i}",
+                        # NB: OTel event attribute only accepts dictionary with primitive types
+                        # (or list or them), not nested dict.
+                        # TODO: Define a consistent format for stream chunk across all providers
+                        attributes={
+                            chunk.__class__.__name__: json.dumps(chunk, cls=TraceJSONEncoder)
+                        },
+                    )
+                )
+
                 yield chunk
 
             try:
-                chunk_dicts = [chunk.to_dict() for chunk in chunks]
                 if config.log_traces and request_id:
-                    mlflow_client.end_trace(
-                        request_id=request_id,
-                        attributes={"events": chunk_dicts},
-                        outputs="".join(output),
-                    )
+                    outputs = "".join(output)
+                    set_span_chat_attributes(span, kwargs, outputs)
+                    mlflow_client.end_span(request_id, span.span_id, outputs=outputs)
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
 
@@ -257,12 +260,8 @@ def patched_call(original, self, *args, **kwargs):
     else:
         if config.log_traces and request_id:
             try:
-                if span.parent_id is None:
-                    mlflow_client.end_trace(request_id=request_id, outputs=result)
-                else:
-                    mlflow_client.end_span(
-                        request_id=request_id, span_id=span.span_id, outputs=result
-                    )
+                set_span_chat_attributes(span, kwargs, result)
+                mlflow_client.end_span(request_id, span.span_id, outputs=result)
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 

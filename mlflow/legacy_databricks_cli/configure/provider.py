@@ -468,10 +468,15 @@ class DatabricksConfig:
         return self.auth_type == "databricks-cli"
 
     @property
+    def is_azure_cli_auth_type(self):
+        return self.auth_type == "azure-cli"
+
+    @property
     def is_valid(self):
         return (
             self.is_valid_with_token
             or self.is_valid_with_password
             or self.is_valid_with_client_id_secret
             or self.is_databricks_cli_auth_type
+            or self.is_azure_cli_auth_type
         )

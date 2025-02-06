@@ -12,7 +12,6 @@ import mlflow
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.provider import reset_tracer_setup
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
@@ -56,12 +55,12 @@ def reset_tracing():
     yield
 
     # Reset OpenTelemetry and MLflow tracer setup
-    reset_tracer_setup()
+    mlflow.tracing.reset()
 
     # Clear other global state and singletons
     TRACE_BUFFER.clear()
     _TRACE_BUFFER.clear()
-    InMemoryTraceManager._instance = None
+    InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
 
 
@@ -111,10 +110,10 @@ def clean_up_leaked_runs():
     """
     try:
         yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
+        assert not mlflow.active_run(), (
+            "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
+                mlflow.active_run().info, mlflow.active_run().data
+            )
         )
     finally:
         while mlflow.active_run():

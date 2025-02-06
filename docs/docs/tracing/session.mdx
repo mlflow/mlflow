@@ -1,0 +1,73 @@
+---
+sidebar_position: 6
+sidebar_label: Session
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Multi-turn Conversation Sessions
+
+In conversational AI applications, it is common that users interact with the model multiple times within a single conversation session. Since each interaction generates a trace in the typical MLflow setup, it is useful to group these traces together to analyze the conversation as a whole. You can achieve this by attaching the session ID as a **tag** to each trace.
+
+![Traces with session IDs](/images/llms/tracing/trace-session-id.gif)
+
+The following example shows how to use session ID in a chat model that has been implemented using the <APILink fn="mlflow.pyfunc.ChatModel" /> class. Refer to the [Setting Trace Tags](/tracing/api/how-to/#setting-trace-tags) section in the [How-To Guide](/tracing/api/how-to/) for more information on how to set tags on traces.
+
+```python
+import mlflow
+from mlflow.entities import SpanType
+from mlflow.types.llm import ChatMessage, ChatParams, ChatCompletionResponse
+
+import openai
+from typing import Optional
+
+mlflow.set_experiment("Tracing Session ID Demo")
+
+
+class ChatModelWithSession(mlflow.pyfunc.ChatModel):
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def predict(
+        self, context, messages: list[ChatMessage], params: Optional[ChatParams] = None
+    ) -> ChatCompletionResponse:
+        if session_id := (params.custom_inputs or {}).get("session_id"):
+            # Set session ID tag on the current trace
+            mlflow.update_current_trace(tags={"session_id": session_id})
+
+        response = openai.OpenAI().chat.completions.create(
+            messages=[m.to_dict() for m in messages],
+            model="gpt-4o-mini",
+        )
+
+        return ChatCompletionResponse.from_dict(response.to_dict())
+
+
+model = ChatModelWithSession()
+
+# Invoke the chat model multiple times with the same session ID
+session_id = "123"
+messages = [ChatMessage(role="user", content="What is MLflow Tracing?")]
+response = model.predict(
+    None, messages, ChatParams(custom_inputs={"session_id": session_id})
+)
+
+# Invoke again with the same session ID
+messages.append(
+    ChatMessage(role="assistant", content=response.choices[0].message.content)
+)
+messages.append(ChatMessage(role="user", content="How to get started?"))
+response = model.predict(
+    None, messages, ChatParams(custom_inputs={"session_id": session_id})
+)
+```
+
+The above code creates two new traces with the same session ID tag. Within the MLflow UI, you can search for these traces that have this defined session ID using `tag.session_id = '123'`.
+
+Alternatively, you can use the <APILink fn="mlflow.search_traces" /> function to get these traces programmatically. Refer to [Searching and Retrieving Traces](/tracing/api/search) for more details.
+
+```python
+traces = mlflow.search_traces(filter_string="tag.session_id = '123456'")
+```

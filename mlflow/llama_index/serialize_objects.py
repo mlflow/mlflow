@@ -114,7 +114,7 @@ def dict_to_object(object_representation: dict[str, Any]) -> object:
         return object_class.from_dict(kwargs)
 
 
-def _deserialize_dict_of_objects(path: str) -> dict[str, any]:
+def _deserialize_dict_of_objects(path: str) -> dict[str, Any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 

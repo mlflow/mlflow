@@ -270,8 +270,9 @@ async def test_chat():
                 {
                     "message": {
                         "role": "assistant",
-                        "content": "Response message",
+                        "content": [{"text": "Response message", "type": "text"}],
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

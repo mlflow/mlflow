@@ -734,6 +734,21 @@ class ChatCompletionChunk(_BaseDataclass):
 
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+    name="usage",
+    type=Object(
+        [
+            Property("prompt_tokens", DataType.long),
+            Property("completion_tokens", DataType.long),
+            Property("total_tokens", DataType.long),
+        ]
+    ),
+    required=False,
+)
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(AnyType()), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -792,7 +807,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(AnyType()), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -824,24 +839,13 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="custom_outputs", type=Map(AnyType()), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 
 CHAT_MODEL_INPUT_EXAMPLE = {
     "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ],
     "temperature": 1.0,

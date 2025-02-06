@@ -1,0 +1,1143 @@
+---
+sidebar_position: 18
+---
+
+import Link from "@docusaurus/Link";
+import TOCInline from "@theme/TOCInline";
+import { APILink } from "@site/src/components/APILink";
+
+# MLflow Authentication
+
+:::note
+This feature is still experimental and may change in a future release without warning.
+:::
+
+MLflow supports basic HTTP authentication to enable access control over experiments and registered models.
+Once enabled, any visitor will be required to login before they can view any resource from the Tracking Server.
+
+MLflow Authentication provides Python and REST API for managing users and permissions.
+
+- <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
+- <Link to="/api_reference/rest-api.html" target="_blank">
+    <span>MLflow Authentication REST API</span>
+  </Link>
+
+## Overview
+
+### Installation
+
+First, install all dependencies required for the basic auth app:
+
+```bash
+pip install mlflow[auth]
+```
+
+:::note
+The basic auth app requires a secret key for CSRF protection. Please set the `MLFLOW_FLASK_SERVER_SECRET_KEY` environment
+variable before running the `mlflow server` command. For example:
+
+```
+export MLFLOW_FLASK_SERVER_SECRET_KEY="my-secret-key"
+```
+
+If your setup uses multiple servers, please make sure that this key is consistent between them. Otherwise, you may
+run into unexpected validation errors.
+:::
+
+To enable MLflow authentication, launch the MLflow UI with the following command:
+
+```bash
+mlflow server --app-name basic-auth
+```
+
+Server admin can choose to disable this feature anytime by restarting the server without the `app-name` flag.
+Any users and permissions created will be persisted on a SQL database and will be back in service once the feature is re-enabled.
+
+Due to the nature of HTTP authentication, it is only supported on a remote Tracking Server, where users send
+requests to the server via REST APIs.
+
+## How It Works
+
+### Permissions
+
+The available permissions are:
+
+<table>
+  <thead>
+    <tr>
+      <th>Permission</th>
+      <th>Can read</th>
+      <th>Can update</th>
+      <th>Can delete</th>
+      <th>Can manage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>READ</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>EDIT</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>MANAGE</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>NO_PERMISSIONS</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+  </tbody>
+</table>
+
+The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
+
+Permissions can be granted on individual resources for each user.
+Supported resources include `Experiment` and `Registered Model`.
+To access an API endpoint, an user must have the required permission.
+Otherwise, a `403 Forbidden` response will be returned.
+
+Required Permissions for accessing experiments:
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreateexperiment" target="_blank">
+          <span>Create Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/create`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetexperiment" target="_blank">
+          <span>Get Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetexperimentbyname" target="_blank">
+          <span>Get Experiment By Name</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/get-by-name`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeleteexperiment" target="_blank">
+          <span>Delete Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/delete`</td>
+      <td>`POST`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicerestoreexperiment" target="_blank">
+          <span>Restore Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/restore`</td>
+      <td>`POST`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowserviceupdateexperiment" target="_blank">
+          <span>Update Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/update`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchexperiments" target="_blank">
+          <span>Search Experiments</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/search`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchexperiments" target="_blank">
+          <span>Search Experiments</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/search`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesetexperimenttag" target="_blank">
+          <span>Set Experiment Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/set-experiment-tag`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreaterun" target="_blank">
+          <span>Create Run</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/create`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetrun" target="_blank">
+          <span>Get Run</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowserviceupdaterun" target="_blank">
+          <span>Update Run</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/update`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeleterun" target="_blank">
+          <span>Delete Run</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/delete`</td>
+      <td>`POST`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicerestorerun" target="_blank">
+          <span>Restore Run</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/restore`</td>
+      <td>`POST`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchruns" target="_blank">
+          <span>Search Runs</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/search`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesettag" target="_blank">
+          <span>Set Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/set-tag`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicedeletetag" target="_blank">
+          <span>Delete Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/delete-tag`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelogmetric" target="_blank">
+          <span>Log Metric</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/log-metric`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelogparam" target="_blank">
+          <span>Log Param</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/log-parameter`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelogbatch" target="_blank">
+          <span>Log Batch</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/log-batch`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelogmodel" target="_blank">
+          <span>Log Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/runs/log-model`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicelistartifacts" target="_blank">
+          <span>List Artifacts</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/artifacts/list`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicegetmetrichistory" target="_blank">
+          <span>Get Metric History</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/metrics/get-history`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+  </tbody>
+</table>
+
+Required Permissions for accessing registered models:
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicecreateregisteredmodel" target="_blank">
+          <span>Create Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/create`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicerenameregisteredmodel" target="_blank">
+          <span>Rename Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/rename`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryserviceupdateregisteredmodel" target="_blank">
+          <span>Update Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/update`</td>
+      <td>`PATCH`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicedeleteregisteredmodel" target="_blank">
+          <span>Delete Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetregisteredmodel" target="_blank">
+          <span>Get Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesearchregisteredmodels" target="_blank">
+          <span>Search Registered Models</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/search`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetlatestversions" target="_blank">
+          <span>Get Latest Versions</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/get-latest-versions`</td>
+      <td>`POST`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetlatestversions" target="_blank">
+          <span>Get Latest Versions</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/get-latest-versions`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesetregisteredmodeltag" target="_blank">
+          <span>Set Registered Model Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/set-tag`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicedeleteregisteredmodeltag" target="_blank">
+          <span>Delete Registered Model Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/delete-tag`</td>
+      <td>`DELETE`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesetregisteredmodelalias" target="_blank">
+          <span>Set Registered Model Alias</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/alias`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicedeleteregisteredmodelalias" target="_blank">
+          <span>Delete Registered Model Alias</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/alias`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetmodelversionbyalias" target="_blank">
+          <span>Get Model Version By Alias</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/alias`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicecreatemodelversion" target="_blank">
+          <span>Create Model Version</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/create`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryserviceupdatemodelversion" target="_blank">
+          <span>Update Model Version</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicetransitionmodelversionstage" target="_blank">
+          <span>Transition Model Version Stage</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/transition-stage`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicedeletemodelversion" target="_blank">
+          <span>Delete Model Version</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetmodelversion" target="_blank">
+          <span>Get Model Version</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesearchmodelversions" target="_blank">
+          <span>Search Model Versions</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/search`</td>
+      <td>`GET`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicegetmodelversiondownloaduri" target="_blank">
+          <span>Get Model Version Download Uri</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/get-download-uri`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesetmodelversiontag" target="_blank">
+          <span>Set Model Version Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/set-tag`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicedeletemodelversiontag" target="_blank">
+          <span>Delete Model Version Tag</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/delete-tag`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+  </tbody>
+</table>
+
+MLflow Authentication introduces several new API endpoints to manage users and permissions.
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">
+          <span>Create User</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/users/create`</td>
+      <td>`POST`</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicegetuser" target="_blank">
+          <span>Get User</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/users/get`</td>
+      <td>`GET`</td>
+      <td>Only readable by that user</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuserpassword" target="_blank">
+          <span>Update User Password</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/users/update-password`</td>
+      <td>`PATCH`</td>
+      <td>Only updatable by that user</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuseradmin" target="_blank">
+          <span>Update User Admin</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/users/update-admin`</td>
+      <td>`PATCH`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteuser" target="_blank">
+          <span>Delete User</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/users/delete`</td>
+      <td>`DELETE`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateexperimentpermission" target="_blank">
+          <span>Create Experiment Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/permissions/create`</td>
+      <td>`POST`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicegetexperimentpermission" target="_blank">
+          <span>Get Experiment Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/permissions/get`</td>
+      <td>`GET`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateexperimentpermission" target="_blank">
+          <span>Update Experiment Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/permissions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteexperimentpermission" target="_blank">
+          <span>Delete Experiment Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/permissions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateregisteredmodelpermission" target="_blank">
+          <span>Create Registered Model Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/permissions/create`</td>
+      <td>`POST`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicegetregisteredmodelpermission" target="_blank">
+          <span>Get Registered Model Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/permissions/get`</td>
+      <td>`GET`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateregisteredmodelpermission" target="_blank">
+          <span>Update Registered Model Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/permissions/update`</td>
+      <td>`PATCH`</td>
+      <td>can_manage</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteregisteredmodelpermission" target="_blank">
+          <span>Delete Registered Model Permission</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/permissions/delete`</td>
+      <td>`DELETE`</td>
+      <td>can_manage</td>
+    </tr>
+  </tbody>
+</table>
+
+Some APIs will also have their behaviour modified.
+For example, the creator of an experiment will automatically be granted `MANAGE` permission
+on that experiment, so that the creator can grant or revoke other users' access to that experiment.
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicecreateexperiment" target="_blank">
+          <span>Create Experiment</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/create`</td>
+      <td>`POST`</td>
+      <td>Automatically grants `MANAGE` permission to the creator.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicecreateregisteredmodel" target="_blank">
+          <span>Create Registered Model</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/create`</td>
+      <td>`POST`</td>
+      <td>Automatically grants `MANAGE` permission to the creator.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchexperiments" target="_blank">
+          <span>Search Experiments</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/search`</td>
+      <td>`POST`</td>
+      <td>Only returns experiments which the user has `READ` permission on.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchexperiments" target="_blank">
+          <span>Search Experiments</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/experiments/search`</td>
+      <td>`GET`</td>
+      <td>Only returns experiments which the user has `READ` permission on.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmlflowservicesearchruns" target="_blank">
+          <span>Search Runs</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow`</td>
+      <td>`POST`</td>
+      <td>Only returns experiments which the user has `READ` permission on.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesearchregisteredmodels" target="_blank">
+          <span>Search Registered Models</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/registered-models/search`</td>
+      <td>`GET`</td>
+      <td>Only returns registered models which the user has `READ` permission on.</td>
+    </tr>
+    <tr>
+      <td>
+        <Link to="/api_reference/rest-api.html#mlflowmodelregistryservicesearchmodelversions" target="_blank">
+          <span>Search Model Versions</span>
+        </Link>
+      </td>
+      <td>`2.0/mlflow/model-versions/search`</td>
+      <td>`GET`</td>
+      <td>Only returns registered models which the user has `READ` permission on.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Permissions Database
+
+All users and permissions are stored in a database in `basic_auth.db`, relative to the directory where MLflow server is launched.
+The location can be changed in the [configuration](#configuration) file. To run migrations, use the following command:
+
+```bash
+python -m mlflow.server.auth db upgrade --url <database_url>
+```
+
+### Admin Users
+
+Admin users have unrestricted access to all MLflow resources,
+**including creating or deleting users, updating password and admin status of other users,
+granting or revoking permissions from other users, and managing permissions for all
+MLflow resources,** even if `NO_PERMISSIONS` is explicitly set to that admin account.
+
+MLflow has a built-in admin user that will be created the first time that the MLflow authentication feature is enabled.
+
+:::note
+It is recommended that you update the default admin password as soon as possible after creation.
+:::
+
+The default admin user credentials are as follows:
+
+<table>
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Password</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`admin`</td>
+      <td>`password`</td>
+    </tr>
+  </tbody>
+</table>
+
+Multiple admin users can exist by promoting other users to admin, using the `2.0/mlflow/users/update-admin` endpoint.
+
+```bash title="Example"
+# authenticate as built-in admin user
+export MLFLOW_TRACKING_USERNAME=admin
+export MLFLOW_TRACKING_PASSWORD=password
+```
+
+```python
+from mlflow.server import get_app_client
+
+tracking_uri = "http://localhost:5000/"
+
+auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+auth_client.create_user(username="user1", password="pw1")
+auth_client.update_user_admin(username="user1", is_admin=True)
+```
+
+### Managing Permissions
+
+MLflow provides <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">REST APIs</Link>
+and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
+To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
+
+```bash title="Example"
+export MLFLOW_TRACKING_USERNAME=admin
+export MLFLOW_TRACKING_PASSWORD=password
+```
+
+```python
+from mlflow import MlflowClient
+from mlflow.server import get_app_client
+
+tracking_uri = "http://localhost:5000/"
+
+auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+auth_client.create_user(username="user1", password="pw1")
+auth_client.create_user(username="user2", password="pw2")
+
+client = MlflowClient(tracking_uri=tracking_uri)
+experiment_id = client.create_experiment(name="experiment")
+
+auth_client.create_experiment_permission(
+    experiment_id=experiment_id, username="user2", permission="MANAGE"
+)
+```
+
+## Authenticating to MLflow
+
+### Using MLflow UI
+
+When a user first visits the MLflow UI on a browser, they will be prompted to login.
+There is no limit to how many login attempts can be made.
+
+Currently, MLflow UI does not display any information about the current user.
+Once a user is logged in, the only way to log out is to close the browser.
+
+![](/images/auth_prompt.png)
+
+### Using Environment Variables
+
+MLflow provides two environment variables for authentication: `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`.
+To use basic authentication, you must set both environment variables.
+
+```bash
+export MLFLOW_TRACKING_USERNAME=username
+export MLFLOW_TRACKING_PASSWORD=password
+```
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://<mlflow_tracking_uri>/")
+with mlflow.start_run():
+    ...
+```
+
+### Using Credentials File
+
+You can save your credentials in a file to remove the need for setting environment variables every time.
+The credentials should be saved in `~/.mlflow/credentials` using `INI` format. Note that the password
+will be stored unencrypted on disk, and is protected only by filesystem permissions.
+
+If the environment variables `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD` are configured,
+they override any credentials provided in the credentials file.
+
+```ini title="Credentials file format"
+[mlflow]
+mlflow_tracking_username = username
+mlflow_tracking_password = password
+```
+
+### Using REST API
+
+A user can authenticate using the HTTP `Authorization` request header.
+See https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication for more information.
+
+In Python, you can use the `requests` library:
+
+```python
+import requests
+
+response = requests.get(
+    "https://<mlflow_tracking_uri>/",
+    auth=("username", "password"),
+)
+```
+
+## Creating a New User
+
+:::warning important
+To create a new user, you are required to authenticate with admin privileges.
+:::
+
+### Using MLflow UI
+
+MLflow UI provides a simple page for creating new users at `<tracking_uri>/signup`.
+
+![](/images/auth_signup_form.png)
+
+### Using REST API
+
+Alternatively, you can send `POST` requests to the Tracking Server endpoint `2.0/users/create`.
+
+In Python, you can use the `requests` library:
+
+```python
+import requests
+
+response = requests.post(
+    "https://<mlflow_tracking_uri>/api/2.0/mlflow/users/create",
+    json={
+        "username": "username",
+        "password": "password",
+    },
+)
+```
+
+### Using MLflow AuthServiceClient
+
+MLflow <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink>
+provides a function to create new users easily.
+
+```python
+import mlflow
+
+auth_client = mlflow.server.get_app_client(
+    "basic-auth", tracking_uri="https://<mlflow_tracking_uri>/"
+)
+auth_client.create_user(username="username", password="password")
+```
+
+## Configuration
+
+Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`default_permission`</td>
+      <td>Default permission on all resources</td>
+    </tr>
+    <tr>
+      <td>`database_uri`</td>
+      <td>Database location to store permission and user data</td>
+    </tr>
+    <tr>
+      <td>`admin_username`</td>
+      <td>Default admin username if the admin is not already created</td>
+    </tr>
+    <tr>
+      <td>`admin_password`</td>
+      <td>Default admin password if the admin is not already created</td>
+    </tr>
+    <tr>
+      <td>`authorization_function`</td>
+      <td>Function to authenticate requests</td>
+    </tr>
+  </tbody>
+</table>
+
+Alternatively, assign the environment variable `MLFLOW_AUTH_CONFIG_PATH` to point
+to your custom configuration file.
+
+The `authorization_function` setting supports pluggable authentication methods
+if you want to use another authentication method than HTTP basic auth. The value
+specifies `module_name:function_name`. The function has the following signature:
+
+```python
+def authenticate_request() -> Union[Authorization, Response]:
+    ...
+```
+
+The function should return a `werkzeug.datastructures.Authorization` object if
+the request is authenticated, or a `Response` object (typically
+`401: Unauthorized`) if the request is not authenticated. For an example of how
+to implement a custom authentication method, see `tests/server/auth/jwt_auth.py`.
+**NOTE:** This example is not intended for production use.
+
+## Connecting to a Centralized Database
+
+By default, MLflow Authentication uses a local SQLite database to store user and permission data.
+In the case of a multi-node deployment, it is recommended to use a centralized database to store this data.
+
+To connect to a centralized database, you can set the `database_uri` configuration variable to the database URL.
+
+```ini title="Example: /path/to/my_auth_config.ini"
+[mlflow]
+database_uri = postgresql://username:password@hostname:port/database
+```
+
+Then, start the MLflow server with the `MLFLOW_AUTH_CONFIG_PATH` environment variable
+set to the path of your configuration file.
+
+```bash
+MLFLOW_AUTH_CONFIG_PATH=/path/to/my_auth_config.ini mlflow server --app-name basic-auth
+```
+
+The database must be created before starting the MLflow server. The database schema will be created automatically
+when the server starts.
+
+## Custom Authentication
+
+MLflow authentication is designed to be extensible. If your organization desires more advanced authentication logic
+(e.g., token-based authentication), it is possible to install a third party plugin or to create your own plugin.
+
+Your plugin should be an installable Python package.
+It should include an app factory that extends the MLflow app and, optionally, implement a client to manage permissions.
+The app factory function name will be passed to the `--app` argument in Flask CLI.
+See https://flask.palletsprojects.com/en/latest/cli/#application-discovery for more information.
+
+```python title="Example: my_auth/__init__.py"
+from flask import Flask
+from mlflow.server import app
+
+
+def create_app(app: Flask = app):
+    app.add_url_rule(...)
+    return app
+
+
+class MyAuthClient:
+    ...
+```
+
+Then, the plugin should be installed in your Python environment:
+
+```bash
+pip install my_auth
+```
+
+Then, register your plugin in `mlflow/setup.py`:
+
+```python
+setup(
+    ...,
+    entry_points="""
+        ...
+
+        [mlflow.app]
+        my-auth=my_auth:create_app
+
+        [mlflow.app.client]
+        my-auth=my_auth:MyAuthClient
+    """,
+)
+```
+
+Then, you can start the MLflow server:
+
+```bash
+mlflow server --app-name my-auth
+```

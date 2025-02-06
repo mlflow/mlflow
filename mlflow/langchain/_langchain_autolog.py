@@ -180,7 +180,7 @@ def _get_runnable_config_with_callback(
         original_config: the original RunnableConfig passed by the user
         new_callback: a new callback to be injected
     """
-    from langchain.schema.runnable.config import RunnableConfig
+    from langchain_core.runnables.config import RunnableConfig
 
     if original_config is None:
         _logger.debug("Injected MLflow callbacks into the model call args.")

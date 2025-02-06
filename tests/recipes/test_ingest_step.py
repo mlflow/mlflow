@@ -105,7 +105,7 @@ def test_ingests_custom_format(pandas_df, tmp_recipe_root_path, tmp_path):
     pandas_df_part2 = pandas_df[1:]
     pandas_df_part1.to_csv(dataset_path / "df1.csv")
     pandas_df_part2.to_csv(dataset_path / "df2.csv")
-    dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+    dataset_path = [f"{dataset_path / 'df1.csv'}", f"{dataset_path / 'df2.csv'}"]
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
@@ -160,7 +160,7 @@ def test_ingests_csv_successfully(
         dataset_path = pathlib.Path(os.path.relpath(dataset_path))
 
     if explicit_file_list and multiple_files:
-        dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+        dataset_path = [f"{dataset_path / 'df1.csv'}", f"{dataset_path / 'df2.csv'}"]
     else:
         dataset_path = str(dataset_path)
 

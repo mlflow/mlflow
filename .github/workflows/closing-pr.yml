@@ -28,4 +28,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/closing-pr.js`
             );
-            script({ context, github });
+            await script({ context, github });

@@ -260,7 +260,14 @@ def test_create_model_version(mock_store):
         name, "uri:/for/source", "run123", tags_dict, None, description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", "run123", tags, None, description, local_model_path=None
+        name,
+        "uri:/for/source",
+        "run123",
+        tags,
+        None,
+        description,
+        local_model_path=None,
+        model_id=None,
     )
 
     assert result.name == name
@@ -287,7 +294,7 @@ def test_create_model_version_no_run_id(mock_store):
         name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", None, tags, None, description, local_model_path=None
+        name, "uri:/for/source", None, tags, None, description, local_model_path=None, model_id=None
     )
 
     assert result.name == name

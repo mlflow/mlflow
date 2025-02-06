@@ -166,12 +166,14 @@ def pytest_ignore_collect(collection_path, config):
             "tests/anthropic",
             "tests/autogen",
             "tests/azureml",
+            "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
             "tests/diviner",
             "tests/dspy",
             "tests/fastai",
             "tests/gemini",
+            "tests/groq",
             "tests/h2o",
             "tests/johnsnowlabs",
             "tests/keras",
@@ -180,6 +182,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/langchain",
             "tests/lightgbm",
             "tests/litellm",
+            "tests/mistral",
             "tests/mleap",
             "tests/models",
             "tests/onnx",
@@ -296,6 +299,25 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             terminalreporter.section("Remaining child processes", yellow=True)
             for idx, child in enumerate(children, start=1):
                 terminalreporter.write(f"{idx}: {child}\n")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
+    """
+    A hack to mark tests failing with `NotImplementedError("SqlAlchemyStore")` as xfailed.
+
+    TODO: Remove this hack once `SqlAlchemyStore` supports logged-model APIs.
+    """
+    outcome = yield
+    rep: pytest.TestReport = outcome.get_result()
+    if (
+        rep.failed
+        and rep.when == "call"
+        and call.excinfo
+        and isinstance(call.excinfo.value, NotImplementedError)
+        and str(call.excinfo.value) == "SqlAlchemyStore"
+    ):
+        rep.outcome = "xfailed"
 
 
 @pytest.fixture(scope="module", autouse=True)

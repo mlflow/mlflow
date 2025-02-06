@@ -1,0 +1,94 @@
+---
+sidebar_position: 5
+sidebar_label: DSPy
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing DSPy🧩
+
+![DSPy Tracing via autolog](/images/llms/tracing/dspy-tracing.gif)
+
+[DSPy](https://dspy.ai/) is an open-source framework for building modular AI systems and offers algorithms for optimizing their prompts and weights.
+
+[MLflow Tracing](../) provides automatic tracing capability for DSPy. You can enable tracing
+for DSPy by calling the <APILink fn="mlflow.dspy.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of DSPy modules.
+
+```python
+import mlflow
+
+mlflow.dspy.autolog()
+```
+
+:::tip
+
+MLflow DSPy integration is not only about tracing. MLflow offers full tracking experience for DSPy, including model tracking, index management, and evaluation. Please checkout the **[MLflow DSPy Flavor](/llms/dspy)** to learn more!
+
+:::
+
+
+### Example Usage
+
+```python
+import dspy
+import mlflow
+
+# Enabling tracing for DSPy
+mlflow.dspy.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("DSPy")
+
+# Define a simple ChainOfThought model and run it
+lm = dspy.LM("openai/gpt-4o-mini")
+dspy.configure(lm=lm)
+
+
+# Define a simple summarizer model and run it
+class SummarizeSignature(dspy.Signature):
+    """Given a passage, generate a summary."""
+
+    passage: str = dspy.InputField(desc="a passage to summarize")
+    summary: str = dspy.OutputField(desc="a one-line summary of the passage")
+
+
+class Summarize(dspy.Module):
+    def __init__(self):
+        self.summarize = dspy.ChainOfThought(SummarizeSignature)
+
+    def forward(self, passage: str):
+        return self.summarize(passage=passage)
+
+
+summarizer = Summarize()
+summarizer(
+    passage=(
+        "MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications "
+        "by capturing detailed information about the execution of your application's services. Tracing provides "
+        "a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, "
+        "enabling you to easily pinpoint the source of bugs and unexpected behaviors."
+    )
+)
+```
+
+
+### LlamaIndex workflow
+
+The `Workflow` is LlamaIndex’s next-generation GenAI orchestration framework. It is designed as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc. MLflow supports tracking, evaluating, and tracing the Workflow objects, which makes them more observable and maintainable.
+
+Automatic tracing for LlamaIndex workflow works off-the-shelf by calling the same `mlflow.llama_index.autolog()`.
+
+To learn more about MLflow's integration with LlamaIndex Workflow, continue to the following tutorials:
+
+* [Building a Tool-calling Agent with LlamaIndex Workflow and MLflow](/llms/llama-index/notebooks/llama_index_workflow_tutorial)
+* [Building Advanced RAG with MLflow and LlamaIndex Workflow](https://mlflow.org/blog/mlflow-llama-index-workflow)
+
+
+### Disable auto-tracing
+
+Auto tracing for LlamaIndex can be disabled globally by calling `mlflow.llama_index.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
