@@ -37,3 +37,24 @@ assert m.params == {
     "alpha": "0.5",
     "l1_ratio": "0.5",
 }
+
+# register model directly when logging 
+with mlflow.start_run():
+    model = LinearRegression().fit([[1], [2]], [3, 4])
+    model_info = mlflow.sklearn.log_model(
+        model,
+        "model",
+        params={
+            "alpha": 0.5,
+            "l1_ratio": 0.5,
+        },
+        registered_model_name="directly_registered_model",
+    )
+
+m = client.get_model_version("directly_registered_model", 1)
+print(m)
+assert m.model_id == model_info.model_id
+assert m.params == {
+    "alpha": "0.5",
+    "l1_ratio": "0.5",
+}
