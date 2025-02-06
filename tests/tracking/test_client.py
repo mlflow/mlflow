@@ -1690,3 +1690,65 @@ def test_store_trace_span_tag_when_exception_raised():
         client.end_trace(span.request_id, outputs={"result": "b" * 1000000})
         mock_set_trace_tag.assert_called_once()
         mock_upload_trace_data.assert_called_once()
+
+
+@pytest.fixture(params=["file", "sqlalchemy"])
+def registry_uri(request, tmp_path):
+    """Set an MLflow Model Registry URI with different type of backend."""
+    if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    original_registry_uri = mlflow.get_registry_uri()
+
+    if request.param == "file":
+        tracking_uri = tmp_path.joinpath("file").as_uri()
+    elif request.param == "sqlalchemy":
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
+
+    yield tracking_uri
+
+    # Reset tracking URI
+    mlflow.set_tracking_uri(original_registry_uri)
+
+
+def test_crud_prompts(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {title} {name}! How are you today?",
+        description="A friendly greeting",
+        tags={"model": "my-model"},
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.name == "prompt_1"
+    assert prompt.template == "Hi, {title} {name}! How are you today?"
+    assert prompt.description == "A friendly greeting"
+    assert prompt.tags == {"model": "my-model"}
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {title} {name}! What's up?",
+        description="New greeting",
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {title} {name}! What's up?"
+
+    prompt = client.load_prompt("prompt_1", version=1)
+    assert prompt.template == "Hi, {title} {name}! How are you today?"
+
+    # Delete prompt must be called with a version
+    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+        client.delete_prompt("prompt_1")
+
+    client.delete_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Model Version (.*) not found"):
+        client.load_prompt("prompt_1", version=2)
+
+    client.delete_prompt("prompt_1", version=1)

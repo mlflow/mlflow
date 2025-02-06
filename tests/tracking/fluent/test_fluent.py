@@ -1687,3 +1687,44 @@ def test_runs_are_ended_by_run_id():
         mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
+
+
+def test_crud_prompts(tmp_path):
+    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_registry_uri(registry_uri)
+
+    mlflow.register_prompt(
+        name="prompt_1",
+        template="Hi, {title} {name}! How are you today?",
+        description="A friendly greeting",
+        tags={"model": "my-model"},
+    )
+
+    prompt = mlflow.load_prompt("prompt_1")
+    assert prompt.name == "prompt_1"
+    assert prompt.template == "Hi, {title} {name}! How are you today?"
+    assert prompt.description == "A friendly greeting"
+    assert prompt.tags == {"model": "my-model"}
+
+    mlflow.register_prompt(
+        name="prompt_1",
+        template="Hi, {title} {name}! What's up?",
+        description="New greeting",
+    )
+
+    prompt = mlflow.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {title} {name}! What's up?"
+
+    prompt = mlflow.load_prompt("prompt_1", version=1)
+    assert prompt.template == "Hi, {title} {name}! How are you today?"
+
+    # Delete prompt must be called with a version
+    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+        mlflow.delete_prompt("prompt_1")
+
+    mlflow.delete_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Model Version (.*) not found"):
+        mlflow.load_prompt("prompt_1", version=2)
+
+    mlflow.delete_prompt("prompt_1", version=1)

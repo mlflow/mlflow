@@ -38,6 +38,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, Prompt
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
@@ -47,6 +48,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -391,6 +393,147 @@ class MlflowClient:
             status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+
+    ##### Prompt Registry #####
+
+    # TODO: Gate this to OSS only
+    def register_prompt(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, Any]] = None,
+    ) -> Prompt:
+        """
+        Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+        A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and template text
+        at minimum. With MLflow Prompt Registry, you can create, manage, and version control
+        prompts with the MLflow's robust model tracking framework.
+
+        If there is no registered prompt with the given name, a new prompt will be created.
+        Otherwise, a new version of the existing prompt will be created.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            # Your prompt registry URI
+            client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
+
+            # Register a new prompt
+            client.register_prompt(
+                name="my_prompt",
+                template="Respond to the user's message as a {style} AI.",
+            )
+
+            # Load the prompt from the registry
+            prompt = client.load_prompt("my_prompt")
+
+            # Use the prompt in your application
+            import openai
+
+            openai_client = openai.OpenAI()
+            openai_client.chat.completion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": prompt.format(style="friendly")},
+                    {"role": "user", "content": "Hello, how are you?"},
+                ],
+            )
+
+            # Update the prompt with a new version
+            prompt = client.register_prompt(
+                name="my_prompt",
+                template="Respond to the user's message as a {style} AI. {greeting}",
+            )
+
+        Args:
+            name: The name of the prompt.
+            template: The template text of the prompt. It can contain variables enclosed in
+                single curly braces, e.g. {variable}, which will be replaced with actual values
+                by the `format` method.
+            description: The description of the prompt. Optional.
+            tags: A dictionary of tags associated with the prompt. Optional.
+
+        Returns:
+            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+        """
+        registry_client = self._get_registry_client()
+
+        try:
+            registry_client.get_registered_model(name)
+        except MlflowException as e:
+            # Create a new prompt (model) entry
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                registry_client.create_registered_model(
+                    name, description=description, tags={IS_PROMPT_TAG_KEY: "true"}
+                )
+            else:
+                raise
+
+        tags = tags or {}
+        # Store prompt text as a tag
+        tags[PROMPT_TEXT_TAG_KEY] = template
+
+        mv: ModelVersion = registry_client.create_model_version(
+            name=name,
+            description=description,
+            source="dummy",  # Not used
+            tags=tags,
+        )
+        return Prompt.from_model_version(mv)
+
+    # TODO: Gate this to OSS only
+    def load_prompt(self, name: str, version: Optional[int] = None) -> Prompt:
+        """
+        Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            # Your prompt registry URI
+            client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
+
+            # Load the latest version of the prompt
+            prompt = client.load_prompt("my_prompt")
+
+            # Load a specific version of the prompt
+            prompt = client.load_prompt("my_prompt", version=1)
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt. If not specified, the latest version will be loaded.
+        """
+        registry_client = self._get_registry_client()
+        if version is None:
+            version = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0].version
+
+        mv = registry_client.get_model_version(name, version)
+        return Prompt.from_model_version(mv)
+
+    # TODO: Gate this to OSS only
+    def delete_prompt(self, name: str, version: int):
+        """
+        Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt to delete.
+        """
+        registry_client = self._get_registry_client()
+        registry_client.delete_model_version(name, version)
+
+        # If no more versions are left, delete the registered model
+        if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
+            registry_client.delete_registered_model(name)
+
+    ##### Tracing #####
 
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)

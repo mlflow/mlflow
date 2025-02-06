@@ -137,7 +137,10 @@ from mlflow.tracing.fluent import (
     update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
+    delete_prompt,
+    load_prompt,
     register_model,
+    register_prompt,
     search_model_versions,
     search_registered_models,
 )
@@ -257,6 +260,10 @@ __all__ = [
     "trace",
     "add_trace",
     "update_current_trace",
+    # Prompt Registry APIs
+    "delete_prompt",
+    "load_prompt",
+    "register_prompt",
 ]
 
 
