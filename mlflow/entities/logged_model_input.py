@@ -1,5 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos import service_pb2 as pb2
+from mlflow.protos.service_pb2 import ModelInput as ProtoModelInput
 
 
 class LoggedModelInput(_MlflowObject):
@@ -19,4 +19,8 @@ class LoggedModelInput(_MlflowObject):
         return self._model_id
 
     def to_proto(self):
-        return pb2.ModelInput(model_id=self._model_id)
+        return ProtoModelInput(model_id=self._model_id)
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(proto.model_id)

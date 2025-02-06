@@ -2,6 +2,7 @@ from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.protos.service_pb2 import RunOutputs as ProtoRunOutputs
 
 
 class RunOutputs(_MlflowObject):
@@ -20,7 +21,23 @@ class RunOutputs(_MlflowObject):
         """Array of model outputs."""
         return self._model_outputs
 
+    def to_proto(self):
+        run_outputs = ProtoRunOutputs()
+        run_outputs.model_outputs.extend(
+            [model_output.to_proto() for model_output in self.model_outputs]
+        )
+
+        return run_outputs
+
     def to_dictionary(self) -> dict[Any, Any]:
         return {
             "model_outputs": self.model_outputs,
         }
+
+    @classmethod
+    def from_proto(cls, proto):
+        model_outputs = [
+            LoggedModelOutput.from_proto(model_output) for model_output in proto.model_outputs
+        ]
+
+        return cls(model_outputs)
