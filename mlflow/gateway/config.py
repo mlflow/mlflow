@@ -264,8 +264,12 @@ def _resolve_api_key_from_input(api_key_input):
 
     # try reading from a local path
     file = pathlib.Path(api_key_input)
-    if file.is_file():
-        return file.read_text()
+    try:
+        if file.is_file():
+            return file.read_text()
+    except OSError:
+        # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+        pass
 
     # if the key itself is passed, return
     return api_key_input
