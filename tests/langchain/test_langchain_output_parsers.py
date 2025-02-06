@@ -1,5 +1,8 @@
+import langchain
+import pytest
 from langchain_core.messages.base import BaseMessage
 from langchain_core.runnables.config import RunnableConfig
+from packaging.version import Version
 
 from mlflow.langchain.output_parsers import (
     ChatAgentOutputParser,
@@ -76,6 +79,10 @@ def test_chatcompletion_output_parser_parse_response():
         }
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
+)
 def test_chat_agent_output_parser_parse_response():
     parser = ChatAgentOutputParser()
     message = "The weather today is"
@@ -92,9 +99,4 @@ def test_chat_agent_output_parser_parse_response():
     base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
     streaming_chunks = parser.transform(base_messages, RunnableConfig())
     for i, chunk in enumerate(streaming_chunks):
-        for msg in chunk["messages"]:
-            assert isinstance(msg["id"], str)
-            del msg["id"]
-        assert chunk == {
-            "messages": [{"content": streaming_messages[i], "role": "assistant"}],
-        }
+        assert chunk == {"delta": {"content": streaming_messages[i], "role": "assistant"}}

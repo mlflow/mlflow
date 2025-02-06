@@ -88,6 +88,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
     _validate_metric,
@@ -268,6 +269,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_experiment_name(name)
         if artifact_location:
             artifact_location = resolve_uri_if_local(artifact_location)
+            _validate_experiment_artifact_location_length(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()

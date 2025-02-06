@@ -1478,3 +1478,58 @@ def test_add_trace_logging_model_from_code():
     trace = mlflow.get_last_active_trace()
     assert trace is not None
     assert len(trace.data.spans) == 2
+
+
+@pytest.mark.parametrize(
+    "inputs", [{"question": "Does mlflow support tracing?"}, "Does mlflow support tracing?", None]
+)
+@pytest.mark.parametrize("outputs", [{"answer": "Yes"}, "Yes", None])
+@pytest.mark.parametrize(
+    "intermediate_outputs",
+    [
+        {
+            "retrieved_documents": ["mlflow documentation"],
+            "system_prompt": ["answer the question with yes or no"],
+        },
+        None,
+    ],
+)
+def test_log_trace_success(inputs, outputs, intermediate_outputs):
+    start_time_ms = 1736144700
+    execution_time_ms = 5129
+
+    mlflow.log_trace(
+        name="test",
+        request=inputs,
+        response=outputs,
+        intermediate_outputs=intermediate_outputs,
+        start_time_ms=start_time_ms,
+        execution_time_ms=execution_time_ms,
+    )
+
+    trace = mlflow.get_last_active_trace()
+    if inputs is not None:
+        assert trace.data.request == json.dumps(inputs)
+    else:
+        assert trace.data.request is None
+    if outputs is not None:
+        assert trace.data.response == json.dumps(outputs)
+    else:
+        assert trace.data.response is None
+    if intermediate_outputs is not None:
+        assert trace.data.intermediate_outputs == intermediate_outputs
+    spans = trace.data.spans
+    assert len(spans) == 1
+    root_span = spans[0]
+    assert root_span.name == "test"
+    assert root_span.start_time_ns == start_time_ms * 1000000
+    assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
+
+
+def test_log_trace_fail_within_span_context():
+    with pytest.raises(MlflowException, match="Another trace is already set in the global context"):
+        with mlflow.start_span("span"):
+            mlflow.log_trace(
+                request="Does mlflow support tracing?",
+                response="Yes",
+            )
