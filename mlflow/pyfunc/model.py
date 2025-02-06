@@ -408,8 +408,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     The :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema is similar to,
     but not strictly compatible with the OpenAI ChatCompletion schema. ChatAgent adds additional
-    functionality and diverges from OpenAI :py:class:`ChatCompletionRequest <mlflow.types.llm.
-    ChatCompletionRequest>` in the following ways:
+    functionality and diverges from OpenAI
+    :py:class:`ChatCompletionRequest <mlflow.types.llm.ChatCompletionRequest>` in the following
+    ways:
 
     - Adds the ``attachments`` key in every input/output message for tools and internal agent calls
       so they can return additional outputs such as visualizations and progress indicators
@@ -451,16 +452,14 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
                 },
                 {
                     "role": "tool",
-                    "content": '{"content": "Successfully generated array of 5 random ints in [1,
-                    100].", "custom_outputs": {"random_nums": [93, 51, 12, 7, 25]}}',
+                    "content": '{"content": "Generated array of 2 random ints in [1, 100]."',
                     "name": "generate_random_ints",
                     "id": "call_15ca4fcc-ffa1-419a-8748-3bea34b9c043",
                     "tool_call_id": "call_15ca4fcc-ffa1-419a-8748-3bea34b9c043",
                 },
                 {
                     "role": "assistant",
-                    "content": "The new set of generated random numbers are: 93, 51, 12, 7, and 25.
-                    Would you like me to generate more?",
+                    "content": "The new set of generated random numbers are: 93, 51, 12, 7, and 25",
                     "name": "llm",
                     "id": "run-70c7c738-739f-4ecd-ad18-0ae232df24e8-0",
                 },
@@ -645,15 +644,14 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     documentation.
 
     The notable differences are changes to be ChatAgent compatible. They include:
+
     - We use :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
       which has an internal state of
       :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
       objects and a custom_outputs attribute under the hood
-    - We use
-      :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
+    - We use :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
       instead of LangGraph's ToolNode to enable returning attachments and custom_outputs from
       LangChain tools and UnityCatalog Tools
-
 
     .. code-block:: python
 
