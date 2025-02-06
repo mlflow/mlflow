@@ -39,7 +39,6 @@ class DspyModelWrapper(PythonModel):
         import numpy as np
         import pandas as pd
 
-
         supported_input_types = (np.ndarray, pd.DataFrame, str, dict)
         if not isinstance(inputs, supported_input_types):
             raise MlflowException(
@@ -85,7 +84,6 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 "'llm/v1/chat', the input must be a dict or a pandas DataFrame.",
                 INVALID_PARAMETER_VALUE,
             )
-
 
         # `dspy.settings` cannot be shared across threads, so we are setting the context at every
         # predict call.
