@@ -269,6 +269,7 @@ def _resolve_api_key_from_input(api_key_input):
             return file.read_text()
     except OSError:
         # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+        # (e.g., 255 characters on Unix).
         pass
 
     # if the key itself is passed, return
