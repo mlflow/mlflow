@@ -6,8 +6,10 @@ from mlflow.evaluation.evaluation import Evaluation
 from mlflow.evaluation.utils import evaluations_to_dataframes
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 def log_evaluations(
     *, evaluations: list[Evaluation], run_id: Optional[str] = None
 ) -> list[EvaluationEntity]:

@@ -99,8 +99,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     if should_trace:
         tracer = MlflowLangchainTracer(
-            model_id=model_id,
-            set_span_in_context=should_attach_span_to_context(func_name, self)
+            model_id=model_id, set_span_in_context=should_attach_span_to_context(func_name, self)
         )
         args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, model_id, args, kwargs)
 
@@ -181,7 +180,7 @@ def _get_runnable_config_with_callback(
         original_config: the original RunnableConfig passed by the user
         new_callback: a new callback to be injected
     """
-    from langchain.schema.runnable.config import RunnableConfig
+    from langchain_core.runnables.config import RunnableConfig
 
     if original_config is None:
         _logger.debug("Injected MLflow callbacks into the model call args.")

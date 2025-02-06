@@ -101,13 +101,14 @@ Failed to find a documentation preview for {args.commit_sha}.
     workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
-    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/index.html"
-    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/diff.html"
+    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/index.html"
+    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/diff.html"
 
     # Post the artifact URL as a comment
     comment_body = f"""
 Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url})
-completes successfully.
+completes successfully. You may encounter a `{{"message":"not found"}}` error when reloading
+a page. If so, add `/index.html` to the URL.
 
 - [Top page]({top_page})
 - [Changed pages]({changed_pages})

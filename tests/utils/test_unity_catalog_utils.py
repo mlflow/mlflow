@@ -282,6 +282,18 @@ def test_registered_model_and_registered_model_search_equality():
                 "SSEKMSKeyId": "key_id",
             },
         ),
+        (
+            TemporaryCredentials(
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+                    )
+                )
+            ),
+            {
+                "ServerSideEncryption": "AES256",
+            },
+        ),
     ],
 )
 def test_parse_aws_sse_credential(temp_credentials, parsed):

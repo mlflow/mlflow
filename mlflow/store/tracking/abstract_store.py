@@ -688,10 +688,10 @@ class AbstractStore:
         Returns:
             None.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def record_logged_model(self, run_id, mlflow_model):
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def create_logged_model(
         self,
@@ -716,7 +716,7 @@ class AbstractStore:
         Returns:
             The created model.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def search_logged_models(
         self,
@@ -753,7 +753,7 @@ class AbstractStore:
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
@@ -766,7 +766,7 @@ class AbstractStore:
         Returns:
             The updated model.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         """
@@ -779,7 +779,7 @@ class AbstractStore:
         Returns:
             None
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """
@@ -789,7 +789,7 @@ class AbstractStore:
             model_id: ID of the model.
             key: Key of the tag to delete.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """
@@ -801,4 +801,4 @@ class AbstractStore:
         Returns:
             The fetched model.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__.__name__)

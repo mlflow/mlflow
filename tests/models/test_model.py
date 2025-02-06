@@ -6,6 +6,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+import pydantic
 import pytest
 import sklearn.datasets
 import sklearn.neighbors
@@ -13,6 +14,7 @@ from packaging.version import Version
 from scipy.sparse import csc_matrix
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES, SET_MODEL_ERROR
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
@@ -171,6 +173,17 @@ def test_model_log():
         assert loaded_example == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
+
+def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
+    sig = ModelSignature(
+        inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+        outputs=Schema([ColSpec(name=None, type="double")]),
+    )
+    input_example = {"x": 1, "y": 2}
+    with mock.patch("mlflow.models.display_utils.maybe_render_agent_eval_recipe") as render_mock:
+        _log_model_with_signature_and_example(tmp_path, sig, input_example)
+        render_mock.assert_called_once()
 
 
 def test_model_info():
@@ -416,12 +429,12 @@ def test_model_load_input_example_failures():
         loaded_example = loaded_model.load_input_example(local_path)
         assert loaded_example is not None
 
-        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such file or directory"):
             loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
 
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         os.remove(path)
-        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such file or directory"):
             loaded_model.load_input_example(local_path)
 
 
@@ -505,6 +518,28 @@ def test_save_load_input_example_without_conversion(tmp_path):
     assert loaded_model.saved_input_example_info["type"] == "json_object"
     loaded_example = loaded_model.load_input_example(local_path)
     assert loaded_example == input_example
+
+
+def test_save_load_input_example_with_pydantic_model(tmp_path):
+    class Message(pydantic.BaseModel):
+        role: str
+        content: str
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[Message], params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=[Message(role="user", content="Hello!")],
+        )
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+    assert loaded_model.saved_input_example_info["type"] == "json_object"
+    loaded_example = loaded_model.load_input_example(local_path)
+    assert loaded_example == [{"role": "user", "content": "Hello!"}]
 
 
 def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):

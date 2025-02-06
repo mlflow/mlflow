@@ -916,6 +916,18 @@ def autolog(
             patched_call,
         )
 
+    try:
+        from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
+    except ImportError:
+        pass
+    else:
+        safe_patch(
+            FLAVOR_NAME,
+            BetaChatCompletions,
+            "parse",
+            patched_call,
+        )
+
     # Patch Swarm agent to generate traces
     try:
         from swarm import Swarm

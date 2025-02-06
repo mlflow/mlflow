@@ -9,7 +9,10 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
     RegisteredModelTag,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -28,6 +31,8 @@ from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
+
+GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
 @pytest.fixture
@@ -49,6 +54,12 @@ def store(tmp_sqlite_uri):
 
 def _rm_maker(store, name, tags=None, description=None):
     return store.create_registered_model(name, tags, description)
+
+
+def _add_go_test_tags(tags, val):
+    if _MLFLOW_GO_STORE_TESTING.get():
+        return tags + [RegisteredModelTag(GO_MOCK_TIME_TAG, val)]
+    return tags
 
 
 def _mv_maker(
@@ -112,12 +123,12 @@ def test_create_registered_model(store):
 
     # invalid model name will fail
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         _rm_maker(store, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         _rm_maker(store, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -131,8 +142,9 @@ def test_get_registered_model(store):
     ]
     # use fake clock
     with mock.patch("time.time", return_value=1234):
-        rm = _rm_maker(store, name, tags)
+        rm = _rm_maker(store, name, _add_go_test_tags(tags, "1234000"))
         assert rm.name == name
+
     rmd = store.get_registered_model(name=name)
     assert rmd.name == name
     assert rmd.creation_timestamp == 1234000
@@ -197,12 +209,12 @@ def test_rename_registered_model(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
     # invalid model name will fail
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -386,7 +398,7 @@ def test_set_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -434,7 +446,7 @@ def test_delete_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.delete_registered_model_tag(None, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -451,7 +463,7 @@ def test_create_model_version(store):
 
     mvd1 = store.get_model_version(mv1.name, mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
     assert mvd1.creation_timestamp == 456778000
     assert mvd1.last_updated_timestamp == 456778000
@@ -466,7 +478,7 @@ def test_create_model_version(store):
     mv2 = _mv_maker(store, name)
     mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
     assert mv2.version == 2
-    assert mvd2.version == 2
+    assert int(mvd2.version) == 2
 
     # create model version with tags return model version entity with tags
     tags = [
@@ -477,7 +489,7 @@ def test_create_model_version(store):
     mvd3 = store.get_model_version(name=mv3.name, version=mv3.version)
     assert mv3.version == 3
     assert mv3.tags == {tag.key: tag.value for tag in tags}
-    assert mvd3.version == 3
+    assert int(mvd3.version) == 3
     assert mvd3.tags == {tag.key: tag.value for tag in tags}
 
     # create model versions with runLink
@@ -486,7 +498,7 @@ def test_create_model_version(store):
     mvd4 = store.get_model_version(name, mv4.version)
     assert mv4.version == 4
     assert mv4.run_link == run_link
-    assert mvd4.version == 4
+    assert int(mvd4.version) == 4
     assert mvd4.run_link == run_link
 
     # create model version with description
@@ -495,7 +507,7 @@ def test_create_model_version(store):
     mvd5 = store.get_model_version(name, mv5.version)
     assert mv5.version == 5
     assert mv5.description == description
-    assert mvd5.version == 5
+    assert int(mvd5.version) == 5
     assert mvd5.description == description
 
     # create model version without runId
@@ -503,7 +515,7 @@ def test_create_model_version(store):
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
-    assert mvd6.version == 6
+    assert int(mvd6.version) == 6
     assert mvd6.run_id is None
 
 
@@ -513,7 +525,7 @@ def test_update_model_version(store):
     mv1 = _mv_maker(store, name)
     mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
 
     # update stage
@@ -525,7 +537,7 @@ def test_update_model_version(store):
     )
     mvd2 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd2.name == name
-    assert mvd2.version == 1
+    assert int(mvd2.version) == 1
     assert mvd2.current_stage == "Production"
     assert mvd2.description is None
 
@@ -533,7 +545,7 @@ def test_update_model_version(store):
     store.update_model_version(name=mv1.name, version=mv1.version, description="test model version")
     mvd3 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd3.name == name
-    assert mvd3.version == 1
+    assert int(mvd3.version) == 1
     assert mvd3.current_stage == "Production"
     assert mvd3.description == "test model version"
 
@@ -1336,7 +1348,7 @@ def test_search_registered_model_order_by(store):
             "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
             return_value=i,
         ):
-            rms.append(_rm_maker(store, f"RM{i:03}").name)
+            rms.append(_rm_maker(store, f"RM{i:03}", _add_go_test_tags([], f"{i}")).name)
 
     # test flow with fixed max_results and order_by (test stable order across pages)
     returned_rms = []
@@ -1403,14 +1415,14 @@ def test_search_registered_model_order_by(store):
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
         return_value=1,
     ):
-        rm1 = _rm_maker(store, "MR1").name
-        rm2 = _rm_maker(store, "MR2").name
+        rm1 = _rm_maker(store, "MR1", _add_go_test_tags([], "1")).name
+        rm2 = _rm_maker(store, "MR2", _add_go_test_tags([], "1")).name
     with mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
         return_value=2,
     ):
-        rm3 = _rm_maker(store, "MR3").name
-        rm4 = _rm_maker(store, "MR4").name
+        rm3 = _rm_maker(store, "MR3", _add_go_test_tags([], "2")).name
+        rm4 = _rm_maker(store, "MR4", _add_go_test_tags([], "2")).name
     query = "name LIKE 'MR%'"
     # test with multiple clauses
     result, _ = _search_registered_models(
@@ -1572,12 +1584,12 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.set_model_version_tag(
             name2, "I am not a version", ModelVersionTag(key="key", value="value")
@@ -1635,12 +1647,12 @@ def test_delete_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'."
     ) as exception_context:
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1733,7 +1745,7 @@ def test_copy_model_version(store, copy_to_same_model):
 
     copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
     assert copied_mv.name == copy_rm_name
-    assert copied_mv.version == copy_mv_version
+    assert int(copied_mv.version) == copy_mv_version
     assert copied_mv.current_stage == "None"
     assert copied_mv.creation_timestamp >= timestamp
     assert copied_mv.last_updated_timestamp >= timestamp

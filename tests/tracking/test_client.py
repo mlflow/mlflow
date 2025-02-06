@@ -46,6 +46,7 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -827,6 +828,12 @@ def test_log_trace(tracking_uri):
     assert len(backend_traces[0].data.spans) == len(trace.data.spans)
     assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
 
+    # If the experiment ID is None in the given trace, it should be set to the default experiment
+    trace.info.experiment_id = None
+    new_request_id = client._log_trace(trace)
+    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    assert len(backend_traces) == 1
+
 
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
@@ -1089,6 +1096,7 @@ def test_create_model_version(mock_registry_store):
         None,
         "desc",
         local_model_path=None,
+        model_id=None,
     )
 
 
@@ -1173,7 +1181,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     assert model_version.run_id == "runid"
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None, local_model_path=None
+        "name", "source", "runid", [], None, None, local_model_path=None, model_id=None
     )
 
 
@@ -1188,7 +1196,7 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
     assert model_version.run_id is None
     # verify that the store was not provided a run id
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", None, [], None, None, local_model_path=None
+        "name", "source", None, [], None, None, local_model_path=None, model_id=None
     )
 
 
@@ -1221,7 +1229,7 @@ def test_create_model_version_explicitly_set_run_link(
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], run_link, None, local_model_path=None
+            "name", "source", "runid", [], run_link, None, local_model_path=None, model_id=None
         )
 
 
@@ -1258,7 +1266,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None, local_model_path=None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 
@@ -1275,7 +1283,7 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     client.create_model_version("name", "source", "runid")
     # verify that registry store was called with tags=[] and run_link=None
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None, local_model_path=None
+        "name", "source", "runid", [], None, None, local_model_path=None, model_id=None
     )
     client.create_registered_model(name="name", description="description")
     # verify that registry store was called with tags=[]
@@ -1332,7 +1340,7 @@ def test_create_model_version_run_link_with_configured_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None, local_model_path=None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 

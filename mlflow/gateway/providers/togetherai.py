@@ -123,7 +123,7 @@ class TogetherAIAdapter(ProviderAdapter):
                     index=idx,
                     # TODO this is questionable since the finish reason comes from togetherai api
                     finish_reason=choice.get("finish_reason"),
-                    delta=completions_schema.StreamDelta(role=None, content=choice.get("text")),
+                    text=choice.get("text"),
                 )
                 for idx, choice in enumerate(resp.get("choices", []))
             ],

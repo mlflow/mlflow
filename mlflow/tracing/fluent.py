@@ -264,11 +264,9 @@ def start_span(
             attributes[SpanAttributeKey.MODEL_ID] = model_id
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
-    except Exception as e:
-        _logger.warning(
-            f"Failed to start span: {e}. For full traceback, set logging level to debug.",
-            exc_info=_logger.isEnabledFor(logging.DEBUG),
-        )
+
+    except Exception:
+        _logger.debug(f"Failed to start span {name}.", exc_info=True)
         mlflow_span = NoOpSpan()
         yield mlflow_span
         return
@@ -281,12 +279,8 @@ def start_span(
     finally:
         try:
             mlflow_span.end()
-        except Exception as e:
-            _logger.warning(
-                f"Failed to end span {mlflow_span.span_id}: {e}. "
-                "For full traceback, set logging level to debug.",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
+        except Exception:
+            _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
 def get_trace(request_id: str) -> Optional[Trace]:
@@ -332,7 +326,6 @@ def get_trace(request_id: str) -> Optional[Trace]:
         return None
 
 
-@experimental
 def search_traces(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -582,7 +575,6 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-@experimental
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
 ):
@@ -745,6 +737,85 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
         )
+
+
+@experimental
+def log_trace(
+    name: str = "Task",
+    request: Optional[Any] = None,
+    response: Optional[Any] = None,
+    intermediate_outputs: Optional[dict[str, Any]] = None,
+    attributes: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, str]] = None,
+    start_time_ms: Optional[int] = None,
+    execution_time_ms: Optional[int] = None,
+) -> str:
+    """
+    Create a trace with a single root span.
+    This API is useful when you want to log an arbitrary (request, response) pair
+    without structured OpenTelemetry spans. The trace is linked to the active experiment.
+
+    Args:
+        name: The name of the trace (and the root span). Default to "Task".
+        request: Input data for the entire trace. This is also set on the root span of the trace.
+        response: Output data for the entire trace. This is also set on the root span of the trace.
+        intermediate_outputs: A dictionary of intermediate outputs produced by the model or agent
+            while handling the request. Keys are the names of the outputs,
+            and values are the outputs themselves. Values must be JSON-serializable.
+        attributes: A dictionary of attributes to set on the root span of the trace.
+        tags: A dictionary of tags to set on the trace.
+        start_time_ms: The start time of the trace in milliseconds since the UNIX epoch.
+            When not specified, current time is used for start and end time of the trace.
+        execution_time_ms: The execution time of the trace in milliseconds since the UNIX epoch.
+
+    Returns:
+        The request ID of the logged trace.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import time
+        import mlflow
+
+        request_id = mlflow.log_trace(
+            request="Does mlflow support tracing?",
+            response="Yes",
+            intermediate_outputs={
+                "retrieved_documents": ["mlflow documentation"],
+                "system_prompt": ["answer the question with yes or no"],
+            },
+            start_time_ms=int(time.time() * 1000),
+            execution_time_ms=5129,
+        )
+        trace = mlflow.get_trace(request_id)
+
+        print(trace.data.intermediate_outputs)
+    """
+    client = MlflowClient()
+    if intermediate_outputs:
+        if attributes:
+            attributes.update(SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs)
+        else:
+            attributes = {SpanAttributeKey.INTERMEDIATE_OUTPUTS: intermediate_outputs}
+
+    span = client.start_trace(
+        name=name,
+        inputs=request,
+        attributes=attributes,
+        tags=tags,
+        start_time_ns=start_time_ms * 1000000 if start_time_ms else None,
+    )
+    client.end_trace(
+        request_id=span.request_id,
+        outputs=response,
+        end_time_ns=(start_time_ms + execution_time_ms) * 1000000
+        if start_time_ms and execution_time_ms
+        else None,
+    )
+
+    return span.request_id
 
 
 def _merge_trace(

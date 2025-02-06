@@ -201,6 +201,7 @@ message EncryptionDetails {
 
 enum SseEncryptionAlgorithm {
   SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
+  AWS_SSE_S3 = 1;    // "AES256" in 'x-amz-server-side-encryption' header
   AWS_SSE_KMS = 2;   // "aws:kms" in x-amz-server-side-encryption' header
 }
 

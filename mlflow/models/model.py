@@ -460,14 +460,16 @@ class Model:
 
         return _load_serving_input_example(self, path)
 
-    def load_input_example(self, path: str) -> Optional[str]:
+    def load_input_example(self, path: Optional[str] = None) -> Optional[str]:
         """
         Load the input example saved along a model. Returns None if there is no example metadata
         (i.e. the model was saved without example). Raises FileNotFoundError if there is model
         metadata but the example file is missing.
 
         Args:
-            path: Path to the model directory.
+            path: Model or run URI, or path to the `model` directory.
+                e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+                or /path/to/model
 
         Returns:
             Input example (NumPy ndarray, SciPy csc_matrix, SciPy csr_matrix,
@@ -478,7 +480,10 @@ class Model:
         # example is requested.
         from mlflow.models.utils import _read_example
 
-        return _read_example(self, path)
+        if path is None:
+            path = f"runs:/{self.run_id}/{self.artifact_path}"
+
+        return _read_example(self, str(path))
 
     def load_input_example_params(self, path: str):
         """
@@ -631,6 +636,12 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
+    def _is_signature_from_type_hint(self):
+        return self.signature._is_signature_from_type_hint if self.signature is not None else False
+
+    def _is_type_hint_from_example(self):
+        return self.signature._is_type_hint_from_example if self.signature is not None else False
+
     def get_model_info(self, logged_model: Optional[LoggedModel] = None) -> ModelInfo:
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -680,6 +691,8 @@ class Model:
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
+            res["is_signature_from_type_hint"] = self.signature._is_signature_from_type_hint
+            res["type_hint_from_example"] = self.signature._is_type_hint_from_example
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
@@ -772,7 +785,14 @@ class Model:
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
-            model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+            signature = ModelSignature.from_dict(model_dict["signature"])
+            if "is_signature_from_type_hint" in model_dict:
+                signature._is_signature_from_type_hint = model_dict.pop(
+                    "is_signature_from_type_hint"
+                )
+            if "type_hint_from_example" in model_dict:
+                signature._is_type_hint_from_example = model_dict.pop("type_hint_from_example")
+            model_dict["signature"] = signature
 
         if "model_uuid" not in model_dict:
             model_dict["model_uuid"] = None
@@ -787,13 +807,13 @@ class Model:
     def log(
         cls,
         artifact_path,
-        name,
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         run_id=None,
         resources=None,
+        name: Optional[str] = None,
         model_type: Optional[str] = None,
         params: Optional[dict[str, Any]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -807,7 +827,6 @@ class Model:
 
         Args:
             artifact_path: Deprecated. Use `name` instead.
-            name: The name of the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
                 MLflow model.
@@ -822,6 +841,7 @@ class Model:
             run_id: The run ID to associate with this model. If not provided, a new run will be
                 started.
             resources: {{ resources }}
+            name: The name of the model.
             model_type: {{ model_type }}
             params: {{ params }}
             tags: {{ tags }}
@@ -1046,6 +1066,11 @@ class Model:
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
+
+        # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
+        from mlflow.models.display_utils import maybe_render_agent_eval_recipe
+
+        maybe_render_agent_eval_recipe(model_info)
 
         return model_info
 

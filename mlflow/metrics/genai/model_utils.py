@@ -145,7 +145,7 @@ def _call_llm_provider_api(
 
     payload = {
         k: v
-        for k, v in chat_request.model_dump().items()
+        for k, v in chat_request.model_dump(exclude_none=True).items()
         if (v is not None) and (k in filtered_keys)
     }
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
@@ -170,7 +170,10 @@ def _call_llm_provider_api(
             "Failed to score the provided input as the judge LLM did not return "
             "any chat completion results in the response."
         )
-    return chat_response.choices[0].message.content
+    content = chat_response.choices[0].message.content
+
+    # NB: Evaluation only handles text content for now.
+    return content[0].text if isinstance(content, list) else content
 
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":

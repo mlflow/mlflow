@@ -1,15 +1,75 @@
 from unittest.mock import MagicMock, patch
 
+import langchain
+import pytest
 from langchain.agents import AgentExecutor
-from langchain.chat_models.base import SimpleChatModel
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain_core.messages.ai import AIMessageChunk
+from langchain_core.language_models.chat_models import SimpleChatModel
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from packaging.version import Version
 
 from mlflow.langchain.utils.chat import (
+    convert_lc_message_to_chat_message,
     transform_request_json_for_chat_if_necessary,
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
 )
+from mlflow.types.chat import ChatMessage, Function
+from mlflow.types.chat import ToolCall as _ToolCall
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            AIMessage(content="foo", id="123"),
+            ChatMessage(role="assistant", content="foo", id="123"),
+        ),
+        (
+            ToolMessage(content="foo", tool_call_id="123"),
+            ChatMessage(role="tool", content="foo", tool_call_id="123"),
+        ),
+        (
+            SystemMessage(content="foo"),
+            ChatMessage(role="system", content="foo"),
+        ),
+        (
+            HumanMessage(content="foo"),
+            ChatMessage(role="user", content="foo"),
+        ),
+    ],
+)
+def test_convert_lc_message_to_chat_message(message, expected):
+    assert convert_lc_message_to_chat_message(message) == expected
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="AIMessage does not have tool_calls attribute",
+)
+def test_convert_lc_message_to_chat_message_too_calls():
+    from langchain_core.messages import ToolCall
+
+    message = AIMessage(
+        content="", tool_calls=[ToolCall(name="tool_name", args={"arg1": "val1"}, id="123")]
+    )
+
+    assert convert_lc_message_to_chat_message(message) == ChatMessage(
+        role="assistant",
+        content=None,
+        tool_calls=[
+            _ToolCall(
+                id="123",
+                type="function",
+                function=Function(name="tool_name", arguments='{"arg1": "val1"}'),
+            )
+        ],
+    )
 
 
 def test_transform_response_to_chat_format_no_conversion():

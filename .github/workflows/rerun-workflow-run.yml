@@ -24,7 +24,6 @@ jobs:
       - name: Download PR number
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
             await rerun.download({ context, github });
@@ -35,7 +34,6 @@ jobs:
       - name: Rerun workflows
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
             await rerun.rerun({ context, github });

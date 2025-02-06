@@ -12,7 +12,6 @@ LangChain (native) format
     https://python.langchain.com/en/latest/index.html
 """
 
-import contextlib
 import functools
 import importlib
 import inspect
@@ -58,7 +57,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
-from mlflow.pyfunc.context import get_prediction_context
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -445,7 +443,7 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[list[Resource], str]] =None,
+    resources: Optional[Union[list[Resource], str]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -979,7 +977,7 @@ def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classe
     Internal method to inspect the module and patch classes that are
     subclasses of Runnable for autologging.
     """
-    from langchain.schema.runnable import Runnable
+    from langchain_core.runnables import Runnable
 
     if module_name not in inspected_modules:
         inspected_modules.add(module_name)
@@ -997,8 +995,8 @@ def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classe
                 ):
                     _patch_runnable_cls(obj)
                     patched_classes.add(obj.__name__)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to patch module {module_name}. Error: {e}", exc_info=True)
 
 
 @experimental
@@ -1062,71 +1060,78 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-    with contextlib.suppress(ImportError):
-        from mlflow.langchain._langchain_autolog import patched_inference
+    from mlflow.langchain._langchain_autolog import patched_inference
 
-        # avoid duplicate patching
-        patched_classes = set()
-        # avoid infinite recursion
-        inspected_modules = set()
+    # avoid duplicate patching
+    patched_classes = set()
+    # avoid infinite recursion
+    inspected_modules = set()
 
-        # Get all installed LangChain packages
-        for pkg in importlib.metadata.distributions():
-            if pkg.metadata["Name"].startswith("langchain"):
-                module_name = pkg.metadata["Name"].replace("-", "_")
-                _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes)
+    # Get all installed LangChain packages
+    for pkg in importlib.metadata.distributions():
+        if pkg.metadata["Name"].startswith("langchain"):
+            module_name = pkg.metadata["Name"].replace("-", "_")
+            _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes)
 
-            # If LangGraph is installed, patch the classes. LangGraph does not define members
-            # under the top level module, so we need to hardcode the submodules to patch.
-            if pkg.metadata["Name"] == "langgraph":
-                langgraph_submodules = [
-                    "langgraph.graph",
-                    "langgraph.prebuilt",
-                    "langgraph.pregel",
-                ]
-                for submodule in langgraph_submodules:
-                    _inspect_module_and_patch_cls(submodule, inspected_modules, patched_classes)
+        # If LangGraph is installed, patch the classes. LangGraph does not define members
+        # under the top level module, so we need to hardcode the submodules to patch.
+        if pkg.metadata["Name"] == "langgraph":
+            langgraph_submodules = [
+                "langgraph.graph",
+                "langgraph.prebuilt",
+                "langgraph.pregel",
+            ]
+            for submodule in langgraph_submodules:
+                _inspect_module_and_patch_cls(submodule, inspected_modules, patched_classes)
 
-        if extra_model_classes:
-            from langchain_core.runnables import Runnable
+    if extra_model_classes:
+        from langchain_core.runnables import Runnable
 
-            unsupported_classes = []
-            for cls in extra_model_classes:
-                if cls.__name__ in patched_classes:
-                    continue
-                elif inspect.isclass(cls) and issubclass(cls, Runnable):
-                    _patch_runnable_cls(cls)
-                    patched_classes.add(cls.__name__)
-                else:
-                    unsupported_classes.append(cls.__name__)
-            if unsupported_classes:
-                logger.warning(
-                    f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
-                    "Only subclasses of Runnable are supported."
-                )
+        unsupported_classes = []
+        for cls in extra_model_classes:
+            if cls.__name__ in patched_classes:
+                continue
+            elif inspect.isclass(cls) and issubclass(cls, Runnable):
+                _patch_runnable_cls(cls)
+                patched_classes.add(cls.__name__)
+            else:
+                unsupported_classes.append(cls.__name__)
+        if unsupported_classes:
+            logger.warning(
+                f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
+                "Only subclasses of Runnable are supported."
+            )
 
-        try:
-            from langchain.agents.agent import AgentExecutor
-            from langchain.chains.base import Chain
+    try:
+        from langchain.agents.agent import AgentExecutor
+        from langchain.chains.base import Chain
 
-            for cls in [AgentExecutor, Chain]:
-                safe_patch(
-                    FLAVOR_NAME,
-                    cls,
-                    "__call__",
-                    functools.partial(patched_inference, "__call__"),
-                )
-        except ImportError:
-            pass
-
-        try:
-            from langchain_core.retrievers import BaseRetriever
-
+        for cls in [AgentExecutor, Chain]:
             safe_patch(
                 FLAVOR_NAME,
-                BaseRetriever,
-                "get_relevant_documents",
-                functools.partial(patched_inference, "get_relevant_documents"),
+                cls,
+                "__call__",
+                functools.partial(patched_inference, "__call__"),
             )
-        except ImportError:
-            pass
+    except ImportError:
+        logger.debug(
+            "AgentExecutor and Chain are not available in the current environment."
+            "Skipping patching for __call__ method.",
+            exc_info=True,
+        )
+
+    try:
+        from langchain_core.retrievers import BaseRetriever
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseRetriever,
+            "get_relevant_documents",
+            functools.partial(patched_inference, "get_relevant_documents"),
+        )
+    except ImportError:
+        logger.debug(
+            "BaseRetriever is not available in the current environment."
+            "Skipping patching for get_relevant_documents method.",
+            exc_info=True,
+        )

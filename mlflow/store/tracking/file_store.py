@@ -101,6 +101,7 @@ from mlflow.utils.uri import (
 from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
     _validate_metric,
@@ -419,6 +420,10 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
         _validate_experiment_name(name)
+
+        if artifact_location:
+            _validate_experiment_artifact_location_length(artifact_location)
+
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
@@ -519,8 +524,8 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore experiment with ID %d. "
-                "An experiment with same ID already exists." % experiment_id,
+                f"Cannot restore experiment with ID {experiment_id}. "
+                "An experiment with same ID already exists.",
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
