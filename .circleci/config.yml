@@ -50,6 +50,7 @@ jobs:
             DOCS_BASE_URL="/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/"
             echo "export DOCS_BASE_URL=$DOCS_BASE_URL" >> "$BASH_ENV"
             echo "export API_REFERENCE_PREFIX=https://output.circle-artifacts.com$DOCS_BASE_URL" >> "$BASH_ENV"
+            echo "export GTM_ID=GTM-TEST" >> "$BASH_ENV"
       - run:
           name: Install Java
           command: |
