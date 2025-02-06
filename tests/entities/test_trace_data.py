@@ -149,7 +149,7 @@ def test_intermediate_outputs_from_spans():
     @mlflow.trace()
     def llm(i):
         return f"Hi, this is LLM {i}"
-    
+
     @mlflow.trace()
     def predict():
         retrieved_documents()
