@@ -425,6 +425,8 @@ nitpick_ignore = [
     ("py:class", "wav"),
     ("py:class", "mp3"),
     ("py:class", "uc_function"),
+    ("py:class", "mlflow.langchain.chat_agent_langchain.LangChainChatAgent"),
+    ("py:class", "mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent"),
     # for docstring of mlflow.models.update_model_requirements
     ("py:class", "add"),
     ("py:class", "remove"),
