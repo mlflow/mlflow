@@ -366,6 +366,8 @@ def test_chat_agent_predict_wrapper():
 
 
 def test_chat_agent_predict_with_params(tmp_path):
+    # test to codify having params in the signature
+    # needed because `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
     model = SimpleChatAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
