@@ -42,9 +42,11 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
     return merged
 
 
+@experimental
 class ChatAgentState(TypedDict):
-    """Helper class to add custom_outputs to the state of a LangGraph agent. `custom_outputs` is
-    overwritten if it already exists.
+    """
+    Helper class to add ``custom_outputs`` to the state of a LangGraph agent. ``custom_outputs``
+    is overwritten if it already exists.
     """
 
     messages: Annotated[list, _add_agent_messages]
@@ -73,7 +75,7 @@ def parse_message(
 class ChatAgentToolNode(ToolNode):
     """
     Helper class to make ToolNodes be compatible with ChatAgentState.
-    Parse "attachments" and "custom_outputs" keys from the string output of a
+    Parse ``attachments`` and ``custom_outputs`` keys from the string output of a
     LangGraph tool.
     """
 
@@ -84,7 +86,7 @@ class ChatAgentToolNode(ToolNode):
         """
         Wraps the standard ToolNode invoke method with parsing logic for dictionary string outputs
         for both UC function tools and standard LangChain python tools that include keys
-        "attachments" and "custom_outputs".
+        ``attachments`` and ``custom_outputs``.
         """
         result = super().invoke(input, config, **kwargs)
         messages = []
@@ -132,7 +134,8 @@ class ChatAgentToolNode(ToolNode):
         ],
         store: BaseStore,
     ) -> tuple[list[LCToolCall], Literal["list", "dict"]]:
-        """Slightly modified version of the LangGraph ToolNode `_parse_input` method that skips
+        """
+        Slightly modified version of the LangGraph ToolNode `_parse_input` method that skips
         verifying the last message is an LangChain AIMessage, allowing the state to be of the
         ChatAgentMessage format.
         """
@@ -155,7 +158,8 @@ class ChatAgentToolNode(ToolNode):
 @experimental
 class LangGraphChatAgent(ChatAgent):
     """
-    Helper class to wrap LangGraph agents as a ChatAgent.
+    Helper class to wrap LangGraph agents as a ChatAgent. Use this class with
+    :py:class:`ChatAgentState` and :py:class:`ChatAgentToolNode`.
     """
 
     def __init__(self, agent: CompiledStateGraph):

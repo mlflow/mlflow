@@ -105,7 +105,11 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
 @experimental
 class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
-    OutputParser that wraps the string output into a dictionary representation of a :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` for easy interoperability. Use this with the helper class :py:class:`LangChainChatAgent <mlflow.langchain.chat_agent_langchain.LangChainChatAgent>`.
+    OutputParser that wraps the string output into a dictionary representation of a
+    :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` or a
+    :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` for easy interoperability. Use
+    this with the helper class :py:class:`LangChainChatAgent <mlflow.langchain.chat_agent_langchain.
+    LangChainChatAgent>`.
     """
 
     @classmethod
@@ -119,7 +123,8 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         return "mlflow_chat_agent"
 
     def parse(self, text: str) -> dict[str, Any]:
-        """Returns the output text as a dictionary representation of a
+        """
+        Returns the output text as a dictionary representation of a
         :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`.
         """
         return ChatAgentResponse(
@@ -127,7 +132,10 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         ).model_dump_compat(exclude_none=True)
 
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
-        """Returns a generator of :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` objects"""
+        """
+        Returns a generator of
+        :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` objects
+        """
         for chunk in input:
             if chunk.content:
                 yield ChatAgentChunk(
