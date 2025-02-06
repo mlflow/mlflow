@@ -38,6 +38,7 @@ jobs:
   build_doc:
     docker:
       - image: cimg/python:3.9-node
+    resource_class: large
 
     steps:
       - checkout
