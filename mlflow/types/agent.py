@@ -150,7 +150,8 @@ class ChatAgentResponse(BaseModel):
 
 class ChatAgentChunk(BaseModel):
     """
-    Format of a ChatAgent interface streaming chunk. Only one :py:class:`ChatAgentMessage` per chunk.
+    Format of a ChatAgent interface streaming chunk. Only one :py:class:`ChatAgentMessage` per
+    chunk.
 
     Args:
         delta: A :py:class:`ChatAgentMessage` that is streamed from the model.

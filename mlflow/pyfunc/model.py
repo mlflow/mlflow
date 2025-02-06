@@ -833,11 +833,21 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
         in a single dict with a ChatAgentRequest schema.
 
-        To support streaming the output of your agent, override this method in your subclass of ``ChatAgent``. When implementing ``predict_stream``, keep in mind the following requirements:
+        To support streaming the output of your agent, override this method in your subclass of
+        ``ChatAgent``. When implementing ``predict_stream``, keep in mind the following
+        requirements:
 
-        - Ensure your implementation adheres to the ``predict_stream`` type signature. For example, streamed messages must be of the type :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains partial output from a single response message.
-        - At most one chunk in a particular response can contain the ``custom_outputs`` key. MLflow utilities like ``LangGraphChatAgent`` assume this behavior, and do not have well-defined behavior if multiple chunks in the same response contain ``custom_outputs``
-        - Chunks containing partial content of a single response message must have the same ``id``. The content field of the message and usage stats of the :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by the consuming client. See the example below.
+        - Ensure your implementation adheres to the ``predict_stream`` type signature. For example,
+          streamed messages must be of the type
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains
+          partial output from a single response message.
+        - At most one chunk in a particular response can contain the ``custom_outputs`` key. MLflow
+          utilities like ``LangGraphChatAgent`` assume this behavior, and do not have well-defined
+          behavior if multiple chunks in the same response contain ``custom_outputs``
+        - Chunks containing partial content of a single response message must have the same ``id``.
+          The content field of the message and usage stats of the
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by
+          the consuming client. See the example below.
 
         .. code-block:: python
 
