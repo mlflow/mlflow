@@ -30,7 +30,11 @@ DUMMY_CHAT_COMPLETION_RESPONSE = ChatCompletion(
             index=0,
             logprobs=None,
             message=ChatCompletionMessage(
-                content="test response", role="assistant", function_call=None, tool_calls=None
+                content="test response",
+                role="assistant",
+                function_call=None,
+                tool_calls=None,
+                reasoning=None,
             ),
         )
     ],
