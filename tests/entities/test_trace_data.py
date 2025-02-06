@@ -141,6 +141,31 @@ def test_intermediate_outputs_from_attribute():
     assert trace.data.intermediate_outputs == intermediate_outputs
 
 
+def test_intermediate_outputs_from_spans():
+    @mlflow.trace()
+    def retrieved_documents():
+        return ["document 1", "document 2"]
+
+    @mlflow.trace()
+    def llm(i):
+        return f"Hi, this is LLM {i}"
+
+    @mlflow.trace()
+    def predict():
+        retrieved_documents()
+        llm(1)
+        llm(2)
+
+    predict()
+    trace = mlflow.get_last_active_trace()
+
+    assert trace.data.intermediate_outputs == {
+        "retrieved_documents": ["document 1", "document 2"],
+        "llm_1": "Hi, this is LLM 1",
+        "llm_2": "Hi, this is LLM 2",
+    }
+
+
 def test_intermediate_outputs_no_value():
     def run():
         with mlflow.start_span(name="run") as span:
