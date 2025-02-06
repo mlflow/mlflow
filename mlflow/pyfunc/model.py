@@ -477,7 +477,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     **Authoring a ChatAgent**
 
     Authoring an agent using the ChatAgent  interface is a framework-agnostic way to create a model
-    with a  standardized interface that is loggable with the MLFlow pyfunc flavor, can be reused
+    with a  standardized interface that is loggable with the MLflow pyfunc flavor, can be reused
     across clients, and is ready for serving workloads.
 
     To write your own agent, subclass `ChatAgent`, implementing the `predict` and optionally
