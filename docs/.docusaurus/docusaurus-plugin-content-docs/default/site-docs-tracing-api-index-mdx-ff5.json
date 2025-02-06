@@ -1,0 +1,27 @@
+{
+  "id": "tracing/api/index",
+  "title": "MLflow Tracing SDK",
+  "description": "",
+  "source": "@site/docs/tracing/api/index.mdx",
+  "sourceDirName": "tracing/api",
+  "slug": "/tracing/api/",
+  "permalink": "/tracing/api/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "sidebar_position": 5,
+    "sidebar_label": "APIs"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Add New Integration",
+    "permalink": "/tracing/integrations/contribute"
+  },
+  "next": {
+    "title": "Manual Tracing",
+    "permalink": "/tracing/api/manual-instrumentation"
+  }
+}

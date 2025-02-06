@@ -1,0 +1,26 @@
+{
+  "id": "projects/index",
+  "title": "MLflow Projects",
+  "description": "An MLflow Project is a format for packaging data science code in a reusable and reproducible way,",
+  "source": "@site/docs/projects/index.mdx",
+  "sourceDirName": "projects",
+  "slug": "/projects/",
+  "permalink": "/projects/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 13,
+  "frontMatter": {
+    "sidebar_position": 13
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Access Control",
+    "permalink": "/auth/"
+  },
+  "next": {
+    "title": "MLflow Plugins",
+    "permalink": "/plugins/"
+  }
+}

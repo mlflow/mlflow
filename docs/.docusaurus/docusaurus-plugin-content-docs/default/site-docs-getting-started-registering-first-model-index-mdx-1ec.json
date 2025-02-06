@@ -1,0 +1,23 @@
+{
+  "id": "getting-started/registering-first-model/index",
+  "title": "Tutorial Overview",
+  "description": "The MLflow Model Registry has several core components:",
+  "source": "@site/docs/getting-started/registering-first-model/index.mdx",
+  "sourceDirName": "getting-started/registering-first-model",
+  "slug": "/getting-started/registering-first-model/",
+  "permalink": "/getting-started/registering-first-model/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Hyperparameter Tuning Tutorial",
+    "permalink": "/getting-started/quickstart-2/"
+  },
+  "next": {
+    "title": "Register a Model",
+    "permalink": "/getting-started/registering-first-model/step1-register-model/"
+  }
+}

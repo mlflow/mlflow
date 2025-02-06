@@ -1,0 +1,27 @@
+{
+  "id": "traditional-ml/index",
+  "title": "Traditional ML",
+  "description": "In the dynamic landscape of machine learning, traditional techniques remain foundational, playing pivotal roles across various industries",
+  "source": "@site/docs/traditional-ml/index.mdx",
+  "sourceDirName": "traditional-ml",
+  "slug": "/traditional-ml/",
+  "permalink": "/traditional-ml/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 0,
+  "frontMatter": {
+    "sidebar_position": 0,
+    "sidebar_label": "Overview"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Tensorflow within MLflow",
+    "permalink": "/deep-learning/tensorflow/guide/"
+  },
+  "next": {
+    "title": "Overview",
+    "permalink": "/traditional-ml/"
+  }
+}

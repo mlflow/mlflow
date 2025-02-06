@@ -1,0 +1,27 @@
+{
+  "id": "llms/sentence-transformers/index",
+  "title": "MLflow Sentence-Transformers Flavor",
+  "description": "The sentence-transformers flavor is under active development and is marked as Experimental. Public APIs are subject to change,",
+  "source": "@site/docs/llms/sentence-transformers/index.mdx",
+  "sourceDirName": "llms/sentence-transformers",
+  "slug": "/llms/sentence-transformers/",
+  "permalink": "/llms/sentence-transformers/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 0,
+  "frontMatter": {
+    "sidebar_position": 0,
+    "sidebar_label": "Overview"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Storage Optimization",
+    "permalink": "/llms/transformers/large-models/"
+  },
+  "next": {
+    "title": "Overview",
+    "permalink": "/llms/sentence-transformers/"
+  }
+}

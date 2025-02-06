@@ -1,0 +1,23 @@
+{
+  "id": "llms/deployments/index",
+  "title": "MLflow AI Gateway (Experimental)",
+  "description": "MLflow AI Gateway does not support Windows.",
+  "source": "@site/docs/llms/deployments/index.mdx",
+  "sourceDirName": "llms/deployments",
+  "slug": "/llms/deployments/",
+  "permalink": "/llms/deployments/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Develop ML model with MLflow and deploy to Kubernetes",
+    "permalink": "/deployment/deploy-model-to-kubernetes/tutorial/"
+  },
+  "next": {
+    "title": "Access Control",
+    "permalink": "/auth/"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "quickstart_drilldown/index",
+  "title": "Quickstart options and troubleshooting",
+  "description": "{/ Eventually, these H2s will probably all be separate articles. For now, I'm",
+  "source": "@site/docs/quickstart_drilldown/index.mdx",
+  "sourceDirName": "quickstart_drilldown",
+  "slug": "/quickstart_drilldown/",
+  "permalink": "/quickstart_drilldown/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "sidebar_custom_props": {
+      "hide": true
+    }
+  }
+}

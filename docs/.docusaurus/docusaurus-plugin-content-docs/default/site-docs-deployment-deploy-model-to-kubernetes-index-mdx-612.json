@@ -1,0 +1,26 @@
+{
+  "id": "deployment/deploy-model-to-kubernetes/index",
+  "title": "Deploy MLflow Model to Kubernetes",
+  "description": "Using MLServer as the Inference Server",
+  "source": "@site/docs/deployment/deploy-model-to-kubernetes/index.mdx",
+  "sourceDirName": "deployment/deploy-model-to-kubernetes",
+  "slug": "/deployment/deploy-model-to-kubernetes/",
+  "permalink": "/deployment/deploy-model-to-kubernetes/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Deploy MLflow Model to Amazon SageMaker",
+    "permalink": "/deployment/deploy-model-to-sagemaker/"
+  },
+  "next": {
+    "title": "Develop ML model with MLflow and deploy to Kubernetes",
+    "permalink": "/deployment/deploy-model-to-kubernetes/tutorial/"
+  }
+}

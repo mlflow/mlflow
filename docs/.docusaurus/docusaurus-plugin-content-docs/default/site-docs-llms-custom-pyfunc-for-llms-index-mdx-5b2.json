@@ -1,0 +1,23 @@
+{
+  "id": "llms/custom-pyfunc-for-llms/index",
+  "title": "Deploying Advanced LLMs with Custom PyFuncs in MLflow",
+  "description": "Advanced Large Language Models (LLMs) such as the MPT-7B instruct transformer are intricate and have requirements that don't align with",
+  "source": "@site/docs/llms/custom-pyfunc-for-llms/index.mdx",
+  "sourceDirName": "llms/custom-pyfunc-for-llms",
+  "slug": "/llms/custom-pyfunc-for-llms/",
+  "permalink": "/llms/custom-pyfunc-for-llms/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Advanced Guide",
+    "permalink": "/llms/chat-model-guide/"
+  },
+  "next": {
+    "title": "What is RAG?",
+    "permalink": "/llms/rag/"
+  }
+}

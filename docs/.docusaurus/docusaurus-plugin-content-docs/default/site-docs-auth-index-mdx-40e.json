@@ -1,0 +1,26 @@
+{
+  "id": "auth/index",
+  "title": "MLflow Authentication",
+  "description": "This feature is still experimental and may change in a future release without warning.",
+  "source": "@site/docs/auth/index.mdx",
+  "sourceDirName": "auth",
+  "slug": "/auth/",
+  "permalink": "/auth/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 18,
+  "frontMatter": {
+    "sidebar_position": 18
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "MLflow AI Gateway",
+    "permalink": "/llms/deployments/"
+  },
+  "next": {
+    "title": "MLflow Projects",
+    "permalink": "/projects/"
+  }
+}

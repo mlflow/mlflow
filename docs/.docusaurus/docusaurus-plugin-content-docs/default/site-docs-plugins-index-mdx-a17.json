@@ -1,0 +1,22 @@
+{
+  "id": "plugins/index",
+  "title": "MLflow Plugins",
+  "description": "As a framework-agnostic tool for machine learning, the MLflow Python API provides developer APIs for",
+  "source": "@site/docs/plugins/index.mdx",
+  "sourceDirName": "plugins",
+  "slug": "/plugins/",
+  "permalink": "/plugins/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 17,
+  "frontMatter": {
+    "sidebar_position": 17
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "MLflow Projects",
+    "permalink": "/projects/"
+  }
+}

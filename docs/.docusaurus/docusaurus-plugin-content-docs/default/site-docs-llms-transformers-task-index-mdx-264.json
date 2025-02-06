@@ -1,0 +1,27 @@
+{
+  "id": "llms/transformers/task/index",
+  "title": "Tasks in MLflow Transformers Flavor",
+  "description": "This page provides an overview of how to use the task parameter in the MLflow Transformers flavor to control",
+  "source": "@site/docs/llms/transformers/task/index.mdx",
+  "sourceDirName": "llms/transformers/task",
+  "slug": "/llms/transformers/task/",
+  "permalink": "/llms/transformers/task/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "sidebar_label": "Task"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Detailed Guide",
+    "permalink": "/llms/transformers/guide/"
+  },
+  "next": {
+    "title": "Storage Optimization",
+    "permalink": "/llms/transformers/large-models/"
+  }
+}

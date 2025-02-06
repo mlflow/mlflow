@@ -1,0 +1,27 @@
+{
+  "id": "model/index",
+  "title": "MLflow Models",
+  "description": "An MLflow Model is a standard format for packaging machine learning models that can be used in a",
+  "source": "@site/docs/model/index.mdx",
+  "sourceDirName": "model",
+  "slug": "/model/",
+  "permalink": "/model/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 0,
+  "frontMatter": {
+    "sidebar_label": "Overview",
+    "sidebar_position": 0
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "System Metrics",
+    "permalink": "/system-metrics/"
+  },
+  "next": {
+    "title": "Model Signature",
+    "permalink": "/model/signatures/"
+  }
+}

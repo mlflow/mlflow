@@ -1,0 +1,23 @@
+{
+  "id": "llms/rag/index",
+  "title": "Retrieval Augmented Generation (RAG)",
+  "description": "Retrieval Augmented Generation (RAG) is a powerful and efficient approach to natural",
+  "source": "@site/docs/llms/rag/index.mdx",
+  "sourceDirName": "llms/rag",
+  "slug": "/llms/rag/",
+  "permalink": "/llms/rag/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "More Customization",
+    "permalink": "/llms/custom-pyfunc-for-llms/"
+  },
+  "next": {
+    "title": "Explore RAG Tutorials",
+    "permalink": "/llms/rag/notebooks/"
+  }
+}

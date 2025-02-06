@@ -1,0 +1,14 @@
+{
+  "id": "llms/llm-evaluate/notebooks/index",
+  "title": "LLM Evaluation Examples",
+  "description": "The notebooks listed below contain step-by-step tutorials on how to use MLflow to evaluate LLMs.",
+  "source": "@site/docs/llms/llm-evaluate/notebooks/index.mdx",
+  "sourceDirName": "llms/llm-evaluate/notebooks",
+  "slug": "/llms/llm-evaluate/notebooks/",
+  "permalink": "/llms/llm-evaluate/notebooks/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

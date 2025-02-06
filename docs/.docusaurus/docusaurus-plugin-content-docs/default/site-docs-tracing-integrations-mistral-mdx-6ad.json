@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/mistral",
+  "title": "Tracing Mistral",
+  "description": "Mistral tracing via autolog",
+  "source": "@site/docs/tracing/integrations/mistral.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/mistral",
+  "permalink": "/tracing/integrations/mistral",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10.5,
+  "frontMatter": {
+    "sidebar_position": 10.5,
+    "sidebar_label": "Mistral"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Ollama",
+    "permalink": "/tracing/integrations/ollama"
+  },
+  "next": {
+    "title": "Groq",
+    "permalink": "/tracing/integrations/groq"
+  }
+}

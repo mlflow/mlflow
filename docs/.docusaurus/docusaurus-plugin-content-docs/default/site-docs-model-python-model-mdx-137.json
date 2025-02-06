@@ -1,0 +1,27 @@
+{
+  "id": "model/python_model",
+  "title": "MLflow PythonModel Guide",
+  "description": "Introduction to MLflow PythonModel",
+  "source": "@site/docs/model/python_model.mdx",
+  "sourceDirName": "model",
+  "slug": "/model/python_model",
+  "permalink": "/model/python_model",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_label": "Custom Python Model",
+    "sidebar_position": 4
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Models From Code",
+    "permalink": "/model/models-from-code/"
+  },
+  "next": {
+    "title": "MLflow Recipes",
+    "permalink": "/recipes/"
+  }
+}

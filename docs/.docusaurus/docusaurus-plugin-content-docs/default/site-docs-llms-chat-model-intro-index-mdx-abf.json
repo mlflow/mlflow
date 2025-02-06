@@ -1,0 +1,23 @@
+{
+  "id": "llms/chat-model-intro/index",
+  "title": "Tutorial: Getting Started with ChatModel",
+  "description": "MLflow's ChatModel class provides a standardized way to create production-ready conversational AI models.",
+  "source": "@site/docs/llms/chat-model-intro/index.mdx",
+  "sourceDirName": "llms/chat-model-intro",
+  "slug": "/llms/chat-model-intro/",
+  "permalink": "/llms/chat-model-intro/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Detailed Guides",
+    "permalink": "/llms/sentence-transformers/guide/"
+  },
+  "next": {
+    "title": "Advanced Guide",
+    "permalink": "/llms/chat-model-guide/"
+  }
+}

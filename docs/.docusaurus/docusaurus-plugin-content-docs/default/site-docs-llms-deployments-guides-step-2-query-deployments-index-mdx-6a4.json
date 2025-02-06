@@ -1,0 +1,14 @@
+{
+  "id": "llms/deployments/guides/step2-query-deployments/index",
+  "title": "Querying endpoints in the MLflow Deployment Server",
+  "description": "Now that the deployment server is operational, it's time to send it some data. You can interact with the",
+  "source": "@site/docs/llms/deployments/guides/step2-query-deployments/index.mdx",
+  "sourceDirName": "llms/deployments/guides/step2-query-deployments",
+  "slug": "/llms/deployments/guides/step2-query-deployments/",
+  "permalink": "/llms/deployments/guides/step2-query-deployments/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

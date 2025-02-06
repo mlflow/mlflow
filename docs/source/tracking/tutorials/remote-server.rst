@@ -133,7 +133,7 @@ Create a file named ``compose.yaml`` with the following content:
         entrypoint: >
           bash -c "
           mc alias set minio http://minio:9000 minio_user minio_password &&
-          if ! mc ls minio | grep --quiet bucket; then
+          if ! mc ls minio/bucket; then
             mc mb minio/bucket
           else
             echo 'bucket already exists'

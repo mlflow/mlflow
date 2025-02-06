@@ -1,0 +1,25 @@
+{
+  "id": "tracking/backend-stores/index",
+  "title": "Backend Stores",
+  "description": "The backend store is a core component in MLflow Tracking where MLflow stores metadata for",
+  "source": "@site/docs/tracking/backend-stores/index.mdx",
+  "sourceDirName": "tracking/backend-stores",
+  "slug": "/tracking/backend-stores/",
+  "permalink": "/tracking/backend-stores/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "sidebar_label": "Backend Store"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Artifact Store",
+    "permalink": "/tracking/artifacts-stores/"
+  },
+  "next": {
+    "title": "Tracking Experiments with a Local Database",
+    "permalink": "/tracking/tutorials/local-database/"
+  }
+}

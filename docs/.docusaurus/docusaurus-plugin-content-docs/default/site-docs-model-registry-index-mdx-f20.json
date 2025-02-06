@@ -1,0 +1,27 @@
+{
+  "id": "model-registry/index",
+  "title": "MLflow Model Registry",
+  "description": "The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to",
+  "source": "@site/docs/model-registry/index.mdx",
+  "sourceDirName": "model-registry",
+  "slug": "/model-registry/",
+  "permalink": "/model-registry/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 15,
+  "frontMatter": {
+    "sidebar_position": 15,
+    "toc_max_heading_level": 4
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "MLflow Dataset",
+    "permalink": "/dataset/"
+  },
+  "next": {
+    "title": "Overview",
+    "permalink": "/deployment/"
+  }
+}
