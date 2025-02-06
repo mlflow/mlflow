@@ -111,7 +111,7 @@ completes successfully. You may encounter a `{{"message":"not found"}}` error wh
 a page. If so, add `/index.html` to the URL.
 
 - [Top page]({top_page})
-- [Changed pages]({changed_pages})
+- [Changed pages]({changed_pages}) (⚠️ only MDX file changes are detected ⚠️)
 
 <details>
 <summary>More info</summary>
