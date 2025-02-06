@@ -454,24 +454,14 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     **Streaming Agent Output with ChatAgent**
 
-    The ChatAgent interface has a few streaming specific behaviors that are required by us and assumed by our helper LangChainChatAgent and LangGraphChatAgent classes.
-
-    - Streamed messages must be of the type :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, with one message per chunk
-    - The ``custom_outputs`` key is meant to only be written to once during your agent's response. Old values will be overwritten in our LangGraphChatAgent example below.
-    - Messages from the same “node” of your ChatAgent should have the same ID. The content field of the message and usage stats of the :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by the consuming client. See the example below.
-
-    .. code-block:: python
-
-        {"message": {"role": "assistant", "content": "Born", "id": "123"}}
-        {"message": {"role": "assistant", "content": " in", "id": "123"}}
-        {"message": {"role": "assistant", "content": " data", "id": "123"}}
+    Please read the docstring of :py:func:`ChatAgent.predict_stream <mlflow.pyfunc.ChatAgent.predict_stream>` for more details on how to stream the output of your agent.
 
 
     **Authoring a ChatAgent**
 
     Authoring an agent using the ChatAgent  interface is a framework-agnostic way to create a model with a  standardized interface that is loggable with the MLFlow pyfunc flavor, can be reused across clients, and is ready for serving workloads.
 
-    After creating an agent with any framework, you can wrap the framework's querying method with predict and predict_stream methods with the signature below that takes pydantic models. You can convert these Pydantic models back to dictionaries with `model_dump_compat` depending on what input format your framework of choice uses.
+    To write your own agent, subclass `ChatAgent`, implementing the `predict` and optionally `predict_stream` methods to define the non-streaming and streaming behavior of your agent. You can use any agent authoring framework - the only hard requirement is to implement the `predict` interface
 
     .. code-block:: python
 
@@ -482,9 +472,19 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             custom_inputs: Optional[dict[str, Any]] = None,
             ) -> ChatAgentResponse:
 
-    You can call the predict and predict_stream either with 3 pydantic models or a single dict that is of the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease of testing.
+    In addition to calling predict and predict_stream methods with an input matching their type hints, you can also use a single dict that is of the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease of testing.
 
-    See the `LangChainChatAgent example <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langchain.py>`_ or the `LangGraphChatAgent example <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langgraph.py>`_.
+    .. code-block:: python
+
+        chat_agent = ChatAgent()
+        chat_agent.predict(
+            {
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }
+        )
+
+    See example implementations of ``predict`` and ``predict_stream`` in the `LangChainChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langchain.py>`_ or the `LangGraphChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langgraph.py>`_ class.
 
     **Logging the ChatAgent**
 
@@ -772,7 +772,18 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         """
         Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
         in a single dict with a ChatAgentRequest schema.
-        Override this function to implement a real stream prediction.
+
+        To support streaming the output of your agent, override this method in your subclass of ``ChatAgent``. When implementing ``predict_stream``, keep in mind the following requirements:
+
+        - Ensure your implementation adheres to the ``predict_stream`` type signature. For example, streamed messages must be of the type :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains partial output from a single response message.
+        - At most one chunk in a particular response can contain the ``custom_outputs`` key. MLflow utilities like ``LangGraphChatAgent`` assume this behavior, and do not have well-defined behavior if multiple chunks in the same response contain ``custom_outputs``
+        - Chunks containing partial content of a single response message must have the same ``id``. The content field of the message and usage stats of the :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by the consuming client. See the example below.
+
+        .. code-block:: python
+
+            {"message": {"role": "assistant", "content": "Born", "id": "123"}}
+            {"message": {"role": "assistant", "content": " in", "id": "123"}}
+            {"message": {"role": "assistant", "content": " data", "id": "123"}}
 
 
         Args:
