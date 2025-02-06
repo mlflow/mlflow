@@ -67,7 +67,7 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, 
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
-from tests.tracing.helper import get_traces, score_in_model_serving
+from tests.tracing.helper import get_traces, purge_traces, score_in_model_serving
 
 MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
@@ -1130,7 +1130,6 @@ def test_langchain_autolog_extra_model_classes_warning():
         mock_warning.assert_not_called()
 
 
-@pytest.mark.skip(reason="This test is not thread safe, please run locally")
 def test_set_retriever_schema_work_for_langchain_model():
     set_retriever_schema(
         primary_key="primary-key",
@@ -1139,7 +1138,7 @@ def test_set_retriever_schema_work_for_langchain_model():
         other_columns=["column1", "column2"],
     )
 
-    model = create_openai_llmchain()
+    model = create_openai_runnable()
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
 
@@ -1148,8 +1147,18 @@ def test_set_retriever_schema_work_for_langchain_model():
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     pyfunc_model.predict("MLflow")
 
-    trace = mlflow.get_last_active_trace()
-    assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags
+    traces = get_traces()
+    assert len(traces) == 1
+    assert DependenciesSchemasType.RETRIEVERS.value in traces[0].info.tags
+
+    purge_traces()
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    list(pyfunc_model.predict_stream("MLflow"))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert DependenciesSchemasType.RETRIEVERS.value in traces[0].info.tags
 
 
 def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed():
