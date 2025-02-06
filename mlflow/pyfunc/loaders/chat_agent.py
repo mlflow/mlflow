@@ -82,7 +82,7 @@ class _ChatAgentPyfuncWrapper:
             ) from e
         return response
 
-    def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
+    def predict(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
         """
         Args:
             model_input: A dict with the
@@ -96,7 +96,9 @@ class _ChatAgentPyfuncWrapper:
         response = self.chat_agent.predict(messages, context, custom_inputs)
         return self._response_to_dict(response, ChatAgentResponse)
 
-    def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
+    def predict_stream(
+        self, model_input: dict[str, Any], params=None
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
             model_input: A dict with the
