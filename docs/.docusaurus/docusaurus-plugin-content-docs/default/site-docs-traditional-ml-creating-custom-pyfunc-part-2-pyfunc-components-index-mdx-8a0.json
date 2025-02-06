@@ -1,0 +1,26 @@
+{
+  "id": "traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/index",
+  "title": "Understanding PyFunc in MLflow",
+  "description": "In the realm of MLflow, while named flavors offer specific functionalities tailored to popular frameworks, there are situations and",
+  "source": "@site/docs/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/index.mdx",
+  "sourceDirName": "traditional-ml/creating-custom-pyfunc/part2-pyfunc-components",
+  "slug": "/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/",
+  "permalink": "/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Models, Flavors, and PyFuncs in MLflow",
+    "permalink": "/traditional-ml/creating-custom-pyfunc/part1-named-flavors/"
+  },
+  "next": {
+    "title": "Full Notebooks",
+    "permalink": "/traditional-ml/creating-custom-pyfunc/notebooks/"
+  }
+}

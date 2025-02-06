@@ -1,0 +1,26 @@
+{
+  "id": "getting-started/index",
+  "title": "Getting Started with MLflow",
+  "description": "For those new to MLflow or seeking a refresher on its core functionalities, the",
+  "source": "@site/docs/getting-started/index.mdx",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/",
+  "permalink": "/getting-started/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "MLflow",
+    "permalink": "/"
+  },
+  "next": {
+    "title": "Quickstart",
+    "permalink": "/getting-started/intro-quickstart/"
+  }
+}

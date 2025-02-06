@@ -1,0 +1,23 @@
+{
+  "id": "getting-started/tracking-server-overview/index",
+  "title": "5 Minute Tracking Server Overview",
+  "description": "In this guide we will walk you through how to view your MLflow experiment results with different types of",
+  "source": "@site/docs/getting-started/tracking-server-overview/index.mdx",
+  "sourceDirName": "getting-started/tracking-server-overview",
+  "slug": "/getting-started/tracking-server-overview/",
+  "permalink": "/getting-started/tracking-server-overview/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Load a Registered Model",
+    "permalink": "/getting-started/registering-first-model/step3-load-model/"
+  },
+  "next": {
+    "title": "LLM / GenAI",
+    "permalink": "/llms/"
+  }
+}

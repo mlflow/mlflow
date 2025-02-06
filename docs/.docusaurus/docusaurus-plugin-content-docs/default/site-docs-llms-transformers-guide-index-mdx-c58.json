@@ -1,0 +1,27 @@
+{
+  "id": "llms/transformers/guide/index",
+  "title": "🤗 Transformers within MLflow",
+  "description": "The transformers flavor is in active development and is marked as Experimental. Public APIs may change and new features are",
+  "source": "@site/docs/llms/transformers/guide/index.mdx",
+  "sourceDirName": "llms/transformers/guide",
+  "slug": "/llms/transformers/guide/",
+  "permalink": "/llms/transformers/guide/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_label": "Detailed Guide",
+    "sidebar_position": 2
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Tutorials",
+    "permalink": "/llms/transformers/tutorials/"
+  },
+  "next": {
+    "title": "Task",
+    "permalink": "/llms/transformers/task/"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs/index",
+  "title": "Understanding Parent and Child Runs in MLflow",
+  "description": "Introduction",
+  "source": "@site/docs/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs/index.mdx",
+  "sourceDirName": "traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs",
+  "slug": "/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs/",
+  "permalink": "/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2,
+    "sidebar_label": "The Parent-Child relationship with runs"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Full Notebooks",
+    "permalink": "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/"
+  },
+  "next": {
+    "title": "Logging plots with MLflow",
+    "permalink": "/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots/"
+  }
+}

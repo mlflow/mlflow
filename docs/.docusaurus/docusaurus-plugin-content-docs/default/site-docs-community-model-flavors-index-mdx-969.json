@@ -1,0 +1,17 @@
+{
+  "id": "community-model-flavors/index",
+  "title": "Community Model Flavors",
+  "description": "Other useful MLflow flavors are developed and maintained by the",
+  "source": "@site/docs/community-model-flavors/index.mdx",
+  "sourceDirName": "community-model-flavors",
+  "slug": "/community-model-flavors/",
+  "permalink": "/community-model-flavors/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 27,
+  "frontMatter": {
+    "sidebar_position": 27
+  }
+}

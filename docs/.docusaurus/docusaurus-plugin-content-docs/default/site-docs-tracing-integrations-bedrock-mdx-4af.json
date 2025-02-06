@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/bedrock",
+  "title": "Tracing Amazon Bedrock with MLflow",
+  "description": "MLflow supports automatic tracing for Amazon Bedrock, a fully managed service on AWS that provides high-performing",
+  "source": "@site/docs/tracing/integrations/bedrock.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/bedrock",
+  "permalink": "/tracing/integrations/bedrock",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4.5,
+  "frontMatter": {
+    "sidebar_position": 4.5,
+    "sidebar_label": "Bedrock"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "LlamaIndex",
+    "permalink": "/tracing/integrations/llama_index"
+  },
+  "next": {
+    "title": "DSPy",
+    "permalink": "/tracing/integrations/dspy"
+  }
+}

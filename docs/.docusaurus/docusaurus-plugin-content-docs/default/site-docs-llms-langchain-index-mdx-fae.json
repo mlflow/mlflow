@@ -1,0 +1,23 @@
+{
+  "id": "llms/langchain/index",
+  "title": "MLflow LangChain Flavor",
+  "description": "The langchain flavor is under active development and is marked as Experimental. Public APIs are",
+  "source": "@site/docs/llms/langchain/index.mdx",
+  "sourceDirName": "llms/langchain",
+  "slug": "/llms/langchain/",
+  "permalink": "/llms/langchain/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Detailed Guide",
+    "permalink": "/llms/openai/guide/"
+  },
+  "next": {
+    "title": "MLflow Langchain Autologging",
+    "permalink": "/llms/langchain/autologging"
+  }
+}

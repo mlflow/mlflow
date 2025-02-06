@@ -1,0 +1,23 @@
+{
+  "id": "getting-started/registering-first-model/step3-load-model/index",
+  "title": "Load a Registered Model",
+  "description": "To perform inference on a registered model version, we need to load it into memory. There are many",
+  "source": "@site/docs/getting-started/registering-first-model/step3-load-model/index.mdx",
+  "sourceDirName": "getting-started/registering-first-model/step3-load-model",
+  "slug": "/getting-started/registering-first-model/step3-load-model/",
+  "permalink": "/getting-started/registering-first-model/step3-load-model/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Explore the Registered Model",
+    "permalink": "/getting-started/registering-first-model/step2-explore-registered-model/"
+  },
+  "next": {
+    "title": "5 Minute Tracking Server Overview",
+    "permalink": "/getting-started/tracking-server-overview/"
+  }
+}

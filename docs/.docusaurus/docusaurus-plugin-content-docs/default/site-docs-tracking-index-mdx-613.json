@@ -1,0 +1,27 @@
+{
+  "id": "tracking/index",
+  "title": "MLflow Tracking",
+  "description": "The MLflow Tracking is an API and UI for logging parameters, code versions, metrics, and output files",
+  "source": "@site/docs/tracking/index.mdx",
+  "sourceDirName": "tracking",
+  "slug": "/tracking/",
+  "permalink": "/tracking/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 0,
+  "frontMatter": {
+    "sidebar_label": "Overview",
+    "sidebar_position": 0
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model",
+    "permalink": "/traditional-ml/serving-multiple-models-with-pyfunc/"
+  },
+  "next": {
+    "title": "Overview",
+    "permalink": "/tracking/"
+  }
+}

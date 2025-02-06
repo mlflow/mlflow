@@ -1,0 +1,18 @@
+{
+  "id": "new-features/index",
+  "title": "New Features",
+  "description": "<NewFeatureCard",
+  "source": "@site/docs/new-features/index.mdx",
+  "sourceDirName": "new-features",
+  "slug": "/new-features/",
+  "permalink": "/new-features/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "hide_table_of_contents": true
+  }
+}

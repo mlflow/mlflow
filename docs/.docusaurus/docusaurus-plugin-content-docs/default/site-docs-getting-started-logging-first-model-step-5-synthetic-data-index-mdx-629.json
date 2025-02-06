@@ -1,0 +1,17 @@
+{
+  "id": "getting-started/logging-first-model/step5-synthetic-data/index",
+  "title": "Create a dataset about apples",
+  "description": "In order to produce some meaningful data (and a model) for us to log to MLflow, we'll need a dataset.",
+  "source": "@site/docs/getting-started/logging-first-model/step5-synthetic-data/index.mdx",
+  "sourceDirName": "getting-started/logging-first-model/step5-synthetic-data",
+  "slug": "/getting-started/logging-first-model/step5-synthetic-data/",
+  "permalink": "/getting-started/logging-first-model/step5-synthetic-data/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "sidebar_position": 5
+  }
+}

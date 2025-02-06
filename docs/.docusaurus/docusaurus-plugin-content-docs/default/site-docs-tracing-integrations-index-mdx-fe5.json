@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/index",
+  "title": "Auto Tracing Integrations",
+  "description": "MLflow Tracing is integrated with various GenAI libraries and provide one-line automatic tracing experience for each library (and the combination of them!). Click on the icon below to see detailed examples to integrate MLflow with your favorite library.",
+  "source": "@site/docs/tracing/integrations/index.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/",
+  "permalink": "/tracing/integrations/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "sidebar_label": "Integrations"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Data Structure",
+    "permalink": "/tracing/tracing-schema"
+  },
+  "next": {
+    "title": "OpenAI",
+    "permalink": "/tracing/integrations/openai"
+  }
+}

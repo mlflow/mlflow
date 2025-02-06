@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/gemini",
+  "title": "Tracing Gemini",
+  "description": "OpenAI Tracing via autolog",
+  "source": "@site/docs/tracing/integrations/gemini.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/gemini",
+  "permalink": "/tracing/integrations/gemini",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 9,
+  "frontMatter": {
+    "sidebar_position": 9,
+    "sidebar_label": "Gemini"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Swarm",
+    "permalink": "/tracing/integrations/swarm"
+  },
+  "next": {
+    "title": "Ollama",
+    "permalink": "/tracing/integrations/ollama"
+  }
+}

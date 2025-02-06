@@ -1,0 +1,26 @@
+{
+  "id": "traditional-ml/creating-custom-pyfunc/index",
+  "title": "Building Custom Python Function Models with MLflow",
+  "description": "MLflow offers a wide range of pre-defined model flavors, but there are instances where you'd want to go",
+  "source": "@site/docs/traditional-ml/creating-custom-pyfunc/index.mdx",
+  "sourceDirName": "traditional-ml/creating-custom-pyfunc",
+  "slug": "/traditional-ml/creating-custom-pyfunc/",
+  "permalink": "/traditional-ml/creating-custom-pyfunc/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Logging plots with MLflow",
+    "permalink": "/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots/"
+  },
+  "next": {
+    "title": "Models, Flavors, and PyFuncs in MLflow",
+    "permalink": "/traditional-ml/creating-custom-pyfunc/part1-named-flavors/"
+  }
+}

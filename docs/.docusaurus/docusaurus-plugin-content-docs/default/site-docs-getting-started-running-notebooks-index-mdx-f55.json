@@ -1,0 +1,26 @@
+{
+  "id": "getting-started/running-notebooks/index",
+  "title": "How to Run Tutorials",
+  "description": "This brief guide will walk you through some options that you have to run these tutorials and have a Tracking Server that is available to log the results to (as well",
+  "source": "@site/docs/getting-started/running-notebooks/index.mdx",
+  "sourceDirName": "getting-started/running-notebooks",
+  "slug": "/getting-started/running-notebooks/",
+  "permalink": "/getting-started/running-notebooks/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Quickstart",
+    "permalink": "/getting-started/intro-quickstart/"
+  },
+  "next": {
+    "title": "Databricks Community Edition",
+    "permalink": "/getting-started/community-edition/"
+  }
+}

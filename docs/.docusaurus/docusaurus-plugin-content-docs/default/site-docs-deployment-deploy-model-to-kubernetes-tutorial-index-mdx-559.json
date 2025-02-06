@@ -1,0 +1,23 @@
+{
+  "id": "deployment/deploy-model-to-kubernetes/tutorial/index",
+  "title": "Develop ML model with MLflow and deploy to Kubernetes",
+  "description": "This tutorial assumes that you have access to a Kubernetes cluster. However, you can also complete this tutorial on your local machine",
+  "source": "@site/docs/deployment/deploy-model-to-kubernetes/tutorial/index.mdx",
+  "sourceDirName": "deployment/deploy-model-to-kubernetes/tutorial",
+  "slug": "/deployment/deploy-model-to-kubernetes/tutorial/",
+  "permalink": "/deployment/deploy-model-to-kubernetes/tutorial/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Deploy MLflow Model to Kubernetes",
+    "permalink": "/deployment/deploy-model-to-kubernetes/"
+  },
+  "next": {
+    "title": "MLflow AI Gateway",
+    "permalink": "/llms/deployments/"
+  }
+}

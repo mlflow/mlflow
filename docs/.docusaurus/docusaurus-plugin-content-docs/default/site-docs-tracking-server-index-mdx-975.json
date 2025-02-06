@@ -1,0 +1,25 @@
+{
+  "id": "tracking/server/index",
+  "title": "MLflow Tracking Server",
+  "description": "MLflow tracking server is a stand-alone HTTP server that serves multiple REST API endpoints for tracking runs/experiments.",
+  "source": "@site/docs/tracking/server/index.mdx",
+  "sourceDirName": "tracking/server",
+  "slug": "/tracking/server/",
+  "permalink": "/tracking/server/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "sidebar_label": "Tracking Server"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Auto Logging",
+    "permalink": "/tracking/autolog/"
+  },
+  "next": {
+    "title": "Artifact Store",
+    "permalink": "/tracking/artifacts-stores/"
+  }
+}

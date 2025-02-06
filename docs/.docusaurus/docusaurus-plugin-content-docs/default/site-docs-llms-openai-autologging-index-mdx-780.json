@@ -1,0 +1,27 @@
+{
+  "id": "llms/openai/autologging/index",
+  "title": "MLflow OpenAI Autologging",
+  "description": "The OpenAI flavor for MLflow supports autologging to ensure that experimentation, testing, and validation of your ideas can be captured dynamically without",
+  "source": "@site/docs/llms/openai/autologging/index.mdx",
+  "sourceDirName": "llms/openai/autologging",
+  "slug": "/llms/openai/autologging/",
+  "permalink": "/llms/openai/autologging/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_label": "Autologging",
+    "sidebar_position": 2
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Tutorials",
+    "permalink": "/llms/openai/notebooks/"
+  },
+  "next": {
+    "title": "Detailed Guide",
+    "permalink": "/llms/openai/guide/"
+  }
+}

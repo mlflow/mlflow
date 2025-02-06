@@ -1,0 +1,23 @@
+{
+  "id": "index",
+  "title": "MLflow: A Tool for Managing the Machine Learning Lifecycle",
+  "description": "MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in",
+  "source": "@site/docs/index.mdx",
+  "sourceDirName": ".",
+  "slug": "/",
+  "permalink": "/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_label": "MLflow",
+    "sidebar_position": 1
+  },
+  "sidebar": "docsSidebar",
+  "next": {
+    "title": "Getting Started with MLflow",
+    "permalink": "/getting-started/"
+  }
+}

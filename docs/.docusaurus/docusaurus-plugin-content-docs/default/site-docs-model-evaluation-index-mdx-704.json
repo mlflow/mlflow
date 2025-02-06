@@ -1,0 +1,26 @@
+{
+  "id": "model-evaluation/index",
+  "title": "Model Evaluation",
+  "description": "Harnessing the Power of Automation",
+  "source": "@site/docs/model-evaluation/index.mdx",
+  "sourceDirName": "model-evaluation",
+  "slug": "/model-evaluation/",
+  "permalink": "/model-evaluation/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 7,
+  "frontMatter": {
+    "sidebar_position": 7
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "MLflow Recipes",
+    "permalink": "/recipes/"
+  },
+  "next": {
+    "title": "Overview",
+    "permalink": "/tracing/"
+  }
+}

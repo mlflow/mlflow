@@ -1,0 +1,23 @@
+{
+  "id": "getting-started/registering-first-model/step2-explore-registered-model/index",
+  "title": "Explore the Registered Model",
+  "description": "Now that we've logged an experiment and registered the model associated with that experiment run,",
+  "source": "@site/docs/getting-started/registering-first-model/step2-explore-registered-model/index.mdx",
+  "sourceDirName": "getting-started/registering-first-model/step2-explore-registered-model",
+  "slug": "/getting-started/registering-first-model/step2-explore-registered-model/",
+  "permalink": "/getting-started/registering-first-model/step2-explore-registered-model/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Register a Model",
+    "permalink": "/getting-started/registering-first-model/step1-register-model/"
+  },
+  "next": {
+    "title": "Load a Registered Model",
+    "permalink": "/getting-started/registering-first-model/step3-load-model/"
+  }
+}

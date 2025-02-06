@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/openai",
+  "title": "Tracing OpenAI",
+  "description": "OpenAI Tracing via autolog",
+  "source": "@site/docs/tracing/integrations/openai.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/openai",
+  "permalink": "/tracing/integrations/openai",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "sidebar_label": "OpenAI"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Integrations",
+    "permalink": "/tracing/integrations/"
+  },
+  "next": {
+    "title": "LangChain",
+    "permalink": "/tracing/integrations/langchain"
+  }
+}

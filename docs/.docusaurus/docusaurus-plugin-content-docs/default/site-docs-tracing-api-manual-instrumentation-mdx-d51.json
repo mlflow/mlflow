@@ -1,0 +1,27 @@
+{
+  "id": "tracing/api/manual-instrumentation",
+  "title": "Manual Tracing",
+  "description": "In addition to the Auto Tracing integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.",
+  "source": "@site/docs/tracing/api/manual-instrumentation.mdx",
+  "sourceDirName": "tracing/api",
+  "slug": "/tracing/api/manual-instrumentation",
+  "permalink": "/tracing/api/manual-instrumentation",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "sidebar_label": "Manual Tracing"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "APIs",
+    "permalink": "/tracing/api/"
+  },
+  "next": {
+    "title": "Query Traces",
+    "permalink": "/tracing/api/search"
+  }
+}

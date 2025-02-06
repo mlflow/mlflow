@@ -1,0 +1,16 @@
+{
+  "id": "getting-started/logging-first-model/index",
+  "title": "Tutorial Overview",
+  "description": "In this entry point tutorial to MLflow, we'll be covering the essential basics of core MLflow functionality associated",
+  "source": "@site/docs/getting-started/logging-first-model/index.mdx",
+  "sourceDirName": "getting-started/logging-first-model",
+  "slug": "/getting-started/logging-first-model/",
+  "permalink": "/getting-started/logging-first-model/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "sidebar-position": 3
+  }
+}

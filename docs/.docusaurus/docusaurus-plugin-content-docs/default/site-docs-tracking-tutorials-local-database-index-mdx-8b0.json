@@ -1,0 +1,23 @@
+{
+  "id": "tracking/tutorials/local-database/index",
+  "title": "Tracking Experiments with a Local Database",
+  "description": "In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run data to local files,",
+  "source": "@site/docs/tracking/tutorials/local-database/index.mdx",
+  "sourceDirName": "tracking/tutorials/local-database",
+  "slug": "/tracking/tutorials/local-database/",
+  "permalink": "/tracking/tutorials/local-database/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Backend Store",
+    "permalink": "/tracking/backend-stores/"
+  },
+  "next": {
+    "title": "Remote Experiment Tracking with MLflow Tracking Server",
+    "permalink": "/tracking/tutorials/remote-server/"
+  }
+}

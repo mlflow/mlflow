@@ -1,0 +1,27 @@
+{
+  "id": "tracing/integrations/groq",
+  "title": "Tracing Groq",
+  "description": "Groq tracing via autolog",
+  "source": "@site/docs/tracing/integrations/groq.mdx",
+  "sourceDirName": "tracing/integrations",
+  "slug": "/tracing/integrations/groq",
+  "permalink": "/tracing/integrations/groq",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 11,
+  "frontMatter": {
+    "sidebar_position": 11,
+    "sidebar_label": "Groq"
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Mistral",
+    "permalink": "/tracing/integrations/mistral"
+  },
+  "next": {
+    "title": "Instructor",
+    "permalink": "/tracing/integrations/instructor"
+  }
+}

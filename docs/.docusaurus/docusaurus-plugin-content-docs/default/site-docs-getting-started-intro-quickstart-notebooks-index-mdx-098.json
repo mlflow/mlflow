@@ -1,0 +1,14 @@
+{
+  "id": "getting-started/intro-quickstart/notebooks/index",
+  "title": "MLflow Tracking Quickstart Notebook",
+  "description": "Welcome to the MLflow Tracking Quickstart! The notebook-based companion to the quickstart guide is tailored to help you quickly",
+  "source": "@site/docs/getting-started/intro-quickstart/notebooks/index.mdx",
+  "sourceDirName": "getting-started/intro-quickstart/notebooks",
+  "slug": "/getting-started/intro-quickstart/notebooks/",
+  "permalink": "/getting-started/intro-quickstart/notebooks/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

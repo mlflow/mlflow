@@ -1,0 +1,23 @@
+{
+  "id": "tracking/tutorials/remote-server/index",
+  "title": "Remote Experiment Tracking with MLflow Tracking Server",
+  "description": "In this tutorial, you will learn how to set up MLflow Tracking environment for team development using the MLflow Tracking Server.",
+  "source": "@site/docs/tracking/tutorials/remote-server/index.mdx",
+  "sourceDirName": "tracking/tutorials/remote-server",
+  "slug": "/tracking/tutorials/remote-server/",
+  "permalink": "/tracking/tutorials/remote-server/",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Tracking Experiments with a Local Database",
+    "permalink": "/tracking/tutorials/local-database/"
+  },
+  "next": {
+    "title": "Search Runs",
+    "permalink": "/search-runs/"
+  }
+}
