@@ -451,6 +451,10 @@ Including a signature with your model in MLflow is straightforward. Simply provi
 call to either the log_model or save_model functions, such as with :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. MLflow will then 
 automatically infer the model's signature based on this input example and the model's predicted output for the given example.
 
+.. tip::
+    Starting MLflow 2.20.0, model signature is automatically inferred when logging a PythonModel with type hints. Check 
+    `PythonModel with type hints guidance <./python_model.html#type-hint-usage-in-pythonmodel>`_ for more details.
+
 Alternatively, you can explicitly attach a signature object to your model. This is done by passing a :py:class:`signature object <mlflow.models.ModelSignature>` 
 to your log_model or save_model function. You can manually create a model signature object or use the :py:func:`infer_signature <mlflow.models.infer_signature>` 
 function to generate it from datasets with valid model inputs (for instance, a training dataset minus the target column), valid model outputs (such as 
