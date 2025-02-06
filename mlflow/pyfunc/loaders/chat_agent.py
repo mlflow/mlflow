@@ -87,6 +87,8 @@ class _ChatAgentPyfuncWrapper:
         Args:
             model_input: A dict with the
                 :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function, but required in the signature because
+                `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
             A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
@@ -103,6 +105,8 @@ class _ChatAgentPyfuncWrapper:
         Args:
             model_input: A dict with the
                 :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function, but required in the signature because
+                `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
             A generator over dicts with the
