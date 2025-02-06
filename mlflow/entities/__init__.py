@@ -13,6 +13,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.metric import Metric
+from mlflow.entities.model_registry import Prompt
 from mlflow.entities.param import Param
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
@@ -34,6 +35,7 @@ __all__ = [
     "FileInfo",
     "Metric",
     "Param",
+    "Prompt",
     "Run",
     "RunData",
     "RunInfo",

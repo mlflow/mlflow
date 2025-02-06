@@ -36,6 +36,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.store.model_registry.prompt.utils import add_prompt_filter_string
 from mlflow.utils.file_utils import (
     contains_path_separator,
     contains_percent,
@@ -343,7 +344,11 @@ class FileStore(AbstractStore):
         return registered_models
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -374,6 +379,9 @@ class FileStore(AbstractStore):
                 f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
+
+        # Adjust filter string to exclude prompts by default
+        filter_string = add_prompt_filter_string(filter_string)
 
         registered_models = self._list_all_registered_models()
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)

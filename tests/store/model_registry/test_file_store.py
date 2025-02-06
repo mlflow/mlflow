@@ -10,6 +10,7 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -1642,3 +1643,57 @@ def test_writing_model_version_preserves_storage_location(store):
         store._fetch_file_model_version_if_exists("test_storage_location_new", 1).storage_location
         == source
     )
+
+
+def test_search_prompts(store):
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_registered_model(
+        "prompt_2",
+        tags=[
+            RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            RegisteredModelTag(key="fruit", value="apple"),
+        ],
+    )
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+
+    # By default, should not return prompts
+    rms = store.search_registered_models(max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
+    assert len(rms) == 0
+
+    # Search for prompts
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(rms) == 2
+    assert {rm.name for rm in rms} == {"prompt_1", "prompt_2"}
+
+    rms = store.search_registered_models(
+        filter_string="name = 'prompt_1' and tags.`mlflow.prompt.is_prompt` = 'true'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_1"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_2"
+
+    # Search for non-prompts
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
