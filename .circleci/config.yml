@@ -73,6 +73,14 @@ jobs:
           command: |
             python dev/show_package_release_dates.py
       - run:
+          command: |
+            while true; do
+              sleep 5
+              ps auxwwf
+              echo "======"
+            done
+          background: true
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
