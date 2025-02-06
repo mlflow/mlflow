@@ -1040,10 +1040,8 @@ class Model:
             registered_model = mlflow.tracking._model_registry.fluent._register_model(
                 f"models:/{model.model_id}",
                 registered_model_name,
-                await_registration_for=await_registration_for,
-                # local_model_path=local_path,
+                await_registration_for=await_registration_for
             )
-            # registered_model = mlflow.register_model(f"models:/{model.model_id}", name=registered_model_name,await_registration_for=await_registration_for)
         model_info = mlflow_model.get_model_info(model)
         if registered_model is not None:
             model_info.registered_model_version = registered_model.version
