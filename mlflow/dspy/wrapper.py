@@ -39,7 +39,6 @@ class DspyModelWrapper(PythonModel):
         import numpy as np
         import pandas as pd
 
-        dspy.settings.configure(**self.dspy_settings)
 
         supported_input_types = (np.ndarray, pd.DataFrame, str, dict)
         if not isinstance(inputs, supported_input_types):
@@ -62,10 +61,11 @@ class DspyModelWrapper(PythonModel):
             # Return the output as a dict for serving simplicity.
             return self.model(inputs).toDict()
 
-        if isinstance(inputs, dict):
-            return self.model(**inputs).toDict()
-        if isinstance(inputs, str):
-            return self.model(inputs).toDict()
+        with dspy.context(**self.dspy_settings):
+            if isinstance(inputs, dict):
+                return self.model(**inputs).toDict()
+            if isinstance(inputs, str):
+                return self.model(inputs).toDict()
 
 
 class DspyChatModelWrapper(DspyModelWrapper):
@@ -74,10 +74,6 @@ class DspyChatModelWrapper(DspyModelWrapper):
     def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
         import dspy
         import pandas as pd
-
-        # `dspy.settings` cannot be shared across threads, so we are setting it at every predict
-        # call.
-        dspy.settings.configure(**self.dspy_settings)
 
         if isinstance(inputs, dict):
             converted_inputs = inputs["messages"]
@@ -90,7 +86,11 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 INVALID_PARAMETER_VALUE,
             )
 
-        outputs = self.model(converted_inputs)
+
+        # `dspy.settings` cannot be shared across threads, so we are setting the context at every
+        # predict call.
+        with dspy.context(**self.dspy_settings):
+            outputs = self.model(converted_inputs)
 
         choices = []
         if isinstance(outputs, str):
