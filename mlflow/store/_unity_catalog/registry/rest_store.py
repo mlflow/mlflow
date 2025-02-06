@@ -146,6 +146,10 @@ def _load_model(local_model_dir):
     # this file during store registry initialization
     from mlflow.models.model import Model
 
+    import os
+    # print out the files in the local_model_dir
+    print(os.listdir(local_model_dir))
+
     try:
         return Model.load(local_model_dir)
     except Exception as e:
