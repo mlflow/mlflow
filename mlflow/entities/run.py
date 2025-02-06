@@ -71,9 +71,8 @@ class Run(_MlflowObject):
             run.data.MergeFrom(self.data.to_proto())
         if self.inputs:
             run.inputs.MergeFrom(self.inputs.to_proto())
-        # TODO: Support proto conversion for RunOutputs
-        # if self.outputs:
-        #     run.outputs.MergeFrom(self.outputs.to_proto())
+        if self.outputs:
+            run.outputs.MergeFrom(self.outputs.to_proto())
         return run
 
     @classmethod
@@ -82,8 +81,7 @@ class Run(_MlflowObject):
             RunInfo.from_proto(proto.info),
             RunData.from_proto(proto.data),
             RunInputs.from_proto(proto.inputs) if proto.inputs else None,
-            # TODO: Support proto conversion for RunOutputs
-            # RunOutputs.from_proto(proto.outputs) if proto.outputs else None,
+            RunOutputs.from_proto(proto.outputs) if proto.outputs else None,
         )
 
     def to_dictionary(self) -> dict[Any, Any]:

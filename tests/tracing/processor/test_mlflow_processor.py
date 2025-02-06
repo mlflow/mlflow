@@ -175,6 +175,29 @@ def test_on_start_during_run(monkeypatch):
     )
 
 
+def test_on_start_with_experiment_id_override(monkeypatch):
+    mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
+
+    mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
+
+    mock_logger = mock.MagicMock()
+    monkeypatch.setattr("mlflow.tracing.processor.mlflow._logger", mock_logger)
+
+    processor = MlflowSpanProcessor(
+        span_exporter=mock.MagicMock(), client=mock_client, experiment_id="another_experiment"
+    )
+
+    processor.on_start(create_mock_otel_span(trace_id=123, span_id=1))
+
+    mock_client._start_tracked_trace.assert_called_once_with(
+        experiment_id="another_experiment",
+        timestamp_ms=mock.ANY,
+        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags=mock.ANY,
+    )
+
+
 def test_on_start_warns_default_experiment(monkeypatch):
     mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
 

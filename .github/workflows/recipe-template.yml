@@ -87,6 +87,7 @@ jobs:
           cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
   recipe-windows:
     runs-on: windows-latest
+    timeout-minutes: 120
     permissions: {}
     steps:
       - uses: actions/checkout@v4

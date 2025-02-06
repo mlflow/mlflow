@@ -1,0 +1,235 @@
+<head>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/xcode.min.css"
+  />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>
+    hljs.highlightAll();
+  </script>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto,
+        Helvetica Neue, Arial, Noto Sans, sans-serif, Apple Color Emoji,
+        Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+      margin: 0;
+      font-weight: 400;
+      font-size: 13px;
+      line-height: 18px;
+      color: rgb(17, 23, 28);
+    }
+    code {
+      line-height: 18px;
+      font-size: 11px;
+      background: rgb(250, 250, 250) !important;
+    }
+    pre {
+      background: rgb(250, 250, 250);
+      margin: 0;
+      display: none;
+    }
+    pre.active {
+      display: unset;
+    }
+    button {
+      white-space: nowrap;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+      background: rgba(34, 114, 180, 0) !important;
+      color: rgb(34, 114, 180) !important;
+      border-color: rgba(34, 114, 180, 0) !important;
+      padding: 4px 6px !important;
+      text-decoration: none !important;
+      line-height: 20px !important;
+      box-shadow: none !important;
+      height: 32px !important;
+      display: inline-flex !important;
+      -webkit-box-align: center !important;
+      align-items: center !important;
+      -webkit-box-pack: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+    }
+    p {
+      margin: 0;
+      padding: 0;
+    }
+    button:hover {
+      background: rgba(34, 114, 180, 0.08) !important;
+      color: rgb(14, 83, 139) !important;
+    }
+    button:active {
+      background: rgba(34, 114, 180, 0.16) !important;
+      color: rgb(4, 53, 93) !important;
+    }
+    h1 {
+      margin-top: 4px;
+      font-size: 22px;
+    }
+    .info {
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 16px;
+      color: rgb(95, 114, 129);
+    }
+    .tabs {
+      margin-top: 10px;
+      border-bottom: 1px solid rgb(209, 217, 225) !important;
+      display: flex;
+      line-height: 24px;
+    }
+    .tab {
+      font-size: 13px;
+      font-weight: 600 !important;
+      cursor: pointer;
+      margin: 0 24px 0 2px;
+      padding-left: 2px;
+    }
+    .tab:hover {
+      color: rgb(14, 83, 139) !important;
+    }
+    .tab.active {
+      border-bottom: 3px solid rgb(34, 114, 180) !important;
+    }
+    .link {
+      margin-left: 12px;
+      display: inline-block;
+      text-decoration: none;
+      color: rgb(34, 114, 180) !important;
+      font-size: 13px;
+      font-weight: 400;
+    }
+    .link:hover {
+      color: rgb(14, 83, 139) !important;
+    }
+    .link-content {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .caret-up {
+      transform: rotate(180deg);
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; align-items: center">
+    The logged model is compatible with the Mosaic AI Agent Framework.
+    <button onclick="toggleCode()">
+      See how to evaluate the model&nbsp;
+      <span
+        role="img"
+        id="caret"
+        aria-hidden="true"
+        class="anticon css-6xix1i"
+        style="font-size: 14px"
+        ><svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="1em"
+          height="1em"
+          fill="none"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+          class=""
+        >
+          <path
+            fill="currentColor"
+            fill-rule="evenodd"
+            d="M8 8.917 10.947 6 12 7.042 8 11 4 7.042 5.053 6z"
+            clip-rule="evenodd"
+          ></path>
+        </svg>
+      </span>
+    </button>
+  </div>
+  <div id="code" style="display: none">
+    <h1>
+      Agent evaluation
+      <a
+        class="link"
+        href="https://docs.databricks.com/en/generative-ai/agent-evaluation/synthesize-evaluation-set.html?utm_source=mlflow.log_model&utm_medium=notebook"
+        target="_blank"
+      >
+        <span class="link-content">
+          Learn more
+          <span role="img" aria-hidden="true" class="anticon css-6xix1i"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="1em"
+              height="1em"
+              fill="none"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+              class=""
+            >
+              <path
+                fill="currentColor"
+                d="M10 1h5v5h-1.5V3.56L8.53 8.53 7.47 7.47l4.97-4.97H10z"
+              ></path>
+              <path
+                fill="currentColor"
+                d="M1 2.75A.75.75 0 0 1 1.75 2H8v1.5H2.5v10h10V8H14v6.25a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75z"
+              ></path></svg></span></span
+      ></a>
+    </h1>
+    <p class="info">
+      Copy the following code snippet in a notebook cell (right click → copy)
+    </p>
+    <div class="tabs">
+      <div class="tab active" onclick="tabClicked(0)">Using synthetic data</div>
+      <div class="tab" onclick="tabClicked(1)">Using your own dataset</div>
+    </div>
+    <div style="height: 472px">
+      <pre
+        class="active"
+      ><code class="language-python">{{ eval_with_synthetic_code }}</code></pre>
+
+      <pre><code class="language-python">{{ eval_with_dataset_code }}</code></pre>
+    </div>
+  </div>
+  <script>
+    var codeShown = false;
+    function clip(el) {
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    function toggleCode() {
+      if (codeShown) {
+        document.getElementById("code").style.display = "none";
+        codeShown = false;
+      } else {
+        document.getElementById("code").style.display = "block";
+        clip(document.querySelector("pre.active"));
+        codeShown = true;
+      }
+      document.getElementById("caret").classList.toggle("caret-up");
+    }
+
+    function tabClicked(tabIndex) {
+      document.querySelectorAll(".tab").forEach((tab, index) => {
+        if (index === tabIndex) {
+          tab.classList.add("active");
+        } else {
+          tab.classList.remove("active");
+        }
+      });
+      document.querySelectorAll("pre").forEach((pre, index) => {
+        if (index === tabIndex) {
+          pre.classList.add("active");
+        } else {
+          pre.classList.remove("active");
+        }
+      });
+      clip(document.querySelector("pre.active"));
+    }
+  </script>
+</body>

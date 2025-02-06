@@ -1,5 +1,6 @@
 import urllib.parse
-from typing import NamedTuple, Optional
+from pathlib import Path
+from typing import NamedTuple, Optional, Union
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
@@ -47,7 +48,7 @@ class ParsedModelUri(NamedTuple):
     alias: Optional[str] = None
 
 
-def _parse_model_uri(uri):
+def _parse_model_uri(uri) -> ParsedModelUri:
     """
     Returns a ParsedModelUri tuple. Since a models:/ URI can only have one of
     {version, stage, 'latest', alias}, it will return
@@ -93,7 +94,7 @@ def _parse_model_uri(uri):
         return ParsedModelUri(parts[0])
 
 
-def _parse_model_id_if_present(possible_model_uri: str) -> Optional[str]:
+def _parse_model_id_if_present(possible_model_uri: Union[str, Path]) -> Optional[str]:
     """
     Parses the model ID from the given string. If the string is not a models:/ URI, returns None.
 
@@ -103,8 +104,9 @@ def _parse_model_id_if_present(possible_model_uri: str) -> Optional[str]:
     Returns:
         The model ID if the string is a models:/ URI, otherwise None.
     """
-    if is_models_uri(possible_model_uri):
-        parsed_model_uri = _parse_model_uri(possible_model_uri)
+    uri = str(possible_model_uri)
+    if is_models_uri(uri):
+        parsed_model_uri = _parse_model_uri(uri)
         return parsed_model_uri.model_id
 
     return None

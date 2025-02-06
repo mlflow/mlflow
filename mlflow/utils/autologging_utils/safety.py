@@ -613,9 +613,9 @@ def safe_patch(
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
-                    assert (
-                        not mlflow.active_run()
-                    ), f"Autologging integration {autologging_integration} leaked an active run"
+                    assert not mlflow.active_run(), (
+                        f"Autologging integration {autologging_integration} leaked an active run"
+                    )
                     if patch_function_run_for_testing:
                         _validate_autologging_run(
                             autologging_integration, patch_function_run_for_testing.info.run_id
@@ -821,9 +821,9 @@ def _validate_autologging_run(autologging_integration, run_id):
         f"Autologging run with id {run_id} failed to set autologging tag with expected value. "
         f"Expected: '{autologging_integration}', Actual: '{autologging_tag_value}'"
     )
-    assert RunStatus.is_terminated(
-        RunStatus.from_string(run.info.status)
-    ), f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
+    assert RunStatus.is_terminated(RunStatus.from_string(run.info.status)), (
+        f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
+    )
 
 
 class ValidationExemptArgument(typing.NamedTuple):
@@ -987,9 +987,9 @@ def _validate_args(
         autologging_call_input, user_call_input
     ):
         length_diff = len(autologging_call_input) - len(user_call_input)
-        assert (
-            length_diff >= 0
-        ), f"{length_diff} expected inputs are missing from the call to the original function."
+        assert length_diff >= 0, (
+            f"{length_diff} expected inputs are missing from the call to the original function."
+        )
 
     def _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input):
         assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
@@ -1022,10 +1022,10 @@ def _validate_args(
             _validate_new_input(autologging_call_input)
             return
 
-        assert type(autologging_call_input) == type(
-            user_call_input
-        ), "Type of input to original function '{}' does not match expected type '{}'".format(
-            type(autologging_call_input), type(user_call_input)
+        assert type(autologging_call_input) == type(user_call_input), (
+            "Type of input to original function '{}' does not match expected type '{}'".format(
+                type(autologging_call_input), type(user_call_input)
+            )
         )
 
         if type(autologging_call_input) in [list, tuple]:

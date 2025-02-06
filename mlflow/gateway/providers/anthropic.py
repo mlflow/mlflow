@@ -58,14 +58,23 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        # Example response:
+        # API reference: https://docs.anthropic.com/en/api/messages#body-messages
         #
+        # Example response:
         # ```
         # {
         #   "content": [
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "source": {
+        #       "type": "base64",
+        #       "media_type": "image/jpeg",
+        #       "data": "/9j/4AAQSkZJRg...",
+        #       "type": "image",
+        #       }
         #     }
         #   ],
         #   "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
@@ -80,6 +89,8 @@ class AnthropicAdapter(ProviderAdapter):
         #   }
         # }
         # ```
+        from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
 
         return chat.ResponsePayload(
@@ -90,13 +101,13 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
+                    # TODO: Remove this casting once
+                    # https://github.com/mlflow/mlflow/pull/14160 is merged
                     message=chat.ResponseMessage(
-                        role="assistant",
-                        content=c["text"],
+                        **convert_message_to_mlflow_chat(resp).model_dump_compat()
                     ),
                     finish_reason=stop_reason,
                 )
-                for c in resp["content"]
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=resp["usage"]["input_tokens"],

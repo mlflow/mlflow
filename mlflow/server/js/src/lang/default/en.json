@@ -495,6 +495,10 @@
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
   },
+  "7Y0hIS": {
+    "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
+    "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
+  },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
@@ -2810,10 +2814,6 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
-  },
-  "tNySO0": {
-    "defaultMessage": "Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
-    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
   },
   "tbAlJg": {
     "defaultMessage": "Go to external location",

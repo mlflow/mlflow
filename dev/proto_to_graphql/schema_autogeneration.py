@@ -94,7 +94,7 @@ def generate_schema(state):
         for i in range(len(enum.values)):
             value = enum.values[i]
             # enum indices start from 1
-            schema_builder += f"""\n{INDENT}{value.name} = {i+1}"""
+            schema_builder += f"""\n{INDENT}{value.name} = {i + 1}"""
         schema_builder += "\n\n"
 
     for type in state.types:

@@ -55,7 +55,7 @@ class SpanEvent(_MlflowObject):
                 tb = traceback.format_exception(error.__class__, error, error.__traceback__)
             else:
                 tb = traceback.format_exception(error)
-            return (msg + "\n\n".join(tb)).strip()
+            return "".join(tb).strip()
         except Exception:
             return msg
 

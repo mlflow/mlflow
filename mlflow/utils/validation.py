@@ -9,7 +9,10 @@ import posixpath
 import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
+from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_TRUNCATE_LONG_VALUES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -113,6 +116,10 @@ def invalid_value(path, value, message=None):
 
 def missing_value(path):
     return f"Missing value for required parameter '{path}'."
+
+
+def not_integer_value(path, value):
+    return f"Parameter '{path}' must be an integer, got '{value}'."
 
 
 def exceeds_maximum_length(path, limit):
@@ -463,7 +470,12 @@ def _validate_experiment_id_type(experiment_id):
 
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
-        raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_renaming(model_new_name):
+    if model_new_name is None or model_new_name == "":
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version(model_version):
@@ -471,8 +483,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            f"Model version must be an integer, got '{model_version}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -609,3 +620,14 @@ def _validate_trace_tag(key, value):
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
     value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value
+
+
+def _validate_experiment_artifact_location_length(artifact_location: str):
+    max_length = MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.get()
+    if len(artifact_location) > max_length:
+        raise MlflowException(
+            "Invalid artifact path length. The length of the artifact path cannot be "
+            f"greater than {max_length} characters. To configure this limit, please set the "
+            "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )

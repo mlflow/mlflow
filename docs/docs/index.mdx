@@ -1,0 +1,300 @@
+---
+sidebar_label: MLflow
+sidebar_position: 1
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import Platform from "@site/src/content/platform.mdx"
+
+# MLflow: A Tool for Managing the Machine Learning Lifecycle
+
+MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in
+handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for
+machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
+
+## MLflow Getting Started Resources
+
+If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to
+enhance your learning in area-specific guides and tutorials.
+
+<Tabs>
+  <TabItem value="learn-about-mlflow" label="Learn about MLflow" default>
+    <div class="flex-column">
+      ### Learn about the core components of MLflow
+
+      <div class="flex-row">
+        <div class="flex-item">
+          #### Quickstarts
+
+          Get Started with MLflow in our [5-minute tutorial](/getting-started/intro-quickstart)
+
+          #### Guides
+
+          Learn the core components of MLflow with [this in-depth guide to Tracking](/getting-started/logging-first-model)
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Core Components](/images/intro/learn-core-components.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="mlflow-basics" label="MLflow Basics">
+    <div class="flex-column">
+      ### Learn how to perform common tasks in MLflow
+
+      <div class="flex-row">
+        <div class="flex-item">
+          #### Guides
+
+          [Autologging tutorial](/tracking/autolog) for effortless model tracking
+
+          [Model Signatures](/model/signatures) and type validation in MLflow
+
+          [Model Deployment Quickstart](/getting-started/quickstart-2)
+
+          [Hyperparameter tuning](/traditional-ml/hyperparameter-tuning-with-child-runs) with MLflow
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Model Development Lifecycle](/images/intro/model-dev-lifecycle.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="mlflow-models-introduction" label="MLflow Models Introduction">
+    <div class="flex-column">
+      ### Learn about MLflow Model-related topics
+
+      <div class="flex-row">
+        <div class="flex-item">
+          #### Guides
+
+          Introduction to [Custom Python Models](/traditional-ml/creating-custom-pyfunc)
+
+          [Model dependency management](/model/dependencies) in MLflow
+
+          [Model Signatures](/model/signatures) and type validation
+        </div>
+
+        <div class="flex-item padding-md">
+          ![MLflow Model Topics](/images/intro/model-topics.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="genai-quickstarts" label="GenAI Quickstarts">
+    <div class="flex-column">
+      ### Get started with MLflow's GenAI integrations
+
+      <div class="flex-row">
+        <div class="flex-item">
+          #### Quickstarts
+
+          [Transformers](/llms/transformers/tutorials/text-generation/text-generation)
+          Text Generation
+
+          [LangChain](/llms/langchain/notebooks/langchain-quickstart)
+
+          Introductory Tutorial [Sentence Transformers](/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart) Basic Embedding Tutorial
+
+          [OpenAI](/llms/openai/notebooks/openai-quickstart) Quickstart Tutorial
+        </div>
+
+        <div class="flex-item padding-md">
+          ![GenAI with MLflow](/images/intro/genai-integrations.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="deep-learning-quickstarts" label="Deep Learning Quickstarts">
+    <div class="flex-column">
+      ### Get started with MLflow's Deep Learning Library integrations
+
+      <div class="flex-row">
+        <div class="flex-item">
+          #### Quickstarts
+
+          [TensorFlow](/deep-learning/tensorflow/quickstart/quickstart_tensorflow)
+
+          [PyTorch](/deep-learning/pytorch/quickstart/pytorch_quickstart)
+
+          [Keras](/deep-learning/keras/quickstart/quickstart_keras)
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Deep Learning with MLflow](/images/intro/mlflow-deep-learning.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+</Tabs>
+
+## GenAI and MLflow
+
+Explore the comprehensive GenAI-focused support in MLflow. From MLflow Deployments for GenAI models to the Prompt Engineering UI and native GenAI-focused MLflow flavors like open-ai, transformers, and sentence-transformers, the tutorials and guides here will help to get you started in leveraging the benefits of these powerful models, services, and applications. You’ll learn how MLflow simplifies both using GenAI models and developing solutions that leverage them. Important tasks such as prompt development, evaluation of prompts, comparison of foundation models, fine-tuning, logging, and deploying production-grade inference servers are all covered by MLflow.
+
+Explore the guides and tutorials below to start your journey!
+
+<Tabs>
+  <TabItem value="genai-integrations" label="GenAI Integrations">
+    <div class="flex-column">
+      ### Explore the Native MLflow GenAI Integrations
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          [![Hugging Face Transformers](/images/logos/huggingface-logo.svg)](/llms/transformers)
+
+          Transformers
+        </div>
+
+        <div class="flex-item padding-md">
+          [![OpenAI](/images/logos/openai-logo.png)](/llms/openai)
+
+          OpenAI
+        </div>
+
+        <div class="flex-item padding-md">
+          [![LangChain](/images/logos/langchain-logo.png)](/llms/langchain)
+
+          LangChain
+        </div>
+
+        <div class="flex-item padding-md">
+          [![LlamaIndex](/images/logos/llamaindex-logo.svg)](/llms/llama-index)
+
+          LlamaIndex
+        </div>
+
+        <div class="flex-item padding-md">
+          [![Sentence Transformers](/images/logos/sentence-transformers-logo.png)](/llms/sentence-transformers)
+
+          Sentence Transformers
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="tracing" label="Tracing">
+    <div class="flex-column">
+      ### Learn about how to instrument your GenAI Workloads with MLflow Tracing
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          #### Guides
+
+          * Learn how to leverage [Tracing](/tracing) in MLflow
+
+          * View the [Tracing Guide](/tracing/api/how-to) for more information on tracing
+
+          * Learn how to use MLflow autologging with [OpenAI](/llms/openai/autologging) for automated trace logging
+
+          * Discover the automated [LangChain trace logging](/llms/langchain/autologging) with MLflow autologging
+        </div>
+
+        <div class="flex-item padding-md">
+          ![MLflow Tracing](/images/llms/tracing/tracing-top.gif)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="prompt-engineering-ui" label="Prompt Engineering UI">
+    <div class="flex-column">
+      ### Explore the Prompt Engineering UI
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          #### Quickstarts
+
+          Learn how to use the [Prompt Engineering UI](/llms/prompt-engineering)
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Prompt Engineering UI](/images/intro/prompt-engineering-ui.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="mlflow-ai-gateway" label="MLflow AI Gateway">
+    <div class="flex-column">
+      ### Learn about managed access to GenAI services with the MLflow AI Gateway
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          #### Guides
+
+          Learn how to use the [MLflow AI Gateway](/llms/deployments/guides)
+
+          View the [in-depth Guide for the MLflow AI Gateway](/llms/deployments)
+        </div>
+
+        <div class="flex-item padding-md">
+          ![MLflow AI Gateway](/images/intro/deployments-server.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="genai-evaluation" label="GenAI Evaluation">
+    <div class="flex-column">
+      ### Learn about GenAI Evaluation
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          #### Guides
+
+          Learn how to [evaluate your GenAI applications](/llms/llm-evaluate) with MLflow
+
+          Discover how to use [MLflow Evaluate](/llms/prompt-engineering#step-10-evaluate-the-new-prompt-template-on-previous-inputs) with the Prompt Engineering UI
+        </div>
+
+        <div class="flex-item padding-md">
+          ![MLflow GenAI Evaluation](/images/intro/evaluate.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="rag" label="RAG">
+    <div class="flex-column">
+      ### Learn about using Retrieval Augmented Generation (RAG) with MLflow
+
+      <div class="flex-row">
+        <div class="flex-item padding-md">
+          #### Guides
+
+          Learn how to <a href="llms/rag">work with RAG systems</a> in MLflow
+
+          View the hands-on <a href="llms/langchain/notebooks/langchain-retriever.html">LangChain RAG Guide</a>
+        </div>
+
+        <div class="flex-item padding-md">
+          ![MLflow RAG](/images/intro/rag.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+</Tabs>
+
+## Running MLflow Anywhere
+
+<Platform />
