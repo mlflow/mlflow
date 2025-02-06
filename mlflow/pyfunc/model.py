@@ -492,7 +492,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             messages: list[ChatAgentMessage],
             context: Optional[ChatContext] = None,
             custom_inputs: Optional[dict[str, Any]] = None,
-            ) -> ChatAgentResponse:
+            ) -> ChatAgentResponse: ...
 
     In addition to calling predict and predict_stream methods with an input matching their type
     hints, you can also use a single dict that is of the
