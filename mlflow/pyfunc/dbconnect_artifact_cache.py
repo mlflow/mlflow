@@ -27,10 +27,11 @@ class DBConnectArtifactCache:
         db_artifact_cache = DBConnectArtifactCache.get_or_create()
         db_artifact_cache.add_artifact_archive("archive1", "/tmp/archive1.tar.gz")
 
+
         @pandas_udf(...)
-        def my_udf(...):
-           # we can get the unpacked archive files in `archive1_unpacked_dir`
-           archive1_unpacked_dir = db_artifact_cache.get("archive1")
+        def my_udf(x):
+            # we can get the unpacked archive files in `archive1_unpacked_dir`
+            archive1_unpacked_dir = db_artifact_cache.get("archive1")
     """
 
     _global_cache = None
