@@ -13,6 +13,7 @@ from mlflow.pyfunc.model import ChatAgent
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
+    CHAT_AGENT_INPUT_EXAMPLE,
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
     ChatAgentChunk,
@@ -137,10 +138,6 @@ def test_chat_agent_save_throws_with_signature(tmp_path):
                 inputs=Schema([ColSpec(name="test", type=DataType.string)]),
             ),
         )
-
-
-def mock_predict():
-    return "hello"
 
 
 @pytest.mark.parametrize(
@@ -366,3 +363,17 @@ def test_chat_agent_predict_wrapper():
         model.predict({"malformed dict": "bad"})
     with pytest.raises(MlflowException, match="Invalid dictionary input for a ChatAgent"):
         model.predict_stream({"malformed dict": "bad"})
+
+
+def test_chat_agent_predict_with_params(tmp_path):
+    model = SimpleChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert isinstance(loaded_model._model_impl, _ChatAgentPyfuncWrapper)
+    response = loaded_model.predict(CHAT_AGENT_INPUT_EXAMPLE, params=None)
+    assert response["messages"][0]["content"] == "Hello!"
+
+    responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
+    for i, resp in enumerate(responses[:-1]):
+        assert resp["delta"]["content"] == f"message {i}"
