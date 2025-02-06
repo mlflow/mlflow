@@ -287,6 +287,11 @@ class PythonModelContext:
 @experimental
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
+    .. tip::
+        Since MLflow 2.20.2, we recommend using :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`
+        instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
+        compatbility with the OpenAI ChatCompletion API.
+
     A subclass of :class:`~PythonModel` that makes it more convenient to implement models
     that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
     users can create MLflow models with a ``predict()`` method that is more convenient
@@ -402,9 +407,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     - Support multi-agent scenarios
 
     ``ChatAgent`` should always be used when authoring an agent. We also recommend using
-    ``ChatAgent`` instead of ``ChatModel`` even for use cases like simple chat models (e.g.
-    prompt-engineered LLMs), to give you the flexibility to support more agentic functionality in
-    the future.
+    ``ChatAgent`` instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` even for use cases
+    like simple chat models (e.g. prompt-engineered LLMs), to give you the flexibility to support
+    more agentic functionality in the future.
 
     The :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema is similar to,
     but not strictly compatible with the OpenAI ChatCompletion schema. ChatAgent adds additional
@@ -581,12 +586,12 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     :py:class:`ChatParams <mlflow.types.llm.ChatParams>` and outputs a
     :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`, do the following:
 
-    - Redefine your class
-    - Redefine functionality from ``load_context`` into the ``__init__`` method because we removed
-      the ``context`` param from ChatAgent's ``predict`` functionality.
+    - Subclass ``ChatAgent`` instead of ``ChatModel``
+    - Move any functionality from your ``ChatModel``'s ``load_context`` implementation into the
+      ``__init__`` method of your new ``ChatAgent``.
     - Use ``.model_dump_compat()`` instead of ``.to_dict()`` when converting your model's inputs to
-      dictionaries. Ex. [msg.model_dump_compat() for msg in messages] instead of [msg.to_dict() for
-      msg in messages]
+      dictionaries. Ex. ``[msg.model_dump_compat() for msg in messages]`` instead of
+      ``[msg.to_dict() for msg in messages]``
     - Return a :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` instead of a
       :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
 
@@ -632,149 +637,13 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
                 response = self.client.chat(model=self.model_name, messages=ollama_messages)
                 return ChatAgentResponse(**{"messages": [response["message"]]})
 
-    **Open Source LangGraph ChatAgent Example**
+    **ChatAgent Connectors**
 
-    MLflow provides convenience APIs for easily wrapping a LangGraph agent in ChatAgent. Here's an
-    example LangGraph ChatAgent implementation that that leverages those APIs:
+    MLflow provides convenience APIs for wrapping agents written in popular authoring frameworks
+    with ChatAgent. See examples for:
 
-    Step 1: Create the LangGraph Agent
+    - :py:class:`LangGraphChatAgent <mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent>`
 
-    This example is adapted from LangGraph's
-    `create_react_agent <https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/>`__
-    documentation.
-
-    The notable differences are changes to be ChatAgent compatible. They include:
-
-    - We use :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
-      which has an internal state of
-      :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
-      objects and a custom_outputs attribute under the hood
-    - We use :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
-      instead of LangGraph's ToolNode to enable returning attachments and custom_outputs from
-      LangChain tools and UnityCatalog Tools
-
-    .. code-block:: python
-
-        from typing import Optional, Sequence, Union
-
-        from langchain_core.language_models import LanguageModelLike
-        from langchain_core.runnables import RunnableConfig, RunnableLambda
-        from langchain_core.tools import BaseTool
-        from langgraph.graph import END, StateGraph
-        from langgraph.graph.graph import CompiledGraph
-        from langgraph.prebuilt.tool_executor import ToolExecutor
-        from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
-
-
-        def create_tool_calling_agent(
-            model: LanguageModelLike,
-            tools: Union[ToolExecutor, Sequence[BaseTool]],
-            agent_prompt: Optional[str] = None,
-        ) -> CompiledGraph:
-            model = model.bind_tools(tools)
-
-            def routing_logic(state: ChatAgentState):
-                last_message = state["messages"][-1]
-                if last_message.get("tool_calls"):
-                    return "continue"
-                else:
-                    return "end"
-
-            if agent_prompt:
-                system_message = {"role": "system", "content": agent_prompt}
-                preprocessor = RunnableLambda(
-                    lambda state: [system_message] + state["messages"]
-                )
-            else:
-                preprocessor = RunnableLambda(lambda state: state["messages"])
-            model_runnable = preprocessor | model
-
-            def call_model(
-                state: ChatAgentState,
-                config: RunnableConfig,
-            ):
-                response = model_runnable.invoke(state, config)
-
-                return {"messages": [response]}
-
-            workflow = StateGraph(ChatAgentState)
-
-            workflow.add_node("agent", RunnableLambda(call_model))
-            workflow.add_node("tools", ChatAgentToolNode(tools))
-
-            workflow.set_entry_point("agent")
-            workflow.add_conditional_edges(
-                "agent",
-                routing_logic,
-                {
-                    "continue": "tools",
-                    "end": END,
-                },
-            )
-            workflow.add_edge("tools", "agent")
-
-            return workflow.compile()
-
-    Step 2: Define the LLM and your tools
-
-    If you want to return attachments and custom_outputs from your tool, you can return a
-    dictionary with keys “content”, “attachments”, and “custom_outputs”. This dictionary will be
-    parsed out by the ChatAgentToolNode and properly stored in your LangGraph's state.
-
-
-    .. code-block:: python
-
-        from random import randint
-        from typing import Any
-
-        from databricks_langchain import ChatDatabricks
-        from langchain_core.tools import tool
-
-
-        @tool
-        def generate_random_ints(min: int, max: int, size: int) -> dict[str, Any]:
-            \"""Generate size random ints in the range [min, max].\"""
-            attachments = {"min": min, "max": max}
-            custom_outputs = [randint(min, max) for _ in range(size)]
-            content = f"Successfully generated array of {size} random ints in [{min}, {max}]."
-            return {
-                "content": content,
-                "attachments": attachments,
-                "custom_outputs": {"random_nums": custom_outputs},
-            }
-
-
-        mlflow.langchain.autolog()
-        tools = [generate_random_ints]
-        llm = ChatDatabricks(endpoint="databricks-meta-llama-3-3-70b-instruct")
-        langgraph_agent = create_tool_calling_agent(llm, tools)
-
-
-    Step 3: Wrap your LangGraph agent with ChatAgent
-
-    This makes your agent easily loggable and deployable with the PyFunc flavor in serving.
-
-    .. code-block:: python
-
-        from mlflow.langchain.chat_agent_langgraph import LangGraphChatAgent
-
-        chat_agent = LangGraphChatAgent(langgraph_agent)
-
-    Step 4: Test out your model
-
-    Call ``.predict()`` and ``.predict_stream`` with dictionaries with the ChatAgentRequest schema.
-
-    .. code-block:: python
-
-        chat_agent.predict({"messages": [{"role": "user", "content": "What is 10 + 10?"}]})
-
-        for event in chat_agent.predict_stream(
-            {"messages": [{"role": "user", "content": "Generate me a few random nums"}]}
-        ):
-            print(event)
-
-    This LangGraphChatAgent can be logged and served with the logging code described above in the
-    "Logging a ChatAgent" section.
     """
 
     _skip_type_hint_validation = True
@@ -800,8 +669,20 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         """
-        Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
-        in a single dict with a ChatAgentRequest schema.
+        Evaluates a ChatAgent input and produces a ChatAgent output. In addition to calling
+        ``predict`` with an input matching the type hints, you can also use a single dict that is
+        of the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease
+        of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            chat_agent.predict(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            )
 
         Args:
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
@@ -830,8 +711,21 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         """
-        Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
-        in a single dict with a ChatAgentRequest schema.
+        Evaluates a ChatAgent input and produces a ChatAgent output. In addition to calling
+        ``predict_stream`` with an input matching the type hints, you can also use a single dict
+        that is of the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema
+        for ease of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            for event in chat_agent.predict_stream(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            ):
+                print(event)
 
         To support streaming the output of your agent, override this method in your subclass of
         ``ChatAgent``. When implementing ``predict_stream``, keep in mind the following
@@ -841,9 +735,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
           streamed messages must be of the type
           :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains
           partial output from a single response message.
-        - At most one chunk in a particular response can contain the ``custom_outputs`` key. MLflow
-          utilities like ``LangGraphChatAgent`` assume this behavior, and do not have well-defined
-          behavior if multiple chunks in the same response contain ``custom_outputs``
+        - At most one chunk in a particular response can contain the ``custom_outputs`` key.
         - Chunks containing partial content of a single response message must have the same ``id``.
           The content field of the message and usage stats of the
           :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by
@@ -851,9 +743,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         .. code-block:: python
 
-            {"message": {"role": "assistant", "content": "Born", "id": "123"}}
-            {"message": {"role": "assistant", "content": " in", "id": "123"}}
-            {"message": {"role": "assistant", "content": " data", "id": "123"}}
+            {"delta": {"role": "assistant", "content": "Born", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " in", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " data", "id": "123"}}
 
 
         Args:

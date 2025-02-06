@@ -160,6 +160,150 @@ class LangGraphChatAgent(ChatAgent):
     """
     Helper class to wrap LangGraph agents as a ChatAgent. Use this class with
     :py:class:`ChatAgentState` and :py:class:`ChatAgentToolNode`.
+
+    **Open Source LangGraph ChatAgent Example**
+
+    MLflow provides convenience APIs for easily wrapping a LangGraph agent in ChatAgent. Here's an
+    example LangGraph ChatAgent implementation that that leverages those APIs:
+
+    Step 1: Create the LangGraph Agent
+
+    This example is adapted from LangGraph's
+    `create_react_agent <https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/>`__
+    documentation.
+
+    The notable differences are changes to be ChatAgent compatible. They include:
+
+    - We use :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
+      which has an internal state of
+      :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
+      objects and a custom_outputs attribute under the hood
+    - We use :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
+      instead of LangGraph's ToolNode to enable returning attachments and custom_outputs from
+      LangChain tools and UnityCatalog Tools
+
+    .. code-block:: python
+
+        from typing import Optional, Sequence, Union
+
+        from langchain_core.language_models import LanguageModelLike
+        from langchain_core.runnables import RunnableConfig, RunnableLambda
+        from langchain_core.tools import BaseTool
+        from langgraph.graph import END, StateGraph
+        from langgraph.graph.graph import CompiledGraph
+        from langgraph.prebuilt.tool_executor import ToolExecutor
+        from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
+
+
+        def create_tool_calling_agent(
+            model: LanguageModelLike,
+            tools: Union[ToolExecutor, Sequence[BaseTool]],
+            agent_prompt: Optional[str] = None,
+        ) -> CompiledGraph:
+            model = model.bind_tools(tools)
+
+            def routing_logic(state: ChatAgentState):
+                last_message = state["messages"][-1]
+                if last_message.get("tool_calls"):
+                    return "continue"
+                else:
+                    return "end"
+
+            if agent_prompt:
+                system_message = {"role": "system", "content": agent_prompt}
+                preprocessor = RunnableLambda(
+                    lambda state: [system_message] + state["messages"]
+                )
+            else:
+                preprocessor = RunnableLambda(lambda state: state["messages"])
+            model_runnable = preprocessor | model
+
+            def call_model(
+                state: ChatAgentState,
+                config: RunnableConfig,
+            ):
+                response = model_runnable.invoke(state, config)
+
+                return {"messages": [response]}
+
+            workflow = StateGraph(ChatAgentState)
+
+            workflow.add_node("agent", RunnableLambda(call_model))
+            workflow.add_node("tools", ChatAgentToolNode(tools))
+
+            workflow.set_entry_point("agent")
+            workflow.add_conditional_edges(
+                "agent",
+                routing_logic,
+                {
+                    "continue": "tools",
+                    "end": END,
+                },
+            )
+            workflow.add_edge("tools", "agent")
+
+            return workflow.compile()
+
+    Step 2: Define the LLM and your tools
+
+    If you want to return attachments and custom_outputs from your tool, you can return a
+    dictionary with keys “content”, “attachments”, and “custom_outputs”. This dictionary will be
+    parsed out by the ChatAgentToolNode and properly stored in your LangGraph's state.
+
+
+    .. code-block:: python
+
+        from random import randint
+        from typing import Any
+
+        from databricks_langchain import ChatDatabricks
+        from langchain_core.tools import tool
+
+
+        @tool
+        def generate_random_ints(min: int, max: int, size: int) -> dict[str, Any]:
+            \"""Generate size random ints in the range [min, max].\"""
+            attachments = {"min": min, "max": max}
+            custom_outputs = [randint(min, max) for _ in range(size)]
+            content = f"Successfully generated array of {size} random ints in [{min}, {max}]."
+            return {
+                "content": content,
+                "attachments": attachments,
+                "custom_outputs": {"random_nums": custom_outputs},
+            }
+
+
+        mlflow.langchain.autolog()
+        tools = [generate_random_ints]
+        llm = ChatDatabricks(endpoint="databricks-meta-llama-3-3-70b-instruct")
+        langgraph_agent = create_tool_calling_agent(llm, tools)
+
+
+    Step 3: Wrap your LangGraph agent with ChatAgent
+
+    This makes your agent easily loggable and deployable with the PyFunc flavor in serving.
+
+    .. code-block:: python
+
+        from mlflow.langchain.chat_agent_langgraph import LangGraphChatAgent
+
+        chat_agent = LangGraphChatAgent(langgraph_agent)
+
+    Step 4: Test out your model
+
+    Call ``.predict()`` and ``.predict_stream`` with dictionaries with the ChatAgentRequest schema.
+
+    .. code-block:: python
+
+        chat_agent.predict({"messages": [{"role": "user", "content": "What is 10 + 10?"}]})
+
+        for event in chat_agent.predict_stream(
+            {"messages": [{"role": "user", "content": "Generate me a few random nums"}]}
+        ):
+            print(event)
+
+    This LangGraphChatAgent can be logged with the logging code described in the "Logging a
+    ChatAgent" section of the docstring of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
     """
 
     def __init__(self, agent: CompiledStateGraph):
