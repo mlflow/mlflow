@@ -1686,7 +1686,7 @@ class SqlAlchemyStore(AbstractStore):
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
-            logged_model.status = int(status.to_proto())
+            logged_model.status = status.to_int()
             logged_model.last_updated_timestamp_ms = get_current_time_millis()
             session.commit()
             return logged_model.to_mlflow_entity()
