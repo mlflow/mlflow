@@ -161,7 +161,10 @@ class LangGraphChatAgent(ChatAgent):
     Helper class to wrap LangGraph agents as a ChatAgent. Use this class with
     :py:class:`ChatAgentState` and :py:class:`ChatAgentToolNode`.
 
-    **Open Source LangGraph ChatAgent Example**
+    **LangGraph ChatAgent Example**
+
+    This example has been tested to work with LangGraph 0.2.70, but breaking future changes from
+    LangGraph are possible. This example will be updated as we continue to support new versions.
 
     Step 1: Create the LangGraph Agent
 
