@@ -287,6 +287,11 @@ class PythonModelContext:
 @experimental
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
+    .. tip::
+        Since MLflow 2.20.2, we recommend using :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`
+        instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
+        compatibility with the OpenAI ChatCompletion API.
+
     A subclass of :class:`~PythonModel` that makes it more convenient to implement models
     that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
     users can create MLflow models with a ``predict()`` method that is more convenient
@@ -365,19 +370,250 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 @experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
-    A subclass of :class:`~PythonModel` that makes it more convenient to implement agents
-    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatAgent`,
-    users can create MLflow models with a ``predict()`` method that is more convenient
-    for chat tasks than the generic :class:`~PythonModel` API. ChatAgents automatically
-    define input/output signatures and an input example, so manually specifying these values
-    when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
+    **What is the ChatAgent Interface?**
 
-    See the documentation of the ``predict()`` and ``predict_stream()`` method below for details on
-    that parameters and outputs that are expected by the ``ChatAgent`` API.
+    The ChatAgent interface is a chat schema specification that has been designed for authoring
+    conversational agents. ChatAgent allows your agent to do the following:
 
-    Before logging, ``predict()`` and ``predict_stream()`` methods only take in Pydantic models.
-    After logging, you can pass in a single dictionary that conforms to a ChatAgentRequest schema.
-    Look at CHAT_AGENT_INPUT_EXAMPLE in mlflow.types.agent for an example.
+    - Return multiple messages
+    - Return intermediate steps for tool calling agents
+    - Confirm tool calls
+    - Support multi-agent scenarios
+
+    ``ChatAgent`` should always be used when authoring an agent. We also recommend using
+    ``ChatAgent`` instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` even for use cases
+    like simple chat models (e.g. prompt-engineered LLMs), to give you the flexibility to support
+    more agentic functionality in the future.
+
+    The :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema is similar to,
+    but not strictly compatible with the OpenAI ChatCompletion schema. ChatAgent adds additional
+    functionality and diverges from OpenAI
+    :py:class:`ChatCompletionRequest <mlflow.types.llm.ChatCompletionRequest>` in the following
+    ways:
+
+    - Adds an optional ``attachments`` attribute to every input/output message for tools and
+      internal agent calls so they can return additional outputs such as visualizations and progress
+      indicators
+    - Adds a ``context`` attribute with a ``conversation_id`` and ``user_id`` attributes to enable
+      modifying the behavior of the agent depending on the user querying the agent
+    - Adds the ``custom_inputs`` attribute, an arbitrary ``dict[str, Any]`` to pass in any
+      additional information to modify the agent's behavior
+
+    The :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` schema diverges from
+    :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>` schema in the
+    following ways:
+
+    - Adds the ``custom_outputs`` key, an arbitrary ``dict[str, Any]`` to return any additional
+      information
+    - Allows multiple messages in the output, to improve the  display and evaluation of internal
+      tool calls and inter-agent communication that led to the final answer.
+
+    Here's an example of a :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`
+    detailing a tool call:
+
+    .. code-block:: python
+
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "id": "run-04b46401-c569-4a4a-933e-62e38d8f9647-0",
+                    "tool_calls": [
+                        {
+                            "id": "call_15ca4fcc-ffa1-419a-8748-3bea34b9c043",
+                            "type": "function",
+                            "function": {
+                                "name": "generate_random_ints",
+                                "arguments": '{"min": 1, "max": 100, "size": 5}',
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": '{"content": "Generated array of 2 random ints in [1, 100]."',
+                    "name": "generate_random_ints",
+                    "id": "call_15ca4fcc-ffa1-419a-8748-3bea34b9c043",
+                    "tool_call_id": "call_15ca4fcc-ffa1-419a-8748-3bea34b9c043",
+                },
+                {
+                    "role": "assistant",
+                    "content": "The new set of generated random numbers are: 93, 51, 12, 7, and 25",
+                    "name": "llm",
+                    "id": "run-70c7c738-739f-4ecd-ad18-0ae232df24e8-0",
+                },
+            ],
+            "custom_outputs": {"random_nums": [93, 51, 12, 7, 25]},
+        }
+
+    **Streaming Agent Output with ChatAgent**
+
+    Please read the docstring of
+    :py:func:`ChatAgent.predict_stream <mlflow.pyfunc.ChatAgent.predict_stream>`
+    for more details on how to stream the output of your agent.
+
+
+    **Authoring a ChatAgent**
+
+    Authoring an agent using the ChatAgent  interface is a framework-agnostic way to create a model
+    with a  standardized interface that is loggable with the MLflow pyfunc flavor, can be reused
+    across clients, and is ready for serving workloads.
+
+    To write your own agent, subclass ``ChatAgent``, implementing the ``predict`` and optionally
+    ``predict_stream`` methods to define the non-streaming and streaming behavior of your agent. You
+    can use any agent authoring framework - the only hard requirement is to implement the
+    ``predict`` interface.
+
+    .. code-block:: python
+
+        def predict(
+            self,
+            messages: list[ChatAgentMessage],
+            context: Optional[ChatContext] = None,
+            custom_inputs: Optional[dict[str, Any]] = None,
+        ) -> ChatAgentResponse: ...
+
+    In addition to calling predict and predict_stream methods with an input matching their type
+    hints, you can also pass a single input dict that matches the
+    :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease of testing.
+
+    .. code-block:: python
+
+        chat_agent = MyChatAgent()
+        chat_agent.predict(
+            {
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }
+        )
+
+    See example implementations of ``predict`` and ``predict_stream`` in the
+    `LangChainChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langchain.py>`_
+    or the
+    `LangGraphChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langgraph.py>`_
+    class.
+
+    **Logging the ChatAgent**
+
+    Since the landscape of LLM frameworks is constantly evolving and not every flavor can be
+    natively supported by MLflow, we recommend the
+    `Models-from-Code <https://mlflow.org/docs/latest/model/models-from-code.html>`_ logging
+    approach.
+
+    .. code-block:: python
+
+        with mlflow.start_run():
+            logged_agent_info = mlflow.pyfunc.log_model(
+                artifact_path="agent",
+                python_model=os.path.join(os.getcwd(), "agent"),
+                # Add serving endpoints, tools, and vector search indexes here
+                resources=[],
+            )
+
+    After logging the model, you can query the model with a single dictionary with the
+    :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema. Under the hood, it
+    will be converted into the python objects expected by your ``predict`` and ``predict_stream``
+    methods.
+
+    .. code-block:: python
+
+        loaded_model = mlflow.pyfunc.load_model(tmp_path)
+        loaded_model.predict(
+            {
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }
+        )
+
+    To make logging ChatAgent models as easy as possible, MLflow has built in the following
+    features:
+
+    - Automatic Model Signature Inference
+        - You do not need to set a signature when logging a ChatAgent
+        - An input and output signature will be automatically set that adheres to the
+          :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` and
+          :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` schemas
+    - Metadata
+        - ``{“task”: “agent/v2/chat”}`` will be automatically appended to any metadata that you may
+          pass in when logging the model
+    - Input Example
+        - Providng an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
+          will be provided by default
+        - If you do provide an input example, ensure it's a dict with the
+          :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema
+
+        - .. code-block:: python
+
+            input_example = {
+                "messages": [{"role": "user", "content": "What is MLflow?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }
+
+    **Migrating from ChatModel to ChatAgent**
+
+    To convert an existing ChatModel that takes in
+    :py:class:`List[ChatMessage] <mlflow.types.llm.ChatMessage>` and
+    :py:class:`ChatParams <mlflow.types.llm.ChatParams>` and outputs a
+    :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`, do the following:
+
+    - Subclass ``ChatAgent`` instead of ``ChatModel``
+    - Move any functionality from your ``ChatModel``'s ``load_context`` implementation into the
+      ``__init__`` method of your new ``ChatAgent``.
+    - Use ``.model_dump_compat()`` instead of ``.to_dict()`` when converting your model's inputs to
+      dictionaries. Ex. ``[msg.model_dump_compat() for msg in messages]`` instead of
+      ``[msg.to_dict() for msg in messages]``
+    - Return a :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` instead of a
+      :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+
+    For example, we can convert the ChatModel from the
+    `Chat Model Intro <https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#building-your-first-chatmodel>`_
+    to a ChatAgent:
+
+    .. code-block:: python
+
+        class SimpleOllamaModel(ChatModel):
+            def __init__(self):
+                self.model_name = "llama3.2:1b"
+                self.client = None
+
+            def load_context(self, context):
+                self.client = ollama.Client()
+
+            def predict(
+                self, context, messages: list[ChatMessage], params: ChatParams = None
+            ) -> ChatCompletionResponse:
+                ollama_messages = [msg.to_dict() for msg in messages]
+                response = self.client.chat(model=self.model_name, messages=ollama_messages)
+                return ChatCompletionResponse(
+                    choices=[{"index": 0, "message": response["message"]}],
+                    model=self.model_name,
+                )
+
+    .. code-block:: python
+
+        class SimpleOllamaModel(ChatAgent):
+            def __init__(self):
+                self.model_name = "llama3.2:1b"
+                self.client = None
+                self.client = ollama.Client()
+
+            def predict(
+                self,
+                messages: list[ChatAgentMessage],
+                context: Optional[ChatContext] = None,
+                custom_inputs: Optional[dict[str, Any]] = None,
+            ) -> ChatAgentResponse:
+                ollama_messages = self._convert_messages_to_dict(messages)
+                response = self.client.chat(model=self.model_name, messages=ollama_messages)
+                return ChatAgentResponse(**{"messages": [response["message"]]})
+
+    **ChatAgent Connectors**
+
+    MLflow provides convenience APIs for wrapping agents written in popular authoring frameworks
+    with ChatAgent. See examples for:
+
+    - :py:class:`LangGraphChatAgent <mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent>`
     """
 
     _skip_type_hint_validation = True
@@ -403,8 +639,20 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
         """
-        Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
-        in a single dict with a ChatAgentRequest schema.
+        Given a ChatAgent input, returns a ChatAgent output. In addition to calling ``predict``
+        with an input matching the type hints, you can also pass a single input dict that matches
+        the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease
+        of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            chat_agent.predict(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            )
 
         Args:
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
@@ -433,9 +681,42 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         """
-        Evaluates a ChatAgent input and produces a ChatAgent output. Wrapped to allow you to pass
-        in a single dict with a ChatAgentRequest schema.
-        Override this function to implement a real stream prediction.
+        Given a ChatAgent input, returns a generator containing streaming ChatAgent output chunks.
+        In addition to calling ``predict_stream`` with an input matching the type hints, you can
+        also pass a single input dict that matches the
+        :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>`
+        schema for ease of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            for event in chat_agent.predict_stream(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            ):
+                print(event)
+
+        To support streaming the output of your agent, override this method in your subclass of
+        ``ChatAgent``. When implementing ``predict_stream``, keep in mind the following
+        requirements:
+
+        - Ensure your implementation adheres to the ``predict_stream`` type signature. For example,
+          streamed messages must be of the type
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains
+          partial output from a single response message.
+        - At most one chunk in a particular response can contain the ``custom_outputs`` key.
+        - Chunks containing partial content of a single response message must have the same ``id``.
+          The content field of the message and usage stats of the
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by
+          the consuming client. See the example below.
+
+        .. code-block:: python
+
+            {"delta": {"role": "assistant", "content": "Born", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " in", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " data", "id": "123"}}
 
 
         Args:
