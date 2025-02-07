@@ -1656,19 +1656,23 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             return logged_model.to_mlflow_entity()
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
-        with self.ManagedSessionMaker() as session:
-            if logged_model := (
-                session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.model_id == model_id)
-                .one_or_none()
-            ):
-                return logged_model.to_mlflow_entity()
-
+    def _raise_model_not_found(self, model_id: str):
         raise MlflowException(
             f"Logged model with ID '{model_id}' not found.",
             RESOURCE_DOES_NOT_EXIST,
         )
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        with self.ManagedSessionMaker() as session:
+            logged_model = (
+                session.query(SqlLoggedModel)
+                .filter(SqlLoggedModel.model_id == model_id)
+                .one_or_none()
+            )
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            return logged_model.to_mlflow_entity()
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         if status != LoggedModelStatus.READY:
@@ -1678,11 +1682,9 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            if not (logged_model := session.query(SqlLoggedModel).get(model_id)):
-                raise MlflowException(
-                    f"Logged model with ID '{model_id}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
 
             logged_model.status = int(status.to_proto())
             logged_model.last_updated_timestamp_ms = get_current_time_millis()
