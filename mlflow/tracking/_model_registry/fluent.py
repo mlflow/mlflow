@@ -145,7 +145,7 @@ def _register_model(
             source = f"models:/{model_id}"
             _logger.warning(
                 f"Run with id {run_id} has no artifacts at artifact path <{artifact_path}>, "
-                + f"registering model based on {source} instead"
+                f"registering model based on {source} instead"
             )
 
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
