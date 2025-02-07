@@ -163,8 +163,7 @@ class LangGraphChatAgent(ChatAgent):
 
     **LangGraph ChatAgent Example**
 
-    This example has been tested to work with LangGraph 0.2.70, but breaking future changes from
-    LangGraph are possible. This example will be updated as we continue to support new versions.
+    This example has been tested to work with LangGraph 0.2.70.
 
     Step 1: Create the LangGraph Agent
 
