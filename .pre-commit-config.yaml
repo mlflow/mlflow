@@ -141,7 +141,7 @@ repos:
       - id: typos
         name: typos
         entry: dev/typos.sh
-        files: '(\.py$|^docs/.*\.mdx?$)'
+        files: '(\.py$|.*\.mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true
