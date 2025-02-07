@@ -870,7 +870,7 @@ class Model:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        def log_model_metrics_for_step(client, model_id, run_id, step):
+        def fetch_model_metrics_for_step(client, model_id, run_id, step):
             metric_names = client.get_run(run_id).data.metrics.keys()
             metrics_for_step = []
             for metric_name in metric_names:
@@ -925,7 +925,7 @@ class Model:
 
             if active_run is not None:
                 run_id = active_run.info.run_id
-                if metrics_for_step := log_model_metrics_for_step(
+                if metrics_for_step := fetch_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 ):
                     client.log_batch(run_id=run_id, metrics=metrics_for_step)
