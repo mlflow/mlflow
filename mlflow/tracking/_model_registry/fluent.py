@@ -196,6 +196,8 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> LoggedModel
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
+            # TODO: Use filter_string once the backend supports it
+            # filter_string="...",
             page_token=page_token,
         )
         logged_models.extend(
