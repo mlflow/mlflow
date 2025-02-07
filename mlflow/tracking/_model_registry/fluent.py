@@ -191,7 +191,8 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> LoggedModel
         model_name: Name of the model to retrieve.
     """
     client = MlflowClient()
-    logged_models, page_token = [], None
+    logged_models = []
+    page_token = None
 
     while True:
         logged_models_page = client.search_logged_models(
