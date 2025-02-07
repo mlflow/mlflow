@@ -29,6 +29,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
@@ -42,6 +43,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.internal_pb2 import OutputVertexType
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -1574,6 +1576,22 @@ class SqlAlchemyStore(AbstractStore):
                         )
 
             session.add_all(objs_to_write)
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            session.add_all(
+                SqlInput(
+                    input_uuid=uuid.uuid4().hex,
+                    source_type=OutputVertexType.RUN_OUTPUT,
+                    source_id=run_id,
+                    destination_type=OutputVertexType.MODEL_OUTPUT,
+                    destination_id=model.model_id,
+                    # step=model.step,
+                )
+                for model in models
+            )
 
     #######################################################################################
     # Logged models
