@@ -1597,7 +1597,6 @@ class SqlAlchemyStore(AbstractStore):
                 model_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
-
             name = name or _generate_random_name()
             creation_timestamp = get_current_time_millis()
             logged_model = SqlLoggedModel(
