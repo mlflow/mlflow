@@ -31,6 +31,8 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -4611,3 +4613,60 @@ def test_delete_traces_raises_error(store):
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+def test_create_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert model.experiment_id == exp_id
+    assert model.name is not None
+    assert model.metrics is None
+    assert model.tags == {}
+    assert model.params == {}
+
+    # name
+    model = store.create_logged_model(experiment_id=exp_id, name="my_model")
+    assert model.name == "my_model"
+
+    # source_run_id
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    assert model.source_run_id == run.info.run_id
+
+    # model_type
+    model = store.create_logged_model(experiment_id=exp_id, model_type="my_model_type")
+    assert model.model_type == "my_model_type"
+
+    # tags
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        tags=[LoggedModelTag("tag1", "apple")],
+    )
+    assert model.tags == {"tag1": "apple"}
+
+    # params
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        params=[LoggedModelParameter("param1", "apple")],
+    )
+    assert model.params == {"param1": "apple"}
+
+    # Should not be able to create a logged model in a non-active experiment
+    store.delete_experiment(exp_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' state"):
+        store.create_logged_model(experiment_id=exp_id)
+
+
+def test_get_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    fetched_model = store.get_logged_model(model.model_id)
+    assert fetched_model.name == model.name
+    assert fetched_model.model_id == model.model_id
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model("does-not-exist")

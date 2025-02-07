@@ -27,7 +27,11 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -53,6 +57,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
@@ -135,6 +142,7 @@ class SqlAlchemyStore(AbstractStore):
     """
 
     ARTIFACTS_FOLDER_NAME = "artifacts"
+    MODELS_FOLDER_NAME = "models"
     TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     _db_uri_sql_alchemy_engine_map = {}
@@ -1566,6 +1574,82 @@ class SqlAlchemyStore(AbstractStore):
                         )
 
             session.add_all(objs_to_write)
+
+    #######################################################################################
+    # Logged models
+    #######################################################################################
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            model_id = str(uuid.uuid4())
+            artifact_location = append_to_uri_path(
+                experiment.artifact_location,
+                SqlAlchemyStore.MODELS_FOLDER_NAME,
+                model_id,
+                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+            )
+
+            name = name or _generate_random_name()
+            creation_timestamp = get_current_time_millis()
+            logged_model = SqlLoggedModel(
+                model_id=model_id,
+                experiment_id=experiment_id,
+                name=name,
+                artifact_location=artifact_location,
+                creation_timestamp_ms=creation_timestamp,
+                last_updated_timestamp_ms=creation_timestamp,
+                model_type=model_type,
+                status=int(LoggedModelStatus.PENDING.to_proto()),
+                lifecycle_stage=LifecycleStage.ACTIVE,
+                source_run_id=source_run_id,
+            )
+            session.add(logged_model)
+
+            if params:
+                for param in params:
+                    session.add(
+                        SqlLoggedModelParam(
+                            model_id=logged_model.model_id,
+                            experiment_id=experiment_id,
+                            param_key=param.key,
+                            param_value=param.value,
+                        )
+                    )
+            if tags:
+                for tag in tags:
+                    session.add(
+                        SqlLoggedModelTag(
+                            model_id=logged_model.model_id,
+                            experiment_id=experiment_id,
+                            tag_key=tag.key,
+                            tag_value=tag.value,
+                        )
+                    )
+            session.commit()
+            return logged_model.to_mlflow_entity()
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        with self.ManagedSessionMaker() as session:
+            if logged_model := (
+                session.query(SqlLoggedModel)
+                .filter(SqlLoggedModel.model_id == model_id)
+                .one_or_none()
+            ):
+                return logged_model.to_mlflow_entity()
+
+        raise MlflowException(
+            f"Logged model with ID '{model_id}' not found.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.

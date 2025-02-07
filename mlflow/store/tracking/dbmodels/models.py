@@ -818,6 +818,10 @@ class SqlLoggedModel(Base):
     Status message: `String` (limit 1000 characters).
     """
 
+    tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
+    params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
+    metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")
+
     __table_args__ = (
         PrimaryKeyConstraint("model_id", name="logged_models_pk"),
         CheckConstraint(
@@ -835,7 +839,7 @@ class SqlLoggedModel(Base):
     def to_mlflow_entity(self) -> LoggedModel:
         return LoggedModel(
             model_id=self.model_id,
-            experiment_id=self.experiment_id,
+            experiment_id=str(self.experiment_id),
             name=self.name,
             artifact_location=self.artifact_location,
             creation_timestamp=self.creation_timestamp_ms,
@@ -844,6 +848,9 @@ class SqlLoggedModel(Base):
             model_type=self.model_type,
             source_run_id=self.source_run_id,
             status_message=self.status_message,
+            tags={t.tag_key: t.tag_value for t in self.tags} if self.tags else None,
+            params={p.param_key: p.param_value for p in self.params} if self.params else None,
+            metrics=[m.to_mlflow_entity() for m in self.metrics] if self.metrics else None,
         )
 
 
