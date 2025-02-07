@@ -116,7 +116,8 @@ def _register_model(
         else:
             raise e
 
-    run_id, model_id = None, None
+    run_id = None
+    model_id = None
     source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
         # If the uri is of the form runs:/...
