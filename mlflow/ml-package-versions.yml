@@ -709,9 +709,7 @@ langchain:
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
-          # TODO: replace to package names once they are released to PyPI
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
+          "unitycatalog-langchain",
         ]
     run: |
       # Run all langchain tests except autologging and evaluation
