@@ -145,7 +145,7 @@ def _register_model(
             )[0].model_id
             source = f"models:/{model_id}"
             _logger.warning(
-                f"Run with id {run_id} has no artifacts at artifact path <{artifact_path}>, "
+                f"Run with id {run_id} has no artifacts at artifact path {artifact_path!r}, "
                 f"registering model based on {source} instead"
             )
 
