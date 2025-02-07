@@ -475,13 +475,12 @@ class MlflowClient:
                 raise
 
         tags = tags or {}
-        # Store prompt text as a tag
-        tags[PROMPT_TEXT_TAG_KEY] = template
+        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
 
         mv: ModelVersion = registry_client.create_model_version(
             name=name,
             description=description,
-            source="dummy",  # Not used
+            source="dummy-source",  # Required field, but not used for prompts
             tags=tags,
         )
         return Prompt.from_model_version(mv)
