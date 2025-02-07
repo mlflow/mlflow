@@ -9,7 +9,11 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
@@ -56,8 +60,12 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         """
         request_id = maybe_get_request_id()
         if request_id is None:
-            # If this is invoked outside of a flask request, it raises error about
-            # outside of request context. We should avoid this by skipping the trace processing
+            # NB: This is currently used for streaming inference in Databricks Model Serving.
+            # In normal prediction, serving logic pass the request ID using the
+            # `with set_prediction_context` context manager that wraps `model.predict`
+            # call. However, in streaming case, the context manager is not applicable
+            # so we still need to rely on Flask request context (which is set to the
+            # stream response via flask.stream_with_context()
             if flask_request := _get_flask_request():
                 request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
                 if not request_id:
@@ -105,7 +113,9 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
-            trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
+            trace.info.execution_time_ms = (
+                span.end_time - span.start_time
+            ) // 1_000_000
             trace.info.status = TraceStatus.from_otel_status(span.status)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
