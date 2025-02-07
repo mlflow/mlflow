@@ -1,9 +1,16 @@
 import json
+import logging
 from typing import Any, Optional
 
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    ALREADY_EXISTS,
+    NOT_FOUND,
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.store.model_registry import (
@@ -14,6 +21,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.logging_utils import eprint
+
+_logger = logging.getLogger(__name__)
 
 
 def register_model(
@@ -108,11 +117,38 @@ def _register_model(
             raise e
 
     run_id = None
+    model_id = None
     source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
-        source = RunsArtifactRepository.get_underlying_uri(model_uri)
-        (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
+        # If the uri is of the form runs:/...
+        (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(model_uri)
+        runs_artifact_repo = RunsArtifactRepository(model_uri)
+        if runs_artifact_repo._is_directory(artifact_path):
+            # First check if run has artifact at artifact_path,
+            # if so use the run's artifact location as source
+            source = RunsArtifactRepository.get_underlying_uri(model_uri)
+        else:
+            # Otherwise check if there's a logged model with
+            # name artifact_path and source_run_id run_id
+            run = client.get_run(run_id)
+            logged_models = _get_logged_models_from_run(run, artifact_path)
+            if not logged_models:
+                raise MlflowException(
+                    f"Unable to find a logged_model with artifact_path {artifact_path} "
+                    f"under run {run_id}",
+                    error_code=ErrorCode.Name(NOT_FOUND),
+                )
+            # If there are multiple such logged models, get the one logged at the largest step
+            model_id_to_step = {m_o.model_id: m_o.step for m_o in run.outputs.model_outputs}
+            model_id = max(logged_models, key=lambda lm: model_id_to_step[lm.model_id]).model_id
+            source = f"models:/{model_id}"
+            _logger.warning(
+                f"Run with id {run_id} has no artifacts at artifact path {artifact_path!r}, "
+                f"registering model based on {source} instead"
+            )
 
+    # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
+    model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
     create_version_response = client._create_model_version(
         name=name,
         source=source,
@@ -120,14 +156,14 @@ def _register_model(
         tags=tags,
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
-        model_id=_parse_model_id_if_present(model_uri),
+        model_id=model_id,
     )
     eprint(
         f"Created version '{create_version_response.version}' of model "
         f"'{create_version_response.name}'."
     )
 
-    if model_id := _parse_model_id_if_present(model_uri):
+    if model_id:
         new_value = [
             {
                 "name": create_version_response.name,
@@ -144,6 +180,39 @@ def _register_model(
         )
 
     return create_version_response
+
+
+def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
+    """Get all logged models from the source rnu that have the specified model name.
+
+    Args:
+        source_run: Source run from which to retrieve logged models.
+        model_name: Name of the model to retrieve.
+    """
+    client = MlflowClient()
+    logged_models = []
+    page_token = None
+
+    while True:
+        logged_models_page = client.search_logged_models(
+            experiment_ids=[source_run.info.experiment_id],
+            # TODO: Use filter_string once the backend supports it
+            # filter_string="...",
+            page_token=page_token,
+        )
+        logged_models.extend(
+            [
+                logged_model
+                for logged_model in logged_models_page
+                if logged_model.source_run_id == source_run.info.run_id
+                and logged_model.name == model_name
+            ]
+        )
+        if not logged_models_page.token:
+            break
+        page_token = logged_models_page.token
+
+    return logged_models
 
 
 def search_registered_models(
