@@ -5,6 +5,7 @@ import sys
 import time
 import urllib
 from os.path import join
+from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -21,6 +22,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_NONE,
     get_canonical_stage,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -36,7 +38,6 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.store.model_registry.prompt.utils import add_prompt_filter_string
 from mlflow.utils.file_utils import (
     contains_path_separator,
     contains_percent,
@@ -380,8 +381,7 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Adjust filter string to exclude prompts by default
-        filter_string = add_prompt_filter_string(filter_string)
+        filter_string = self._add_prompt_filter_string(filter_string)
 
         registered_models = self._list_all_registered_models()
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)
@@ -890,6 +890,7 @@ class FileStore(AbstractStore):
                 file_mv.to_mlflow_entity()
                 for file_mv in self._list_file_model_versions_under_path(path)
             )
+        filter_string = self._add_prompt_filter_string(filter_string)
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
         sorted_mvs = SearchModelVersionUtils.sort(
@@ -904,6 +905,16 @@ class FileStore(AbstractStore):
         if final_offset < len(sorted_mvs):
             next_page_token = SearchUtils.create_page_token(final_offset)
         return PagedList(paginated_mvs, next_page_token)
+
+    def _add_prompt_filter_string(self, filter_string: Optional[str]) -> str:
+        """Adjust filter string to exclude prompts by default"""
+        if IS_PROMPT_TAG_KEY not in (filter_string or ""):
+            prompt_filter_query = f"tag.`{IS_PROMPT_TAG_KEY}` != 'true'"
+            if filter_string:
+                filter_string = f"{filter_string} AND {prompt_filter_query}"
+            else:
+                filter_string = prompt_filter_query
+        return filter_string
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
         _validate_tag_name(tag_name)

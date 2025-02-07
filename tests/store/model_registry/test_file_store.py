@@ -1646,6 +1646,8 @@ def test_writing_model_version_preserves_storage_location(store):
 
 
 def test_search_prompts(store):
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+
     store.create_registered_model(
         "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
     )
@@ -1656,7 +1658,6 @@ def test_search_prompts(store):
             RegisteredModelTag(key="fruit", value="apple"),
         ],
     )
-    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
 
     # By default, should not return prompts
     rms = store.search_registered_models(max_results=10)
@@ -1669,6 +1670,18 @@ def test_search_prompts(store):
 
     rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
     assert len(rms) == 0
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
 
     # Search for prompts
     rms = store.search_registered_models(
@@ -1691,9 +1704,82 @@ def test_search_prompts(store):
     assert len(rms) == 1
     assert rms[0].name == "prompt_2"
 
-    # Search for non-prompts
-    rms = store.search_registered_models(
+
+def test_search_prompts_versions(store):
+    # A Model
+    store.create_registered_model("model")
+    store.create_model_version(
+        "model", "1", "dummy_source", tags=[ModelVersionTag(key="fruit", value="apple")]
+    )
+
+    # A Prompt with 1 version
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "prompt_1", "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+
+    # A Prompt with 2 versions
+    store.create_registered_model(
+        "prompt_2",
+        tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="apple"),
+        ],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "2",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="orange"),
+        ],
+    )
+
+    # Searching model versions should not return prompts by default either
+    mvs = store.search_model_versions(max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
         filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
     )
-    assert len(rms) == 1
-    assert rms[0].name == "model"
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    # Search for prompts via search_model_versions
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(mvs) == 3
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and name = 'prompt_2'",
+        max_results=10,
+    )
+    assert len(mvs) == 2
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "prompt_2"

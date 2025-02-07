@@ -1299,6 +1299,21 @@ class SearchModelVersionUtils(SearchUtils):
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+
+        # NB: Handling the special `mlflow.prompt.is_prompt` tag. This tag is used for
+        #   distinguishing between prompt models and normal models. For example, we want to
+        #   search for models only by the following filter string:
+        #
+        #     tags.`mlflow.prompt.is_prompt` != 'true'
+        #     tags.`mlflow.prompt.is_prompt` = 'false'
+        #
+        #   However, models do not have this tag, so lhs is None in this case. Instead of returning
+        #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and lhs is None:
+            return (comparator == "=" and value == "false") or (
+                comparator == "!=" and value == "true"
+            )
+
         if lhs is None:
             return False
 
