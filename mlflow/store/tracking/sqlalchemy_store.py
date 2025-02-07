@@ -1615,25 +1615,27 @@ class SqlAlchemyStore(AbstractStore):
             session.add(logged_model)
 
             if params:
-                for param in params:
-                    session.add(
-                        SqlLoggedModelParam(
-                            model_id=logged_model.model_id,
-                            experiment_id=experiment_id,
-                            param_key=param.key,
-                            param_value=param.value,
-                        )
+                session.add_all(
+                    SqlLoggedModelParam(
+                        model_id=logged_model.model_id,
+                        experiment_id=experiment_id,
+                        param_key=param.key,
+                        param_value=param.value,
                     )
+                    for param in params
+                )
+
             if tags:
-                for tag in tags:
-                    session.add(
-                        SqlLoggedModelTag(
-                            model_id=logged_model.model_id,
-                            experiment_id=experiment_id,
-                            tag_key=tag.key,
-                            tag_value=tag.value,
-                        )
+                session.add_all(
+                    SqlLoggedModelTag(
+                        model_id=logged_model.model_id,
+                        experiment_id=experiment_id,
+                        tag_key=tag.key,
+                        tag_value=tag.value,
                     )
+                    for tag in tags
+                )
+
             session.commit()
             return logged_model.to_mlflow_entity()
 
