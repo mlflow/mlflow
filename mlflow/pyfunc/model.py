@@ -486,10 +486,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     with a  standardized interface that is loggable with the MLflow pyfunc flavor, can be reused
     across clients, and is ready for serving workloads.
 
-    To write your own agent, subclass `ChatAgent`, implementing the `predict` and optionally
-    `predict_stream` methods to define the non-streaming and streaming behavior of your agent. You
-    can use any agent authoring framework - the only hard requirement is to implement the `predict`
-    interface
+    To write your own agent, subclass ``ChatAgent``, implementing the ``predict`` and optionally
+    ``predict_stream`` methods to define the non-streaming and streaming behavior of your agent. You
+    can use any agent authoring framework - the only hard requirement is to implement the
+    ``predict`` interface.
 
     .. code-block:: python
 
@@ -506,7 +506,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     .. code-block:: python
 
-        chat_agent = ChatAgent()
+        chat_agent = MyChatAgent()
         chat_agent.predict(
             {
                 "messages": [{"role": "user", "content": "What is 10 + 10?"}],
@@ -531,10 +531,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         with mlflow.start_run():
             logged_agent_info = mlflow.pyfunc.log_model(
-                artifact_path='agent',
-                python_model=os.path.join(os.getcwd(),"agent"),
+                artifact_path="agent",
+                python_model=os.path.join(os.getcwd(), "agent"),
                 # Add serving endpoints, tools, and vector search indexes here
-                resources=[<list resources here>],
+                resources=[],
             )
 
     After logging the model, you can query the model with a single dictionary with the
@@ -579,7 +579,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     **Migrating from ChatModel to ChatAgent**
 
     To convert an existing ChatModel that takes in
-    :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>` and
+    :py:class:`List[ChatMessage] <mlflow.types.llm.ChatMessage>` and
     :py:class:`ChatParams <mlflow.types.llm.ChatParams>` and outputs a
     :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`, do the following:
 
@@ -640,7 +640,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     with ChatAgent. See examples for:
 
     - :py:class:`LangGraphChatAgent <mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent>`
-
     """
 
     _skip_type_hint_validation = True
