@@ -891,7 +891,7 @@ class Model:
                         if metric.step == step and metric.model_id is None
                     ]
                 )
-            client.log_batch(run_id=run_id, metrics=metrics_for_step)
+            return metrics_for_step
 
         registered_model = None
         with TempDir() as tmp:
@@ -925,12 +925,13 @@ class Model:
 
             if active_run is not None:
                 run_id = active_run.info.run_id
-                client.log_outputs(
-                    run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
-                )
-                log_model_metrics_for_step(
+                if metrics_for_step := log_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
-                )
+                ):
+                    client.log_batch(run_id=run_id, metrics=metrics_for_step)
+                    client.log_outputs(
+                        run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
+                    )
 
             mlflow_model = cls(
                 artifact_path=model.artifact_location,
