@@ -13,10 +13,14 @@ IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
+_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{([a-zA-Z0-9_]+)\}")
 
 # Alias type
 PromptVersionTag = ModelVersionTag
+
+
+def _is_reserved_tag(key: str) -> bool:
+    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY}
 
 
 @dataclass
@@ -51,9 +55,8 @@ class Prompt(ModelVersion):
     ):
         # Store template text as a tag
         tags = tags or {}
-
-        if PROMPT_TEXT_TAG_KEY not in tags:
-            tags[PROMPT_TEXT_TAG_KEY] = template
+        tags[PROMPT_TEXT_TAG_KEY] = template
+        tags[IS_PROMPT_TAG_KEY] = "true"
 
         super().__init__(
             name=name,
@@ -91,13 +94,14 @@ class Prompt(ModelVersion):
     def tags(self) -> dict[str, str]:
         """Return the tags of the prompt as a dictionary."""
         # Remove the prompt text tag as it should not be user-facing
-        return {key: value for key, value in self._tags.items() if key != PROMPT_TEXT_TAG_KEY}
+        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @tags.setter
     def tags(self, tags: dict[str, str]):
         """Set the tags of the prompt."""
         self._tags = {
             **tags,
+            IS_PROMPT_TAG_KEY: "true",
             PROMPT_TEXT_TAG_KEY: self.template,
         }
 
@@ -130,11 +134,24 @@ class Prompt(ModelVersion):
         input_keys = set(kwargs.keys())
         missing_keys = self.variables - input_keys
 
-        if missing_keys and not allow_partial:
-            raise MlflowException.invalid_parameter_value(
-                f"Missing variables: {missing_keys}. To partially format the prompt, "
-                "set `allow_partial=True`."
-            )
+        if missing_keys:
+            if not allow_partial:
+                raise MlflowException.invalid_parameter_value(
+                    f"Missing variables: {missing_keys}. To partially format the prompt, "
+                    "set `allow_partial=True`."
+                )
+            else:
+                template = self.template
+                for key, value in kwargs.items():
+                    template = template.replace("{" + key + "}", value)
+                return Prompt(
+                    name=self.name,
+                    version=self.version,
+                    template=template,
+                    description=self.description,
+                    creation_timestamp=self.creation_timestamp,
+                    tags=self.tags,
+                )
 
         return self.template.format(**kwargs)
 
