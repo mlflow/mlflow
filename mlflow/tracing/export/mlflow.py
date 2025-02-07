@@ -80,12 +80,6 @@ class MlflowSpanExporter(SpanExporter):
 
     def _log_trace(self, trace: Trace):
         """Log the trace to MLflow backend."""
-        upload_tag_task = Task(
-            handler=self._client._upload_trace_spans_as_tag,
-            args=(trace.info, trace.data),
-            error_msg="Failed to log trace spans as tag to MLflow backend.",
-        )
-
         upload_trace_data_task = Task(
             handler=self._client._upload_trace_data,
             args=(trace.info, trace.data),
@@ -99,11 +93,9 @@ class MlflowSpanExporter(SpanExporter):
         )
 
         if MLFLOW_ENABLE_ASYNC_LOGGING.get():
-            self._async_queue.put(upload_tag_task)
             self._async_queue.put(upload_trace_data_task)
             self._async_queue.put(upload_ended_trace_info_task)
         else:
-            upload_tag_task.handle()
             upload_trace_data_task.handle()
             upload_ended_trace_info_task.handle()
 

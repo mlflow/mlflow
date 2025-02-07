@@ -1468,13 +1468,33 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _is_variant_type(spark_type):
+    try:
+        from pyspark.sql.types import VariantType
+
+        return isinstance(spark_type, VariantType)
+    except ImportError:
+        return False
+
+
 def _convert_spec_type_to_spark_type(spec_type):
     from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-    from mlflow.types.schema import Array, DataType, Map, Object
+    from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     if isinstance(spec_type, DataType):
         return spec_type.to_spark()
+
+    if isinstance(spec_type, AnyType):
+        try:
+            from pyspark.sql.types import VariantType
+
+            return VariantType()
+        except ImportError:
+            raise MlflowException.invalid_parameter_value(
+                "`AnyType` is not supported in PySpark versions older than 4.0.0. "
+                "Upgrade your PySpark version to use this feature.",
+            )
 
     if isinstance(spec_type, Array):
         return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
@@ -1598,6 +1618,8 @@ def _convert_array_values(values, result_type):
         return [_convert_array_values(v, result_type.elementType) for v in values]
     if isinstance(result_type.elementType, StructType):
         return [_convert_struct_values(v, result_type.elementType) for v in values]
+    if _is_variant_type(result_type.elementType):
+        return values
 
     raise MlflowException.invalid_parameter_value(
         "Unsupported array type field with element type "
@@ -1738,6 +1760,8 @@ def _convert_struct_values(
                     key: _convert_value_based_on_spark_type(value, field_type.valueType)
                     for key, value in field_values.items()
                 }
+        elif _is_variant_type(field_type):
+            return field_values
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported field type {field_type.simpleString()} in struct type.",
@@ -1770,6 +1794,8 @@ def _convert_value_based_on_spark_type(value, spark_type):
             key: _convert_value_based_on_spark_type(value[key], spark_type.valueType)
             for key in value
         }
+    if _is_variant_type(spark_type):
+        return value
     raise MlflowException.invalid_parameter_value(
         f"Unsupported type {spark_type} for value {value}"
     )

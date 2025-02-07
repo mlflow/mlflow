@@ -105,7 +105,7 @@ class ChatAgentToolNode(ToolNode):
                 messages.append(parse_message(m))
         return {"messages": messages, "custom_outputs": custom_outputs}
 
-    def _inject_tool_args(
+    def inject_tool_args(
         self,
         tool_call: LCToolCall,
         input: Union[
@@ -116,12 +116,12 @@ class ChatAgentToolNode(ToolNode):
         store: BaseStore,
     ) -> LCToolCall:
         """
-        Slightly modified version of `_inject_tool_args` that adds the function args from a
+        Slightly modified version of `inject_tool_args` that adds the function args from a
         ChatAgentMessage tool call to a format that is compatible with LangChain tool invocation.
         """
         tool_call["name"] = tool_call["function"]["name"]
         tool_call["args"] = json.loads(tool_call["function"]["arguments"])
-        return super()._inject_tool_args(tool_call, input, store)
+        return super().inject_tool_args(tool_call, input, store)
 
     def _parse_input(
         self,
@@ -148,7 +148,7 @@ class ChatAgentToolNode(ToolNode):
             message = messages[-1]
         else:
             raise ValueError("No message found in input")
-        tool_calls = [self._inject_tool_args(call, input, store) for call in message["tool_calls"]]
+        tool_calls = [self.inject_tool_args(call, input, store) for call in message["tool_calls"]]
         return tool_calls, input_type
 
 
