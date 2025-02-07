@@ -360,6 +360,35 @@ usage.
     its commit hash are logged instead.
 """
         ),
+        "prompts": """\
+A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
+Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be
+registered in the MLflow Prompt Registry before being associated with the model.
+
+This will create a mutual link between the model and the prompt. The associated prompts can be
+seen in the model's metadata stored in the MLmodel file. From the Prompt Registry UI, you can
+navigate to the model as well.
+
+.. code-block:: python
+
+    import mlflow
+
+    prompt_template = "Hi, {name}! How are you doing today?"
+
+    # Register a prompt in the MLflow Prompt Registry
+    mlflow.prompts.register_prompt("my_prompt", prompt_template, description="A simple prompt")
+
+    # Log a model with the registered prompt
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            MyModel(),
+            artifact_path="model",
+            prompts=["prompt:/my_prompt/1"]
+        )
+
+    print(model_info.prompts)
+    # Output: ['prompt:/my_prompt/1']
+""",
     }
 )
 

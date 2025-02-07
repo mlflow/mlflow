@@ -3281,6 +3281,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    prompts=None,
     model_config=None,
     example_no_conversion=None,
     streamable=None,
@@ -3461,6 +3462,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        prompts: {{ prompts }}
 
         model_config: The model configuration to apply to the model. The configuration will
             be available as the ``model_config`` property of the ``context`` parameter
@@ -3501,6 +3503,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        prompts=prompts,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,

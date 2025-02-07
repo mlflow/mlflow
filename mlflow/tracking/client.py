@@ -38,7 +38,11 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.prompt import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
@@ -562,6 +566,78 @@ class MlflowClient:
         # If no more versions are left, delete the registered model
         if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
             registry_client.delete_registered_model(name)
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    def log_prompt(self, run_id: str, prompt_uri: str) -> None:
+        """
+        Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to log the prompt to.
+            prompt_uri: The prompt URI in the format "prompts:/name/version".
+        """
+        prompt = self.load_prompt(prompt_uri)
+        if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
+            run_ids = run_id_tags.split(",")
+            run_ids.append(run_id)
+        else:
+            run_ids = [run_id]
+
+        name, version = parse_prompt_uri(prompt_uri)
+        self.set_model_version_tag(
+            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+        )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    def detach_prompt_from_run(self, run_id: str, prompt_uri: str) -> None:
+        """
+        Detach a prompt registered within the MLflow Prompt Registry from an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to log the prompt to.
+            prompt_uri: The prompt URI in the format "prompts:/name/version".
+        """
+        prompt = self.load_prompt(prompt_uri)
+        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, "")
+        run_ids = run_id_tags.split(",")
+
+        if run_id not in run_ids:
+            raise MlflowException(
+                f"Run '{run_id}' is not associated with prompt '{prompt_uri}'.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        run_ids.remove(run_id)
+
+        name, version = parse_prompt_uri(prompt_uri)
+        self.set_model_version_tag(
+            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+        )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    def list_logged_prompts(self, run_id: str) -> list[Prompt]:
+        """
+        List all prompts associated with an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to list the prompts for.
+
+        Returns:
+            A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects associated with the run.
+        """
+        mvs = self.search_model_versions(
+            filter_string=(
+                f"tags.`{PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}` LIKE '%{run_id}%' "
+                f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+            )
+        )
+        return [Prompt.from_model_version(mv) for mv in mvs]
 
     ##### Tracing #####
 
