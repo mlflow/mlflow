@@ -137,7 +137,7 @@ const config: Config = {
             },
             {
               label: "Blog",
-              to: "https://mlflow.org/releases",
+              to: "https://mlflow.org/blog",
             },
           ],
         },
