@@ -82,11 +82,13 @@ class _ChatAgentPyfuncWrapper:
             ) from e
         return response
 
-    def predict(self, model_input: dict[str, Any]) -> dict[str, Any]:
+    def predict(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
         """
         Args:
             model_input: A dict with the
                 :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function, but required in the signature because
+                `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
             A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
@@ -96,11 +98,15 @@ class _ChatAgentPyfuncWrapper:
         response = self.chat_agent.predict(messages, context, custom_inputs)
         return self._response_to_dict(response, ChatAgentResponse)
 
-    def predict_stream(self, model_input: dict[str, Any]) -> Generator[dict[str, Any], None, None]:
+    def predict_stream(
+        self, model_input: dict[str, Any], params=None
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
             model_input: A dict with the
                 :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function, but required in the signature because
+                `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
             A generator over dicts with the
