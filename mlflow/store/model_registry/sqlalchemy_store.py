@@ -436,7 +436,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             rm_query = rm_query.join(
                 prompts_subquery, SqlRegisteredModel.name == prompts_subquery.c.name, isouter=True
-            ).filter(prompts_subquery.c.name is None)
+            ).filter(prompts_subquery.c.name.is_(None))
 
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
