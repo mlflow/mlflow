@@ -32,6 +32,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -4670,3 +4671,16 @@ def test_get_logged_model(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_logged_model("does-not-exist")
+
+
+def test_finalize_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
+    assert store.get_logged_model(model.model_id).status == LoggedModelStatus.READY
+
+    with pytest.raises(MlflowException, match="Invalid model status: UNSPECIFIED"):
+        store.finalize_logged_model(model.model_id, status=LoggedModelStatus.UNSPECIFIED)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.finalize_logged_model("does-not-exist", status=LoggedModelStatus.READY)

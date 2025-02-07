@@ -1607,7 +1607,7 @@ class SqlAlchemyStore(AbstractStore):
                 creation_timestamp_ms=creation_timestamp,
                 last_updated_timestamp_ms=creation_timestamp,
                 model_type=model_type,
-                status=int(LoggedModelStatus.PENDING.to_proto()),
+                status=LoggedModelStatus.PENDING.to_int(),
                 lifecycle_stage=LifecycleStage.ACTIVE,
                 source_run_id=source_run_id,
             )
@@ -1651,6 +1651,25 @@ class SqlAlchemyStore(AbstractStore):
             f"Logged model with ID '{model_id}' not found.",
             RESOURCE_DOES_NOT_EXIST,
         )
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        if status != LoggedModelStatus.READY:
+            raise MlflowException(
+                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            if not (logged_model := session.query(SqlLoggedModel).get(model_id)):
+                raise MlflowException(
+                    f"Logged model with ID '{model_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            logged_model.status = int(status.to_proto())
+            logged_model.last_updated_timestamp_ms = get_current_time_millis()
+            session.commit()
+            return logged_model.to_mlflow_entity()
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
