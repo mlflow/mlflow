@@ -183,7 +183,7 @@ def _register_model(
     return create_version_response
 
 
-def _get_logged_models_from_run(source_run: str, model_name: str) -> LoggedModel:
+def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
     """Get all logged models from the source rnu that have the specified model name.
 
     Args:
