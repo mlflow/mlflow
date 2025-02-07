@@ -871,9 +871,8 @@ class Model:
             )
 
         def fetch_model_metrics_for_step(client, model_id, run_id, step):
-            metric_names = client.get_run(run_id).data.metrics.keys()
             metrics_for_step = []
-            for metric_name in metric_names:
+            for metric_name in client.get_run(run_id).data.metrics.keys():
                 history = client.get_metric_history(run_id, metric_name)
                 metrics_for_step.extend(
                     [
