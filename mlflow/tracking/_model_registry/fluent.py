@@ -140,9 +140,7 @@ def _register_model(
                 )
             # If there are multiple such logged models, get the one logged at the largest step
             model_id_to_step = {m_o.model_id: m_o.step for m_o in run.outputs.model_outputs}
-            model_id = max(
-                logged_models, key=lambda lm: model_id_to_step[lm.model_id]
-            ).model_id
+            model_id = max(logged_models, key=lambda lm: model_id_to_step[lm.model_id]).model_id
             source = f"models:/{model_id}"
             _logger.warning(
                 f"Run with id {run_id} has no artifacts at artifact path {artifact_path!r}, "
