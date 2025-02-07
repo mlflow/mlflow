@@ -135,7 +135,7 @@ def _register_model(
             if not logged_models:
                 raise MlflowException(
                     f"Unable to find a logged_model with artifact_path {artifact_path} "
-                    + f"under run {run_id}",
+                    f"under run {run_id}",
                     error_code=ErrorCode.Name(NOT_FOUND),
                 )
             # If there are multiple such logged models, get the one logged at the largest step
