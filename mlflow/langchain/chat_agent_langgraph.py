@@ -82,9 +82,10 @@ class ChatAgentToolNode(ToolNode):
 
     def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
         """
-        Wraps the standard ToolNode invoke method with parsing logic for dictionary string outputs
-        for both UC function tools and standard LangChain python tools that include keys
-        ``attachments`` and ``custom_outputs``.
+        Wraps the standard ToolNode invoke method to:
+        - Parse ChatAgentState into LangChain messages
+        - Parse dictionary string outputs from both UC function and standard LangChain python tools
+          that include keys ``content``, ``attachments``, and ``custom_outputs``.
         """
         messages = input["messages"]
         for msg in messages:
