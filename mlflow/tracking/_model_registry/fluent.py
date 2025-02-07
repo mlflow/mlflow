@@ -123,18 +123,18 @@ def _register_model(
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(model_uri)
         runs_artifact_repo = RunsArtifactRepository(model_uri)
         if runs_artifact_repo._is_directory(artifact_path):
-            # First check if run has artifact at artifact_path, 
+            # First check if run has artifact at artifact_path,
             # if so use the run's artifact location as source
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
         else:
-            # Otherwise check if there's a logged model with 
+            # Otherwise check if there's a logged model with
             # name artifact_path and source_run_id run_id
             run = client.get_run(run_id)
             logged_models = _get_logged_models_from_run(run, artifact_path)
             if not logged_models:
                 raise MlflowException(
-                    f"Unable to find a logged_model with artifact_path {artifact_path} " +
-                    f"under run {run_id}",
+                    f"Unable to find a logged_model with artifact_path {artifact_path} "
+                    + f"under run {run_id}",
                     error_code=ErrorCode.Name(NOT_FOUND),
                 )
             # If there are multiple such logged models, get the one logged at the largest step
