@@ -111,14 +111,13 @@ def start_container(port: int):
                     break
             except requests.exceptions.ConnectionError as e:
                 sys.stdout.write(f"An exception occurred when calling the server: {e}\n")
-                time.sleep(5)
 
             container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
-            time.sleep(1)
+            time.sleep(5)
 
         else:
             raise TimeoutError("Failed to start server.")
