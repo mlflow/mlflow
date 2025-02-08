@@ -2,11 +2,17 @@ import json
 import uuid
 from typing import Annotated, Any, Generator, Optional, TypedDict
 
-from langchain_core.messages import AnyMessage, BaseMessage
-from langchain_core.runnables import RunnableConfig
-from langchain_core.runnables.utils import Input
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt.tool_node import ToolNode
+try:
+    from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
+    from langchain_core.runnables import RunnableConfig
+    from langchain_core.runnables.utils import Input
+    from langgraph.graph.state import CompiledStateGraph
+    from langgraph.prebuilt.tool_node import ToolNode
+except ImportError:
+    raise ImportError(
+        "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use LangGraph ChatAgent"
+        "helpers."
+    )
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
@@ -75,11 +81,6 @@ class ChatAgentToolNode(ToolNode):
     Parse ``attachments`` and ``custom_outputs`` keys from the string output of a
     LangGraph tool.
     """
-
-    try:
-        from langchain_core.messages import convert_to_messages
-    except ImportError:
-        raise ImportError("Please install `langchain>=0.3.0` to use `ChatAgentToolNode`.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
