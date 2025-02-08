@@ -3,7 +3,6 @@ import uuid
 from typing import Annotated, Any, Generator, Optional, TypedDict
 
 from langchain_core.messages import AnyMessage, BaseMessage
-from langchain_core.messages.utils import convert_to_messages
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables.utils import Input
 from langgraph.graph.state import CompiledStateGraph
@@ -76,6 +75,14 @@ class ChatAgentToolNode(ToolNode):
     Parse ``attachments`` and ``custom_outputs`` keys from the string output of a
     LangGraph tool.
     """
+
+    try:
+        from langchain_core.messages import convert_to_messages
+    except ImportError:
+        raise ImportError(
+            "Please update `langchain` and `langchain-core` to the latest version to use "
+            "`ChatAgentToolNode`."
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
