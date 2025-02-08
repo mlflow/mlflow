@@ -239,9 +239,9 @@ def get_linear_regressor_model_uri():
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(reg, "reg_model")
-        return get_artifact_uri(run.info.run_id, "reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(reg, "reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -254,9 +254,9 @@ def get_spark_linear_regressor_model_uri():
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
 
-    with mlflow.start_run() as run:
-        mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        return get_artifact_uri(run.info.run_id, "spark_reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -269,9 +269,9 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -284,9 +284,9 @@ def get_binary_logistic_regressor_model_uri():
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "bin_clf_model")
-        return get_artifact_uri(run.info.run_id, "bin_clf_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "bin_clf_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -299,9 +299,9 @@ def get_svm_model_url():
     clf = sklearn.svm.LinearSVC()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "svm_model")
-        return get_artifact_uri(run.info.run_id, "svm_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "svm_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
