@@ -79,10 +79,7 @@ class ChatAgentToolNode(ToolNode):
     try:
         from langchain_core.messages import convert_to_messages
     except ImportError:
-        raise ImportError(
-            "Please update `langchain` and `langchain-core` to the latest version to use "
-            "`ChatAgentToolNode`."
-        )
+        raise ImportError("Please install `langchain>=0.3.0` to use `ChatAgentToolNode`.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
