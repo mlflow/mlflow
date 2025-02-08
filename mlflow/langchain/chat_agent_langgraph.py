@@ -3,7 +3,7 @@ import uuid
 from typing import Annotated, Any, Generator, Optional, TypedDict
 
 from langchain_core.messages import AnyMessage, BaseMessage
-from langchain_core.messages.utils import _convert_to_message
+from langchain_core.messages.utils import convert_to_messages
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables.utils import Input
 from langgraph.graph.state import CompiledStateGraph
@@ -92,7 +92,7 @@ class ChatAgentToolNode(ToolNode):
             for tool_call in msg.get("tool_calls", []):
                 tool_call["name"] = tool_call["function"]["name"]
                 tool_call["args"] = json.loads(tool_call["function"]["arguments"])
-        input["messages"] = [_convert_to_message(msg) for msg in messages]
+        input["messages"] = convert_to_messages(messages)
 
         result = super().invoke(input, config, **kwargs)
 
