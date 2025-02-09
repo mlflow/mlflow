@@ -40,7 +40,7 @@ export type RunsSearchAutoCompleteProps = {
   searchFilter: string;
   onSearchFilterChange: (newValue: string) => void;
   onClear: () => void;
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
 };
 
 /**

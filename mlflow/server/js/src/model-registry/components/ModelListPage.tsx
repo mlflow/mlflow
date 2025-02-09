@@ -22,6 +22,7 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];

@@ -25,7 +25,7 @@ type Props = {
   onSuccess?: (...args: any[]) => any;
 };
 
-export class RenameRunModalImpl extends Component<Props> {
+class RenameRunModalImpl extends Component<Props> {
   handleRenameRun = (values: any) => {
     // get value of input field
     const newRunName = values[NEW_NAME_FIELD];

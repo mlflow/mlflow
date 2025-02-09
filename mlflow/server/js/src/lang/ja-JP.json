@@ -1,8 +1,4 @@
 {
-  "++hkt4" : {
-    "defaultMessage" : "失敗",
-    "description" : "Evaluation results > sidebar list of evaluation results > summary of the evaluation result > indication if the evaluation is considered as passing by LLM judge or human"
-  },
   "+1i81u" : {
     "defaultMessage" : "登録時: ",
     "description" : "Label name for registered timestamp metadata in model version page"
@@ -63,6 +59,10 @@
     "defaultMessage" : "プレビュー",
     "description" : "Run page > artifact view > logged table view > preview box > title"
   },
+  "+fXBC2" : {
+    "defaultMessage" : "OK",
+    "description" : "A label for confirmation button in the evaluate traces modal"
+  },
   "+fb25b" : {
     "defaultMessage" : "作成時刻",
     "description" : "Label for the start time select dropdown for experiment runs view"
@@ -86,10 +86,6 @@
   "+qRrHK" : {
     "defaultMessage" : "エンティティの詳細",
     "description" : "Label for the served entity of the endpoint"
-  },
-  "+uTkrN" : {
-    "defaultMessage" : "オンライン予測リクエストと応答を、Unity Catalogが管理するDeltaテーブルに自動的に記録します。",
-    "description" : "External model serving configuration form > AI Gateway section > label for description hint explaining logging to inference tables"
   },
   "+w9a+1" : {
     "defaultMessage" : "このグループのランを新しいタブで開く",
@@ -167,6 +163,10 @@
     "defaultMessage" : "時間（実測）",
     "description" : "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
   },
+  "/Th+n1" : {
+    "defaultMessage" : "このevalデータセットに書き込む権限がありません。",
+    "description" : "Tooltip for when user does not have permission to write to eval dataset"
+  },
   "/VWFZb" : {
     "defaultMessage" : "機械学習モデルを共有、サービングします。",
     "description" : "Text for model registry onboarding on the model list page on Azure"
@@ -178,6 +178,10 @@
   "/bLbJt" : {
     "defaultMessage" : "以前のランの比較表示がアップデートされました。「チャート表示」をクリックして、新しい比較表示にアクセスします。<link>詳細を表示</link>",
     "description" : "Tooltip above the legacy compare runs button describing the chart view should be used now"
+  },
+  "/cOxmV" : {
+    "defaultMessage" : "すべてのジョブ実行が完了し、以下のテーブルに追加されました。",
+    "description" : "Message displayed to the user when they've completed an AutoML and not registed the result or model to UC"
   },
   "/g45Xz" : {
     "defaultMessage" : "機械学習モデルを共有、管理します。",
@@ -215,6 +219,10 @@
     "defaultMessage" : "ステージング",
     "description" : "Column title for staging phase version in the registered model page"
   },
+  "0Bee6A" : {
+    "defaultMessage" : "取得がログに記録されていません",
+    "description" : "Evaluation review > retrieval section > no values"
+  },
   "0ElvS9" : {
     "defaultMessage" : "Y軸:",
     "description" : "Label text for y-axis in contour plot comparison in MLflow"
@@ -231,10 +239,6 @@
     "defaultMessage" : "リクエストID",
     "description" : "Experiment page > traces table > request id column header"
   },
-  "0IQod2" : {
-    "defaultMessage" : "追加",
-    "description" : "Run page > Overview > Tags cell > 'Add' button label"
-  },
   "0M7VVC" : {
     "defaultMessage" : "無関係",
     "description" : "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -250,6 +254,10 @@
   "0Q82GW" : {
     "defaultMessage" : "更新して起動",
     "description" : "Text for button to update and start a serving endpoint"
+  },
+  "0Rao9q" : {
+    "defaultMessage" : "モデルの登録エラー",
+    "description" : "Notification title for model registration failure on the logged model details page"
   },
   "0T/4xU" : {
     "defaultMessage" : "バージョンは機能仕様には適用されません",
@@ -387,6 +395,10 @@
     "defaultMessage" : "キャンセル",
     "description" : "Cancel text for stop endpoint modal on endpoint view page"
   },
+  "1NZEtl" : {
+    "defaultMessage" : "フォールバック",
+    "description" : "Endpoint details page > External model details > AI Gateway details > Fallbacks section label"
+  },
   "1Q47v+" : {
     "defaultMessage" : "一部のモデルが学習していない可能性があります。より長い時系列データを用いて、AutoMLを再度実行してください。",
     "description" : "Recommended action for user when AutoML is given time series that are too\n          short"
@@ -398,6 +410,10 @@
   "1UVDwT" : {
     "defaultMessage" : "コメントを追加",
     "description" : "Text for add comment button on activities list on model version page"
+  },
+  "1Ujhc3" : {
+    "defaultMessage" : "True",
+    "description" : "True assessment label"
   },
   "1WS76w" : {
     "defaultMessage" : "予測問題において、タイムスタンプが同じ行は平均値で集計されます",
@@ -422,6 +438,10 @@
   "1Zgo09" : {
     "defaultMessage" : "権限",
     "description" : "Text for share button on experiment view page header"
+  },
+  "1b3c+B" : {
+    "defaultMessage" : "データセットがありません",
+    "description" : "Label for the ungrouped metrics column group in the logged model column selector"
   },
   "1f72BQ" : {
     "defaultMessage" : "バージョン",
@@ -459,6 +479,10 @@
     "defaultMessage" : "編集",
     "description" : "Text for the edit button next to the description section title on the feature table view page."
   },
+  "1sbRH2" : {
+    "defaultMessage" : "レイテンシー",
+    "description" : "Title for the latency chart in the monitoring UI, showing average latency per day given a time window."
+  },
   "1tEGZi" : {
     "defaultMessage" : "編集",
     "description" : "Edit endpoint button text on endpoint page"
@@ -466,6 +490,10 @@
   "1xjS1n" : {
     "defaultMessage" : "データ探索用ノートブックでエラーが発生しました",
     "description" : "AutoML warning shown when data exploration notebook fails"
+  },
+  "1zStaC" : {
+    "defaultMessage" : "見つかりませんでした",
+    "description" : "The label for a missing asseessment above a bar-chart in the summary stats."
   },
   "2/B9Zg" : {
     "defaultMessage" : "{when}に{user}が追加",
@@ -478,6 +506,14 @@
   "25EUlg" : {
     "defaultMessage" : "以下のコードスニペットではログ済みモデルのロード方法が示されています。",
     "description" : "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
+  },
+  "25VTYi" : {
+    "defaultMessage" : "キャンセル",
+    "description" : "Cancellation button text on the model version stage transition request/approval modal"
+  },
+  "27XMby" : {
+    "defaultMessage" : "見つかりませんでした",
+    "description" : "Missing assessment label"
   },
   "27oNFE" : {
     "defaultMessage" : "モデルスキーマ",
@@ -494,10 +530,6 @@
   "2DNVN4" : {
     "defaultMessage" : "エイリアスを使用すると、変更可能な名前付き参照を特定のモデルバージョンに割り当てることができます。<link>詳細を表示</link>",
     "description" : "Explanation of registered model aliases"
-  },
-  "2Exf7S" : {
-    "defaultMessage" : "対応ファイル形式: 画像、テキスト、html、pdf、geojson",
-    "description" : "Text to explain users which formats are supported to display the artifacts"
   },
   "2Hf+yU" : {
     "defaultMessage" : "時間（実測）",
@@ -591,6 +623,10 @@
     "defaultMessage" : "このテーブルを<code>endpoint_usage</code>テーブルと結合することで、各エンドポイント/モデルの使用率を得ることができます。",
     "description" : "Endpoint details page > External model details > AI Gateway details > Usage monitoring section > Information about joining tables"
   },
+  "2zYuJZ" : {
+    "defaultMessage" : "リアルタイム",
+    "description" : "Label for a real-time inference type in the modal for configuring inference for a registered model"
+  },
   "2zg0i9" : {
     "defaultMessage" : "出力: {outputPrice} {priceUnit}",
     "description" : "Endpoint details page > active configuration table > Cell formatters > Price (output)"
@@ -598,10 +634,6 @@
   "2zy+D5" : {
     "defaultMessage" : "新規タグを追加",
     "description" : "Experiment tracking > experiment page > runs > add new tag button"
-  },
-  "31EKoz" : {
-    "defaultMessage" : "モデルのメトリクスが記録されていません",
-    "description" : "Run page > Charts tab > Model charts section > empty label"
   },
   "31VqIA" : {
     "defaultMessage" : "ソース",
@@ -667,6 +699,10 @@
     "defaultMessage" : "MLflowのランのファイル出力を保存するためにlog artifact APIを使用してください。",
     "description" : "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
   },
+  "3hRurq" : {
+    "defaultMessage" : "空値",
+    "description" : "No value for a boolean assessment"
+  },
   "3kBS89" : {
     "defaultMessage" : "スコアリングの前に特徴量を取得するには、FeatureStoreClient.score_batchを呼び出します。",
     "description" : "Code comment explaining how to retrieve features prior to scoring"
@@ -678,10 +714,6 @@
   "3xnigx" : {
     "defaultMessage" : "Google Cloud VertexAIのプライベートキー",
     "description" : "Label for private key input for Google Cloud Vertex AI"
-  },
-  "3yKdXS" : {
-    "defaultMessage" : "リアルタイム推論、Delta Live Tables経由のストリーミング推論、またはバッチ推論のいずれかを選択します。",
-    "description" : "Text for form description on using the model for the different types of inference."
   },
   "4+RPaz" : {
     "defaultMessage" : "削除",
@@ -698,6 +730,10 @@
   "424G/o" : {
     "defaultMessage" : "エクスペリメント",
     "description" : "Breadcrumb nav item to link to the list of experiments page on runs page"
+  },
+  "44BZmR" : {
+    "defaultMessage" : "予測範囲 {horizon} が大きすぎるため、モデル学習が遅くなり、予測精度が低下する可能性があります。",
+    "description" : "AutoML warning shown when the horizon is too large"
   },
   "44XPr5" : {
     "defaultMessage" : "チャート表示",
@@ -719,13 +755,13 @@
     "defaultMessage" : "{fieldName}が空です",
     "description" : "Default text in data table where items are empty in the model\n                  comparison page"
   },
+  "47WmjN" : {
+    "defaultMessage" : "暴力犯罪、自傷行為、ヘイトスピーチなどへの言及を含む、安全でないまたは有害なコンテンツを検出してブロックします。",
+    "description" : "Description for AI Gateway Guardrails Input Safety"
+  },
   "4B8k46" : {
     "defaultMessage" : "値（オプション）",
     "description" : "Key-value tag editor modal > Value input label"
-  },
-  "4CChqi" : {
-    "defaultMessage" : "このエンドポイントのデータ使用状況メトリクスの追跡と監視を有効にします。",
-    "description" : "External model serving configuration form > AI Gateway section > label for hint explaining usage tracking enablement"
   },
   "4CDorZ" : {
     "defaultMessage" : "LLMにご興味がおありですか？<link>トークンごとの従量課金制の基盤モデルAPI</link>をお試しください！"
@@ -737,10 +773,6 @@
   "4Gf2cV" : {
     "defaultMessage" : "評価メトリクス：",
     "description" : "Header preceding the evaluation metric"
-  },
-  "4HEiPW" : {
-    "defaultMessage" : "{numEvals}件中{numFailing}件が不合格",
-    "description" : "Failing assessment tooltip"
   },
   "4HbEVz" : {
     "defaultMessage" : "最初にドロップダウンを使用してサービングモデルのエンドポイントを選択する必要があります",
@@ -774,6 +806,10 @@
     "defaultMessage" : "{when}に{user}が編集",
     "description" : "Evaluation review > assessments > detailed history > edited history entry"
   },
+  "4Tg5Vr" : {
+    "defaultMessage" : "ガイドライン準拠LLM審査員が、指定されたガイドラインに応答が準拠しているかどうかを判断します。",
+    "description" : "Evaluation results > known type of evaluation result assessment > guideline adherence judge."
+  },
   "4X56Td" : {
     "defaultMessage" : "ステージ移行が拒否されました",
     "description" : "Activity title text for rejected transition request in model versions page"
@@ -785,10 +821,6 @@
   "4XwWhX" : {
     "defaultMessage" : "AutoMLがサンプルデータセットでデータ探索・トライアルの実行を試みました。",
     "description" : "Text for dataset sampled after exploration"
-  },
-  "4Y91kG" : {
-    "defaultMessage" : "詳細を表示",
-    "description" : "Learn more link for the metrics header on the LLM evaluation page."
   },
   "4cecjR" : {
     "defaultMessage" : "機械学習モデルを共有、サービングします。",
@@ -818,6 +850,10 @@
     "defaultMessage" : "インポート者:",
     "description" : "Title text for the feature page imported by field."
   },
+  "4tElBB" : {
+    "defaultMessage" : "モデルのステージまたはバージョンを選択してください。",
+    "description" : "Error message for missing model stage or version input when generating an endpoint or an inference notebook"
+  },
   "4tpkvx" : {
     "defaultMessage" : "ベースラインからの変化を表示",
     "description" : "Runs charts > components > cards > RunsChartsDifferenceChartCard > Show change from baseline toggle label"
@@ -842,9 +878,17 @@
     "defaultMessage" : "使用されたデータセット",
     "description" : "Run page > Overview > FinetuneDetails > Run datasets section label"
   },
+  "57eu5X" : {
+    "defaultMessage" : "構造化データと非構造化データ内の個人を特定できる情報 (PII) を検出し、ブロックします。<link>詳細を表示</link>。",
+    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > description for PII Detection"
+  },
   "58xhem" : {
     "defaultMessage" : "クリックしてランをピン留め",
     "description" : "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
+  },
+  "59K/P9" : {
+    "defaultMessage" : "新規評価データセットの作成機能はまだサポートされていません。",
+    "description" : "Tooltip for when no eval datasets are found"
   },
   "5B5dhT" : {
     "defaultMessage" : "デプロイ前にモデルを検証",
@@ -929,6 +973,10 @@
   "5jXYY4" : {
     "defaultMessage" : "詳細評価",
     "description" : "Evaluation review > assessments > detailed assessments > title"
+  },
+  "5kYPUa" : {
+    "defaultMessage" : "エラー",
+    "description" : "Title for the errors chart in the monitoring UI, showing the number of errors per day in a given time window."
   },
   "5m2VPy" : {
     "defaultMessage" : "画像グリッド",
@@ -1130,17 +1178,13 @@
     "defaultMessage" : "評価",
     "description" : "Experiment page > new run modal > \"evaluate\" button label"
   },
+  "73f1eX" : {
+    "defaultMessage" : "ファインチューニングされた基盤モデル、クラシックモデル、エージェントなど。",
+    "description" : "Hint for the UC model option in the entity selector"
+  },
   "73ydH0" : {
     "defaultMessage" : "オフ",
     "description" : "Runs charts > line chart > ignore outliers > off setting label"
-  },
-  "74Pba2" : {
-    "defaultMessage" : "レビュー済み",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for displaying only already reviewed evaluation results"
-  },
-  "74xuTf" : {
-    "defaultMessage" : "キャンセル",
-    "description" : "Cancel text for button to cancel pending request action in model registry"
   },
   "757GVc" : {
     "defaultMessage" : "キャンセル",
@@ -1162,6 +1206,14 @@
     "defaultMessage" : "ソース",
     "description" : "Run page > Overview > FinetuneDetails > Run source section label"
   },
+  "7Dhfxy" : {
+    "defaultMessage" : "失敗",
+    "description" : "The label for a failing asseessment above a bar-chart in the summary stats."
+  },
+  "7DmnoN" : {
+    "defaultMessage" : "{numLogs}件のトレースを追加する評価データセットを選択します。",
+    "description" : "Description for selecting eval dataset to add traces"
+  },
   "7F/CBv" : {
     "defaultMessage" : "ステージ",
     "description" : "Column title text for model version stage in model version table"
@@ -1178,6 +1230,10 @@
     "defaultMessage" : "作成者",
     "description" : "Run page > Overview > Run author section label"
   },
+  "7N6FEg" : {
+    "defaultMessage" : "エージェントに対してルート最適化はサポートされていません。",
+    "description" : "Tooltip for disabled route optimization for agents"
+  },
   "7NKkk1" : {
     "defaultMessage" : "保存",
     "description" : "Modal button text to save the changes to rename the experiment run name"
@@ -1186,9 +1242,9 @@
     "defaultMessage" : "タグ",
     "description" : "Column title text for model version tags in model version table"
   },
-  "7Rkn7a" : {
-    "defaultMessage" : "{numFilteredEvals}/{numEvals}の評価",
-    "description" : "Text displayed when showing a filtered subset evaluations in the evaluation review page"
+  "7PCvDy" : {
+    "defaultMessage" : "OK",
+    "description" : "Confirmation button text on the model version stage transition request/approval modal"
   },
   "7S/ozs" : {
     "defaultMessage" : "コンテキストは十分です",
@@ -1201,6 +1257,10 @@
   "7WkP1e" : {
     "defaultMessage" : "削除",
     "description" : "Menu item to delete an experiment run"
+  },
+  "7Y0hIS" : {
+    "defaultMessage" : "サービングエンドポイントにデプロイする前に、次のコードを実行して、モデル推論がサンプル入力データとログに記録されたモデルの依存関係で機能することを確認してください",
+    "description" : "Section heading to display the code block on how we can validate a model locally prior to serving"
   },
   "7cuzHn" : {
     "defaultMessage" : "操作",
@@ -1242,9 +1302,9 @@
     "defaultMessage" : "説明を編集",
     "description" : "Label for the edit description button on the logged models details page"
   },
-  "7uuki1" : {
-    "defaultMessage" : "コメント",
-    "description" : "Title text for transition request form to add comments for model version stage transition request"
+  "7teFL4" : {
+    "defaultMessage" : "メトリクスチャートを検索",
+    "description" : "Placeholder for chart search input on the logged model chart view"
   },
   "7zNDHj" : {
     "defaultMessage" : "パラメーター:",
@@ -1270,6 +1330,10 @@
     "defaultMessage" : "等高線図は3個以上のユニークなメトリクスまたはパラメータでランのグループを比較した場合にのみ表示されます。等高線図を使用して可視化するために、より多くのメトリクスまたはパラメータを実行ジョブに記録します。",
     "description" : "Text explanation when contour plot is disabled in comparison pages\n              in MLflow"
   },
+  "879eOP" : {
+    "defaultMessage" : "評価に追加",
+    "description" : "Title for modal to add to evaluation dataset"
+  },
   "88l+j9" : {
     "defaultMessage" : "モデルバージョン{versionNum}を削除してもよろしいですか？この操作は元に戻せません。",
     "description" : "Comment text for model version deletion modal in model versions view\n                 page"
@@ -1282,9 +1346,9 @@
     "defaultMessage" : "（更新失敗）",
     "description" : "Text for failed served model update on the endpoints list page"
   },
-  "8DZd5b" : {
-    "defaultMessage" : "エンドポイントを監視し、保護します。これらのオプションは後で構成できます。",
-    "description" : "External model serving configuration form > AI Gateway section description"
+  "8FkuM4" : {
+    "defaultMessage" : "トレースに関する評価を実行",
+    "description" : "A title in the evaluate traces modal"
   },
   "8Gz0OE" : {
     "defaultMessage" : "グループを再表示",
@@ -1297,10 +1361,6 @@
   "8Uxki0" : {
     "defaultMessage" : "AutoMLはFeature Hashingを利用しました。",
     "description" : "Action that AutoML took for extreme category column"
-  },
-  "8VJWVw" : {
-    "defaultMessage" : "根本原因",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results that are failing"
   },
   "8WJEHc" : {
     "defaultMessage" : "新しいモデルのレジストリUI",
@@ -1378,6 +1438,10 @@
     "defaultMessage" : "{timeSince, plural, other {{timeSince,number}秒前}}",
     "description" : "Text for time in seconds since given date for MLflow views"
   },
+  "93rS6m" : {
+    "defaultMessage" : "このエンドポイントのデータ使用状況メトリクスを有効にします。<link>使用状況追跡テーブルスキーマ</link>.",
+    "description" : "External model serving configuration form > AI Gateway section > label for hint explaining usage tracking enablement"
+  },
   "97hGxL" : {
     "defaultMessage" : "キャンセル",
     "description" : "Model registry > model version alias editor > Cancel editing aliases"
@@ -1397,6 +1461,10 @@
   "9HXup+" : {
     "defaultMessage" : "実行の表示/非表示の切り替え",
     "description" : "Experiment page > runs table > toggle visibility of runs > accessible label"
+  },
+  "9JyC1e" : {
+    "defaultMessage" : "ストリーミング（Delta Live Tables）",
+    "description" : "Label for a streaming inference type in the modal for configuring inference for a registered model"
   },
   "9KXBFn" : {
     "defaultMessage" : "タグ",
@@ -1418,6 +1486,10 @@
     "defaultMessage" : "説明",
     "description" : "Title text for the feature table description section field."
   },
+  "9UA/gt" : {
+    "defaultMessage" : "指定された一連のトピックへのリクエストを制限します。",
+    "description" : "Description for AI Gateway Guardrails input valid topics"
+  },
   "9URaPt" : {
     "defaultMessage" : "メモリ使用率（%）",
     "description" : "Graph title for memory usage metrics graph"
@@ -1433,6 +1505,10 @@
   "9W3kev" : {
     "defaultMessage" : "登録",
     "description" : "Confirmation text to register the model"
+  },
+  "9cTaBs" : {
+    "defaultMessage" : "失敗",
+    "description" : "Failing assessment label"
   },
   "9dX4XQ" : {
     "defaultMessage" : "パラメーターまたはメトリクスを選択",
@@ -1482,10 +1558,6 @@
     "defaultMessage" : "プレビューするにはファイルが大きすぎます",
     "description" : "Label to indicate that the file is too large to preview"
   },
-  "9zVxGm" : {
-    "defaultMessage" : "評価は見つかりませんでした。",
-    "description" : "Text displayed when no evaluations are found in the evaluation review page"
-  },
   "A+5KMV" : {
     "defaultMessage" : "モデルID",
     "description" : "Label for the model ID of a logged model on the logged model details page"
@@ -1497,10 +1569,6 @@
   "A3+K1g" : {
     "defaultMessage" : "重要度",
     "description" : "Column header of AutoML warnings table. Describes priority of warning."
-  },
-  "A70NdI" : {
-    "defaultMessage" : "警告を表示する実行なし",
-    "description" : "Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > title"
   },
   "A7R0ii" : {
     "defaultMessage" : "パスをコピー",
@@ -1534,21 +1602,9 @@
     "defaultMessage" : "特徴量",
     "description" : "Title text for the feature name column."
   },
-  "AW2rVK" : {
-    "defaultMessage" : "ランの最大表示数",
-    "description" : "Label for the control allowing selection of number of runs displayed in a compare runs chart"
-  },
   "AWld9k" : {
     "defaultMessage" : "AIゲートウェイ",
     "description" : "Endpoint form summary title for inference table"
-  },
-  "AWn3+C" : {
-    "defaultMessage" : "コメント",
-    "description" : "Placeholder text for stage transition form to add comments for model version stage transitions"
-  },
-  "AY90S4" : {
-    "defaultMessage" : "レビュー済みとしてマーク",
-    "description" : "Evaluation review > evaluations list > tooltip for reviewed item"
   },
   "Aftphm" : {
     "defaultMessage" : "開始中",
@@ -1590,6 +1646,10 @@
     "defaultMessage" : "LLMサービングモデル",
     "description" : "Experiment page > new run modal > served LLM model endpoint label"
   },
+  "AylL48" : {
+    "defaultMessage" : "予算ポリシータグ",
+    "description" : "Endpoint form summary title for budget policy tags"
+  },
   "B0wNnL" : {
     "defaultMessage" : "作成",
     "description" : "Text for button to create a serving endpoint"
@@ -1614,6 +1674,10 @@
     "defaultMessage" : "ランが選択されていません",
     "description" : "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
+  "BJvcsS" : {
+    "defaultMessage" : "時間範囲",
+    "description" : "Label for the start range select dropdown for experiment runs view"
+  },
   "BOz0T2" : {
     "defaultMessage" : "メトリクスを選択",
     "description" : "Placeholder text for a metric selector when configuring a line chart"
@@ -1629,6 +1693,10 @@
   "BQt0TQ" : {
     "defaultMessage" : "このモデルは<link>モデルレジストリ</link>にも登録されています。",
     "description" : "Sub text to tell the users where the registered models are located "
+  },
+  "BTAzqb" : {
+    "defaultMessage" : "行の表示/非表示を切り替え",
+    "description" : "Accessibility label for the button that toggles visibility of rows in the experiment view logged models compare mode"
   },
   "BW9bik" : {
     "defaultMessage" : "期間",
@@ -1646,13 +1714,13 @@
     "defaultMessage" : "キャンセル",
     "description" : "Cancel text for update and start endpoint modal on endpoint edit page"
   },
+  "BdV0qk" : {
+    "defaultMessage" : "人による審査",
+    "description" : "Label for human judge in the tooltip for the assessment in the evaluation metrics."
+  },
   "Bipp6i" : {
     "defaultMessage" : "削除",
     "description" : "OK text for delete endpoint modal on endpoint view page"
-  },
-  "BlEXmR" : {
-    "defaultMessage" : "評価",
-    "description" : "Label for the evaluations tab on the logged model details page"
   },
   "BldEXx" : {
     "defaultMessage" : "最終更新者",
@@ -1673,10 +1741,6 @@
   "Brd8VL" : {
     "defaultMessage" : "オンラインストア",
     "description" : "Title text for the online store name column."
-  },
-  "Bs2X0L" : {
-    "defaultMessage" : "作成者",
-    "description" : "Label for the creator of a logged model on the logged model details page"
   },
   "Bw2fr8" : {
     "defaultMessage" : "AutoMLがタイムアウトしました",
@@ -1722,6 +1786,10 @@
     "defaultMessage" : "所有者",
     "description" : "UC Models page > Owner column header"
   },
+  "CLl/vh" : {
+    "defaultMessage" : "スループットが高いかレイテンシーが低いワークロードに推奨されます。エンドポイントの作成後は、ルート最適化を変更できません。 <link>詳細を表示</link>。",
+    "description" : "Label for the route optimization"
+  },
   "CQoA6b" : {
     "defaultMessage" : "AutoMLを起動中...",
     "description" : "AutoML Step subtitle pending training"
@@ -1750,6 +1818,10 @@
     "defaultMessage" : "キャンセル",
     "description" : "Button text for canceling pending request on the model version page"
   },
+  "Ccc4/4" : {
+    "defaultMessage" : "アーティファクト",
+    "description" : "Row group title for artifacts of runs on the experiment compare runs page"
+  },
   "CdhXKo" : {
     "defaultMessage" : "不明なコンピュート設定",
     "description" : "Default message returned when unknown compute config is found for served model"
@@ -1765,6 +1837,10 @@
   "Cj2i02" : {
     "defaultMessage" : "エラー",
     "description" : "Experiment page > traces table > error state title"
+  },
+  "CjBv5h" : {
+    "defaultMessage" : "保留中のリクエストを承認",
+    "description" : "Title for a model version stage transition modal when approving a pending request"
   },
   "CkCjt2" : {
     "defaultMessage" : "最適なモデルのノートブックを表示",
@@ -1802,10 +1878,6 @@
     "defaultMessage" : "CPU使用率（%）",
     "description" : "Graph title for cpu usage metrics graph"
   },
-  "CywWaX" : {
-    "defaultMessage" : "外部モデル",
-    "description" : "Select source for the entity in the entity selector; this source is the a model external to Databricks"
-  },
   "D+UN8o" : {
     "defaultMessage" : "メトリクスチャートがありません",
     "description" : "Experiment page > compare runs > no metric charts"
@@ -1817,6 +1889,10 @@
   "D0V5yC" : {
     "defaultMessage" : "GPU使用率（%）",
     "description" : "Graph title for gpu usage metrics graph"
+  },
+  "D0jMS6" : {
+    "defaultMessage" : "モデルを登録",
+    "description" : "Label for a CTA button for registering a ML model version from a logged model"
   },
   "D5yPfu" : {
     "defaultMessage" : "サービングエンティティ",
@@ -1886,17 +1962,25 @@
     "defaultMessage" : "列名が一意のデータセットでAutoMLを再度実行してください。",
     "description" : "Action that AutoML took given a dataset with duplicate column names"
   },
-  "Dxwvus" : {
-    "defaultMessage" : "ステージ移行",
-    "description" : "Title text for model version stage transitions in confirm modal"
-  },
   "E+wms0" : {
     "defaultMessage" : "トラフィックの合計は100である必要がありますが、現在の合計は{sum}です",
     "description" : "Error message for when traffic split percentages must add up to 100"
   },
+  "E04c48" : {
+    "defaultMessage" : "空値",
+    "description" : "No value for a human-tag assessment"
+  },
   "E2etXv" : {
     "defaultMessage" : "削除",
     "description" : "Ok button text for deleting a comment under activities list on the model version page"
+  },
+  "E4Te7L" : {
+    "defaultMessage" : "エクスペリメント読み込みエラー: {errorMessage}",
+    "description" : "Error message displayed on logged models page when experiment data fails to load"
+  },
+  "E5Ruk+" : {
+    "defaultMessage" : "現在表示されているランにはログに記録された画像が見つかりません",
+    "description" : "Description for the empty state when no images are found in the currently visible runs"
   },
   "E5gbt5" : {
     "defaultMessage" : "その他のオプション",
@@ -1966,10 +2050,6 @@
     "defaultMessage" : "最終更新",
     "description" : "Title text for the feature page last modified metadata field."
   },
-  "EcEAkw" : {
-    "defaultMessage" : "フィルター",
-    "description" : "Evaluation review > evaluations list > filter dropdown button"
-  },
   "EdaSNm" : {
     "defaultMessage" : "無制限",
     "description" : "External model serving configuration form > AI Gateway section > rate limits section > label for checkbox that disables rate limit"
@@ -1977,10 +2057,6 @@
   "EeSKt9" : {
     "defaultMessage" : "タグ",
     "description" : "Endpoint form summary title for tags"
-  },
-  "Eh/e0j" : {
-    "defaultMessage" : "上に移動",
-    "description" : "Run page > Charts tab > Chart box header > Move up dropdown option"
   },
   "EkUD0b" : {
     "defaultMessage" : "結果なし",
@@ -2009,10 +2085,6 @@
   "Ex7Kfi" : {
     "defaultMessage" : "最大",
     "description" : "Label for the max provisioned throughput of the endpoint"
-  },
-  "F/EzKI" : {
-    "defaultMessage" : "既存の{currentStage}モデルバージョンを{archivedStage}に移行",
-    "description" : "Description text for checkbox for archiving existing model versions\n                    in the toStage for model version stage transition"
   },
   "F/bYzu" : {
     "defaultMessage" : "メッセージ",
@@ -2046,13 +2118,13 @@
     "defaultMessage" : "シーケンスを停止",
     "description" : "Experiment page > prompt lab > stop parameter label"
   },
+  "FAidvC" : {
+    "defaultMessage" : "戻る",
+    "description" : "Back button text to cancel the flow to register the model"
+  },
   "FBR3Q/" : {
     "defaultMessage" : "概要",
     "description" : "Label for the overview tab on the logged model details page"
-  },
-  "FBtY9A" : {
-    "defaultMessage" : "{rootCauseCount}件の{assessmentName}に失敗したため総合評価は不合格となっています。",
-    "description" : "Root cause assessment tooltip"
   },
   "FC9mcS" : {
     "defaultMessage" : "平行座標",
@@ -2074,6 +2146,14 @@
     "defaultMessage" : "URL",
     "description" : "Dropdown button text to copy endpoint URL"
   },
+  "FVr0uu" : {
+    "defaultMessage" : "マイモデル - モデルレジストリ",
+    "description" : "Select source for the entity in the entity selector when Unity Catalog is enabled; this source is models in the model registry, which eventually will be deprecated, but not anytime soon"
+  },
+  "FWtUH2" : {
+    "defaultMessage" : "もっと読み込む",
+    "description" : "Label for a button to load more results in the logged models table"
+  },
   "FYxQgz" : {
     "defaultMessage" : "キー",
     "description" : "Add new key-value tag modal > Key input label"
@@ -2093,6 +2173,10 @@
   "FmqNVi" : {
     "defaultMessage" : "学習用データ",
     "description" : "Run Page > FinetuneParamsTable > Training Data"
+  },
+  "FnOQ44" : {
+    "defaultMessage" : "{numFilteredEvals}/{numEvals}",
+    "description" : "Text displayed when showing a filtered subset evaluations in the evaluation review page"
   },
   "FpjDSq" : {
     "defaultMessage" : "比較",
@@ -2150,6 +2234,10 @@
     "defaultMessage" : "プロンプトテンプレート",
     "description" : "Experiment page > new run modal > prompt examples > prompt template title"
   },
+  "GEcK8Z" : {
+    "defaultMessage" : "このモデルのペイロードと依存関係を検証してください。<link>検証方法はこちら</link>。",
+    "description" : "Tip to validate custom Unity Catalog model."
+  },
   "GFGCtq" : {
     "defaultMessage" : "サービングエンティティ",
     "description" : "Endpoint form summary title for served entities"
@@ -2174,6 +2262,10 @@
     "defaultMessage" : "入力",
     "description" : "Table subtitle for schema inputs in the model comparison page"
   },
+  "GKKljf" : {
+    "defaultMessage" : "バッチ推論",
+    "description" : "Label for a batch inference type in the modal for configuring inference for a registered model"
+  },
   "GKiPV1" : {
     "defaultMessage" : "開始時刻:",
     "description" : "Text for start time row header in the main table in the model comparison\n                page"
@@ -2193,6 +2285,10 @@
   "Gcm7Bw" : {
     "defaultMessage" : "作成者",
     "description" : "Title text for the feature table creator column."
+  },
+  "Geh8aK" : {
+    "defaultMessage" : "基盤モデル",
+    "description" : "Select source for the entity in the entity selector; this source is popular foundation models or a model external to Databricks"
   },
   "Gg/vLZ" : {
     "defaultMessage" : "モデルを削除",
@@ -2273,6 +2369,10 @@
   "HOsSgX" : {
     "defaultMessage" : "詳細"
   },
+  "HTqHYm" : {
+    "defaultMessage" : "TRUE",
+    "description" : "Header label for boolean assessment type for True-rate"
+  },
   "HUC492" : {
     "defaultMessage" : "詳細なトレースビューを表示する",
     "description" : "Evaluation review > see detailed trace view button"
@@ -2281,9 +2381,21 @@
     "defaultMessage" : "{modelName}を削除してもよろしいですか？この操作は元に戻せません。",
     "description" : "Confirmation message for delete model modal on model view page"
   },
+  "HV1iaK" : {
+    "defaultMessage" : "モニタリング",
+    "description" : "A button enabling evaluation results monitoring mode on the experiment page"
+  },
   "HZqm8e" : {
     "defaultMessage" : "アクティビティ",
     "description" : "Title text for the activities section on the model versions view page"
+  },
+  "Hboqen" : {
+    "defaultMessage" : "チャートのロードに失敗",
+    "description" : "Title for the error message when the MLflow chart fails to load"
+  },
+  "HeNa8H" : {
+    "defaultMessage" : "すべて",
+    "description" : "Option for the start select dropdown to filter runs from the beginning of time"
   },
   "Hk0RSH" : {
     "defaultMessage" : "Y軸:",
@@ -2333,13 +2445,13 @@
     "defaultMessage" : "エイリアス",
     "description" : "Aliases section in the metadata on model version page"
   },
-  "I1HLUE" : {
-    "defaultMessage" : "プロバイダーを選択",
-    "description" : "Placeholder for models selected from an external provider"
-  },
   "I4vohS" : {
     "defaultMessage" : "公開済みのオンラインテーブルとベースとなるDeltaテーブルを個別に削除する必要があります。<link>詳細を表示</link>",
     "description" : "Text on the feature table deletion modal describing consequences of this operation."
+  },
+  "I9wXn5" : {
+    "defaultMessage" : "マイモデル - Unity Catalog",
+    "description" : "Select source for the entity in the entity selector when model registry is disabled; this source is models in the Databricks unity catalog"
   },
   "IAyAgH" : {
     "defaultMessage" : "上に移動",
@@ -2373,6 +2485,10 @@
     "defaultMessage" : "「{tagKey}」タグを追加",
     "description" : "Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button"
   },
+  "IKlQdn" : {
+    "defaultMessage" : "組み込みの基盤モデルは無効です",
+    "description" : "Option for when built-in foundation models are disabled"
+  },
   "IKx3DN" : {
     "defaultMessage" : "pandas DataFrameで予測します。",
     "description" : "Code comment which states on how we can predict using pandas DataFrame"
@@ -2384,6 +2500,10 @@
   "IME4eC" : {
     "defaultMessage" : "推論テーブル",
     "description" : "Title for inference tables column on endpoint list table"
+  },
+  "IUAmWX" : {
+    "defaultMessage" : "表示する一般的なアーティファクトはありません。",
+    "description" : "Text shown when there are no common artifacts between the runs"
   },
   "IWuVOI" : {
     "defaultMessage" : "タグを追加できませんでした。エラー: {userVisibleError}",
@@ -2417,6 +2537,10 @@
     "defaultMessage" : "すべてのサービングエンティティ",
     "description" : "Dropdown option for selecting all served entities"
   },
+  "Ir/hjw" : {
+    "defaultMessage" : "最適なモデル",
+    "description" : "Title for section highlighting the best model resulting from an AutoML experiment"
+  },
   "Isaf66" : {
     "defaultMessage" : "詳細",
     "description" : "Run page > Overview > Details section title"
@@ -2441,6 +2565,14 @@
     "defaultMessage" : "モデルがテキスト生成を停止する合図となるシーケンスを指定します。",
     "description" : "Experiment page > prompt lab > stop parameter help text"
   },
+  "J961B2" : {
+    "defaultMessage" : "{numFilters}個のフィルター",
+    "description" : "Evaluation review > evaluations list > filter dropdown button"
+  },
+  "J9gwwW" : {
+    "defaultMessage" : "エージェント",
+    "description" : "Endpoints > Foundation models > \"Agent\" model task label"
+  },
   "JCOS4u" : {
     "defaultMessage" : "名前",
     "description" : "Title text for the producer name column."
@@ -2456,6 +2588,10 @@
   "JDjcxv" : {
     "defaultMessage" : "AIガードレール",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling guardrails"
+  },
+  "JFXAqZ" : {
+    "defaultMessage" : "ドロップダウンからモデルを選択するか、使用するモデル名を入力します。ドロップダウンリストは例示的なものであり、使用するモデルがリストにない場合は、モデル名を入力します。",
+    "description" : "Hint text for provider model configuration"
   },
   "JJ5X8Z" : {
     "defaultMessage" : "OAuthトークンは1時間有効です",
@@ -2473,10 +2609,6 @@
     "defaultMessage" : "タグ値は1000文字以下にしてください",
     "description" : "Error message for invalid endpoint tag value input"
   },
-  "JXAz0j" : {
-    "defaultMessage" : "プロバイダー構成の詳しい情報については、以下をこの<link>ドキュメント</link>を参照してください。",
-    "description" : "Hint text for provider configuration"
-  },
   "JYVQuV" : {
     "defaultMessage" : "ランID",
     "description" : "Run page > Overview > Run ID section label"
@@ -2484,6 +2616,10 @@
   "JYz0Gi" : {
     "defaultMessage" : "ステータスをフォロー",
     "description" : "Label name text for following status metadata in model versions page"
+  },
+  "Jdr//R" : {
+    "defaultMessage" : "文字列",
+    "description" : "Header label for string assessment type"
   },
   "Jj2kRy" : {
     "defaultMessage" : "評価の詳細はありません",
@@ -2500,10 +2636,6 @@
   "JnidmZ" : {
     "defaultMessage" : "行を追加",
     "description" : "Experiment page > artifact compare view > \"add new row\" modal title"
-  },
-  "JoWN8u" : {
-    "defaultMessage" : "LLMにご興味がおありですか？これらのFoundation Model APIから始めましょう。",
-    "description" : "Foundation Models list page title"
   },
   "Jp79WH" : {
     "defaultMessage" : "X軸",
@@ -2556,6 +2688,10 @@
   "KRoY2e" : {
     "defaultMessage" : "50フレーズの制限に達しました",
     "description" : "Warning message when user tries to add more than 50 phrases in the AI guardrails section (valid topics or invalid keywords) when creating or editing serving endpoint"
+  },
+  "KTJuDu" : {
+    "defaultMessage" : "暴力犯罪、自傷行為、ヘイトスピーチなどへの言及を含む、安全でないまたは有害なコンテンツを検出してブロックします。",
+    "description" : "Description for AI Gateway Guardrails Output Safety"
   },
   "KWUXoN" : {
     "defaultMessage" : "サーバーレス",
@@ -2625,6 +2761,10 @@
     "defaultMessage" : "ランID",
     "description" : "Run page > Overview > FinetuneDetails > Run ID section label"
   },
+  "LEfsoD" : {
+    "defaultMessage" : "チャート",
+    "description" : "Button description to view the monitor charts"
+  },
   "LEiN8m" : {
     "defaultMessage" : "タグ",
     "description" : "Experiment page > group by runs control > tags section label"
@@ -2661,6 +2801,10 @@
     "defaultMessage" : "ジョブ出力",
     "description" : "Run page > Overview > Job output section label"
   },
+  "LXVJ38" : {
+    "defaultMessage" : "LLMにご興味がおありですか？マネージドLLMモデルを試すか、OpenAIなどの外部プロバイダーに安全に接続できます。",
+    "description" : "Foundation Models list page title"
+  },
   "LYEd8B" : {
     "defaultMessage" : "データ探索用ノートブックを表示",
     "description" : "Button to navigate to the data exploration notebook"
@@ -2680,6 +2824,10 @@
   "LiW/yM" : {
     "defaultMessage" : "SVGとしてダウンロード",
     "description" : "Experiment page > compare runs tab > chart header > download as SVG option"
+  },
+  "LjPLUv" : {
+    "defaultMessage" : "SQLウェアハウスを選択",
+    "description" : "Placeholder text for the SQL Warehouse selector combobox."
   },
   "Ll6vbT" : {
     "defaultMessage" : "「{currentStage}」ステージのモデルバージョンは「アーカイブ済み」ステージに移動します。",
@@ -2701,13 +2849,17 @@
     "defaultMessage" : "サポートされるタイプの{t}列でAutoMLを再度実行してください。",
     "description" : "Action message for unsupported target or time type warning"
   },
+  "LrB+ZT" : {
+    "defaultMessage" : "{metric}プライマリメトリックは、{framework}トレーニングフレームワークではサポートされていません",
+    "description" : "AutoML warning shown when the metric is unsupported for the specified framework"
+  },
   "Ls2ris" : {
     "defaultMessage" : "レビュー済みとしてマーク",
     "description" : "Evaluation review > assessments > mark as reviewed button"
   },
-  "Lxx51V" : {
-    "defaultMessage" : "他の実行を選択するか、「相違点のみ表示」に切り替えるか、モデルメトリクス、システムメトリクス、パラメーター、タグ、または属性を比較するようにチャートを再構成してください。",
-    "description" : "Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > text"
+  "LsA+3m" : {
+    "defaultMessage" : "Llama、OpenAI、Anthropicなど",
+    "description" : "Hint for the foundation model option in the entity selector"
   },
   "M+HfWb" : {
     "defaultMessage" : "無関係",
@@ -2773,6 +2925,10 @@
     "defaultMessage" : "作成日:",
     "description" : "Label for the creation timestamp of a logged model on the logged model details page"
   },
+  "MVKc64" : {
+    "defaultMessage" : "AutoML は{framework}モデルをトレーニングしません。",
+    "description" : "Action that AutoML took when the metric is unsupported for the specified framework"
+  },
   "MVQrOG" : {
     "defaultMessage" : "レイテンシー（ミリ秒）",
     "description" : "Graph title for latency metrics graph"
@@ -2800,10 +2956,6 @@
   "MhtxHm" : {
     "defaultMessage" : "このランはLLMサービングモデルを使用して作成されなかったため、このセルは評価できません",
     "description" : "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
-  },
-  "Mm7PVx" : {
-    "defaultMessage" : "ベースライン",
-    "description" : "Runs charts > components > charts > DifferenceViewPlot > baseline tag"
   },
   "Mn7Kss" : {
     "defaultMessage" : "OK",
@@ -2889,10 +3041,6 @@
     "defaultMessage" : "値",
     "description" : "Label for the value column in the logged model details metrics table"
   },
-  "NXK0gq" : {
-    "defaultMessage" : "評価を検索",
-    "description" : "Evaluation review > evaluations list > search input placeholder"
-  },
   "NZqJUU" : {
     "defaultMessage" : "削除",
     "description" : "Text for delete button for activities list on the model version page"
@@ -2916,6 +3064,10 @@
   "Nm/Pjx" : {
     "defaultMessage" : "登録",
     "description" : "Column title text for created at timestamp in model version table"
+  },
+  "NnJXK/" : {
+    "defaultMessage" : "評価は見つかりませんでした。 より多くの評価を表示するには、アクティブなフィルターをクリアしてみてください。",
+    "description" : "Text displayed when no evaluations are found in the evaluation review page"
   },
   "Nnsm0p" : {
     "defaultMessage" : "このエクスペリメントのすべてのランはフィルタリングされます。欄を表示するにはフィルタリングを変更またはクリアします。",
@@ -2965,10 +3117,6 @@
     "defaultMessage" : "テーブル設定",
     "description" : "Run view > artifact view > logged table > table settings tooltip"
   },
-  "NzV7O0" : {
-    "defaultMessage" : "保留中のリクエストを拒否",
-    "description" : "Title text for reject pending request confirmation modal in model\n                   registry"
-  },
   "O1rYVN" : {
     "defaultMessage" : "Spark UDFとしてモデルをロードします。モデルがDouble値を返さない場合、「result_type」を上書きします。",
     "description" : "Code comment which states how to load model using spark UDF"
@@ -2988,6 +3136,10 @@
   "O8LQKU" : {
     "defaultMessage" : "サービングエンティティが1つ以上必要です。",
     "description" : "Error message for when no served entities are provided"
+  },
+  "O8QEPV" : {
+    "defaultMessage" : "ビュー",
+    "description" : "Button to view eval dataset"
   },
   "O9r1RR" : {
     "defaultMessage" : "開始時刻:",
@@ -3016,6 +3168,10 @@
   "OUKAKS" : {
     "defaultMessage" : "結果がありません。別のキーワードを使用するか、フィルターを調整してください。",
     "description" : "No result feature tables from search text for feature store page."
+  },
+  "OZXWas" : {
+    "defaultMessage" : "False",
+    "description" : "False value in the evaluations table."
   },
   "Of20iy" : {
     "defaultMessage" : "エンドポイントが見つかりませんでした",
@@ -3061,13 +3217,13 @@
     "defaultMessage" : "パラメータを選択してください",
     "description" : "Placeholder text for parameters in parallel coordinates plot in MLflow"
   },
+  "P0BFTj" : {
+    "defaultMessage" : "指定された無効なキーワードを使用する応答をブロックします。",
+    "description" : "Description for AI Gateway Guardrails output invalid keywords"
+  },
   "P3U72f" : {
     "defaultMessage" : "親のラン",
     "description" : "Run page > Overview > FinetuneDetails > Parent run"
-  },
-  "P3cws5" : {
-    "defaultMessage" : "失敗",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results that are failing"
   },
   "P5L/6t" : {
     "defaultMessage" : "このエンドポイントは、エンドポイントを起動するまでクエリーを処理できません。",
@@ -3093,6 +3249,10 @@
     "defaultMessage" : "推論テーブルの設定を変更",
     "description" : "Endpoint details page > Inference table configuration modal > Modal title"
   },
+  "PCmjJ5" : {
+    "defaultMessage" : "オプション。",
+    "description" : "Description for the tags section of an endpoint"
+  },
   "PEYesH" : {
     "defaultMessage" : "新規ラン",
     "description" : "Button used to pop up a modal to create a new run"
@@ -3104,14 +3264,6 @@
   "PHatn1" : {
     "defaultMessage" : "有効になっていません",
     "description" : "\"Not enabled\" for payload logging on this endpoint"
-  },
-  "PHmZYz" : {
-    "defaultMessage" : "関連性",
-    "description" : "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
-  },
-  "PHwT2a" : {
-    "defaultMessage" : "見つかりませんでした",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no result"
   },
   "PKYh23" : {
     "defaultMessage" : "その他のラン",
@@ -3141,9 +3293,12 @@
     "defaultMessage" : "なし",
     "description" : "Default text for no content in an editable note in MLflow"
   },
-  "PWk6rC" : {
-    "defaultMessage" : "確認",
-    "description" : "OK text for button to confirm pending request action in model registry"
+  "PRmO2N" : {
+    "defaultMessage" : "以下をクリックすると、次の評価インスタンスのエクスポート済みログが表示されます",
+    "description" : "Notification for successfully exporting logs to evals instances"
+  },
+  "PUQxu5" : {
+    "defaultMessage" : "ベースラインのランを選択"
   },
   "PYS6gs" : {
     "defaultMessage" : "変更",
@@ -3213,10 +3368,6 @@
     "defaultMessage" : "削除",
     "description" : "Experiment page > traces view controls > Delete button"
   },
-  "QBJcy7" : {
-    "defaultMessage" : "コンテキストは十分です",
-    "description" : "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
-  },
   "QBT/dC" : {
     "defaultMessage" : "{endpointName}のタグを追加/編集",
     "description" : "Modal title for edit endpoint tags"
@@ -3228,6 +3379,10 @@
   "QD6iZA" : {
     "defaultMessage" : "検索条件に一致するパラメーターがありません",
     "description" : "Run page > Overview > Parameters table > No results after filtering"
+  },
+  "QEL+JO" : {
+    "defaultMessage" : "この評価が評価全体の失敗の根本原因です。",
+    "description" : "Root cause assessment hint that explains that this assessment is causing the overall assessment to fail."
   },
   "QO4IPr" : {
     "defaultMessage" : "リクエストで評価を検索",
@@ -3329,10 +3484,6 @@
     "defaultMessage" : "モデルを作成",
     "description" : "Create button to register a new model"
   },
-  "RZTZyO" : {
-    "defaultMessage" : "コメント",
-    "description" : "Placeholder text for transition request form to add comments for model version stage transition request"
-  },
   "RaGnOQ" : {
     "defaultMessage" : "比較",
     "description" : "String for the compare button to compare experiment runs to find an ideal model"
@@ -3377,9 +3528,9 @@
     "defaultMessage" : "可視化",
     "description" : "Tabs title for plots on the compare runs page"
   },
-  "SAD2Mj" : {
-    "defaultMessage" : "OK",
-    "description" : "Text for OK button on the confirmation page for stage transition\n                 on the model versions page"
+  "SAjCV7" : {
+    "defaultMessage" : "指定された無効なキーワードを使用するリクエストをブロックします。",
+    "description" : "Description for AI Gateway Guardrails input invalid keywords"
   },
   "SCCJKU" : {
     "defaultMessage" : "この動作は`spark.databricks.automl.scaleCpusPerTask`configを使って無効化できます。",
@@ -3396,6 +3547,10 @@
   "SCqKp8" : {
     "defaultMessage" : "評価",
     "description" : "A button enabling compare runs (evaluation) mode on the experiment page"
+  },
+  "SFBNbC" : {
+    "defaultMessage" : "エンドポイントを監視し、保護します。<link>詳細を表示</link>。<pricinglink>請求の詳細を表示</pricinglink>。",
+    "description" : "External model serving configuration form > AI Gateway section description"
   },
   "SJZAR7" : {
     "defaultMessage" : "パーティションキー",
@@ -3420,6 +3575,14 @@
   "SNvZyR" : {
     "defaultMessage" : "時刻",
     "description" : "Label for the time axis on the runs compare chart"
+  },
+  "SSdelE" : {
+    "defaultMessage" : "このモデルは環境変数がログされています。設定するには展開してください。",
+    "description" : "Tip to set environment variables for custom Unity Catalog model in the collapsed Advanced Configuration section."
+  },
+  "SU2pmO" : {
+    "defaultMessage" : "予測を表示する",
+    "description" : "Button guiding the user to view the predctions of the best model generated by an AutoML experiment"
   },
   "SV4FtX" : {
     "defaultMessage" : "環境変数を追加",
@@ -3449,6 +3612,10 @@
     "defaultMessage" : "カスタムモデル名",
     "description" : "Instructs user to enter the name of their model if it is custom, and not in the dropdown."
   },
+  "ShhOOp" : {
+    "defaultMessage" : "指定された時間範囲内のデータは見つかりませんでした",
+    "description" : "Description for when there is no data to show."
+  },
   "Shv28w" : {
     "defaultMessage" : "保存",
     "description" : "Default text for save button on editable notes in MLflow"
@@ -3456,10 +3623,6 @@
   "SnpuUi" : {
     "defaultMessage" : "p99 - {modelName}",
     "description" : "Label for p99 line on latency graph"
-  },
-  "Sp+Iw0" : {
-    "defaultMessage" : "下に移動",
-    "description" : "Run page > Charts tab > Chart box header > Move down dropdown option"
   },
   "SrXYrV" : {
     "defaultMessage" : "最初の{numRows}行のプレビュー",
@@ -3472,6 +3635,14 @@
   "SvTT/R" : {
     "defaultMessage" : "AIゲートウェイを編集",
     "description" : "Endpoint details page > External model details > AI Gateway details section > Edit button (displayed when AI gateway has existing configuration that can be changed)"
+  },
+  "SzapEm" : {
+    "defaultMessage" : "最新バージョンのMLflowを使用してモデルをログに記録すると、こちらにモデルが表示されます。<link>詳細を表示</link>。",
+    "description" : "Placeholder for empty models table on the logged models list page"
+  },
+  "Szo9gx" : {
+    "defaultMessage" : "評価に追加（{numEvals}件）",
+    "description" : "Export evals traces to eval datasets"
   },
   "SzvvXl" : {
     "defaultMessage" : "送信できませんでした",
@@ -3509,6 +3680,14 @@
     "defaultMessage" : "<link>特徴量</link>",
     "description" : "Text link on the breadcrumbs section that links to the features home page."
   },
+  "T8chxB" : {
+    "defaultMessage" : "予算ポリシー",
+    "description" : "Endpoint budget policy label on endpoint page"
+  },
+  "T9pM3E" : {
+    "defaultMessage" : "推論テーブルは、すべてのリクエストと応答をUnity Catalogが管理するDeltaテーブルに記録します。<link>推論テーブルスキーマ</link>。",
+    "description" : "External model serving configuration form > AI Gateway section > label for description hint explaining logging to inference tables"
+  },
   "TB3nMW" : {
     "defaultMessage" : "データセットに長い時系列が含まれています",
     "description" : "AutoML warning shown when AutoML truncate the dateset for forecasting"
@@ -3528,10 +3707,6 @@
   "TLkF+q" : {
     "defaultMessage" : "登録保留中",
     "description" : "Tooltip text for registration pending model version status icon in\n         model view page"
-  },
-  "TMJfZv" : {
-    "defaultMessage" : "最初の {count} 件のグループを比較",
-    "description" : "Experiment page > compare runs > chart header > compared groups count label"
   },
   "TOG+VQ" : {
     "defaultMessage" : "承認",
@@ -3557,6 +3732,10 @@
     "defaultMessage" : "名前",
     "description" : "UC Models page > Model name column header"
   },
+  "TT0zeT" : {
+    "defaultMessage" : "モニターが見つかりませんでした。<link>こちら</link>に記載された手順に従ってモニターを作成してください。",
+    "description" : "Text displayed when no monitors are found in the experiment evaluation monitoring page"
+  },
   "TUSUQY" : {
     "defaultMessage" : "UCで表示",
     "description" : "Text for the UC file link in the experiment run dataset drawer"
@@ -3564,6 +3743,10 @@
   "TZMSC3" : {
     "defaultMessage" : "文字列の値が一意です",
     "description" : "AutoML warning shown when string columns have unique values"
+  },
+  "TannO5" : {
+    "defaultMessage" : "{sampledCount}件中{totalCount}件のログを取得しました（{percentage}%）",
+    "description" : "Evaluation review > evaluations list > sample info tooltip"
   },
   "Tb6NBp" : {
     "defaultMessage" : "OAuthトークンを取得中...",
@@ -3609,6 +3792,10 @@
     "defaultMessage" : "カタログ",
     "description" : "UC Models page > Catalog column header"
   },
+  "TpmJlu" : {
+    "defaultMessage" : "カスタム",
+    "description" : "Option for the start select dropdown to filter runs with a custom time range"
+  },
   "Tqtctv" : {
     "defaultMessage" : "より長い時系列データを用いて、AutoMLを再度実行してください。",
     "description" : "Recommended action for user when AutoML finds not enough historical data"
@@ -3629,9 +3816,9 @@
     "defaultMessage" : "表示数を増やす",
     "description" : "Button to expand alert description"
   },
-  "U7eJfk" : {
-    "defaultMessage" : "チャートデータの取得中にエラーが発生しました",
-    "description" : "Run page > Charts tab > Metric chart box > fetch error"
+  "U5Qw4S" : {
+    "defaultMessage" : "予算ポリシー",
+    "description" : "Long form section title for the \"budget policy\" section of an endpoint"
   },
   "U7peTi" : {
     "defaultMessage" : "モデルを推論に使用",
@@ -3648,10 +3835,6 @@
   "UEDu0c" : {
     "defaultMessage" : "MLflowのUIは自動的にアクティブなランのメトリクス履歴を取得し、{interval}秒間隔でメトリクスプロットを更新します。",
     "description" : "Helpful tooltip message to explain the automatic metrics plot update"
-  },
-  "UEESlL" : {
-    "defaultMessage" : "すべてのランを非表示",
-    "description" : "Menu option for hiding all runs in the experiment view runs compare mode"
   },
   "UFr0CH" : {
     "defaultMessage" : "編集",
@@ -3700,6 +3883,10 @@
   "Up43Cd" : {
     "defaultMessage" : "このエンドポイントのトラフィックを管理するには、リクエストレート制限を適用します。",
     "description" : "External model serving configuration form > AI Gateway section > rate limits configuration section description"
+  },
+  "Uue10g" : {
+    "defaultMessage" : "モデル",
+    "description" : "Breadcrumb for models tab of experiments page on the logged model details page"
   },
   "UxbFVq" : {
     "defaultMessage" : "トークンごとの従量課金制",
@@ -3760,6 +3947,10 @@
   "VAwUi9" : {
     "defaultMessage" : "AutoMLはARIMAモデルを学習対象から除外しました。ARIMAを対象に含めるには、データ頻度と一致するように<code>{frequency}</code>を設定するか、希望の頻度になるようにデータを前処理してください。",
     "description" : "Action that AutoML took when the time series frequency is different from the specified one."
+  },
+  "VDkXRG" : {
+    "defaultMessage" : "モデルを表示",
+    "description" : "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
   },
   "VGJhVI" : {
     "defaultMessage" : "新規タグを追加",
@@ -3837,6 +4028,10 @@
     "defaultMessage" : "サービングエンティティ名",
     "description" : "Label for served entity name"
   },
+  "VzuUre" : {
+    "defaultMessage" : "対応ファイル形式: 画像、テキスト、html、pdf、音声、geojson",
+    "description" : "Text to explain users which formats are supported to display the artifacts"
+  },
   "W5qDxJ" : {
     "defaultMessage" : "ロード中...",
     "description" : "Run page > Overview > FinetuneDetails > Loading label"
@@ -3852,6 +4047,10 @@
   "WFNifP" : {
     "defaultMessage" : "エンドポイント名",
     "description" : "Label for endpoint name in the configure endpoint form"
+  },
+  "WFfyn7" : {
+    "defaultMessage" : "プロバイダー構成の詳細については、<link>ドキュメント</link>を参照してください。",
+    "description" : "Hint text for provider configuration"
   },
   "WFndS2" : {
     "defaultMessage" : "時系列に欠損値が代入されました。",
@@ -3985,9 +4184,9 @@
     "defaultMessage" : "<bold>注: </bold>{featureNameText}を有効にするには、汎用クラスターの作成権限が必要です。",
     "description" : "Error message description when failing to fetch cluster permissions in\n                  enable serving page."
   },
-  "X7Bpka" : {
-    "defaultMessage" : "モデル",
-    "description" : "Label for model name in the configure endpoint form"
+  "X8Glae" : {
+    "defaultMessage" : "メモリ{memGb}GB",
+    "description" : "Label for memory size(in gigabytes) of a node"
   },
   "X8OaXU" : {
     "defaultMessage" : "スケジュール済み",
@@ -4029,6 +4228,10 @@
     "defaultMessage" : "詳細",
     "description" : "Title for the details section on the logged model details page"
   },
+  "Xgq+G+" : {
+    "defaultMessage" : "モデルの登録が開始されました",
+    "description" : "Notification title for model registration started on the logged model details page"
+  },
   "Xi2jOv" : {
     "defaultMessage" : "AutoMLは、モデルをトレーニングする前に、ターゲットラベルのバランスをとろうとします",
     "description" : "Action that AutoML took for imbalanced dataset"
@@ -4061,17 +4264,21 @@
     "defaultMessage" : "メトリクスが記録されていません",
     "description" : "Placeholder text when no metrics are recorded for a logged model"
   },
-  "XzoBvA" : {
-    "defaultMessage" : "キャンセル",
-    "description" : "Text for cancel button on the confirmation page for stage\n                transitions on the model versions page"
-  },
   "Y/A4/2" : {
     "defaultMessage" : "トラフィック（%）が必要です",
     "description" : "Error message when traffic percentage is empty"
   },
+  "Y3wSZx" : {
+    "defaultMessage" : "サンプルコードを表示",
+    "description" : "Button for showing logged models quickstart example code"
+  },
   "Y47tVZ" : {
     "defaultMessage" : "時間（相対的）",
     "description" : "Label for a radio button that configures the x-axis on a line chart. This option is for relative time since the first metric was logged."
+  },
+  "Y5gqig" : {
+    "defaultMessage" : "サービングエンドポイントを作成する",
+    "description" : "Text for button that allows the user creating a serving endpoint for a model registered to Unity Catalog"
   },
   "Y6gWro" : {
     "defaultMessage" : "正確性LLM審査は、エージェントが生成した応答が事実的に正確であり、提供された実際の応答またはグレーディングノートと意味的に類似しているかどうかについて、二値評価と書面による根拠を示します。",
@@ -4088,6 +4295,10 @@
   "YArB5F" : {
     "defaultMessage" : "サービングエンドポイントの状態",
     "description" : "Serving endpoint state label on endpoint page"
+  },
+  "YAu7ya" : {
+    "defaultMessage" : "指定されたサービングエンティティでリクエストが失敗した場合、フォールバックとしてエンドポイント上の他のサービングエンティティにリクエストを送信します。フォールバック対象のエンティティは、エンドポイント設定時にリストされた順序に基づいて試行されます。この機能はプライベートプレビュー内にあります。詳細については<link>オンボーディングドキュメント</link>をご覧ください。",
+    "description" : "External model serving configuration form > AI Gateway section > label for hint explaining fallbacks enablement"
   },
   "YBFyOi" : {
     "defaultMessage" : "最後のジョブ実行でこの特徴量テーブルへの書き込みが正常に実行されていない可能性があります。",
@@ -4108,6 +4319,10 @@
   "YH012H" : {
     "defaultMessage" : "ゼロにスケーリングすると容量が保証されないため、本番で使用するアプリケーションにはこの設定をお勧めしていません。エンドポイントの規模が拡大するほど、最初のリクエストのレイテンシーは高くなります。",
     "description" : "Warning on capacity text for scale to zero."
+  },
+  "YHVB2g" : {
+    "defaultMessage" : "メトリクス",
+    "description" : "Title for the metrics chart in the monitoring UI, showing each of the metrics that the agent is tracking over time."
   },
   "YINJEO" : {
     "defaultMessage" : "メトリクス",
@@ -4149,10 +4364,6 @@
     "defaultMessage" : "有効になっていません",
     "description" : "Endpoint details page > External model details > AI Gateway details > label displayed when feature is currently disabled"
   },
-  "YWU/oA" : {
-    "defaultMessage" : "合格",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results that are passing"
-  },
   "YWx2oP" : {
     "defaultMessage" : "入力: {inputPrice} {priceUnit}",
     "description" : "Endpoint details page > active configuration table > Cell formatters > Price (input)"
@@ -4172,6 +4383,10 @@
   "YamyaP" : {
     "defaultMessage" : "自動更新",
     "description" : "String for the auto-refresh button that refreshes the runs list automatically"
+  },
+  "Yd5ANL" : {
+    "defaultMessage" : "合格",
+    "description" : "Header label for pass/fail assessment type for the pass rate"
   },
   "Yhydp3" : {
     "defaultMessage" : "関連性",
@@ -4205,6 +4420,10 @@
     "defaultMessage" : "モデルバージョン",
     "description" : "Model version placeholder on configure inference form"
   },
+  "Z+425g" : {
+    "defaultMessage" : "ログが正常にエクスポートされました",
+    "description" : "Notification for successfully exporting logs to evals instances"
+  },
   "Z1AxPg" : {
     "defaultMessage" : "SQL構文の詳細については、<link>ai_query</link>のドキュメントを参照してください。",
     "description" : "Hint text for ai_query SQL syntax"
@@ -4233,10 +4452,6 @@
     "defaultMessage" : "空でないデータセットでAutoMLを再度実行してください。",
     "description" : "Recommended action for user when AutoML is given an empty dataset"
   },
-  "ZAF7FQ" : {
-    "defaultMessage" : "全体",
-    "description" : "Column header of the run view evaluations table: passing. This column will indicate if the evaluation passed all judges."
-  },
   "ZCQucO" : {
     "defaultMessage" : "並べ替え",
     "description" : "Search page: default label for sort-by dropdown that allows user to sort results"
@@ -4257,6 +4472,10 @@
     "defaultMessage" : "AIゲートウェイの機能を編集する",
     "description" : "External model serving > AI Gateway features edit page > page title"
   },
+  "ZNYFUr" : {
+    "defaultMessage" : "ガイドラインに準拠",
+    "description" : "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
+  },
   "ZPKPrl" : {
     "defaultMessage" : "推論テーブルを有効にする",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling logging to inference tables"
@@ -4265,9 +4484,9 @@
     "defaultMessage" : "ターゲットラベルのデータが不十分です",
     "description" : "AutoML warning shown when some target labels have insufficient data"
   },
-  "ZWHeHF" : {
-    "defaultMessage" : "この評価は、お客様が定義した審査によって作成されます。",
-    "description" : "Custom judge assessment description"
+  "ZQDBu0" : {
+    "defaultMessage" : "特徴量",
+    "description" : "Select source for the entity in the entity selector; this source is feature spec functions in the Databricks unity catalog"
   },
   "ZXUtU8" : {
     "defaultMessage" : "クリックして詳細を表示",
@@ -4328,6 +4547,10 @@
   "ZoIjun" : {
     "defaultMessage" : "期間",
     "description" : "Run page > Overview > Run duration section label"
+  },
+  "Zpi7wv" : {
+    "defaultMessage" : "左側のコントロールを使用して、比較する画像を選択してください",
+    "description" : "Description for the empty state when user did not configure any images for preview yet"
   },
   "ZqGzZd" : {
     "defaultMessage" : "比較",
@@ -4437,10 +4660,6 @@
     "defaultMessage" : "タグ ({length})",
     "description" : "Title text for the feature page tags section."
   },
-  "aVGJ4M" : {
-    "defaultMessage" : "Unity CatalogのFeature Spec機能",
-    "description" : "Select source for the entity in the entity selector; this source is feature spec functions in the Databricks unity catalog"
-  },
   "aXIUTv" : {
     "defaultMessage" : "失敗",
     "description" : "Failed state text for served model in served models table"
@@ -4480,10 +4699,6 @@
   "aj/X1B" : {
     "defaultMessage" : "データセットが大きすぎるため、データ探索用ノートブックは列のサブセットに対して実行されました",
     "description" : "AutoML warning data exploration notebook ran on a subset of rows"
-  },
-  "asSvv0" : {
-    "defaultMessage" : "クリア",
-    "description" : "Evaluation review > evaluations list > clear filters button"
   },
   "aseJdC" : {
     "defaultMessage" : "LangChain / LangGraph",
@@ -4541,6 +4756,10 @@
     "defaultMessage" : "このワークスペースの特徴量ストアが無効になっています。",
     "description" : "Tooltip message for disabled Hive Metastore option in feature store search page"
   },
+  "bDqNJ2" : {
+    "defaultMessage" : "最適なモデル<modelLink>{modelName}</modelLink>は、ラン<runLink>{runName}</runLink>によって作成されました。",
+    "description" : "Description of the best model created by an AutoML experiment"
+  },
   "bHuphj" : {
     "defaultMessage" : "以下のドキュメントではpyfuncモデルフレーバーを使ってバッチ用またはリアルタイムスコアリング用にこのモデルをカスタマイズし、実装する方法について説明しています。",
     "description" : "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
@@ -4548,6 +4767,14 @@
   "bIZ/La" : {
     "defaultMessage" : "AutoMLは「Null」を代入しました。",
     "description" : "Action that AutoML took for null values of large null columns"
+  },
+  "bMqmMf" : {
+    "defaultMessage" : "他に{numHiddenItems}件あり",
+    "description" : "Label for button that expands option group to show all options"
+  },
+  "bO1IlR" : {
+    "defaultMessage" : "すべて選択",
+    "description" : "Description for button to select all rows in table"
   },
   "bQSJKh" : {
     "defaultMessage" : "{modelName}バージョン{version}の権限が拒否されました。エラー：{errorMsg}",
@@ -4561,6 +4788,10 @@
     "defaultMessage" : "メトリクス集計タイプ",
     "description" : "Experiment page > runs table > metric aggregate type button accessible label"
   },
+  "bS/iHC" : {
+    "defaultMessage" : "保留中のリクエストをキャンセル",
+    "description" : "Title for a model version stage transition modal when cancelling a pending request"
+  },
   "bSx/er" : {
     "defaultMessage" : "パラメータ",
     "description" : "Table title text for parameters table in the model comparison page"
@@ -4568,6 +4799,10 @@
   "bXA79t" : {
     "defaultMessage" : "オン",
     "description" : "Runs charts > line chart > ignore outliers > on setting label"
+  },
+  "benjOX" : {
+    "defaultMessage" : "{endpointName}の予算ポリシーを追加/編集",
+    "description" : "Modal title for edit endpoint tags"
   },
   "bgrjP+" : {
     "defaultMessage" : "埋め込み",
@@ -4577,10 +4812,6 @@
     "defaultMessage" : "ランID:",
     "description" : "Text for run ID header in the main table in the model comparison page"
   },
-  "biE0Wq" : {
-    "defaultMessage" : "ホームフォルダで編集可能なノートブックを生成します。",
-    "description" : "Form description for generating a batch inference notebook"
-  },
   "bjoGjg" : {
     "defaultMessage" : "過去1時間",
     "description" : "Option for the start select dropdown to filter runs from the last hour"
@@ -4589,10 +4820,6 @@
     "defaultMessage" : "コンテキスト十分性LLM審査は、取得されたコンテキストが期待される応答を生成するのに十分かどうかを判断します。",
     "description" : "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
   },
-  "bqZ5tv" : {
-    "defaultMessage" : "根拠のある",
-    "description" : "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
-  },
   "bqn2bk" : {
     "defaultMessage" : "出力",
     "description" : "Table section name for schema outputs in the model comparison page"
@@ -4600,6 +4827,10 @@
   "bsMmr7" : {
     "defaultMessage" : "作成者",
     "description" : "Endpoint details page > External model details > Metadata table > Created by label"
+  },
+  "bu5NgB" : {
+    "defaultMessage" : "オプション。これらのタグは、サービングエンドポイントの請求ログに保存されます。",
+    "description" : "Description for the budget policy section of an endpoint"
   },
   "bv2Lem" : {
     "defaultMessage" : "インポート済み",
@@ -4612,6 +4843,10 @@
   "by3z1f" : {
     "defaultMessage" : "詳細を表示",
     "description" : "Endpoints list page > Suggested models carousel > Dropdown menu > View details button"
+  },
+  "bz+qhb" : {
+    "defaultMessage" : "予算ポリシーにより、予算管理者はモデルサービングのサーバーレスコンピュートに対して特定のコスト属性タグを適用できます。ほとんどのユーザーには、デフォルトで使用される単一のポリシーを使用する権限が付与されます。複数のポリシーへのアクセス権をお持ちの場合は、編集アイコンをクリックしてこのエンドポイントのポリシーを選択できます",
+    "description" : "Endpoint budget policy tooltip on endpoint page"
   },
   "bz4brG" : {
     "defaultMessage" : "失敗",
@@ -4648,10 +4883,6 @@
   "cBDYla" : {
     "defaultMessage" : "操作",
     "description" : "Column title for actions column in editable form table in MLflow"
-  },
-  "cCK0QF" : {
-    "defaultMessage" : "スループットが高いかレイテンシーが低いワークロードに推奨されます。詳しくは、<link>こちら</link>をご覧ください。",
-    "description" : "Label for the route optimization"
   },
   "cEj56l" : {
     "defaultMessage" : "ステップ",
@@ -4699,10 +4930,6 @@
   "ce2Kt3" : {
     "defaultMessage" : "Microsoft EntraクライアントID",
     "description" : "Label for Microsoft Entra Client ID input for Open API"
-  },
-  "cgUDYs" : {
-    "defaultMessage" : "総合評価",
-    "description" : "Evaluation results > known type of evaluation result assessment > overall assessment."
   },
   "chZ94D" : {
     "defaultMessage" : "評価プロンプト",
@@ -4772,6 +4999,14 @@
     "defaultMessage" : "モデルメトリクス",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > model metrics heading"
   },
+  "d8cdYc" : {
+    "defaultMessage" : "ソースのラン",
+    "description" : "Label for the source run name of a logged model on the logged model details page"
+  },
+  "dDX+7q" : {
+    "defaultMessage" : "ログに記録されたモデルはありません",
+    "description" : "Placeholder for empty models table on the logged models list page"
+  },
   "dEilDy" : {
     "defaultMessage" : "Unity Catalogを有効にして、モデルの発見可能性、ガバナンス、GenAI機能を改善します",
     "description" : "Message encouraging customers to upgrade to Unity Catalog for the latest and most powerful features, from within the models list page"
@@ -4787,10 +5022,6 @@
   "dIcBbW" : {
     "defaultMessage" : "入力の安全性",
     "description" : "Label for enabling AI gateway safety for input data in the serving endpoint create/edit form"
-  },
-  "dQY7H0" : {
-    "defaultMessage" : "システムメトリクスは記録されていません",
-    "description" : "Run page > Charts tab > System charts section > empty label"
   },
   "dQabrL" : {
     "defaultMessage" : "料金",
@@ -4811,10 +5042,6 @@
   "daeTff" : {
     "defaultMessage" : "タグ",
     "description" : "Title for endpoint tags in the endpoint configuration form"
-  },
-  "db+oaM" : {
-    "defaultMessage" : "JSONファイルを解析できません",
-    "description" : "Run page > artifact view > logged table view > unable to parse JSON file error"
   },
   "dc0rvu" : {
     "defaultMessage" : "更新",
@@ -4844,6 +5071,10 @@
     "defaultMessage" : "エクスペリメントのトラッキングに関するフィードバックを共有していただけますか？所要時間は数分です。ご意見をお待ちしています。",
     "description" : "Popover tip for the Provide Feedback button placed within the experiment page"
   },
+  "dt3hj5" : {
+    "defaultMessage" : "タグを追加",
+    "description" : "Run page > Overview > Tags cell > 'Add' button label"
+  },
   "dtzF73" : {
     "defaultMessage" : "AutoMLはARIMAモデルを学習対象から除外しました。ARIMAを対象に含めるには、希望の頻度になるようにデータを前処理してください。",
     "description" : "Action that AutoML took when there are extra time steps in a forecasting problem."
@@ -4852,17 +5083,21 @@
     "defaultMessage" : "<bold>{endpointName}</bold>止めてもよろしいですか？このEndpointを停止することで、",
     "description" : "Opening part of the confirmation message for stop endpoint modal on endpoint view page"
   },
+  "duolzu" : {
+    "defaultMessage" : "フォールバックを有効にする",
+    "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling fallbacks"
+  },
   "dwTTNK" : {
     "defaultMessage" : "移動してもよろしいですか？保存されていないテキストの変更点は失われます。",
     "description" : "Prompt text for navigating away before saving changes in editable note in MLflow"
   },
-  "dy570e" : {
-    "defaultMessage" : "{numEvals}件中{numPassing}件が合格",
-    "description" : "Passing assessment tooltip"
-  },
   "dyOotE" : {
     "defaultMessage" : "タスク",
     "description" : "Task label on endpoint page"
+  },
+  "dzoxyA" : {
+    "defaultMessage" : "保留中のリクエストを拒否",
+    "description" : "Title for a model version stage transition modal when rejecting a pending request"
   },
   "e1mkAM" : {
     "defaultMessage" : "追加",
@@ -5032,6 +5267,10 @@
     "defaultMessage" : "エクスペリメント名",
     "description" : "Label for create experiment modal to enter a valid experiment name"
   },
+  "ez06Dt" : {
+    "defaultMessage" : "画像が見つかりません",
+    "description" : "Title for the empty state when no images are found in the currently visible runs"
+  },
   "f/An1W" : {
     "defaultMessage" : "準備完了です。",
     "description" : "Default status message for model versions that are ready"
@@ -5068,6 +5307,10 @@
     "defaultMessage" : "列",
     "description" : "Run page > artifact view > logged table view > columns selector label"
   },
+  "fQfjfz" : {
+    "defaultMessage" : "予算ポリシーに関連付けられたタグは、サービングエンドポイントの請求ログに自動的にプロパゲーションされます。",
+    "description" : "Informational tooltip to advertise that budget policy details on serving endpoints are automatically propagated to that endpoint's billing logs"
+  },
   "fWEvZL" : {
     "defaultMessage" : ", .: / - = と空白は使用できません",
     "description" : "Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error"
@@ -5088,6 +5331,10 @@
     "defaultMessage" : "カテゴリ列の値が一意です",
     "description" : "AutoML warning shown when categorical columns have unique values"
   },
+  "fclSFa" : {
+    "defaultMessage" : "エクスポート",
+    "description" : "Button to export to eval dataset"
+  },
   "fcr9me" : {
     "defaultMessage" : "既存のリアルタイム推論を表示",
     "description" : "View existing real-time inference button text"
@@ -5100,6 +5347,10 @@
     "defaultMessage" : "データソース",
     "description" : "Title text for the feature table data sources column."
   },
+  "fhaHvd" : {
+    "defaultMessage" : "チャートのロード中に回復不能なエラーが発生しました。チャートを再構成するか、ウィンドウを再ロードしてください。",
+    "description" : "Description for the error message when the MLflow chart fails to load"
+  },
   "fhbamH" : {
     "defaultMessage" : "名前",
     "description" : "Title for name column on endpoint list table"
@@ -5107,10 +5358,6 @@
   "fiToK3" : {
     "defaultMessage" : "特徴量テーブル",
     "description" : "Title text for the feature table name column."
-  },
-  "fj3iH0" : {
-    "defaultMessage" : "正しい",
-    "description" : "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
   },
   "fjM/KK" : {
     "defaultMessage" : "グループ",
@@ -5160,6 +5407,10 @@
     "defaultMessage" : "ソースタイプ: {typeLabel}",
     "description" : "Experiment dataset drawer > source type > label"
   },
+  "g3CQwd" : {
+    "defaultMessage" : "Unity Catalogにモデルを登録するには、ノートブックに次のコードをコピーして実行します。",
+    "description" : "Instruction to register model in Unity Catalog on the logged model details page"
+  },
   "g3KXTp" : {
     "defaultMessage" : "このエンドポイントにプロビジョニングされたリソースはシャットダウンされます。",
     "description" : "First item in the confirmation message for stop endpoint modal on endpoint view page"
@@ -5199,10 +5450,6 @@
   "gC2Kxm" : {
     "defaultMessage" : "モデルに指示を与えます。'{{' '}}'または [新しい変数を追加] ボタンを使用してプロンプトに変数を追加します。",
     "description" : "Experiment page > new run modal > prompt template input hint"
-  },
-  "gDNspC" : {
-    "defaultMessage" : "更新",
-    "description" : "Run page > Charts tab > Refresh all charts button label"
   },
   "gDv4zk" : {
     "defaultMessage" : "エンドポイントは後で起動できます。",
@@ -5288,10 +5535,6 @@
     "defaultMessage" : "棒グラフ",
     "description" : "Experiment tracking > runs charts > add chart menu > bar chart"
   },
-  "gdjniH" : {
-    "defaultMessage" : "最初の {count} 件のランを比較",
-    "description" : "Experiment page > compare runs > chart header > compared runs count label"
-  },
   "ge07be" : {
     "defaultMessage" : "レガシーサービングのみを有効化",
     "description" : "Models table > filters > legacy serving enabled only toggle button"
@@ -5344,6 +5587,10 @@
     "defaultMessage" : "実行を停止できませんでした",
     "description" : "Notification message for failed to stop run"
   },
+  "h3GmoO" : {
+    "defaultMessage" : "メトリクス",
+    "description" : "Label for the metrics column group in the logged model column selector"
+  },
   "h6jAnw" : {
     "defaultMessage" : "機械学習モデルを共有、管理します。",
     "description" : "Text for model registry onboarding on the model list page on GCP"
@@ -5359,6 +5606,10 @@
   "hFlaPP" : {
     "defaultMessage" : "システムメトリクス",
     "description" : "Run details page > tab selector > Model metrics tab"
+  },
+  "hIBLi9" : {
+    "defaultMessage" : "ガイドラインに違反",
+    "description" : "Evaluation results > guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
   "hIMrRz" : {
     "defaultMessage" : "更新をキャンセルする",
@@ -5427,10 +5678,6 @@
   "huPWkH" : {
     "defaultMessage" : "エンドポイント名は64文字未満にしてください",
     "description" : "Error message for endpoint name if it is too long"
-  },
-  "hwBXqJ" : {
-    "defaultMessage" : "レビューされていません",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for displaying only not reviewed evaluation results"
   },
   "hxMEqi" : {
     "defaultMessage" : "モデルのバージョンは新しいバージョンとして{selectedModel}にコピーされます。",
@@ -5520,6 +5767,10 @@
     "defaultMessage" : "箱ひげ図",
     "description" : "Tab pane title for box plot on the compare runs page"
   },
+  "iYmFCZ" : {
+    "defaultMessage" : "比較対象",
+    "description" : "Label for \"to\" in compare to, which is split between two dropdowns of two runs to compare"
+  },
   "iZm6YQ" : {
     "defaultMessage" : "<link>詳細を表示</link>",
     "description" : "Learn more link on the form for creating model in the model registry"
@@ -5552,9 +5803,9 @@
     "defaultMessage" : "トレーニング期間",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ivcULt" : {
-    "defaultMessage" : "system.aiからプリインストールされている基盤モデルを選択します",
-    "description" : "Hint for the curated foundation model option in the entity selector"
+  "irS8bb" : {
+    "defaultMessage" : "設定する",
+    "description" : "Configure a new endpoint with this model"
   },
   "iwD/Dv" : {
     "defaultMessage" : "キャンセル",
@@ -5612,6 +5863,10 @@
     "defaultMessage" : "ゲートウェイが次のエラーを返しました：「{errorMessage}」",
     "description" : "Experiment page > gateway error message"
   },
+  "jL/a6E" : {
+    "defaultMessage" : "モデルを提供するには、予測エクスペリメントを開始する際にモデルをUnity Catalogに登録する必要があります。",
+    "description" : "Message guiding the user to register the model to Unity Catalog"
+  },
   "jLvmck" : {
     "defaultMessage" : "{isRun, select, true {このタブには、このランに記録されたすべてのトレースが表示されます。MLflowは多数の一般的な生成AIフレームワークの自動トレースをサポートしています。以下の手順に従って、最初のトレースをログに記録してください。MLflow Tracingの詳細については、<a>MLflowのドキュメント</a>を参照してください。} other {このタブには、このエクスペリメントに記録されたすべてのトレースが表示されます。MLflowは多数の一般的な生成AIフレームワークの自動トレースをサポートしています。以下の手順に従って、最初のトレースをログに記録してください。MLflowトレースの詳細については、<a>MLflowのドキュメント</a>を参照してください。}}",
     "description" : "Message that explains the function of the 'Traces' tab in the MLflow UI.This message is followed by a tutorial explaining how to get started with MLflow Tracing."
@@ -5628,13 +5883,21 @@
     "defaultMessage" : "最終ジョブランの開始時刻です。",
     "description" : "Text on the tooltip of the last run column describing the start time of the last job run."
   },
-  "jR5Qo2" : {
-    "defaultMessage" : "1つを選択するか、カスタムモデル名を入力します",
-    "description" : "Instructs user to either choose one item from a dropdown or enter text"
+  "jQGwtS" : {
+    "defaultMessage" : "指定したトピックセットへの応答を制限します。",
+    "description" : "Description for AI Gateway Guardrails output valid topics"
+  },
+  "jTE1Eh" : {
+    "defaultMessage" : "評価に追加",
+    "description" : "Export evals traces to eval datasets"
   },
   "jXfgov" : {
     "defaultMessage" : "すべてのランが非表示です。チャートを表示するには、少なくとも1つのランを選択してください。",
     "description" : "Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
+  },
+  "ja51N0" : {
+    "defaultMessage" : "リクエスト",
+    "description" : "Title for the requests chart in the monitoring UI, showing how many requests to the agent have happened over time."
   },
   "jd2Sdf" : {
     "defaultMessage" : "使用状況の追跡",
@@ -5655,6 +5918,14 @@
   "jhiG9a" : {
     "defaultMessage" : "データ型",
     "description" : "Title text for the feature data type column."
+  },
+  "jjicTa" : {
+    "defaultMessage" : "次のevalデータセットの1つ以上に書き込む権限がありません。",
+    "description" : "Tooltip for when user does not have permission to write to one or more of the eval datasets"
+  },
+  "jjidVr" : {
+    "defaultMessage" : "ラン「{runName}」で合計{numEvals}件中{numValue}件",
+    "description" : "Passing assessment tooltip"
   },
   "jjuya2" : {
     "defaultMessage" : "特徴量が見つかりません。",
@@ -5768,6 +6039,10 @@
     "defaultMessage" : "評価ビューにアクセスするには、ランのグループ化を無効にしてください",
     "description" : "Experiment page > artifact compare view > disabled due to run grouping > description"
   },
+  "keSIQ4" : {
+    "defaultMessage" : "空値",
+    "description" : "null assessment label"
+  },
   "khknxG" : {
     "defaultMessage" : "了解",
     "description" : "Button action text for chart switcher tooltip"
@@ -5844,10 +6119,6 @@
     "defaultMessage" : "プロデューサーがこのテーブルに最後に書き込んだ時刻です。",
     "description" : "Text on the tooltip of the last written column describing the last time the producer wrote to this table."
   },
-  "lEshaV" : {
-    "defaultMessage" : "プロバイダー",
-    "description" : "Label for models selected from an external provider"
-  },
   "lISqyJ" : {
     "defaultMessage" : "ランの詳細",
     "description" : "Compare table title on the compare runs page"
@@ -5884,6 +6155,10 @@
     "defaultMessage" : "メトリクス ({length})",
     "description" : "Header for the metrics table on the logged model details page. (Length) is the number of metrics currently displayed."
   },
+  "lQ2nDn" : {
+    "defaultMessage" : "この評価はカスタムメトリクスによって生成されます。",
+    "description" : "Custom judge assessment description"
+  },
   "lSnvCt" : {
     "defaultMessage" : "アクション",
     "description" : "Column name text for actions in pending requests table in model\n                   registry"
@@ -5900,10 +6175,6 @@
     "defaultMessage" : "データのないチャートを非表示",
     "description" : "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
-  "lgx0oY" : {
-    "defaultMessage" : "バージョン",
-    "description" : "Version prefix for Use model for inference Real-time tab model version select"
-  },
   "ljfJW4" : {
     "defaultMessage" : "指定された予測期間は一部の時系列には長すぎます。AutoMLは対象の時系列のトレーニングと検証期間で短い方を採用しました。",
     "description" : "Action that AutoML took when user-provided horizon is too long for\n          one or more time series"
@@ -5912,21 +6183,13 @@
     "defaultMessage" : "出力 ({numOutputs})",
     "description" : "Input section header for schema table in model version page"
   },
-  "llrWuc" : {
-    "defaultMessage" : "並べ替え",
-    "description" : "Sort by default option for sort by select dropdown for experiment runs"
-  },
   "lmuHmQ" : {
     "defaultMessage" : "ドキュメント",
     "description" : "Endpoint details page > active configuration table > Docs cell > Label"
   },
-  "loHoM1" : {
-    "defaultMessage" : "モデルレジストリのモデル",
-    "description" : "Select source for the entity in the entity selector; this source is models in the model registry, which eventually will be deprecated, but not anytime soon"
-  },
-  "lrq7FD" : {
-    "defaultMessage" : "検出された安全でないコンテンツとモデルがやり取りするのを防ぐことで、モデルの入力と出力を保護します。",
-    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section description"
+  "lo5Me/" : {
+    "defaultMessage" : "True",
+    "description" : "True value in the evaluations table."
   },
   "m1Nb7W" : {
     "defaultMessage" : "保存",
@@ -5968,6 +6231,10 @@
     "defaultMessage" : "p5からp95までのデータポイントのみを表示します。これにより、外れ値によってY軸の範囲が大きく変化する場合に、チャートが読み取りやすくなります。",
     "description" : "A tooltip describing the 'Ignore Outliers' configuration option for line charts"
   },
+  "mNK58q" : {
+    "defaultMessage" : "有効",
+    "description" : "Endpoint details page > External model details > AI Gateway details > label displayed when feature is enabled"
+  },
   "mNKmJz" : {
     "defaultMessage" : "作成日:",
     "description" : "Run page > Overview > FinetuneDetails > Run start time section label"
@@ -5975,6 +6242,10 @@
   "mR2v66" : {
     "defaultMessage" : "出力のキーワードが無効です",
     "description" : "Label for configuring invalid keywords for output when configuring AI gateway while creating/editing serving endpoint"
+  },
+  "mRRWxp" : {
+    "defaultMessage" : "マイモデル",
+    "description" : "Select source for the entity in the entity selector when model registry is enabled; this source is models in the Databricks unity catalog"
   },
   "mRc7MY" : {
     "defaultMessage" : "行を展開",
@@ -6024,6 +6295,10 @@
     "defaultMessage" : "サイズ:",
     "description" : "Label to display the size of the artifact of the experiment"
   },
+  "mqDCNl" : {
+    "defaultMessage" : "JSONファイルを解析できません。「columns」キーと「data」キーを持つオブジェクトがファイルに含まれている必要があります。",
+    "description" : "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
+  },
   "mqTFL+" : {
     "defaultMessage" : "キャンセル",
     "description" : "Experiment page > new run modal > cancel button label"
@@ -6035,6 +6310,10 @@
   "msllnR" : {
     "defaultMessage" : "使用されたデータセット",
     "description" : "Label for the datasets used by a logged model on the logged model details page"
+  },
+  "mtYPI8" : {
+    "defaultMessage" : "グローバルガイドラインに準拠",
+    "description" : "Evaluation results > global guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the global guidelines."
   },
   "mtxqm8" : {
     "defaultMessage" : "新しい Model Registry UI による柔軟で管理された展開",
@@ -6072,6 +6351,14 @@
     "defaultMessage" : "ルート最適化",
     "description" : "Route optimization label on endpoint page"
   },
+  "n24ICT" : {
+    "defaultMessage" : "閉じる",
+    "description" : "Button for closing modal with the logged models quickstart example code"
+  },
+  "n2gxpa" : {
+    "defaultMessage" : "評価用データセットが見つかりませんでした。<link>こちら</link>の手順に従って、新しい評価データセットを作成してください。",
+    "description" : "Description for when no eval datasets are found"
+  },
   "n4m7x9" : {
     "defaultMessage" : "OpenAI",
     "description" : "Header for OpenAI tab in the MLflow Tracing quickstart guide"
@@ -6092,6 +6379,10 @@
     "defaultMessage" : "名前",
     "description" : "Label for the name of the endpoint"
   },
+  "nDVJ/n" : {
+    "defaultMessage" : "合格",
+    "description" : "The label for a passing asseessment above a bar-chart in the summary stats."
+  },
   "nE137U" : {
     "defaultMessage" : "容量に関する注意事項",
     "description" : "Warning message title text for scale to zero."
@@ -6103,10 +6394,6 @@
   "nFCPc3" : {
     "defaultMessage" : "ノートブックに移動",
     "description" : "Text for the notebook link in the experiment run dataset drawer"
-  },
-  "nLgaI0" : {
-    "defaultMessage" : "合格",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for displaying evaluation results considered as passing by LLM judge or human"
   },
   "nNIors" : {
     "defaultMessage" : "関連するランデータの取得中にエラーが発生しました：{error}",
@@ -6127,6 +6414,10 @@
   "nR/D0a" : {
     "defaultMessage" : "プロビジョニング済み同時実行",
     "description" : "Graph title for provisioned concurrency metrics graph"
+  },
+  "nRFXlI" : {
+    "defaultMessage" : "予測を簡単に調べるには、予測エクスペリメントを開始する際に予測出力をUnity Catalogに登録する必要があります。",
+    "description" : "Message guiding the user to register the predictions output to Unity Catalog"
   },
   "nVndit" : {
     "defaultMessage" : "登録日: {registeredDate}",
@@ -6159,14 +6450,6 @@
   "nfUwqn" : {
     "defaultMessage" : "タグ ({length})",
     "description" : "Title text for the feature table tags section."
-  },
-  "ng6rjW" : {
-    "defaultMessage" : "モデルを登録",
-    "description" : "Label for the register model button on the logged model details page"
-  },
-  "ngFycu" : {
-    "defaultMessage" : "安全",
-    "description" : "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
   },
   "nhqO2Z" : {
     "defaultMessage" : "保存",
@@ -6203,6 +6486,10 @@
   "nu7Cns" : {
     "defaultMessage" : "タイプ",
     "description" : "Column header of AutoML warnings table. Describes type of warning."
+  },
+  "nvjkTA" : {
+    "defaultMessage" : "False",
+    "description" : "False assessment label"
   },
   "nxzK82" : {
     "defaultMessage" : "評価を選択または入力",
@@ -6260,6 +6547,14 @@
     "defaultMessage" : "説明",
     "description" : "Title text for the description section under details tab on the model\n                   view page"
   },
+  "oKgTp3" : {
+    "defaultMessage" : "表示数を減らす",
+    "description" : "Label for button that collapses option group to show less options"
+  },
+  "oKgZFA" : {
+    "defaultMessage" : "エクスペリメントにモデルが見つからないか、すべてのモデルが非表示になっています。チャートを表示するには、少なくとも1つのモデルを選択してください。",
+    "description" : "Label displayed in logged models chart view when no models are visible or selected"
+  },
   "oU/SPm" : {
     "defaultMessage" : "追加",
     "description" : "Add new key-value tag modal > Add button text"
@@ -6303,6 +6598,10 @@
   "oipM0r" : {
     "defaultMessage" : "サービング"
   },
+  "ojT5Zb" : {
+    "defaultMessage" : "マイモデル",
+    "description" : "Select source for the entity in the entity selector when Unity Catalog is disabled; this source is models in the model registry, which eventually will be deprecated, but not anytime soon"
+  },
   "okQ1oB" : {
     "defaultMessage" : "新規エクスペリメントの名前を入力してください。",
     "description" : "Error message for name requirement in create experiment for MLflow"
@@ -6327,13 +6626,13 @@
     "defaultMessage" : "すべてのランをダウンロード",
     "description" : "String for the download all runs button that provide code to download runs offline"
   },
-  "otvnx5" : {
-    "defaultMessage" : "モデルを検索",
-    "description" : "Placeholder for the search input in the logged model list page"
-  },
   "ouK8Ka" : {
     "defaultMessage" : "サービングエンドポイントを作成する",
     "description" : "Title for the create serving endpoint page"
+  },
+  "ov1whU" : {
+    "defaultMessage" : "AI審査",
+    "description" : "Label for AI judge in the tooltip for the assessment in the evaluation metrics."
   },
   "owr9l2" : {
     "defaultMessage" : "列によるグループ化が選択されていません",
@@ -6367,6 +6666,10 @@
     "defaultMessage" : "このタグを削除してもよろしいですか？",
     "description" : "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
   },
+  "pDg/h+" : {
+    "defaultMessage" : "外部モデルは無効です",
+    "description" : "Option for when external models are disabled"
+  },
   "pEpexK" : {
     "defaultMessage" : "フィルタをクリア",
     "description" : "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
@@ -6378,10 +6681,6 @@
   "pG2LOv" : {
     "defaultMessage" : "データ探索用ノートブックを変更し、全データセットのプロファイルを作成するために再実行します。",
     "description" : "Recommended action when data exploration notebook truncate rows."
-  },
-  "pGL+V/" : {
-    "defaultMessage" : "コメント",
-    "description" : "Title text for stage transition form to add comments for model version stage transitions"
   },
   "pHAqL+" : {
     "defaultMessage" : "レスポンス",
@@ -6415,25 +6714,25 @@
     "defaultMessage" : "推論テーブルを有効にする",
     "description" : "Checkbox label for payload logging in endpoint view, only shows in pending state"
   },
-  "pXYlnT" : {
-    "defaultMessage" : "フィルタ",
-    "description" : "Evaluation review > evaluations list > filter dropdown button"
-  },
   "paQ2Wc" : {
     "defaultMessage" : "ステージ（非推奨）",
     "description" : "Label name for the deprecated stage metadata in model version page"
-  },
-  "pcewCq" : {
-    "defaultMessage" : "PII検出では、自動検出メカニズムを使用して、構造化データと非構造化データ内の機密情報/PIIを識別します。PII検出の詳細については、<link>こちらをクリックしてください</link>。",
-    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > description for PII Detection"
   },
   "peyOdH" : {
     "defaultMessage" : "キャンセル",
     "description" : "Text for canceling changes on rows in editable form table in MLflow"
   },
+  "pfVYNp" : {
+    "defaultMessage" : "パフォーマンスを向上させ、将来をさらに予測するには、予測期間を短縮するか、データをより低い予測頻度（たとえば、毎日から毎週）に集約します。",
+    "description" : "Action that AutoML recommends to user when the horizon is too large"
+  },
   "pfyUes" : {
     "defaultMessage" : "詳細を表示",
     "description" : "Evaluation review > assessments > see details button"
+  },
+  "phhBBV" : {
+    "defaultMessage" : "{numCores, plural, 0 {0 Cores} one {1 Core} other {# 個のコア}}",
+    "description" : "label for the number of Cores in the node"
   },
   "pjlcSc" : {
     "defaultMessage" : "メトリクス",
@@ -6443,9 +6742,17 @@
     "defaultMessage" : "登録済みモデル",
     "description" : "Text for link back to models page under the header on the model version\n             view page"
   },
+  "plSWbC" : {
+    "defaultMessage" : "サンプルコード",
+    "description" : "Title of the modal with the logged models quickstart example code"
+  },
   "plw4Kp" : {
     "defaultMessage" : "評価をやめる",
     "description" : "Experiment page > artifact compare view > run column header > \"Evaluate all\" button label when the column is being evaluated"
+  },
+  "pm1RNL" : {
+    "defaultMessage" : "合格",
+    "description" : "Passing assessment label"
   },
   "pniESF" : {
     "defaultMessage" : "ブラウザ",
@@ -6539,6 +6846,10 @@
     "defaultMessage" : "登録済みモデル",
     "description" : "Header for displaying models in the model registry"
   },
+  "qN1Uqj" : {
+    "defaultMessage" : "プレビュー用の構成画像がありません",
+    "description" : "Title for the empty state when user did not configure any images for preview yet"
+  },
   "qOyEOw" : {
     "defaultMessage" : "まだ特徴量テーブルがありません。 Databricks Feature Storeは特徴量を一元的に管理、共有可能なリポジトリです。",
     "description" : "No feature tables text for feature store page."
@@ -6595,10 +6906,6 @@
     "defaultMessage" : "バージョン{versionNumber}",
     "description" : "Value for version column on served models table"
   },
-  "qsSpy2" : {
-    "defaultMessage" : "オプション。タグはあとで構成できます",
-    "description" : "Description for the tags section of an endpoint"
-  },
   "r+KCRg" : {
     "defaultMessage" : "パラメーター",
     "description" : "Run page > Overview > Parameters table > Key column header"
@@ -6615,13 +6922,13 @@
     "defaultMessage" : "予測",
     "description" : "Heading text for the prediction section on the registered model from the experiment run"
   },
-  "r4Xd+6" : {
-    "defaultMessage" : "モデルのステージまたはバージョンを選択してください。",
-    "description" : "Error message for missing model stage or version input when generating a batch inference notebook"
-  },
   "r5JI+N" : {
     "defaultMessage" : "メトリクスを選択してください",
     "description" : "Placeholder text for metrics in parallel coordinates plot in MLflow"
+  },
+  "rA1Glc" : {
+    "defaultMessage" : "すべてのジョブ実行が完了し、以下のテーブルに追加されました。作成された最適なモデルは次のとおりです。",
+    "description" : "Description of section containing the best model and its predictions from an AutoML experiment"
   },
   "rAJDzz" : {
     "defaultMessage" : "既存の{currentStage}モデルバージョンを{archivedStage}に移行",
@@ -6646,10 +6953,6 @@
   "rKvP2H" : {
     "defaultMessage" : "プロバイダー",
     "description" : "Label for the provider of the endpoint"
-  },
-  "rLOVhn" : {
-    "defaultMessage" : "より多くの評価を表示するには、アクティブなフィルターをクリアしてみてください。",
-    "description" : "Text displayed when no evaluations are found in the evaluation review page"
   },
   "rLjV4D" : {
     "defaultMessage" : "ルート最適化",
@@ -6679,10 +6982,6 @@
     "defaultMessage" : "クラスターの作成権限を取得できませんでした: {errorMessage}",
     "description" : "Error message when failing to fetch cluster permissions in\n                  enable serving page."
   },
-  "rRE5fg" : {
-    "defaultMessage" : "フィルタ",
-    "description" : "Label for the filter button in the logged model list page"
-  },
   "rRwpY5" : {
     "defaultMessage" : "データソース",
     "description" : "Title text for the feature table data sources metadata field."
@@ -6698,6 +6997,10 @@
   "rUpJn1" : {
     "defaultMessage" : "チャット",
     "description" : "Endpoints > Foundation models > \"Chat\" model task label"
+  },
+  "rZyNgx" : {
+    "defaultMessage" : "グローバルガイドラインに違反",
+    "description" : "Evaluation results > global guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the global guidelines."
   },
   "raa3Ij" : {
     "defaultMessage" : "登録済みモデル",
@@ -6719,10 +7022,6 @@
     "defaultMessage" : "エクスペリメントの処理に時間がかかりすぎる場合、エクスペリメントを停止できます。",
     "description" : "Info text about canceling AutoML"
   },
-  "rp5TlA" : {
-    "defaultMessage" : "Delta Live Tables推論経由のストリーミングまたはバッチ推論のいずれかを選択します。",
-    "description" : "Text for form description on using the model for the different types of inference."
-  },
   "rpqN8U" : {
     "defaultMessage" : "データセット",
     "description" : "Header title for the dataset column in the logged model list table"
@@ -6730,6 +7029,10 @@
   "rs7Iic" : {
     "defaultMessage" : "タグ",
     "description" : "Run page > Overview > Run tags section label"
+  },
+  "rxMHgr" : {
+    "defaultMessage" : "ステージ移行",
+    "description" : "Title for a model version stage transition modal"
   },
   "rytnce" : {
     "defaultMessage" : "エクスペリメントIDをコピー",
@@ -6742,10 +7045,6 @@
   "s/l+NW" : {
     "defaultMessage" : "エンドポイント名は作成後に変更できません。",
     "description" : "Tooltip for disabled endpoint name input."
-  },
-  "s0233x" : {
-    "defaultMessage" : "ベースラインとして設定",
-    "description" : "Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
   },
   "s0O9F0" : {
     "defaultMessage" : "特徴量の結合",
@@ -6835,10 +7134,6 @@
     "defaultMessage" : "列の順序を無視",
     "description" : "Toggle text that determines whether to ignore column order in the\n                      model comparison page"
   },
-  "sZ7ebp" : {
-    "defaultMessage" : "保留中のリクエストをキャンセル",
-    "description" : "Title text for cancel pending request confirmation modal in model\n                   registry"
-  },
   "sblqXA" : {
     "defaultMessage" : "実行差分ビューを使用して、モデルとシステムのメトリクス、パラメーター、属性、タグを複数の実行間で比較します。",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
@@ -6851,6 +7146,10 @@
     "defaultMessage" : "メタストア管理者は、他のユーザーにこのテーブルへのアクセスを許可できます。",
     "description" : "Endpoint details page > External model details > AI Gateway details > Usage monitoring section > Information about metastore admin granting other users access to table"
   },
+  "sgu4qN" : {
+    "defaultMessage" : "バッチ推論ノートブック",
+    "description" : "Text for button that allows the user to view the batch inference notebook assosiated with the best model of a completed forecasting experiment"
+  },
   "sguNEF" : {
     "defaultMessage" : "評価テーブルが記録されていません",
     "description" : "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
@@ -6862,10 +7161,6 @@
   "smtq2M" : {
     "defaultMessage" : "{code}関数を呼び出すと、OpenAIのAPI呼び出しのトレースが自動的にログに記録されます。例：",
     "description" : "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
-  },
-  "sqO940" : {
-    "defaultMessage" : "{numEvals}件中{numMissing}件の値が欠損",
-    "description" : "Missing assessment tooltip"
   },
   "srbhok" : {
     "defaultMessage" : "ワークスペース設定を使用",
@@ -6903,13 +7198,13 @@
     "defaultMessage" : "値",
     "description" : "Key-value tag editor modal > Value input label (required)"
   },
+  "tJTWij" : {
+    "defaultMessage" : "基盤モデルを選択",
+    "description" : "Placeholder for models selected from either a built-in foundation model or an external provider"
+  },
   "tLb7+M" : {
     "defaultMessage" : "{timeSince, plural, other {{timeSince,number}日前}}",
     "description" : "Text for time in days since given date for MLflow views"
-  },
-  "tNySO0" : {
-    "defaultMessage" : "サービングエンドポイントにデプロイする前に、次のコードを実行して、サンプルペイロードでモデル推論が機能することを確認してください",
-    "description" : "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
   },
   "tP/v7L" : {
     "defaultMessage" : "出力パスがありません。",
@@ -6923,9 +7218,17 @@
     "defaultMessage" : "中止されました",
     "description" : "Aborted state text for served model in served models table"
   },
+  "tUAhDM" : {
+    "defaultMessage" : "グローバルガイドラインの準拠",
+    "description" : "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
+  },
   "tbAlJg" : {
     "defaultMessage" : "外部ロケーションに移動",
     "description" : "Text for the external location link in the experiment run dataset drawer"
+  },
+  "tby5tb" : {
+    "defaultMessage" : "エンティティ抽出",
+    "description" : "Title for the KIE section of the experiment page"
   },
   "tdmVWN" : {
     "defaultMessage" : "実験ランの削除中にエラーが発生しました。",
@@ -6950,10 +7253,6 @@
   "ttyLD4" : {
     "defaultMessage" : "OK",
     "description" : "Experiment page > new notebook run modal > okay button label"
-  },
-  "tuLP3g" : {
-    "defaultMessage" : "結果が見つかりません",
-    "description" : "Evaluation review > evaluations list > no results"
   },
   "tx3aAM" : {
     "defaultMessage" : "タグを追加",
@@ -7015,6 +7314,10 @@
     "defaultMessage" : "受信する通知",
     "description" : "Notification setting status message when enabled on the model view page"
   },
+  "uPbc0z" : {
+    "defaultMessage" : "新規評価データセット",
+    "description" : "Button to create a new eval dataset"
+  },
   "ubGTUL" : {
     "defaultMessage" : "名前が必要です。",
     "description" : "Error message for name requirement in editable tags table view in MLflow"
@@ -7075,6 +7378,10 @@
     "defaultMessage" : "ログ",
     "description" : "Run page > Overview > Job output > Logs link"
   },
+  "uwFEPi" : {
+    "defaultMessage" : "モデル予測は<tableLink>{tableName}</tableLink>に記録されました",
+    "description" : "Description guiding the user to view the results of their AutoML prediction model"
+  },
   "v+0HXI" : {
     "defaultMessage" : "アーティファクトを読み込み中",
     "description" : "Run page > artifact view > loading skeleton label"
@@ -7110,6 +7417,10 @@
   "vFnIjJ" : {
     "defaultMessage" : "Databricks APIシークレットの参照",
     "description" : "Label for API secret reference input for Databricks Model Serving"
+  },
+  "vHNP+J" : {
+    "defaultMessage" : "タグを追加",
+    "description" : "Button text to add tags to a trace in the experiment traces table"
   },
   "vK1v9d" : {
     "defaultMessage" : "件のデータセットを使用",
@@ -7175,10 +7486,6 @@
     "defaultMessage" : "エンドポイント",
     "description" : "Title text for the feature endpoint consumers column."
   },
-  "vowsp3" : {
-    "defaultMessage" : "保留中のリクエストを承認",
-    "description" : "Title text for approve pending request confirmation modal in model\n                   registry"
-  },
   "vrYdzG" : {
     "defaultMessage" : "AutoMLがキャンセルされました",
     "description" : "Title to indicate AutoML is canceled"
@@ -7186,6 +7493,10 @@
   "vt75ua" : {
     "defaultMessage" : "登録できませんでした。",
     "description" : "Tooltip text for registration failed model version status icon in\n         model view page"
+  },
+  "vwDBPr" : {
+    "defaultMessage" : "データセットを含むランが見つかりませんでした。",
+    "description" : "Error message displayed when the run for the dataset is not found"
   },
   "vxY1CI" : {
     "defaultMessage" : "ステータス",
@@ -7215,10 +7526,6 @@
     "defaultMessage" : "影響を受けるデータ",
     "description" : "Column header of AutoML warnings table. Describes what data of a dataset that a warning applies to."
   },
-  "w51An6" : {
-    "defaultMessage" : "モデルバージョン",
-    "description" : "Label for model version in the configure endpoint form"
-  },
   "w5EpCl" : {
     "defaultMessage" : "1秒あたりの5XXエラー- {modelName}",
     "description" : "Label for 5XX line on QPS graph"
@@ -7226,6 +7533,10 @@
   "wBFfWW" : {
     "defaultMessage" : "登録",
     "description" : "Register button text to register the model"
+  },
+  "wDFPtr" : {
+    "defaultMessage" : "平均",
+    "description" : "Header label for numeric assessment type for the average value"
   },
   "wDwAdX" : {
     "defaultMessage" : "説明",
@@ -7283,13 +7594,13 @@
     "defaultMessage" : "不成功",
     "description" : "Run page > Overview > FinetuneDetails > Run status cell > Value for failed state"
   },
+  "wjOGl2" : {
+    "defaultMessage" : "列",
+    "description" : "Evaluation review > evaluations list > filter dropdown button"
+  },
   "wkTKpA" : {
     "defaultMessage" : "キー",
     "description" : "Placeholder input field text for tag key in endpoint creation form"
-  },
-  "wm6DDf" : {
-    "defaultMessage" : "失敗",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for displaying evaluation results not considered as passing by LLM judge or human"
   },
   "wqY47G" : {
     "defaultMessage" : "スキーマ",
@@ -7302,6 +7613,10 @@
   "wxHQHb" : {
     "defaultMessage" : "サポートされているリクエスト形式：",
     "description" : "First line of tooltip for serving request textarea describing supported input formats"
+  },
+  "wxq/qM" : {
+    "defaultMessage" : "ベースラインとして設定",
+    "description" : "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
   },
   "x+PwWK" : {
     "defaultMessage" : "AutoMLは「Null」を代入しました。",
@@ -7339,10 +7654,6 @@
     "defaultMessage" : "登録できませんでした。",
     "description" : "Default status message for model versions that have failed registration"
   },
-  "xEYvn0" : {
-    "defaultMessage" : "[根本原因を評価できません]",
-    "description" : "Root cause assessment tooltip"
-  },
   "xGF0UT" : {
     "defaultMessage" : "タグを追加",
     "description" : "Aria-label for adding new tag"
@@ -7379,6 +7690,10 @@
     "defaultMessage" : "保存",
     "description" : "experiment page > description modal > save button"
   },
+  "xV6NWF" : {
+    "defaultMessage" : "ガイドラインの準拠",
+    "description" : "Evaluation results > known type of evaluation result assessment > guideline adherence assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guideline adherence: moderate\""
+  },
   "xWQ6m7" : {
     "defaultMessage" : "GPUメモリ使用率（%）",
     "description" : "Graph title for gpu usage metrics graph"
@@ -7411,9 +7726,9 @@
     "defaultMessage" : "コメントを追加",
     "description" : "Placeholder text for add comment section in activities list on model version page"
   },
-  "xr/C5c" : {
-    "defaultMessage" : "最初の {count} 件のグループとランの比較",
-    "description" : "Experiment page > compare runs > chart header > compared groups and runs count label"
+  "xvZFHE" : {
+    "defaultMessage" : "モデルが特定の種類のコンテンツとやり取りしないようにガードレールを設定します。<link>詳細を表示</link>。",
+    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section description"
   },
   "xxAt8F" : {
     "defaultMessage" : "関連性",
@@ -7473,10 +7788,6 @@
   "yTwAJ4" : {
     "defaultMessage" : "独自のトレースを手動でインストルメント化する場合、{code}関数デコレータを使用するのが最も便利な方法です。この方法では関数の入力と出力がトレースに記録されます。例：",
     "description" : "Description of how to log custom code traces using MLflow. This message is followed by a code example."
-  },
-  "yZC/dK" : {
-    "defaultMessage" : "Unity Catalogモデル",
-    "description" : "Select source for the entity in the entity selector; this source is models in the Databricks unity catalog"
   },
   "ybzBAU" : {
     "defaultMessage" : "学習用ノートブックは固定長の特徴量ベクトルに各列を変換しました。",
@@ -7542,6 +7853,10 @@
     "defaultMessage" : "MLflowモデル",
     "description" : "Heading text for mlflow model artifact"
   },
+  "z94r4F" : {
+    "defaultMessage" : "この評価は人間の審査によって作成されます。",
+    "description" : "Human judge assessment description"
+  },
   "z9UqPZ" : {
     "defaultMessage" : "説明",
     "description" : "Title text for the description section on the model version view page"
@@ -7562,13 +7877,13 @@
     "defaultMessage" : "サービングエンティティには、一意のサービングエンティティ名が必要です。サービングエンティティの詳細設定を確認してください。",
     "description" : "Error message for when served entities are not unique"
   },
+  "zGSXK/" : {
+    "defaultMessage" : "ログ",
+    "description" : "Button description to view the monitor charts"
+  },
   "zJHNK1" : {
     "defaultMessage" : "{modelName}は{deprecationDate}に非推奨になります。",
     "description" : "Deprecation message for FMAPIs"
-  },
-  "zKSe6B" : {
-    "defaultMessage" : "モデルバージョン",
-    "description" : "Model version dropdown placeholder text"
   },
   "zLTdCZ" : {
     "defaultMessage" : "レビュー済み",
@@ -7577,10 +7892,6 @@
   "zMhOr3" : {
     "defaultMessage" : "キャンセル",
     "description" : "Cancel button text for model version deletion modal in model versions view page"
-  },
-  "zMmWhy" : {
-    "defaultMessage" : "チャートデータを更新中",
-    "description" : "Run page > Charts tab > Chart box header > Refreshing chart accessible label"
   },
   "zNq6tU" : {
     "defaultMessage" : "Endpointレート制限（{number} QPM）",
@@ -7606,9 +7917,9 @@
     "defaultMessage" : "最新",
     "description" : "Run page > Overview > Metrics table > Latest column header"
   },
-  "zZDjuJ" : {
-    "defaultMessage" : "人気の基盤モデル",
-    "description" : "Select source for the entity in the entity selector; this source is popular foundation models"
+  "zZ9sIi" : {
+    "defaultMessage" : "グローバルガイドライン準拠LLM審査員が、指定されたグローバルガイドラインに応答が準拠しているかどうかを判断します。すべての応答はグローバルガイドラインに準拠する必要があります。",
+    "description" : "Evaluation results > known type of evaluation result assessment > global guideline adherence judge."
   },
   "zaaiiG" : {
     "defaultMessage" : "OpenAIのデプロイメント名",
@@ -7649,10 +7960,6 @@
   "zoLqZo" : {
     "defaultMessage" : "モデルを選択",
     "description" : "Placeholder text for model dropdown selector"
-  },
-  "zoQM83" : {
-    "defaultMessage" : "合格",
-    "description" : "Evaluation results > sidebar list of evaluation results > summary of the evaluation result > indication if the evaluation is considered as passing by LLM judge or human"
   },
   "zrDQmy" : {
     "defaultMessage" : "ロギングは有効になっていません",

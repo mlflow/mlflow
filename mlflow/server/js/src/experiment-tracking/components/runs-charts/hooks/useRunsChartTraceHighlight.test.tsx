@@ -6,7 +6,7 @@ import {
 } from './useRunsChartTraceHighlight';
 import { useRunsHighlightTableRow } from './useRunsHighlightTableRow';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 const TEST_TRACES = [{ uuid: 'uuid1' }, { uuid: 'uuid2' }, { uuid: 'uuid3' }];
 

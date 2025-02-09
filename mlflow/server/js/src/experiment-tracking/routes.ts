@@ -1,4 +1,5 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
+import { ExperimentPageTabName } from './constants';
 
 // Route path definitions (used in defining route elements)
 export class RoutePaths {
@@ -12,7 +13,7 @@ export class RoutePaths {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
   static get experimentPageSearch() {
-    return createMLflowRoutePath('/experiments/:experimentId/:searchString');
+    return createMLflowRoutePath('/experiments/:experimentId/s');
   }
   static get runPage() {
     return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid');
@@ -87,6 +88,10 @@ class Routes {
       return this.getRunPageTabRoute(experimentId, runUuid, ['artifacts', artifactPath].join('/'));
     }
     return generatePath(RoutePaths.runPage, { experimentId, runUuid });
+  }
+
+  static getDirectRunPageRoute(runUuid: string) {
+    return generatePath(RoutePaths.runPageDirect, { runUuid });
   }
 
   static getRunPageTabRoute(experimentId: string, runUuid: string, tabPath?: string) {
