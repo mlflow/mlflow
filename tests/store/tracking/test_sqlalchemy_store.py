@@ -4616,6 +4616,10 @@ def test_delete_traces_raises_error(store):
         store.delete_traces(exp_id, 100, max_traces=0)
 
 
+def test_log_outputs(store: SqlAlchemyStore):
+    pytest.skip("TODO")
+
+
 def test_create_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -4660,10 +4664,6 @@ def test_create_logged_model(store: SqlAlchemyStore):
     store.delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="must be in the 'active' state"):
         store.create_logged_model(experiment_id=exp_id)
-
-
-def test_log_outputs(store: SqlAlchemyStore):
-    pytest.skip("TODO")
 
 
 def test_get_logged_model(store: SqlAlchemyStore):
