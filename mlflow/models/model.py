@@ -1233,14 +1233,16 @@ def update_model_requirements(
         requirement_list: A list of requirements to add or remove from the model.
             For example: ["numpy==1.20.3", "pandas>=1.3.3"]
     """
-    if ModelsArtifactRepository.is_models_uri(model_uri):
-        raise MlflowException(
-            f'Failed to set requirements on "{model_uri}". '
-            + "Model URIs with the `models:/` scheme are not supported.",
-            INVALID_PARAMETER_VALUE,
-        )
-
     resolved_uri = model_uri
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        if not ModelsArtifactRepository._is_logged_model_uri(model_uri):
+            raise MlflowException(
+                f'Failed to set requirements on "{model_uri}". '
+                + "Model URIs with the `models:/` scheme are not supported.",
+                INVALID_PARAMETER_VALUE,
+            )
+        resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+
     if RunsArtifactRepository.is_runs_uri(model_uri):
         resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
 
