@@ -1,12 +1,18 @@
 from mlflow.dspy.save import FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    get_autologging_config,
+    safe_patch,
+)
 
 
 @experimental
 def autolog(
     log_traces: bool = True,
+    log_traces_from_compile: bool = False,
+    log_traces_from_eval: bool = True,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -17,6 +23,13 @@ def autolog(
     Args:
         log_traces: If ``True``, traces are logged for DSPy models by using. If ``False``,
             no traces are collected during inference. Default to ``True``.
+        log_traces_from_compile: If ``True``, traces are logged when compiling (optimizing)
+            DSPy programs. If ``False``, traces are only logged from normal model inference and
+            disabled when compiling. Default to ``False``.
+        log_traces_from_eval: If ``True``, traces are logged for DSPy models when running DSPy's
+            `built-in evaluator <https://dspy.ai/learn/evaluation/metrics/#evaluation>`_.
+            If ``False``, traces are only logged from normal model inference and disabled when
+            running the evaluator. Default to ``True``.
         disable: If ``True``, disables the DSPy autologging integration. If ``False``,
             enables the DSPy autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during DSPy
@@ -28,7 +41,13 @@ def autolog(
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
     # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
-    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+    _autolog(
+        log_traces=log_traces,
+        log_traces_from_compile=log_traces_from_compile,
+        log_traces_from_eval=log_traces_from_eval,
+        disable=disable,
+        silent=silent,
+    )
 
     import dspy
 
@@ -43,8 +62,20 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
-    # Patch teleprompter and evaluate not to generate traces
+    # Patch teleprompter/evaluator not to generate traces by default
     def trace_disabled_fn(original, self, *args, **kwargs):
+        # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
+        # check this flag at runtime to determine if we should generate traces.
+        if isinstance(self, Teleprompter) and get_autologging_config(
+            FLAVOR_NAME, "log_traces_from_compile"
+        ):
+            return original(self, *args, **kwargs)
+
+        if isinstance(self, Evaluate) and get_autologging_config(
+            FLAVOR_NAME, "log_traces_from_eval"
+        ):
+            return original(self, *args, **kwargs)
+
         @trace_disabled
         def _fn(self, *args, **kwargs):
             return original(self, *args, **kwargs)
@@ -84,6 +115,8 @@ autolog.integration_name = FLAVOR_NAME
 @autologging_integration(FLAVOR_NAME)
 def _autolog(
     log_traces: bool,
+    log_traces_from_compile: bool,
+    log_traces_from_eval: bool,
     disable: bool = False,
     silent: bool = False,
 ):
