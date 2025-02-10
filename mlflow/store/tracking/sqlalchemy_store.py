@@ -1730,8 +1730,11 @@ class SqlAlchemyStore(AbstractStore):
     ) -> PagedList[LoggedModel]:
         # TODO: Support filtering, ordering, and pagination
         with self.ManagedSessionMaker() as session:
-            models = session.query(SqlLoggedModel).filter(
-                SqlLoggedModel.experiment_id.in_(experiment_ids)
+            models = (
+                session.query(SqlLoggedModel)
+                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
+                .order_by(SqlLoggedModel.creation_timestamp_ms)
+                .all()
             )
             return PagedList([lm.to_mlflow_entity() for lm in models], token=None)
 

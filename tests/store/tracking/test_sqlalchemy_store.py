@@ -4726,10 +4726,12 @@ def test_search_logged_models(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
     models = store.search_logged_models(experiment_ids=[exp_id_1])
     assert [m.name for m in models] == [model_1.name]
 
     model_2 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)
     models = store.search_logged_models(experiment_ids=[exp_id_1])
     assert [m.name for m in models] == [model_1.name, model_2.name]
 
