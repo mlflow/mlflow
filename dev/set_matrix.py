@@ -44,8 +44,8 @@ import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel
-from mlflow.utils import validator
+from pydantic import BaseModel, validator
+
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
