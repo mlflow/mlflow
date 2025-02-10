@@ -357,7 +357,7 @@ spark:
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
-      if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
+      if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
         python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
       pushd mlflow/java/spark
