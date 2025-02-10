@@ -43,6 +43,7 @@ from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import parse_prompt_uri
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -486,9 +487,11 @@ class MlflowClient:
         return Prompt.from_model_version(mv)
 
     # TODO: Gate this to OSS only
-    def load_prompt(self, name: str, version: Optional[int] = None) -> Prompt:
+    def load_prompt(self, name_or_uri: str, version: Optional[int] = None) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+        The prompt can be specified by name and version, or by URI.
 
         Example:
 
@@ -496,19 +499,26 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
-            # Your prompt registry URI
             client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
-            # Load the latest version of the prompt
+            # Load the latest version of the prompt by name
             prompt = client.load_prompt("my_prompt")
 
-            # Load a specific version of the prompt
+            # Load a specific version of the prompt by name and version
             prompt = client.load_prompt("my_prompt", version=1)
 
+            # Load a specific version of the prompt by URI
+            prompt = client.load_prompt("prompts:/my_prompt/1")
+
         Args:
-            name: The name of the prompt.
+            name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
             version: The version of the prompt. If not specified, the latest version will be loaded.
         """
+        if name_or_uri.startswith("prompts:/"):
+            name, version = parse_prompt_uri(name_or_uri)
+        else:
+            name = name_or_uri
+
         registry_client = self._get_registry_client()
         if version is None:
             version = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0].version

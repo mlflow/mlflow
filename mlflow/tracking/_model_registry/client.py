@@ -8,11 +8,11 @@ import logging
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import add_prompt_filter_string
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.model_registry.prompt.utils import add_prompt_filter_string
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 

@@ -1719,28 +1719,31 @@ def test_crud_prompts(tracking_uri):
 
     client.register_prompt(
         name="prompt_1",
-        template="Hi, {title} {name}! How are you today?",
+        template="Hi, {{title}} {{name}}! How are you today?",
         description="A friendly greeting",
         tags={"model": "my-model"},
     )
 
     prompt = client.load_prompt("prompt_1")
     assert prompt.name == "prompt_1"
-    assert prompt.template == "Hi, {title} {name}! How are you today?"
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
     assert prompt.description == "A friendly greeting"
     assert prompt.tags == {"model": "my-model"}
 
     client.register_prompt(
         name="prompt_1",
-        template="Hi, {title} {name}! What's up?",
+        template="Hi, {{title}} {{name}}! What's up?",
         description="New greeting",
     )
 
     prompt = client.load_prompt("prompt_1")
-    assert prompt.template == "Hi, {title} {name}! What's up?"
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
     prompt = client.load_prompt("prompt_1", version=1)
-    assert prompt.template == "Hi, {title} {name}! How are you today?"
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
+
+    prompt = client.load_prompt("prompts:/prompt_1/2")
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
     # Delete prompt must be called with a version
     with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):

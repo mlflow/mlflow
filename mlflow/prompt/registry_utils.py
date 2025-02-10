@@ -1,6 +1,8 @@
+import urllib.parse
 from typing import Optional
 
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.exceptions import MlflowException
 
 
 def add_prompt_filter_string(
@@ -21,3 +23,24 @@ def add_prompt_filter_string(
         else:
             filter_string = prompt_filter_query
     return filter_string
+
+
+def parse_prompt_uri(uri: str) -> tuple[str, str]:
+    """
+    Parse prompt URI into prompt name and prompt version.
+    'prompt:/<name>/<version>' -> ('<name>', '<version>')
+    """
+    parsed = urllib.parse.urlparse(uri)
+
+    if parsed.scheme != "prompts":
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+        )
+
+    path = parsed.path
+    if path.count("/") != 2:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+        )
+
+    return path.split("/")[1:]

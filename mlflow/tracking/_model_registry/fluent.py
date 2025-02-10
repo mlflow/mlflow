@@ -391,9 +391,11 @@ def register_prompt(
     )
 
 
-def load_prompt(name: str, version: Optional[int] = None) -> Prompt:
+def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+    The prompt can be specified by name and version, or by URI.
 
     Example:
 
@@ -407,11 +409,14 @@ def load_prompt(name: str, version: Optional[int] = None) -> Prompt:
         # Load a specific version of the prompt
         prompt = mlflow.load_prompt("my_prompt", version=1)
 
+        # Load a specific version of the prompt by URI
+        prompt = mlflow.load_prompt(uri="prompts:/my_prompt/1")
+
     Args:
-        name: The name of the prompt.
+        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt. If not specified, the latest version will be loaded.
     """
-    return MlflowClient().load_prompt(name=name, version=version)
+    return MlflowClient().load_prompt(name_or_uri=name_or_uri, version=version)
 
 
 def delete_prompt(name: str, version: int) -> Prompt:
