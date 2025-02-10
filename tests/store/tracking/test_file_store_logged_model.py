@@ -26,73 +26,86 @@ class CreateLoggedModelArgs(NamedTuple):
     model_type: Optional[str] = None
 
 
-@pytest.mark.parametrize(
-    "create_logged_model_args",
-    [
-        CreateLoggedModelArgs(),
-        CreateLoggedModelArgs(experiment_name="test"),
-        CreateLoggedModelArgs(experiment_name="test", run_name="test_run"),
-        CreateLoggedModelArgs(experiment_name="test", run_name="test_run", model_name="test_model"),
-        CreateLoggedModelArgs(
-            experiment_name="test",
-            run_name="test_run",
-            model_name="test_model",
-            tags=[LoggedModelTag("tag_key", "tag_value")],
-        ),
-        CreateLoggedModelArgs(
-            experiment_name="test",
-            run_name="test_run",
-            model_name="test_model",
-            tags=[LoggedModelTag("tag_key", "tag_value")],
-            params=[LoggedModelParameter("param_key", "param_value")],
-        ),
-    ],
-)
-def test_create_logged_model(store, create_logged_model_args):
-    experiment_id = (
-        store.create_experiment(create_logged_model_args.experiment_name)
-        if create_logged_model_args.experiment_name
-        else None
-    )
-    run_id = (
-        store.create_run(
-            experiment_id,
-            user_id="user",
-            start_time=0,
-            tags=[],
-            run_name=create_logged_model_args.run_name,
-        ).info.run_id
-        if create_logged_model_args.run_name
-        else None
-    )
-    logged_model = store.create_logged_model(
-        experiment_id=experiment_id,
-        name=create_logged_model_args.model_name,
-        source_run_id=run_id,
-        tags=create_logged_model_args.tags,
-        params=create_logged_model_args.params,
-        model_type=create_logged_model_args.model_type,
-    )
-    assert logged_model.experiment_id == (
-        FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
-    )
-    if create_logged_model_args.model_name:
-        assert logged_model.name == create_logged_model_args.model_name
-    else:
+def assert_logged_model_attributes(
+    logged_model,
+    experiment_id,
+    name=None,
+    source_run_id=None,
+    tags=None,
+    params=None,
+    model_type=None,
+    status=str(LoggedModelStatus.PENDING),
+):
+    assert logged_model.experiment_id == experiment_id
+    if name is None:
         assert logged_model.name is not None
-    assert logged_model.source_run_id == run_id
-    assert logged_model.tags == (
-        {tag.key: tag.value for tag in create_logged_model_args.tags}
-        if create_logged_model_args.tags
-        else {}
+    else:
+        assert logged_model.name == name
+    if source_run_id is None:
+        assert logged_model.source_run_id is None
+    else:
+        assert logged_model.source_run_id == source_run_id
+    assert logged_model.tags == (tags or {})
+    assert logged_model.params == (params or {})
+    assert logged_model.model_type == model_type
+    assert logged_model.status == status
+
+
+def test_create_logged_model(store):
+    logged_model = store.create_logged_model()
+    assert_logged_model_attributes(
+        logged_model,
+        FileStore.DEFAULT_EXPERIMENT_ID,
     )
-    assert logged_model.params == (
-        {param.key: param.value for param in create_logged_model_args.params}
-        if create_logged_model_args.params
-        else {}
+
+    exp_id = store.create_experiment("test")
+    logged_model = store.create_logged_model(exp_id)
+    assert_logged_model_attributes(
+        logged_model,
+        exp_id,
     )
-    assert logged_model.model_type == create_logged_model_args.model_type
-    assert logged_model.status == str(LoggedModelStatus.PENDING)
+
+    run_id = store.create_run(
+        exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="test_run",
+    ).info.run_id
+    logged_model = store.create_logged_model(exp_id, source_run_id=run_id)
+    assert_logged_model_attributes(
+        logged_model,
+        exp_id,
+        source_run_id=run_id,
+    )
+
+    logged_model = store.create_logged_model(
+        exp_id,
+        name="test_model",
+        source_run_id=run_id,
+    )
+    assert_logged_model_attributes(
+        logged_model,
+        exp_id,
+        name="test_model",
+        source_run_id=run_id,
+    )
+
+    logged_model = store.create_logged_model(
+        exp_id,
+        name="test_model",
+        source_run_id=run_id,
+        tags=[LoggedModelTag("tag_key", "tag_value")],
+        params=[LoggedModelParameter("param_key", "param_value")],
+    )
+    assert_logged_model_attributes(
+        logged_model,
+        exp_id,
+        name="test_model",
+        source_run_id=run_id,
+        tags={"tag_key": "tag_value"},
+        params={"param_key": "param_value"},
+    )
 
 
 def test_create_logged_model_errors(store):
