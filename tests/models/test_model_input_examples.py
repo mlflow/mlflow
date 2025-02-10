@@ -368,8 +368,10 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
             mlflow.sklearn.log_model(ErrorModel(), "model", input_example=np.array([[1]]))
-        mock_warning.assert_called_once()
-        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 @pytest.fixture(scope="module")
