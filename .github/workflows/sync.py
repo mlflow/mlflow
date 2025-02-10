@@ -8,6 +8,7 @@
 import os
 import subprocess
 import sys
+import time
 import uuid
 
 import requests
@@ -77,19 +78,38 @@ def main():
 
     # Create a pull request
     subprocess.check_call(["git", "push", "origin", PR_BRANCH_NAME])
-    pr = requests.post(
-        f"https://api.github.com/repos/{OWNER}/{REPO}/pulls",
-        headers={"Authorization": f"token {GITHUB_TOKEN}"},
-        json={
-            "title": PR_TITLE,
-            "head": PR_BRANCH_NAME,
-            "base": MLFLOW_3_BRANCH_NAME,
-            "body": "This PR was created automatically by the sync workflow.",
-        },
-    )
-    pr.raise_for_status()
-    pr_data = pr.json()
-    print(f"PR created: {pr_data['html_url']}")
+    # PR creation right after the push sometimes fails with 422,
+    # so retry up to 5 times with an exponential backoff
+    for i in range(5):
+        pr = requests.post(
+            f"https://api.github.com/repos/{OWNER}/{REPO}/pulls",
+            headers={"Authorization": f"token {GITHUB_TOKEN}"},
+            json={
+                "title": PR_TITLE,
+                "head": PR_BRANCH_NAME,
+                "base": MLFLOW_3_BRANCH_NAME,
+                "body": "This PR was created automatically by the sync workflow.",
+            },
+        )
+        try:
+            pr.raise_for_status()
+        except requests.HTTPError as e:
+            if e.response.status_code == 422:
+                print(
+                    f"Failed to create PR (error: {e}), retrying in {2**i} seconds", file=sys.stderr
+                )
+                time.sleep(2**i)
+                continue
+            raise
+        else:
+            pr_data = pr.json()
+            print(f"PR created: {pr_data['html_url']}")
+            break
+    else:
+        # Clean up the remote branch
+        subprocess.check_call(["git", "push", "origin", "--delete", PR_BRANCH_NAME])
+        print("Failed to create PR", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
