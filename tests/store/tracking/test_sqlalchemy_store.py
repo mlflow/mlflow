@@ -4719,3 +4719,24 @@ def test_delete_logged_model_tag(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.delete_logged_model_tag("does-not-exist", "tag1")
+
+
+def test_search_logged_models(store: SqlAlchemyStore):
+    # TODO: Support filtering, ordering, and pagination
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_1.name]
+
+    model_2 = store.create_logged_model(experiment_id=exp_id_1)
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_3 = store.create_logged_model(experiment_id=exp_id_2)
+    models = store.search_logged_models(experiment_ids=[exp_id_2])
+    assert [m.name for m in models] == [model_3.name]
+
+    models = store.search_logged_models(experiment_ids=[exp_id_1, exp_id_2])
+    assert [m.name for m in models] == [model_1.name, model_2.name, model_3.name]
