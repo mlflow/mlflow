@@ -6,6 +6,18 @@ from pydantic import BaseModel
 
 IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
+if IS_PYDANTIC_V2_OR_NEWER:
+    from pydantic import field_validator as py_validator
+
+    def validator(field, pre=True):
+        mode = "before" if pre else "after"
+        return py_validator(field, mode=mode)
+else:
+    from pydantic import validator as py_validator
+
+    def validator(field, pre=True):
+        return py_validator(field, pre=pre)
+
 
 def model_dump_compat(pydantic_model: BaseModel, **kwargs: Any) -> dict[str, Any]:
     """
