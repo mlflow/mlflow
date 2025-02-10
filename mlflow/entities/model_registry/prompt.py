@@ -13,7 +13,7 @@ IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{([a-zA-Z0-9_]+)\}")
+_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -32,7 +32,7 @@ class Prompt(ModelVersion):
         name: The name of the prompt.
         version: The version number of the prompt.
         template: The template text of the prompt. It can contain variables enclosed in
-            single curly braces, e.g. {variable}, which will be replaced with actual values
+            double curly braces, e.g. {{variable}}, which will be replaced with actual values
             by the `format` method.
         description: Text description of the prompt. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
@@ -81,7 +81,7 @@ class Prompt(ModelVersion):
     def variables(self) -> set[str]:
         """
         Return a list of variables in the template text.
-        The value must be enclosed in curly braces, e.g. {variable}.
+        The value must be enclosed in double curly braces, e.g. {{variable}}.
         """
         if hasattr(self, "_variables"):
             return self._variables
@@ -132,18 +132,18 @@ class Prompt(ModelVersion):
             kwargs: Keyword arguments to replace the variables in the template.
         """
         input_keys = set(kwargs.keys())
-        missing_keys = self.variables - input_keys
 
-        if missing_keys:
+        template = self.template
+        for key, value in kwargs.items():
+            template = re.sub(r"\{\{\s*" + key + r"\s*\}\}", value, template)
+
+        if missing_keys := self.variables - input_keys:
             if not allow_partial:
                 raise MlflowException.invalid_parameter_value(
                     f"Missing variables: {missing_keys}. To partially format the prompt, "
                     "set `allow_partial=True`."
                 )
             else:
-                template = self.template
-                for key, value in kwargs.items():
-                    template = template.replace("{" + key + "}", value)
                 return Prompt(
                     name=self.name,
                     version=self.version,
@@ -152,8 +152,7 @@ class Prompt(ModelVersion):
                     creation_timestamp=self.creation_timestamp,
                     tags=self.tags,
                 )
-
-        return self.template.format(**kwargs)
+        return template
 
     @classmethod
     def from_model_version(cls, model_version: ModelVersion) -> Prompt:
