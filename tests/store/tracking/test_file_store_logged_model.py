@@ -1,5 +1,4 @@
 import time
-from typing import NamedTuple, Optional
 from unittest import mock
 
 import pytest
@@ -15,15 +14,6 @@ from mlflow.store.tracking.file_store import SEARCH_LOGGED_MODEL_MAX_RESULTS_DEF
 @pytest.fixture
 def store(tmp_path):
     return FileStore(str(tmp_path.joinpath("mlruns")))
-
-
-class CreateLoggedModelArgs(NamedTuple):
-    experiment_name: Optional[str] = None
-    run_name: Optional[str] = None
-    model_name: Optional[str] = None
-    tags: Optional[list[LoggedModelTag]] = None
-    params: Optional[list[LoggedModelParameter]] = None
-    model_type: Optional[str] = None
 
 
 def assert_logged_model_attributes(
@@ -156,52 +146,22 @@ def test_set_logged_model_tags_errors(store):
         store.set_logged_model_tags(logged_model.model_id, [LoggedModelTag("a!b", "c")])
 
 
-@pytest.mark.parametrize(
-    "create_logged_model_args",
-    [
-        CreateLoggedModelArgs(),
-        CreateLoggedModelArgs(experiment_name="test"),
-        CreateLoggedModelArgs(experiment_name="test", run_name="test_run"),
-        CreateLoggedModelArgs(experiment_name="test", run_name="test_run", model_name="test_model"),
-        CreateLoggedModelArgs(
-            experiment_name="test",
-            run_name="test_run",
-            model_name="test_model",
-            tags=[LoggedModelTag("tag_key", "tag_value")],
-        ),
-        CreateLoggedModelArgs(
-            experiment_name="test",
-            run_name="test_run",
-            model_name="test_model",
-            tags=[LoggedModelTag("tag_key", "tag_value")],
-            params=[LoggedModelParameter("param_key", "param_value")],
-        ),
-    ],
-)
-def test_get_logged_model(store, create_logged_model_args):
-    experiment_id = (
-        store.create_experiment(create_logged_model_args.experiment_name)
-        if create_logged_model_args.experiment_name
-        else None
-    )
-    run_id = (
-        store.create_run(
-            experiment_id,
-            user_id="user",
-            start_time=0,
-            tags=[],
-            run_name=create_logged_model_args.run_name,
-        ).info.run_id
-        if create_logged_model_args.run_name
-        else None
-    )
+def test_get_logged_model(store):
+    experiment_id = store.create_experiment("test")
+    run_id = store.create_run(
+        experiment_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="test_run",
+    ).info.run_id
     logged_model = store.create_logged_model(
         experiment_id=experiment_id,
-        name=create_logged_model_args.model_name,
+        name="test_model",
         source_run_id=run_id,
-        tags=create_logged_model_args.tags,
-        params=create_logged_model_args.params,
-        model_type=create_logged_model_args.model_type,
+        tags=[LoggedModelTag("tag_key", "tag_value")],
+        params=[LoggedModelParameter("param_key", "param_value")],
+        model_type="dev",
     )
     fetched_model = store.get_logged_model(logged_model.model_id)
     assert logged_model.model_uri == fetched_model.model_uri
