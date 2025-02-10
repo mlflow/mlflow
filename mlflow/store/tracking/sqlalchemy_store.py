@@ -1691,6 +1691,35 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             return logged_model.to_mlflow_entity()
 
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            session.merge(
+                *(
+                    SqlLoggedModelTag(
+                        model_id=model_id,
+                        experiment_id=logged_model.experiment_id,
+                        tag_key=tag.key,
+                        tag_value=tag.value,
+                    )
+                    for tag in tags
+                )
+            )
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            session.query(SqlLoggedModelTag).filter(
+                SqlLoggedModelTag.model_id == model_id,
+                SqlLoggedModelTag.tag_key == key,
+            ).delete()
+
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
     #######################################################################################

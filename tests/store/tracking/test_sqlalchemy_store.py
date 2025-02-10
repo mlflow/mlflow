@@ -4688,3 +4688,34 @@ def test_finalize_logged_model(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.finalize_logged_model("does-not-exist", status=LoggedModelStatus.READY)
+
+
+def test_set_logged_model_tags(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple"}
+
+    # New tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "orange")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "orange"}
+
+    # Exieting tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "grape")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "grape"}
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_logged_model_tags("does-not-exist", [LoggedModelTag("tag1", "apple")])
+
+
+def test_delete_logged_model_tag(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    store.delete_logged_model_tag(model.model_id, "tag1")
+    assert store.get_logged_model(model.model_id).tags == {}
+
+    store.delete_logged_model_tag(model.model_id, "tag1")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_logged_model_tag("does-not-exist", "tag1")
