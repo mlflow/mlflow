@@ -1480,7 +1480,7 @@ class MyLLMConfig(ConfigModel):
     # This model defines the configuration for the provider such as API keys
     my_llm_api_key: str
 
-    @validator("my_llm_api_key", pre=True)
+    @field_validator("my_llm_api_key", mode="before")
     def validate_my_llm_api_key(cls, value):
         return os.environ[value.lstrip("$")]
 
