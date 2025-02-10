@@ -78,7 +78,7 @@ def main():
 
     # Create a pull request
     subprocess.check_call(["git", "push", "origin", PR_BRANCH_NAME])
-    # PR creation right after the push occasionally fails with 422,
+    # PR creation right after the push sometimes fails with 422,
     # so retry up to 5 times with an exponential backoff
     for i in range(5):
         pr = requests.post(
