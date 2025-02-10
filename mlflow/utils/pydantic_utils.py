@@ -11,12 +11,16 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
     def validator(field, pre=True):
         mode = "before" if pre else "after"
-        return py_validator(field, mode=mode)
+        def decorator(func):
+            return py_validator(field, mode=mode)(func)
+        return decorator
 else:
     from pydantic import validator as py_validator
 
     def validator(field, pre=True):
-        return py_validator(field, pre=pre)
+        def decorator(func):
+            return py_validator(field, pre=pre)(func)
+        return decorator
 
 
 def model_dump_compat(pydantic_model: BaseModel, **kwargs: Any) -> dict[str, Any]:
