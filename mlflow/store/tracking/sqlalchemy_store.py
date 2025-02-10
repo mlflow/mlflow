@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from functools import reduce
-from typing import Optional
+from typing import Any, Optional
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
@@ -1719,6 +1719,24 @@ class SqlAlchemyStore(AbstractStore):
                 SqlLoggedModelTag.model_id == model_id,
                 SqlLoggedModelTag.tag_key == key,
             ).delete()
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        # TODO: Support filtering, ordering, and pagination
+        with self.ManagedSessionMaker() as session:
+            models = (
+                session.query(SqlLoggedModel)
+                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
+                .order_by(SqlLoggedModel.creation_timestamp_ms)
+                .all()
+            )
+            return PagedList([lm.to_mlflow_entity() for lm in models], token=None)
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
