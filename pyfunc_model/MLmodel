@@ -1,0 +1,33 @@
+auth_policy:
+  system_auth_policy:
+    resources:
+      api_version: '1'
+      databricks:
+        function:
+        - name: rag.studio.test_function_a
+        serving_endpoint:
+        - name: databricks-mixtral-8x7b-instruct
+        uc_connection:
+        - name: test_connection_1
+        vector_search_index:
+        - name: rag.studio_bugbash.databricks_docs_index
+  user_auth_policy:
+    api_scopes:
+    - catalog.catalogs
+    - vectorsearch.vector-search-indexes
+    - workspace.workspace
+flavors:
+  python_function:
+    cloudpickle_version: 3.1.0
+    code: null
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.10.14
+    streamable: false
+mlflow_version: 2.20.2.dev0
+model_size_bytes: 147
+model_uuid: 47460d465d49459b947b3f03dddd8010
+utc_time_created: '2025-02-10 19:30:25.111787'
