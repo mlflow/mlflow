@@ -15,9 +15,21 @@ def test_prompt_initialization():
     assert prompt._tags[PROMPT_TEXT_TAG_KEY] == "Hello, {{name}}!"
 
 
-def test_prompt_variables_extraction():
-    prompt = Prompt(name="test", version=1, template="Hello, {{first_name}} {{last_name}}!")
-    assert prompt.variables == {"first_name", "last_name"}
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        ("Hello, {{name}}!", {"name"}),
+        ("Hello, {{ title }} {{ name }}!", {"title", "name"}),
+        ("Hello, {{ person.name.first }}", {"person.name.first"}),
+        ("Hello, {{name1}}", {"name1"}),
+        # Invalid variables will be ignored
+        ("Hello, {name}", set()),
+        ("Hello, {{123name}}", set()),
+    ],
+)
+def test_prompt_variables_extraction(template, expected):
+    prompt = Prompt(name="test", version=1, template=template)
+    assert prompt.variables == expected
 
 
 def test_prompt_format():
@@ -33,11 +45,3 @@ def test_prompt_format():
     result = prompt.format(title="Ms.", allow_partial=True)
     assert result.template == "Hello, Ms. {{name}}!"
     assert result.variables == {"name"}
-
-
-def test_prompt_with_spaces():
-    # Prompt template should handle spaces in variable names
-    prompt = Prompt(name="test", version=1, template="Hello, {{ title }} {{  name  }}!")
-    result = prompt.format(title="Ms.", name="Alice")
-    assert result == "Hello, Ms. Alice!"
-    assert prompt.variables == {"title", "name"}

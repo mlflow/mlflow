@@ -13,7 +13,9 @@ IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
+    r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
+)
 
 _PROMPT_TEXT_DISPLAY_LIMIT = 30
 
@@ -35,7 +37,8 @@ class Prompt(ModelVersion):
         version: The version number of the prompt.
         template: The template text of the prompt. It can contain variables enclosed in
             double curly braces, e.g. {{variable}}, which will be replaced with actual values
-            by the `format` method.
+            by the `format` method. MLflow use the same variable naming rules same as Jinja2
+            https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
         description: Text description of the prompt. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
         tags: A dictionary of tags associated with the prompt. Optional.
@@ -60,8 +63,6 @@ class Prompt(ModelVersion):
         tags[PROMPT_TEXT_TAG_KEY] = template
         tags[IS_PROMPT_TAG_KEY] = "true"
 
-        self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
-
         super().__init__(
             name=name,
             version=version,
@@ -69,6 +70,8 @@ class Prompt(ModelVersion):
             description=description,
             tags=[ModelVersionTag(key=key, value=value) for key, value in tags.items()],
         )
+
+        self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
 
     def __repr__(self) -> str:
         text = (
@@ -98,15 +101,6 @@ class Prompt(ModelVersion):
         """Return the tags of the prompt as a dictionary."""
         # Remove the prompt text tag as it should not be user-facing
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
-
-    @tags.setter
-    def tags(self, tags: dict[str, str]):
-        """Set the tags of the prompt."""
-        self._tags = {
-            **tags,
-            IS_PROMPT_TAG_KEY: "true",
-            PROMPT_TEXT_TAG_KEY: self.template,
-        }
 
     def format(self, allow_partial: bool = False, **kwargs) -> Union[Prompt, str]:
         """
