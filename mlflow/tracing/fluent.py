@@ -119,12 +119,20 @@ def trace(
 
     The @mlflow.trace decorator currently support the following types of functions:
 
-    | Function Type | Supported        |
-    |---------------|------------------|
-    | Sync          | ✅               |
-    | Async         | ✅  (>= 2.16.0)  |
-    | Generator     | ✅  (>= 2.20.2)  |
-    | Async Generator | ✅ (>= 2.20.2) |
+    .. list-table:: Supported Function Types
+        :widths: 20 30
+        :header-rows: 1
+
+        * - Function Type
+        - Supported
+        * - Sync
+        - ✅
+        * - Async
+        - ✅ (>= 2.16.0)
+        * - Generator
+        - ✅ (>= 2.20.2)
+        * - Async Generator
+        - ✅ (>= 2.20.2)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
