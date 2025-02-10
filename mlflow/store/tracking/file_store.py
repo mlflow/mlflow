@@ -52,6 +52,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -89,6 +90,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
+    SearchLoggedModelsUtils,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -1940,7 +1942,7 @@ class FileStore(AbstractStore):
 
     def create_logged_model(
         self,
-        experiment_id: str,
+        experiment_id: Optional[str] = None,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
         tags: Optional[list[LoggedModelTag]] = None,
@@ -2108,6 +2110,8 @@ class FileStore(AbstractStore):
             models_dir_path = os.path.join(
                 self.root_directory, experiment_dir, FileStore.MODELS_FOLDER_NAME
             )
+            if not os.path.exists(models_dir_path):
+                continue
             models = find(models_dir_path, model_id, full_path=True)
             if len(models) == 0:
                 continue
@@ -2200,17 +2204,17 @@ class FileStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
+        max_results: int = SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
         order_by: Optional[list[list[str, Any]]] = None,
         page_token: Optional[str] = None,
-    ) -> list[LoggedModel]:
+    ) -> PagedList[list[LoggedModel]]:
         """
         Search for logged models that match the specified search criteria.
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string.
-            max_results: Maximum number of logged models desired.
+            max_results: Maximum number of logged models desired. Default is 100.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
 
@@ -2234,16 +2238,23 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
             all_models.extend(models)
-        filtered = SearchUtils.filter_logged_models(models, filter_string)
-        return PagedList(SearchUtils.sort_logged_models(filtered, order_by)[:max_results], None)
+        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string)
+        sorted_logged_models = SearchLoggedModelsUtils.sort(filtered, order_by)
+        logged_models, next_page_token = SearchLoggedModelsUtils.paginate(
+            sorted_logged_models, page_token, max_results
+        )
+        return PagedList(logged_models, next_page_token)
 
     def _list_models(self, experiment_id: str) -> list[LoggedModel]:
         self._check_root_dir()
         if not self._has_experiment(experiment_id):
             return []
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+        models_folder = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
+        if not exists(models_folder):
+            return []
         model_dirs = list_all(
-            os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME),
+            models_folder,
             filter_func=lambda x: all(
                 os.path.basename(os.path.normpath(x)) != reservedFolderName
                 for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
