@@ -40,3 +40,4 @@ def test_prompt_with_spaces():
     prompt = Prompt(name="test", version=1, template="Hello, {{ title }} {{  name  }}!")
     result = prompt.format(title="Ms.", name="Alice")
     assert result == "Hello, Ms. Alice!"
+    assert prompt.variables == {"title", "name"}

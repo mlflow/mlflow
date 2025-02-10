@@ -84,10 +84,6 @@ class RegisteredModel(_ModelRegistryEntity):
         # Remove the is_prompt tag as it should not be user-facing
         return {k: v for k, v in self._tags.items() if k != IS_PROMPT_TAG_KEY}
 
-    @tags.setter
-    def tags(self, tags):
-        self._tags = {**tags, IS_PROMPT_TAG_KEY: self._is_prompt}
-
     @property
     def aliases(self):
         """Dictionary of aliases (string) -> version for the current registered model."""

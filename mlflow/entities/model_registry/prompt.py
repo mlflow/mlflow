@@ -13,7 +13,9 @@ IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
+_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+
+_PROMPT_TEXT_DISPLAY_LIMIT = 30
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -58,6 +60,8 @@ class Prompt(ModelVersion):
         tags[PROMPT_TEXT_TAG_KEY] = template
         tags[IS_PROMPT_TAG_KEY] = "true"
 
+        self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
+
         super().__init__(
             name=name,
             version=version,
@@ -67,7 +71,11 @@ class Prompt(ModelVersion):
         )
 
     def __repr__(self) -> str:
-        text = self.template[:30] + "..." if len(self.template) > 30 else self.template
+        text = (
+            self.template[:_PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self.template) > _PROMPT_TEXT_DISPLAY_LIMIT
+            else self.template
+        )
         return f"Prompt(name={self.name}, version={self.version}, template={text})"
 
     @property
@@ -83,11 +91,6 @@ class Prompt(ModelVersion):
         Return a list of variables in the template text.
         The value must be enclosed in double curly braces, e.g. {{variable}}.
         """
-        if hasattr(self, "_variables"):
-            return self._variables
-
-        variables = _PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template)
-        self._variables = set(variables)
         return self._variables
 
     @property
