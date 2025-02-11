@@ -298,16 +298,14 @@ class Model(ConfigModel):
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @validator("config", pre=True)
-    def validate_config(cls, values, **kwargs):
+    def validate_config(cls, val, values):
         from mlflow.gateway.provider_registry import provider_registry
         if provider := values.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
-            return config_type(**kwargs)
-
+            return config_type(**val) if isinstance(val, dict) else val
         raise MlflowException.invalid_parameter_value(
             "A provider must be provided for each gateway route."
         )
-    
 
 
 class AliasedConfigModel(ConfigModel):
