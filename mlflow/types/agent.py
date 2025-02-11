@@ -34,7 +34,7 @@ class ChatAgentMessage(BaseModel):
         role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``,
             ``"assistant"``, ``"tool"``).
         content (str): The content of the message.
-            **Optional** Can be ``None`` if refusal or tool_calls are provided.
+            **Optional** Can be ``None`` if tool_calls is provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
         id (str): The ID of the message. **Optional** defaults to a random UUID
         tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
