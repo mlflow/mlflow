@@ -2420,7 +2420,7 @@ def test_model_log_with_auth_policy(tmp_path, save_model, use_user_auth_policy, 
     pyfunc_save_artifact_path = os.path.join(tmp_path, "pyfunc_model_save")
     pyfunc_log_artifact_path = "pyfunc_model_log"
 
-    expected_auth_policy = {}
+    expected_auth_policy = {"system_auth_policy": {}, "user_auth_policy": {}}
 
     system_auth_policy = None
     if use_system_policy:

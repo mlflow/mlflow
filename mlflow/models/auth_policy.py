@@ -67,11 +67,9 @@ class AuthPolicy:
         """
         Serialize Auth Policy to a dictionary
         """
-        serialized_policy = {}
-        if self.user_auth_policy is not None:
-            serialized_policy["user_auth_policy"] = self.user_auth_policy.to_dict()
-
-        if self.system_auth_policy is not None:
-            serialized_policy["system_auth_policy"] = self.system_auth_policy.to_dict()
-
-        return serialized_policy
+        return {
+            "system_auth_policy": self.system_auth_policy.to_dict()
+            if self.system_auth_policy
+            else {},
+            "user_auth_policy": self.user_auth_policy.to_dict() if self.user_auth_policy else {},
+        }

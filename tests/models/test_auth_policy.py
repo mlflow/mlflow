@@ -68,13 +68,14 @@ def test_user_auth_policy():
     serialized_auth_policy = auth_policy.to_dict()
 
     expected_serialized_auth_policy = {
+        "system_auth_policy": {},
         "user_auth_policy": {
             "api_scopes": [
                 "catalog.catalogs",
                 "vectorsearch.vector-search-indexes",
                 "workspace.workspace",
             ]
-        }
+        },
     }
     assert serialized_auth_policy == expected_serialized_auth_policy
 
@@ -105,6 +106,7 @@ def test_system_auth_policy():
                 "api_version": "1",
             }
         },
+        "user_auth_policy": {},
     }
     assert serialized_auth_policy == expected_serialized_auth_policy
 
@@ -114,5 +116,5 @@ def test_empty_auth_policy():
 
     serialized_auth_policy = auth_policy.to_dict()
 
-    expected_serialized_auth_policy = {}
+    expected_serialized_auth_policy = {"system_auth_policy": {}, "user_auth_policy": {}}
     assert serialized_auth_policy == expected_serialized_auth_policy
