@@ -141,11 +141,7 @@ repos:
       - id: typos
         name: typos
         entry: dev/typos.sh
-<<<<<<< HEAD
-        files: '(\.py$|^docs/.*\.mdx?$)'
-=======
         files: '\.(py$|mdx?$)'
->>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         language: system
         stages: [pre-commit]
         require_serial: true
