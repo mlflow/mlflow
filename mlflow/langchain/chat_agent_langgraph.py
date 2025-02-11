@@ -8,11 +8,11 @@ try:
     from langchain_core.runnables.utils import Input
     from langgraph.graph.state import CompiledStateGraph
     from langgraph.prebuilt.tool_node import ToolNode
-except ImportError:
+except ImportError as e:
     raise ImportError(
         "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use LangGraph ChatAgent"
         "helpers."
-    )
+    ) from e
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
