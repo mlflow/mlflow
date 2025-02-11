@@ -3286,9 +3286,6 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
-        if description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
-
         return self._get_registry_client().update_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
