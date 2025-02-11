@@ -9,7 +9,7 @@ from typing import Any, Optional, Union
 import pydantic
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError, root_validator, validator as legacy_validator
+from pydantic import ConfigDict, Field, ValidationError, root_validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -297,29 +297,17 @@ class Model(ConfigModel):
             return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
-    @classmethod
-    def _validate_config(cls, info, values):
+    @validator("config", pre=True)
+    def validate_config(cls, values, **kwargs):
         from mlflow.gateway.provider_registry import provider_registry
-
         if provider := values.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
-            return config_type(**info)
+            return config_type(**kwargs)
 
         raise MlflowException.invalid_parameter_value(
             "A provider must be provided for each gateway route."
         )
-
-    if IS_PYDANTIC_V2_OR_NEWER:
-
-        @legacy_validator("config", pre=True)
-        def validate_config(cls, info, values):
-            return cls._validate_config(info, values)
-
-    else:
-
-        @legacy_validator("config", pre=True)
-        def validate_config(cls, config, values):
-            return cls._validate_config(config, values)
+    
 
 
 class AliasedConfigModel(ConfigModel):
