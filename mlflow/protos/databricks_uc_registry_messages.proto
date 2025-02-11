@@ -316,6 +316,9 @@ message CreateRegisteredModelRequest {
 
   // Optional description for registered model.
   optional string description = 3;
+
+  // Deployment job id for this model.
+  optional string deployment_job_id = 4;
 }
 
 message CreateRegisteredModelResponse {
@@ -333,6 +336,9 @@ message UpdateRegisteredModelRequest {
 
   // If provided, updates the description for this ``registered_model``.
   optional string description = 2;
+
+  // Deployment job id for this model.
+  optional string deployment_job_id = 4;
 }
 
 message UpdateRegisteredModelResponse {
