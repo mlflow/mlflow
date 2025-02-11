@@ -7,10 +7,9 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 import pydantic
-import pydantic_core
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError, ValidationInfo, root_validator
+from pydantic import ConfigDict, Field, ValidationError, root_validator, validator as legacy_validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -302,9 +301,6 @@ class Model(ConfigModel):
     def _validate_config(cls, info, values):
         from mlflow.gateway.provider_registry import provider_registry
 
-        if IS_PYDANTIC_V2_OR_NEWER and isinstance(values, pydantic_core._pydantic_core.ValidationInfo):
-            values = values.data
-
         if provider := values.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**info)
@@ -313,10 +309,18 @@ class Model(ConfigModel):
             "A provider must be provided for each gateway route."
         )
 
+    if IS_PYDANTIC_V2_OR_NEWER:
 
-    @validator("config", pre=True)
-    def validate_config(cls, param1, param2):
-        return cls._validate_config(param1, param2)
+        @legacy_validator("config", pre=True)
+        def validate_config(cls, info, values):
+            return cls._validate_config(info, values)
+
+    else:
+
+        @legacy_validator("config", pre=True)
+        def validate_config(cls, config, values):
+            return cls._validate_config(config, values)
+
 
 class AliasedConfigModel(ConfigModel):
     """
