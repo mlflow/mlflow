@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 
 import pydantic
 from packaging.version import Version
@@ -7,15 +7,16 @@ from pydantic import BaseModel
 IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
-def validator(field, pre=True):
-    if IS_PYDANTIC_V2_OR_NEWER:
-        from pydantic import field_validator as pydantic_validator
-        return pydantic_validator(field, mode="before" if pre else "after")
-    else:
-        from pydantic import validator as pydantic_validator
-        return pydantic_validator(field, pre=pre)
+def validator(field:str, pre: bool=True):
+    def decorator(func: Callable) -> Callable:
+        if IS_PYDANTIC_V2_OR_NEWER:
+            from pydantic import field_validator as pydantic_validator 
+            return pydantic_validator(field, mode="before" if pre else "after")(func)
+        else:
+            from pydantic import validator as pydantic_validator
+            return pydantic_validator(field, pre=True)(func) # 
 
-
+    return decorator
 
 def model_dump_compat(pydantic_model: BaseModel, **kwargs: Any) -> dict[str, Any]:
     """
