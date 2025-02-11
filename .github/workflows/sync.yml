@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions: {}
+    if: github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/create-github-app-token@v1
         id: app-token
