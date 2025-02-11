@@ -1,15 +1,18 @@
 import json
 import uuid
-from typing import Annotated, Any, Generator, Literal, Optional, TypedDict, Union
+from typing import Annotated, Any, Generator, Optional, TypedDict
 
-from langchain_core.messages import AnyMessage, BaseMessage
-from langchain_core.messages import ToolCall as LCToolCall
-from langchain_core.runnables import RunnableConfig
-from langchain_core.runnables.utils import Input
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt.tool_node import ToolNode
-from langgraph.store.base import BaseStore
-from pydantic import BaseModel
+try:
+    from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
+    from langchain_core.runnables import RunnableConfig
+    from langchain_core.runnables.utils import Input
+    from langgraph.graph.state import CompiledStateGraph
+    from langgraph.prebuilt.tool_node import ToolNode
+except ImportError as e:
+    raise ImportError(
+        "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use LangGraph ChatAgent"
+        "helpers."
+    ) from e
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.pyfunc.model import ChatAgent
@@ -84,11 +87,20 @@ class ChatAgentToolNode(ToolNode):
 
     def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
         """
-        Wraps the standard ToolNode invoke method with parsing logic for dictionary string outputs
-        for both UC function tools and standard LangChain python tools that include keys
-        ``attachments`` and ``custom_outputs``.
+        Wraps the standard ToolNode invoke method to:
+        - Parse ChatAgentState into LangChain messages
+        - Parse dictionary string outputs from both UC function and standard LangChain python tools
+          that include keys ``content``, ``attachments``, and ``custom_outputs``.
         """
+        messages = input["messages"]
+        for msg in messages:
+            for tool_call in msg.get("tool_calls", []):
+                tool_call["name"] = tool_call["function"]["name"]
+                tool_call["args"] = json.loads(tool_call["function"]["arguments"])
+        input["messages"] = convert_to_messages(messages)
+
         result = super().invoke(input, config, **kwargs)
+
         messages = []
         custom_outputs = None
         for m in result["messages"]:
@@ -106,53 +118,6 @@ class ChatAgentToolNode(ToolNode):
             except Exception:
                 messages.append(parse_message(m))
         return {"messages": messages, "custom_outputs": custom_outputs}
-
-    def inject_tool_args(
-        self,
-        tool_call: LCToolCall,
-        input: Union[
-            list[AnyMessage],
-            dict[str, Any],
-            BaseModel,
-        ],
-        store: BaseStore,
-    ) -> LCToolCall:
-        """
-        Slightly modified version of `inject_tool_args` that adds the function args from a
-        ChatAgentMessage tool call to a format that is compatible with LangChain tool invocation.
-        """
-        tool_call["name"] = tool_call["function"]["name"]
-        tool_call["args"] = json.loads(tool_call["function"]["arguments"])
-        return super().inject_tool_args(tool_call, input, store)
-
-    def _parse_input(
-        self,
-        input: Union[
-            list[AnyMessage],
-            dict[str, Any],
-            BaseModel,
-        ],
-        store: BaseStore,
-    ) -> tuple[list[LCToolCall], Literal["list", "dict"]]:
-        """
-        Slightly modified version of the LangGraph ToolNode `_parse_input` method that skips
-        verifying the last message is an LangChain AIMessage, allowing the state to be of the
-        ChatAgentMessage format.
-        """
-        if isinstance(input, list):
-            input_type = "list"
-            message: AnyMessage = input[-1]
-        elif isinstance(input, dict) and (messages := input.get(self.messages_key, [])):
-            input_type = "dict"
-            message = messages[-1]
-        elif messages := getattr(input, self.messages_key, None):
-            # Assume dataclass-like state that can coerce from dict
-            input_type = "dict"
-            message = messages[-1]
-        else:
-            raise ValueError("No message found in input")
-        tool_calls = [self.inject_tool_args(call, input, store) for call in message["tool_calls"]]
-        return tool_calls, input_type
 
 
 @experimental
