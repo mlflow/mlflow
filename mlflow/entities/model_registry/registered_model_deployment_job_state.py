@@ -15,22 +15,22 @@ class RegisteredModelDeploymentJobState:
 
     @staticmethod
     def from_string(state_str):
-        if state_str not in DeploymentJobConnectionState._STRING_TO_STATE:
+        if state_str not in RegisteredModelDeploymentJobState._STRING_TO_STATE:
             raise Exception(
                 f"Could not get deployment job connection state corresponding to string {state_str}. "
                 f"Valid state strings: {RegisteredModelDeploymentJobState.all_states()}"
             )
-        return DeploymentJobConnectionState._STRING_TO_STATE[state_str]
+        return RegisteredModelDeploymentJobState._STRING_TO_STATE[state_str]
 
     @staticmethod
     def to_string(state):
-        if state not in DeploymentJobConnectionState._STATE_TO_STRING:
+        if state not in RegisteredModelDeploymentJobState._STATE_TO_STRING:
             raise Exception(
                 f"Could not get string corresponding to deployment job connection {state}. "
                 f"Valid states: {RegisteredModelDeploymentJobState.all_states()}"
             )
-        return DeploymentJobConnectionState._STATE_TO_STRING[state]
+        return RegisteredModelDeploymentJobState._STATE_TO_STRING[state]
 
     @staticmethod
     def all_states():
-        return list(DeploymentJobConnectionState._STATE_TO_STRING.keys())
+        return list(RegisteredModelDeploymentJobState._STATE_TO_STRING.keys())

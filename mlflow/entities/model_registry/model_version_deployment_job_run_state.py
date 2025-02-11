@@ -16,22 +16,22 @@ class ModelVersionDeploymentJobRunState:
 
     @staticmethod
     def from_string(state_str):
-        if state_str not in DeploymentJobRunState._STRING_TO_STATE:
+        if state_str not in ModelVersionDeploymentJobRunState._STRING_TO_STATE:
             raise Exception(
                 f"Could not get deployment job run state corresponding to string {state_str}. "
                 f"Valid state strings: {ModelVersionDeploymentJobRunState.all_states()}"
             )
-        return DeploymentJobRunState._STRING_TO_STATE[state_str]
+        return ModelVersionDeploymentJobRunState._STRING_TO_STATE[state_str]
 
     @staticmethod
     def to_string(state):
-        if state not in DeploymentJobRunState._STATE_TO_STRING:
+        if state not in ModelVersionDeploymentJobRunState._STATE_TO_STRING:
             raise Exception(
                 f"Could not get string corresponding to deployment job run {state}. "
                 f"Valid states: {ModelVersionDeploymentJobRunState.all_states()}"
             )
-        return DeploymentJobRunState._STATE_TO_STRING[state]
+        return ModelVersionDeploymentJobRunState._STATE_TO_STRING[state]
 
     @staticmethod
     def all_states():
-        return list(DeploymentJobRunState._STATE_TO_STRING.keys())
+        return list(ModelVersionDeploymentJobRunState._STATE_TO_STRING.keys())
