@@ -177,7 +177,7 @@ class FileStore(AbstractStore):
         registered_model.last_updated_timestamp = updated_time
         self._save_registered_model_as_meta_file(registered_model)
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -231,7 +231,7 @@ class FileStore(AbstractStore):
         registered_model.latest_versions = self.get_latest_versions(os.path.basename(model_path))
         return registered_model
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 

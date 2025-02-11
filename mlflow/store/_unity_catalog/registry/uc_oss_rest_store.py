@@ -104,7 +104,7 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -134,7 +134,7 @@ class UnityCatalogOssStore(BaseRestStore):
         registered_model_info = self._call_endpoint(CreateRegisteredModel, req_body)
         return get_registered_model_from_uc_oss_proto(registered_model_info)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 

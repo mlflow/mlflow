@@ -3138,7 +3138,11 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        description: Optional[str] = None,
+        deployment_job_id: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3183,7 +3187,9 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
 
         """
-        return self._get_registry_client().create_registered_model(name, tags, description)
+        return self._get_registry_client().create_registered_model(
+            name, tags, description, deployment_job_id
+        )
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """Update registered model name.
@@ -3238,7 +3244,7 @@ class MlflowClient:
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
-        self, name: str, description: Optional[str] = None
+        self, name: str, description: Optional[str] = None, deployment_job_id: Optional[str] = None
     ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -3286,11 +3292,8 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
-        if description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
-
         return self._get_registry_client().update_registered_model(
-            name=name, description=description
+            name=name, description=description, deployment_job_id=deployment_job_id
         )
 
     def delete_registered_model(self, name: str):
