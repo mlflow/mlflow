@@ -1,5 +1,17 @@
 import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
 
+function apiReferencePrefix(): string {
+  let prefix = process.env.API_REFERENCE_PREFIX ||'https://mlflow.org/docs/latest/';
+  if (!prefix.startsWith('http')) {
+    throw new Error(`API reference prefix must start with http, got ${prefix}`);
+  }
+
+  if (!prefix.endsWith('/')) {
+    prefix += '/';
+  }
+  return prefix;
+}
+
 /**
  * Creating a sidebar enables you to:
  - create an ordered group of docs
@@ -434,27 +446,47 @@ const sidebars: SidebarsConfig = {
         {
           type: 'link',
           label: 'Python API',
+<<<<<<< HEAD
           href: 'https://mlflow.org/docs/latest/api_reference/python_api/index.html',
+=======
+          href: `${apiReferencePrefix()}api_reference/python_api/index.html`,
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         },
         {
           type: 'link',
           label: 'Java API',
+<<<<<<< HEAD
           href: 'https://mlflow.org/docs/latest/api_reference/java_api/index.html',
+=======
+          href: `${apiReferencePrefix()}api_reference/java_api/index.html`,
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         },
         {
           type: 'link',
           label: 'R API',
+<<<<<<< HEAD
           href: 'https://mlflow.org/docs/latest/api_reference/R-api/index.html',
+=======
+          href: `${apiReferencePrefix()}api_reference/R-api/index.html`,
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         },
         {
           type: 'link',
           label: 'REST API',
+<<<<<<< HEAD
           href: 'https://mlflow.org/docs/latest/api_reference/rest-api/index.html',
+=======
+          href: `${apiReferencePrefix()}api_reference/rest-api/index.html`,
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         },
         {
           type: 'link',
           label: 'CLI',
+<<<<<<< HEAD
           href: 'https://mlflow.org/docs/latest/api_reference/cli.html',
+=======
+          href: `${apiReferencePrefix()}cli.html`,
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
         }
       ]
     },

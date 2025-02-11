@@ -31,6 +31,9 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -4611,3 +4614,131 @@ def test_delete_traces_raises_error(store):
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+def test_log_outputs(store: SqlAlchemyStore):
+    pytest.skip("TODO")
+
+
+def test_create_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert model.experiment_id == exp_id
+    assert model.name is not None
+    assert model.metrics is None
+    assert model.tags == {}
+    assert model.params == {}
+
+    # name
+    model = store.create_logged_model(experiment_id=exp_id, name="my_model")
+    assert model.name == "my_model"
+
+    # source_run_id
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    assert model.source_run_id == run.info.run_id
+
+    # model_type
+    model = store.create_logged_model(experiment_id=exp_id, model_type="my_model_type")
+    assert model.model_type == "my_model_type"
+
+    # tags
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        tags=[LoggedModelTag("tag1", "apple")],
+    )
+    assert model.tags == {"tag1": "apple"}
+
+    # params
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        params=[LoggedModelParameter("param1", "apple")],
+    )
+    assert model.params == {"param1": "apple"}
+
+    # Should not be able to create a logged model in a non-active experiment
+    store.delete_experiment(exp_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' state"):
+        store.create_logged_model(experiment_id=exp_id)
+
+
+def test_get_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    fetched_model = store.get_logged_model(model.model_id)
+    assert fetched_model.name == model.name
+    assert fetched_model.model_id == model.model_id
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model("does-not-exist")
+
+
+def test_finalize_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
+    assert store.get_logged_model(model.model_id).status == LoggedModelStatus.READY
+
+    with pytest.raises(MlflowException, match="Invalid model status: UNSPECIFIED"):
+        store.finalize_logged_model(model.model_id, status=LoggedModelStatus.UNSPECIFIED)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.finalize_logged_model("does-not-exist", status=LoggedModelStatus.READY)
+
+
+def test_set_logged_model_tags(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple"}
+
+    # New tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "orange")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "orange"}
+
+    # Exieting tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "grape")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "grape"}
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_logged_model_tags("does-not-exist", [LoggedModelTag("tag1", "apple")])
+
+
+def test_delete_logged_model_tag(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    store.delete_logged_model_tag(model.model_id, "tag1")
+    assert store.get_logged_model(model.model_id).tags == {}
+
+    store.delete_logged_model_tag(model.model_id, "tag1")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_logged_model_tag("does-not-exist", "tag1")
+
+
+def test_search_logged_models(store: SqlAlchemyStore):
+    # TODO: Support filtering, ordering, and pagination
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_1.name]
+
+    model_2 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_3 = store.create_logged_model(experiment_id=exp_id_2)
+    models = store.search_logged_models(experiment_ids=[exp_id_2])
+    assert [m.name for m in models] == [model_3.name]
+
+    models = store.search_logged_models(experiment_ids=[exp_id_1, exp_id_2])
+    assert [m.name for m in models] == [model_1.name, model_2.name, model_3.name]

@@ -277,11 +277,14 @@ class Linter(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
+        self._syntax_error_example(node)
         self._mlflow_class_name(node)
         self.generic_visit(node)
         self.stack.pop()
 
-    def _syntax_error_example(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _syntax_error_example(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
         if docstring_node := self._docstring(node):
             for code_block in _iter_code_blocks(docstring_node.value):
                 try:

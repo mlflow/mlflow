@@ -64,7 +64,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
-    TraceTagKey,
 )
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -734,11 +733,7 @@ class MlflowClient:
             request_metadata=trace.info.request_metadata,
             tags=trace.info.tags,
         )
-
-        # Upload trace data
-        self._upload_trace_spans_as_tag(new_info, trace.data)
         self._upload_trace_data(new_info, trace.data)
-
         return new_info.request_id
 
     def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):

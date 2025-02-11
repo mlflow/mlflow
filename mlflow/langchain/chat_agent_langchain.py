@@ -10,8 +10,14 @@ from mlflow.utils.annotations import experimental
 @experimental
 class LangChainChatAgent(ChatAgent):
     """
+<<<<<<< HEAD
     Helper class to wrap a LangChain runnable as a ChatAgent. Use this with :py:class:`mlflow.
     langchain.output_parsers.ChatAgentOutputParser`.
+=======
+    Helper class to wrap a LangChain runnable as a :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
+    Use this class with
+    :py:class:`ChatAgentOutputParser <mlflow.langchain.output_parsers.ChatAgentOutputParser>`.
+>>>>>>> 8bba9a6f2cd14262b11ed478ce2551a44cd9130a
     """
 
     def __init__(self, agent: Runnable):
