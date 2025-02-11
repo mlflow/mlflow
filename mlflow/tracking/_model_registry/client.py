@@ -44,7 +44,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
         Args:
@@ -62,9 +62,9 @@ class ModelRegistryClient:
         #       Those are constraints applicable to any backend, given the model URI format.
         tags = tags if tags else {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_registered_model(name, tags, description)
+        return self.store.create_registered_model(name, tags, description, deployment_job_id)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """Updates description for RegisteredModel entity.
 
         Backend raises exception if a registered model with given name does not exist.
@@ -77,7 +77,7 @@ class ModelRegistryClient:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        return self.store.update_registered_model(name=name, description=description)
+        return self.store.update_registered_model(name=name, description=description, deployment_job_id=deployment_job_id)
 
     def rename_registered_model(self, name, new_name):
         """Update registered model name.
