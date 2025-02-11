@@ -5,9 +5,11 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter as Model
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionDeploymentJobState,
     ModelVersionTag,
     RegisteredModel,
     RegisteredModelAlias,
+    RegisteredModelDeploymentJobState,
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
@@ -91,6 +93,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
             )
             for metric in (uc_proto.model_metrics or [])
         ],
+        deployment_job_state=ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state),
     )
 
 
@@ -108,6 +111,7 @@ def model_version_search_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVers
         status_message=uc_proto.status_message,
         aliases=[],
         tags=[],
+        deployment_job_state=ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state),
     )
 
 
@@ -122,6 +126,8 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
             for alias in (uc_proto.aliases or [])
         ],
         tags=[RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
+        deployment_job_id=uc_proto.deployment_job_id,
+        deployment_job_state=RegisteredModelDeploymentJobState.to_string(uc_proto.deployment_job_state),
     )
 
 

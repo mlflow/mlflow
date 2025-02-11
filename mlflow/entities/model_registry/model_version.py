@@ -5,6 +5,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
+from mlflow.entities.model_registry.model_version_deployment_job_state import ModelVersionDeploymentJobState
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.model_registry_pb2 import ModelVersionTag as ProtoModelVersionTag
 
@@ -35,6 +36,7 @@ class ModelVersion(_ModelRegistryEntity):
         model_id: Optional[str] = None,
         params: Optional[list[ModelParam]] = None,
         metrics: Optional[list[Metric]] = None,
+        deployment_job_state: Optional[ModelVersionDeploymentJobState] = None,
     ):
         super().__init__()
         self._name: str = name
@@ -54,6 +56,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._model_id: Optional[str] = model_id
         self._params: Optional[list[ModelParam]] = params
         self._metrics: Optional[list[Metric]] = metrics
+        self._deployment_job_state: Optional[ModelVersionDeploymentJobState] = deployment_job_state
 
     @property
     def name(self) -> str:
@@ -161,6 +164,11 @@ class ModelVersion(_ModelRegistryEntity):
     def metrics(self) -> Optional[list[Metric]]:
         """List of metrics associated with this model version."""
         return self._metrics
+    
+    @property
+    def deployment_job_state(self) -> Optional[ModelVersionDeploymentJobState]:
+        """Deployment job state for the current model version."""
+        return self._deployment_job_state
 
     @classmethod
     def _properties(cls) -> list[str]:
@@ -189,6 +197,7 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
+            deployment_job_state=ModelVersionDeploymentJobState.from_proto(proto.deployment_job_state),
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
@@ -224,5 +233,7 @@ class ModelVersion(_ModelRegistryEntity):
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )
         model_version.aliases.extend(self.aliases)
+        if self.deployment_job_state is not None:
+            ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)
         # TODO: Include params, metrics, and model ID in proto
         return model_version
