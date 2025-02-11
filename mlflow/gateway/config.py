@@ -298,9 +298,17 @@ class Model(ConfigModel):
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @validator("config", pre=True)
-    def validate_config(cls, val, values):
+    def validate_config(cls, val, context):
         from mlflow.gateway.provider_registry import provider_registry
-        if provider := values.get("provider"):
+
+        # For Pydantic v2: 'context' is a ValidationInfo object with a 'data' attribute.
+        # For Pydantic v1: 'context' is dict-like 'values'.
+        if hasattr(context, "data"):
+            provider = context.data.get("provider")
+        else:
+            provider = context.get("provider") if context else None
+
+        if provider:
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**val) if isinstance(val, dict) else val
         raise MlflowException.invalid_parameter_value(
