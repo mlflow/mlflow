@@ -1,7 +1,13 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
-from mlflow.entities.model_registry.model_version_deployment_job_run_state import ModelVersionDeploymentJobRunState
-from mlflow.entities.model_registry.registered_model_deployment_job_state import RegisteredModelDeploymentJobState
-from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState
+from mlflow.entities.model_registry.model_version_deployment_job_run_state import (
+    ModelVersionDeploymentJobRunState,
+)
+from mlflow.entities.model_registry.registered_model_deployment_job_state import (
+    RegisteredModelDeploymentJobState,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState,
+)
 
 
 class ModelVersionDeploymentJobState(_ModelRegistryEntity):
@@ -22,19 +28,19 @@ class ModelVersionDeploymentJobState(_ModelRegistryEntity):
     @property
     def job_id(self):
         return self._job_id
-    
+
     @property
     def run_id(self):
         return self._run_id
-    
+
     @property
     def job_state(self):
         return self._job_state
-    
+
     @property
     def run_state(self):
         return self._run_state
-    
+
     @property
     def current_task_name(self):
         return self._current_task_name

@@ -1,7 +1,9 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
-from mlflow.entities.model_registry.registered_model_deployment_job_state import RegisteredModelDeploymentJobState
+from mlflow.entities.model_registry.registered_model_deployment_job_state import (
+    RegisteredModelDeploymentJobState,
+)
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegisteredModelAlias
@@ -107,7 +109,7 @@ class RegisteredModel(_ModelRegistryEntity):
     def deployment_job_id(self):
         """Deployment job ID for the current registered model."""
         return self._deployment_job_id
-    
+
     @deployment_job_id.setter
     def deployment_job_id(self, deployment_job_id):
         self._deployment_job_id = deployment_job_id
@@ -134,7 +136,9 @@ class RegisteredModel(_ModelRegistryEntity):
         for alias in proto.aliases:
             registered_model._add_alias(RegisteredModelAlias.from_proto(alias))
         registered_model._deployment_job_id = proto.deployment_job_id
-        registered_model._deployment_job_state = RegisteredModelDeploymentJobState.to_string(proto.deployment_job_state)
+        registered_model._deployment_job_state = RegisteredModelDeploymentJobState.to_string(
+            proto.deployment_job_state
+        )
         return registered_model
 
     def to_proto(self):
@@ -154,7 +158,9 @@ class RegisteredModel(_ModelRegistryEntity):
         if self.deployment_job_id:
             rmd.deployment_job_id = self.deployment_job_id
         if self.deployment_job_state:
-            rmd.deployment_job_state = RegisteredModelDeploymentJobState.from_string(self.deployment_job_state)
+            rmd.deployment_job_state = RegisteredModelDeploymentJobState.from_string(
+                self.deployment_job_state
+            )
         rmd.tags.extend(
             [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
         )

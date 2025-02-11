@@ -347,7 +347,7 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name,
                 description=description,
                 tags=uc_registered_model_tag_from_mlflow_tags(tags),
-                deployment_job_id=deployment_job_id
+                deployment_job_id=deployment_job_id,
             )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
@@ -366,7 +366,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            UpdateRegisteredModelRequest(name=full_name, description=description, deployment_job_id=deployment_job_id)
+            UpdateRegisteredModelRequest(
+                name=full_name, description=description, deployment_job_id=deployment_job_id
+            )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)

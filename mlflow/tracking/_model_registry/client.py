@@ -77,7 +77,9 @@ class ModelRegistryClient:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        return self.store.update_registered_model(name=name, description=description, deployment_job_id=deployment_job_id)
+        return self.store.update_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
 
     def rename_registered_model(self, name, new_name):
         """Update registered model name.

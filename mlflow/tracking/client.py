@@ -3138,7 +3138,11 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None, deployment_job_id: Optional[str] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        description: Optional[str] = None,
+        deployment_job_id: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3183,7 +3187,9 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
 
         """
-        return self._get_registry_client().create_registered_model(name, tags, description, deployment_job_id)
+        return self._get_registry_client().create_registered_model(
+            name, tags, description, deployment_job_id
+        )
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """Update registered model name.

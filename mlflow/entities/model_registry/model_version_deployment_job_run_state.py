@@ -9,9 +9,7 @@ class ModelVersionDeploymentJobRunState:
     SUCCEEDED = DeploymentJobRunState.Value("SUCCEEDED")
     FAILED = DeploymentJobRunState.Value("FAILED")
     PENDING = DeploymentJobRunState.Value("PENDING")
-    _STRING_TO_STATE = {
-        k: DeploymentJobRunState.Value(k) for k in DeploymentJobRunState.keys()
-    }
+    _STRING_TO_STATE = {k: DeploymentJobRunState.Value(k) for k in DeploymentJobRunState.keys()}
     _STATE_TO_STRING = {value: key for key, value in _STRING_TO_STATE.items()}
 
     @staticmethod

@@ -3,9 +3,11 @@ from typing import Optional
 from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
+from mlflow.entities.model_registry.model_version_deployment_job_state import (
+    ModelVersionDeploymentJobState,
+)
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
-from mlflow.entities.model_registry.model_version_deployment_job_state import ModelVersionDeploymentJobState
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.model_registry_pb2 import ModelVersionTag as ProtoModelVersionTag
 
@@ -164,7 +166,7 @@ class ModelVersion(_ModelRegistryEntity):
     def metrics(self) -> Optional[list[Metric]]:
         """List of metrics associated with this model version."""
         return self._metrics
-    
+
     @property
     def deployment_job_state(self) -> Optional[ModelVersionDeploymentJobState]:
         """Deployment job state for the current model version."""
@@ -197,7 +199,9 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
-            deployment_job_state=ModelVersionDeploymentJobState.from_proto(proto.deployment_job_state),
+            deployment_job_state=ModelVersionDeploymentJobState.from_proto(
+                proto.deployment_job_state
+            ),
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
