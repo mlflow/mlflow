@@ -230,7 +230,7 @@ def test_search_logged_models_filter_string(store):
             store.create_logged_model(exp_id, source_run_id=run_ids[-1], model_type="test")
         )
         # make sure the creation_timestamp is different
-        time.sleep(0.1)
+        time.sleep(0.001)
 
     # model_id
     # TODO: do we need to support IN & NOT IN?
@@ -476,7 +476,7 @@ def test_search_logged_models_order_by(store):
             store.create_logged_model(exp_id, source_run_id=run_id, model_type=f"test_{i}")
         )
         # make sure the creation_timestamp is different
-        time.sleep(0.1)
+        time.sleep(0.001)
 
     # default: order by creation_timestamp DESC, model_id ASC
     models = store.search_logged_models(experiment_ids=[exp_id])

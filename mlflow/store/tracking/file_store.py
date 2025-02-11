@@ -1942,7 +1942,7 @@ class FileStore(AbstractStore):
 
     def create_logged_model(
         self,
-        experiment_id: Optional[str] = None,
+        experiment_id: str = DEFAULT_EXPERIMENT_ID,
         name: Optional[str] = None,
         source_run_id: Optional[str] = None,
         tags: Optional[list[LoggedModelTag]] = None,
@@ -1963,7 +1963,6 @@ class FileStore(AbstractStore):
         Returns:
             The created model.
         """
-        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
@@ -2207,7 +2206,7 @@ class FileStore(AbstractStore):
         max_results: int = SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
         order_by: Optional[list[list[str, Any]]] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[list[LoggedModel]]:
+    ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
 
