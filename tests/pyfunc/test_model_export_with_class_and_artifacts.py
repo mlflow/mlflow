@@ -2486,3 +2486,27 @@ def test_model_log_with_auth_policy(tmp_path, save_model, use_user_auth_policy, 
         reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
     assert reloaded_model.auth_policy == expected_auth_policy
+
+
+def test_both_resources_and_auth_policy():
+    pyfunc_log_artifact_path = "pyfunc_model_log"
+    system_auth_policy = SystemAuthPolicy(
+        resources=[DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")]
+    )
+    user_auth_policy = UserAuthPolicy(api_scopes=["workspace.workspace"])
+    auth_policy = AuthPolicy(
+        user_auth_policy=user_auth_policy, system_auth_policy=system_auth_policy
+    )
+
+    with mlflow.start_run() as _:
+        with pytest.raises(
+            ValueError, match="Only one of `resources`, and `auth_policy` can be specified."
+        ):
+            mlflow.pyfunc.log_model(
+                pyfunc_log_artifact_path,
+                python_model=mlflow.pyfunc.model.PythonModel(),
+                auth_policy=auth_policy,
+                resources=[
+                    DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
+                ],
+            )

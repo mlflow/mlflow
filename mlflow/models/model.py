@@ -800,7 +800,7 @@ class Model:
                 a new run will be started.
             resources: {{ resources }}
             auth_policy: Specifies the authentication policy for the model, which includes two key
-                     components.
+                     components. Note only one of auth_policy or resources should be defined.
                     System Auth Policy: A list of resources required to serve this model
                     User Auth Policy: A minimal list of scopes that the user should have access to,
                                     in order to invoke this model
@@ -810,6 +810,12 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+
+        # Only one of Auth policy and resources should be defined
+
+        if resources is not None and auth_policy is not None:
+            raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None

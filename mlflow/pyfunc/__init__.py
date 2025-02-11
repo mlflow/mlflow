@@ -3494,7 +3494,7 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: Specifies the authentication policy for the model, which includes two key
-                     components.
+                     components. Note only one of auth_policy or resources should be defined.
             System Auth Policy: A list of resources required to serve this model
             User Auth Policy: A minimal list of scopes that the user should have access to,
                               in order to invoke this model
