@@ -374,7 +374,7 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     def validate_route_type_and_model_name(cls, values):
         route_type = values.get("route_type")
         model = values.get("model")
