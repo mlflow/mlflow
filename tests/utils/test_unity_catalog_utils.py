@@ -59,7 +59,7 @@ def test_model_version_from_uc_proto():
             ModelVersionTag(key="key2", value=""),
         ],
         metrics=[],
-        model_id='',
+        model_id="",
         params=[],
         deployment_job_state=ModelVersionDeploymentJobState(
             "",

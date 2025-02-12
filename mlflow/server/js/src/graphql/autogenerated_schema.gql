@@ -194,6 +194,7 @@ type MlflowModelVersion {
   modelId: String
   modelParams: [MlflowModelParam!]
   modelMetrics: [MlflowModelMetric!]
+  deploymentJobState: MlflowModelVersionDeploymentJobState
 }
 
 enum MlflowModelVersionStatus {
@@ -221,6 +222,31 @@ type MlflowModelMetric {
   datasetDigest: String
   modelId: String
   runId: String
+}
+
+type MlflowModelVersionDeploymentJobState {
+  jobId: String
+  runId: String
+  jobState: MlflowDeploymentJobConnectionState
+  runState: MlflowModelVersionDeploymentJobStateDeploymentJobRunState
+  currentTaskName: String
+}
+
+enum MlflowDeploymentJobConnectionState {
+  DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED
+  NOT_SET_UP
+  CONNECTED
+  NOT_FOUND
+  REQUIRED_PARAMETERS_CHANGED
+}
+
+enum MlflowModelVersionDeploymentJobStateDeploymentJobRunState {
+  DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED
+  NO_VALID_DEPLOYMENT_JOB_FOUND
+  RUNNING
+  SUCCEEDED
+  FAILED
+  PENDING
 }
 
 input MlflowGetRunInput {
