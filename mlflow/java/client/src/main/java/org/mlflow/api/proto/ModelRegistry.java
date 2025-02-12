@@ -411,6 +411,54 @@ public final class ModelRegistry {
      */
     org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder getAliasesOrBuilder(
         int index);
+
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    boolean hasDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return The deploymentJobId.
+     */
+    java.lang.String getDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    com.google.protobuf.ByteString
+        getDeploymentJobIdBytes();
+
+    /**
+     * <pre>
+     * Deployment job state for this model.
+     * </pre>
+     *
+     * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+     * @return Whether the deploymentJobState field is set.
+     */
+    boolean hasDeploymentJobState();
+    /**
+     * <pre>
+     * Deployment job state for this model.
+     * </pre>
+     *
+     * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+     * @return The deploymentJobState.
+     */
+    org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getDeploymentJobState();
   }
   /**
    * Protobuf type {@code mlflow.RegisteredModel}
@@ -431,6 +479,8 @@ public final class ModelRegistry {
       latestVersions_ = java.util.Collections.emptyList();
       tags_ = java.util.Collections.emptyList();
       aliases_ = java.util.Collections.emptyList();
+      deploymentJobId_ = "";
+      deploymentJobState_ = 0;
     }
 
     @java.lang.Override
@@ -517,6 +567,24 @@ public final class ModelRegistry {
               }
               aliases_.add(
                   input.readMessage(org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.PARSER, extensionRegistry));
+              break;
+            }
+            case 74: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000020;
+              deploymentJobId_ = bs;
+              break;
+            }
+            case 80: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State value = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(10, rawValue);
+              } else {
+                bitField0_ |= 0x00000040;
+                deploymentJobState_ = rawValue;
+              }
               break;
             }
             default: {
@@ -983,6 +1051,93 @@ public final class ModelRegistry {
       return aliases_.get(index);
     }
 
+    public static final int DEPLOYMENT_JOB_ID_FIELD_NUMBER = 9;
+    private volatile java.lang.Object deploymentJobId_;
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    @java.lang.Override
+    public boolean hasDeploymentJobId() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return The deploymentJobId.
+     */
+    @java.lang.Override
+    public java.lang.String getDeploymentJobId() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          deploymentJobId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 9;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDeploymentJobIdBytes() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        deploymentJobId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int DEPLOYMENT_JOB_STATE_FIELD_NUMBER = 10;
+    private int deploymentJobState_;
+    /**
+     * <pre>
+     * Deployment job state for this model.
+     * </pre>
+     *
+     * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+     * @return Whether the deploymentJobState field is set.
+     */
+    @java.lang.Override public boolean hasDeploymentJobState() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * Deployment job state for this model.
+     * </pre>
+     *
+     * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+     * @return The deploymentJobState.
+     */
+    @java.lang.Override public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getDeploymentJobState() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State result = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(deploymentJobState_);
+      return result == null ? org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED : result;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1021,6 +1176,12 @@ public final class ModelRegistry {
       for (int i = 0; i < aliases_.size(); i++) {
         output.writeMessage(8, aliases_.get(i));
       }
+      if (((bitField0_ & 0x00000020) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, deploymentJobId_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        output.writeEnum(10, deploymentJobState_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -1058,6 +1219,13 @@ public final class ModelRegistry {
       for (int i = 0; i < aliases_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(8, aliases_.get(i));
+      }
+      if (((bitField0_ & 0x00000020) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, deploymentJobId_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(10, deploymentJobState_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1105,6 +1273,15 @@ public final class ModelRegistry {
           .equals(other.getTagsList())) return false;
       if (!getAliasesList()
           .equals(other.getAliasesList())) return false;
+      if (hasDeploymentJobId() != other.hasDeploymentJobId()) return false;
+      if (hasDeploymentJobId()) {
+        if (!getDeploymentJobId()
+            .equals(other.getDeploymentJobId())) return false;
+      }
+      if (hasDeploymentJobState() != other.hasDeploymentJobState()) return false;
+      if (hasDeploymentJobState()) {
+        if (deploymentJobState_ != other.deploymentJobState_) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1149,6 +1326,14 @@ public final class ModelRegistry {
       if (getAliasesCount() > 0) {
         hash = (37 * hash) + ALIASES_FIELD_NUMBER;
         hash = (53 * hash) + getAliasesList().hashCode();
+      }
+      if (hasDeploymentJobId()) {
+        hash = (37 * hash) + DEPLOYMENT_JOB_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getDeploymentJobId().hashCode();
+      }
+      if (hasDeploymentJobState()) {
+        hash = (37 * hash) + DEPLOYMENT_JOB_STATE_FIELD_NUMBER;
+        hash = (53 * hash) + deploymentJobState_;
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1314,6 +1499,10 @@ public final class ModelRegistry {
         } else {
           aliasesBuilder_.clear();
         }
+        deploymentJobId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000100);
+        deploymentJobState_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -1389,6 +1578,14 @@ public final class ModelRegistry {
         } else {
           result.aliases_ = aliasesBuilder_.build();
         }
+        if (((from_bitField0_ & 0x00000100) != 0)) {
+          to_bitField0_ |= 0x00000020;
+        }
+        result.deploymentJobId_ = deploymentJobId_;
+        if (((from_bitField0_ & 0x00000200) != 0)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        result.deploymentJobState_ = deploymentJobState_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1536,6 +1733,14 @@ public final class ModelRegistry {
               aliasesBuilder_.addAllMessages(other.aliases_);
             }
           }
+        }
+        if (other.hasDeploymentJobId()) {
+          bitField0_ |= 0x00000100;
+          deploymentJobId_ = other.deploymentJobId_;
+          onChanged();
+        }
+        if (other.hasDeploymentJobState()) {
+          setDeploymentJobState(other.getDeploymentJobState());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -2960,6 +3165,173 @@ public final class ModelRegistry {
         }
         return aliasesBuilder_;
       }
+
+      private java.lang.Object deploymentJobId_ = "";
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @return Whether the deploymentJobId field is set.
+       */
+      public boolean hasDeploymentJobId() {
+        return ((bitField0_ & 0x00000100) != 0);
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @return The deploymentJobId.
+       */
+      public java.lang.String getDeploymentJobId() {
+        java.lang.Object ref = deploymentJobId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            deploymentJobId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @return The bytes for deploymentJobId.
+       */
+      public com.google.protobuf.ByteString
+          getDeploymentJobIdBytes() {
+        java.lang.Object ref = deploymentJobId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          deploymentJobId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @param value The deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000100;
+        deploymentJobId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDeploymentJobId() {
+        bitField0_ = (bitField0_ & ~0x00000100);
+        deploymentJobId_ = getDefaultInstance().getDeploymentJobId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 9;</code>
+       * @param value The bytes for deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000100;
+        deploymentJobId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private int deploymentJobState_ = 0;
+      /**
+       * <pre>
+       * Deployment job state for this model.
+       * </pre>
+       *
+       * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+       * @return Whether the deploymentJobState field is set.
+       */
+      @java.lang.Override public boolean hasDeploymentJobState() {
+        return ((bitField0_ & 0x00000200) != 0);
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model.
+       * </pre>
+       *
+       * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+       * @return The deploymentJobState.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getDeploymentJobState() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State result = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(deploymentJobState_);
+        return result == null ? org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED : result;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model.
+       * </pre>
+       *
+       * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+       * @param value The deploymentJobState to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobState(org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000200;
+        deploymentJobState_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model.
+       * </pre>
+       *
+       * <code>optional .mlflow.DeploymentJobConnection.State deployment_job_state = 10;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDeploymentJobState() {
+        bitField0_ = (bitField0_ & ~0x00000200);
+        deploymentJobState_ = 0;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -3542,6 +3914,33 @@ public final class ModelRegistry {
      */
     org.mlflow.api.proto.ModelRegistry.ModelMetricOrBuilder getModelMetricsOrBuilder(
         int index);
+
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     * @return Whether the deploymentJobState field is set.
+     */
+    boolean hasDeploymentJobState();
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     * @return The deploymentJobState.
+     */
+    org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDeploymentJobState();
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     */
+    org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder getDeploymentJobStateOrBuilder();
   }
   /**
    * Protobuf type {@code mlflow.ModelVersion}
@@ -3720,6 +4119,19 @@ public final class ModelRegistry {
               }
               modelMetrics_.add(
                   input.readMessage(org.mlflow.api.proto.ModelRegistry.ModelMetric.PARSER, extensionRegistry));
+              break;
+            }
+            case 154: {
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder subBuilder = null;
+              if (((bitField0_ & 0x00002000) != 0)) {
+                subBuilder = deploymentJobState_.toBuilder();
+              }
+              deploymentJobState_ = input.readMessage(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(deploymentJobState_);
+                deploymentJobState_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00002000;
               break;
             }
             default: {
@@ -4685,6 +5097,44 @@ public final class ModelRegistry {
       return modelMetrics_.get(index);
     }
 
+    public static final int DEPLOYMENT_JOB_STATE_FIELD_NUMBER = 19;
+    private org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState deploymentJobState_;
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     * @return Whether the deploymentJobState field is set.
+     */
+    @java.lang.Override
+    public boolean hasDeploymentJobState() {
+      return ((bitField0_ & 0x00002000) != 0);
+    }
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     * @return The deploymentJobState.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDeploymentJobState() {
+      return deploymentJobState_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance() : deploymentJobState_;
+    }
+    /**
+     * <pre>
+     * Deployment job state for this model version.
+     * </pre>
+     *
+     * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder getDeploymentJobStateOrBuilder() {
+      return deploymentJobState_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance() : deploymentJobState_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -4749,6 +5199,9 @@ public final class ModelRegistry {
       }
       for (int i = 0; i < modelMetrics_.size(); i++) {
         output.writeMessage(17, modelMetrics_.get(i));
+      }
+      if (((bitField0_ & 0x00002000) != 0)) {
+        output.writeMessage(19, getDeploymentJobState());
       }
       unknownFields.writeTo(output);
     }
@@ -4820,6 +5273,10 @@ public final class ModelRegistry {
       for (int i = 0; i < modelMetrics_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(17, modelMetrics_.get(i));
+      }
+      if (((bitField0_ & 0x00002000) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(19, getDeploymentJobState());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -4908,6 +5365,11 @@ public final class ModelRegistry {
           .equals(other.getModelParamsList())) return false;
       if (!getModelMetricsList()
           .equals(other.getModelMetricsList())) return false;
+      if (hasDeploymentJobState() != other.hasDeploymentJobState()) return false;
+      if (hasDeploymentJobState()) {
+        if (!getDeploymentJobState()
+            .equals(other.getDeploymentJobState())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -4988,6 +5450,10 @@ public final class ModelRegistry {
       if (getModelMetricsCount() > 0) {
         hash = (37 * hash) + MODEL_METRICS_FIELD_NUMBER;
         hash = (53 * hash) + getModelMetricsList().hashCode();
+      }
+      if (hasDeploymentJobState()) {
+        hash = (37 * hash) + DEPLOYMENT_JOB_STATE_FIELD_NUMBER;
+        hash = (53 * hash) + getDeploymentJobState().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -5120,6 +5586,7 @@ public final class ModelRegistry {
           getTagsFieldBuilder();
           getModelParamsFieldBuilder();
           getModelMetricsFieldBuilder();
+          getDeploymentJobStateFieldBuilder();
         }
       }
       @java.lang.Override
@@ -5171,6 +5638,12 @@ public final class ModelRegistry {
         } else {
           modelMetricsBuilder_.clear();
         }
+        if (deploymentJobStateBuilder_ == null) {
+          deploymentJobState_ = null;
+        } else {
+          deploymentJobStateBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00020000);
         return this;
       }
 
@@ -5282,6 +5755,14 @@ public final class ModelRegistry {
           result.modelMetrics_ = modelMetrics_;
         } else {
           result.modelMetrics_ = modelMetricsBuilder_.build();
+        }
+        if (((from_bitField0_ & 0x00020000) != 0)) {
+          if (deploymentJobStateBuilder_ == null) {
+            result.deploymentJobState_ = deploymentJobState_;
+          } else {
+            result.deploymentJobState_ = deploymentJobStateBuilder_.build();
+          }
+          to_bitField0_ |= 0x00002000;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -5478,6 +5959,9 @@ public final class ModelRegistry {
               modelMetricsBuilder_.addAllMessages(other.modelMetrics_);
             }
           }
+        }
+        if (other.hasDeploymentJobState()) {
+          mergeDeploymentJobState(other.getDeploymentJobState());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -7850,6 +8334,162 @@ public final class ModelRegistry {
         }
         return modelMetricsBuilder_;
       }
+
+      private org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState deploymentJobState_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder> deploymentJobStateBuilder_;
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       * @return Whether the deploymentJobState field is set.
+       */
+      public boolean hasDeploymentJobState() {
+        return ((bitField0_ & 0x00020000) != 0);
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       * @return The deploymentJobState.
+       */
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDeploymentJobState() {
+        if (deploymentJobStateBuilder_ == null) {
+          return deploymentJobState_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance() : deploymentJobState_;
+        } else {
+          return deploymentJobStateBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public Builder setDeploymentJobState(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState value) {
+        if (deploymentJobStateBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          deploymentJobState_ = value;
+          onChanged();
+        } else {
+          deploymentJobStateBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00020000;
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public Builder setDeploymentJobState(
+          org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder builderForValue) {
+        if (deploymentJobStateBuilder_ == null) {
+          deploymentJobState_ = builderForValue.build();
+          onChanged();
+        } else {
+          deploymentJobStateBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00020000;
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public Builder mergeDeploymentJobState(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState value) {
+        if (deploymentJobStateBuilder_ == null) {
+          if (((bitField0_ & 0x00020000) != 0) &&
+              deploymentJobState_ != null &&
+              deploymentJobState_ != org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance()) {
+            deploymentJobState_ =
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.newBuilder(deploymentJobState_).mergeFrom(value).buildPartial();
+          } else {
+            deploymentJobState_ = value;
+          }
+          onChanged();
+        } else {
+          deploymentJobStateBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00020000;
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public Builder clearDeploymentJobState() {
+        if (deploymentJobStateBuilder_ == null) {
+          deploymentJobState_ = null;
+          onChanged();
+        } else {
+          deploymentJobStateBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00020000);
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder getDeploymentJobStateBuilder() {
+        bitField0_ |= 0x00020000;
+        onChanged();
+        return getDeploymentJobStateFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder getDeploymentJobStateOrBuilder() {
+        if (deploymentJobStateBuilder_ != null) {
+          return deploymentJobStateBuilder_.getMessageOrBuilder();
+        } else {
+          return deploymentJobState_ == null ?
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance() : deploymentJobState_;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job state for this model version.
+       * </pre>
+       *
+       * <code>optional .mlflow.ModelVersionDeploymentJobState deployment_job_state = 19;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder> 
+          getDeploymentJobStateFieldBuilder() {
+        if (deploymentJobStateBuilder_ == null) {
+          deploymentJobStateBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder>(
+                  getDeploymentJobState(),
+                  getParentForChildren(),
+                  isClean());
+          deploymentJobState_ = null;
+        }
+        return deploymentJobStateBuilder_;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -7898,6 +8538,1901 @@ public final class ModelRegistry {
 
     @java.lang.Override
     public org.mlflow.api.proto.ModelRegistry.ModelVersion getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface DeploymentJobConnectionOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.DeploymentJobConnection)
+      com.google.protobuf.MessageOrBuilder {
+  }
+  /**
+   * Protobuf type {@code mlflow.DeploymentJobConnection}
+   */
+  public static final class DeploymentJobConnection extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.DeploymentJobConnection)
+      DeploymentJobConnectionOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DeploymentJobConnection.newBuilder() to construct.
+    private DeploymentJobConnection(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DeploymentJobConnection() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DeploymentJobConnection();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DeploymentJobConnection(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeploymentJobConnection_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeploymentJobConnection_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.class, org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.Builder.class);
+    }
+
+    /**
+     * Protobuf enum {@code mlflow.DeploymentJobConnection.State}
+     */
+    public enum State
+        implements com.google.protobuf.ProtocolMessageEnum {
+      /**
+       * <code>DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 0;</code>
+       */
+      DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED(0),
+      /**
+       * <pre>
+       * default state
+       * </pre>
+       *
+       * <code>NOT_SET_UP = 1;</code>
+       */
+      NOT_SET_UP(1),
+      /**
+       * <pre>
+       * connected job: job exists, owner has ACLs, and required job parameters are present
+       * </pre>
+       *
+       * <code>CONNECTED = 2;</code>
+       */
+      CONNECTED(2),
+      /**
+       * <pre>
+       * job was deleted OR owner had job ACLs removed 
+       * </pre>
+       *
+       * <code>NOT_FOUND = 3;</code>
+       */
+      NOT_FOUND(3),
+      /**
+       * <pre>
+       * required job parameters were changed
+       * </pre>
+       *
+       * <code>REQUIRED_PARAMETERS_CHANGED = 4;</code>
+       */
+      REQUIRED_PARAMETERS_CHANGED(4),
+      ;
+
+      /**
+       * <code>DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 0;</code>
+       */
+      public static final int DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED_VALUE = 0;
+      /**
+       * <pre>
+       * default state
+       * </pre>
+       *
+       * <code>NOT_SET_UP = 1;</code>
+       */
+      public static final int NOT_SET_UP_VALUE = 1;
+      /**
+       * <pre>
+       * connected job: job exists, owner has ACLs, and required job parameters are present
+       * </pre>
+       *
+       * <code>CONNECTED = 2;</code>
+       */
+      public static final int CONNECTED_VALUE = 2;
+      /**
+       * <pre>
+       * job was deleted OR owner had job ACLs removed 
+       * </pre>
+       *
+       * <code>NOT_FOUND = 3;</code>
+       */
+      public static final int NOT_FOUND_VALUE = 3;
+      /**
+       * <pre>
+       * required job parameters were changed
+       * </pre>
+       *
+       * <code>REQUIRED_PARAMETERS_CHANGED = 4;</code>
+       */
+      public static final int REQUIRED_PARAMETERS_CHANGED_VALUE = 4;
+
+
+      public final int getNumber() {
+        return value;
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       * @deprecated Use {@link #forNumber(int)} instead.
+       */
+      @java.lang.Deprecated
+      public static State valueOf(int value) {
+        return forNumber(value);
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       */
+      public static State forNumber(int value) {
+        switch (value) {
+          case 0: return DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED;
+          case 1: return NOT_SET_UP;
+          case 2: return CONNECTED;
+          case 3: return NOT_FOUND;
+          case 4: return REQUIRED_PARAMETERS_CHANGED;
+          default: return null;
+        }
+      }
+
+      public static com.google.protobuf.Internal.EnumLiteMap<State>
+          internalGetValueMap() {
+        return internalValueMap;
+      }
+      private static final com.google.protobuf.Internal.EnumLiteMap<
+          State> internalValueMap =
+            new com.google.protobuf.Internal.EnumLiteMap<State>() {
+              public State findValueByNumber(int number) {
+                return State.forNumber(number);
+              }
+            };
+
+      public final com.google.protobuf.Descriptors.EnumValueDescriptor
+          getValueDescriptor() {
+        return getDescriptor().getValues().get(ordinal());
+      }
+      public final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptorForType() {
+        return getDescriptor();
+      }
+      public static final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.getDescriptor().getEnumTypes().get(0);
+      }
+
+      private static final State[] VALUES = values();
+
+      public static State valueOf(
+          com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+        if (desc.getType() != getDescriptor()) {
+          throw new java.lang.IllegalArgumentException(
+            "EnumValueDescriptor is not for this type.");
+        }
+        return VALUES[desc.getIndex()];
+      }
+
+      private final int value;
+
+      private State(int value) {
+        this.value = value;
+      }
+
+      // @@protoc_insertion_point(enum_scope:mlflow.DeploymentJobConnection.State)
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection other = (org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection) obj;
+
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.DeploymentJobConnection}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.DeploymentJobConnection)
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnectionOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeploymentJobConnection_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeploymentJobConnection_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.class, org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeploymentJobConnection_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection build() {
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection result = new org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection(this);
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.DeploymentJobConnection)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.DeploymentJobConnection)
+    private static final org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DeploymentJobConnection>
+        PARSER = new com.google.protobuf.AbstractParser<DeploymentJobConnection>() {
+      @java.lang.Override
+      public DeploymentJobConnection parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DeploymentJobConnection(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DeploymentJobConnection> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DeploymentJobConnection> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface ModelVersionDeploymentJobStateOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.ModelVersionDeploymentJobState)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return Whether the jobId field is set.
+     */
+    boolean hasJobId();
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return The jobId.
+     */
+    java.lang.String getJobId();
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return The bytes for jobId.
+     */
+    com.google.protobuf.ByteString
+        getJobIdBytes();
+
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return Whether the runId field is set.
+     */
+    boolean hasRunId();
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return The runId.
+     */
+    java.lang.String getRunId();
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return The bytes for runId.
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+     * @return Whether the jobState field is set.
+     */
+    boolean hasJobState();
+    /**
+     * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+     * @return The jobState.
+     */
+    org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getJobState();
+
+    /**
+     * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+     * @return Whether the runState field is set.
+     */
+    boolean hasRunState();
+    /**
+     * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+     * @return The runState.
+     */
+    org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState getRunState();
+
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return Whether the currentTaskName field is set.
+     */
+    boolean hasCurrentTaskName();
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return The currentTaskName.
+     */
+    java.lang.String getCurrentTaskName();
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return The bytes for currentTaskName.
+     */
+    com.google.protobuf.ByteString
+        getCurrentTaskNameBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.ModelVersionDeploymentJobState}
+   */
+  public static final class ModelVersionDeploymentJobState extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.ModelVersionDeploymentJobState)
+      ModelVersionDeploymentJobStateOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use ModelVersionDeploymentJobState.newBuilder() to construct.
+    private ModelVersionDeploymentJobState(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private ModelVersionDeploymentJobState() {
+      jobId_ = "";
+      runId_ = "";
+      jobState_ = 0;
+      runState_ = 0;
+      currentTaskName_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ModelVersionDeploymentJobState();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private ModelVersionDeploymentJobState(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              jobId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              runId_ = bs;
+              break;
+            }
+            case 24: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State value = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(3, rawValue);
+              } else {
+                bitField0_ |= 0x00000004;
+                jobState_ = rawValue;
+              }
+              break;
+            }
+            case 32: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState value = org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(4, rawValue);
+              } else {
+                bitField0_ |= 0x00000008;
+                runState_ = rawValue;
+              }
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000010;
+              currentTaskName_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_ModelVersionDeploymentJobState_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_ModelVersionDeploymentJobState_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.class, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder.class);
+    }
+
+    /**
+     * Protobuf enum {@code mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState}
+     */
+    public enum DeploymentJobRunState
+        implements com.google.protobuf.ProtocolMessageEnum {
+      /**
+       * <code>DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 0;</code>
+       */
+      DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED(0),
+      /**
+       * <code>NO_VALID_DEPLOYMENT_JOB_FOUND = 1;</code>
+       */
+      NO_VALID_DEPLOYMENT_JOB_FOUND(1),
+      /**
+       * <code>RUNNING = 2;</code>
+       */
+      RUNNING(2),
+      /**
+       * <code>SUCCEEDED = 3;</code>
+       */
+      SUCCEEDED(3),
+      /**
+       * <code>FAILED = 4;</code>
+       */
+      FAILED(4),
+      /**
+       * <code>PENDING = 5;</code>
+       */
+      PENDING(5),
+      ;
+
+      /**
+       * <code>DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 0;</code>
+       */
+      public static final int DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED_VALUE = 0;
+      /**
+       * <code>NO_VALID_DEPLOYMENT_JOB_FOUND = 1;</code>
+       */
+      public static final int NO_VALID_DEPLOYMENT_JOB_FOUND_VALUE = 1;
+      /**
+       * <code>RUNNING = 2;</code>
+       */
+      public static final int RUNNING_VALUE = 2;
+      /**
+       * <code>SUCCEEDED = 3;</code>
+       */
+      public static final int SUCCEEDED_VALUE = 3;
+      /**
+       * <code>FAILED = 4;</code>
+       */
+      public static final int FAILED_VALUE = 4;
+      /**
+       * <code>PENDING = 5;</code>
+       */
+      public static final int PENDING_VALUE = 5;
+
+
+      public final int getNumber() {
+        return value;
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       * @deprecated Use {@link #forNumber(int)} instead.
+       */
+      @java.lang.Deprecated
+      public static DeploymentJobRunState valueOf(int value) {
+        return forNumber(value);
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       */
+      public static DeploymentJobRunState forNumber(int value) {
+        switch (value) {
+          case 0: return DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED;
+          case 1: return NO_VALID_DEPLOYMENT_JOB_FOUND;
+          case 2: return RUNNING;
+          case 3: return SUCCEEDED;
+          case 4: return FAILED;
+          case 5: return PENDING;
+          default: return null;
+        }
+      }
+
+      public static com.google.protobuf.Internal.EnumLiteMap<DeploymentJobRunState>
+          internalGetValueMap() {
+        return internalValueMap;
+      }
+      private static final com.google.protobuf.Internal.EnumLiteMap<
+          DeploymentJobRunState> internalValueMap =
+            new com.google.protobuf.Internal.EnumLiteMap<DeploymentJobRunState>() {
+              public DeploymentJobRunState findValueByNumber(int number) {
+                return DeploymentJobRunState.forNumber(number);
+              }
+            };
+
+      public final com.google.protobuf.Descriptors.EnumValueDescriptor
+          getValueDescriptor() {
+        return getDescriptor().getValues().get(ordinal());
+      }
+      public final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptorForType() {
+        return getDescriptor();
+      }
+      public static final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDescriptor().getEnumTypes().get(0);
+      }
+
+      private static final DeploymentJobRunState[] VALUES = values();
+
+      public static DeploymentJobRunState valueOf(
+          com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+        if (desc.getType() != getDescriptor()) {
+          throw new java.lang.IllegalArgumentException(
+            "EnumValueDescriptor is not for this type.");
+        }
+        return VALUES[desc.getIndex()];
+      }
+
+      private final int value;
+
+      private DeploymentJobRunState(int value) {
+        this.value = value;
+      }
+
+      // @@protoc_insertion_point(enum_scope:mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState)
+    }
+
+    private int bitField0_;
+    public static final int JOB_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object jobId_;
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return Whether the jobId field is set.
+     */
+    @java.lang.Override
+    public boolean hasJobId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return The jobId.
+     */
+    @java.lang.Override
+    public java.lang.String getJobId() {
+      java.lang.Object ref = jobId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          jobId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string job_id = 1;</code>
+     * @return The bytes for jobId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getJobIdBytes() {
+      java.lang.Object ref = jobId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        jobId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_ID_FIELD_NUMBER = 2;
+    private volatile java.lang.Object runId_;
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return Whether the runId field is set.
+     */
+    @java.lang.Override
+    public boolean hasRunId() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return The runId.
+     */
+    @java.lang.Override
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string run_id = 2;</code>
+     * @return The bytes for runId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int JOB_STATE_FIELD_NUMBER = 3;
+    private int jobState_;
+    /**
+     * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+     * @return Whether the jobState field is set.
+     */
+    @java.lang.Override public boolean hasJobState() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+     * @return The jobState.
+     */
+    @java.lang.Override public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getJobState() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State result = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(jobState_);
+      return result == null ? org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED : result;
+    }
+
+    public static final int RUN_STATE_FIELD_NUMBER = 4;
+    private int runState_;
+    /**
+     * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+     * @return Whether the runState field is set.
+     */
+    @java.lang.Override public boolean hasRunState() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+     * @return The runState.
+     */
+    @java.lang.Override public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState getRunState() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState result = org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState.valueOf(runState_);
+      return result == null ? org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState.DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED : result;
+    }
+
+    public static final int CURRENT_TASK_NAME_FIELD_NUMBER = 5;
+    private volatile java.lang.Object currentTaskName_;
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return Whether the currentTaskName field is set.
+     */
+    @java.lang.Override
+    public boolean hasCurrentTaskName() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return The currentTaskName.
+     */
+    @java.lang.Override
+    public java.lang.String getCurrentTaskName() {
+      java.lang.Object ref = currentTaskName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          currentTaskName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string current_task_name = 5;</code>
+     * @return The bytes for currentTaskName.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getCurrentTaskNameBytes() {
+      java.lang.Object ref = currentTaskName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        currentTaskName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, jobId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        output.writeEnum(3, jobState_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        output.writeEnum(4, runState_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, currentTaskName_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, jobId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(3, jobState_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(4, runState_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, currentTaskName_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState other = (org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState) obj;
+
+      if (hasJobId() != other.hasJobId()) return false;
+      if (hasJobId()) {
+        if (!getJobId()
+            .equals(other.getJobId())) return false;
+      }
+      if (hasRunId() != other.hasRunId()) return false;
+      if (hasRunId()) {
+        if (!getRunId()
+            .equals(other.getRunId())) return false;
+      }
+      if (hasJobState() != other.hasJobState()) return false;
+      if (hasJobState()) {
+        if (jobState_ != other.jobState_) return false;
+      }
+      if (hasRunState() != other.hasRunState()) return false;
+      if (hasRunState()) {
+        if (runState_ != other.runState_) return false;
+      }
+      if (hasCurrentTaskName() != other.hasCurrentTaskName()) return false;
+      if (hasCurrentTaskName()) {
+        if (!getCurrentTaskName()
+            .equals(other.getCurrentTaskName())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasJobId()) {
+        hash = (37 * hash) + JOB_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getJobId().hashCode();
+      }
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
+      if (hasJobState()) {
+        hash = (37 * hash) + JOB_STATE_FIELD_NUMBER;
+        hash = (53 * hash) + jobState_;
+      }
+      if (hasRunState()) {
+        hash = (37 * hash) + RUN_STATE_FIELD_NUMBER;
+        hash = (53 * hash) + runState_;
+      }
+      if (hasCurrentTaskName()) {
+        hash = (37 * hash) + CURRENT_TASK_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getCurrentTaskName().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.ModelVersionDeploymentJobState}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.ModelVersionDeploymentJobState)
+        org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobStateOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_ModelVersionDeploymentJobState_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_ModelVersionDeploymentJobState_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.class, org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        jobId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        jobState_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        runState_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        currentTaskName_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_ModelVersionDeploymentJobState_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState build() {
+        org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState result = new org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.jobId_ = jobId_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.runId_ = runId_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.jobState_ = jobState_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.runState_ = runState_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.currentTaskName_ = currentTaskName_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.getDefaultInstance()) return this;
+        if (other.hasJobId()) {
+          bitField0_ |= 0x00000001;
+          jobId_ = other.jobId_;
+          onChanged();
+        }
+        if (other.hasRunId()) {
+          bitField0_ |= 0x00000002;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasJobState()) {
+          setJobState(other.getJobState());
+        }
+        if (other.hasRunState()) {
+          setRunState(other.getRunState());
+        }
+        if (other.hasCurrentTaskName()) {
+          bitField0_ |= 0x00000010;
+          currentTaskName_ = other.currentTaskName_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object jobId_ = "";
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @return Whether the jobId field is set.
+       */
+      public boolean hasJobId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @return The jobId.
+       */
+      public java.lang.String getJobId() {
+        java.lang.Object ref = jobId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            jobId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @return The bytes for jobId.
+       */
+      public com.google.protobuf.ByteString
+          getJobIdBytes() {
+        java.lang.Object ref = jobId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          jobId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @param value The jobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setJobId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        jobId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearJobId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        jobId_ = getDefaultInstance().getJobId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string job_id = 1;</code>
+       * @param value The bytes for jobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setJobIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        jobId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runId_ = "";
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @return Whether the runId field is set.
+       */
+      public boolean hasRunId() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @return The runId.
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @return The bytes for runId.
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @param value The runId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string run_id = 2;</code>
+       * @param value The bytes for runId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private int jobState_ = 0;
+      /**
+       * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+       * @return Whether the jobState field is set.
+       */
+      @java.lang.Override public boolean hasJobState() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+       * @return The jobState.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State getJobState() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State result = org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.valueOf(jobState_);
+        return result == null ? org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State.DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED : result;
+      }
+      /**
+       * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+       * @param value The jobState to set.
+       * @return This builder for chaining.
+       */
+      public Builder setJobState(org.mlflow.api.proto.ModelRegistry.DeploymentJobConnection.State value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000004;
+        jobState_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.DeploymentJobConnection.State job_state = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearJobState() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        jobState_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private int runState_ = 0;
+      /**
+       * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+       * @return Whether the runState field is set.
+       */
+      @java.lang.Override public boolean hasRunState() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+       * @return The runState.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState getRunState() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState result = org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState.valueOf(runState_);
+        return result == null ? org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState.DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED : result;
+      }
+      /**
+       * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+       * @param value The runState to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunState(org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState.DeploymentJobRunState value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000008;
+        runState_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ModelVersionDeploymentJobState.DeploymentJobRunState run_state = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunState() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        runState_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object currentTaskName_ = "";
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @return Whether the currentTaskName field is set.
+       */
+      public boolean hasCurrentTaskName() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @return The currentTaskName.
+       */
+      public java.lang.String getCurrentTaskName() {
+        java.lang.Object ref = currentTaskName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            currentTaskName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @return The bytes for currentTaskName.
+       */
+      public com.google.protobuf.ByteString
+          getCurrentTaskNameBytes() {
+        java.lang.Object ref = currentTaskName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          currentTaskName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @param value The currentTaskName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCurrentTaskName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        currentTaskName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCurrentTaskName() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        currentTaskName_ = getDefaultInstance().getCurrentTaskName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string current_task_name = 5;</code>
+       * @param value The bytes for currentTaskName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCurrentTaskNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        currentTaskName_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.ModelVersionDeploymentJobState)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.ModelVersionDeploymentJobState)
+    private static final org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<ModelVersionDeploymentJobState>
+        PARSER = new com.google.protobuf.AbstractParser<ModelVersionDeploymentJobState>() {
+      @java.lang.Override
+      public ModelVersionDeploymentJobState parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new ModelVersionDeploymentJobState(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<ModelVersionDeploymentJobState> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<ModelVersionDeploymentJobState> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.ModelVersionDeploymentJobState getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -8008,6 +10543,35 @@ public final class ModelRegistry {
      */
     com.google.protobuf.ByteString
         getDescriptionBytes();
+
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    boolean hasDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return The deploymentJobId.
+     */
+    java.lang.String getDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    com.google.protobuf.ByteString
+        getDeploymentJobIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.CreateRegisteredModel}
@@ -8025,6 +10589,7 @@ public final class ModelRegistry {
       name_ = "";
       tags_ = java.util.Collections.emptyList();
       description_ = "";
+      deploymentJobId_ = "";
     }
 
     @java.lang.Override
@@ -8077,6 +10642,12 @@ public final class ModelRegistry {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
               description_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              deploymentJobId_ = bs;
               break;
             }
             default: {
@@ -8927,6 +11498,66 @@ public final class ModelRegistry {
       }
     }
 
+    public static final int DEPLOYMENT_JOB_ID_FIELD_NUMBER = 4;
+    private volatile java.lang.Object deploymentJobId_;
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    @java.lang.Override
+    public boolean hasDeploymentJobId() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return The deploymentJobId.
+     */
+    @java.lang.Override
+    public java.lang.String getDeploymentJobId() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          deploymentJobId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 4;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDeploymentJobIdBytes() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        deploymentJobId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -8950,6 +11581,9 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, description_);
       }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, deploymentJobId_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -8968,6 +11602,9 @@ public final class ModelRegistry {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, description_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, deploymentJobId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -8996,6 +11633,11 @@ public final class ModelRegistry {
         if (!getDescription()
             .equals(other.getDescription())) return false;
       }
+      if (hasDeploymentJobId() != other.hasDeploymentJobId()) return false;
+      if (hasDeploymentJobId()) {
+        if (!getDeploymentJobId()
+            .equals(other.getDeploymentJobId())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -9018,6 +11660,10 @@ public final class ModelRegistry {
       if (hasDescription()) {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
         hash = (53 * hash) + getDescription().hashCode();
+      }
+      if (hasDeploymentJobId()) {
+        hash = (37 * hash) + DEPLOYMENT_JOB_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getDeploymentJobId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -9163,6 +11809,8 @@ public final class ModelRegistry {
         }
         description_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        deploymentJobId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -9208,6 +11856,10 @@ public final class ModelRegistry {
           to_bitField0_ |= 0x00000002;
         }
         result.description_ = description_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.deploymentJobId_ = deploymentJobId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -9291,6 +11943,11 @@ public final class ModelRegistry {
         if (other.hasDescription()) {
           bitField0_ |= 0x00000004;
           description_ = other.description_;
+          onChanged();
+        }
+        if (other.hasDeploymentJobId()) {
+          bitField0_ |= 0x00000008;
+          deploymentJobId_ = other.deploymentJobId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -9847,6 +12504,114 @@ public final class ModelRegistry {
   }
   bitField0_ |= 0x00000004;
         description_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object deploymentJobId_ = "";
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @return Whether the deploymentJobId field is set.
+       */
+      public boolean hasDeploymentJobId() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @return The deploymentJobId.
+       */
+      public java.lang.String getDeploymentJobId() {
+        java.lang.Object ref = deploymentJobId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            deploymentJobId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @return The bytes for deploymentJobId.
+       */
+      public com.google.protobuf.ByteString
+          getDeploymentJobIdBytes() {
+        java.lang.Object ref = deploymentJobId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          deploymentJobId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @param value The deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        deploymentJobId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDeploymentJobId() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        deploymentJobId_ = getDefaultInstance().getDeploymentJobId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 4;</code>
+       * @param value The bytes for deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        deploymentJobId_ = value;
         onChanged();
         return this;
       }
@@ -11480,6 +14245,35 @@ public final class ModelRegistry {
      */
     com.google.protobuf.ByteString
         getDescriptionBytes();
+
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    boolean hasDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return The deploymentJobId.
+     */
+    java.lang.String getDeploymentJobId();
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    com.google.protobuf.ByteString
+        getDeploymentJobIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.UpdateRegisteredModel}
@@ -11496,6 +14290,7 @@ public final class ModelRegistry {
     private UpdateRegisteredModel() {
       name_ = "";
       description_ = "";
+      deploymentJobId_ = "";
     }
 
     @java.lang.Override
@@ -11539,6 +14334,12 @@ public final class ModelRegistry {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
               description_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              deploymentJobId_ = bs;
               break;
             }
             default: {
@@ -12326,6 +15127,66 @@ public final class ModelRegistry {
       }
     }
 
+    public static final int DEPLOYMENT_JOB_ID_FIELD_NUMBER = 3;
+    private volatile java.lang.Object deploymentJobId_;
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return Whether the deploymentJobId field is set.
+     */
+    @java.lang.Override
+    public boolean hasDeploymentJobId() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return The deploymentJobId.
+     */
+    @java.lang.Override
+    public java.lang.String getDeploymentJobId() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          deploymentJobId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Deployment job id for this model.
+     * </pre>
+     *
+     * <code>optional string deployment_job_id = 3;</code>
+     * @return The bytes for deploymentJobId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDeploymentJobIdBytes() {
+      java.lang.Object ref = deploymentJobId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        deploymentJobId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -12346,6 +15207,9 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, description_);
       }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, deploymentJobId_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -12360,6 +15224,9 @@ public final class ModelRegistry {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, description_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, deploymentJobId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -12386,6 +15253,11 @@ public final class ModelRegistry {
         if (!getDescription()
             .equals(other.getDescription())) return false;
       }
+      if (hasDeploymentJobId() != other.hasDeploymentJobId()) return false;
+      if (hasDeploymentJobId()) {
+        if (!getDeploymentJobId()
+            .equals(other.getDeploymentJobId())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -12404,6 +15276,10 @@ public final class ModelRegistry {
       if (hasDescription()) {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
         hash = (53 * hash) + getDescription().hashCode();
+      }
+      if (hasDeploymentJobId()) {
+        hash = (37 * hash) + DEPLOYMENT_JOB_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getDeploymentJobId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -12542,6 +15418,8 @@ public final class ModelRegistry {
         bitField0_ = (bitField0_ & ~0x00000001);
         description_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        deploymentJobId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -12578,6 +15456,10 @@ public final class ModelRegistry {
           to_bitField0_ |= 0x00000002;
         }
         result.description_ = description_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.deploymentJobId_ = deploymentJobId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -12635,6 +15517,11 @@ public final class ModelRegistry {
         if (other.hasDescription()) {
           bitField0_ |= 0x00000002;
           description_ = other.description_;
+          onChanged();
+        }
+        if (other.hasDeploymentJobId()) {
+          bitField0_ |= 0x00000004;
+          deploymentJobId_ = other.deploymentJobId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -12879,6 +15766,114 @@ public final class ModelRegistry {
   }
   bitField0_ |= 0x00000002;
         description_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object deploymentJobId_ = "";
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @return Whether the deploymentJobId field is set.
+       */
+      public boolean hasDeploymentJobId() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @return The deploymentJobId.
+       */
+      public java.lang.String getDeploymentJobId() {
+        java.lang.Object ref = deploymentJobId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            deploymentJobId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @return The bytes for deploymentJobId.
+       */
+      public com.google.protobuf.ByteString
+          getDeploymentJobIdBytes() {
+        java.lang.Object ref = deploymentJobId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          deploymentJobId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @param value The deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        deploymentJobId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDeploymentJobId() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        deploymentJobId_ = getDefaultInstance().getDeploymentJobId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Deployment job id for this model.
+       * </pre>
+       *
+       * <code>optional string deployment_job_id = 3;</code>
+       * @param value The bytes for deploymentJobId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDeploymentJobIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        deploymentJobId_ = value;
         onChanged();
         return this;
       }
@@ -49941,6 +52936,16 @@ public final class ModelRegistry {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ModelVersion_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DeploymentJobConnection_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DeploymentJobConnection_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_ModelVersionDeploymentJobState_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_ModelVersionDeploymentJobState_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_CreateRegisteredModel_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -50185,225 +53190,245 @@ public final class ModelRegistry {
   static {
     java.lang.String[] descriptorData = {
       "\n\024model_registry.proto\022\006mlflow\032\025scalapb/" +
-      "scalapb.proto\032\020databricks.proto\"\211\002\n\017Regi" +
+      "scalapb.proto\032\020databricks.proto\"\351\002\n\017Regi" +
       "steredModel\022\014\n\004name\030\001 \001(\t\022\032\n\022creation_ti" +
       "mestamp\030\002 \001(\003\022\036\n\026last_updated_timestamp\030" +
       "\003 \001(\003\022\017\n\007user_id\030\004 \001(\t\022\023\n\013description\030\005 " +
       "\001(\t\022-\n\017latest_versions\030\006 \003(\0132\024.mlflow.Mo" +
       "delVersion\022(\n\004tags\030\007 \003(\0132\032.mlflow.Regist" +
       "eredModelTag\022-\n\007aliases\030\010 \003(\0132\034.mlflow.R" +
-      "egisteredModelAlias\"\274\003\n\014ModelVersion\022\014\n\004" +
-      "name\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\022\032\n\022creation_" +
-      "timestamp\030\003 \001(\003\022\036\n\026last_updated_timestam" +
-      "p\030\004 \001(\003\022\017\n\007user_id\030\005 \001(\t\022\025\n\rcurrent_stag" +
-      "e\030\006 \001(\t\022\023\n\013description\030\007 \001(\t\022\016\n\006source\030\010" +
-      " \001(\t\022\016\n\006run_id\030\t \001(\t\022*\n\006status\030\n \001(\0162\032.m" +
-      "lflow.ModelVersionStatus\022\026\n\016status_messa" +
-      "ge\030\013 \001(\t\022%\n\004tags\030\014 \003(\0132\027.mlflow.ModelVer" +
-      "sionTag\022\020\n\010run_link\030\r \001(\t\022\017\n\007aliases\030\016 \003" +
-      "(\t\022\020\n\010model_id\030\017 \001(\t\022(\n\014model_params\030\020 \003" +
-      "(\0132\022.mlflow.ModelParam\022*\n\rmodel_metrics\030" +
-      "\021 \003(\0132\023.mlflow.ModelMetric\"\326\001\n\025CreateReg" +
-      "isteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022(\n\004tags" +
-      "\030\002 \003(\0132\032.mlflow.RegisteredModelTag\022\023\n\013de" +
-      "scription\030\003 \001(\t\032=\n\010Response\0221\n\020registere" +
+      "egisteredModelAlias\022\031\n\021deployment_job_id" +
+      "\030\t \001(\t\022C\n\024deployment_job_state\030\n \001(\0162%.m" +
+      "lflow.DeploymentJobConnection.State\"\202\004\n\014" +
+      "ModelVersion\022\014\n\004name\030\001 \001(\t\022\017\n\007version\030\002 " +
+      "\001(\t\022\032\n\022creation_timestamp\030\003 \001(\003\022\036\n\026last_" +
+      "updated_timestamp\030\004 \001(\003\022\017\n\007user_id\030\005 \001(\t" +
+      "\022\025\n\rcurrent_stage\030\006 \001(\t\022\023\n\013description\030\007" +
+      " \001(\t\022\016\n\006source\030\010 \001(\t\022\016\n\006run_id\030\t \001(\t\022*\n\006" +
+      "status\030\n \001(\0162\032.mlflow.ModelVersionStatus" +
+      "\022\026\n\016status_message\030\013 \001(\t\022%\n\004tags\030\014 \003(\0132\027" +
+      ".mlflow.ModelVersionTag\022\020\n\010run_link\030\r \001(" +
+      "\t\022\017\n\007aliases\030\016 \003(\t\022\020\n\010model_id\030\017 \001(\t\022(\n\014" +
+      "model_params\030\020 \003(\0132\022.mlflow.ModelParam\022*" +
+      "\n\rmodel_metrics\030\021 \003(\0132\023.mlflow.ModelMetr" +
+      "ic\022D\n\024deployment_job_state\030\023 \001(\0132&.mlflo" +
+      "w.ModelVersionDeploymentJobState\"\243\001\n\027Dep" +
+      "loymentJobConnection\"\207\001\n\005State\022/\n+DEPLOY" +
+      "MENT_JOB_CONNECTION_STATE_UNSPECIFIED\020\000\022" +
+      "\016\n\nNOT_SET_UP\020\001\022\r\n\tCONNECTED\020\002\022\r\n\tNOT_FO" +
+      "UND\020\003\022\037\n\033REQUIRED_PARAMETERS_CHANGED\020\004\"\202" +
+      "\003\n\036ModelVersionDeploymentJobState\022\016\n\006job" +
+      "_id\030\001 \001(\t\022\016\n\006run_id\030\002 \001(\t\0228\n\tjob_state\030\003" +
+      " \001(\0162%.mlflow.DeploymentJobConnection.St" +
+      "ate\022O\n\trun_state\030\004 \001(\0162<.mlflow.ModelVer" +
+      "sionDeploymentJobState.DeploymentJobRunS" +
+      "tate\022\031\n\021current_task_name\030\005 \001(\t\"\231\001\n\025Depl" +
+      "oymentJobRunState\022(\n$DEPLOYMENT_JOB_RUN_" +
+      "STATE_UNSPECIFIED\020\000\022!\n\035NO_VALID_DEPLOYME" +
+      "NT_JOB_FOUND\020\001\022\013\n\007RUNNING\020\002\022\r\n\tSUCCEEDED" +
+      "\020\003\022\n\n\006FAILED\020\004\022\013\n\007PENDING\020\005\"\361\001\n\025CreateRe" +
+      "gisteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022(\n\004tag" +
+      "s\030\002 \003(\0132\032.mlflow.RegisteredModelTag\022\023\n\013d" +
+      "escription\030\003 \001(\t\022\031\n\021deployment_job_id\030\004 " +
+      "\001(\t\032=\n\010Response\0221\n\020registered_model\030\001 \001(" +
+      "\0132\027.mlflow.RegisteredModel:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\251\001\n\025Rena" +
+      "meRegisteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\020\n" +
+      "\010new_name\030\002 \001(\t\032=\n\010Response\0221\n\020registere" +
       "d_model\030\001 \001(\0132\027.mlflow.RegisteredModel:+" +
       "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"\251\001\n\025RenameRegisteredModel\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032=\n\010Response\022" +
-      "1\n\020registered_model\030\001 \001(\0132\027.mlflow.Regis" +
-      "teredModel:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"\254\001\n\025UpdateRegisteredMode" +
-      "l\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001" +
-      "(\t\032=\n\010Response\0221\n\020registered_model\030\001 \001(\013" +
-      "2\027.mlflow.RegisteredModel:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"d\n\025Delete" +
-      "RegisteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032\n\n\010R" +
-      "esponse:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"\224\001\n\022GetRegisteredModel\022\022\n\004n" +
-      "ame\030\001 \001(\tB\004\370\206\031\001\032=\n\010Response\0221\n\020registere" +
-      "d_model\030\001 \001(\0132\027.mlflow.RegisteredModel:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"\356\001\n\026SearchRegisteredModels\022\016\n\006filter" +
-      "\030\001 \001(\t\022\030\n\013max_results\030\002 \001(\003:\003100\022\020\n\010orde" +
-      "r_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t\032W\n\010Respon" +
-      "se\0222\n\021registered_models\030\001 \003(\0132\027.mlflow.R" +
-      "egisteredModel\022\027\n\017next_page_token\030\002 \001(\t:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\236\001\n\021GetLatestVersions\022\022\n\004name\030\001 \001(\t" +
-      "B\004\370\206\031\001\022\016\n\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016mo" +
-      "del_versions\030\001 \003(\0132\024.mlflow.ModelVersion" +
+      "se]\"\307\001\n\025UpdateRegisteredModel\022\022\n\004name\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\022\031\n\021deploy" +
+      "ment_job_id\030\003 \001(\t\032=\n\010Response\0221\n\020registe" +
+      "red_model\030\001 \001(\0132\027.mlflow.RegisteredModel" +
       ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\276\002\n\022CreateModelVersion\022\022\n\004name\030\001 \001" +
-      "(\tB\004\370\206\031\001\022\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id" +
-      "\030\003 \001(\t\022%\n\004tags\030\004 \003(\0132\027.mlflow.ModelVersi" +
-      "onTag\022\020\n\010run_link\030\005 \001(\t\022\023\n\013description\030\006" +
-      " \001(\t\022\020\n\010model_id\030\007 \001(\t\022(\n\014model_params\030\010" +
-      " \003(\0132\022.mlflow.ModelParam\0327\n\010Response\022+\n\r" +
+      "onse]\"d\n\025DeleteRegisteredModel\022\022\n\004name\030\001" +
+      " \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"\224\001\n\022GetRegis" +
+      "teredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032=\n\010Respon" +
+      "se\0221\n\020registered_model\030\001 \001(\0132\027.mlflow.Re" +
+      "gisteredModel:+\342?(\n&com.databricks.rpc.R" +
+      "PC[$this.Response]\"\356\001\n\026SearchRegisteredM" +
+      "odels\022\016\n\006filter\030\001 \001(\t\022\030\n\013max_results\030\002 \001" +
+      "(\003:\003100\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030" +
+      "\004 \001(\t\032W\n\010Response\0222\n\021registered_models\030\001" +
+      " \003(\0132\027.mlflow.RegisteredModel\022\027\n\017next_pa" +
+      "ge_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\236\001\n\021GetLatestVersion" +
+      "s\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016\n\006stages\030\002 \003(\t\0328\n" +
+      "\010Response\022,\n\016model_versions\030\001 \003(\0132\024.mlfl" +
+      "ow.ModelVersion:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\276\002\n\022CreateModelVers" +
+      "ion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\024\n\006source\030\002 \001(\tB" +
+      "\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\022%\n\004tags\030\004 \003(\0132\027.ml" +
+      "flow.ModelVersionTag\022\020\n\010run_link\030\005 \001(\t\022\023" +
+      "\n\013description\030\006 \001(\t\022\020\n\010model_id\030\007 \001(\t\022(\n" +
+      "\014model_params\030\010 \003(\0132\022.mlflow.ModelParam\032" +
+      "7\n\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlf" +
+      "low.ModelVersion:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\272\001\n\022UpdateModelVer" +
+      "sion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(" +
+      "\tB\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response" +
+      "\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVe" +
+      "rsion:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\354\001\n\033TransitionModelVersionSta" +
+      "ge\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB" +
+      "\004\370\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_ex" +
+      "isting_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022" +
+      "+\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVer" +
+      "sion:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"x\n\022DeleteModelVersion\022\022\n\004name\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Re" +
+      "sponse:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\242\001\n\017GetModelVersion\022\022\n\004name\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Re" +
+      "sponse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.M" +
+      "odelVersion:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\350\001\n\023SearchModelVersions" +
+      "\022\016\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\0062" +
+      "00000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 " +
+      "\001(\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132" +
+      "\024.mlflow.ModelVersion\022\027\n\017next_page_token" +
+      "\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\226\001\n\032GetModelVersionDownloadU" +
+      "ri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB" +
+      "\004\370\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"-\n\017ModelVersionTag\022\013\n\003key\030\001 \001(\t\022\r\n\005" +
+      "value\030\002 \001(\t\")\n\nModelParam\022\014\n\004name\030\001 \001(\t\022" +
+      "\r\n\005value\030\002 \001(\t\"\265\001\n\013ModelMetric\022\013\n\003key\030\001 " +
+      "\001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\ttimestamp\030\003 \001(\003\022\017\n" +
+      "\004step\030\004 \001(\003:\0010\022\032\n\014dataset_name\030\005 \001(\tB\004\360\206" +
+      "\031\003\022\034\n\016dataset_digest\030\006 \001(\tB\004\360\206\031\003\022\026\n\010mode" +
+      "l_id\030\007 \001(\tB\004\360\206\031\003\022\024\n\006run_id\030\010 \001(\tB\004\360\206\031\003\"0" +
+      "\n\022RegisteredModelTag\022\013\n\003key\030\001 \001(\t\022\r\n\005val" +
+      "ue\030\002 \001(\t\"\214\001\n\025SetRegisteredModelTag\022\022\n\004na" +
+      "me\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005val" +
+      "ue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\240\001\n\022SetM" +
+      "odelVersionTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007ve" +
+      "rsion\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\tB\004\370\206\031\001\022\023\n\005" +
+      "value\030\004 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"z\n\030De" +
+      "leteRegisteredModelTag\022\022\n\004name\030\001 \001(\tB\004\370\206" +
+      "\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&" +
+      "com.databricks.rpc.RPC[$this.Response]\"\216" +
+      "\001\n\025DeleteModelVersionTag\022\022\n\004name\030\001 \001(\tB\004" +
+      "\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\t" +
+      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"6\n\024RegisteredMod" +
+      "elAlias\022\r\n\005alias\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\"" +
+      "\222\001\n\027SetRegisteredModelAlias\022\022\n\004name\030\001 \001(" +
+      "\tB\004\370\206\031\001\022\023\n\005alias\030\002 \001(\tB\004\370\206\031\001\022\025\n\007version\030" +
+      "\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"~\n\032DeleteRe" +
+      "gisteredModelAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023" +
+      "\n\005alias\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&co" +
+      "m.databricks.rpc.RPC[$this.Response]\"\247\001\n" +
+      "\026GetModelVersionByAlias\022\022\n\004name\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\023\n\005alias\030\002 \001(\tB\004\370\206\031\001\0327\n\010Response\022+\n\r" +
       "model_version\030\001 \001(\0132\024.mlflow.ModelVersio" +
       "n:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\272\001\n\022UpdateModelVersion\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\023\n\013desc" +
-      "ription\030\003 \001(\t\0327\n\010Response\022+\n\rmodel_versi" +
-      "on\030\001 \001(\0132\024.mlflow.ModelVersion:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\354\001\n\033" +
-      "TransitionModelVersionStage\022\022\n\004name\030\001 \001(" +
-      "\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\023\n\005stage\030" +
-      "\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_existing_versions" +
-      "\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_versio" +
-      "n\030\001 \001(\0132\024.mlflow.ModelVersion:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"x\n\022De" +
-      "leteModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007" +
-      "version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\242\001\n" +
-      "\017GetModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007" +
-      "version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Response\022+\n\rmodel" +
-      "_version\030\001 \001(\0132\024.mlflow.ModelVersion:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\350\001\n\023SearchModelVersions\022\016\n\006filter\030\001 \001(" +
-      "\t\022\033\n\013max_results\030\002 \001(\003:\006200000\022\020\n\010order_" +
-      "by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t\032Q\n\010Response" +
-      "\022,\n\016model_versions\030\001 \003(\0132\024.mlflow.ModelV" +
-      "ersion\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\226\001\n" +
-      "\032GetModelVersionDownloadUri\022\022\n\004name\030\001 \001(" +
-      "\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032 \n\010Respon" +
-      "se\022\024\n\014artifact_uri\030\001 \001(\t:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"-\n\017ModelVe" +
-      "rsionTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\")\n\n" +
-      "ModelParam\022\014\n\004name\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"" +
-      "\265\001\n\013ModelMetric\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 " +
-      "\001(\001\022\021\n\ttimestamp\030\003 \001(\003\022\017\n\004step\030\004 \001(\003:\0010\022" +
-      "\032\n\014dataset_name\030\005 \001(\tB\004\360\206\031\003\022\034\n\016dataset_d" +
-      "igest\030\006 \001(\tB\004\360\206\031\003\022\026\n\010model_id\030\007 \001(\tB\004\360\206\031" +
-      "\003\022\024\n\006run_id\030\010 \001(\tB\004\360\206\031\003\"0\n\022RegisteredMod" +
-      "elTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\214\001\n\025Se" +
-      "tRegisteredModelTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\240\001\n\022SetModelVersionTag\022" +
-      "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\021\n\003key\030\003 \001(\tB\004\370\206\031\001\022\023\n\005value\030\004 \001(\tB\004\370\206" +
-      "\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"z\n\030DeleteRegisteredM" +
-      "odelTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\t" +
-      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\216\001\n\025DeleteModelV" +
-      "ersionTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version" +
-      "\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
-      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"6\n\024RegisteredModelAlias\022\r\n\005alia" +
-      "s\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\"\222\001\n\027SetRegister" +
-      "edModelAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alia" +
-      "s\030\002 \001(\tB\004\370\206\031\001\022\025\n\007version\030\003 \001(\tB\004\370\206\031\001\032\n\n\010" +
-      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"~\n\032DeleteRegisteredModelAl" +
-      "ias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alias\030\002 \001(\tB\004" +
-      "\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rp" +
-      "c.RPC[$this.Response]\"\247\001\n\026GetModelVersio" +
-      "nByAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alias\030\002 " +
-      "\001(\tB\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_version\030\001" +
-      " \001(\0132\024.mlflow.ModelVersion:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]*R\n\022Model" +
-      "VersionStatus\022\030\n\024PENDING_REGISTRATION\020\001\022" +
-      "\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005READY\020\0032\200\036\n\024" +
-      "ModelRegistryService\022\256\001\n\025createRegistere" +
-      "dModel\022\035.mlflow.CreateRegisteredModel\032&." +
-      "mlflow.CreateRegisteredModel.Response\"N\362" +
-      "\206\031J\n.\n\004POST\022 /mlflow/registered-models/c" +
-      "reate\032\004\010\002\020\000\020\001*\026Create RegisteredModel\022\256\001" +
-      "\n\025renameRegisteredModel\022\035.mlflow.RenameR" +
-      "egisteredModel\032&.mlflow.RenameRegistered" +
-      "Model.Response\"N\362\206\031J\n.\n\004POST\022 /mlflow/re" +
-      "gistered-models/rename\032\004\010\002\020\000\020\001*\026Rename R" +
-      "egisteredModel\022\257\001\n\025updateRegisteredModel" +
-      "\022\035.mlflow.UpdateRegisteredModel\032&.mlflow" +
-      ".UpdateRegisteredModel.Response\"O\362\206\031K\n/\n" +
-      "\005PATCH\022 /mlflow/registered-models/update" +
-      "\032\004\010\002\020\000\020\001*\026Update RegisteredModel\022\260\001\n\025del" +
-      "eteRegisteredModel\022\035.mlflow.DeleteRegist" +
-      "eredModel\032&.mlflow.DeleteRegisteredModel" +
-      ".Response\"P\362\206\031L\n0\n\006DELETE\022 /mlflow/regis" +
-      "tered-models/delete\032\004\010\002\020\000\020\001*\026Delete Regi" +
-      "steredModel\022\236\001\n\022getRegisteredModel\022\032.mlf" +
-      "low.GetRegisteredModel\032#.mlflow.GetRegis" +
-      "teredModel.Response\"G\362\206\031C\n*\n\003GET\022\035/mlflo" +
-      "w/registered-models/get\032\004\010\002\020\000\020\001*\023Get Reg" +
-      "isteredModel\022\261\001\n\026searchRegisteredModels\022" +
-      "\036.mlflow.SearchRegisteredModels\032\'.mlflow" +
-      ".SearchRegisteredModels.Response\"N\362\206\031J\n-" +
-      "\n\003GET\022 /mlflow/registered-models/search\032" +
-      "\004\010\002\020\000\020\001*\027Search RegisteredModels\022\357\001\n\021get" +
-      "LatestVersions\022\031.mlflow.GetLatestVersion" +
-      "s\032\".mlflow.GetLatestVersions.Response\"\232\001" +
-      "\362\206\031\225\001\n;\n\004POST\022-/mlflow/registered-models" +
-      "/get-latest-versions\032\004\010\002\020\000\n:\n\003GET\022-/mlfl" +
-      "ow/registered-models/get-latest-versions" +
-      "\032\004\010\002\020\000\020\001*\030Get Latest ModelVersions\022\237\001\n\022c" +
-      "reateModelVersion\022\032.mlflow.CreateModelVe" +
-      "rsion\032#.mlflow.CreateModelVersion.Respon" +
-      "se\"H\362\206\031D\n+\n\004POST\022\035/mlflow/model-versions" +
-      "/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\240\001\n" +
-      "\022updateModelVersion\022\032.mlflow.UpdateModel" +
-      "Version\032#.mlflow.UpdateModelVersion.Resp" +
-      "onse\"I\362\206\031E\n,\n\005PATCH\022\035/mlflow/model-versi" +
-      "ons/update\032\004\010\002\020\000\020\001*\023Update ModelVersion\022" +
-      "\316\001\n\033transitionModelVersionStage\022#.mlflow" +
-      ".TransitionModelVersionStage\032,.mlflow.Tr" +
-      "ansitionModelVersionStage.Response\"\\\362\206\031X" +
-      "\n5\n\004POST\022\'/mlflow/model-versions/transit" +
-      "ion-stage\032\004\010\002\020\000\020\001*\035Transition ModelVersi" +
-      "on Stage\022\241\001\n\022deleteModelVersion\022\032.mlflow" +
-      ".DeleteModelVersion\032#.mlflow.DeleteModel" +
-      "Version.Response\"J\362\206\031F\n-\n\006DELETE\022\035/mlflo" +
-      "w/model-versions/delete\032\004\010\002\020\000\020\001*\023Delete " +
-      "ModelVersion\022\217\001\n\017getModelVersion\022\027.mlflo" +
-      "w.GetModelVersion\032 .mlflow.GetModelVersi" +
-      "on.Response\"A\362\206\031=\n\'\n\003GET\022\032/mlflow/model-" +
-      "versions/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\246" +
-      "\001\n\023searchModelVersions\022\033.mlflow.SearchMo" +
-      "delVersions\032$.mlflow.SearchModelVersions" +
-      ".Response\"L\362\206\031D\n*\n\003GET\022\035/mlflow/model-ve" +
-      "rsions/search\032\004\010\002\020\000\020\001*\024Search ModelVersi" +
-      "ons\272\214\031\000\022\330\001\n\032getModelVersionDownloadUri\022\"" +
-      ".mlflow.GetModelVersionDownloadUri\032+.mlf" +
-      "low.GetModelVersionDownloadUri.Response\"" +
-      "i\362\206\031e\n4\n\003GET\022\'/mlflow/model-versions/get" +
-      "-download-uri\032\004\010\002\020\000\020\001*+Get Download URI " +
-      "For ModelVersion Artifacts\022\261\001\n\025setRegist" +
-      "eredModelTag\022\035.mlflow.SetRegisteredModel" +
-      "Tag\032&.mlflow.SetRegisteredModelTag.Respo" +
-      "nse\"Q\362\206\031M\n/\n\004POST\022!/mlflow/registered-mo" +
-      "dels/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Mod" +
-      "el Tag\022\242\001\n\022setModelVersionTag\022\032.mlflow.S" +
-      "etModelVersionTag\032#.mlflow.SetModelVersi" +
-      "onTag.Response\"K\362\206\031G\n,\n\004POST\022\036/mlflow/mo" +
-      "del-versions/set-tag\032\004\010\002\020\000\020\001*\025Set Model " +
-      "Version Tag\022\302\001\n\030deleteRegisteredModelTag" +
-      "\022 .mlflow.DeleteRegisteredModelTag\032).mlf" +
-      "low.DeleteRegisteredModelTag.Response\"Y\362" +
-      "\206\031U\n4\n\006DELETE\022$/mlflow/registered-models" +
-      "/delete-tag\032\004\010\002\020\000\020\001*\033Delete Registered M" +
-      "odel Tag\022\263\001\n\025deleteModelVersionTag\022\035.mlf" +
-      "low.DeleteModelVersionTag\032&.mlflow.Delet" +
-      "eModelVersionTag.Response\"S\362\206\031O\n1\n\006DELET" +
-      "E\022!/mlflow/model-versions/delete-tag\032\004\010\002" +
-      "\020\000\020\001*\030Delete Model Version Tag\022\267\001\n\027setRe" +
-      "gisteredModelAlias\022\037.mlflow.SetRegistere" +
-      "dModelAlias\032(.mlflow.SetRegisteredModelA" +
-      "lias.Response\"Q\362\206\031M\n-\n\004POST\022\037/mlflow/reg" +
-      "istered-models/alias\032\004\010\002\020\000\020\001*\032Set Regist" +
-      "ered Model Alias\022\305\001\n\032deleteRegisteredMod" +
-      "elAlias\022\".mlflow.DeleteRegisteredModelAl" +
-      "ias\032+.mlflow.DeleteRegisteredModelAlias." +
-      "Response\"V\362\206\031R\n/\n\006DELETE\022\037/mlflow/regist" +
-      "ered-models/alias\032\004\010\002\020\000\020\001*\035Delete Regist" +
-      "ered Model Alias\022\263\001\n\026getModelVersionByAl" +
-      "ias\022\036.mlflow.GetModelVersionByAlias\032\'.ml" +
-      "flow.GetModelVersionByAlias.Response\"P\362\206" +
-      "\031L\n,\n\003GET\022\037/mlflow/registered-models/ali" +
-      "as\032\004\010\002\020\000\020\001*\032Get Model Version by AliasB!" +
-      "\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "ponse]*R\n\022ModelVersionStatus\022\030\n\024PENDING_" +
+      "REGISTRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022" +
+      "\t\n\005READY\020\0032\200\036\n\024ModelRegistryService\022\256\001\n\025" +
+      "createRegisteredModel\022\035.mlflow.CreateReg" +
+      "isteredModel\032&.mlflow.CreateRegisteredMo" +
+      "del.Response\"N\362\206\031J\n.\n\004POST\022 /mlflow/regi" +
+      "stered-models/create\032\004\010\002\020\000\020\001*\026Create Reg" +
+      "isteredModel\022\256\001\n\025renameRegisteredModel\022\035" +
+      ".mlflow.RenameRegisteredModel\032&.mlflow.R" +
+      "enameRegisteredModel.Response\"N\362\206\031J\n.\n\004P" +
+      "OST\022 /mlflow/registered-models/rename\032\004\010" +
+      "\002\020\000\020\001*\026Rename RegisteredModel\022\257\001\n\025update" +
+      "RegisteredModel\022\035.mlflow.UpdateRegistere" +
+      "dModel\032&.mlflow.UpdateRegisteredModel.Re" +
+      "sponse\"O\362\206\031K\n/\n\005PATCH\022 /mlflow/registere" +
+      "d-models/update\032\004\010\002\020\000\020\001*\026Update Register" +
+      "edModel\022\260\001\n\025deleteRegisteredModel\022\035.mlfl" +
+      "ow.DeleteRegisteredModel\032&.mlflow.Delete" +
+      "RegisteredModel.Response\"P\362\206\031L\n0\n\006DELETE" +
+      "\022 /mlflow/registered-models/delete\032\004\010\002\020\000" +
+      "\020\001*\026Delete RegisteredModel\022\236\001\n\022getRegist" +
+      "eredModel\022\032.mlflow.GetRegisteredModel\032#." +
+      "mlflow.GetRegisteredModel.Response\"G\362\206\031C" +
+      "\n*\n\003GET\022\035/mlflow/registered-models/get\032\004" +
+      "\010\002\020\000\020\001*\023Get RegisteredModel\022\261\001\n\026searchRe" +
+      "gisteredModels\022\036.mlflow.SearchRegistered" +
+      "Models\032\'.mlflow.SearchRegisteredModels.R" +
+      "esponse\"N\362\206\031J\n-\n\003GET\022 /mlflow/registered" +
+      "-models/search\032\004\010\002\020\000\020\001*\027Search Registere" +
+      "dModels\022\357\001\n\021getLatestVersions\022\031.mlflow.G" +
+      "etLatestVersions\032\".mlflow.GetLatestVersi" +
+      "ons.Response\"\232\001\362\206\031\225\001\n;\n\004POST\022-/mlflow/re" +
+      "gistered-models/get-latest-versions\032\004\010\002\020" +
+      "\000\n:\n\003GET\022-/mlflow/registered-models/get-" +
+      "latest-versions\032\004\010\002\020\000\020\001*\030Get Latest Mode" +
+      "lVersions\022\237\001\n\022createModelVersion\022\032.mlflo" +
+      "w.CreateModelVersion\032#.mlflow.CreateMode" +
+      "lVersion.Response\"H\362\206\031D\n+\n\004POST\022\035/mlflow" +
+      "/model-versions/create\032\004\010\002\020\000\020\001*\023Create M" +
+      "odelVersion\022\240\001\n\022updateModelVersion\022\032.mlf" +
+      "low.UpdateModelVersion\032#.mlflow.UpdateMo" +
+      "delVersion.Response\"I\362\206\031E\n,\n\005PATCH\022\035/mlf" +
+      "low/model-versions/update\032\004\010\002\020\000\020\001*\023Updat" +
+      "e ModelVersion\022\316\001\n\033transitionModelVersio" +
+      "nStage\022#.mlflow.TransitionModelVersionSt" +
+      "age\032,.mlflow.TransitionModelVersionStage" +
+      ".Response\"\\\362\206\031X\n5\n\004POST\022\'/mlflow/model-v" +
+      "ersions/transition-stage\032\004\010\002\020\000\020\001*\035Transi" +
+      "tion ModelVersion Stage\022\241\001\n\022deleteModelV" +
+      "ersion\022\032.mlflow.DeleteModelVersion\032#.mlf" +
+      "low.DeleteModelVersion.Response\"J\362\206\031F\n-\n" +
+      "\006DELETE\022\035/mlflow/model-versions/delete\032\004" +
+      "\010\002\020\000\020\001*\023Delete ModelVersion\022\217\001\n\017getModel" +
+      "Version\022\027.mlflow.GetModelVersion\032 .mlflo" +
+      "w.GetModelVersion.Response\"A\362\206\031=\n\'\n\003GET\022" +
+      "\032/mlflow/model-versions/get\032\004\010\002\020\000\020\001*\020Get" +
+      " ModelVersion\022\246\001\n\023searchModelVersions\022\033." +
+      "mlflow.SearchModelVersions\032$.mlflow.Sear" +
+      "chModelVersions.Response\"L\362\206\031D\n*\n\003GET\022\035/" +
+      "mlflow/model-versions/search\032\004\010\002\020\000\020\001*\024Se" +
+      "arch ModelVersions\272\214\031\000\022\330\001\n\032getModelVersi" +
+      "onDownloadUri\022\".mlflow.GetModelVersionDo" +
+      "wnloadUri\032+.mlflow.GetModelVersionDownlo" +
+      "adUri.Response\"i\362\206\031e\n4\n\003GET\022\'/mlflow/mod" +
+      "el-versions/get-download-uri\032\004\010\002\020\000\020\001*+Ge" +
+      "t Download URI For ModelVersion Artifact" +
+      "s\022\261\001\n\025setRegisteredModelTag\022\035.mlflow.Set" +
+      "RegisteredModelTag\032&.mlflow.SetRegistere" +
+      "dModelTag.Response\"Q\362\206\031M\n/\n\004POST\022!/mlflo" +
+      "w/registered-models/set-tag\032\004\010\002\020\000\020\001*\030Set" +
+      " Registered Model Tag\022\242\001\n\022setModelVersio" +
+      "nTag\022\032.mlflow.SetModelVersionTag\032#.mlflo" +
+      "w.SetModelVersionTag.Response\"K\362\206\031G\n,\n\004P" +
+      "OST\022\036/mlflow/model-versions/set-tag\032\004\010\002\020" +
+      "\000\020\001*\025Set Model Version Tag\022\302\001\n\030deleteReg" +
+      "isteredModelTag\022 .mlflow.DeleteRegistere" +
+      "dModelTag\032).mlflow.DeleteRegisteredModel" +
+      "Tag.Response\"Y\362\206\031U\n4\n\006DELETE\022$/mlflow/re" +
+      "gistered-models/delete-tag\032\004\010\002\020\000\020\001*\033Dele" +
+      "te Registered Model Tag\022\263\001\n\025deleteModelV" +
+      "ersionTag\022\035.mlflow.DeleteModelVersionTag" +
+      "\032&.mlflow.DeleteModelVersionTag.Response" +
+      "\"S\362\206\031O\n1\n\006DELETE\022!/mlflow/model-versions" +
+      "/delete-tag\032\004\010\002\020\000\020\001*\030Delete Model Versio" +
+      "n Tag\022\267\001\n\027setRegisteredModelAlias\022\037.mlfl" +
+      "ow.SetRegisteredModelAlias\032(.mlflow.SetR" +
+      "egisteredModelAlias.Response\"Q\362\206\031M\n-\n\004PO" +
+      "ST\022\037/mlflow/registered-models/alias\032\004\010\002\020" +
+      "\000\020\001*\032Set Registered Model Alias\022\305\001\n\032dele" +
+      "teRegisteredModelAlias\022\".mlflow.DeleteRe" +
+      "gisteredModelAlias\032+.mlflow.DeleteRegist" +
+      "eredModelAlias.Response\"V\362\206\031R\n/\n\006DELETE\022" +
+      "\037/mlflow/registered-models/alias\032\004\010\002\020\000\020\001" +
+      "*\035Delete Registered Model Alias\022\263\001\n\026getM" +
+      "odelVersionByAlias\022\036.mlflow.GetModelVers" +
+      "ionByAlias\032\'.mlflow.GetModelVersionByAli" +
+      "as.Response\"P\362\206\031L\n,\n\003GET\022\037/mlflow/regist" +
+      "ered-models/alias\032\004\010\002\020\000\020\001*\032Get Model Ver" +
+      "sion by AliasB!\n\024org.mlflow.api.proto\220\001\001" +
+      "\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -50416,19 +53441,31 @@ public final class ModelRegistry {
     internal_static_mlflow_RegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RegisteredModel_descriptor,
-        new java.lang.String[] { "Name", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "Description", "LatestVersions", "Tags", "Aliases", });
+        new java.lang.String[] { "Name", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "Description", "LatestVersions", "Tags", "Aliases", "DeploymentJobId", "DeploymentJobState", });
     internal_static_mlflow_ModelVersion_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_ModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ModelVersion_descriptor,
-        new java.lang.String[] { "Name", "Version", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "CurrentStage", "Description", "Source", "RunId", "Status", "StatusMessage", "Tags", "RunLink", "Aliases", "ModelId", "ModelParams", "ModelMetrics", });
-    internal_static_mlflow_CreateRegisteredModel_descriptor =
+        new java.lang.String[] { "Name", "Version", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "CurrentStage", "Description", "Source", "RunId", "Status", "StatusMessage", "Tags", "RunLink", "Aliases", "ModelId", "ModelParams", "ModelMetrics", "DeploymentJobState", });
+    internal_static_mlflow_DeploymentJobConnection_descriptor =
       getDescriptor().getMessageTypes().get(2);
+    internal_static_mlflow_DeploymentJobConnection_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DeploymentJobConnection_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_ModelVersionDeploymentJobState_descriptor =
+      getDescriptor().getMessageTypes().get(3);
+    internal_static_mlflow_ModelVersionDeploymentJobState_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_ModelVersionDeploymentJobState_descriptor,
+        new java.lang.String[] { "JobId", "RunId", "JobState", "RunState", "CurrentTaskName", });
+    internal_static_mlflow_CreateRegisteredModel_descriptor =
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_CreateRegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateRegisteredModel_descriptor,
-        new java.lang.String[] { "Name", "Tags", "Description", });
+        new java.lang.String[] { "Name", "Tags", "Description", "DeploymentJobId", });
     internal_static_mlflow_CreateRegisteredModel_Response_descriptor =
       internal_static_mlflow_CreateRegisteredModel_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_CreateRegisteredModel_Response_fieldAccessorTable = new
@@ -50436,7 +53473,7 @@ public final class ModelRegistry {
         internal_static_mlflow_CreateRegisteredModel_Response_descriptor,
         new java.lang.String[] { "RegisteredModel", });
     internal_static_mlflow_RenameRegisteredModel_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_RenameRegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RenameRegisteredModel_descriptor,
@@ -50448,11 +53485,11 @@ public final class ModelRegistry {
         internal_static_mlflow_RenameRegisteredModel_Response_descriptor,
         new java.lang.String[] { "RegisteredModel", });
     internal_static_mlflow_UpdateRegisteredModel_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_UpdateRegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateRegisteredModel_descriptor,
-        new java.lang.String[] { "Name", "Description", });
+        new java.lang.String[] { "Name", "Description", "DeploymentJobId", });
     internal_static_mlflow_UpdateRegisteredModel_Response_descriptor =
       internal_static_mlflow_UpdateRegisteredModel_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_UpdateRegisteredModel_Response_fieldAccessorTable = new
@@ -50460,7 +53497,7 @@ public final class ModelRegistry {
         internal_static_mlflow_UpdateRegisteredModel_Response_descriptor,
         new java.lang.String[] { "RegisteredModel", });
     internal_static_mlflow_DeleteRegisteredModel_descriptor =
-      getDescriptor().getMessageTypes().get(5);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_DeleteRegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteRegisteredModel_descriptor,
@@ -50472,7 +53509,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteRegisteredModel_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetRegisteredModel_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_GetRegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetRegisteredModel_descriptor,
@@ -50484,7 +53521,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetRegisteredModel_Response_descriptor,
         new java.lang.String[] { "RegisteredModel", });
     internal_static_mlflow_SearchRegisteredModels_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_SearchRegisteredModels_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRegisteredModels_descriptor,
@@ -50496,7 +53533,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SearchRegisteredModels_Response_descriptor,
         new java.lang.String[] { "RegisteredModels", "NextPageToken", });
     internal_static_mlflow_GetLatestVersions_descriptor =
-      getDescriptor().getMessageTypes().get(8);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_mlflow_GetLatestVersions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetLatestVersions_descriptor,
@@ -50508,7 +53545,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetLatestVersions_Response_descriptor,
         new java.lang.String[] { "ModelVersions", });
     internal_static_mlflow_CreateModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(9);
+      getDescriptor().getMessageTypes().get(11);
     internal_static_mlflow_CreateModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateModelVersion_descriptor,
@@ -50520,7 +53557,7 @@ public final class ModelRegistry {
         internal_static_mlflow_CreateModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_UpdateModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(10);
+      getDescriptor().getMessageTypes().get(12);
     internal_static_mlflow_UpdateModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateModelVersion_descriptor,
@@ -50532,7 +53569,7 @@ public final class ModelRegistry {
         internal_static_mlflow_UpdateModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_TransitionModelVersionStage_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(13);
     internal_static_mlflow_TransitionModelVersionStage_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_TransitionModelVersionStage_descriptor,
@@ -50544,7 +53581,7 @@ public final class ModelRegistry {
         internal_static_mlflow_TransitionModelVersionStage_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_DeleteModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(12);
+      getDescriptor().getMessageTypes().get(14);
     internal_static_mlflow_DeleteModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteModelVersion_descriptor,
@@ -50556,7 +53593,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteModelVersion_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(13);
+      getDescriptor().getMessageTypes().get(15);
     internal_static_mlflow_GetModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersion_descriptor,
@@ -50568,7 +53605,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_SearchModelVersions_descriptor =
-      getDescriptor().getMessageTypes().get(14);
+      getDescriptor().getMessageTypes().get(16);
     internal_static_mlflow_SearchModelVersions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchModelVersions_descriptor,
@@ -50580,7 +53617,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SearchModelVersions_Response_descriptor,
         new java.lang.String[] { "ModelVersions", "NextPageToken", });
     internal_static_mlflow_GetModelVersionDownloadUri_descriptor =
-      getDescriptor().getMessageTypes().get(15);
+      getDescriptor().getMessageTypes().get(17);
     internal_static_mlflow_GetModelVersionDownloadUri_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersionDownloadUri_descriptor,
@@ -50592,31 +53629,31 @@ public final class ModelRegistry {
         internal_static_mlflow_GetModelVersionDownloadUri_Response_descriptor,
         new java.lang.String[] { "ArtifactUri", });
     internal_static_mlflow_ModelVersionTag_descriptor =
-      getDescriptor().getMessageTypes().get(16);
+      getDescriptor().getMessageTypes().get(18);
     internal_static_mlflow_ModelVersionTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ModelVersionTag_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_mlflow_ModelParam_descriptor =
-      getDescriptor().getMessageTypes().get(17);
+      getDescriptor().getMessageTypes().get(19);
     internal_static_mlflow_ModelParam_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ModelParam_descriptor,
         new java.lang.String[] { "Name", "Value", });
     internal_static_mlflow_ModelMetric_descriptor =
-      getDescriptor().getMessageTypes().get(18);
+      getDescriptor().getMessageTypes().get(20);
     internal_static_mlflow_ModelMetric_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ModelMetric_descriptor,
         new java.lang.String[] { "Key", "Value", "Timestamp", "Step", "DatasetName", "DatasetDigest", "ModelId", "RunId", });
     internal_static_mlflow_RegisteredModelTag_descriptor =
-      getDescriptor().getMessageTypes().get(19);
+      getDescriptor().getMessageTypes().get(21);
     internal_static_mlflow_RegisteredModelTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RegisteredModelTag_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_mlflow_SetRegisteredModelTag_descriptor =
-      getDescriptor().getMessageTypes().get(20);
+      getDescriptor().getMessageTypes().get(22);
     internal_static_mlflow_SetRegisteredModelTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetRegisteredModelTag_descriptor,
@@ -50628,7 +53665,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SetRegisteredModelTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_SetModelVersionTag_descriptor =
-      getDescriptor().getMessageTypes().get(21);
+      getDescriptor().getMessageTypes().get(23);
     internal_static_mlflow_SetModelVersionTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetModelVersionTag_descriptor,
@@ -50640,7 +53677,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SetModelVersionTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_DeleteRegisteredModelTag_descriptor =
-      getDescriptor().getMessageTypes().get(22);
+      getDescriptor().getMessageTypes().get(24);
     internal_static_mlflow_DeleteRegisteredModelTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteRegisteredModelTag_descriptor,
@@ -50652,7 +53689,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteRegisteredModelTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_DeleteModelVersionTag_descriptor =
-      getDescriptor().getMessageTypes().get(23);
+      getDescriptor().getMessageTypes().get(25);
     internal_static_mlflow_DeleteModelVersionTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteModelVersionTag_descriptor,
@@ -50664,13 +53701,13 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteModelVersionTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_RegisteredModelAlias_descriptor =
-      getDescriptor().getMessageTypes().get(24);
+      getDescriptor().getMessageTypes().get(26);
     internal_static_mlflow_RegisteredModelAlias_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RegisteredModelAlias_descriptor,
         new java.lang.String[] { "Alias", "Version", });
     internal_static_mlflow_SetRegisteredModelAlias_descriptor =
-      getDescriptor().getMessageTypes().get(25);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_mlflow_SetRegisteredModelAlias_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetRegisteredModelAlias_descriptor,
@@ -50682,7 +53719,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_DeleteRegisteredModelAlias_descriptor =
-      getDescriptor().getMessageTypes().get(26);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_DeleteRegisteredModelAlias_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteRegisteredModelAlias_descriptor,
@@ -50694,7 +53731,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetModelVersionByAlias_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(29);
     internal_static_mlflow_GetModelVersionByAlias_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersionByAlias_descriptor,

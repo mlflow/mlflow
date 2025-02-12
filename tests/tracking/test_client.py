@@ -1286,7 +1286,9 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     )
     client.create_registered_model(name="name", description="description")
     # verify that registry store was called with tags=[]
-    mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description", deployment_job_id=None)
+    mock_registry_store.create_registered_model.assert_called_once_with(
+        "name", [], "description", deployment_job_id=None
+    )
 
 
 def test_await_model_version_creation(mock_registry_store):
