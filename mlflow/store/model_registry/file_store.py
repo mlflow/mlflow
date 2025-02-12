@@ -36,6 +36,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.store.model_registry.prompt.utils import add_prompt_filter_string
 from mlflow.utils.file_utils import (
     contains_path_separator,
     contains_percent,
@@ -374,6 +375,8 @@ class FileStore(AbstractStore):
                 f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
+
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
 
         registered_models = self._list_all_registered_models()
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)
@@ -882,6 +885,7 @@ class FileStore(AbstractStore):
                 file_mv.to_mlflow_entity()
                 for file_mv in self._list_file_model_versions_under_path(path)
             )
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
         sorted_mvs = SearchModelVersionUtils.sort(

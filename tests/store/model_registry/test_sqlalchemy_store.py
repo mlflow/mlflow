@@ -9,6 +9,7 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
     MLFLOW_TRACKING_URI,
@@ -1762,3 +1763,143 @@ def test_copy_model_version(store, copy_to_same_model):
     double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
     assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+
+
+def test_search_prompts(store):
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_registered_model(
+        "prompt_2",
+        tags=[
+            RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            RegisteredModelTag(key="fruit", value="apple"),
+        ],
+    )
+
+    # By default, should not return prompts
+    rms = store.search_registered_models(max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
+    assert len(rms) == 0
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    # Search for prompts
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(rms) == 2
+    assert {rm.name for rm in rms} == {"prompt_1", "prompt_2"}
+
+    rms = store.search_registered_models(
+        filter_string="name = 'prompt_1' and tags.`mlflow.prompt.is_prompt` = 'true'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_1"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_2"
+
+
+def test_search_prompts_versions(store):
+    # A Model
+    store.create_registered_model("model")
+    store.create_model_version(
+        "model", "1", "dummy_source", tags=[ModelVersionTag(key="fruit", value="apple")]
+    )
+
+    # A Prompt with 1 version
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "prompt_1", "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+
+    # A Prompt with 2 versions
+    store.create_registered_model(
+        "prompt_2",
+        tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="apple"),
+        ],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "2",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="orange"),
+        ],
+    )
+
+    # Searching model versions should not return prompts by default either
+    mvs = store.search_model_versions(max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    # Search for prompts via search_model_versions
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(mvs) == 3
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and name = 'prompt_2'",
+        max_results=10,
+    )
+    assert len(mvs) == 2
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "prompt_2"
