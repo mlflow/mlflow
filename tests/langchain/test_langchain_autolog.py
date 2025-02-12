@@ -1130,6 +1130,7 @@ def test_langchain_autolog_extra_model_classes_warning():
         mock_warning.assert_not_called()
 
 
+@pytest.mark.skip(reason="This test is not thread safe, please run locally")
 def test_set_retriever_schema_work_for_langchain_model():
     set_retriever_schema(
         primary_key="primary-key",

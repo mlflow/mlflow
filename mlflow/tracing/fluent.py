@@ -124,15 +124,15 @@ def trace(
         :header-rows: 1
 
         * - Function Type
-        - Supported
+          - Supported
         * - Sync
-        - ✅
+          - ✅
         * - Async
-        - ✅ (>= 2.16.0)
+          - ✅ (>= 2.16.0)
         * - Generator
-        - ✅ (>= 2.20.2)
+          - ✅ (>= 2.20.2)
         * - Async Generator
-        - ✅ (>= 2.20.2)
+          - ✅ (>= 2.20.2)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
