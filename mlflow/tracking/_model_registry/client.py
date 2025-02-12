@@ -109,7 +109,6 @@ class ModelRegistryClient:
         max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-        is_prompt=False,
     ):
         """Search for registered models in backend that satisfy the filter criteria.
 
@@ -120,9 +119,6 @@ class ModelRegistryClient:
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_registered_models`` call.
-            is_prompt: Whether or not the request is for searching models or prompts. Prompt
-                is a special type of model version used for GenAI applications, with a special
-                tag "mlflow.prompt.is_prompt".
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
@@ -131,7 +127,7 @@ class ModelRegistryClient:
 
         """
         # Adjust filter string to include or exclude prompts
-        filter_string = add_prompt_filter_string(filter_string, is_prompt)
+        filter_string = add_prompt_filter_string(filter_string, False)
 
         return self.store.search_registered_models(filter_string, max_results, order_by, page_token)
 
