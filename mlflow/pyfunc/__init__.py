@@ -2184,9 +2184,10 @@ def spark_udf(
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     if prebuilt_env_uri:
-        if env_manager is not None:
+        if env_manager not in (None, _EnvManager.VIRTUALENV):
             raise MlflowException(
-                "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter can't be set."
+                "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter must "
+                "be either None or 'virtualenv'."
             )
         env_manager = _EnvManager.VIRTUALENV
     else:
