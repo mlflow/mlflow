@@ -99,6 +99,7 @@ def test_creation_and_hydration():
         "model_id": None,
         "metrics": None,
         "params": None,
+        "deployment_job_state": None,
     }
     model_version_as_dict = dict(mvd)
     assert model_version_as_dict == expected_dict
@@ -169,7 +170,7 @@ def test_string_repr():
     )
 
     assert str(model_version) == (
-        "<ModelVersion: aliases=[], creation_timestamp=12, current_stage='Archived', "
+        "<ModelVersion: aliases=[], creation_timestamp=12, current_stage='Archived', deployment_job_state=None, "
         "description='This is a test model.', last_updated_timestamp=100, metrics=None, "
         "model_id=None, name='myname', params=None, run_id='some run', "
         "run_link='http://localhost:5000/path/to/run', source='path/to/a/notebook', "

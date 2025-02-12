@@ -63,7 +63,7 @@ def test_create_registered_model(mock_store):
         "Model 1", tags=tags, description=description
     )
     result = newModelRegistryClient().create_registered_model("Model 1", tags_dict, description)
-    mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description, None)
     assert result.name == "Model 1"
     assert result.tags == tags_dict
 
@@ -79,7 +79,9 @@ def test_update_registered_model(mock_store):
     result = newModelRegistryClient().update_registered_model(
         name=name, description=new_description
     )
-    mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
+    mock_store.update_registered_model.assert_called_with(
+        name=name, description=new_description, deployment_job_id=None
+    )
     assert result.description == new_description
 
     mock_store.update_registered_model.return_value = RegisteredModel(
@@ -89,7 +91,7 @@ def test_update_registered_model(mock_store):
         name=name, description=new_description_2
     )
     mock_store.update_registered_model.assert_called_with(
-        name=name, description="New Description 2"
+        name=name, description="New Description 2", deployment_job_id=None
     )
     assert result.description == new_description_2
 

@@ -7,6 +7,23 @@ from mlflow.server.graphql.graphql_errors import ApiError
 from mlflow.utils.proto_json_utils import parse_dict
 
 
+class MlflowDeploymentJobConnectionState(graphene.Enum):
+    DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 1
+    NOT_SET_UP = 2
+    CONNECTED = 3
+    NOT_FOUND = 4
+    REQUIRED_PARAMETERS_CHANGED = 5
+
+
+class MlflowModelVersionDeploymentJobStateDeploymentJobRunState(graphene.Enum):
+    DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 1
+    NO_VALID_DEPLOYMENT_JOB_FOUND = 2
+    RUNNING = 3
+    SUCCEEDED = 4
+    FAILED = 5
+    PENDING = 6
+
+
 class MlflowModelVersionStatus(graphene.Enum):
     PENDING_REGISTRATION = 1
     FAILED_REGISTRATION = 2
@@ -25,6 +42,14 @@ class MlflowViewType(graphene.Enum):
     ACTIVE_ONLY = 1
     DELETED_ONLY = 2
     ALL = 3
+
+
+class MlflowModelVersionDeploymentJobState(graphene.ObjectType):
+    job_id = graphene.String()
+    run_id = graphene.String()
+    job_state = graphene.Field(MlflowDeploymentJobConnectionState)
+    run_state = graphene.Field(MlflowModelVersionDeploymentJobStateDeploymentJobRunState)
+    current_task_name = graphene.String()
 
 
 class MlflowModelMetric(graphene.ObjectType):
@@ -66,6 +91,7 @@ class MlflowModelVersion(graphene.ObjectType):
     model_id = graphene.String()
     model_params = graphene.List(graphene.NonNull(MlflowModelParam))
     model_metrics = graphene.List(graphene.NonNull(MlflowModelMetric))
+    deployment_job_state = graphene.Field(MlflowModelVersionDeploymentJobState)
 
 
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
