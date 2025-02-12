@@ -1803,6 +1803,7 @@ def evaluate(  # noqa: D417
         baseline_result = _evaluate(
             model=baseline_model,
             model_type=model_type,
+            model_id=model_id,
             dataset=dataset,
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
