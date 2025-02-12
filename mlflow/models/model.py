@@ -1242,8 +1242,7 @@ def update_model_requirements(
                 INVALID_PARAMETER_VALUE,
             )
         resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-
-    if RunsArtifactRepository.is_runs_uri(model_uri):
+    elif RunsArtifactRepository.is_runs_uri(model_uri):
         resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
 
     _logger.info(f"Retrieving model requirements files from {resolved_uri}...")
