@@ -120,7 +120,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(artifact_uri)
             or mlflow.tracking.get_tracking_uri()
         )
-        self.creds = get_databricks_host_creds(self.databricks_profile_uri)
         self.resource = self._extract_resource(self.artifact_uri)
 
     def _extract_resource(self, artifact_uri) -> _Resource:
