@@ -837,22 +837,20 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
             artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
+                "sk_model": sklearn_model_info.model_uri,
             },
             python_model=main_scoped_model_class(predict_fn=None),
         )
-        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+    _assert_pip_requirements(
+        pyfunc_model_info.model_uri, mlflow.pyfunc.get_default_pip_requirements()
+    )
 
 
 def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
