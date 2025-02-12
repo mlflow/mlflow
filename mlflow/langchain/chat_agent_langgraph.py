@@ -48,11 +48,12 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
 @experimental
 class ChatAgentState(TypedDict):
     """
-    Helper class to add ``custom_outputs`` to the state of a LangGraph agent. ``custom_outputs``
-    is overwritten if it already exists.
+    Helper class to add ``custom_inputs`` and ``custom_outputs`` to the state of a LangGraph agent.
+    ``custom_outputs`` is overwritten if it already exists.
     """
 
     messages: Annotated[list, _add_agent_messages]
+    custom_inputs: Optional[dict[str, Any]]
     custom_outputs: Optional[dict[str, Any]]
 
 
