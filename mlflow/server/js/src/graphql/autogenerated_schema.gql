@@ -193,6 +193,7 @@ type MlflowModelVersion {
   aliases: [String]
   modelId: String
   modelParams: [MlflowModelParam!]
+  modelMetrics: [MlflowModelMetric!]
 }
 
 enum MlflowModelVersionStatus {
@@ -209,6 +210,17 @@ type MlflowModelVersionTag {
 type MlflowModelParam {
   name: String
   value: String
+}
+
+type MlflowModelMetric {
+  key: String
+  value: Float
+  timestamp: LongString
+  step: LongString
+  datasetName: String
+  datasetDigest: String
+  modelId: String
+  runId: String
 }
 
 input MlflowGetRunInput {
