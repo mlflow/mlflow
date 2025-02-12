@@ -18,12 +18,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import model_validator
-else:
-    from pydantic import root_validator
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ChatAgentMessage(BaseModel):
@@ -55,7 +50,7 @@ class ChatAgentMessage(BaseModel):
 
     if IS_PYDANTIC_V2_OR_NEWER:
 
-        @model_validator(mode="after")
+        @model_validator
         def check_content_and_tool_calls(cls, chat_agent_msg):
             """
             Ensure at least one of 'content' or 'tool_calls' is set.
@@ -65,7 +60,7 @@ class ChatAgentMessage(BaseModel):
             return chat_agent_msg
     else:
 
-        @root_validator
+        @model_validator
         def check_content_and_tool_calls(cls, values):
             """
             Ensure at least one of 'content' or 'tool_calls' is set.

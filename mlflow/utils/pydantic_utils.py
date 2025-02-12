@@ -7,16 +7,33 @@ from pydantic import BaseModel
 IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
-def validator(field:str, pre: bool=True):
+def field_validator(field: str, mode: str = "before"):
     def decorator(func: Callable) -> Callable:
         if IS_PYDANTIC_V2_OR_NEWER:
-            from pydantic import field_validator as pydantic_validator 
-            return pydantic_validator(field, mode="before" if pre else "after")(func)
+            from pydantic import field_validator as pydantic_field_validator
+
+            return pydantic_field_validator(field, mode=mode)(func)
         else:
-            from pydantic import validator as pydantic_validator
-            return pydantic_validator(field, pre=True)(func) # 
+            from pydantic import validator as pydantic_field_validator
+
+            return pydantic_field_validator(field, pre=mode == "before")(func)
 
     return decorator
+
+
+def model_validator(mode: str):
+    def decorator(func: Callable) -> Callable:
+        if IS_PYDANTIC_V2_OR_NEWER:
+            from pydantic import model_validator as pydantic_model_validator
+
+            return pydantic_model_validator(mode=mode)(func)
+        else:
+            from pydantic import root_validator
+
+            return root_validator(pre=mode == "before")(func)
+
+    return decorator
+
 
 def model_dump_compat(pydantic_model: BaseModel, **kwargs: Any) -> dict[str, Any]:
     """
