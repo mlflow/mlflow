@@ -13,6 +13,7 @@ from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
 from mlflow.store.artifact.utils.models import (
+    _parse_model_id_if_present,
     get_model_name_and_version,
     is_using_databricks_registry,
 )
@@ -98,6 +99,14 @@ class ModelsArtifactRepository(ArtifactRepository):
             base_part = f"models://{netloc}" if netloc else "models:"
             return base_part + "/".join(model_name_and_version), artifact_path
         return uri, ""
+
+    @staticmethod
+    def _is_logged_model_uri(uri):
+        """
+        Get the model name and version or model ID from the given URI.
+        """
+        model_id = _parse_model_id_if_present(uri)
+        return model_id is not None
 
     @staticmethod
     def _get_model_uri_infos(uri):
