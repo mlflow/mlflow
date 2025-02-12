@@ -8,14 +8,23 @@ client = mlflow.MlflowClient()
 
 with mlflow.start_run():
     model = LinearRegression().fit([[1], [2]], [3, 4])
-    model_info = mlflow.sklearn.log_model(model, "model", params={
+    model_info = mlflow.sklearn.log_model(
+        model,
+        "model",
+        params={
             "alpha": 0.5,
             "l1_ratio": 0.5,
-        })
-    model_info_2 = mlflow.sklearn.log_model(model, "model", step=2, params={
+        },
+    )
+    model_info_2 = mlflow.sklearn.log_model(
+        model,
+        "model",
+        step=2,
+        params={
             "alpha": 0.5,
             "l1_ratio": 0.5,
-        })
+        },
+    )
 
 mlflow.register_model(model_info.model_uri, name="model")
 m = mlflow.get_logged_model(model_info.model_id)
