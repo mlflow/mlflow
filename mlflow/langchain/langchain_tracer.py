@@ -1,5 +1,6 @@
 import ast
 import logging
+from contextvars import ContextVar
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
@@ -14,7 +15,6 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
-from langchain_core.runnables import RunnableSequence
 from tenacity import RetryCallState
 
 import mlflow
@@ -39,38 +39,43 @@ _logger = logging.getLogger(__name__)
 VS_INDEX_ID_COL = "chunk_id"
 VS_INDEX_DOC_URL_COL = "doc_uri"
 
+_should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
 
-def should_attach_span_to_context(func_name: str, instance: Any) -> bool:
+
+def patched_callback_manager_init(original, self, *args, **kwargs):
+    original(self, *args, **kwargs)
+
+    for handler in self.inheritable_handlers:
+        if isinstance(handler, MlflowLangchainTracer):
+            # If the tracer is already in the inheritable handlers, we don't need to add it again.
+            return
+    else:
+        # TODO: How to handle batch() thing?
+        self.add_handler(MlflowLangchainTracer())
+
+
+def patched_runnable_sequence_batch(original, self, *args, **kwargs):
     """
-    Determine whether the span should be attached to the context during the execution
-    of the given function.
+    Patch to terminate span context attachment during batch execution.
 
-    Spans should generally be attached to the context so that
-    they can work with fluent APIs or other auto-tracing integrations. However, there
-    are some tricky cases where attaching the span to the context can cause issues.
-
-    Args:
-        func_name: The name of the function (method) for which the span is being created.
-        instance: The instance of LangChain class that the function is being called on.
-
-    Returns:
-        True if the span should be attached to the context.
+    RunnableSequence's batch() methods are implemented in a peculiar way
+    that iterates on steps->items sequentially within the same thread. For example, if a
+    sequence has 2 steps and the batch size is 3, the execution flow will be:
+      - Step 1 for item 1
+      - Step 1 for item 2
+      - Step 1 for item 3
+      - Step 2 for item 1
+      - Step 2 for item 2
+      - Step 2 for item 3
+    Due to this behavior, we cannot attach the span to the context for this particular
+    API, otherwise spans for different inputs will be mixed up.
     """
-    # NB: RunnableSequence's batch() methods are implemented in a peculiar way
-    # that iterates on steps->items sequentially within the same thread. For example, if a
-    # sequence has 2 steps and the batch size is 3, the execution flow will be:
-    #  - Step 1 for item 1
-    #  - Step 1 for item 2
-    #  - Step 1 for item 3
-    #  - Step 2 for item 1
-    #  - Step 2 for item 2
-    #  - Step 2 for item 3
-    # Due to this behavior, we cannot attach the span to the context for this particular
-    # API, otherwise spans for different inputs will be mixed up.
-    if isinstance(instance, RunnableSequence) and func_name == "batch":
-        return False
-
-    return True
+    original_state = _should_attach_span_to_context.get()
+    _should_attach_span_to_context.set(False)
+    try:
+        return original(self, *args, **kwargs)
+    finally:
+        _should_attach_span_to_context.set(original_state)
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -84,16 +89,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
-        set_span_in_context: If True, the span created by this callback will be set as
-            the active span and attached to the current context. This will allow using
-            fluent APIs or other auto-tracing integrations with this callback. If set
-            to False, the span will not be set as active span.
     """
 
     def __init__(
         self,
         prediction_context: Optional[Context] = None,
-        set_span_in_context: bool = True,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
@@ -102,7 +102,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
-        self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
@@ -146,7 +145,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 )
 
             # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span) if self._set_span_in_context else None
+            token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
             self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
@@ -184,7 +183,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         finally:
             # Span should be detached from the context even when the client.end_span fails
             st = self._run_span_mapping.pop(str(run_id), None)
-            if self._set_span_in_context:
+            if _should_attach_span_to_context.get():
                 if st.token is None:
                     raise MlflowException(
                         f"Token for span {st.span} is not found. "

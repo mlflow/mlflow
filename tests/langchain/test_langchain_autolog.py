@@ -532,7 +532,7 @@ def test_agent_autolog(async_logging_enabled):
     assert len(traces) == 4
     for trace in traces:
         spans = [(s.name, s.span_type) for s in trace.data.spans]
-        assert len(spans) == 16
+        assert len(spans) == 18
         assert trace.data.spans[0].inputs == input
         assert trace.data.spans[0].outputs == expected_output
 
