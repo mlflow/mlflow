@@ -261,7 +261,7 @@ def test_langgraph_chat_agent_custom_inputs():
     for chunk, (role, expected_content) in zip(response, expected_messages):
         assert chunk["delta"]["content"] == expected_content
         assert chunk["delta"]["role"] == role
-        if "custom_outputs" in chunk and "asdf" in chunk["custom_outputs"]:
+        if "custom_outputs" in chunk:
             assert chunk["custom_outputs"]["asdf"] == "jkl;"
             counter += 1
     assert counter == 1
