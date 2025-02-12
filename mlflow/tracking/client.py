@@ -3122,6 +3122,7 @@ class MlflowClient:
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -3223,6 +3224,7 @@ class MlflowClient:
         Args:
             name: Name of the registered model to update.
             description: (Optional) New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.

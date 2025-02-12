@@ -96,7 +96,8 @@ def _parse_model_uri(uri) -> ParsedModelUri:
 
 def _parse_model_id_if_present(possible_model_uri: Union[str, Path]) -> Optional[str]:
     """
-    Parses the model ID from the given string. If the string represents a UC model URI, we get the model version to extact the model ID. If the string is not a models:/ URI, returns None.
+    Parses the model ID from the given string. If the string represents a UC model URI, we get the 
+    model version to extract the model ID. If the string is not a models:/ URI, returns None.
 
     Args:
         possible_model_uri: The string that may be a models:/ URI.
