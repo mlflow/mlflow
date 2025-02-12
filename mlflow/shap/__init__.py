@@ -350,6 +350,7 @@ def log_explainer(
     """
 
     Model.log(
+        artifact_path=None,
         name=name,
         flavor=mlflow.shap,
         explainer=explainer,

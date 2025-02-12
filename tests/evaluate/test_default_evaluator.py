@@ -168,7 +168,6 @@ def test_regressor_evaluation(
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert set(artifacts) == {
-        "explainer",
         "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
@@ -275,7 +274,6 @@ def test_multi_classifier_evaluation(
         "roc_curve_plot.png",
         "precision_recall_curve_plot.png",
         "shap_feature_importance_plot.png",
-        "explainer",
         "confusion_matrix.png",
         "shap_summary_plot.png",
     }
@@ -629,16 +627,19 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
         )
-    run_data = get_run_data(run.info.run_id)
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
     assert {
         # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
         # "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
-        "explainer",
     }.issubset(run_data.artifacts)
 
-    explainer = mlflow.shap.load_explainer(f"runs:/{run.info.run_id}/explainer")
+    model = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run_id}' and name='explainer'", output_format="list"
+    )[0]
+    explainer = mlflow.shap.load_explainer(model.model_id)
     assert isinstance(explainer, _PatchedKernelExplainer)
 
 
@@ -4166,24 +4167,24 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     xgb_model = xgboost.XGBClassifier()
     with mlflow.start_run():
         xgb_model.fit(X_train, y_train)
+        model_info = mlflow.xgboost.log_model(xgb_model, name="xgboost", input_example=X_train)
 
-        eval_data = X_test
-        eval_data["label"] = y_test
+    eval_data = X_test
+    eval_data["label"] = y_test
 
-        model_uri = mlflow.get_artifact_uri("model")
-        with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
-            mlflow.evaluate(
-                model_uri,
-                eval_data,
-                targets="label",
-                model_type="classifier",
-                evaluators=["default"],
-            )
-            assert not any(
-                "Shap evaluation failed." in call_arg[0]
-                for call_arg in mock_warning.call_args or []
-                if isinstance(call_arg, tuple)
-            )
+    with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
+        mlflow.evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            evaluators=["default"],
+        )
+        assert not any(
+            "Shap evaluation failed." in call_arg[0]
+            for call_arg in mock_warning.call_args or []
+            if isinstance(call_arg, tuple)
+        )
 
 
 @pytest.mark.parametrize(
