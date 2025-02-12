@@ -63,17 +63,10 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
     ],
 )
 def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
-    repo_pkg_path = "mlflow.store.artifact.databricks_artifact_repo"
     with (
-        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
         mock.patch(
             "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
         ) as mock_repo,
-        mock.patch(repo_pkg_path + ".get_databricks_host_creds", return_value=None),
-        mock.patch(
-            repo_pkg_path + ".DatabricksArtifactRepository._get_run_artifact_root",
-            return_value="whatever",
-        ),
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DatabricksArtifactRepository)
