@@ -48,11 +48,12 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
 @experimental
 class ChatAgentState(TypedDict):
     """
-    Helper class to add ``custom_inputs`` and ``custom_outputs`` to the state of a LangGraph agent.
-    ``custom_outputs`` is overwritten if it already exists.
+    Helper class to add ``custom_inputs``, ``custom_outputs``, and ``context`` to the state of a
+    LangGraph agent. ``custom_outputs`` is overwritten if it already exists.
     """
 
     messages: Annotated[list, _add_agent_messages]
+    # context: Optional[dict[str, Any]
     custom_inputs: Optional[dict[str, Any]]
     custom_outputs: Optional[dict[str, Any]]
 
@@ -279,10 +280,14 @@ class LangGraphChatAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
+        request = {"messages": self._convert_messages_to_dict(messages)}
+        if custom_inputs:
+            request["custom_inputs"] = custom_inputs
+        # if context:
+        #     request["context"] = context.model_dump_compat()
+
         response = ChatAgentResponse(messages=[])
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
-        ):
+        for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
@@ -299,9 +304,12 @@ class LangGraphChatAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
-        ):
+        request = {"messages": self._convert_messages_to_dict(messages)}
+        if custom_inputs:
+            request["custom_inputs"] = custom_inputs
+        if context:
+            request["context"] = context.model_dump_compat()
+        for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
