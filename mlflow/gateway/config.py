@@ -158,9 +158,16 @@ class OpenAIConfig(ConfigModel):
 
         return info
 
-    @model_validator(mode="before")
-    def validate_field_compatibility(cls, info: dict[str, Any]):
-        return cls._validate_field_compatibility(info)
+    if IS_PYDANTIC_V2_OR_NEWER:
+
+        @model_validator(mode="before")
+        def validate_field_compatibility(cls, info: dict[str, Any]):
+            return cls._validate_field_compatibility(info)
+    else:
+
+        @model_validator(mode="before")
+        def validate_field_compatibility(cls, config: dict[str, Any]):
+            return cls._validate_field_compatibility(config)
 
 
 class AnthropicConfig(ConfigModel):
@@ -367,7 +374,7 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="before")
+    @model_validator(mode="before", skip_on_failure=True)
     def validate_route_type_and_model_name(cls, values):
         route_type = values.get("route_type")
         model = values.get("model")

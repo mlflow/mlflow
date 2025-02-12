@@ -21,16 +21,16 @@ def field_validator(field: str, mode: str = "before"):
     return decorator
 
 
-def model_validator(mode: str):
+def model_validator(mode: str, skip_on_failure: bool = True):
     def decorator(func: Callable) -> Callable:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import model_validator as pydantic_model_validator
 
-            return pydantic_model_validator(mode=mode)(func)
+            return pydantic_model_validator(mode=mode, skip_on_failure=skip_on_failure)(func)
         else:
             from pydantic import root_validator
 
-            return root_validator(pre=mode == "before")(func)
+            return root_validator(pre=mode == "before", skip_on_failure=skip_on_failure)(func)
 
     return decorator
 
