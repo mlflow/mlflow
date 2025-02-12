@@ -29,10 +29,10 @@ For this I execute a small Python script:
 for count, filename in enumerate(os.listdir(folder)):
     dstExt = filename.split(".")[1]
     parts = [x.title() for x in filename.split(".")[0].split("-")]
-    pascalName = ''.join(x for x in parts if not x.isspace())
-    dst =folder_out + "/"  + pascalName + "Icon." + dstExt
+    pascalName = "".join(x for x in parts if not x.isspace())
+    dst = folder_out + "/" + pascalName + "Icon." + dstExt
 
-    src =folder + "/" + filename
+    src = folder + "/" + filename
     print(src + "->" + dst)
 
     copyfile(src, dst)
