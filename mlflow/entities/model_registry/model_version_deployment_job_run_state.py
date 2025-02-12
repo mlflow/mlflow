@@ -4,7 +4,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 
 
 class ModelVersionDeploymentJobRunState:
-    """Enum for model version deployment state of an :py:class:`mlflow.entities.model_registry.ModelVersion`."""
+    """Enum for model version deployment state of an
+    :py:class:`mlflow.entities.model_registry.ModelVersion`.
+    """
 
     NO_VALID_DEPLOYMENT_JOB_FOUND = ProtoModelVersionDeploymentJobState.DeploymentJobRunState.Value(
         "NO_VALID_DEPLOYMENT_JOB_FOUND"

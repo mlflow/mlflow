@@ -176,6 +176,7 @@ def test_string_repr():
     )
     assert (
         str(rmd) == "<RegisteredModel: aliases={}, creation_timestamp=1000, "
-        "deployment_job_id=None, deployment_job_state=None, description='something about a model', last_updated_timestamp=2002, "
+        "deployment_job_id=None, deployment_job_state=None, description='something about a model',"
+        " last_updated_timestamp=2002, "
         "latest_versions=['1', '2', '3'], name='myname', tags={}>"
     )

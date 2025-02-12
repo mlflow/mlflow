@@ -112,6 +112,7 @@ class UnityCatalogOssStore(BaseRestStore):
             name: Name of the new model. This is expected to be unique in the backend store.
             tags: Not supported for Unity Catalog OSS yet.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -141,6 +142,7 @@ class UnityCatalogOssStore(BaseRestStore):
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.

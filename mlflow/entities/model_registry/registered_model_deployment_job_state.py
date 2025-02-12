@@ -2,7 +2,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobConne
 
 
 class RegisteredModelDeploymentJobState:
-    """Enum for registered model deployment state of an :py:class:`mlflow.entities.model_registry.RegisteredModel`."""
+    """Enum for registered model deployment state of an
+    :py:class:`mlflow.entities.model_registry.RegisteredModel`.
+    """
 
     NOT_SET_UP = DeploymentJobConnection.State.Value("NOT_SET_UP")
     CONNECTED = DeploymentJobConnection.State.Value("CONNECTED")
@@ -17,7 +19,8 @@ class RegisteredModelDeploymentJobState:
     def from_string(state_str):
         if state_str not in RegisteredModelDeploymentJobState._STRING_TO_STATE:
             raise Exception(
-                f"Could not get deployment job connection state corresponding to string {state_str}. "
+                f"Could not get deployment job connection state corresponding to string "
+                f"{state_str}. "
                 f"Valid state strings: {RegisteredModelDeploymentJobState.all_states()}"
             )
         return RegisteredModelDeploymentJobState._STRING_TO_STATE[state_str]

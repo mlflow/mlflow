@@ -335,6 +335,7 @@ class UcModelRegistryStore(BaseRestStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job id.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -360,6 +361,7 @@ class UcModelRegistryStore(BaseRestStore):
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job id.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -740,8 +742,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _get_model_params_from_model_id(self, model: LoggedModel):
         # extract the model parameters and return as ModelParam objects
-        model_params = [ModelParam(name=name, value=value) for name, value in model.params.items()]
-        return model_params
+        return [ModelParam(name=name, value=value) for name, value in model.params.items()]
 
     def create_model_version(
         self,
