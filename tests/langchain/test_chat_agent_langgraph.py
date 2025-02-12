@@ -235,6 +235,7 @@ def test_langgraph_chat_agent_custom_inputs():
             ),
         ),
         ("assistant", "Successfully generated"),
+        ("assistant", "adding custom outputs"),
     ]
 
     with mlflow.start_run():
@@ -252,3 +253,15 @@ def test_langgraph_chat_agent_custom_inputs():
     for msg, (role, expected_content) in zip(messages, expected_messages):
         assert msg["role"] == role
         assert msg["content"] == expected_content
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict_stream(
+        {"messages": [{"role": "user", "content": "hi"}], "custom_inputs": {"asdf": "jkl;"}}
+    )
+    counter = 0
+    for chunk, (role, expected_content) in zip(response, expected_messages):
+        assert chunk["delta"]["content"] == expected_content
+        assert chunk["delta"]["role"] == role
+        if "custom_outputs" in chunk and "asdf" in chunk["custom_outputs"]:
+            assert chunk["custom_outputs"]["asdf"] == "jkl;"
+            counter += 1
+    assert counter == 1

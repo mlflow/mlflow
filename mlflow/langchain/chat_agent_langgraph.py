@@ -309,8 +309,16 @@ class LangGraphChatAgent(ChatAgent):
             **({"custom_inputs": custom_inputs} if custom_inputs else {}),
             **({"context": context.model_dump_compat()} if context else {}),
         }
+
         for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
-                yield from (ChatAgentChunk(**{"delta": msg}) for msg in node_data["messages"])
+                messages = node_data.get("messages", [])
+                custom_outputs = node_data.get("custom_outputs")
+                for i, message in enumerate(messages):
+                    chunk = {"delta": message}
+                    # only emit custom_outputs with the last streaming chunk from this node
+                    if custom_outputs and i == len(messages) - 1:
+                        chunk["custom_outputs"] = custom_outputs
+                    yield ChatAgentChunk(**chunk)
