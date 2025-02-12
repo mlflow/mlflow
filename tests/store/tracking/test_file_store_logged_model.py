@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
@@ -101,8 +100,6 @@ def test_create_logged_model(store):
 def test_create_logged_model_errors(store):
     with pytest.raises(MlflowException, match=r"Could not find experiment with ID 123"):
         store.create_logged_model("123")
-    mock_experience = mock.Mock()
-    mock_experience.lifecycle_stage = LifecycleStage.DELETED
     exp_id = store.create_experiment("test")
     store.delete_experiment(exp_id)
     with pytest.raises(
@@ -441,12 +438,22 @@ def test_search_logged_models_filter_string(store):
         [logged_models[0]],
     )
 
+    # and
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run_2").info.run_id
+    logged_models = []
+    for name in ["test_model1", "test_model2"]:
+        logged_models.append(store.create_logged_model(exp_id, name, run_id))
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string=f"name='test_model1' AND source_run_id='{run_id}'"
+    )
+    assert_models_match(models, [logged_models[0]])
+
 
 def assert_models_match(models1, models2):
     assert len(models1) == len(models2)
-    assert all(
-        model1.to_dictionary() == model2.to_dictionary() for model1, model2 in zip(models1, models2)
-    )
+    m1 = [m.to_dictionary() for m in models1]
+    m2 = [m.to_dictionary() for m in models2]
+    assert m1 == m2
 
 
 def test_search_logged_models_order_by(store):
