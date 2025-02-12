@@ -256,18 +256,16 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_uri},
             python_model=CustomSklearnModelWithoutParams(test_predict),
         )
-        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-        assert model_info.model_uri == pyfunc_model_uri
-        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+        pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
@@ -837,22 +835,20 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
             artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
+                "sk_model": sklearn_model_info.model_uri,
             },
             python_model=main_scoped_model_class(predict_fn=None),
         )
-        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+    _assert_pip_requirements(
+        pyfunc_model_info.model_uri, mlflow.pyfunc.get_default_pip_requirements()
+    )
 
 
 def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
