@@ -1832,13 +1832,6 @@ class SearchLoggedModelsUtils(SearchUtils):
     } | NUMERIC_ATTRIBUTES
     VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
 
-    def _update_key(key):
-        if key == "creation_time":
-            return "creation_timestamp"
-        elif key == "last_updated_time":
-            return "last_updated_timestamp"
-        return key
-
     @classmethod
     def _does_logged_model_match_clause(cls, model: LoggedModel, sed: dict[str, Any]):
         key_type = sed.get("type")
@@ -1857,7 +1850,6 @@ class SearchLoggedModelsUtils(SearchUtils):
         elif cls.is_tag(key_type, comparator):
             lhs = model.tags.get(key, None)
         elif cls.is_numeric_attribute(key_type, key, comparator):
-            key = cls._update_key(key)
             lhs = getattr(model, key)
             value = int(value)
         elif hasattr(model, key):
@@ -1902,7 +1894,6 @@ class SearchLoggedModelsUtils(SearchUtils):
         parsed_order_by = map(cls.parse_order_by_for_logged_models, order_by_list or [])
         for type_, key, ascending in parsed_order_by:
             if type_ == "attribute":
-                key = cls._update_key(key)
                 order_by.append((key, ascending))
             else:
                 raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")

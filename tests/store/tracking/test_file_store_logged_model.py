@@ -103,15 +103,13 @@ def test_create_logged_model_errors(store):
         store.create_logged_model("123")
     mock_experience = mock.Mock()
     mock_experience.lifecycle_stage = LifecycleStage.DELETED
-    with mock.patch(
-        "mlflow.store.tracking.file_store.FileStore.get_experiment",
-        return_value=mock_experience,
+    exp_id = store.create_experiment("test")
+    store.delete_experiment(exp_id)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Could not create model under non-active experiment with ID {exp_id}",
     ):
-        with pytest.raises(
-            MlflowException,
-            match=r"Could not create model under non-active experiment with ID 123",
-        ):
-            store.create_logged_model("123")
+        store.create_logged_model(exp_id)
 
     with pytest.raises(MlflowException, match=r"A key name must be provided."):
         store.create_logged_model(params=[LoggedModelParameter(None, "b")])
@@ -189,13 +187,19 @@ def test_get_logged_model_errors(store):
 def test_finalize_logged_model(store):
     logged_model = store.create_logged_model()
     assert logged_model.status == str(LoggedModelStatus.PENDING)
-    logged_model_dict = logged_model.to_dictionary()
     updated_model = store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
     assert updated_model.status == str(LoggedModelStatus.READY)
-    updated_model_dict = updated_model.to_dictionary()
-    for k in logged_model_dict:
-        if k not in ["status", "last_updated_timestamp"]:
-            assert logged_model_dict[k] == updated_model_dict[k]
+    assert logged_model.experiment_id == updated_model.experiment_id
+    assert logged_model.model_id == updated_model.model_id
+    assert logged_model.name == updated_model.name
+    assert logged_model.artifact_location == updated_model.artifact_location
+    assert logged_model.creation_timestamp == updated_model.creation_timestamp
+    assert logged_model.last_updated_timestamp < updated_model.last_updated_timestamp
+    assert logged_model.model_type == updated_model.model_type
+    assert logged_model.source_run_id == updated_model.source_run_id
+    assert logged_model.tags == updated_model.tags
+    assert logged_model.params == updated_model.params
+    assert logged_model.metrics == updated_model.metrics
 
 
 def test_finalize_logged_model_errors(store):
@@ -231,9 +235,10 @@ def test_search_logged_models_filter_string(store):
         )
         # make sure the creation_timestamp is different
         time.sleep(0.001)
+    logged_models = sorted(logged_models, key=lambda x: (-x.creation_timestamp, x.model_id))
+    run_ids = run_ids[::-1]
 
     # model_id
-    # TODO: do we need to support IN & NOT IN?
     for model in logged_models:
         models = store.search_logged_models(
             experiment_ids=[exp_id], filter_string=f"model_id='{model.model_id}'"
@@ -245,18 +250,18 @@ def test_search_logged_models_filter_string(store):
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"model_id!='{model.model_id}'"
     )
-    assert len(models) == 4
+    assert_models_match(models, logged_models[1:])
 
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"model_id LIKE '{model.model_id}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [model])
 
     models = store.search_logged_models(
         experiment_ids=[exp_id],
         filter_string=f"model_id ILIKE '{model.model_id.upper()}'",
     )
-    assert len(models) == 1
+    assert_models_match(models, [model])
 
     # name
     for model in logged_models:
@@ -270,193 +275,170 @@ def test_search_logged_models_filter_string(store):
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"name!='{model.name}'"
     )
-    assert len(models) == 4
+    assert_models_match(models, logged_models[1:])
 
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"name LIKE '{model.name}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [model])
 
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"name ILIKE '{model.name.upper()}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [model])
 
     # model_type
     models = store.search_logged_models(experiment_ids=[exp_id], filter_string="model_type='test'")
-    assert len(models) == 5
+    assert_models_match(models, logged_models)
     models = store.search_logged_models(experiment_ids=[exp_id], filter_string="model_type!='test'")
     assert len(models) == 0
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string="model_type LIKE 'te%'"
     )
-    assert len(models) == 5
+    assert_models_match(models, logged_models)
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string="model_type ILIKE 'TE%'"
     )
+    assert_models_match(models, logged_models)
 
     # status
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"status='{LoggedModelStatus.PENDING}'"
     )
-    assert len(models) == 5
-    store.finalize_logged_model(logged_models[0].model_id, LoggedModelStatus.READY)
+    assert_models_match(models, logged_models)
+    updated_model = store.finalize_logged_model(logged_models[0].model_id, LoggedModelStatus.READY)
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"status!='{LoggedModelStatus.PENDING}'"
     )
-    assert len(models) == 1
+    logged_models = [updated_model, *logged_models[1:]]
+    assert_models_match(models, [logged_models[0]])
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"status LIKE '{LoggedModelStatus.READY}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [logged_models[0]])
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string="status ILIKE 'ready'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [logged_models[0]])
 
     # source_run_id
-    for run_id in run_ids:
+    for i, run_id in enumerate(run_ids):
         models = store.search_logged_models(
             experiment_ids=[exp_id], filter_string=f"source_run_id='{run_id}'"
         )
-        assert len(models) == 1
+        assert_models_match(models, [logged_models[i]])
     run_id = run_ids[0]
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"source_run_id!='{run_id}'"
     )
-    assert len(models) == 4
+    assert_models_match(models, logged_models[1:])
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"source_run_id LIKE '{run_id}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [logged_models[0]])
     models = store.search_logged_models(
         experiment_ids=[exp_id], filter_string=f"source_run_id ILIKE '{run_id.upper()}'"
     )
-    assert len(models) == 1
+    assert_models_match(models, [logged_models[0]])
 
     # creation_timestamp
     mid_time = logged_models[2].creation_timestamp
-    for key in ("creation_timestamp", "creation_time"):
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}={mid_time}"
-                )
-            )
-            == 1
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}<{mid_time}"
-                )
-            )
-            == 2
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}>{mid_time}"
-                )
-            )
-            == 2
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}<={mid_time}"
-                )
-            )
-            == 3
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}>={mid_time}"
-                )
-            )
-            == 3
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}!={mid_time}"
-                )
-            )
-            == 4
-        )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp={mid_time}"
+        ),
+        [logged_models[2]],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp<{mid_time}"
+        ),
+        logged_models[3:],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp>{mid_time}"
+        ),
+        logged_models[:2],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp<={mid_time}"
+        ),
+        logged_models[2:],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp>={mid_time}"
+        ),
+        logged_models[:3],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"creation_timestamp!={mid_time}"
+        ),
+        logged_models[:2] + logged_models[3:],
+    )
 
     # last_updated_timestamp
-    store.set_logged_model_tags(logged_models[0].model_id, [LoggedModelTag("a", "b")])
     max_time = store.get_logged_model(logged_models[0].model_id).last_updated_timestamp
-    for key in ("last_updated_timestamp", "last_updated_time"):
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}={max_time}"
-                )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"last_updated_timestamp={max_time}"
+        ),
+        [logged_models[0]],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"last_updated_timestamp<{max_time}"
+        ),
+        logged_models[1:],
+    )
+    assert (
+        len(
+            store.search_logged_models(
+                experiment_ids=[exp_id], filter_string=f"last_updated_timestamp>{max_time}"
             )
-            == 1
         )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}<{max_time}"
-                )
-            )
-            == 4
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}>{max_time}"
-                )
-            )
-            == 0
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}<={max_time}"
-                )
-            )
-            == 5
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}>={max_time}"
-                )
-            )
-            == 1
-        )
-        assert (
-            len(
-                store.search_logged_models(
-                    experiment_ids=[exp_id], filter_string=f"{key}!={max_time}"
-                )
-            )
-            == 4
-        )
+        == 0
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"last_updated_timestamp<={max_time}"
+        ),
+        logged_models,
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"last_updated_timestamp>={max_time}"
+        ),
+        [logged_models[0]],
+    )
+    assert_models_match(
+        store.search_logged_models(
+            experiment_ids=[exp_id], filter_string=f"last_updated_timestamp!={max_time}"
+        ),
+        logged_models[1:],
+    )
 
     # tags
-    assert (
-        len(store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a`='b'")) == 1
-    )
-    store.set_logged_model_tags(logged_models[1].model_id, [LoggedModelTag("a", "b")])
-    assert (
-        len(store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a`='b'")) == 2
+    store.set_logged_model_tags(logged_models[0].model_id, [LoggedModelTag("a", "b")])
+    updated_model = store.get_logged_model(logged_models[0].model_id)
+    logged_models = [updated_model, *logged_models[1:]]
+    assert_models_match(
+        store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a`='b'"),
+        [logged_models[0]],
     )
     assert (
         len(store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a`!='b'")) == 0
     )
-    assert (
-        len(store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a` LIKE 'b'"))
-        == 2
+    assert_models_match(
+        store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a` LIKE 'b'"),
+        [logged_models[0]],
     )
-    assert (
-        len(store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a` ILIKE 'B'"))
-        == 2
+    assert_models_match(
+        store.search_logged_models(experiment_ids=[exp_id], filter_string="tags.`a` ILIKE 'B'"),
+        [logged_models[0]],
     )
 
 
@@ -557,36 +539,40 @@ def test_search_logged_models_order_by(store):
     )
 
     # creation_timestamp
-    for key in ("creation_timestamp", "creation_time"):
-        models = store.search_logged_models(experiment_ids=[exp_id], order_by=[key])
-        assert_models_match(
-            models,
-            sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
-        )
-        models = store.search_logged_models(experiment_ids=[exp_id], order_by=[f"{key} DESC"])
-        assert_models_match(
-            models,
-            sorted(logged_models, key=lambda x: (-x.creation_timestamp, x.model_id)),
-        )
+    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["creation_timestamp"])
+    assert_models_match(
+        models,
+        sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
+    )
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=["creation_timestamp DESC"]
+    )
+    assert_models_match(
+        models,
+        sorted(logged_models, key=lambda x: (-x.creation_timestamp, x.model_id)),
+    )
 
     # last_updated_timestamp
-    for key in ("last_updated_timestamp", "last_updated_time"):
-        models = store.search_logged_models(experiment_ids=[exp_id], order_by=[key])
-        assert_models_match(
-            models,
-            sorted(
-                logged_models,
-                key=lambda x: (x.last_updated_timestamp, -x.creation_timestamp, x.model_id),
-            ),
-        )
-        models = store.search_logged_models(experiment_ids=[exp_id], order_by=[f"{key} DESC"])
-        assert_models_match(
-            models,
-            sorted(
-                logged_models,
-                key=lambda x: (-x.last_updated_timestamp, -x.creation_timestamp, x.model_id),
-            ),
-        )
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=["last_updated_timestamp"]
+    )
+    assert_models_match(
+        models,
+        sorted(
+            logged_models,
+            key=lambda x: (x.last_updated_timestamp, -x.creation_timestamp, x.model_id),
+        ),
+    )
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=["last_updated_timestamp DESC"]
+    )
+    assert_models_match(
+        models,
+        sorted(
+            logged_models,
+            key=lambda x: (-x.last_updated_timestamp, -x.creation_timestamp, x.model_id),
+        ),
+    )
 
 
 def test_search_logged_models_pagination(store):
