@@ -53,7 +53,7 @@ class ChatAgentState(TypedDict):
     """
 
     messages: Annotated[list, _add_agent_messages]
-    # context: Optional[dict[str, Any]
+    context: Optional[dict[str, Any]]
     custom_inputs: Optional[dict[str, Any]]
     custom_outputs: Optional[dict[str, Any]]
 
@@ -280,11 +280,11 @@ class LangGraphChatAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
-        request = {"messages": self._convert_messages_to_dict(messages)}
-        if custom_inputs:
-            request["custom_inputs"] = custom_inputs
-        # if context:
-        #     request["context"] = context.model_dump_compat()
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
 
         response = ChatAgentResponse(messages=[])
         for event in self.agent.stream(request, stream_mode="updates"):
@@ -304,11 +304,11 @@ class LangGraphChatAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
-        request = {"messages": self._convert_messages_to_dict(messages)}
-        if custom_inputs:
-            request["custom_inputs"] = custom_inputs
-        if context:
-            request["context"] = context.model_dump_compat()
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
         for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:

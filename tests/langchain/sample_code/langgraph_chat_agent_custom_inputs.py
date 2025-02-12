@@ -18,7 +18,6 @@ from mlflow.langchain.chat_agent_langgraph import (
     ChatAgentToolNode,
     LangGraphChatAgent,
 )
-from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 
 os.environ["OPENAI_API_KEY"] = "test"
 
@@ -127,28 +126,6 @@ llm = FakeOpenAI()
 graph = create_tool_calling_agent(llm, tools)
 
 
-class CustomLangGraphChatAgent(LangGraphChatAgent):
-    def predict(
-        self,
-        messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> ChatAgentResponse:
-        response = ChatAgentResponse(messages=[])
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages), "custom_inputs": custom_inputs},
-            stream_mode="updates",
-        ):
-            for node_data in event.values():
-                if not node_data:
-                    continue
-                for msg in node_data.get("messages", []):
-                    response.messages.append(ChatAgentMessage(**msg))
-                if "custom_outputs" in node_data:
-                    response.custom_outputs = node_data["custom_outputs"]
-        return response
-
-
-chat_agent = CustomLangGraphChatAgent(graph)
+chat_agent = LangGraphChatAgent(graph)
 
 mlflow.models.set_model(chat_agent)
