@@ -179,35 +179,36 @@ message ModelVersion {
   optional ModelVersionDeploymentJobState deployment_job_state = 19;
 }
 
-enum DeploymentJobConnectionState {
-  DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 0;
+message DeploymentJobConnection {
+  enum State {
+    DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 0;
 
-  // default state
-  NOT_SET_UP = 1; 
+    // default state
+    NOT_SET_UP = 1;
 
-  // connected job: job exists, owner has ACLs, and required job parameters are present
-  CONNECTED = 2;
+    // connected job: job exists, owner has ACLs, and required job parameters are present
+    CONNECTED = 2;
 
-  // job was deleted OR owner had job ACLs removed 
-  NOT_FOUND = 3;
+    // job was deleted OR owner had job ACLs removed 
+    NOT_FOUND = 3;
 
-  // required job parameters were changed
-  REQUIRED_PARAMETERS_CHANGED = 4;
-}
-
-enum DeploymentJobRunState {
-  DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 0;
-  NO_VALID_DEPLOYMENT_JOB_FOUND = 1;
-  RUNNING = 2;
-  SUCCEEDED = 3;
-  FAILED = 4;
-  PENDING = 5;
+    // required job parameters were changed
+    REQUIRED_PARAMETERS_CHANGED = 4;
+  }
 }
 
 message ModelVersionDeploymentJobState {
+  enum DeploymentJobRunState {
+    DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 0;
+    NO_VALID_DEPLOYMENT_JOB_FOUND = 1;
+    RUNNING = 2;
+    SUCCEEDED = 3;
+    FAILED = 4;
+    PENDING = 5;
+  }
   optional string job_id = 1;
   optional string run_id = 2;
-  optional DeploymentJobConnectionState job_state = 3;
+  optional DeploymentJobConnection.State job_state = 3;
   optional DeploymentJobRunState run_state = 4;
   optional string current_task_name = 5;
 }
