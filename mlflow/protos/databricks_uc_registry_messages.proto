@@ -37,7 +37,7 @@ message RegisteredModel {
   optional string deployment_job_id = 8;
 
   // Deployment job state for this model.
-  optional DeploymentJobConnectionState deployment_job_state = 9;
+  optional DeploymentJobConnection.State deployment_job_state = 9;
 }
 
 message RegisteredModelAlias {
