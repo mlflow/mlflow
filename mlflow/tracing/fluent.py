@@ -14,6 +14,8 @@ from opentelemetry import trace as trace_api
 from mlflow import MlflowClient
 from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
@@ -23,15 +25,25 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_NAME_FORMAT,
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.provider import is_tracing_enabled
+from mlflow.tracing.provider import (
+    is_tracing_enabled,
+    safe_set_span_in_context,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
+    TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
+    end_client_span_or_trace,
     get_otel_attribute,
+    start_client_span_or_trace,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
@@ -59,6 +71,7 @@ def trace(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
+    output_reducer: Optional[Callable] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -104,6 +117,26 @@ def trace(
             span.set_outputs({"output": result})
 
 
+    The @mlflow.trace decorator currently support the following types of functions:
+
+    .. list-table:: Supported Function Types
+        :widths: 20 30
+        :header-rows: 1
+
+        * - Function Type
+          - Supported
+        * - Sync
+          - ✅
+        * - Async
+          - ✅ (>= 2.16.0)
+        * - Generator
+          - ✅ (>= 2.20.2)
+        * - Async Generator
+          - ✅ (>= 2.20.2)
+
+    For more examples of using the @mlflow.trace decorator, including streaming/async
+    handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
+
     .. tip::
 
         The @mlflow.trace decorator is useful when you want to trace a function defined by
@@ -127,8 +160,29 @@ def trace(
         span_type: The type of the span. Can be either a string or a
             :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
         attributes: A dictionary of attributes to set on the span.
+        output_reducer: A function that reduces the outputs of the generator function into a
+            single value to be set as the span output.
     """
 
+    def decorator(fn):
+        if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
+            return _wrap_generator(fn, name, span_type, attributes, output_reducer)
+        else:
+            if output_reducer is not None:
+                raise MlflowException.invalid_parameter_value(
+                    "The output_reducer argument is only supported for generator functions."
+                )
+            return _wrap_function(fn, name, span_type, attributes)
+
+    return decorator(func) if func else decorator
+
+
+def _wrap_function(
+    fn: Callable,
+    name: Optional[str] = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: Optional[dict[str, Any]] = None,
+) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
         # between sync and async cases
@@ -138,10 +192,7 @@ def trace(
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                try:
-                    span.set_inputs(capture_function_input_args(fn, args, kwargs))
-                except Exception:
-                    _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
+                span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
                 yield result
@@ -162,21 +213,150 @@ def trace(
                 self.coro.throw(exc_type, exc_value, traceback)
             self.coro.close()
 
-    def decorator(fn):
-        if inspect.iscoroutinefunction(fn):
+    if inspect.iscoroutinefunction(fn):
 
-            async def wrapper(*args, **kwargs):
-                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
-                    return wrapping_coro.send(await fn(*args, **kwargs))
-        else:
+        async def wrapper(*args, **kwargs):
+            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                return wrapping_coro.send(await fn(*args, **kwargs))
+    else:
 
-            def wrapper(*args, **kwargs):
-                with _WrappingContext(fn, args, kwargs) as wrapping_coro:
-                    return wrapping_coro.send(fn(*args, **kwargs))
+        def wrapper(*args, **kwargs):
+            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+                return wrapping_coro.send(fn(*args, **kwargs))
 
-        return functools.wraps(fn)(wrapper)
+    return functools.wraps(fn)(wrapper)
 
-    return decorator(func) if func else decorator
+
+def _wrap_generator(
+    fn: Callable,
+    name: Optional[str] = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: Optional[dict[str, Any]] = None,
+    output_reducer: Optional[Callable] = None,
+) -> Callable:
+    """
+    Wrap a generator function to create a span.
+
+    Generator functions need special handling because of its lazy evaluation nature.
+    Let's say we have a generator function like this:
+
+    ```
+    @mlflow.trace
+    def generate_stream():
+        # B
+        for i in range(10):
+            # C
+            yield i * 2
+        # E
+
+
+    stream = generate_stream()
+    # A
+    for chunk in stream:
+        # D
+        pass
+    # F
+    ```
+
+    The execution order is A -> B -> C -> D -> C -> D -> ... -> E -> F.
+    The span should only be "active" at B, C, and E, namely, when the code execution
+    is inside the generator function. Otherwise it will create wrong span tree, or
+    even worse, leak span context and pollute subsequent traces.
+    """
+
+    def _start_stream_span(fn, args, kwargs):
+        try:
+            return start_client_span_or_trace(
+                client=MlflowClient(),
+                name=name or fn.__name__,
+                parent_span=get_current_active_span(),
+                span_type=span_type,
+                attributes=attributes,
+                inputs=capture_function_input_args(fn, args, kwargs),
+            )
+        except Exception as e:
+            _logger.debug(f"Failed to start stream span: {e}")
+            return NoOpSpan()
+
+    def _end_stream_span(
+        span: LiveSpan,
+        outputs: Optional[list[Any]] = None,
+        output_reducer: Optional[Callable] = None,
+        error: Optional[Exception] = None,
+    ):
+        client = MlflowClient()
+        if error:
+            span.add_event(SpanEvent.from_exception(error))
+            end_client_span_or_trace(client, span, status=SpanStatusCode.ERROR)
+            return
+
+        if output_reducer:
+            try:
+                outputs = output_reducer(outputs)
+            except Exception as e:
+                _logger.debug(f"Failed to reduce outputs from stream: {e}")
+        end_client_span_or_trace(client, span, outputs=outputs)
+
+    def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
+        try:
+            event = SpanEvent(
+                name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=chunk_index),
+                # OpenTelemetry SpanEvent only support str-str key-value pairs for attributes
+                attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
+            )
+            span.add_event(event)
+        except Exception as e:
+            _logger.debug(f"Failing to record chunk event for span {span.name}: {e}")
+
+    if inspect.isgeneratorfunction(fn):
+
+        def wrapper(*args, **kwargs):
+            span = _start_stream_span(fn, args, kwargs)
+            generator = fn(*args, **kwargs)
+
+            i = 0
+            outputs = []
+            while True:
+                try:
+                    # NB: Set the span to active only when the generator is running
+                    with safe_set_span_in_context(span):
+                        value = next(generator)
+                except StopIteration:
+                    break
+                except Exception as e:
+                    _end_stream_span(span, error=e)
+                    raise e
+                else:
+                    outputs.append(value)
+                    _record_chunk_event(span, value, i)
+                    yield value
+                    i += 1
+            _end_stream_span(span, outputs, output_reducer)
+    else:
+
+        async def wrapper(*args, **kwargs):
+            span = _start_stream_span(fn, args, kwargs)
+            generator = fn(*args, **kwargs)
+
+            i = 0
+            outputs = []
+            while True:
+                try:
+                    with safe_set_span_in_context(span):
+                        value = await generator.__anext__()
+                except StopAsyncIteration:
+                    break
+                except Exception as e:
+                    _end_stream_span(span, error=e)
+                    raise e
+                else:
+                    outputs.append(value)
+                    _record_chunk_event(span, value, i)
+                    yield value
+                    i += 1
+            _end_stream_span(span, outputs, output_reducer)
+
+    return functools.wraps(fn)(wrapper)
 
 
 @contextlib.contextmanager

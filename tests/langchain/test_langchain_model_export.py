@@ -3668,11 +3668,11 @@ def test_pyfunc_converts_chat_request_correctly(
 
     # Test stream output
     response = pyfunc_model.predict_stream(input_example)
+    assert inspect.isgenerator(response)
+
     if should_convert:
-        assert isinstance(response, map)
         assert list(response)[0]["choices"][0]["delta"]["content"] == "Databricks"
     else:
-        assert inspect.isgenerator(response)
         assert list(response) == ["Databricks"], list(response)
 
 
