@@ -21,6 +21,17 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
+_HEADER_REQUEST_ID_KEY = "X-Request-Id"
+
+
+# Extracting for testing purposes
+def _get_flask_request():
+    import flask
+
+    if flask.has_request_context():
+        return flask.request
+
+
 class InferenceTableSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
