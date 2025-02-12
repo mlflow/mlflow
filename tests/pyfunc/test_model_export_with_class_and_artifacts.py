@@ -664,31 +664,33 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=python_model, pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "a"],
             strict=True,
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "a", "b"],
             strict=True,
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             "model", python_model=python_model, pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -709,40 +711,40 @@ def test_log_model_with_extra_pip_requirements(
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=python_model,
             artifacts={"sk_model": sklearn_model_path},
             extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "a"],
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "a", "b"],
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
             extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
