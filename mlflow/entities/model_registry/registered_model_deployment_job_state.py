@@ -1,10 +1,10 @@
-#from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobConnectionState
+# from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobConnectionState
 
 
 class RegisteredModelDeploymentJobState:
     """Enum for registered model deployment state of an :py:class:`mlflow.entities.model_registry.RegisteredModel`."""
 
-    '''
+    """
     NOT_SET_UP = DeploymentJobConnectionState.Value("NOT_SET_UP")
     CONNECTED = DeploymentJobConnectionState.Value("CONNECTED")
     NOT_FOUND = DeploymentJobConnectionState.Value("NOT_FOUND")
@@ -12,7 +12,7 @@ class RegisteredModelDeploymentJobState:
     _STRING_TO_STATE = {
         k: DeploymentJobConnectionState.Value(k) for k in DeploymentJobConnectionState.keys()
     }
-    '''
+    """
     _STRING_TO_STATE = {}
     _STATE_TO_STRING = {value: key for key, value in _STRING_TO_STATE.items()}
 

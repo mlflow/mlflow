@@ -1,17 +1,17 @@
-#from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobRunState
+# from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobRunState
 
 
 class ModelVersionDeploymentJobRunState:
     """Enum for model version deployment state of an :py:class:`mlflow.entities.model_registry.ModelVersion`."""
 
-    '''
+    """
     NO_VALID_DEPLOYMENT_JOB_FOUND = DeploymentJobRunState.Value("NO_VALID_DEPLOYMENT_JOB_FOUND")
     RUNNING = DeploymentJobRunState.Value("RUNNING")
     SUCCEEDED = DeploymentJobRunState.Value("SUCCEEDED")
     FAILED = DeploymentJobRunState.Value("FAILED")
     PENDING = DeploymentJobRunState.Value("PENDING")
     _STRING_TO_STATE = {k: DeploymentJobRunState.Value(k) for k in DeploymentJobRunState.keys()}
-    '''
+    """
     _STRING_TO_STATE = {}
     _STATE_TO_STRING = {value: key for key, value in _STRING_TO_STATE.items()}
 
