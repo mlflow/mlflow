@@ -376,8 +376,12 @@ class RouteConfig(AliasedConfigModel):
 
     @model_validator(mode="after")
     def validate_route_type_and_model_name(cls, values):
-        route_type = values.get("route_type")
-        model = values.get("model")
+        if IS_PYDANTIC_V2_OR_NEWER:
+            route_type = values.data.get("route_type")
+            model = values.data.get("model")
+        else:
+            route_type = values.get("route_type")
+            model = values.get("model")
         if (
             model
             and model.provider == "mosaicml"
