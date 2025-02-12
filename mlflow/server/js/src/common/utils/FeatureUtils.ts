@@ -7,9 +7,9 @@
  */
 export const shouldDisableLegacyRunCompareCharts = () => false;
 
-export const shouldEnableExperimentPageAutoRefresh = () => false;
+export const shouldEnableExperimentPageAutoRefresh = () => true;
 
-export const shouldEnableRunDetailsPageAutoRefresh = () => false;
+export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 /**
  * UI feature preview: enables prompt lab
  */
@@ -20,7 +20,7 @@ export const shouldUseExperimentPageChartViewAsDefault = () => false;
 /**
  * Difference view charts feature
  */
-export const shouldEnableDifferenceViewCharts = () => false;
+export const shouldEnableDifferenceViewCharts = () => true;
 
 /**
  * Keeping original lines when smoothing.
@@ -54,7 +54,7 @@ export const shouldEnableTracingUI = () => true;
 export const shouldEnableRunDetailsPageTracesTab = () => true;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 
