@@ -2104,7 +2104,7 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
     func = loaded_model.predict_stream if stream else loaded_model.predict
 
     def _get_result(output):
-        return next(output) if stream else output
+        return list(output)[0] if stream else output
 
     if is_in_db_model_serving:
         with set_prediction_context(Context(request_id="1234")):
