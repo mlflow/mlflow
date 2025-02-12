@@ -160,12 +160,12 @@ class OpenAIConfig(ConfigModel):
 
     if IS_PYDANTIC_V2_OR_NEWER:
 
-        @model_validator(mode="before")
+        @model_validator(mode="after")
         def validate_field_compatibility(cls, info: dict[str, Any]):
             return cls._validate_field_compatibility(info)
     else:
 
-        @model_validator(mode="before")
+        @model_validator(mode="after")
         def validate_field_compatibility(cls, config: dict[str, Any]):
             return cls._validate_field_compatibility(config)
 
