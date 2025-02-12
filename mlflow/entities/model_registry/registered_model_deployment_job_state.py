@@ -2,8 +2,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import DeploymentJobConne
 
 
 class RegisteredModelDeploymentJobState:
-    """Enum for registered model deployment state of an 
-    :py:class:`mlflow.entities.model_registry.RegisteredModel`."""
+    """Enum for registered model deployment state of an
+    :py:class:`mlflow.entities.model_registry.RegisteredModel`.
+    """
 
     NOT_SET_UP = DeploymentJobConnection.State.Value("NOT_SET_UP")
     CONNECTED = DeploymentJobConnection.State.Value("CONNECTED")
