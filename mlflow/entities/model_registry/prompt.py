@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Optional, Union
 
 from mlflow.entities.model_registry.model_version import ModelVersion
@@ -27,7 +26,6 @@ def _is_reserved_tag(key: str) -> bool:
     return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY}
 
 
-@dataclass
 class Prompt(ModelVersion):
     """
     An entity representing a prompt (template) for GenAI applications.

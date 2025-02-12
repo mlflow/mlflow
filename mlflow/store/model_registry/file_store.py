@@ -344,11 +344,7 @@ class FileStore(AbstractStore):
         return registered_models
 
     def search_registered_models(
-        self,
-        filter_string=None,
-        max_results=None,
-        order_by=None,
-        page_token=None,
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
