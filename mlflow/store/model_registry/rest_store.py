@@ -62,7 +62,7 @@ class RestStore(BaseRestStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -71,6 +71,7 @@ class RestStore(BaseRestStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -83,13 +84,14 @@ class RestStore(BaseRestStore):
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.

@@ -3108,7 +3108,11 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        description: Optional[str] = None,
+        deployment_job_id: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3118,6 +3122,7 @@ class MlflowClient:
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -3153,7 +3158,9 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
 
         """
-        return self._get_registry_client().create_registered_model(name, tags, description)
+        return self._get_registry_client().create_registered_model(
+            name, tags, description, deployment_job_id
+        )
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """Update registered model name.
@@ -3208,7 +3215,7 @@ class MlflowClient:
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
-        self, name: str, description: Optional[str] = None
+        self, name: str, description: Optional[str] = None, deployment_job_id: Optional[str] = None
     ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -3217,6 +3224,7 @@ class MlflowClient:
         Args:
             name: Name of the registered model to update.
             description: (Optional) New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -3256,11 +3264,8 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
-        if description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
-
         return self._get_registry_client().update_registered_model(
-            name=name, description=description
+            name=name, description=description, deployment_job_id=deployment_job_id
         )
 
     def delete_registered_model(self, name: str):
@@ -3697,6 +3702,7 @@ class MlflowClient:
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source.
@@ -3715,6 +3721,8 @@ class MlflowClient:
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                      registered model version, if applicable.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -3774,6 +3782,7 @@ class MlflowClient:
             run_link=run_link,
             description=description,
             await_creation_for=await_creation_for,
+            model_id=model_id,
         )
 
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
