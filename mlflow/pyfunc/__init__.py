@@ -411,7 +411,6 @@ import tempfile
 import threading
 import uuid
 import warnings
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
@@ -793,17 +792,9 @@ class PyFuncModel:
     def input_example(self, value: Any) -> None:
         self._input_example = value
 
-    @contextmanager
-    def _try_get_or_generate_prediction_context(self):
-        # set context for prediction if it's not set
-        # NB: in model serving the prediction context must be set
-        # with a request_id
+    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
-            yield context
-
-    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
-        with self._try_get_or_generate_prediction_context() as context:
             if schema := _get_dependencies_schema_from_model(self._model_meta):
                 context.update(**schema)
             return self._predict(data, params)
@@ -864,10 +855,19 @@ class PyFuncModel:
     def predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
-        with self._try_get_or_generate_prediction_context() as context:
-            if schema := _get_dependencies_schema_from_model(self._model_meta):
-                context.update(**schema)
-            return self._predict_stream(data, params)
+        context = _try_get_prediction_context() or Context()
+
+        if schema := _get_dependencies_schema_from_model(self._model_meta):
+            context.update(**schema)
+
+        # NB: The prediction context must be applied during iterating over the stream,
+        # hence, simply wrapping the self._predict_stream call with the context manager
+        # is not sufficient.
+        def _gen_with_context(*args, **kwargs):
+            with set_prediction_context(context):
+                yield from self._predict_stream(*args, **kwargs)
+
+        return _gen_with_context(data, params)
 
     def _predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
