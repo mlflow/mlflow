@@ -39,7 +39,7 @@ class AbstractStore:
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
-    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
@@ -56,7 +56,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def update_registered_model(self, name, description, deployment_job_id=None):
+    def update_registered_model(self, name, description):
         """
         Update description of the registered model.
 

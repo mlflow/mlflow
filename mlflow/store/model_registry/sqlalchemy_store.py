@@ -154,7 +154,7 @@ class SqlAlchemyStore(AbstractStore):
         # loading_relationships.html#relationship-loading-techniques
         return [sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags)]
 
-    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
@@ -223,7 +223,7 @@ class SqlAlchemyStore(AbstractStore):
             )
         return rms[0]
 
-    def update_registered_model(self, name, description, deployment_job_id=None):
+    def update_registered_model(self, name, description):
         """
         Update description of the registered model.
 
