@@ -49,6 +49,7 @@ class LoggedModel(_MlflowObject):
             else (params or {})
         )
         self._metrics: Optional[list[Metric]] = metrics
+        self._model_uri = f"models:/{self.model_id}"
 
     @property
     def experiment_id(self) -> str:
@@ -145,6 +146,11 @@ class LoggedModel(_MlflowObject):
         """List of metrics associated with this Model."""
         return self._metrics
 
+    @property
+    def model_uri(self) -> str:
+        """URI of the model."""
+        return self._model_uri
+
     @metrics.setter
     def metrics(self, new_metrics: Optional[list[Metric]]):
         self._metrics = new_metrics
@@ -160,6 +166,8 @@ class LoggedModel(_MlflowObject):
     def to_dictionary(self) -> dict[str, Any]:
         model_dict = dict(self)
         model_dict["status"] = str(self.status)
+        # Remove the model_uri field from the dictionary since it is a derived field
+        del model_dict["model_uri"]
         return model_dict
 
     def to_proto(self):

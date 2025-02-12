@@ -37,7 +37,7 @@ To install the MLflow Python package, run the following command:
 pip install mlflow
 ```
 
-Alternatively, you can install MLflow from on differnet package hosting platforms:
+Alternatively, you can install MLflow from on different package hosting platforms:
 
 |               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +50,7 @@ Alternatively, you can install MLflow from on differnet package hosting platform
 
 Official documentation for MLflow can be found at [here](https://mlflow.org/docs/latest/index.html).
 
-## Running Anywhare 🌐
+## Running Anywhere 🌐
 
 You can run MLflow on many different environments, including local development, Amazon SageMaker, AzureML, and Databricks. Please refer to [this guidance](https://mlflow.org/docs/index.html#running-mlflow-anywhere) for how to setup MLflow on your environment.
 

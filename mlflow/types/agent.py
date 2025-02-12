@@ -129,7 +129,7 @@ class ChatAgentRequest(ChatAgentParams):
 
 class ChatAgentResponse(BaseModel):
     """
-    Format of a ChatAgent interface response
+    Represents the response of a ChatAgent.
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
@@ -150,10 +150,14 @@ class ChatAgentResponse(BaseModel):
 
 class ChatAgentChunk(BaseModel):
     """
-    Format of a ChatAgent interface streaming chunk
+    Represents a single chunk within the streaming response of a ChatAgent.
 
     Args:
-        delta: A :py:class:`ChatAgentMessage` that is streamed from the model.
+        delta: A :py:class:`ChatAgentMessage` representing a single chunk within the list of
+            messages comprising agent output. In particular, clients should assume the `content`
+            field within this `ChatAgentMessage` contains only part of the message content, and
+            aggregate message content by ID across chunks. More info can be found in the docstring
+            of :py:func:`ChatAgent.predict_stream <mlflow.pyfunc.ChatAgent.predict_stream>`.
         finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
