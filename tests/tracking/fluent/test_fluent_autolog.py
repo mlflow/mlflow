@@ -10,7 +10,7 @@ import autogen
 import boto3
 import dspy
 import fastai
-import google.generativeai
+import google.genai
 import groq
 import keras
 import langchain
@@ -69,7 +69,7 @@ library_to_mlflow_module_genai = {
     autogen: mlflow.autogen,
     dspy: mlflow.dspy,
     litellm: mlflow.litellm,
-    google.generativeai: mlflow.gemini,
+    google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
