@@ -17,11 +17,13 @@ from google import genai
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 # Use the generate_content method to generate responses to your prompts.
-response = client.models.generate_content(model="gemini-1.5-flash", contents="The opposite of hot is")
+response = client.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
 print(response.text)
 
 # Also leverage the chat feature to conduct multi-turn interactions
-chat = client.chats.create(model='gemini-1.5-flash')
+chat = client.chats.create(model="gemini-1.5-flash")
 response = chat.send_message("In one sentence, explain how a computer works to a young child.")
 print(response.text)
 response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")

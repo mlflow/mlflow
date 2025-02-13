@@ -65,7 +65,9 @@ mlflow.set_experiment("Gemini")
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 # Use the generate_content method to generate responses to your prompts.
-response = client.models.generate_content(model="gemini-1.5-flash", contents="The opposite of hot is")
+response = client.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
 ```
 
 ### Multi-turn chat interactions
