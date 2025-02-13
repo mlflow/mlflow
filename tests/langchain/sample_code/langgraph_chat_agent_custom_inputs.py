@@ -99,58 +99,98 @@ def create_tool_calling_agent(
 
         return {"messages": [response]}
 
+    def add_custom_outputs(state: ChatAgentState):
+        return {
+            "messages": [{"role": "assistant", "content": "adding custom outputs"}],
+            "custom_outputs": state.get("custom_outputs", {}) | state.get("custom_inputs", {}),
+        }
+
     workflow = StateGraph(ChatAgentState)
 
     workflow.add_node("agent", RunnableLambda(call_model))
     workflow.add_node("tools", ChatAgentToolNode(tools))
-
+    workflow.add_node("add_custom_outputs", RunnableLambda(add_custom_outputs))
     workflow.set_entry_point("agent")
     workflow.add_conditional_edges(
         "agent",
         should_continue,
         {
             "continue": "tools",
-            "end": END,
+            "end": "add_custom_outputs",
         },
     )
     workflow.add_edge("tools", "agent")
+    workflow.add_edge("add_custom_outputs", END)
 
     return workflow.compile()
+
+
+mlflow.langchain.autolog()
+llm = FakeOpenAI()
+graph = create_tool_calling_agent(llm, tools)
 
 
 class LangGraphChatAgent(ChatAgent):
     def __init__(self, agent: CompiledStateGraph):
         self.agent = agent
 
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
         self,
         messages: list[ChatAgentMessage],
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
-        request = {"messages": self._convert_messages_to_dict(messages)}
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
 
-        messages = []
+        response = ChatAgentResponse(messages=[])
         for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
-                messages.extend(ChatAgentMessage(**msg) for msg in node_data.get("messages", []))
-        return ChatAgentResponse(messages=messages)
+                if not node_data:
+                    continue
+                for msg in node_data.get("messages", []):
+                    response.messages.append(ChatAgentMessage(**msg))
+                if "custom_outputs" in node_data:
+                    response.custom_outputs = node_data["custom_outputs"]
+        return response
 
+    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
-        request = {"messages": self._convert_messages_to_dict(messages)}
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
+
+        last_message = None
+        last_custom_outputs = None
+
         for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
-                yield from (ChatAgentChunk(**{"delta": msg}) for msg in node_data["messages"])
+                if not node_data:
+                    continue
+                messages = node_data.get("messages", [])
+                custom_outputs = node_data.get("custom_outputs")
+
+                for message in messages:
+                    if last_message:
+                        yield ChatAgentChunk(delta=last_message)
+                    last_message = message
+                if custom_outputs:
+                    last_custom_outputs = custom_outputs
+        if last_message:
+            yield ChatAgentChunk(delta=last_message, custom_outputs=last_custom_outputs)
 
 
-mlflow.langchain.autolog()
-llm = FakeOpenAI()
-graph = create_tool_calling_agent(llm, tools)
 chat_agent = LangGraphChatAgent(graph)
 
 mlflow.models.set_model(chat_agent)
