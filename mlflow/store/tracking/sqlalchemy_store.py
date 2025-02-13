@@ -44,7 +44,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.protos.internal_pb2 import OutputVertexType
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -1591,9 +1590,9 @@ class SqlAlchemyStore(AbstractStore):
             session.add_all(
                 SqlInput(
                     input_uuid=uuid.uuid4().hex,
-                    source_type=OutputVertexType.RUN_OUTPUT,
+                    source_type="RUN_OUTPUT",
                     source_id=run_id,
-                    destination_type=OutputVertexType.MODEL_OUTPUT,
+                    destination_type="MODEL_OUTPUT",
                     destination_id=model.model_id,
                     step=model.step,
                 )
@@ -1609,9 +1608,9 @@ class SqlAlchemyStore(AbstractStore):
             LoggedModelOutput(model_id=output.destination_id, step=output.step)
             for output in session.query(SqlInput)
             .filter(
-                SqlInput.source_type == OutputVertexType.RUN_OUTPUT,
+                SqlInput.source_type == "RUN_OUTPUT",
                 SqlInput.source_id == run_id,
-                SqlInput.destination_type == OutputVertexType.MODEL_OUTPUT,
+                SqlInput.destination_type == "MODEL_OUTPUT",
             )
             .all()
         ]
