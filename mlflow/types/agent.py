@@ -48,7 +48,6 @@ class ChatAgentMessage(BaseModel):
     # TODO make this a pydantic class with subtypes once we have more details on usage
     attachments: Optional[dict[str, str]] = None
 
-
     @model_validator(mode="after")
     def check_content_and_tool_calls(cls, values):
         """

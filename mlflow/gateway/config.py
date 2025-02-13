@@ -162,6 +162,7 @@ class OpenAIConfig(ConfigModel):
     def validate_field_compatibility(cls, info: dict[str, Any]):
         return cls._validate_field_compatibility(info)
 
+
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
