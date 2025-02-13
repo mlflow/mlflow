@@ -61,8 +61,8 @@ def autolog(
     try:
         from google import genai
 
-        genai.Client
-
+        # Since the genai SDK calls _generate_content iteratively within generate_content,
+        # we need to patch both generate_content and _generate_content.
         for method in ["generate_content", "_generate_content", "count_tokens", "embed_content"]:
             safe_patch(
                 FLAVOR_NAME,

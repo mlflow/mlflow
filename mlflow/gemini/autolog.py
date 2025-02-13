@@ -13,6 +13,8 @@ from mlflow.types.chat import ChatMessage
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 try:
+    # This is for supporting the previous Google GenAI SDK
+    # https://github.com/google-gemini/generative-ai-python
     from google import generativeai
 
     has_generativeai = True
@@ -44,10 +46,8 @@ def patched_class_call(original, self, *args, **kwargs):
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             if has_generativeai and isinstance(self, generativeai.GenerativeModel):
-                # generativeai
                 _log_generativeai_tool_definition(self, span)
             if has_genai and isinstance(self, (genai.models.Models, genai.chats.Chat)):
-                # genai
                 _log_genai_tool_definition(self, inputs, span)
 
             result = original(self, *args, **kwargs)

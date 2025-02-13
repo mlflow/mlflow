@@ -25,8 +25,8 @@ mlflow.gemini.autolog()
 
 :::note
 
-While current MLflow tracing integration supports both new [Google GenAI SDK](https://github.com/googleapis/python-genai) and legacy [Google AI Python SDK](https://github.com/google-gemini/generative-ai-python),
-it is hightly recommended to migrate your usecases to the new Google GenAI SDK.
+Current MLflow tracing integration supports both new [Google GenAI SDK](https://github.com/googleapis/python-genai) and legacy [Google AI Python SDK](https://github.com/google-gemini/generative-ai-python). 
+However, it may drop support for the legacy package without notice, and it is highly recommended to migrate your use cases to the new Google GenAI SDK.
 
 :::
 
@@ -50,7 +50,7 @@ Currently, MLflow Gemini integration only support tracing for synchronous calls 
 
 ```python
 import mlflow
-import google.generativeai as genai
+import google.genai as genai
 import os
 
 # Turn on auto tracing for Gemini
