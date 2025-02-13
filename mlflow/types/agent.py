@@ -18,7 +18,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ChatAgentMessage(BaseModel):

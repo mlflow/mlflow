@@ -8,7 +8,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.utils import field_validator
+from mlflow.utils.pydantic_utils import field_validator
 
 
 class ServingTextResponse(BaseModel):

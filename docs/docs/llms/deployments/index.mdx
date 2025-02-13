@@ -1469,7 +1469,7 @@ and a config class that inherits from `mlflow.gateway.base_models.ConfigModel`.
 import os
 from typing import AsyncIterable
 
-from mlflow.utils import field_validator
+from mlflow.utils.pydantic_utils import field_validator
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers import BaseProvider
