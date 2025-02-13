@@ -9,7 +9,6 @@ from langchain_core.runnables.base import Runnable
 from langchain_openai import ChatOpenAI
 
 import mlflow
-from mlflow.langchain.chat_agent_langchain import LangChainChatAgent
 from mlflow.langchain.output_parsers import ChatAgentOutputParser
 from mlflow.pyfunc.model import ChatAgent
 from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext

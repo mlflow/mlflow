@@ -637,8 +637,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     MLflow provides convenience APIs for wrapping agents written in popular authoring frameworks
     with ChatAgent. See examples for:
 
-    - LangGraph in the :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.
-      ChatAgentState>` docstring
+    - LangGraph in the
+      :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>` docstring
     """
 
     _skip_type_hint_validation = True
