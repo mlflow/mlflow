@@ -834,6 +834,7 @@ The `@mlflow.trace` decorator can be used to trace functions that return a gener
 
     import mlflow
 
+
     @mlflow.trace
     def stream_data():
         for i in range(5):
@@ -852,6 +853,7 @@ If you want to aggregate the elements to be a single span output, you can use th
 .. code-block:: python
 
     import mlflow
+
 
     @mlflow.trace(output_reducer=lambda x: sum(x))
     def stream_data():
