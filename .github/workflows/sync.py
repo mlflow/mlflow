@@ -75,6 +75,9 @@ def main():
             file=sys.stderr,
         )
         sys.exit(1)
+    elif "Already up to date" in prc.stdout:
+        print("Branch is already up to date with master, no changes to sync")
+        sys.exit(0)
 
     # Create a pull request
     subprocess.check_call(["git", "push", "origin", PR_BRANCH_NAME])
