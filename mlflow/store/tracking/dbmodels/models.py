@@ -599,6 +599,7 @@ class SqlInput(Base):
     Destination Id: `String` (limit 36 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``inputs`` table.
     """
+    step = Column(BigInteger, nullable=False, server_default="0")
 
     def __repr__(self):
         return "<SqlInput ({}, {}, {}, {}, {})>".format(

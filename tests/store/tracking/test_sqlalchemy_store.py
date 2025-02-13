@@ -31,6 +31,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
@@ -4617,7 +4618,14 @@ def test_delete_traces_raises_error(store):
 
 
 def test_log_outputs(store: SqlAlchemyStore):
-    pytest.skip("TODO")
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.log_outputs(run.info.run_id, [LoggedModelOutput(model.model_id, 1)])
+    run = store.get_run(run.info.run_id)
+    assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
 
 
 def test_create_logged_model(store: SqlAlchemyStore):
