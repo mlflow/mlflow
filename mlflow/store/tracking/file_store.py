@@ -2233,6 +2233,7 @@ class FileStore(AbstractStore):
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
+        max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         all_models = []
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
