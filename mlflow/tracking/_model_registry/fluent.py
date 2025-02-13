@@ -12,6 +12,7 @@ from mlflow.store.model_registry import (
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 
 
@@ -326,6 +327,7 @@ def search_model_versions(
     )
 
 
+@experimental
 def register_prompt(
     name: str,
     template: str,
@@ -391,6 +393,7 @@ def register_prompt(
     )
 
 
+@experimental
 def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -419,6 +422,7 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     return MlflowClient().load_prompt(name_or_uri=name_or_uri, version=version)
 
 
+@experimental
 def delete_prompt(name: str, version: int) -> Prompt:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.

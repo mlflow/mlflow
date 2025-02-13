@@ -1,6 +1,7 @@
 import urllib.parse
 from typing import Optional
 
+import mlflow
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 
@@ -44,3 +45,38 @@ def parse_prompt_uri(uri: str) -> tuple[str, str]:
         )
 
     return path.split("/")[1:]
+
+
+def has_prompt_tag(tags: Optional[dict]) -> bool:
+    """Check if the given tags contain the prompt tag."""
+    return IS_PROMPT_TAG_KEY in tags if tags else False
+
+
+def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
+    """
+    Check if the current registry supports prompts.
+
+    Prompts registration is supported only in the OSS MLflow Tracking Server,
+    not in Databricks or OSS Unity Catalog.
+    """
+    registry_uri = registry_uri or mlflow.get_registry_uri()
+    return not registry_uri.startswith("databricks") and not registry_uri.startswith("uc:")
+
+
+def require_prompt_registry(func):
+    """Ensure that the current registry supports prompts."""
+
+    def wrapper(*args, **kwargs):
+        if args and isinstance(args[0], mlflow.MlflowClient):
+            registry_uri = args[0]._registry_uri
+        else:
+            registry_uri = mlflow.get_registry_uri()
+
+        if not is_prompt_supported_registry(registry_uri):
+            raise MlflowException(
+                f"The '{func.__name__}' API is not supported in the current model registry "
+                "type. Prompts are supported only in the OSS MLflow Tracking Server."
+            )
+        return func(*args, **kwargs)
+
+    return wrapper

@@ -26,6 +26,7 @@ from mlflow.entities import (
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -1755,3 +1756,53 @@ def test_crud_prompts(tracking_uri):
         client.load_prompt("prompt_1", version=2)
 
     client.delete_prompt("prompt_1", version=1)
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+def test_crud_prompt_on_unsupported_registry(registry_uri):
+    client = MlflowClient(registry_uri=registry_uri)
+
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+        client.register_prompt(
+            name="prompt_1",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            description="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+        client.load_prompt("prompt_1")
+
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+        client.delete_prompt("prompt_1")
+
+
+def test_block_create_model_with_prompt_tag(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_registered_model(
+            name="model",
+            tags={IS_PROMPT_TAG_KEY: "true"},
+        )
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_model_version(
+            name="model",
+            source="source",
+            tags={IS_PROMPT_TAG_KEY: "false"},
+        )
+
+
+def test_block_create_prompt_with_existing_model_name(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Model 'model' exists with"):
+        client.register_prompt(
+            name="model",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            description="A friendly greeting",
+            tags={"model": "my-model"},
+        )

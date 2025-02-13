@@ -43,7 +43,7 @@ from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import parse_prompt_uri
+from mlflow.prompt.registry_utils import has_prompt_tag, parse_prompt_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -397,7 +397,8 @@ class MlflowClient:
 
     ##### Prompt Registry #####
 
-    # TODO: Gate this to OSS only
+    @experimental
+    @require_prompt_registry
     def register_prompt(
         self,
         name: str,
@@ -465,7 +466,17 @@ class MlflowClient:
         registry_client = self._get_registry_client()
 
         try:
-            registry_client.get_registered_model(name)
+            rm = registry_client.get_registered_model(name)
+
+            # Check if the registered model is a prompt
+            if not has_prompt_tag(rm._tags):
+                raise MlflowException(
+                    f"Model '{name}' exists with the same name. MLflow does not allow registering "
+                    "a prompt with the same name as an existing model. Please choose a different "
+                    "name for the prompt.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
         except MlflowException as e:
             # Create a new prompt (model) entry
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -486,7 +497,8 @@ class MlflowClient:
         )
         return Prompt.from_model_version(mv)
 
-    # TODO: Gate this to OSS only
+    @experimental
+    @require_prompt_registry
     def load_prompt(self, name_or_uri: str, version: Optional[int] = None) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -526,7 +538,8 @@ class MlflowClient:
         mv = registry_client.get_model_version(name, version)
         return Prompt.from_model_version(mv)
 
-    # TODO: Gate this to OSS only
+    @experimental
+    @require_prompt_registry
     def delete_prompt(self, name: str, version: int):
         """
         Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -536,6 +549,14 @@ class MlflowClient:
             version: The version of the prompt to delete.
         """
         registry_client = self._get_registry_client()
+
+        mv = registry_client.get_model_version(name, version)
+        if IS_PROMPT_TAG_KEY not in mv.tags:
+            raise MlflowException(
+                f"Model '{name}' with version {version} is not a prompt.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         registry_client.delete_model_version(name, version)
 
         # If no more versions are left, delete the registered model
@@ -3302,6 +3323,9 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
 
         """
+        if has_prompt_tag(tags):
+            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+
         return self._get_registry_client().create_registered_model(name, tags, description)
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
@@ -3792,6 +3816,9 @@ class MlflowClient:
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path: Optional[str] = None,
     ) -> ModelVersion:
+        if has_prompt_tag(tags):
+            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+
         tracking_uri = self._tracking_client.tracking_uri
         if (
             not run_link
