@@ -52,7 +52,7 @@ Official documentation for MLflow can be found at [here](https://mlflow.org/docs
 
 ## Running Anywhere 🌐
 
-You can run MLflow on many different environments, including local development, Amazon SageMaker, AzureML, and Databricks. Please refer to [this guidance](https://mlflow.org/docs/index.html#running-mlflow-anywhere) for how to setup MLflow on your environment.
+You can run MLflow on many different environments, including local development, Amazon SageMaker, AzureML, and Databricks. Please refer to [this guidance](https://mlflow.org/docs/latest/index.html#running-mlflow-anywhere) for how to setup MLflow on your environment.
 
 ## Usage
 
