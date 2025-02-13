@@ -803,9 +803,123 @@ You can add additional metadata to the tracing decorator as follows:
     def my_func(x, y):
         return x + y
 
-When adding additional metadata to the trace decorator constructor, these additional components will be logged along with the span entry within 
+When adding additional metadata to the trace decorator constructor, these additional components will be logged along with the span entry within
 the trace that is stored within the active MLflow experiment.
 
+Supported Function Types
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The @mlflow.trace decorator currently support the following types of functions:
+
+.. list-table:: Supported Function Types
+    :widths: 20 30
+    :header-rows: 1
+    * - Function Type
+        - Supported
+    * - Sync
+        - ✅
+    * - Async
+        - ✅ (>= 2.16.0)
+    * - Generator
+        - ✅ (>= 2.20.2)
+    * - Async Generator
+        - ✅ (>= 2.20.2)
+
+Streaming
+~~~~~~~~~
+
+The `@mlflow.trace` decorator can be used to trace functions that return a generator or an iterator, since MLflow 2.20.2.
+
+.. code-block:: python
+
+    import mlflow
+
+    @mlflow.trace
+    def stream_data():
+        for i in range(5):
+            yield i
+
+The above example will generate a trace with a single span for the ``stream_data`` function. By default, MLflow will capture the all elements yielded by the generator as a list in the span's output. In the example above, the output of the span will be ``[0, 1, 2, 3, 4]``.
+
+.. note::
+
+    A span for a stream function will start when the returned iterator starts to be **consumed**, and will end when the iterator is exhausted, or an exception is raised during the iteration.
+
+
+If you want to aggregate the elements to be a single span output, you can use the ``output_reducer`` parameter to specify a custom function to aggregate the elements. The custom function should take a list of yielded elements as inputs.
+
+
+.. code-block:: python
+
+    import mlflow
+
+    @mlflow.trace(output_reducer=lambda x: sum(x))
+    def stream_data():
+        for i in range(5):
+            yield i
+
+In the example above, the output of the span will be ``"h,e,l,l,o"``. The raw chunks can still be found in the ``Events`` tab of the span.
+
+The following is an advanced example that uses the ``output_reducer`` to consolidate ChatCompletionChunk output from an OpenAI LLM into a single message object.
+
+.. tip::
+
+    Of course, we recommend using the `auto-tracing for OpenAI <../integrations/openai>`_ for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
+
+
+.. code-block:: python
+
+    import mlflow
+    import openai
+    from openai.types.chat import *
+    from typing import Optional
+
+
+    def aggregate_chunks(outputs: list[ChatCompletionChunk]) -> Optional[ChatCompletion]:
+        """Consolidate ChatCompletionChunks to a single ChatCompletion"""
+        if not outputs:
+            return None
+
+        first_chunk = outputs[0]
+        delta = first_chunk.choices[0].delta
+        message = ChatCompletionMessage(
+            role=delta.role, content=delta.content, tool_calls=delta.tool_calls or []
+        )
+        finish_reason = first_chunk.choices[0].finish_reason
+        for chunk in outputs[1:]:
+            delta = chunk.choices[0].delta
+            message.content += delta.content or ""
+            message.tool_calls += delta.tool_calls or []
+            finish_reason = finish_reason or chunk.choices[0].finish_reason
+
+        base = ChatCompletion(
+            id=first_chunk.id,
+            choices=[Choice(index=0, message=message, finish_reason=finish_reason)],
+            created=first_chunk.created,
+            model=first_chunk.model,
+            object="chat.completion",
+        )
+        return base
+
+
+    @mlflow.trace(output_reducer=aggregate_chunks)
+    def predict(messages: list[dict]):
+        stream = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            stream=True,
+        )
+        for chunk in stream:
+            yield chunk
+
+
+    for chunk in predict([{"role": "user", "content": "Hello"}]):
+        print(chunk)
+
+In the example above, the generated ``predict`` span will have a single chat completion message as the output, which is aggregated by the custom reducer function.
+
+Async Functions
+~~~~~~~~~~~~~~~
 
 Since MLflow 2.16.0, the trace decorator also supports async functions:
 

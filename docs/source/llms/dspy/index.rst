@@ -220,6 +220,23 @@ Once enabled, MLflow will generate traces whenever your DSPy program is executed
 
 You can disable auto-tracing for DSPy by calling `mlflow.dspy.autolog(disabled=True)`.
 
+
+.. note::
+
+    By default, MLflow will generate traces for **inference** and **evaluation** of DSPy programs when
+    auto-tracing is enabled, but not during **compilation** because it can generate thousands of traces
+    in a single run and may overwhelm the MLflow tracking server. You can custmize this behavior by
+    passing parameters to the `mlflow.dspy.autolog` function.
+
+    .. code-block:: python
+
+        mlflow.dspy.autolog(
+            # Enable tracing during compilation
+            log_traces_from_compile=True,
+            # Disable tracing during evaluation
+            log_traces_from_eval=False,
+        )
+
 FAQ
 ---
 
