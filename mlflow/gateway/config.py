@@ -158,17 +158,9 @@ class OpenAIConfig(ConfigModel):
 
         return info
 
-    if IS_PYDANTIC_V2_OR_NEWER:
-
-        @model_validator(mode="after")
-        def validate_field_compatibility(cls, info: dict[str, Any]):
-            return cls._validate_field_compatibility(info)
-    else:
-
-        @model_validator(mode="after")
-        def validate_field_compatibility(cls, config: dict[str, Any]):
-            return cls._validate_field_compatibility(config)
-
+    @model_validator(mode="before")
+    def validate_field_compatibility(cls, info: dict[str, Any]):
+        return cls._validate_field_compatibility(info)
 
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
@@ -312,16 +304,9 @@ class Model(ConfigModel):
             "A provider must be provided for each gateway route."
         )
 
-    if IS_PYDANTIC_V2_OR_NEWER:
-
-        @field_validator("config", mode="before")
-        def validate_config(cls, info, values):
-            return cls._validate_config(info, values)
-    else:
-
-        @field_validator("config", mode="before")
-        def validate_config(cls, config, values):
-            return cls._validate_config(config, values)
+    @field_validator("config", mode="before")
+    def validate_config(cls, info, values):
+        return cls._validate_config(info, values)
 
 
 class AliasedConfigModel(ConfigModel):
