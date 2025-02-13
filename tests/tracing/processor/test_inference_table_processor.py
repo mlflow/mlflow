@@ -54,9 +54,7 @@ def test_on_start(context_type):
     )
     with set_prediction_context(Context(request_id=_REQUEST_ID)):
         processor.on_start(child_span)
-    assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(
-        _REQUEST_ID
-    )
+    assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     # start time should not be overwritten
     with trace_manager.get_trace(_REQUEST_ID) as trace:
         assert trace.info.timestamp_ms == 5

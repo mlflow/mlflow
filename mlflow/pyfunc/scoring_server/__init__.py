@@ -130,9 +130,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     if isinstance(decoded_input, dict):
         format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
         if len(format_keys) != 1:
-            message = (
-                f"Received dictionary with input fields: {list(decoded_input.keys())}"
-            )
+            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
             raise MlflowException(
                 message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
                 error_code=BAD_REQUEST,
@@ -190,14 +188,10 @@ def _decode_json_input(json_input):
     )
 
 
-def _split_data_and_params_for_llm_input(
-    json_input, param_schema: Optional[ParamSchema]
-):
+def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[ParamSchema]):
     data = {}
     params = {}
-    schema_params = (
-        {param.name for param in param_schema.params} if param_schema else {}
-    )
+    schema_params = {param.name for param in param_schema.params} if param_schema else {}
 
     for key, value in json_input.items():
         # if the model defines a param schema, then we can add
@@ -282,9 +276,7 @@ def predictions_to_json(raw_predictions, output, metadata=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
-    return json.dump(
-        {"predictions": predictions, **(metadata or {})}, output, cls=NumpyEncoder
-    )
+    return json.dump({"predictions": predictions, **(metadata or {})}, output, cls=NumpyEncoder)
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
@@ -303,9 +295,7 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
         traceback_buf = StringIO()
         traceback.print_exc(file=traceback_buf)
         traceback_str = traceback_buf.getvalue()
-        e = MlflowException(
-            message=error_message, error_code=error_code, stack_trace=traceback_str
-        )
+        e = MlflowException(message=error_message, error_code=error_code, stack_trace=traceback_str)
     else:
         e = MlflowException(message=error_message, error_code=error_code)
     reraise(MlflowException, e)
@@ -324,9 +314,7 @@ def invocations(data, content_type, model, input_schema):
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
     parameter_values = {
-        key: value
-        for pair in parameter_value_pairs
-        for key, _, value in [pair.partition("=")]
+        key: value for pair in parameter_value_pairs for key, _, value in [pair.partition("=")]
     }
 
     charset = parameter_values.get("charset", "utf-8").lower()
@@ -414,9 +402,7 @@ def invocations(data, content_type, model, input_schema):
     else:
         predictions_to_json(raw_predictions, result)
 
-    return InvocationsResponse(
-        response=result.getvalue(), status=200, mimetype="application/json"
-    )
+    return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
 
 
 class ParsedJsonInput(NamedTuple):
