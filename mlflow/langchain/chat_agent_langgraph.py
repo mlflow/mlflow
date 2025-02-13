@@ -46,9 +46,11 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
 @experimental
 class ChatAgentState(TypedDict):
     """
-    Helper class to add ``custom_inputs``, ``custom_outputs``, and ``context`` to the state of a
-    LangGraph agent. ``custom_outputs`` is overwritten if it already exists. Use this class with
-    :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
+    Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
+    messages as state is updated. Other ChatAgent request fields (custom_inputs, context) and
+    response fields (custom_outputs) are also exposed within the state so they can be used and
+    updated over the course of agent execution. Use this class with
+    :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`.
 
     **LangGraph ChatAgent Example**
 
