@@ -4165,16 +4165,19 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     xgb_model = xgboost.XGBClassifier()
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         xgb_model.fit(X_train, y_train)
-        model_info = mlflow.xgboost.log_model(xgb_model, name="xgboost", input_example=X_train)
 
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    model_uri = logged_models[0].model_uri
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
         mlflow.evaluate(
-            model_info.model_uri,
+            model_uri,
             eval_data,
             targets="label",
             model_type="classifier",
