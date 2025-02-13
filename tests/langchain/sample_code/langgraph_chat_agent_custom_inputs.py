@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Generator, Optional, Sequence, Union
 
 from langchain_core.language_models import LanguageModelLike
 from langchain_core.messages import AIMessage, ToolCall
@@ -10,14 +10,16 @@ from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.graph import CompiledGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt.tool_executor import ToolExecutor
 
 import mlflow
 from mlflow.langchain.chat_agent_langgraph import (
     ChatAgentState,
     ChatAgentToolNode,
-    LangGraphChatAgent,
 )
+from mlflow.pyfunc import ChatAgent
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext
 
 os.environ["OPENAI_API_KEY"] = "test"
 
@@ -126,6 +128,67 @@ def create_tool_calling_agent(
 mlflow.langchain.autolog()
 llm = FakeOpenAI()
 graph = create_tool_calling_agent(llm, tools)
+
+
+class LangGraphChatAgent(ChatAgent):
+    def __init__(self, agent: CompiledStateGraph):
+        self.agent = agent
+
+    # TODO trace this by default once manual tracing of predict_stream is supported
+    def predict(
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[ChatContext] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
+    ) -> ChatAgentResponse:
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
+
+        response = ChatAgentResponse(messages=[])
+        for event in self.agent.stream(request, stream_mode="updates"):
+            for node_data in event.values():
+                if not node_data:
+                    continue
+                for msg in node_data.get("messages", []):
+                    response.messages.append(ChatAgentMessage(**msg))
+                if "custom_outputs" in node_data:
+                    response.custom_outputs = node_data["custom_outputs"]
+        return response
+
+    # TODO trace this by default once manual tracing of predict_stream is supported
+    def predict_stream(
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[ChatContext] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
+    ) -> Generator[ChatAgentChunk, None, None]:
+        request = {
+            "messages": self._convert_messages_to_dict(messages),
+            **({"custom_inputs": custom_inputs} if custom_inputs else {}),
+            **({"context": context.model_dump_compat()} if context else {}),
+        }
+
+        last_message = None
+        last_custom_outputs = None
+
+        for event in self.agent.stream(request, stream_mode="updates"):
+            for node_data in event.values():
+                if not node_data:
+                    continue
+                messages = node_data.get("messages", [])
+                custom_outputs = node_data.get("custom_outputs")
+
+                for message in messages:
+                    if last_message:
+                        yield ChatAgentChunk(delta=last_message)
+                    last_message = message
+                if custom_outputs:
+                    last_custom_outputs = custom_outputs
+        if last_message:
+            yield ChatAgentChunk(delta=last_message, custom_outputs=last_custom_outputs)
 
 
 chat_agent = LangGraphChatAgent(graph)

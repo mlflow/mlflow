@@ -514,11 +514,9 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             }
         )
 
-    See example implementations of ``predict`` and ``predict_stream`` in the
-    `LangChainChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langchain.py>`_
-    or the
-    `LangGraphChatAgent <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/chat_agent_langgraph.py>`_
-    class.
+    See an example implementation of ``predict`` and ``predict_stream`` for a LangGraph agent in
+    the :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
+    docstring.
 
     **Logging the ChatAgent**
 
@@ -639,7 +637,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     MLflow provides convenience APIs for wrapping agents written in popular authoring frameworks
     with ChatAgent. See examples for:
 
-    - :py:class:`LangGraphChatAgent <mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent>`
+    - LangGraph in the :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.
+      ChatAgentState>` docstring
     """
 
     _skip_type_hint_validation = True
