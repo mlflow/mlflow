@@ -31,6 +31,7 @@ CREATE TABLE inputs (
 	source_id VARCHAR(36) NOT NULL,
 	destination_type VARCHAR(36) NOT NULL,
 	destination_id VARCHAR(36) NOT NULL,
+	step BIGINT DEFAULT '0' NOT NULL,
 	PRIMARY KEY (source_type, source_id, destination_type, destination_id)
 )
 

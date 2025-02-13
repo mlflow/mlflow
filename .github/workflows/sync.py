@@ -64,7 +64,13 @@ def main():
     subprocess.check_call(
         ["git", "checkout", "-b", PR_BRANCH_NAME, f"origin/{MLFLOW_3_BRANCH_NAME}"]
     )
-    prc = subprocess.run(["git", "merge", "origin/master"])
+    prc = subprocess.run(
+        ["git", "merge", "origin/master"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    print(prc.stdout)
     if prc.returncode != 0:
         print(
             (
@@ -75,6 +81,9 @@ def main():
             file=sys.stderr,
         )
         sys.exit(1)
+    elif "Already up to date" in prc.stdout:
+        print("Branch is already up to date with master, no changes to sync")
+        sys.exit(0)
 
     # Create a pull request
     subprocess.check_call(["git", "push", "origin", PR_BRANCH_NAME])

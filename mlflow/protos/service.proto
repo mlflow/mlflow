@@ -880,11 +880,11 @@ message Dataset {
   // within datasets of the same name.
   optional string digest = 2 [(validate_required) = true];
 
-  // Source information for the dataset. Note that the source may not exactly reproduce the
-  // dataset if it was transformed / modified before use with MLflow.
+  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
   optional string source_type = 3 [(validate_required) = true];
 
-  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+  // Source information for the dataset. Note that the source may not exactly reproduce the
+  // dataset if it was transformed / modified before use with MLflow.
   optional string source = 4 [(validate_required) = true];
 
   // The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, MLflow TensorSpec JSON

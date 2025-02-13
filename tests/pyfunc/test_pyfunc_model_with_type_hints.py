@@ -30,7 +30,7 @@ from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
-from mlflow.types.agent import ChatAgentMessage, ChatAgentParams, ChatAgentResponse
+from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import TypeFromExample
@@ -1112,7 +1112,10 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
     # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
     class SimpleChatAgent(ChatAgent):
         def predict(
-            self, messages: list[ChatAgentMessage], params: ChatAgentParams
+            self,
+            messages: list[ChatAgentMessage],
+            context: Optional[ChatContext] = None,
+            custom_inputs: Optional[dict[str, Any]] = None,
         ) -> ChatAgentResponse:
             pass
 

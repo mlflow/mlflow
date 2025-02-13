@@ -10,8 +10,4 @@ mlflow.langchain
 
 .. autoclass:: mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode
 
-.. autoclass:: mlflow.langchain.chat_agent_langgraph.LangGraphChatAgent
-
 .. autoclass:: mlflow.langchain.output_parsers.ChatAgentOutputParser
-
-.. autoclass:: mlflow.langchain.chat_agent_langchain.LangChainChatAgent

@@ -352,6 +352,15 @@ def test_chat_agent_predict_wrapper():
         chat_agent_request.custom_inputs,
     )
     assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+    no_context_dict_input_example = {**dict_input_example, "context": None}
+    no_context_pydantic_input_example = (
+        chat_agent_request.messages,
+        None,
+        chat_agent_request.custom_inputs,
+    )
+    assert model.predict(no_context_dict_input_example) == model.predict(
+        *no_context_pydantic_input_example
+    )
 
     model = SimpleChatAgent()
     assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
