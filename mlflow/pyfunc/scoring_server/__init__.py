@@ -79,7 +79,10 @@ INPUTS = "inputs"
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 SERVING_PARAMS_KEY = "params"
 
-REQUIRED_INPUT_FORMAT = f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
+REQUIRED_INPUT_FORMAT = (
+    "The input must be a JSON dictionary with exactly "
+    f"one of the input fields {SUPPORTED_FORMATS}"
+)
 SCORING_PROTOCOL_CHANGE_INFO = (
     "IMPORTANT: The MLflow Model scoring protocol has changed in MLflow version 2.0. If you are"
     " seeing this error, you are likely using an outdated scoring request format. To resolve the"
