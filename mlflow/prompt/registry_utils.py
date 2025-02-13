@@ -1,4 +1,6 @@
+import functools
 import urllib.parse
+from textwrap import dedent
 from typing import Optional
 
 import mlflow
@@ -66,6 +68,7 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
 def require_prompt_registry(func):
     """Ensure that the current registry supports prompts."""
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if args and isinstance(args[0], mlflow.MlflowClient):
             registry_uri = args[0]._registry_uri
@@ -79,4 +82,13 @@ def require_prompt_registry(func):
             )
         return func(*args, **kwargs)
 
+    # Add note about prompt support to the docstring
+    func.__doc__ = dedent(f"""\
+        {func.__doc__}
+
+        .. note::
+
+            This API is supported only when using the OSS MLflow Model Registry. Prompts are not
+            supported in Databricks or the OSS Unity Catalog model registry.
+    """)
     return wrapper

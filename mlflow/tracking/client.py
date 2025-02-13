@@ -36,9 +36,9 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, Prompt
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
@@ -409,9 +409,9 @@ class MlflowClient:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
-        A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and template text
-        at minimum. With MLflow Prompt Registry, you can create, manage, and version control
-        prompts with the MLflow's robust model tracking framework.
+        A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name
+        and template text at minimum. With MLflow Prompt Registry, you can create, manage,
+        and version control prompts with the MLflow's robust model tracking framework.
 
         If there is no registered prompt with the given name, a new prompt will be created.
         Otherwise, a new version of the existing prompt will be created.

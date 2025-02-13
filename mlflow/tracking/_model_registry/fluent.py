@@ -1,8 +1,8 @@
 from typing import Any, Optional
 
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
-from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.model_registry import (
@@ -328,6 +328,7 @@ def search_model_versions(
 
 
 @experimental
+@require_prompt_registry
 def register_prompt(
     name: str,
     template: str,
@@ -337,9 +338,9 @@ def register_prompt(
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
-    A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and template text
-    at minimum. With MLflow Prompt Registry, you can create, manage, and version control
-    prompts with the MLflow's robust model tracking framework.
+    A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
+    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    version control prompts with the MLflow's robust model tracking framework.
 
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
@@ -394,6 +395,7 @@ def register_prompt(
 
 
 @experimental
+@require_prompt_registry
 def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -423,6 +425,7 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
 
 
 @experimental
+@require_prompt_registry
 def delete_prompt(name: str, version: int) -> Prompt:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
