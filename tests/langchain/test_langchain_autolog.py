@@ -181,10 +181,7 @@ def test_autolog_manage_run(async_logging_enabled):
     assert run.info.status != "FINISHED"
 
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
-    assert (
-        MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"]
-        == "langchain"
-    )
+    assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
 
     if async_logging_enabled:
@@ -339,18 +336,14 @@ def test_llmchain_autolog_no_optional_artifacts_by_default():
 
 def test_llmchain_autolog_with_registered_model_name():
     registered_model_name = "llmchain"
-    mlflow.langchain.autolog(
-        log_models=True, registered_model_name=registered_model_name
-    )
+    mlflow.langchain.autolog(log_models=True, registered_model_name=registered_model_name)
     model = create_openai_llmchain()
     model.invoke("MLflow")
     registered_model = MlflowClient().get_registered_model(registered_model_name)
     assert registered_model.name == registered_model_name
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) >= Version("0.3.0"),
     reason="LLMChain saving does not work in LangChain v0.3.0",
@@ -510,9 +503,7 @@ def test_chat_model_bind_tool_autolog():
     ]
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
     reason="ToolCall message is not available in older versions",
@@ -608,9 +599,7 @@ def test_loaded_runnable_sequence_autolog():
         assert signature == infer_signature(input_example, [TEST_CONTENT])
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_retriever_autolog(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     model, query = create_retriever(tmp_path)
@@ -632,14 +621,10 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
     assert spans[0].name == "VectorStoreRetriever"
     assert spans[0].span_type == "RETRIEVER"
     assert spans[0].inputs == query
-    assert spans[0].outputs[0]["metadata"] == {
-        "source": "tests/langchain/state_of_the_union.txt"
-    }
+    assert spans[0].outputs[0]["metadata"] == {"source": "tests/langchain/state_of_the_union.txt"}
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_unsupported_log_model_models_autolog(tmp_path):
     mlflow.langchain.autolog(log_models=True)
     retriever, _ = create_retriever(tmp_path)
@@ -734,9 +719,7 @@ def _extract_callback_handlers(config) -> Optional[list[BaseCallbackHandler]]:
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS)
-def test_langchain_autolog_callback_injection_in_invoke(
-    invoke_arg, config, async_logging_enabled
-):
+def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -759,10 +742,7 @@ def test_langchain_autolog_callback_injection_in_invoke(
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert (
-        traces[0].data.spans[0].outputs
-        == '[{"role": "user", "content": "What is MLflow?"}]'
-    )
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
     assert handlers == original_handlers
@@ -804,10 +784,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert (
-        traces[0].data.spans[0].outputs
-        == '[{"role": "user", "content": "What is MLflow?"}]'
-    )
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -829,9 +806,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     # list of configs are also supported for batch call
     + [[config, config] for config in _CONFIG_PATTERNS],
 )
-def test_langchain_autolog_callback_injection_in_batch(
-    invoke_arg, config, async_logging_enabled
-):
+def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -855,10 +830,7 @@ def test_langchain_autolog_callback_injection_in_batch(
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert (
-            trace.data.spans[0].outputs
-            == '[{"role": "user", "content": "What is MLflow?"}]'
-        )
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -882,9 +854,7 @@ def test_tracing_source_run_in_batch():
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_tracing_source_run_in_pyfunc_model_predict():
     mlflow.langchain.autolog()
 
@@ -936,10 +906,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert (
-            trace.data.spans[0].outputs
-            == '[{"role": "user", "content": "What is MLflow?"}]'
-        )
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -953,9 +920,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS)
-def test_langchain_autolog_callback_injection_in_stream(
-    invoke_arg, config, async_logging_enabled
-):
+def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -1035,12 +1000,8 @@ async def test_langchain_autolog_callback_injection_in_astream(
         assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
-@pytest.mark.skipif(
-    not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community"
-)
-def test_langchain_autolog_produces_expected_traces_with_streaming(
-    tmp_path, async_logging_enabled
-):
+@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
+def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog()
     retriever, _ = create_retriever(tmp_path)
     prompt = ChatPromptTemplate.from_template(
@@ -1101,9 +1062,7 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
-def test_langchain_tracer_injection_for_arbitrary_runnables(
-    log_traces, async_logging_enabled
-):
+def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
     from langchain.schema.runnable import RouterRunnable, RunnableLambda
 
     should_log_traces = log_traces is not False
@@ -1157,9 +1116,7 @@ def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
     model = AnotherRunnable()
     with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
         assert model.invoke("test") == "test"
-        mock_debug.assert_called_once_with(
-            "Injected MLflow callbacks into the model call args."
-        )
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model call args.")
         assert mock_debug.call_count == 1
 
 

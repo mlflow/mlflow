@@ -113,9 +113,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
-            trace.info.execution_time_ms = (
-                span.end_time - span.start_time
-            ) // 1_000_000
+            trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
             trace.info.status = TraceStatus.from_otel_status(span.status)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
