@@ -815,15 +815,15 @@ The @mlflow.trace decorator currently support the following types of functions:
     :widths: 20 30
     :header-rows: 1
     * - Function Type
-        - Supported
+      - Supported
     * - Sync
-        - ✅
+      - ✅
     * - Async
-        - ✅ (>= 2.16.0)
+      - ✅ (>= 2.16.0)
     * - Generator
-        - ✅ (>= 2.20.2)
+      - ✅ (>= 2.20.2)
     * - Async Generator
-        - ✅ (>= 2.20.2)
+      - ✅ (>= 2.20.2)
 
 Streaming
 ~~~~~~~~~
