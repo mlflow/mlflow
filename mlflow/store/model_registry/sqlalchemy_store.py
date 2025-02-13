@@ -644,6 +644,7 @@ class SqlAlchemyStore(AbstractStore):
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
+        model_params: Optional[list] = None,
     ):
         """
         Create a new model version from given source and run ID.
