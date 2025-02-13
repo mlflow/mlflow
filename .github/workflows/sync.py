@@ -64,7 +64,7 @@ def main():
     subprocess.check_call(
         ["git", "checkout", "-b", PR_BRANCH_NAME, f"origin/{MLFLOW_3_BRANCH_NAME}"]
     )
-    prc = subprocess.run(["git", "merge", "origin/master"])
+    prc = subprocess.run(["git", "merge", "origin/master"], text=True, stdout=subprocess.PIPE)
     if prc.returncode != 0:
         print(
             (
