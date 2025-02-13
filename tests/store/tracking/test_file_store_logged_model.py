@@ -201,6 +201,7 @@ def test_get_logged_model_errors(store):
 def test_finalize_logged_model(store):
     logged_model = store.create_logged_model()
     assert logged_model.status == str(LoggedModelStatus.PENDING)
+    time.sleep(0.001)  # sleep to ensure last_updated_timestamp is updated
     updated_model = store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
     assert updated_model.status == str(LoggedModelStatus.READY)
     assert logged_model.experiment_id == updated_model.experiment_id
