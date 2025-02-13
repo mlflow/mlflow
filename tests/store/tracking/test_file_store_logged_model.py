@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
@@ -38,6 +39,22 @@ def assert_logged_model_attributes(
     assert logged_model.params == (params or {})
     assert logged_model.model_type == model_type
     assert logged_model.status == status
+
+
+def assert_models_match(models1, models2):
+    assert len(models1) == len(models2)
+    m1 = [m.to_dictionary() for m in models1]
+    m2 = [m.to_dictionary() for m in models2]
+    assert m1 == m2
+
+
+def test_create_logged_model_when_set_experiment():
+    exp = mlflow.set_experiment("test")
+    logged_model = mlflow.create_logged_model(exp.experiment_id)
+    assert_logged_model_attributes(
+        logged_model,
+        exp.experiment_id,
+    )
 
 
 def test_create_logged_model(store):
@@ -447,13 +464,6 @@ def test_search_logged_models_filter_string(store):
         experiment_ids=[exp_id], filter_string=f"name='test_model1' AND source_run_id='{run_id}'"
     )
     assert_models_match(models, [logged_models[0]])
-
-
-def assert_models_match(models1, models2):
-    assert len(models1) == len(models2)
-    m1 = [m.to_dictionary() for m in models1]
-    m2 = [m.to_dictionary() for m in models2]
-    assert m1 == m2
 
 
 def test_search_logged_models_order_by(store):

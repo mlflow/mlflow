@@ -1833,11 +1833,11 @@ class SearchLoggedModelsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
 
     @classmethod
-    def _does_logged_model_match_clause(cls, model: LoggedModel, sed: dict[str, Any]):
-        key_type = sed.get("type")
-        key = sed.get("key")
-        value = sed.get("value")
-        comparator = sed.get("comparator").upper()
+    def _does_logged_model_match_clause(cls, model: LoggedModel, condition: dict[str, Any]):
+        key_type = condition.get("type")
+        key = condition.get("key")
+        value = condition.get("value")
+        comparator = condition.get("comparator").upper()
 
         key = SearchUtils.translate_key_alias(key)
 
