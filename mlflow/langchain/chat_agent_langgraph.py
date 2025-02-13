@@ -172,6 +172,7 @@ class ChatAgentState(TypedDict):
     This makes your agent easily loggable and deployable with the PyFunc flavor in serving.
 
     .. code-block:: python
+
         from typing import Any, Generator, Optional
 
         from langgraph.graph.state import CompiledStateGraph
