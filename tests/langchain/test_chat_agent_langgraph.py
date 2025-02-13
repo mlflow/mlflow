@@ -207,3 +207,61 @@ def test_langgraph_chat_agent_trace():
     # delete the generated uuid
     del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
+
+
+def test_langgraph_chat_agent_custom_inputs():
+    # (role, content)
+    expected_messages = [
+        ("assistant", ""),  # tool message does not have content
+        (
+            "tool",
+            json.dumps(
+                {
+                    "format": "SCALAR",
+                    "value": '{"content":"hi","attachments":{"a":"b"},"custom_outputs":{"c":"d"}}',
+                    "truncated": False,
+                }
+            ),
+        ),
+        ("assistant", ""),
+        (
+            "tool",
+            json.dumps(
+                {
+                    "content": f"Successfully generated array of 2 random ints: {[1, 2]}.",
+                    "attachments": {"key1": "attach1", "key2": "attach2"},
+                    "custom_outputs": {"random_nums": [1, 2]},
+                }
+            ),
+        ),
+        ("assistant", "Successfully generated"),
+        ("assistant", "adding custom outputs"),
+    ]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "agent",
+            python_model="tests/langchain/sample_code/langgraph_chat_agent_custom_inputs.py",
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict(
+        {"messages": [{"role": "user", "content": "hi"}], "custom_inputs": {"asdf": "jkl;"}}
+    )
+    assert response["custom_outputs"]["asdf"] == "jkl;"
+    messages = response["messages"]
+    assert len(messages) == len(expected_messages)
+    for msg, (role, expected_content) in zip(messages, expected_messages):
+        assert msg["role"] == role
+        assert msg["content"] == expected_content
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_model.predict_stream(
+        {"messages": [{"role": "user", "content": "hi"}], "custom_inputs": {"asdf": "jkl;"}}
+    )
+    counter = 0
+    for chunk, (role, expected_content) in zip(response, expected_messages):
+        assert chunk["delta"]["content"] == expected_content
+        assert chunk["delta"]["role"] == role
+        if "custom_outputs" in chunk:
+            assert chunk["custom_outputs"]["asdf"] == "jkl;"
+            counter += 1
+    assert counter == 1

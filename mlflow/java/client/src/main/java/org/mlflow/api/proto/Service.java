@@ -18601,8 +18601,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -18611,8 +18610,7 @@ public final class Service {
     boolean hasSourceType();
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -18621,8 +18619,7 @@ public final class Service {
     java.lang.String getSourceType();
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -18633,7 +18630,8 @@ public final class Service {
 
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -18642,7 +18640,8 @@ public final class Service {
     boolean hasSource();
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -18651,7 +18650,8 @@ public final class Service {
     java.lang.String getSource();
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -18980,8 +18980,7 @@ public final class Service {
     private volatile java.lang.Object sourceType_;
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -18993,8 +18992,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19017,8 +19015,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Source information for the dataset. Note that the source may not exactly reproduce the
-     * dataset if it was transformed / modified before use with MLflow.
+     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
      * </pre>
      *
      * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19043,7 +19040,8 @@ public final class Service {
     private volatile java.lang.Object source_;
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -19055,7 +19053,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -19078,7 +19077,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+     * Source information for the dataset. Note that the source may not exactly reproduce the
+     * dataset if it was transformed / modified before use with MLflow.
      * </pre>
      *
      * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -19903,8 +19903,7 @@ public final class Service {
       private java.lang.Object sourceType_ = "";
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19915,8 +19914,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19938,8 +19936,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19960,8 +19957,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19980,8 +19976,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -19995,8 +19990,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Source information for the dataset. Note that the source may not exactly reproduce the
-       * dataset if it was transformed / modified before use with MLflow.
+       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
        * </pre>
        *
        * <code>optional string source_type = 3 [(.mlflow.validate_required) = true];</code>
@@ -20017,7 +20011,8 @@ public final class Service {
       private java.lang.Object source_ = "";
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -20028,7 +20023,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -20050,7 +20046,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -20071,7 +20068,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -20090,7 +20088,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
@@ -20104,7 +20103,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+       * Source information for the dataset. Note that the source may not exactly reproduce the
+       * dataset if it was transformed / modified before use with MLflow.
        * </pre>
        *
        * <code>optional string source = 4 [(.mlflow.validate_required) = true];</code>
