@@ -814,6 +814,7 @@ The @mlflow.trace decorator currently support the following types of functions:
 .. list-table:: Supported Function Types
     :widths: 20 30
     :header-rows: 1
+
     * - Function Type
       - Supported
     * - Sync
