@@ -90,26 +90,7 @@ class ChatContext(BaseModel):
     user_id: Optional[str] = None
 
 
-class ChatAgentParams(BaseModel):
-    """
-    Common parameters used for the ChatAgent interface.
-
-    Args:
-        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
-            conversation_id and user_id. **Optional** defaults to ``None``
-        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. The dictionary values must be JSON-serializable.
-            **Optional** defaults to ``None``
-        stream (bool): Whether to stream back responses as they are generated.
-            **Optional**, defaults to ``False``
-    """
-
-    context: Optional[ChatContext] = None
-    custom_inputs: Optional[dict[str, Any]] = None
-    stream: Optional[bool] = False
-
-
-class ChatAgentRequest(ChatAgentParams):
+class ChatAgentRequest(BaseModel):
     """
     Format of a ChatAgent interface request.
 
@@ -125,6 +106,9 @@ class ChatAgentRequest(ChatAgentParams):
     """
 
     messages: list[ChatAgentMessage]
+    context: Optional[ChatContext] = None
+    custom_inputs: Optional[dict[str, Any]] = None
+    stream: Optional[bool] = False
 
 
 class ChatAgentResponse(BaseModel):
@@ -224,6 +208,5 @@ CHAT_AGENT_INPUT_EXAMPLE = {
     "messages": [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
-    ],
-    "stream": False,
+    ]
 }

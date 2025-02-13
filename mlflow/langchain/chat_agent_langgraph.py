@@ -1,12 +1,11 @@
 import json
 import uuid
-from typing import Annotated, Any, Generator, Optional, TypedDict
+from typing import Annotated, Any, Optional, TypedDict
 
 try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
     from langchain_core.runnables import RunnableConfig
     from langchain_core.runnables.utils import Input
-    from langgraph.graph.state import CompiledStateGraph
     from langgraph.prebuilt.tool_node import ToolNode
 except ImportError as e:
     raise ImportError(
@@ -15,8 +14,7 @@ except ImportError as e:
     ) from e
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
-from mlflow.pyfunc.model import ChatAgent
-from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse, ChatContext
+from mlflow.types.agent import ChatAgentMessage
 from mlflow.utils.annotations import experimental
 
 
@@ -48,83 +46,11 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
 @experimental
 class ChatAgentState(TypedDict):
     """
-    Helper class to add ``custom_outputs`` to the state of a LangGraph agent. ``custom_outputs``
-    is overwritten if it already exists.
-    """
-
-    messages: Annotated[list, _add_agent_messages]
-    custom_outputs: Optional[dict[str, Any]]
-
-
-def parse_message(
-    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
-) -> dict[str, Any]:
-    """
-    Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
-    """
-    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
-    chat_message_dict["attachments"] = attachments
-    chat_message_dict["name"] = msg.name or name
-    chat_message_dict["id"] = msg.id
-    # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
-    if not chat_message_dict.get("content"):
-        chat_message_dict["content"] = ""
-
-    chat_agent_msg = ChatAgentMessage(**chat_message_dict)
-    return chat_agent_msg.model_dump_compat(exclude_none=True)
-
-
-@experimental
-class ChatAgentToolNode(ToolNode):
-    """
-    Helper class to make ToolNodes be compatible with ChatAgentState.
-    Parse ``attachments`` and ``custom_outputs`` keys from the string output of a
-    LangGraph tool.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
-        """
-        Wraps the standard ToolNode invoke method to:
-        - Parse ChatAgentState into LangChain messages
-        - Parse dictionary string outputs from both UC function and standard LangChain python tools
-          that include keys ``content``, ``attachments``, and ``custom_outputs``.
-        """
-        messages = input["messages"]
-        for msg in messages:
-            for tool_call in msg.get("tool_calls", []):
-                tool_call["name"] = tool_call["function"]["name"]
-                tool_call["args"] = json.loads(tool_call["function"]["arguments"])
-        input["messages"] = convert_to_messages(messages)
-
-        result = super().invoke(input, config, **kwargs)
-
-        messages = []
-        custom_outputs = None
-        for m in result["messages"]:
-            try:
-                return_obj = json.loads(m.content)
-                if all(key in return_obj for key in ("format", "value", "truncated")):
-                    # Dictionary output with custom_outputs and attachments from a UC function
-                    try:
-                        return_obj = json.loads(return_obj["value"])
-                    except Exception:
-                        pass
-                if "custom_outputs" in return_obj:
-                    custom_outputs = return_obj["custom_outputs"]
-                messages.append(parse_message(m, attachments=return_obj.get("attachments")))
-            except Exception:
-                messages.append(parse_message(m))
-        return {"messages": messages, "custom_outputs": custom_outputs}
-
-
-@experimental
-class LangGraphChatAgent(ChatAgent):
-    """
-    Helper class to wrap LangGraph agents as a ChatAgent. Use this class with
-    :py:class:`ChatAgentState` and :py:class:`ChatAgentToolNode`.
+    Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
+    messages as state is updated. Other ChatAgent request fields (custom_inputs, context) and
+    response fields (custom_outputs) are also exposed within the state so they can be used and
+    updated over the course of agent execution. Use this class with
+    :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`.
 
     **LangGraph ChatAgent Example**
 
@@ -247,7 +173,51 @@ class LangGraphChatAgent(ChatAgent):
 
     .. code-block:: python
 
-        from mlflow.langchain.chat_agent_langgraph import LangGraphChatAgent
+        from typing import Any, Generator, Optional
+
+        from langgraph.graph.state import CompiledStateGraph
+        from mlflow.pyfunc import ChatAgent
+        from mlflow.types.agent import (
+            ChatAgentChunk,
+            ChatAgentMessage,
+            ChatAgentResponse,
+            ChatContext,
+        )
+
+
+        class LangGraphChatAgent(ChatAgent):
+            def __init__(self, agent: CompiledStateGraph):
+                self.agent = agent
+
+            def predict(
+                self,
+                messages: list[ChatAgentMessage],
+                context: Optional[ChatContext] = None,
+                custom_inputs: Optional[dict[str, Any]] = None,
+            ) -> ChatAgentResponse:
+                request = {"messages": self._convert_messages_to_dict(messages)}
+
+                messages = []
+                for event in self.agent.stream(request, stream_mode="updates"):
+                    for node_data in event.values():
+                        messages.extend(
+                            ChatAgentMessage(**msg) for msg in node_data.get("messages", [])
+                        )
+                return ChatAgentResponse(messages=messages)
+
+            def predict_stream(
+                self,
+                messages: list[ChatAgentMessage],
+                context: Optional[ChatContext] = None,
+                custom_inputs: Optional[dict[str, Any]] = None,
+            ) -> Generator[ChatAgentChunk, None, None]:
+                request = {"messages": self._convert_messages_to_dict(messages)}
+                for event in self.agent.stream(request, stream_mode="updates"):
+                    for node_data in event.values():
+                        yield from (
+                            ChatAgentChunk(**{"delta": msg}) for msg in node_data["messages"]
+                        )
+
 
         chat_agent = LangGraphChatAgent(langgraph_agent)
 
@@ -264,44 +234,76 @@ class LangGraphChatAgent(ChatAgent):
         ):
             print(event)
 
-    This LangGraphChatAgent can be logged with the logging code described in the "Logging a
+    This LangGraph ChatAgent can be logged with the logging code described in the "Logging a
     ChatAgent" section of the docstring of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
     """
 
-    def __init__(self, agent: CompiledStateGraph):
-        self.agent = agent
+    messages: Annotated[list, _add_agent_messages]
+    context: Optional[dict[str, Any]]
+    custom_inputs: Optional[dict[str, Any]]
+    custom_outputs: Optional[dict[str, Any]]
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
-    def predict(
-        self,
-        messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> ChatAgentResponse:
-        response = ChatAgentResponse(messages=[])
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
-        ):
-            for node_data in event.values():
-                if not node_data:
-                    continue
-                for msg in node_data.get("messages", []):
-                    response.messages.append(ChatAgentMessage(**msg))
-                if "custom_outputs" in node_data:
-                    response.custom_outputs = node_data["custom_outputs"]
-        return response
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
-    def predict_stream(
-        self,
-        messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> Generator[ChatAgentChunk, None, None]:
-        for event in self.agent.stream(
-            {"messages": self._convert_messages_to_dict(messages)}, stream_mode="updates"
-        ):
-            for node_data in event.values():
-                if not node_data:
-                    continue
-                yield from (ChatAgentChunk(**{"delta": msg}) for msg in node_data["messages"])
+def parse_message(
+    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
+) -> dict[str, Any]:
+    """
+    Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
+    """
+    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
+    chat_message_dict["attachments"] = attachments
+    chat_message_dict["name"] = msg.name or name
+    chat_message_dict["id"] = msg.id
+    # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
+    if not chat_message_dict.get("content"):
+        chat_message_dict["content"] = ""
+
+    chat_agent_msg = ChatAgentMessage(**chat_message_dict)
+    return chat_agent_msg.model_dump_compat(exclude_none=True)
+
+
+@experimental
+class ChatAgentToolNode(ToolNode):
+    """
+    Helper class to make ToolNodes be compatible with
+    :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`.
+    Parse ``attachments`` and ``custom_outputs`` keys from the string output of a
+    LangGraph tool.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
+        """
+        Wraps the standard ToolNode invoke method to:
+        - Parse ChatAgentState into LangChain messages
+        - Parse dictionary string outputs from both UC function and standard LangChain python tools
+          that include keys ``content``, ``attachments``, and ``custom_outputs``.
+        """
+        messages = input["messages"]
+        for msg in messages:
+            for tool_call in msg.get("tool_calls", []):
+                tool_call["name"] = tool_call["function"]["name"]
+                tool_call["args"] = json.loads(tool_call["function"]["arguments"])
+        input["messages"] = convert_to_messages(messages)
+
+        result = super().invoke(input, config, **kwargs)
+
+        messages = []
+        custom_outputs = None
+        for m in result["messages"]:
+            try:
+                return_obj = json.loads(m.content)
+                if all(key in return_obj for key in ("format", "value", "truncated")):
+                    # Dictionary output with custom_outputs and attachments from a UC function
+                    try:
+                        return_obj = json.loads(return_obj["value"])
+                    except Exception:
+                        pass
+                if "custom_outputs" in return_obj:
+                    custom_outputs = return_obj["custom_outputs"]
+                messages.append(parse_message(m, attachments=return_obj.get("attachments")))
+            except Exception:
+                messages.append(parse_message(m))
+        return {"messages": messages, "custom_outputs": custom_outputs}

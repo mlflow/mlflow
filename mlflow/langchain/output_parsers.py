@@ -107,9 +107,7 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
     OutputParser that wraps the string output into a dictionary representation of a
     :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` or a
-    :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` for easy interoperability. Use
-    this with the helper class
-    :py:class:`LangChainChatAgent <mlflow.langchain.chat_agent_langchain.LangChainChatAgent>`.
+    :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` for easy interoperability.
     """
 
     @classmethod
