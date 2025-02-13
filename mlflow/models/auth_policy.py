@@ -1,15 +1,23 @@
 from typing import Optional
 
 from mlflow.models.resources import Resource, _ResourceBuilder
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class UserAuthPolicy:
     """
     A minimal list of scopes that the user should have access to
     in order to invoke this model
+
+    Note: This is only compatible with Databricks Environment currently.
+    TODO: Add Databricks Documentation for User Auth Policy
+
+    Args:
+        api_scopes: A list of scopes. Example: "vectorsearch.vector-search-indexes", "sql"
     """
 
-    def __init__(self, api_scopes):
+    def __init__(self, api_scopes: list[str]):
         self._api_scopes = api_scopes
 
     @property

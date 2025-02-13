@@ -586,7 +586,7 @@ class Model:
 
     @experimental
     @auth_policy.setter
-    def auth_policy(self, value: Optional[AuthPolicy]) -> None:
+    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
 
     @property
@@ -799,11 +799,7 @@ class Model:
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
             resources: {{ resources }}
-            auth_policy: Specifies the authentication policy for the model, which includes two key
-                     components. Note only one of auth_policy or resources should be defined.
-                    System Auth Policy: A list of resources required to serve this model
-                    User Auth Policy: A minimal list of scopes that the user should have access to,
-                                    in order to invoke this model
+            auth_policy: {{ auth_policy }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
