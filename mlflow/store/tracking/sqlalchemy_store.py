@@ -19,6 +19,7 @@ from mlflow.entities import (
     Experiment,
     Run,
     RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     SourceType,
@@ -674,7 +675,13 @@ class SqlAlchemyStore(AbstractStore):
             mlflow_run = run.to_mlflow_entity()
             # Get the run inputs and add to the run
             inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
-            return Run(mlflow_run.info, mlflow_run.data, RunInputs(dataset_inputs=inputs))
+            model_outputs = self._get_model_outputs(run_id, session)
+            return Run(
+                mlflow_run.info,
+                mlflow_run.data,
+                RunInputs(dataset_inputs=inputs),
+                RunOutputs(model_outputs),
+            )
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -1588,10 +1595,26 @@ class SqlAlchemyStore(AbstractStore):
                     source_id=run_id,
                     destination_type=OutputVertexType.MODEL_OUTPUT,
                     destination_id=model.model_id,
-                    # step=model.step,
+                    step=model.step,
                 )
                 for model in models
             )
+
+    def _get_model_outputs(
+        self,
+        run_id: str,
+        session: sqlalchemy.orm.Session,
+    ) -> list[LoggedModelOutput]:
+        return [
+            LoggedModelOutput(model_id=output.destination_id, step=output.step)
+            for output in session.query(SqlInput)
+            .filter(
+                SqlInput.source_type == OutputVertexType.RUN_OUTPUT,
+                SqlInput.source_id == run_id,
+                SqlInput.destination_type == OutputVertexType.MODEL_OUTPUT,
+            )
+            .all()
+        ]
 
     #######################################################################################
     # Logged models

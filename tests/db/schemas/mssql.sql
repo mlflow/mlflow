@@ -30,6 +30,7 @@ CREATE TABLE inputs (
 	source_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	destination_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	destination_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	step BIGINT DEFAULT ('0') NOT NULL,
 	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
 )
 
