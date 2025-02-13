@@ -44,7 +44,7 @@ class _ChatAgentPyfuncWrapper:
 
     def _convert_input(
         self, model_input
-    ) -> tuple[list[ChatAgentMessage], ChatContext, dict[str, Any]]:
+    ) -> tuple[list[ChatAgentMessage], Optional[ChatContext], Optional[dict[str, Any]]]:
         import pandas
 
         if isinstance(model_input, dict):
@@ -62,7 +62,7 @@ class _ChatAgentPyfuncWrapper:
             )
 
         messages = [ChatAgentMessage(**message) for message in dict_input.get("messages", [])]
-        context = ChatContext(**dict_input.get("context", {}))
+        context = ChatContext(**dict_input["context"]) if "context" in dict_input else None
         custom_inputs = dict_input.get("custom_inputs", None)
 
         return messages, context, custom_inputs
