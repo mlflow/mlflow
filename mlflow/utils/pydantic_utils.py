@@ -21,7 +21,11 @@ def field_validator(field: str, mode: str = "before"):
     return decorator
 
 
-def model_validator(mode: str):
+def model_validator(mode: str, skip_on_failure: bool = False):
+    """A wrapper for Pydantic model validator that is compatible with Pydantic v1 and v2.
+    Note that the `skip_on_failure` argument is only available in Pydantic v1.
+    """
+
     def decorator(func: Callable) -> Callable:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import model_validator as pydantic_model_validator
@@ -30,7 +34,7 @@ def model_validator(mode: str):
         else:
             from pydantic import root_validator
 
-            return root_validator(pre=mode == "before")(func)
+            return root_validator(pre=mode == "before", skip_on_failure=skip_on_failure)(func)
 
     return decorator
 

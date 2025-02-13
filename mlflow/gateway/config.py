@@ -360,7 +360,7 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="after")
+    @model_validator(mode="after", skip_on_failure=True)
     def validate_route_type_and_model_name(cls, values):
         if IS_PYDANTIC_V2_OR_NEWER:
             route_type = values.route_type
