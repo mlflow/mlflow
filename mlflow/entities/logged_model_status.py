@@ -12,6 +12,9 @@ class LoggedModelStatus(str, Enum):
     READY = "READY"
     FAILED = "FAILED"
 
+    def __str__(self):
+        return self.value
+
     def to_proto(self):
         if self == LoggedModelStatus.UNSPECIFIED:
             return pb2.pb2.LoggedModelStatus.LOGGED_MODEL_STATUS_UNSPECIFIED

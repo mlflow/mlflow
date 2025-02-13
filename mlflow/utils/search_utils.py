@@ -678,20 +678,6 @@ class SearchUtils:
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
-        """Filters a set of runs based on a search filter string."""
-        if not filter_string:
-            return models
-
-        # TODO: Update parsing function to handle model-specific filter clauses
-        parsed = cls.parse_search_filter(filter_string)
-
-        def model_matches(model):
-            return all(cls._does_model_match_clause(model, s) for s in parsed)
-
-        return [model for model in models if model_matches(model)]
-
-    @classmethod
     def _validate_order_by_and_generate_token(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
@@ -857,24 +843,6 @@ class SearchUtils:
                 reverse=not ascending,
             )
         return runs
-
-    @classmethod
-    def sort_logged_models(cls, models, order_by_list):
-        models = sorted(models, key=lambda model: (-model.creation_timestamp, model.model_id))
-        if not order_by_list:
-            return models
-        # NB: We rely on the stability of Python's sort function, so that we can apply
-        # the ordering conditions in reverse order.
-        for order_by_clause in reversed(order_by_list):
-            # TODO: Update parsing function to handle model-specific order-by keys
-            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
-
-            models = sorted(
-                models,
-                key=lambda model: cls._get_model_value_for_sort(model, key_type, key, ascending),
-                reverse=not ascending,
-            )
-        return models
 
     @classmethod
     def parse_start_offset_from_page_token(cls, page_token):
@@ -1846,3 +1814,100 @@ class SearchTraceUtils(SearchUtils):
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
+
+
+class SearchLoggedModelsUtils(SearchUtils):
+    NUMERIC_ATTRIBUTES = {
+        "creation_timestamp",
+        "creation_time",
+        "last_updated_timestamp",
+        "last_updated_time",
+    }
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "model_id",
+        "model_type",
+        "status",
+        "source_run_id",
+    } | NUMERIC_ATTRIBUTES
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
+
+    @classmethod
+    def _does_logged_model_match_clause(cls, model: LoggedModel, condition: dict[str, Any]):
+        key_type = condition.get("type")
+        key = condition.get("key")
+        value = condition.get("value")
+        comparator = condition.get("comparator").upper()
+
+        key = SearchUtils.translate_key_alias(key)
+
+        if cls.is_metric(key_type, comparator):
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            lhs = matching_metrics[0].value if matching_metrics else None
+            value = float(value)
+        elif cls.is_param(key_type, comparator):
+            lhs = model.params.get(key, None)
+        elif cls.is_tag(key_type, comparator):
+            lhs = model.tags.get(key, None)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(model, key)
+            value = int(value)
+        elif hasattr(model, key):
+            lhs = getattr(model, key)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid logged model search key '{key}'",
+            )
+        if lhs is None:
+            return False
+
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
+
+    @classmethod
+    def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
+        """Filters a set of runs based on a search filter string."""
+        if not filter_string:
+            return models
+
+        parsed = cls.parse_search_filter(filter_string)
+
+        def model_matches(model):
+            return all(cls._does_logged_model_match_clause(model, s) for s in parsed)
+
+        return [model for model in models if model_matches(model)]
+
+    @classmethod
+    def parse_order_by_for_logged_models(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = token_value.strip()
+        if token_value not in cls.VALID_ORDER_BY_ATTRIBUTE_KEYS:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid order by key '{token_value}' specified. Valid keys "
+                f"are '{cls.VALID_ORDER_BY_ATTRIBUTE_KEYS}'",
+            )
+        identifier = cls._get_identifier(token_value, cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        order_by = []
+        parsed_order_by = map(cls.parse_order_by_for_logged_models, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
+            if type_ == "attribute":
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "creation_timestamp" for key, _ in order_by):
+            order_by.append(("creation_timestamp", False))
+        if not any(key == "model_id" for key, _ in order_by):
+            order_by.append(("model_id", True))
+
+        return lambda logged_model: tuple(
+            _apply_reversor(logged_model, k, asc) for (k, asc) in order_by
+        )
+
+    @classmethod
+    def sort(cls, models, order_by_list):
+        return sorted(models, key=cls._get_sort_key(order_by_list))

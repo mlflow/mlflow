@@ -1130,6 +1130,12 @@ class TrackingServiceClient:
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ):
+        if not isinstance(experiment_ids, list) or not all(
+            isinstance(eid, str) for eid in experiment_ids
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"experiment_ids must be a list of strings, got {type(experiment_ids)}",
+            )
         return self.store.search_logged_models(
             experiment_ids, filter_string, max_results, order_by, page_token
         )
