@@ -867,7 +867,7 @@ The following is an advanced example that uses the ``output_reducer`` to consoli
 
 .. tip::
 
-    Of course, we recommend using the `auto-tracing for OpenAI <../integrations/openai>`_ for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
+    Of course, we recommend using the auto-tracing via ``mlflow.<flavor>.autolog()`` for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
 
 
 .. code-block:: python
