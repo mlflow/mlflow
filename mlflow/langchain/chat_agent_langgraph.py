@@ -6,7 +6,6 @@ try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
     from langchain_core.runnables import RunnableConfig
     from langchain_core.runnables.utils import Input
-    from langgraph.graph.state import CompiledStateGraph
     from langgraph.prebuilt.tool_node import ToolNode
 except ImportError as e:
     raise ImportError(
@@ -48,7 +47,8 @@ def _add_agent_messages(left: list[dict], right: list[dict]):
 class ChatAgentState(TypedDict):
     """
     Helper class to add ``custom_inputs``, ``custom_outputs``, and ``context`` to the state of a
-    LangGraph agent. ``custom_outputs`` is overwritten if it already exists. Use this class with :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
+    LangGraph agent. ``custom_outputs`` is overwritten if it already exists. Use this class with
+    :py:class:`ChatAgentToolNode <mlflow.langchain.chat_agent_langgraph.ChatAgentToolNode>`
 
     **LangGraph ChatAgent Example**
 
