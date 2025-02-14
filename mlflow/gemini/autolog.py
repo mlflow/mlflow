@@ -146,8 +146,9 @@ def _log_genai_tool_definition(model, inputs, span):
     tools = getattr(config, "tools", None)
     if not tools:
         return
-    # Use an internal function to convert callable to Tool schema
-    # https://github.com/googleapis/python-genai/blob/01b15e32d3823a58d25534bb6eea93f30bf82219/google/genai/live.py#L542
+    # Here, we use an internal function of gemini library to convert callable to Tool schema to
+    # avoid having the same logic on mlflow side and there is no public attribute for Tool schema.
+    # https://github.com/googleapis/python-genai/blob/01b15e32d3823a58d25534bb6eea93f30bf82219/google/genai/_transformers.py#L662
     tools = genai._transformers.t_tools(model._api_client, tools)
 
     try:
