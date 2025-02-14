@@ -28,7 +28,7 @@ export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdP
     style?: React.CSSProperties;
     hideOnSinglePage?: boolean;
 }
-export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme): SerializedStyles;
+export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme, useNewShadows?: boolean): SerializedStyles;
 export declare const Pagination: React.FC<PaginationProps>;
 export interface CursorPaginationProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** Callback for when the user clicks the next page button. */

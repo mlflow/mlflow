@@ -1,15 +1,14 @@
 import React__default, { useMemo, forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, createContext, useReducer } from 'react';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
 import { css } from '@emotion/react';
-import { W as WarningIcon, y as DangerIcon, b as DesignSystemEventProviderAnalyticsEventTypes, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, p as Typography, a6 as primitiveColors, k as Root$4, T as Trigger, l as Content, G as ChevronLeftIcon, m as ChevronRightIcon, q as importantify } from './Typography-C4ciIwWZ.js';
-export { a8 as Form, a7 as useFormContext } from './Typography-C4ciIwWZ.js';
-import { M as MegaphoneIcon, I as Input, C as ClockIcon } from './index-D9gS2nVh.js';
-import { startOfToday, startOfYesterday, sub, isValid, format, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore } from 'date-fns';
+import { $ as WarningIcon, _ as DangerIcon, b as DesignSystemEventProviderAnalyticsEventTypes, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, f as DesignSystemEventProviderComponentSubTypeMap, h as useNotifyOnFirstView, B as Button$1, C as CloseIcon, i as addDebugOutlineIfEnabled, r as Typography, ax as primitiveColors, m as Root$3, T as Trigger, n as Content, a3 as ChevronLeftIcon, o as ChevronRightIcon, j as useDesignSystemSafexFlags, s as importantify } from './Typography-EFtM7f6H.js';
+export { az as Form, ay as useFormContext } from './Typography-EFtM7f6H.js';
+import { M as MegaphoneIcon, I as Input, C as ClockIcon } from './index-BP9a_E5e.js';
+import { startOfToday, startOfYesterday, sub, format, isValid, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore } from 'date-fns';
 import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
 import * as Progress$1 from '@radix-ui/react-progress';
-import * as RadixSlider from '@radix-ui/react-slider';
-export { S as Stepper } from './Stepper-D_5J10NP.js';
+export { S as Stepper } from './Stepper-BECCOIVo.js';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
 import '@radix-ui/react-popover';
@@ -23,9 +22,10 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
+import 'lodash/uniqueId';
 import 'lodash/isUndefined';
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
   Text,
   Paragraph
@@ -33,13 +33,13 @@ const {
 const BANNER_MIN_HEIGHT = 68;
 // Max height will allow 2 lines of description (3 lines total)
 const BANNER_MAX_HEIGHT = 82;
-var _ref$1 = process.env.NODE_ENV === "production" ? {
+var _ref = process.env.NODE_ENV === "production" ? {
   name: "1te1whx",
   styles: "margin-left:auto;display:flex;align-items:center"
 } : {
   name: "13c4h59-rightContainer",
   styles: "margin-left:auto;display:flex;align-items:center;label:rightContainer;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
 };
 const useStyles = (props, theme) => {
   const bannerLevelToBannerColors = {
@@ -107,14 +107,14 @@ const useStyles = (props, theme) => {
     mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
     messageTextBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
     descriptionBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
-    rightContainer: _ref$1,
+    rightContainer: _ref,
     closeIconContainer: /*#__PURE__*/css("display:flex;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
-    closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;}&&:hover{background-color:transparent!important;border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.closeIconTextHoverColor ? colorScheme.closeIconTextHoverColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundHoverColor ? colorScheme.closeIconBackgroundHoverColor : colorScheme.backgroundDefaultColor, "!important;}&&:active{border-color:", colorScheme.actionBorderColor, "!important;color:", colorScheme.closeIconTextPressColor ? colorScheme.closeIconTextPressColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundPressColor ? colorScheme.closeIconBackgroundPressColor : colorScheme.backgroundDefaultColor, "!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
+    closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;box-shadow:unset!important;}&&:hover{background-color:transparent!important;border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.closeIconTextHoverColor ? colorScheme.closeIconTextHoverColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundHoverColor ? colorScheme.closeIconBackgroundHoverColor : colorScheme.backgroundDefaultColor, "!important;}&&:active{border-color:", colorScheme.actionBorderColor, "!important;color:", colorScheme.closeIconTextPressColor ? colorScheme.closeIconTextPressColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundPressColor ? colorScheme.closeIconBackgroundPressColor : colorScheme.backgroundDefaultColor, "!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
     closeIcon: /*#__PURE__*/css("color:", colorScheme.closeIconColor ? colorScheme.closeIconColor : colorScheme.textColor, "!important;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
     actionButtonContainer: /*#__PURE__*/css("margin-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButtonContainer;")),
     // Override design system colors to show the use the action text color for text and border.
     // Also overrides text for links.
-    actionButton: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;border-color:", colorScheme.actionBorderColor ? colorScheme.actionBorderColor : colorScheme.textColor, "!important;&:focus,&:hover{border-color:", colorScheme.actionButtonBorderHoverColor ? colorScheme.actionButtonBorderHoverColor : colorScheme.textHoverColor, "!important;color:", colorScheme.textColor, "!important;background-color:", colorScheme.actionButtonBackgroundHoverColor, "!important;}&:active{border-color:", colorScheme.actionButtonBorderPressColor ? colorScheme.actionButtonBorderPressColor : colorScheme.actionBorderColor, "!important;color:", colorScheme.textPressColor, "!important;background-color:", colorScheme.actionButtonBackgroundPressColor, "!important;}a{color:", theme.colors.actionPrimaryTextDefault, ";}a:focus,a:hover{color:", colorScheme.textHoverColor, ";text-decoration:none;}a:active{color:", colorScheme.textPressColor, " text-decoration:none;}" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButton;"))
+    actionButton: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;border-color:", colorScheme.actionBorderColor ? colorScheme.actionBorderColor : colorScheme.textColor, "!important;box-shadow:unset!important;&:focus,&:hover{border-color:", colorScheme.actionButtonBorderHoverColor ? colorScheme.actionButtonBorderHoverColor : colorScheme.textHoverColor, "!important;color:", colorScheme.textColor, "!important;background-color:", colorScheme.actionButtonBackgroundHoverColor, "!important;}&:active{border-color:", colorScheme.actionButtonBorderPressColor ? colorScheme.actionButtonBorderPressColor : colorScheme.actionBorderColor, "!important;color:", colorScheme.textPressColor, "!important;background-color:", colorScheme.actionButtonBackgroundPressColor, "!important;}a{color:", theme.colors.actionPrimaryTextDefault, ";}a:focus,a:hover{color:", colorScheme.textHoverColor, ";text-decoration:none;}a:active{color:", colorScheme.textPressColor, " text-decoration:none;}" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButton;"))
   };
 };
 const levelToIconMap = {
@@ -156,6 +156,7 @@ const Banner = props => {
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Banner,
     componentId,
+    componentSubType: DesignSystemEventProviderComponentSubTypeMap[level],
     analyticsEvents: memoizedAnalyticsEvents
   });
   const {
@@ -270,7 +271,7 @@ const generateDatePickerClassNames = prefix => ({
   day_range_middle: `${prefix}-day_range_middle`
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const handleInputKeyDown = (event, setIsVisible) => {
   if (event.key === ' ' || event.key === 'Enter' || event.key === 'Space') {
     event.preventDefault();
@@ -349,10 +350,13 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     wrapperProps,
     onOkPress,
     okButtonLabel,
+    showTimeZone,
+    customTimeZoneLabel,
     ...restProps
   } = props;
   const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
   const [date, setDate] = useState(value);
+  const [timezone, setTimezone] = useState(customTimeZoneLabel);
   const [isVisible, setIsVisible] = useState(Boolean(open));
   const inputRef = useRef(null);
   const visibleRef = useRef(isVisible);
@@ -369,6 +373,21 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
   useEffect(() => {
     setIsVisible(Boolean(open));
   }, [open]);
+  useEffect(() => {
+    const now = new Date();
+    if (showTimeZone) {
+      var _Intl$DateTimeFormat$, _Intl$DateTimeFormat$2;
+      if (customTimeZoneLabel) {
+        setTimezone(customTimeZoneLabel);
+        return;
+      }
+      setTimezone((_Intl$DateTimeFormat$ = (_Intl$DateTimeFormat$2 = Intl.DateTimeFormat('en-US', {
+        timeZoneName: 'short'
+      }).formatToParts(now).find(part => part.type === 'timeZoneName')) === null || _Intl$DateTimeFormat$2 === void 0 ? void 0 : _Intl$DateTimeFormat$2.value) !== null && _Intl$DateTimeFormat$ !== void 0 ? _Intl$DateTimeFormat$ : format(now, 'z'));
+    } else {
+      setTimezone(undefined);
+    }
+  }, [showTimeZone, customTimeZoneLabel]);
   useEffect(() => {
     if (value) {
       if (value instanceof Date && isValid(value)) {
@@ -488,7 +507,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
       pointerEvents: restProps !== null && restProps !== void 0 && restProps.disabled ? 'none' : 'auto'
     }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
     ...wrapperProps,
-    children: jsxs(Root$4, {
+    children: jsxs(Root$3, {
       componentId: "codegen_design-system_src_development_datepicker_datepicker.tsx_330",
       open: isVisible,
       onOpenChange: setIsVisible,
@@ -507,6 +526,9 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             "aria-label": includeTime ? 'Select Date and Time' : 'Select Date',
             prefix: "Date:",
             role: "textbox",
+            suffix: showTimeZone ? jsx("span", {
+              children: timezone
+            }) : undefined,
             max: includeTime ? '9999-12-31T23:59' : '9999-12-31',
             ...restProps,
             css: /*#__PURE__*/css({
@@ -520,7 +542,15 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
               },
               [`&.${classNamePrefix}-input-affix-wrapper > *`]: {
                 height: theme.typography.lineHeightBase
-              }
+              },
+              ...(showTimeZone && {
+                [`.${classNamePrefix}-input-suffix`]: {
+                  display: 'inline-flex',
+                  flexDirection: 'row-reverse',
+                  gap: theme.spacing.sm,
+                  alignItems: 'center'
+                }
+              })
             }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
             type: includeTime ? 'datetime-local' : 'date',
             onKeyDown: event => handleInputKeyDown(event, setIsVisible),
@@ -645,7 +675,7 @@ var _ref3 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "p55v8c-RangePicker",
   styles: "*::-webkit-calendar-picker-indicator{display:none;}border-top-right-radius:0;border-bottom-right-radius:0;label:RangePicker;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
 };
 const RangePicker = props => {
   var _startDatePickerProps6, _endDatePickerProps$d5, _range$from;
@@ -912,7 +942,7 @@ const RangePicker = props => {
 };
 
 const RadioGroupContext = /*#__PURE__*/React__default.createContext('medium');
-const Root$3 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
+const Root$2 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
     size,
     componentId,
@@ -947,7 +977,8 @@ const Root$3 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
       }, process.env.NODE_ENV === "production" ? "" : ";label:Root;"),
       onValueChange: onValueChangeWrapper,
       ...props,
-      ref: forwardedRef
+      ref: forwardedRef,
+      ...eventContext.dataComponentProps
     })
   });
 });
@@ -982,8 +1013,14 @@ const useRadioGroupItemStyles = (size, iconClass) => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   return {
     textOverflow: 'ellipsis',
+    ...(useNewShadows ? {
+      boxShadow: theme.shadows.xs
+    } : {}),
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     appearance: 'none',
@@ -1017,7 +1054,7 @@ const useRadioGroupItemStyles = (size, iconClass) => {
       outlineStyle: 'solid',
       outlineWidth: '2px',
       outlineOffset: '0px',
-      outlineColor: theme.isDarkMode ? theme.colors.actionLinkDefault : theme.colors.actionLinkDefault,
+      outlineColor: theme.colors.actionDefaultBorderFocus,
       '&:hover': {
         backgroundColor: theme.colors.actionDefaultBackgroundPress,
         borderColor: theme.colors.actionLinkPress,
@@ -1085,7 +1122,7 @@ const useRadioGroupItemStyles = (size, iconClass) => {
 var PillControl = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Item: Item,
-  Root: Root$3
+  Root: Root$2
 });
 
 const PreviewCard = _ref => {
@@ -1103,11 +1140,14 @@ const PreviewCard = _ref => {
     dangerouslyAppendEmotionCSS,
     componentId,
     analyticsEvents = [],
+    disabled,
+    selected,
     ...props
   } = _ref;
   const styles = usePreviewCardStyles({
     onClick,
-    size
+    size,
+    disabled
   });
   const tabIndex = onClick ? 0 : undefined;
   const role = onClick ? 'button' : undefined;
@@ -1129,7 +1169,18 @@ const PreviewCard = _ref => {
     css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PreviewCard;"],
     tabIndex: tabIndex,
     onClick: onClickWrapper,
+    onKeyDown: e => {
+      if (!onClick || disabled) {
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClickWrapper(e);
+      }
+    },
     role: role,
+    "aria-disabled": disabled,
+    "aria-pressed": selected,
     ...props,
     children: [image && jsx("div", {
       css: styles['image'],
@@ -1168,11 +1219,15 @@ const PreviewCard = _ref => {
 const usePreviewCardStyles = _ref2 => {
   let {
     onClick,
-    size
+    size,
+    disabled
   } = _ref2;
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const isInteractive = onClick !== undefined;
   return {
     container: {
@@ -1184,22 +1239,31 @@ const usePreviewCardStyles = _ref2 => {
       flexDirection: 'column',
       justifyContent: 'space-between',
       gap: size === 'large' ? theme.spacing.md : theme.spacing.sm,
+      ...(useNewShadows ? {
+        boxShadow: theme.shadows.sm
+      } : {}),
       cursor: isInteractive ? 'pointer' : 'default',
       ...(isInteractive && {
+        '&[aria-disabled="true"]': {
+          pointerEvents: 'none',
+          backgroundColor: theme.colors.actionDisabledBackground,
+          borderColor: theme.colors.actionDisabledBorder,
+          color: theme.colors.actionDisabledText
+        },
         '&:hover, &:focus-within': {
-          boxShadow: theme.general.shadowLow
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow
         },
         '&:active': {
           background: theme.colors.actionTertiaryBackgroundPress,
           borderColor: theme.colors.actionDefaultBorderHover,
-          boxShadow: theme.general.shadowLow
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow
         },
-        '&:focus': {
-          outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+        '&:focus, &[aria-pressed="true"]': {
+          outlineColor: theme.colors.actionDefaultBorderFocus,
           outlineWidth: 2,
           outlineOffset: -2,
           outlineStyle: 'solid',
-          boxShadow: theme.general.shadowLow,
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow,
           borderColor: theme.colors.actionDefaultBorderHover
         },
         '&:active:not(:focus):not(:focus-within)': {
@@ -1220,7 +1284,7 @@ const usePreviewCardStyles = _ref2 => {
     },
     title: {
       fontWeight: theme.typography.typographyBoldFontWeight,
-      color: theme.colors.textPrimary,
+      color: disabled ? theme.colors.actionDisabledText : theme.colors.textPrimary,
       lineHeight: theme.typography.lineHeightSm
     },
     subTitle: {
@@ -1287,7 +1351,7 @@ const getProgressRootStyles = (theme, _ref) => {
   };
   return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressRootStyles;");
 };
-const Root$2 = props => {
+const Root$1 = props => {
   const {
     children,
     value,
@@ -1342,121 +1406,16 @@ const Indicator = props => {
 var Progress = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Indicator: Indicator,
-  Root: Root$2
+  Root: Root$1
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref = process.env.NODE_ENV === "production" ? {
-  name: "1tciq3q",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
-} : {
-  name: "18im58f-getRootStyles",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
-};
-const getRootStyles$1 = () => {
-  return _ref;
-};
-const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixSlider.Root, {
-    ...addDebugOutlineIfEnabled(),
-    css: getRootStyles$1(),
-    ...props,
-    ref: ref
-  });
-});
-const getTrackStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.grey100,
-    position: 'relative',
-    flexGrow: 1,
-    borderRadius: 9999,
-    '&[data-orientation="vertical"]': {
-      width: 3
-    },
-    '&[data-orientation="horizontal"]': {
-      height: 3
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
-};
-const Track = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Track, {
-    css: getTrackStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getRangeStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.primary,
-    position: 'absolute',
-    borderRadius: 9999,
-    height: '100%',
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey100
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
-};
-const Range = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Range, {
-    css: getRangeStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getThumbStyles = theme => {
-  return /*#__PURE__*/css({
-    display: 'block',
-    width: 20,
-    height: 20,
-    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-    boxShadow: `0 2px 4px 0 ${theme.colors.grey400}`,
-    borderRadius: 10,
-    outline: 'none',
-    '&:hover': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundHover
-    },
-    '&:focus': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundPress
-    },
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey200,
-      boxShadow: 'none'
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
-};
-const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Thumb, {
-    css: getThumbStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-
-var Slider = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Range: Range,
-  Root: Root$1,
-  Thumb: Thumb,
-  Track: Track
-});
-
-const getRootStyles = theme => {
+const getRootStyles = (theme, useNewShadows) => {
   return /*#__PURE__*/css({
     alignItems: 'center',
     backgroundColor: theme.colors.backgroundSecondary,
     border: `1px solid ${theme.colors.borderDecorative}`,
     borderRadius: theme.legacyBorders.borderRadiusMd,
-    boxShadow: theme.general.shadowLow,
+    boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
     display: 'flex',
     gap: theme.spacing.md,
     width: 'max-content',
@@ -1467,9 +1426,12 @@ const Root = /*#__PURE__*/forwardRef((props, ref) => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   return jsx(RadixToolbar.Root, {
     ...addDebugOutlineIfEnabled(),
-    css: getRootStyles(theme),
+    css: getRootStyles(theme, useNewShadows),
     ...props,
     ref: ref
   });
@@ -1859,5 +1821,5 @@ const TreeGrid = _ref => {
   });
 };
 
-export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Slider, Toolbar, TreeGrid, getDatePickerQuickActionBasic, getRangeQuickActionsBasic };
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Toolbar, TreeGrid, getDatePickerQuickActionBasic, getRangeQuickActionsBasic };
 //# sourceMappingURL=development.js.map

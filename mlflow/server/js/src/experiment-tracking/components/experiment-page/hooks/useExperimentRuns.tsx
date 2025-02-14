@@ -58,7 +58,7 @@ export const useExperimentRuns = (
   const [isLoadingRuns, setIsLoadingRuns] = useState(true);
   const [isInitialLoadingRuns, setIsInitialLoadingRuns] = useState(true);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-  const [requestError, setRequestError] = useState<ErrorWrapper | null>(null);
+  const [requestError, setRequestError] = useState<ErrorWrapper | Error | null>(null);
   const cachedPinnedRuns = useRef<string[]>([]);
 
   const lastFetchedTime = useRef<number | null>(null);
@@ -96,7 +96,12 @@ export const useExperimentRuns = (
 
   const loadModelVersions = useCallback(
     (runs: Parameters<typeof fetchModelVersionsForRuns>[0]) => {
-      fetchModelVersionsForRuns(runs || [], searchModelVersionsApi, dispatch);
+      const handleModelVersionLoadFailure = (e: Error | ErrorWrapper) => {
+        const message = e instanceof ErrorWrapper ? e.getMessageField() : e.message;
+        Utils.displayGlobalErrorNotification(`Failed to load model versions for runs: ${message}`);
+      };
+
+      fetchModelVersionsForRuns(runs || [], searchModelVersionsApi, dispatch).catch(handleModelVersionLoadFailure);
     },
     [dispatch],
   );

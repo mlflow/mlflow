@@ -20,6 +20,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ExperimentViewTracesTableColumnLabels } from './TracesView.utils';
 import { entries } from 'lodash';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
+import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 
 const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -74,6 +75,8 @@ export const TracesViewControls = ({
   setRowSelection,
   refreshTraces,
   baseComponentId,
+  runUuid,
+  traces,
 }: {
   experimentIds: string[];
   filter: string;
@@ -85,11 +88,15 @@ export const TracesViewControls = ({
   setRowSelection: (newSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
   baseComponentId: string;
+  runUuid?: string;
+  traces: ModelTraceInfoWithRunName[];
 }) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
 
   // Internal filter value state, used to control the input value
   const [filterValue, setFilterValue] = useState<string | undefined>(filter || undefined);
+  const [isEvaluateTracesModalOpen, setEvaluateTracesModalOpen] = useState(false);
 
   const allColumnsList = useMemo(() => {
     return entries(ExperimentViewTracesTableColumnLabels)
@@ -102,9 +109,12 @@ export const TracesViewControls = ({
 
   const displayedFilterValue = filterValue ?? filter;
 
-  const showActionButtons = Object.values(rowSelection).filter(Boolean).length > 0;
+  const selectedRequestIds = Object.entries(rowSelection)
+    .filter(([, isSelected]) => isSelected)
+    .map(([id]) => id);
+  const showActionButtons = selectedRequestIds.length > 0;
 
-  return showActionButtons ? (
+  const searchOrDeleteControls = showActionButtons ? (
     <TracesViewControlsActions
       experimentIds={experimentIds}
       rowSelection={rowSelection}
@@ -141,7 +151,7 @@ export const TracesViewControls = ({
       <DialogCombobox
         componentId={`${baseComponentId}.traces_table.column_selector`}
         label={
-          <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <ColumnsIcon />
             <FormattedMessage
               defaultMessage="Columns"
@@ -174,5 +184,12 @@ export const TracesViewControls = ({
         </DialogComboboxContent>
       </DialogCombobox>
     </TableFilterLayout>
+  );
+
+  return (
+    <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+      {/* Search and delete controls */}
+      {searchOrDeleteControls}
+    </div>
   );
 };

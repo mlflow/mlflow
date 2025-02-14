@@ -14,7 +14,11 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { isExperimentLoggedModelsUIEnabled, shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
+import {
+  isExperimentEvalResultsMonitoringUIEnabled,
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableTracingUI,
+} from '../../../../../common/utils/FeatureUtils';
 import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
@@ -90,7 +94,9 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "table", "chart", "evaluation" and "traces" modes of experiment view
+ * Allows switching between various modes of the experiment page view.
+ * Handles legacy part of the mode switching, based on "compareRunsMode" query parameter.
+ * Modern part of the mode switching is handled by <ExperimentViewRunsModeSwitchV2> which works using route params.
  */
 export const ExperimentViewRunsModeSwitch = ({
   viewState,
@@ -202,6 +208,20 @@ export const ExperimentViewRunsModeSwitch = ({
         }
         key="ARTIFACT"
       />
+      {singleExperimentId && isExperimentEvalResultsMonitoringUIEnabled() && (
+        <LegacyTabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-evaluation-results">
+              <FormattedMessage
+                defaultMessage="Monitoring"
+                description="A button enabling evaluation results monitoring mode on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+          key="EVAL_RESULTS"
+        />
+      )}
       {shouldEnableTracingUI() && (
         <LegacyTabs.TabPane
           tab={

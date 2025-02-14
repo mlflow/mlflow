@@ -1,5 +1,5 @@
 import { select } from '@databricks/design-system/test-utils/rtl';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { renderWithIntl, screen } from '../../common/utils/TestUtils.react18';
 import { RunInfoEntity } from '../types';
 import { CompareRunBox } from './CompareRunBox';
