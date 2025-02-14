@@ -601,7 +601,7 @@ def _read_file_content(uri_or_path: str, file_name: str):
     """
     from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 
-    if ModelsArtifactRepository.is_models_uri(uri_or_path):
+    if ModelsArtifactRepository._is_logged_model_uri(uri_or_path):
         uri_or_path = ModelsArtifactRepository.get_underlying_uri(uri_or_path)
 
     file_path = str(uri_or_path).rstrip("/") + "/" + file_name

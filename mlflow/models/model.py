@@ -1148,7 +1148,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
     from mlflow.pyfunc import _download_artifact_from_uri
     from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 
-    if ModelsArtifactRepository.is_models_uri(model_uri):
+    if ModelsArtifactRepository._is_logged_model_uri(model_uri):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
 
     meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
