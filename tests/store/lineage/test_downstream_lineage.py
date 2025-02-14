@@ -45,7 +45,6 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
     return extra_headers
 
 
-@pytest.mark.xfail(reason="TODO: Fix this")
 @pytest.mark.parametrize(
     ("is_in_notebook", "is_in_job", "notebook_id", "job_id"),
     [
@@ -120,6 +119,11 @@ def test_downstream_notebook_job_lineage(
             "mlflow.utils.rest_utils.http_request",
             return_value=mock.MagicMock(status_code=200, text="{}"),
         ) as mock_http,
+        mock.patch.object(
+            mlflow.tracking.MlflowClient,
+            "get_model_version",
+            return_value=mock.Mock(model_id="m-123"),
+        ),
     ):
         mlflow.pyfunc.save_model(path=model_dir, python_model=SimpleModel())
         mlflow.pyfunc.load_model(model_uri)

@@ -7,6 +7,7 @@ import urllib
 from os.path import join
 from typing import Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -622,7 +623,7 @@ class FileStore(AbstractStore):
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
-        model_params: Optional[list] = None,
+        model_params: Optional[list[LoggedModelParameter]] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.

@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -183,7 +184,7 @@ class AbstractStore:
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
-        model_params: Optional[list] = None,
+        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
