@@ -32,6 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.langchain_tracer import (
     patched_callback_manager_init,
+    patched_callback_manager_merge,
     patched_runnable_sequence_batch,
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -1068,6 +1069,12 @@ def autolog(
             BaseCallbackManager,
             "__init__",
             patched_callback_manager_init,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            BaseCallbackManager,
+            "merge",
+            patched_callback_manager_merge,
         )
     except Exception as e:
         logger.warning(f"Failed to enable tracing for LangChain. Error: {e}")

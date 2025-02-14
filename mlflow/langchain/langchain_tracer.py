@@ -33,11 +33,9 @@ from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
-# Vector Search index column names
-VS_INDEX_ID_COL = "chunk_id"
-VS_INDEX_DOC_URL_COL = "doc_uri"
 
 _should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
 
@@ -45,13 +43,47 @@ _should_attach_span_to_context = ContextVar("should_attach_span_to_context", def
 def patched_callback_manager_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
 
+    if not AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME).log_traces:
+        return
+
     for handler in self.inheritable_handlers:
         if isinstance(handler, MlflowLangchainTracer):
-            # If the tracer is already in the inheritable handlers, we don't need to add it again.
             return
     else:
-        # TODO: How to handle batch() thing?
-        self.add_handler(MlflowLangchainTracer())
+        _handler = MlflowLangchainTracer()
+        self.add_handler(_handler, inherit=True)
+
+
+def patched_callback_manager_merge(original, self, *args, **kwargs):
+    """
+    Patch BaseCallbackManager.merge to avoid a duplicated callback issue.
+
+    In the above patched __init__, we check `inheritable_handlers` to see if the MLflow tracer
+    is already propagated. This works when the `inheritable_handlers` is specified as constructor
+    arguments. However, in the `merge` method, LangChain does not use constructor but set
+    callbacks via the setter method. This causes duplicated callbacks injection.
+    https://github.com/langchain-ai/langchain/blob/d9a069c414a321e7a3f3638a32ecf8a37ec2d188/libs/core/langchain_core/callbacks/base.py#L962-L982
+    """
+    # Get the MLflow callback inherited from parent
+    inherited = self.inheritable_handlers + args[0].inheritable_handlers
+    inherited_mlflow_cb = next(
+        (cb for cb in inherited if isinstance(cb, MlflowLangchainTracer)), None
+    )
+
+    if not inherited_mlflow_cb:
+        return original(self, *args, **kwargs)
+
+    merged = original(self, *args, **kwargs)
+    # If a new MLflow callback is generated inside __init__, remove it
+    duplicate_mlflow_cbs = [
+        cb
+        for cb in merged.inheritable_handlers
+        if isinstance(cb, MlflowLangchainTracer) and cb != inherited_mlflow_cb
+    ]
+    for cb in duplicate_mlflow_cbs:
+        merged.remove_handler(cb)
+
+    return merged
 
 
 def patched_runnable_sequence_batch(original, self, *args, **kwargs):
@@ -219,6 +251,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Run when a chat model starts running."""
+
         if metadata:
             kwargs.update({"metadata": metadata})
 
