@@ -1,4 +1,3 @@
-import type { EmotionJSX } from '@emotion/react/types/jsx-namespace';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 
@@ -27,8 +26,8 @@ export const useNextModelsUIContext = () => useContext(NextModelsUIContext);
 export const withNextModelsUIContext =
   <
     BaseProps,
-    P extends EmotionJSX.IntrinsicAttributes &
-      EmotionJSX.LibraryManagedAttributes<React.ComponentType<BaseProps>, React.PropsWithChildren<BaseProps>> & {
+    P extends JSX.IntrinsicAttributes &
+      JSX.LibraryManagedAttributes<React.ComponentType<BaseProps>, React.PropsWithChildren<BaseProps>> & {
         usingNextModelsUI?: boolean;
       },
   >(

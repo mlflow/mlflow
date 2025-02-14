@@ -1,4 +1,4 @@
-import { gql, NetworkStatus } from '@apollo/client';
+import { gql, NetworkStatus } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
 import { groupBy, keyBy } from 'lodash';

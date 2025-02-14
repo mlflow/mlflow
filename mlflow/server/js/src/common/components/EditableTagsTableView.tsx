@@ -24,7 +24,7 @@ type Props = {
   innerRef?: any;
 };
 
-export class EditableTagsTableViewImpl extends Component<Props> {
+class EditableTagsTableViewImpl extends Component<Props> {
   tableColumns = [
     {
       title: this.props.intl.formatMessage({

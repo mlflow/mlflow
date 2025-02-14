@@ -1,8 +1,8 @@
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
-import { Button, FileIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, FileIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
 import type { ReduxState } from '../../../redux-types';
@@ -26,6 +26,7 @@ import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
 import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -37,6 +38,8 @@ export const RunViewOverview = ({
   datasets,
   params,
   latestMetrics,
+  registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
+  isLoadingLoggedModels = false,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
@@ -45,16 +48,18 @@ export const RunViewOverview = ({
   latestMetrics: MetricEntitiesByName;
   datasets?: RunDatasetWithTags[];
   params: Record<string, KeyValueEntity>;
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
+  isLoadingLoggedModels?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
-
-  const { registeredModels } = useSelector(({ entities }: ReduxState) => ({
-    registeredModels: entities.modelVersionsByRunUuid[runUuid],
-  }));
+  const intl = useIntl();
 
   const loggedModels = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
+
+  const registeredModelVersionSummaries = registeredModelVersionSummariesForRun;
+  const shouldDisplayLoggedModelsBox = loggedModels?.length > 0;
 
   const renderDetails = () => {
     return (
@@ -66,7 +71,7 @@ export const RunViewOverview = ({
               description="Run page > Overview > Run start time section label"
             />
           }
-          value={runInfo.startTime ? Utils.formatTimestamp(runInfo.startTime) : <EmptyValue />}
+          value={runInfo.startTime ? Utils.formatTimestamp(runInfo.startTime, intl) : <EmptyValue />}
         />
         <DetailsOverviewMetadataRow
           title={
@@ -140,8 +145,14 @@ export const RunViewOverview = ({
             />
           }
           value={
-            loggedModels?.length > 0 ? (
-              <RunViewLoggedModelsBox runInfo={runInfo} loggedModels={loggedModels} />
+            isLoadingLoggedModels ? (
+              <Spinner />
+            ) : shouldDisplayLoggedModelsBox ? (
+              <RunViewLoggedModelsBox
+                // Pass the run info and logged models
+                runInfo={runInfo}
+                loggedModels={loggedModels}
+              />
             ) : (
               <EmptyValue />
             )
@@ -155,8 +166,8 @@ export const RunViewOverview = ({
             />
           }
           value={
-            registeredModels?.length > 0 ? (
-              <RunViewRegisteredModelsBox runInfo={runInfo} registeredModels={registeredModels} />
+            registeredModelVersionSummaries?.length > 0 ? (
+              <RunViewRegisteredModelsBox registeredModelVersionSummaries={registeredModelVersionSummaries} />
             ) : (
               <EmptyValue />
             )
