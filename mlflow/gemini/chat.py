@@ -233,7 +233,7 @@ def _convert_gemini_param_property_to_mlflow_param_property(param_property) -> P
     type_name = type_name.name.lower() if hasattr(type_name, "name") else type_name.lower()
     return ParamProperty(
         description=param_property.description,
-        enum=[param_property.enum] if param_property.enum else None,
+        enum=param_property.enum,
         type=type_name,
     )
 
