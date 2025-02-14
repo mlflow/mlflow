@@ -45,8 +45,8 @@ const EmptyMetricsFiltered = () => (
 const EmptyMetricsNotRecorded = ({ label }: { label: React.ReactNode }) => <Empty title={label} description={null} />;
 
 const metricKeyMatchesFilter = (filter: string, metricKey: string) =>
-  metricKey.toLowerCase().startsWith(filter.toLowerCase()) ||
-  normalizeChartMetricKey(metricKey).toLowerCase().startsWith(filter.toLowerCase());
+  metricKey.toLowerCase().includes(filter.toLowerCase()) ||
+  normalizeChartMetricKey(metricKey).toLowerCase().includes(filter.toLowerCase());
 
 /**
  * Internal component that displays a single collapsible section with charts
