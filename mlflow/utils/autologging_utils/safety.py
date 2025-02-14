@@ -1033,6 +1033,15 @@ def _validate_args(
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
 
+        else:
+            assert (
+                autologging_call_input is user_call_input
+                or autologging_call_input == user_call_input
+            ), (
+                "Input to original function does not match expected input."
+                f" Original: '{autologging_call_input}'. Expected: '{user_call_input}'"
+            )
+
     # Similar validation logic found in _validate, unraveling the list of arguments to exclude
     # checks for any validation exempt positional arguments.
     _assert_autologging_input_positional_args_are_superset(autologging_call_args, user_call_args)

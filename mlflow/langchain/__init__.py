@@ -30,11 +30,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
-from mlflow.langchain.langchain_tracer import (
-    patched_callback_manager_init,
-    patched_callback_manager_merge,
-    patched_runnable_sequence_batch,
-)
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
@@ -1021,6 +1016,12 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
+    from mlflow.langchain.langchain_tracer import (
+        patched_callback_manager_init,
+        patched_callback_manager_merge,
+        patched_runnable_sequence_batch,
+    )
+
     # avoid duplicate patching
     patched_classes = set()
     # avoid infinite recursion
@@ -1070,17 +1071,12 @@ def autolog(
             "__init__",
             patched_callback_manager_init,
         )
-        safe_patch(
-            FLAVOR_NAME,
-            BaseCallbackManager,
-            "merge",
-            patched_callback_manager_merge,
-        )
     except Exception as e:
         logger.warning(f"Failed to enable tracing for LangChain. Error: {e}")
 
-    # Special handling for RunnableSequence.batch to avoid context pollution
+    # Special handlings for edge cases.
     try:
+        from langchain_core.callbacks import BaseCallbackManager
         from langchain_core.runnables import RunnableSequence
 
         safe_patch(
@@ -1088,6 +1084,13 @@ def autolog(
             RunnableSequence,
             "batch",
             patched_runnable_sequence_batch,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseCallbackManager,
+            "merge",
+            patched_callback_manager_merge,
         )
     except Exception:
         pass

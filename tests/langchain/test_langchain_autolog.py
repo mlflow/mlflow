@@ -600,7 +600,7 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
         mock.patch("mlflow.langchain.log_model") as log_model_mock,
         mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
     ):
-        model.get_relevant_documents(query)
+        model.invoke(query)
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
 
