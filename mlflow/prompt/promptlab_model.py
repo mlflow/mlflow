@@ -159,7 +159,7 @@ def save_model(
 
     pyfunc.add_to_model(
         mlflow_model,
-        loader_module="mlflow.promptlab",
+        loader_module="mlflow.prompt.promptlab_model",
         parameters_path=parameters_sub_path,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,

@@ -23,6 +23,7 @@ from mlflow.entities.model_registry.model_version_stages import (
 )
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import add_prompt_filter_string
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -36,7 +37,6 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.store.model_registry.prompt.utils import add_prompt_filter_string
 from mlflow.utils.file_utils import (
     contains_path_separator,
     contains_percent,
