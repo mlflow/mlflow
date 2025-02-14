@@ -826,15 +826,18 @@ autogen:
 
 gemini:
   package_info:
-    pip_release: "google-generativeai"
-    module_name: "google.generativeai"
+    pip_release: "google-genai"
+    module_name: "google.genai"
     install_dev: |
-      pip install git+https://github.com/google-gemini/generative-ai-python
+      pip install git+https://github.com/googleapis/python-genai
   autologging:
-    minimum: "0.8.0"
-    maximum: "0.8.3"
+    minimum: "1.0.0"
+    maximum: "1.0.0"
     requirements:
-    run: pytest tests/gemini
+    run: |
+      # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
+      pip install google-generativeai
+      pytest tests/gemini
 
 anthropic:
   package_info:

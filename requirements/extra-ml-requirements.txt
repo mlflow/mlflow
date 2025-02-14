@@ -80,7 +80,7 @@ dspy
 # Required by mlflow.litellm
 litellm
 # Required by mlflow.gemini
-google-generativeai
+google-genai
 # Required by mlflow.groq
 groq
 # Required by mlflow.mistral
