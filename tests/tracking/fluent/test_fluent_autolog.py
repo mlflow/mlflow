@@ -115,6 +115,8 @@ def reset_global_states():
 
     # TODO: Remove this when we run ci with Python >= 3.10
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
+    # TODO: Remove this line when we stop supporting google.generativeai
+    mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}

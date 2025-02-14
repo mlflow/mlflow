@@ -33,7 +33,7 @@ _logger = logging.getLogger(__name__)
 
 def patched_class_call(original, self, *args, **kwargs):
     """
-    This method is used for patching class methods of the google.generativeai module.
+    This method is used for patching class methods of gemini SDKs.
     This patch creates a span and set input and output of the original method to the span.
     """
     config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
