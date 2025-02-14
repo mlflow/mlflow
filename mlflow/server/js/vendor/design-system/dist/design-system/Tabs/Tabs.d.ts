@@ -21,9 +21,11 @@ interface ListProps extends DangerousGeneralProps, Omit<RadixTabs.TabsListProps,
      *  Customizing the scrollbar height is not recommended. Ask in #dubois before using.
      */
     scrollbarHeight?: number;
+    /** Optional callback to get access to the viewport element. */
+    getScrollAreaViewportRef?: (element: HTMLDivElement | null) => void;
 }
 export declare const List: React.ForwardRefExoticComponent<ListProps & React.RefAttributes<HTMLDivElement>>;
-interface TriggerProps extends Omit<RadixTabs.TabsTriggerProps, 'asChild'> {
+export interface TriggerProps extends Omit<RadixTabs.TabsTriggerProps, 'asChild'> {
     /** Called when the close tab icon is clicked. The close icon is only displayed when this prop is passed */
     onClose?: (value: string) => void;
 }

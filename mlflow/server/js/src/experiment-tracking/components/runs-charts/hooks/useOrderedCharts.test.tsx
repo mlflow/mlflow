@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import { render, screen } from '../../../../common/utils/TestUtils.react18';
 import { useChartMoveUpDownFunctions, useOrderedCharts } from './useOrderedCharts';

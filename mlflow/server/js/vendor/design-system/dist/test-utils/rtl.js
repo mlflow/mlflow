@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { queryHelpers, within, waitFor, screen, fireEvent } from '@testing-library/react';
 import { computeAccessibleName } from 'dom-accessibility-api';
 import { s as selectClasses, c as createMarkdownTable } from '../common-B8UocGP5.js';

@@ -5997,6 +5997,8 @@ _:-ms-fullscreen .du-bois-dark-picker-range-wrapper .du-bois-dark-picker-year-pa
   font-size: 13px;
   line-height: 20px;
   transition: color 0.3s cubic-bezier(0.215, 0.61, 0.355, 1);
+  margin-top: -118px;
+  margin-bottom: -118px;
 }
 .du-bois-dark-form-item .du-bois-dark-input-textarea-show-count::after {
   margin-bottom: -22px;

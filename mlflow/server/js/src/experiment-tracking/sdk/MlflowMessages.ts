@@ -122,7 +122,7 @@ const extended_Param = ModelBuilder.extend(Param, {
   return new extended_Param(pojoWithNestedImmutables);
 };
 
-export const RunInfo = Immutable.Record(
+const RunInfo = Immutable.Record(
   {
     // optional STRING
     run_uuid: undefined,
@@ -203,7 +203,7 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   return new extended_RunInfo(pojoWithNestedImmutables);
 };
 
-export const RunData = Immutable.Record(
+const RunData = Immutable.Record(
   {
     // repeated Metric
     metrics: Immutable.List(),
@@ -250,7 +250,7 @@ const extended_RunData = ModelBuilder.extend(RunData, {});
   return new extended_RunData(pojoWithNestedImmutables);
 };
 
-export const Run = Immutable.Record(
+const Run = Immutable.Record(
   {
     // optional RunInfo
     info: undefined,
@@ -299,7 +299,7 @@ const extended_Run = ModelBuilder.extend(Run, {
   return new extended_Run(pojoWithNestedImmutables);
 };
 
-export const Experiment = Immutable.Record(
+const Experiment = Immutable.Record(
   {
     // optional STRING
     experiment_id: undefined,
@@ -376,7 +376,7 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
   return new extended_Experiment(pojoWithNestedImmutables);
 };
 
-export const CreateExperiment = Immutable.Record(
+const CreateExperiment = Immutable.Record(
   {
     // required STRING
     name: undefined,
@@ -421,7 +421,7 @@ const extended_CreateExperiment = ModelBuilder.extend(CreateExperiment, {
   return new extended_CreateExperiment(pojoWithNestedImmutables);
 };
 
-export const SearchExperiments = Immutable.Record(
+const SearchExperiments = Immutable.Record(
   {
     // optional ViewType
     view_type: undefined,
@@ -460,7 +460,7 @@ const extended_SearchExperiments = ModelBuilder.extend(SearchExperiments, {
   return new extended_SearchExperiments(pojoWithNestedImmutables);
 };
 
-export const GetExperiment = Immutable.Record(
+const GetExperiment = Immutable.Record(
   {
     // required STRING
     experiment_id: undefined,
@@ -499,7 +499,7 @@ const extended_GetExperiment = ModelBuilder.extend(GetExperiment, {
   return new extended_GetExperiment(pojoWithNestedImmutables);
 };
 
-export const GetRun = Immutable.Record(
+const GetRun = Immutable.Record(
   {
     // required STRING
     run_uuid: undefined,
@@ -538,7 +538,7 @@ const extended_GetRun = ModelBuilder.extend(GetRun, {
   return new extended_GetRun(pojoWithNestedImmutables);
 };
 
-export const MetricSearchExpression = Immutable.Record(
+const MetricSearchExpression = Immutable.Record(
   {
     // optional STRING
     key: undefined,
@@ -585,7 +585,7 @@ const extended_MetricSearchExpression = ModelBuilder.extend(MetricSearchExpressi
   return new extended_MetricSearchExpression(pojoWithNestedImmutables);
 };
 
-export const ParameterSearchExpression = Immutable.Record(
+const ParameterSearchExpression = Immutable.Record(
   {
     // optional STRING
     key: undefined,
@@ -632,7 +632,7 @@ const extended_ParameterSearchExpression = ModelBuilder.extend(ParameterSearchEx
   return new extended_ParameterSearchExpression(pojoWithNestedImmutables);
 };
 
-export const SearchExpression = Immutable.Record(
+const SearchExpression = Immutable.Record(
   {
     // optional MetricSearchExpression
     metric: undefined,
@@ -681,7 +681,7 @@ const extended_SearchExpression = ModelBuilder.extend(SearchExpression, {
   return new extended_SearchExpression(pojoWithNestedImmutables);
 };
 
-export const FloatClause = Immutable.Record(
+const FloatClause = Immutable.Record(
   {
     // optional STRING
     comparator: undefined,
@@ -726,7 +726,7 @@ const extended_FloatClause = ModelBuilder.extend(FloatClause, {
   return new extended_FloatClause(pojoWithNestedImmutables);
 };
 
-export const StringClause = Immutable.Record(
+const StringClause = Immutable.Record(
   {
     // optional STRING
     comparator: undefined,
@@ -771,7 +771,7 @@ const extended_StringClause = ModelBuilder.extend(StringClause, {
   return new extended_StringClause(pojoWithNestedImmutables);
 };
 
-export const SearchRuns = Immutable.Record(
+const SearchRuns = Immutable.Record(
   {
     // repeated STRING
     experiment_ids: Immutable.List(),
@@ -815,7 +815,7 @@ const extended_SearchRuns = ModelBuilder.extend(SearchRuns, {
   return new extended_SearchRuns(pojoWithNestedImmutables);
 };
 
-export const FileInfo = Immutable.Record(
+const FileInfo = Immutable.Record(
   {
     // optional STRING
     path: undefined,
@@ -866,7 +866,7 @@ const extended_FileInfo = ModelBuilder.extend(FileInfo, {
   return new extended_FileInfo(pojoWithNestedImmutables);
 };
 
-export const ListArtifacts = Immutable.Record(
+const ListArtifacts = Immutable.Record(
   {
     // optional STRING
     run_uuid: undefined,
@@ -911,7 +911,7 @@ const extended_ListArtifacts = ModelBuilder.extend(ListArtifacts, {
   return new extended_ListArtifacts(pojoWithNestedImmutables);
 };
 
-export const GetArtifact = Immutable.Record(
+const GetArtifact = Immutable.Record(
   {
     // optional STRING
     run_uuid: undefined,
@@ -956,7 +956,7 @@ const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
   return new extended_GetArtifact(pojoWithNestedImmutables);
 };
 
-export const GetMetricHistory = Immutable.Record(
+const GetMetricHistory = Immutable.Record(
   {
     // required STRING
     run_uuid: undefined,

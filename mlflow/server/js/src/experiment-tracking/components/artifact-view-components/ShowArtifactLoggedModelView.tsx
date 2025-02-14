@@ -175,12 +175,13 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     );
   }
 
-  validateModelPredictText(modelPath: any) {
+  validateModelPredict(modelPath: any) {
     if (this.state.hasInputExample) {
       return `import mlflow
+from mlflow.models import Model
 
 model_uri = '${modelPath}'
-# This is the input example logged with the model
+# The model is logged with an input example
 pyfunc_model = mlflow.pyfunc.load_model(model_uri)
 input_data = pyfunc_model.input_example
 
@@ -318,7 +319,7 @@ mlflow.models.predict(
     );
   }
 
-  renderValidateModelPredict(modelPath: any) {
+  renderModelPredict(modelPath: any) {
     return (
       <div css={{ marginBottom: 16 }}>
         <Text>
@@ -327,12 +328,12 @@ mlflow.models.predict(
             description="Section heading to display the code block on how we can validate a model locally prior to serving"
           />
         </Text>
-        <ShowArtifactCodeSnippet code={this.validateModelPredictText(modelPath)} />
+        <ShowArtifactCodeSnippet code={this.validateModelPredict(modelPath)} />
       </div>
     );
   }
 
-  renderValidateServingInputCodeSnippet() {
+  renderModelPredictCodeSnippet() {
     const { runUuid, path } = this.props;
     const modelPath = `runs:/${runUuid}/${path}`;
     return (
@@ -344,7 +345,7 @@ mlflow.models.predict(
             description="Heading text for validating the model before deploying it for serving"
           />
         </Title>
-        <div className="artifact-logged-model-view-code-content">{this.renderValidateModelPredict(modelPath)}</div>
+        <div className="artifact-logged-model-view-code-content">{this.renderModelPredict(modelPath)}</div>
       </>
     );
   }
@@ -431,7 +432,7 @@ mlflow.models.predict(
               className="artifact-logged-model-view-code-group"
               style={{ width: '50%', marginRight: 16, float: 'right' }}
             >
-              {this.renderValidateServingInputCodeSnippet()}
+              {this.renderModelPredictCodeSnippet()}
               {this.state.flavor === 'pyfunc' ? this.renderPyfuncCodeSnippet() : this.renderNonPyfuncCodeSnippet()}
             </div>
           </div>
