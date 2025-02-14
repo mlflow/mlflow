@@ -127,7 +127,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "spacy"
         },
         "models": {
-            "minimum": "3.4.0",
+            "minimum": "3.4.4",
             "maximum": "3.8.3"
         }
     },
