@@ -602,8 +602,8 @@ class MlflowClient:
             prompt_uri: The prompt URI in the format "prompts:/name/version".
         """
         prompt = self.load_prompt(prompt_uri)
-        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, "")
-        run_ids = run_id_tags.split(",")
+        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        run_ids = run_id_tags.split(",") if run_id_tags else []
 
         if run_id not in run_ids:
             raise MlflowException(
@@ -614,9 +614,12 @@ class MlflowClient:
         run_ids.remove(run_id)
 
         name, version = parse_prompt_uri(prompt_uri)
-        self.set_model_version_tag(
-            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
-        )
+        if run_ids:
+            self.set_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+            )
+        else:
+            self.delete_model_version_tag(name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
 
     # TODO: Use model_id in MLflow 3.0
     @experimental
@@ -637,6 +640,8 @@ class MlflowClient:
                 f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
             )
         )
+        # NB: We don't support pagination here because the number of prompts associated
+        # with a Run is expected to be small.
         return [Prompt.from_model_version(mv) for mv in mvs]
 
     ##### Tracing #####

@@ -1812,6 +1812,7 @@ def test_log_and_detach_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     client.register_prompt(name="p1", template="Hi, there!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
     client.register_prompt(name="p2", template="Hi, {{name}}!")
 
     run_id = client.create_run(experiment_id="0").info.run_id

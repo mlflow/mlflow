@@ -388,6 +388,9 @@ navigate to the model as well.
 
     print(model_info.prompts)
     # Output: ['prompt:/my_prompt/1']
+
+    # Load the prompt
+    prompt = mlflow.load_prompt(model_info.prompts[0])
 """,
     }
 )

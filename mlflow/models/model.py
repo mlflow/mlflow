@@ -102,9 +102,9 @@ class ModelInfo:
         mlflow_version: str,
         signature_dict: Optional[dict[str, Any]] = None,
         metadata: Optional[dict[str, Any]] = None,
-        prompts: Optional[dict[str, str]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -314,13 +314,8 @@ class ModelInfo:
         return self._metadata
 
     @property
-    def prompts(self) -> Optional[dict[str, str]]:
-        """
-        A dictionary of prompt URIs associated with the model.
-
-        :getter: Gets the prompt URIs associated with the model
-        :type: Optional[Dict[str, Any]]
-        """
+    def prompts(self) -> Optional[list[str]]:
+        """A list of prompt URIs associated with the model."""
         return self._prompts
 
     @property
@@ -356,10 +351,10 @@ class Model:
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[dict[str, Any]] = None,
-        prompts: Optional[dict[str, str]] = None,
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -888,13 +883,15 @@ class Model:
             mlflow_model.env_vars = env_vars
 
             # Associate prompts to the model Run
-            for prompt_uri in prompts or []:
-                try:
-                    mlflow.MlflowClient().log_prompt(run_id, prompt_uri)
-                except MlflowException:
-                    _logger.warning(
-                        f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
-                    )
+            if prompts:
+                client = mlflow.MlflowClient()
+                for prompt_uri in prompts:
+                    try:
+                        client.log_prompt(run_id, prompt_uri)
+                    except MlflowException:
+                        _logger.warning(
+                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
+                        )
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 

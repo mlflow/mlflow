@@ -1,5 +1,6 @@
 import os
 import pathlib
+import time
 import uuid
 from datetime import date
 from unittest import mock
@@ -645,6 +646,7 @@ def test_model_resources():
 
 def test_save_model_with_prompts():
     mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
     mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
 
     class MyModel(mlflow.pyfunc.PythonModel):
