@@ -43,7 +43,7 @@ export const useRunsMultipleTracesTooltipData = ({
   containsMultipleMetricKeys,
   xAxisKeyLabel,
   xAxisKey,
-  disabled,
+  disabled = false,
   setHoveredPointIndex,
   xAxisScaleType = 'linear',
   positionInSection = 0,
@@ -52,7 +52,7 @@ export const useRunsMultipleTracesTooltipData = ({
   legendLabelData: LegendLabelData[];
   containsMultipleMetricKeys?: boolean;
   xAxisKeyLabel: string;
-  disabled: boolean;
+  disabled?: boolean;
   xAxisKey: RunsChartsLineChartXAxisType;
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';

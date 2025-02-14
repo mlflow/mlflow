@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import _, { identity } from 'lodash';
-import { Button, ButtonProps, Modal, Spacer, LegacyTooltip, Typography } from '@databricks/design-system';
+import _, { identity, isUndefined } from 'lodash';
+import { Button, ButtonProps, Modal, Spacer, LegacyTooltip, Typography, ModalProps } from '@databricks/design-system';
 import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -30,9 +30,10 @@ const MAX_SEARCH_REGISTERED_MODELS = 5;
 
 type RegisterModelImplProps = {
   disabled: boolean;
-  runUuid: string;
+  runUuid?: string;
+  loggedModelId?: string;
   modelPath: string;
-  modelRelativePath: string;
+  modelRelativePath?: string;
   modelByName: any;
   createRegisteredModelApi: (...args: any[]) => any;
   createModelVersionApi: (...args: any[]) => any;
@@ -171,7 +172,6 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
       this.props.searchRegisteredModelsApi();
     }
   }
-
   renderRegisterModelForm() {
     const { modelByName } = this.props;
     return (

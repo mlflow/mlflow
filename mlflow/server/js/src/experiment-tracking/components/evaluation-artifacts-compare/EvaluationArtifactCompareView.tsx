@@ -63,7 +63,7 @@ interface EvaluationArtifactCompareViewProps {
 /**
  * Compares the table data contained in experiment run artifacts.
  */
-export const EvaluationArtifactCompareViewImpl = ({
+const EvaluationArtifactCompareViewImpl = ({
   comparedRuns,
   onDatasetSelected,
   viewState,

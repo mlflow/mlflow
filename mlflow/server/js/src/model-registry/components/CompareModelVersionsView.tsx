@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
 import _ from 'lodash';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
 import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
@@ -97,6 +97,7 @@ type CompareModelVersionsViewImplProps = {
   outputsListByName: Array[];
   // @ts-expect-error TS(2314): Generic type 'Array<T>' requires 1 type argument(s... Remove this comment to see the full error message
   outputsListByIndex: Array[];
+  intl: IntlShape;
 };
 
 type CompareModelVersionsViewImplState = any;
@@ -375,7 +376,8 @@ export class CompareModelVersionsViewImpl extends Component<
           </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
-            const startTime = run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime) : '(unknown)';
+            const startTime =
+              run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime, this.props.intl) : '(unknown)';
             return (
               <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
@@ -813,4 +815,4 @@ const styles = {
   },
 };
 
-export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);
+export const CompareModelVersionsView = connect(mapStateToProps)(injectIntl(CompareModelVersionsViewImpl));
