@@ -599,6 +599,11 @@ def _read_file_content(uri_or_path: str, file_name: str):
             or /path/to/model
         file_name: Name of the file to read.
     """
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    if ModelsArtifactRepository.is_models_uri(uri_or_path):
+        uri_or_path = ModelsArtifactRepository.get_underlying_uri(uri_or_path)
+
     file_path = str(uri_or_path).rstrip("/") + "/" + file_name
     if os.path.exists(file_path):
         with open(file_path) as handle:
