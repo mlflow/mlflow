@@ -16,20 +16,21 @@ from mlflow.types.chat import (
 )
 
 if TYPE_CHECKING:
-    import google.generativeai as genai
+    from google import genai
 
 _logger = logging.getLogger(__name__)
 
 
 def convert_gemini_func_to_mlflow_chat_tool(
-    function_def: "genai.protos.FunctionDeclaration",
+    function_def: "genai.types.FunctionDeclaration",
 ) -> ChatTool:
     """
     Convert Gemini function definition into MLflow's standard format (OpenAI compatible).
     Ref: https://ai.google.dev/gemini-api/docs/function-calling
 
     Args:
-        function_def: A genai.protos.FunctionDeclaration object representing a function definition.
+        function_def: A genai.types.FunctionDeclaration or genai.protos.FunctionDeclaration object
+                      representing a function definition.
 
     Returns:
         ChatTool: MLflow's standard tool definition object.
@@ -47,14 +48,15 @@ def convert_gemini_func_to_mlflow_chat_tool(
 
 
 def convert_gemini_func_call_to_mlflow_tool_call(
-    func_call: "genai.protos.FunctionCall",
+    func_call: "genai.types.FunctionCall",
 ) -> ToolCall:
     """
     Convert Gemini function call into MLflow's standard format (OpenAI compatible).
     Ref: https://ai.google.dev/gemini-api/docs/function-calling
 
     Args:
-        func_call: A genai.protos.FunctionCall object representing a single func call.
+        func_call: A genai.types.FunctionCall or genai.protos.FunctionCall object
+                   representing a single func call.
 
     Returns:
         ToolCall: MLflow's standard tool call object.
@@ -107,7 +109,7 @@ def parse_gemini_content_to_mlflow_chat_messages(
         # when multiple contents are passed by user
         return [_construct_chat_message(content, "user")]
     elif hasattr(content, "parts"):
-        # eigher protos.Content or ContentDict
+        # eigher genai.types.Content or ContentDict
 
         # This could be unset for single turn conversation even if this is content proto
         # https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L64
@@ -159,6 +161,10 @@ def _parse_content_part(part: "genai.types.PartType") -> Optional[Union[TextCont
         return convert_gemini_func_call_to_mlflow_tool_call(function_call)
     elif function_response := getattr(part, "function_response", None):
         # FunctionResponse part: https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/content.proto#L332
+        if hasattr(function_response, "json"):
+            # genai
+            return TextContentPart(text=function_response.json(), type="text")
+        # generativeai
         return TextContentPart(
             text=str(type(function_response).to_dict(function_response)), type="text"
         )
@@ -217,27 +223,31 @@ def _convert_gemini_param_property_to_mlflow_param_property(param_property) -> P
     Ref: https://ai.google.dev/gemini-api/docs/function-calling
 
     Args:
-        param_property: A genai.protos.Schema object representing a parameter property.
+        param_property: A genai.types.Schema or genai.protos.Schema object
+                        representing a parameter property.
 
     Returns:
         ParamProperty: MLflow's standard param property object.
     """
+    type_name = param_property.type
+    type_name = type_name.name.lower() if hasattr(type_name, "name") else type_name.lower()
     return ParamProperty(
         description=param_property.description,
         enum=param_property.enum,
-        type=param_property.type.name.lower(),
+        type=type_name,
     )
 
 
 def _convert_gemini_function_param_to_mlflow_function_param(
-    function_params: "genai.protos.Schema",
+    function_params: "genai.types.Schema",
 ) -> FunctionParams:
     """
     Convert Gemini function parameter definition into MLflow's standard format (OpenAI compatible).
     Ref: https://ai.google.dev/gemini-api/docs/function-calling
 
     Args:
-        function_params: A genai.protos.Schema object representing function parameters.
+        function_params: A genai.types.Schema or genai.protos.Schema object
+                         representing function parameters.
 
     Returns:
         FunctionParams: MLflow's standard function parameter object.
