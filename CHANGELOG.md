@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2.20.2 (2025-02-13)
+
+MLflow 2.20.2 is a patch release includes several bug fixes and features
+
+Features:
+
+- [Tracing] Support tracing sync/async generator function with @mlflow.trace (#14459, @B-Step62)
+- [Tracing] Support generating traces from DSPy built-in compilation and evaluation (#14400, @B-Step62)
+- [Models] ChatAgent interface enhancements and Langgraph connectors updates (#14368, #14567, @bbqiu)
+- [Models] VariantType support in spark_udf (#14317, @serena-ruan)
+
+Bug fixes:
+
+- [Models] DSPy thread issue fix (#14471, @chenmoneygithub)
+
+Documentation updates:
+
+- [Docs] ChatAgent documentation updates (#14367, @bbqiu)
+
+Small bug fixes and documentation updates:
+
+#14410, #14569, #14440, @harupy; #14510, #14544, #14491, #14488, @bbqiu; #14518, @serena-ruan; #14517, #14500, #14461, #14478, @TomeHirata; #14512, @shaikmoeed; #14496, #14473, #14475, @B-Step62; #14467, @seal07; #14022, #14453, #14539, @daniellok-db; #14450, @BenWilson2; #14449, @SaiMadhavanG
+
 ## 2.20.1 (2025-01-30)
 
 MLflow 2.20.1 is a patch release includes several bug fixes and features:
