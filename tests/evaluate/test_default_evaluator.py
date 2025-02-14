@@ -636,10 +636,11 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
         "shap_summary_plot.png",
     }.issubset(run_data.artifacts)
 
+    # TODO: add `and name='explainer'` once sqlAlchemyStore search_logged_models supports it
     model = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run_id}' and name='explainer'", output_format="list"
-    )[0]
-    explainer = mlflow.shap.load_explainer(model.model_id)
+        filter_string=f"source_run_id='{run_id}", output_format="list"
+    )[1]
+    explainer = mlflow.shap.load_explainer(model.model_uri)
     assert isinstance(explainer, _PatchedKernelExplainer)
 
 
