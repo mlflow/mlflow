@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import {
-  EXPERIMENT_PAGE_UI_STATE_FIELDS,
-  ExperimentPageUIState,
-  createExperimentPageUIState,
-} from '../models/ExperimentPageUIState';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import { keys, pick } from 'lodash';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -80,7 +76,7 @@ export const useInitializeUIState = (
     () => {
       const persistedViewState = loadExperimentViewState(persistKey);
       const persistedStateFound = keys(persistedViewState || {}).length;
-      const persistedUIState = persistedStateFound ? pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) : {};
+      const persistedUIState = persistedStateFound ? pick(persistedViewState, Object.keys(baseState)) : {};
       return {
         uiState: { ...baseState, ...persistedUIState },
         isFirstVisit: !persistedStateFound,
@@ -125,7 +121,7 @@ export const useInitializeUIState = (
   // Each time persist key (experiment IDs) change, load persisted view state
   useEffect(() => {
     const persistedViewState = loadExperimentViewState(persistKey);
-    const persistedUIState = pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS);
+    const persistedUIState = pick(persistedViewState, Object.keys(baseState));
     const isFirstVisit = !keys(persistedViewState || {}).length;
     dispatchAction({
       type: 'LOAD_NEW_EXPERIMENT',
