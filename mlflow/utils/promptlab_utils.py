@@ -97,7 +97,7 @@ def _create_promptlab_run_impl(
                 outputs=Schema(outputs_colspecs),
             )
 
-        from mlflow.promptlab import save_model
+        from mlflow.prompt.promptlab_model import save_model
         from mlflow.server.handlers import (
             _get_artifact_repo_mlflow_artifacts,
             _get_proxied_run_artifact_destination_path,
