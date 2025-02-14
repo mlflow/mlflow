@@ -2,7 +2,6 @@ import os
 import sys
 from collections import namedtuple
 from io import BytesIO
-from pathlib import Path
 from stat import S_IRGRP, S_IROTH, S_IRUSR, S_IXGRP, S_IXOTH, S_IXUSR
 
 import numpy as np
@@ -157,25 +156,32 @@ def test_environment_directory_is_cleaned_up_when_unexpected_error_occurs(
 
 
 @use_temp_mlflow_env_root
-def test_python_env_file_does_not_exist(sklearn_model):
+def test_python_env_file_does_not_exist(sklearn_model, tmp_path):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, "model")
-        model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
 
-    model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
-    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
+    tmp_path = tmp_path / "model"
+    python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
+    python_env.unlink()
+
+    scores = serve_and_score(tmp_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
 @use_temp_mlflow_env_root
-def test_python_env_file_and_requirements_file_do_not_exist(sklearn_model):
+def test_python_env_file_and_requirements_file_do_not_exist(sklearn_model, tmp_path):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, "model")
-        model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
 
-    model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
-    model_artifact_path.joinpath(_REQUIREMENTS_FILE_NAME).unlink()
-    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
+    tmp_path = tmp_path / "model"
+    python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
+    python_env.unlink()
+    requirements = next(tmp_path.rglob(_REQUIREMENTS_FILE_NAME))
+    requirements.unlink()
+
+    scores = serve_and_score(tmp_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
@@ -195,7 +201,7 @@ def test_environment_is_removed_when_package_installation_fails(
 
 
 @use_temp_mlflow_env_root
-def test_restore_environment_from_conda_yaml_containing_conda_packages(sklearn_model):
+def test_restore_environment_from_conda_yaml_containing_conda_packages(sklearn_model, tmp_path):
     conda_env = {
         "name": "mlflow-env",
         "channels": ["conda-forge"],
@@ -217,6 +223,9 @@ def test_restore_environment_from_conda_yaml_containing_conda_packages(sklearn_m
             "model",
             conda_env=conda_env,
         )
-        model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
-    model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
-    serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+
+    mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
+    tmp_path = tmp_path / "model"
+    python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
+    python_env.unlink()
+    serve_and_score(tmp_path, sklearn_model.X_pred)
