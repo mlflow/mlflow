@@ -2387,6 +2387,7 @@ def autolog(
         "anthropic": "mlflow.anthropic",
         "autogen": "mlflow.autogen",
         "openai": "mlflow.openai",
+        "google.genai": "mlflow.gemini",
         "google.generativeai": "mlflow.gemini",
         "litellm": "mlflow.litellm",
         "llama_index.core": "mlflow.llama_index",

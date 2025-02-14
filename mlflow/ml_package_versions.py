@@ -302,12 +302,12 @@ _ML_PACKAGE_VERSIONS = {
     },
     "gemini": {
         "package_info": {
-            "pip_release": "google-generativeai",
-            "module_name": "google.generativeai"
+            "pip_release": "google-genai",
+            "module_name": "google.genai"
         },
         "autologging": {
-            "minimum": "0.8.0",
-            "maximum": "0.8.3"
+            "minimum": "1.0.0",
+            "maximum": "1.0.0"
         }
     },
     "anthropic": {
@@ -417,7 +417,7 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
-    "gemini": "google.generativeai",
+    "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
     "mistral": "mistralai",
