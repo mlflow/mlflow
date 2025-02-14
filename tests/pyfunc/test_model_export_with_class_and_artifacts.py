@@ -49,9 +49,6 @@ from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
 )
-from mlflow.tracking.artifact_utils import (
-    get_artifact_uri as utils_get_artifact_uri,
-)
 from mlflow.types.schema import ColSpec, Map, Schema
 from mlflow.types.type_hints import _infer_schema_from_list_type_hint
 from mlflow.utils.environment import _mlflow_conda_env
@@ -206,27 +203,22 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={"sk_model": sklearn_model_uri},
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
-        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        assert model_info.model_uri == pyfunc_model_uri
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
@@ -753,24 +745,17 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
-            },
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(predict_fn=None),
             conda_env=pyfunc_custom_env,
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -791,24 +776,17 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
-            },
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(predict_fn=None),
             conda_env=pyfunc_custom_env,
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
 
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
