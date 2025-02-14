@@ -260,7 +260,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.3.3"
+    minimum: "3.4.0"
     maximum: "3.8.3"
     python:
       ">= 3.8.4": "3.10"
