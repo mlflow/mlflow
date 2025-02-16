@@ -2,11 +2,7 @@ name: ⛩ Gateway ⛩
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - master
@@ -28,26 +24,31 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
     steps:
       - uses: actions/checkout@v4
+
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           pip install .[gateway] \
             pytest pytest-timeout pytest-asyncio \
             httpx psutil sentence-transformers transformers torchvision openai databricks-sdk
-          # Ensure pydantic v2 is installed
-          pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
-      - name: Run tests with pydantic v2
+
+      - name: Run tests with multiple Pydantic versions
+        strategy:
+          matrix:
+            pydantic_version: ["1.*", "2.*"]
         run: |
-          pytest tests/gateway
-      - name: Downgrade pydantic to v1
-        run: |
-          pip install 'pydantic<2.0'
-          # Ensure pydantic v1 is installed
-          pip freeze | tail -n +1 | grep -q '^pydantic==1\.'
-      - name: Run tests with pydantic v1
-        run: |
+          pip install "pydantic==${{ matrix.pydantic_version }}"
+          pip freeze | grep '^pydantic='
           pytest tests/gateway
