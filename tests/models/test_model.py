@@ -127,7 +127,7 @@ def _log_model_with_signature_and_example(
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
-        Model.log(
+        model = Model.log(
             "some/path",
             TestFlavor,
             signature=sig,
@@ -139,10 +139,7 @@ def _log_model_with_signature_and_example(
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
     # with tmp_path fixture
     output_path = tmp_path if isinstance(tmp_path, pathlib.PosixPath) else tmp_path.path("")
-    local_path = _download_artifact_from_uri(
-        f"runs:/{run.info.run_id}/some/path", output_path=output_path
-    )
-
+    local_path = _download_artifact_from_uri(model.model_uri, output_path=output_path)
     return local_path, run
 
 
