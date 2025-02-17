@@ -83,6 +83,7 @@ def main():
 
     if existing_pr := next((pr for pr in iter_pull_requests() if pr["title"] == PR_TITLE), None):
         head_ref = existing_pr["head"]["ref"]
+        assert head_ref.startswith("sync-"), f"Unexpected head ref: {head_ref}"
         subprocess.check_call(
             [
                 "git",
