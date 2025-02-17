@@ -302,6 +302,11 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                     np.testing.assert_array_equal(_read_example(mlflow_model, path), example)
 
 
+class DummyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        return model_input
+
+
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
     with mlflow.start_run():
         with mock.patch(
@@ -310,7 +315,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
             registered_model_name = "AdsModel1"
             pyfunc_model_info = mlflow.pyfunc.log_model(
                 "pyfunc_model",
-                python_model=mlflow.pyfunc.DummyPythonModel(),
+                python_model=DummyModel(),
                 registered_model_name=registered_model_name,
             )
         assert_register_model_called_with_local_model_path(
@@ -325,7 +330,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
         ) as register_model_mock:
             mlflow.pyfunc.log_model(
                 "pyfunc_model",
-                python_model=mlflow.pyfunc.DummyPythonModel(),
+                python_model=DummyModel(),
             )
         register_model_mock.assert_not_called()
 
