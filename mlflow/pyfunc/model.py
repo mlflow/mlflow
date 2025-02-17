@@ -207,6 +207,15 @@ class PythonModel:
         raise NotImplementedError()
 
 
+class DummyPythonModel(PythonModel):
+    """
+    A dummy python model used for testing purposes. DO NOT USE IN PRODUCTION.
+    """
+
+    def predict(self, context, model_input: Any, params: Optional[dict[str, Any]] = None) -> Any:
+        return model_input
+
+
 class _FunctionPythonModel(PythonModel):
     """
     When a user specifies a ``python_model`` argument that is a function, we wrap the function
