@@ -141,7 +141,8 @@ def _register_model(
             if len(logged_models) > 1:
                 if run.outputs is None:
                     raise MlflowException.invalid_parameter_value(
-                        "Multiple logged models found for the run. Please specify the model_id."
+                        f"Multiple logged models found for run {run_id}. Cannot determine "
+                        "which model to register. Please use `models:/<model_id>` instead."
                     )
                 # If there are multiple such logged models, get the one logged at the largest step
                 model_id_to_step = {m_o.model_id: m_o.step for m_o in run.outputs.model_outputs}

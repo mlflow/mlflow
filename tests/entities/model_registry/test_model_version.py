@@ -99,7 +99,6 @@ def test_creation_and_hydration():
         "model_id": None,
         "metrics": None,
         "params": None,
-        "deployment_job_state": None,
     }
     model_version_as_dict = dict(mvd)
     assert model_version_as_dict == expected_dict
