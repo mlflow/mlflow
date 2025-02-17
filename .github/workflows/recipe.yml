@@ -32,7 +32,8 @@ env:
 
 jobs:
   recipes:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # TODO: Remove this job once we drop support for MLflow Recipes
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions: {}
