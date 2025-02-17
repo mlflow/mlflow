@@ -51,6 +51,10 @@ from mlflow.types.llm import (
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
+    is_in_databricks_serverless_runtime,
+)
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -915,12 +919,18 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if is_in_databricks_serverless_runtime()
+                else None
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
+                extra_env_vars=extra_env_vars,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

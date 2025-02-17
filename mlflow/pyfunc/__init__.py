@@ -534,9 +534,11 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     get_dbconnect_udf_sandbox_info,
     is_databricks_connect,
     is_in_databricks_runtime,
+    is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -3606,12 +3608,18 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if is_in_databricks_serverless_runtime()
+                else None
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                extra_env_vars=extra_env_vars,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
