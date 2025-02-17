@@ -147,5 +147,4 @@ workflows:
     jobs:
       - build_doc
       - build_doc_r
-      - mlflow-recipes
       - windows
