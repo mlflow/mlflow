@@ -93,7 +93,7 @@ def main():
             ]
         )
         print(f"Updated existing PR: {existing_pr['html_url']}")
-        return
+        sys.exit(0)
     else:
         subprocess.check_call(
             [
