@@ -1093,4 +1093,4 @@ def autolog(
             patched_callback_manager_merge,
         )
     except Exception:
-        pass
+        logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)

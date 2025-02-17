@@ -49,9 +49,9 @@ def patched_callback_manager_init(original, self, *args, **kwargs):
     for handler in self.inheritable_handlers:
         if isinstance(handler, MlflowLangchainTracer):
             return
-    else:
-        _handler = MlflowLangchainTracer()
-        self.add_handler(_handler, inherit=True)
+
+    _handler = MlflowLangchainTracer()
+    self.add_handler(_handler, inherit=True)
 
 
 def patched_callback_manager_merge(original, self, *args, **kwargs):
