@@ -1018,6 +1018,15 @@ class PyFuncModel:
         raise NotImplementedError("`get_raw_model` is not implemented by the underlying model")
 
 
+class DummyPythonModel(PythonModel):
+    """
+    DO NOT USE THIS IN PRODUCTION. This is a dummy model used for testing purposes.
+    """
+
+    def predict(self, context, model_input, params=None):
+        return model_input
+
+
 def _get_pip_requirements_from_model_path(model_path: str):
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
