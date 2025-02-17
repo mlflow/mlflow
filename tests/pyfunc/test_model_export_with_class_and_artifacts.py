@@ -175,6 +175,9 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
     )
 
 
+@pytest.mark.skip(
+    reason="In MLflow 3.0, `log_model` does not start a run. Consider removing this test."
+)
 def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
