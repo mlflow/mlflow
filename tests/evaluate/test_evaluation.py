@@ -931,9 +931,11 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 mock_can_evaluate.assert_called_once_with(
                     model_type="classifier", evaluator_config=evaluator1_config
                 )
+                iris_dataset._user_specified_name = "dataset"
                 mock_evaluate.assert_called_once_with(
                     model=PyFuncModelMatcher(),
                     model_type="classifier",
+                    model_id=multiclass_logistic_regressor_model_uri.split("/")[-1],
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
@@ -964,9 +966,11 @@ def test_evaluate_with_multi_evaluators(
         )
 
         def get_evaluate_call_arg(model, evaluator_config):
+            iris_dataset._user_specified_name = "dataset"
             return {
                 "model": model,
                 "model_type": "classifier",
+                "model_id": model.model_id,
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
@@ -1062,11 +1066,13 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                 mock_can_evaluate.assert_called_once_with(
                     model_type="classifier", evaluator_config={}
                 )
+                iris_dataset._user_specified_name = "dataset"
                 mock_evaluate.assert_called_once_with(
                     model=None,
                     dataset=iris_dataset,
                     predictions=None,
                     model_type="classifier",
+                    model_id=None,
                     run_id=run.info.run_id,
                     evaluator_config={},
                     custom_metrics=None,
