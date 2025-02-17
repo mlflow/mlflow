@@ -4169,26 +4169,26 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     with mlflow.start_run() as run:
         xgb_model.fit(X_train, y_train)
 
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    model_uri = logged_models[0].model_uri
-    eval_data = X_test
-    eval_data["label"] = y_test
+        logged_models = mlflow.search_logged_models(
+            filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+        )
+        model_uri = logged_models[0].model_uri
+        eval_data = X_test
+        eval_data["label"] = y_test
 
-    with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
-        mlflow.evaluate(
-            model_uri,
-            eval_data,
-            targets="label",
-            model_type="classifier",
-            evaluators=["default"],
-        )
-        assert not any(
-            "Shap evaluation failed." in call_arg[0]
-            for call_arg in mock_warning.call_args or []
-            if isinstance(call_arg, tuple)
-        )
+        with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
+            mlflow.evaluate(
+                model_uri,
+                eval_data,
+                targets="label",
+                model_type="classifier",
+                evaluators=["default"],
+            )
+            assert not any(
+                "Shap evaluation failed." in call_arg[0]
+                for call_arg in mock_warning.call_args or []
+                if isinstance(call_arg, tuple)
+            )
 
 
 @pytest.mark.parametrize(
