@@ -87,6 +87,7 @@ jobs:
         env:
           SPARK_LOCAL_IP: localhost
         run: |
+          python foo.py
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -s --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
