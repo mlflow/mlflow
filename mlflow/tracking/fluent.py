@@ -2054,6 +2054,19 @@ def last_logged_model() -> Optional[LoggedModel]:
 
     Returns:
         The logged model.
+
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        assert mlflow.last_logged_model() is None
+
+        model = mlflow.create_logged_model()
+        last_model = mlflow.last_logged_model()
+        assert last_model.name == model.name
     """
     models = MlflowClient().search_logged_models(
         experiment_ids=[_get_experiment_id()], max_results=1
