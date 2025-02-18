@@ -78,10 +78,11 @@ def get_pip_requirements_from_conda_file(conda_env_path):
 
 
 def validate_updated_model_file(original_model_config, wheeled_model_config):
-    differing_keys = {"run_id", "utc_time_created", "model_uuid", "artifact_path", "model_id"}
+    differing_keys = {"run_id", "utc_time_created", "model_uuid", "artifact_path"}
+    ignore_keys = {"model_id"}
 
     # Compare wheeled model configs with original model config (MLModel files)
-    for key in original_model_config:
+    for key in original_model_config.keys() - ignore_keys:
         if key not in differing_keys:
             assert wheeled_model_config[key] == original_model_config[key]
         else:
