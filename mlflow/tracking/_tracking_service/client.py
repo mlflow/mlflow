@@ -22,6 +22,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -409,6 +410,16 @@ class TrackingServiceClient:
             _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
         else:
             self.store.delete_trace_tag(request_id, key)
+
+    def create_assessment(self, assessment: Assessment):
+        """
+        Create an assessment on a trace.
+
+        Args:
+            assessment: The assessment to create. This contains the target
+                trace_id as well.
+        """
+        return self.store.create_assessment(assessment)
 
     def search_experiments(
         self,
