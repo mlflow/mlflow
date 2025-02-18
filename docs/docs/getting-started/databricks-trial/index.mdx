@@ -4,12 +4,11 @@ sidebar_position: 2
 
 # Databricks Free Trial
 
-The [Databricks Free Trial](https://docs.databricks.com/en/getting-started/free-trial.html) offers an opportunity to try a fully managed, Databricks-hosted version of the Databricks platform. 
-The vast majority of Databricks features including full MLflow functionalities are available within free trial credits and trial time period.
+The [Databricks Free Trial](https://docs.databricks.com/en/getting-started/free-trial.html) offers an opportunity to experience a fully managed, hosted version of the Databricks platform. 
+Most Databricks features, including full MLflow functionality are available during the trial period, allowing you to explore the platform with trial credits.
 
-To get started with Databricks Free Trial, please visit the [Databricks Trial Signup Page](http://signup.databricks.com)
-and follow the instructions outlined there. It takes about 5 minutes to get started, and you'll have a (mostly) fully functional Databricks Workspace that you
-can use to log your tutorial experiments, runs, and artifacts to.
+To get started with Databricks Free Trial, visit the [Databricks Trial Signup Page](http://signup.databricks.com)
+and follow the instructions outlined there. It takes about 5 minutes to set up, and you'll have and you'll have access to a nearly fully functional Databricks Workspace for logging your tutorial experiments, runs, and artifacts.
 
 Once you log in to the Databricks Workspace, you will see a landing page like this:
 
@@ -48,7 +47,7 @@ With a Databricks managed instance of MLflow, you have two options for running t
   <summary>**Expand to learn about Running Notebooks locally and using Databricks Workspace as a remote tracking server**</summary>
 
   In order to stay within the comfortable confines of your local machine and still have the use of the managed MLflow Tracking Server,
-  you can authenticate through Personal Access Token (PAT). 
+  you can authenticate via Personal Access Token (PAT). 
   Generate PAT by following [this guide](https://docs.databricks.com/en/dev-tools/auth/pat.html) and configure the `.databrickscfg` file with the following format:
   ```
   [DEFAULT]
@@ -56,7 +55,7 @@ With a Databricks managed instance of MLflow, you have two options for running t
   token = REPLACE_ME # Replace with your copied PAT
   ```
 
-  Then, you can connect to the Databricks Workspace by calling `mlflow.login()` in your notebook.
+  Afterward, connect to the Databricks Workspace by calling `mlflow.login()` in your notebook.
 
   ```python
   import mlflow
@@ -64,9 +63,7 @@ With a Databricks managed instance of MLflow, you have two options for running t
   mlflow.login()
   ```
 
-  After the login process is done, you will simply have to set your MLflow Tracking URI to the instance that you just logged in to.
-  
-  It's made fairly easy for you:
+  Once logged in, you will simply have to set your MLflow Tracking URI to the Workspace that you just logged in to:
   
   ```python
   mlflow.set_tracking_uri("databricks")
