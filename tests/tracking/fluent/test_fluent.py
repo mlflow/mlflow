@@ -1687,3 +1687,13 @@ def test_runs_are_ended_by_run_id():
         mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
+
+
+def test_last_logged_model():
+    assert mlflow.last_logged_model() is None
+
+    m1 = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().name == m1.name
+
+    m2 = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().name == m2.name

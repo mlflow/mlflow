@@ -2047,6 +2047,21 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
 
 @experimental
+def last_logged_model() -> Optional[LoggedModel]:
+    """
+    Fetches the most recent logged model in the active experiment.
+    If no logged models are found, returns None.
+
+    Returns:
+        The logged model.
+    """
+    models = MlflowClient().search_logged_models(
+        experiment_ids=[_get_experiment_id()], max_results=1
+    )
+    return models[0] if models else None
+
+
+@experimental
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
