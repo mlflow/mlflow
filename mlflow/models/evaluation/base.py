@@ -12,6 +12,7 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import Parameter, Signature
+from pathlib import Path
 from types import FunctionType
 from typing import Any, Optional, Union
 
@@ -1033,6 +1034,8 @@ def _evaluate(
                     custom_artifacts=custom_artifacts,
                     predictions=predictions,
                 )
+
+                print(eval_, "Before", Path("/home/runner/.cache/huggingface/hub").exists())  # noqa
 
             if eval_result is not None:
                 eval_results.append(eval_result)
