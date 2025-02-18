@@ -27,4 +27,4 @@
    ```
 
 2. Once the sync branch is pushed, create a pull request from the sync branch to the 🚨 `mlflow-3` 🚨 branch.
-3. Once the PR is reviewed and approved, merge it with the 🚨 `rebase and merge` 🚨 option.
+3. Once the PR is reviewed and approved, merge it with the 🚨 `Create a merge commit` 🚨 option.
