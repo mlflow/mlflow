@@ -79,7 +79,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install fastapi uvicorn tf-keras
-          pip uninstall -y huggingface-hub
+          # pip uninstall -y huggingface-hub
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
