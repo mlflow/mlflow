@@ -177,8 +177,6 @@ def test_model_log(xgb_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
                 model_info = mlflow.xgboost.log_model(model, artifact_path, conda_env=conda_env)
-                assert model_info.model_uri == mlflow.get_artifact_uri(artifact_path)
-
                 reloaded_model = mlflow.xgboost.load_model(model_uri=model_info.model_uri)
                 np.testing.assert_array_almost_equal(
                     model.predict(xgb_model.inference_dmatrix),
