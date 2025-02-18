@@ -161,9 +161,8 @@ def test_log_model_logs_model_type(cb_model):
     with mlflow.start_run():
         artifact_path = "model"
         model_info = mlflow.catboost.log_model(cb_model.model, artifact_path)
-        model_uri = model_info.model_uri  # Use model_uri if needed
 
-    flavor_conf = Model.load(model_uri).flavors["catboost"]
+    flavor_conf = Model.load(model_info.model_uri).flavors["catboost"]
     assert "model_type" in flavor_conf
     assert flavor_conf["model_type"] == cb_model.model.__class__.__name__
 
