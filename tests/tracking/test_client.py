@@ -1730,3 +1730,26 @@ def test_block_create_prompt_with_existing_model_name(tracking_uri):
             description="A friendly greeting",
             tags={"model": "my-model"},
         )
+
+
+def test_log_and_detach_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="p1", template="Hi, there!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    client.register_prompt(name="p2", template="Hi, {{name}}!")
+
+    run_id = client.create_run(experiment_id="0").info.run_id
+    assert client.list_logged_prompts(run_id) == []
+
+    client.log_prompt(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p1"]
+
+    client.log_prompt(run_id, "prompts:/p2/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2", "p1"]
+
+    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2"]
