@@ -880,8 +880,7 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             run_id=pending_child_run_id,
             metrics=metrics_to_log,
             model_id=model_id,
-            dataset_name=dataset.name,
-            dataset_digest=dataset.digest,
+            dataset=dataset,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
