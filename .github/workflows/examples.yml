@@ -79,6 +79,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install fastapi uvicorn tf-keras
+          pip install 'transformers<4.49.0'
           # pip uninstall -y huggingface-hub
 
       - name: Run example tests
