@@ -1,9 +1,12 @@
+import json
 import os
 from unittest.mock import patch
 
 import groq
+import pytest
 from groq.types.audio.transcription import Transcription
 from groq.types.audio.translation import Translation
+from groq.types.chat import ChatCompletionMessageToolCall
 from groq.types.chat.chat_completion import (
     ChatCompletion,
     ChatCompletionMessage,
@@ -55,6 +58,12 @@ DUMMY_CHAT_COMPLETION_RESPONSE = ChatCompletion(
 )
 
 
+@pytest.fixture(autouse=True)
+def init_state():
+    yield
+    mlflow.groq.autolog(disable=True)
+
+
 @patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
 @patch("groq._client.Groq.post", return_value=DUMMY_CHAT_COMPLETION_RESPONSE)
 def test_chat_completion_autolog(mock_post):
@@ -79,6 +88,175 @@ def test_chat_completion_autolog(mock_post):
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate",
+            "description": "Evaluate a mathematical expression",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "The mathematical expression to evaluate",
+                    }
+                },
+                "required": ["expression"],
+            },
+        },
+    }
+]
+DUMMY_TOOL_CALL_REQUEST = {
+    "model": "test_model",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "What is 25 * 4 + 10?"}],
+    "tools": TOOLS,
+}
+DUMMY_TOOL_CALL_RESPONSE = ChatCompletion(
+    id="chatcmpl-test-id",
+    choices=[
+        Choice(
+            finish_reason="stop",
+            index=0,
+            logprobs=None,
+            message=ChatCompletionMessage(
+                content=None,
+                role="assistant",
+                function_call=None,
+                tool_calls=[
+                    ChatCompletionMessageToolCall(
+                        id="tool call id",
+                        function={
+                            "name": "calculate",
+                            "arguments": json.dumps({"expression": "25 * 4 + 10"}),
+                        },
+                        type="function",
+                    )
+                ],
+                reasoning=None,
+            ),
+        )
+    ],
+    created=1733574047,
+    model="llama3-8b-8192",
+    object="chat.completion",
+    system_fingerprint="fp_test",
+    usage=CompletionUsage(
+        completion_tokens=648,
+        prompt_tokens=20,
+        total_tokens=668,
+        completion_time=0.54,
+        prompt_time=0.000181289,
+        queue_time=0.012770949,
+        total_time=0.540181289,
+    ),
+    x_groq={"id": "req_test"},
+)
+
+
+@patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
+@patch("groq._client.Groq.post", return_value=DUMMY_TOOL_CALL_RESPONSE)
+def test_tool_calling_autolog(mock_post):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+
+    client.chat.completions.create(**DUMMY_TOOL_CALL_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Completions"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_TOOL_CALL_REQUEST
+    assert span.outputs == DUMMY_TOOL_CALL_RESPONSE.to_dict()
+    assert span.get_attribute("mlflow.chat.tools") == TOOLS
+    assert span.get_attribute("mlflow.chat.messages") == [
+        *DUMMY_TOOL_CALL_REQUEST["messages"],
+        DUMMY_TOOL_CALL_RESPONSE.choices[0].message.to_dict(),
+    ]
+
+
+DUMMY_TOOL_RESPONSE_REQUEST = {
+    "model": "test_model",
+    "max_tokens": 1024,
+    "messages": [
+        {"role": "user", "content": "What is 25 * 4 + 10?"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "tool call id",
+                    "function": {
+                        "name": "calculate",
+                        "arguments": json.dumps({"expression": "25 * 4 + 10"}),
+                    },
+                    "type": "function",
+                }
+            ],
+        },
+        {"role": "tool", "name": "calculate", "content": json.dumps({"result": 110})},
+    ],
+    "tools": TOOLS,
+}
+DUMMY_TOOL_RESPONSE_RESPONSE = ChatCompletion(
+    id="chatcmpl-test-id",
+    choices=[
+        Choice(
+            finish_reason="stop",
+            index=0,
+            logprobs=None,
+            message=ChatCompletionMessage(
+                content="The result of the calculation is 110",
+                role="assistant",
+                function_call=None,
+                reasoning=None,
+                tool_calls=None,
+            ),
+        )
+    ],
+    created=1733574047,
+    model="llama3-8b-8192",
+    object="chat.completion",
+    system_fingerprint="fp_test",
+    usage=CompletionUsage(
+        completion_tokens=648,
+        prompt_tokens=20,
+        total_tokens=668,
+        completion_time=0.54,
+        prompt_time=0.000181289,
+        queue_time=0.012770949,
+        total_time=0.540181289,
+    ),
+    x_groq={"id": "req_test"},
+)
+
+
+@patch.dict(os.environ, {"GROQ_API_KEY": "test_key"})
+@patch("groq._client.Groq.post", return_value=DUMMY_TOOL_RESPONSE_RESPONSE)
+def test_tool_response_autolog(mock_post):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+
+    client.chat.completions.create(**DUMMY_TOOL_RESPONSE_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Completions"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_TOOL_RESPONSE_REQUEST
+    assert span.outputs == DUMMY_TOOL_RESPONSE_RESPONSE.to_dict()
+    assert span.get_attribute("mlflow.chat.messages") == [
+        *DUMMY_TOOL_RESPONSE_REQUEST["messages"],
+        DUMMY_TOOL_RESPONSE_RESPONSE.choices[0].message.to_dict(),
+    ]
 
 
 BINARY_CONTENT = b"\x00\x00\x00\x14ftypM4A \x00\x00\x00\x00mdat\x00\x01\x02\x03"
