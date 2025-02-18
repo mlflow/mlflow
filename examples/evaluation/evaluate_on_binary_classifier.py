@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import shap
 import xgboost
 from sklearn.model_selection import train_test_split
@@ -25,7 +27,7 @@ eval_data["label"] = y_test
 with mlflow.start_run() as run:
     # Log the XGBoost binary classifier model to MLflow
     model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
-
+    print("Before", Path("/home/runner/.cache/huggingface/hub").exists())
     # Evaluate the logged model
     result = mlflow.evaluate(
         model_info.model_uri,
@@ -34,6 +36,7 @@ with mlflow.start_run() as run:
         model_type="classifier",
         evaluators=["default"],
     )
+    print("After", Path("/home/runner/.cache/huggingface/hub").exists())
 
 print(f"metrics:\n{result.metrics}")
 print(f"artifacts:\n{result.artifacts}")

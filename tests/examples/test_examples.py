@@ -10,7 +10,6 @@ import pytest
 import mlflow
 from mlflow import cli
 from mlflow.utils import process
-from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
 from tests.helper_functions import clear_hub_cache, flaky, start_mock_openai_server
 from tests.integration.utils import invoke_cli_runner
@@ -29,13 +28,13 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
     yml_path.write_text(new_src)
 
 
-@pytest.fixture(autouse=True)
-def clean_up_mlflow_virtual_environments():
-    yield
+# @pytest.fixture(autouse=True)
+# def clean_up_mlflow_virtual_environments():
+#     yield
 
-    for path in Path(_get_mlflow_virtualenv_root()).iterdir():
-        if path.is_dir():
-            shutil.rmtree(path)
+#     for path in Path(_get_mlflow_virtualenv_root()).iterdir():
+#         if path.is_dir():
+#             shutil.rmtree(path)
 
 
 @pytest.fixture(scope="module", autouse=True)
