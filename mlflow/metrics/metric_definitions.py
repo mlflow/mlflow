@@ -87,6 +87,8 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
 def _cached_evaluate_load(path, module_type=None):
     import evaluate
 
+    print("_cached_evaluate_load", path, module_type)  # noqa
+
     return evaluate.load(path, module_type=module_type)
 
 
