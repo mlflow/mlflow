@@ -53,11 +53,10 @@ with mlflow.start_run():
     )
     mlflow.log_params(parameters)
     mlflow.log_metrics(metrics)
-    model_uri = model_info.model_uri
 
-    print(f"Model artifact logged to: {model_uri}")
+    print(f"Model artifact logged to: {model_info.model_uri}")
 
-loaded_model = mlflow.pmdarima.load_model(model_uri)
+loaded_model = mlflow.pmdarima.load_model(model_info.model_uri)
 
 forecast = loaded_model.predict(30)
 
