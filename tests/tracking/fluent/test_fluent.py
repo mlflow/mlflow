@@ -1697,3 +1697,10 @@ def test_last_logged_model():
 
     m2 = mlflow.create_logged_model()
     assert mlflow.last_logged_model().name == m2.name
+
+    client = MlflowClient()
+    client.set_logged_model_tags(m2.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags == {"tag": "value"}
+
+    client.delete_logged_model_tag(m2.model_id, "tag")
+    assert mlflow.last_logged_model().tags == {}
