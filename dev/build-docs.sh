@@ -194,6 +194,13 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# Update the API module references for link functionality
+# -----------------------------------------------------------------------------
+log_info "Updating API module links..."
+yarn update-api-modules
+log_success "Updated API module links."
+
+# -----------------------------------------------------------------------------
 # Convert notebooks to MDX format.
 # -----------------------------------------------------------------------------
 log_info "Converting notebooks to MDX..."
