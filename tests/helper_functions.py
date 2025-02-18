@@ -660,6 +660,8 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+    except Exception as e:
+        _logger.info(f"Failed to clear cache: {e}")
 
 
 def flaky(max_tries=3):
