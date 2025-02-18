@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -9,7 +10,6 @@ import pytest
 
 import mlflow
 from mlflow import cli
-from mlflow.utils import process
 
 from tests.helper_functions import clear_hub_cache, flaky, start_mock_openai_server
 from tests.integration.utils import invoke_cli_runner
@@ -199,4 +199,4 @@ def test_command_example(directory, command):
         # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
         clear_hub_cache()
 
-    process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
+    subprocess.check_call(command, cwd=cwd_dir, env=os.environ)
