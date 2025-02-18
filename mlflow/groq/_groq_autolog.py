@@ -35,11 +35,11 @@ def patched_call(original, self, *args, **kwargs):
         ) as span:
             span.set_inputs(kwargs)
 
-            if (tools := kwargs.get("tools")) is not None:
+            if tools := kwargs.get("tools"):
                 try:
                     set_span_chat_tools(span, tools)
-                except Exception as e:
-                    _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+                except Exception:
+                    _logger.debug(f"Failed to set tools for {span}.", exc_info=True)
 
             outputs = original(self, *args, **kwargs)
             span.set_outputs(outputs)
@@ -50,7 +50,7 @@ def patched_call(original, self, *args, **kwargs):
                     set_span_chat_messages(
                         span, [*messages, outputs.choices[0].message.model_dump()]
                     )
-                except Exception as e:
-                    _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+                except Exception:
+                    _logger.debug(f"Failed to set chat messages for {span}.", exc_info=True)
 
             return outputs
