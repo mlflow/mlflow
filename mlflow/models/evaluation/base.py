@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import signal
+import sys
 import urllib
 import urllib.parse
 import warnings
@@ -1035,7 +1036,11 @@ def _evaluate(
                     predictions=predictions,
                 )
 
-                print(eval_, "Before", Path("/home/runner/.cache/huggingface/hub").exists())  # noqa
+                print(  # noqa
+                    eval_,
+                    Path("/home/runner/.cache/huggingface/hub").exists(),
+                    "transformers" in sys.modules,
+                )
 
             if eval_result is not None:
                 eval_results.append(eval_result)
