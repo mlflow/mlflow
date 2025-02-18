@@ -967,7 +967,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.15.0"
+    maximum: "0.18.0"
     requirements:
     run: pytest tests/groq
 
