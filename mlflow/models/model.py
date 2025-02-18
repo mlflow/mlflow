@@ -104,6 +104,7 @@ class ModelInfo:
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -116,6 +117,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
+        self._prompts = prompts
         self._registered_model_version = registered_model_version
         self._env_vars = env_vars
 
@@ -312,6 +314,11 @@ class ModelInfo:
         return self._metadata
 
     @property
+    def prompts(self) -> Optional[list[str]]:
+        """A list of prompt URIs associated with the model."""
+        return self._prompts
+
+    @property
     def registered_model_version(self) -> Optional[int]:
         """
         The registered model version, if the model is registered.
@@ -347,6 +354,7 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -359,6 +367,7 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
+        self.prompts = prompts
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
@@ -602,6 +611,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            prompts=self.prompts,
             env_vars=self.env_vars,
         )
 
@@ -641,6 +651,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.prompts is not None:
+            res["prompts"] = self.prompts
         if self.resources is not None:
             res["resources"] = self.resources
         if self.model_size_bytes is not None:
@@ -755,6 +767,7 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        prompts=None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -777,6 +790,7 @@ class Model:
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
             resources: {{ resources }}
+            prompts: {{ prompts }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -791,7 +805,11 @@ class Model:
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
-                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+                artifact_path=artifact_path,
+                run_id=run_id,
+                metadata=metadata,
+                prompts=prompts,
+                resources=resources,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -863,6 +881,18 @@ class Model:
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
             mlflow_model.env_vars = env_vars
+
+            # Associate prompts to the model Run
+            if prompts:
+                client = mlflow.MlflowClient()
+                for prompt_uri in prompts:
+                    try:
+                        client.log_prompt(run_id, prompt_uri)
+                    except MlflowException:
+                        _logger.warning(
+                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
+                        )
+
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -914,6 +944,7 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
+
             model_info = mlflow_model.get_model_info()
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
@@ -1019,6 +1050,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
         signature=model_meta.signature,
         utc_time_created=model_meta.utc_time_created,
         mlflow_version=model_meta.mlflow_version,
+        prompts=model_meta.prompts,
         metadata=model_meta.metadata,
     )
 
