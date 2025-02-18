@@ -96,6 +96,7 @@ run_id_to_system_metrics_monitor = {}
 _active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
 
 _last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
+_last_logged_model_id = ThreadLocalVariable(default_factory=lambda: None)
 
 _experiment_lock = threading.Lock()
 
@@ -2022,7 +2023,7 @@ def create_logged_model(
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    return MlflowClient().create_logged_model(
+    model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
@@ -2030,6 +2031,8 @@ def create_logged_model(
         params=params,
         model_type=model_type,
     )
+    _last_logged_model_id.set(model.model_id)
+    return model
 
 
 @experimental
@@ -2069,10 +2072,8 @@ def last_logged_model() -> Optional[LoggedModel]:
         assert last_model.name == model.name
 
     """
-    models = MlflowClient().search_logged_models(
-        experiment_ids=[_get_experiment_id()], max_results=1
-    )
-    return models[0] if models else None
+    if id := _last_logged_model_id.get():
+        return get_logged_model(id)
 
 
 @experimental
