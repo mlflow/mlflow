@@ -417,10 +417,10 @@ def _read_lines(path):
         return f.read().splitlines()
 
 
-def _compare_logged_code_paths(code_path, model_path, flavor_name):
-    import mlflow.pyfunc
+def _compare_logged_code_paths(code_path: str, model_uri: str, flavor_name: str) -> None:
     from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
+    model_path = _download_artifact_from_uri(model_uri)
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
