@@ -515,6 +515,8 @@ def test_model_log_with_signature_inference(cb_model):
         ]
     )
     assert loaded_model_info.signature.outputs in [
+        # when the model output is a 1D numpy array, it is cast into a `ColSpec`
         Schema([ColSpec(type=DataType.double)]),
+        # when the model output is a higher dimensional numpy array, it remains a `TensorSpec`
         Schema([TensorSpec(np.dtype("int64"), (-1, 1))]),
     ]
