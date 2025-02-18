@@ -2067,6 +2067,7 @@ def last_logged_model() -> Optional[LoggedModel]:
         model = mlflow.create_logged_model()
         last_model = mlflow.last_logged_model()
         assert last_model.name == model.name
+
     """
     models = MlflowClient().search_logged_models(
         experiment_ids=[_get_experiment_id()], max_results=1
