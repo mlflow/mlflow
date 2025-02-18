@@ -1,0 +1,1768 @@
+[1m============================= test session starts ==============================[0m
+platform darwin -- Python 3.9.20, pytest-8.3.4, pluggy-1.5.0 -- /Users/harutaka.kawamura/.pyenv/versions/miniconda3-latest/envs/mlflow/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/harutaka.kawamura/Desktop/repositories/mlflow
+configfile: pytest.ini
+plugins: asyncio-0.24.0, langsmith-0.3.3, cov-6.0.0, repeat-0.9.3, anyio-4.6.2.post1
+asyncio: mode=strict, default_loop_scope=None
+[1mcollecting ... [0mcollected 66 items
+
+tests/examples/test_examples.py::test_mlflow_run_example[h2o-params0] 
+SETUP    S event_loop_policy
+SETUP    S enable_mlflow_testing
+SETUP    S tmp_path_factory
+SETUP    S serve_wheel (fixtures used: tmp_path_factory)
+SETUP    S enable_test_mode_by_default_for_autologging_integrations
+    SETUP    M clean_up_envs
+    SETUP    M mock_openai
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['h2o']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[h2o-params0] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['h2o']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[lightgbm/lightgbm_native-params1] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['lightgbm/lightgbm_native']
+        SETUP    F params[['-P', 'learning_ra...P', 'subsample=0.9']]
+        tests/examples/test_examples.py::test_mlflow_run_example[lightgbm/lightgbm_native-params1] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'learning_ra...P', 'subsample=0.9']]
+        TEARDOWN F directory['lightgbm/lightgbm_native']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[lightgbm/lightgbm_sklearn-params2] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['lightgbm/lightgbm_sklearn']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[lightgbm/lightgbm_sklearn-params2] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['lightgbm/lightgbm_sklearn']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[statsmodels-params3] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['statsmodels']
+        SETUP    F params[['-P', 'inverse_method=qr']]
+        tests/examples/test_examples.py::test_mlflow_run_example[statsmodels-params3] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'inverse_method=qr']]
+        TEARDOWN F directory['statsmodels']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch-params4] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch']
+        SETUP    F params[['-P', 'epochs=2']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch-params4] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'epochs=2']]
+        TEARDOWN F directory['pytorch']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[sklearn_logistic_regression-params5] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_logistic_regression']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[sklearn_logistic_regression-params5] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['sklearn_logistic_regression']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[sklearn_elasticnet_wine-params6] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_elasticnet_wine']
+        SETUP    F params[['-P', 'alpha=0.5']]
+        tests/examples/test_examples.py::test_mlflow_run_example[sklearn_elasticnet_wine-params6] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'alpha=0.5']]
+        TEARDOWN F directory['sklearn_elasticnet_wine']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[sklearn_elasticnet_diabetes/linux-params7] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_elasticnet_diabetes/linux']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[sklearn_elasticnet_diabetes/linux-params7] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['sklearn_elasticnet_diabetes/linux']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[spacy-params8] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['spacy']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[spacy-params8] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['spacy']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[xgboost/xgboost_native-params9] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['xgboost/xgboost_native']
+        SETUP    F params[['-P', 'learning_ra...P', 'subsample=0.9']]
+        tests/examples/test_examples.py::test_mlflow_run_example[xgboost/xgboost_native-params9] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'learning_ra...P', 'subsample=0.9']]
+        TEARDOWN F directory['xgboost/xgboost_native']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[xgboost/xgboost_sklearn-params10] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['xgboost/xgboost_sklearn']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[xgboost/xgboost_sklearn-params10] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['xgboost/xgboost_sklearn']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[fastai-params11] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['fastai']
+        SETUP    F params[['-P', 'lr=0.02', '-P', 'epochs=3']]
+        tests/examples/test_examples.py::test_mlflow_run_example[fastai-params11] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'lr=0.02', '-P', 'epochs=3']]
+        TEARDOWN F directory['fastai']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch/MNIST-params12] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch/MNIST']
+        SETUP    F params[['-P', 'max_epochs=1']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch/MNIST-params12] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'max_epochs=1']]
+        TEARDOWN F directory['pytorch/MNIST']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch/BertNewsClassification-params13] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch/BertNewsClassification']
+        SETUP    F params[['-P', 'max_epochs=...taset=20newsgroups']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch/BertNewsClassification-params13] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'max_epochs=...taset=20newsgroups']]
+        TEARDOWN F directory['pytorch/BertNewsClassification']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch/AxHyperOptimizationPTL-params14] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch/AxHyperOptimizationPTL']
+        SETUP    F params[['-P', 'max_epochs=...', 'total_trials=1']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch/AxHyperOptimizationPTL-params14] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'max_epochs=...', 'total_trials=1']]
+        TEARDOWN F directory['pytorch/AxHyperOptimizationPTL']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch/IterativePruning-params15] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch/IterativePruning']
+        SETUP    F params[['-P', 'max_epochs=...', 'total_trials=1']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch/IterativePruning-params15] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'max_epochs=...', 'total_trials=1']]
+        TEARDOWN F directory['pytorch/IterativePruning']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[pytorch/CaptumExample-params16] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pytorch/CaptumExample']
+        SETUP    F params[['-P', 'max_epochs=50']]
+        tests/examples/test_examples.py::test_mlflow_run_example[pytorch/CaptumExample-params16] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[['-P', 'max_epochs=50']]
+        TEARDOWN F directory['pytorch/CaptumExample']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[supply_chain_security-params17] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['supply_chain_security']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[supply_chain_security-params17] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['supply_chain_security']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[tensorflow-params18] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['tensorflow']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[tensorflow-params18] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['tensorflow']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_mlflow_run_example[sktime-params19] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sktime']
+        SETUP    F params[[]]
+        tests/examples/test_examples.py::test_mlflow_run_example[sktime-params19] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, params, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F params[[]]
+        TEARDOWN F directory['sktime']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[docker-command0] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['docker']
+        SETUP    F command[['docker', 'build',..., 'Dockerfile', ...]]
+        tests/examples/test_examples.py::test_command_example[docker-command0] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['docker', 'build',..., 'Dockerfile', ...]]
+        TEARDOWN F directory['docker']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[keras-command1] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['keras']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[keras-command1] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['keras']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[lightgbm/lightgbm_native-command2] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['lightgbm/lightgbm_native']
+        SETUP    F command[['/Users/harutaka.k...bytree', '0.8', ...]]
+        tests/examples/test_examples.py::test_command_example[lightgbm/lightgbm_native-command2] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...bytree', '0.8', ...]]
+        TEARDOWN F directory['lightgbm/lightgbm_native']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[lightgbm/lightgbm_sklearn-command3] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['lightgbm/lightgbm_sklearn']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[lightgbm/lightgbm_sklearn-command3] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['lightgbm/lightgbm_sklearn']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[statsmodels-command4] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['statsmodels']
+        SETUP    F command[['/Users/harutaka.k...verse-method', 'qr']]
+        tests/examples/test_examples.py::test_command_example[statsmodels-command4] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...verse-method', 'qr']]
+        TEARDOWN F directory['statsmodels']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[quickstart-command5] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['quickstart']
+        SETUP    F command[['/Users/harutaka.k...mlflow_tracking.py']]
+        tests/examples/test_examples.py::test_command_example[quickstart-command5] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...mlflow_tracking.py']]
+        TEARDOWN F directory['quickstart']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[remote_store-command6] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['remote_store']
+        SETUP    F command[['/Users/harutaka.k... 'remote_server.py']]
+        tests/examples/test_examples.py::test_command_example[remote_store-command6] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k... 'remote_server.py']]
+        TEARDOWN F directory['remote_store']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[xgboost/xgboost_native-command7] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['xgboost/xgboost_native']
+        SETUP    F command[['/Users/harutaka.k...bytree', '0.8', ...]]
+        tests/examples/test_examples.py::test_command_example[xgboost/xgboost_native-command7] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...bytree', '0.8', ...]]
+        TEARDOWN F directory['xgboost/xgboost_native']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[xgboost/xgboost_sklearn-command8] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['xgboost/xgboost_sklearn']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[xgboost/xgboost_sklearn-command8] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['xgboost/xgboost_sklearn']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[catboost-command9] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['catboost']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[catboost-command9] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['catboost']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[prophet-command10] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['prophet']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[prophet-command10] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['prophet']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[sklearn_autolog-command11] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_autolog']
+        SETUP    F command[['/Users/harutaka.k...near_regression.py']]
+        tests/examples/test_examples.py::test_command_example[sklearn_autolog-command11] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...near_regression.py']]
+        TEARDOWN F directory['sklearn_autolog']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[sklearn_autolog-command12] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_autolog']
+        SETUP    F command[['/Users/harutaka.k...hon', 'pipeline.py']]
+        tests/examples/test_examples.py::test_command_example[sklearn_autolog-command12] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...hon', 'pipeline.py']]
+        TEARDOWN F directory['sklearn_autolog']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[sklearn_autolog-command13] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sklearn_autolog']
+        SETUP    F command[['/Users/harutaka.k...'grid_search_cv.py']]
+        tests/examples/test_examples.py::test_command_example[sklearn_autolog-command13] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...'grid_search_cv.py']]
+        TEARDOWN F directory['sklearn_autolog']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command14] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pyspark_ml_autologging']
+        SETUP    F command[['/Users/harutaka.k...stic_regression.py']]
+        tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command14] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...stic_regression.py']]
+        TEARDOWN F directory['pyspark_ml_autologging']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command15] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pyspark_ml_autologging']
+        SETUP    F command[['/Users/harutaka.k...', 'one_vs_rest.py']]
+        tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command15] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...', 'one_vs_rest.py']]
+        TEARDOWN F directory['pyspark_ml_autologging']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command16] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pyspark_ml_autologging']
+        SETUP    F command[['/Users/harutaka.k...hon', 'pipeline.py']]
+        tests/examples/test_examples.py::test_command_example[pyspark_ml_autologging-command16] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...hon', 'pipeline.py']]
+        TEARDOWN F directory['pyspark_ml_autologging']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[shap-command17] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['shap']
+        SETUP    F command[['/Users/harutaka.k...n', 'regression.py']]
+        tests/examples/test_examples.py::test_command_example[shap-command17] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...n', 'regression.py']]
+        TEARDOWN F directory['shap']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[shap-command18] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['shap']
+        SETUP    F command[['/Users/harutaka.k..._classification.py']]
+        tests/examples/test_examples.py::test_command_example[shap-command18] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k..._classification.py']]
+        TEARDOWN F directory['shap']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[shap-command19] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['shap']
+        SETUP    F command[['/Users/harutaka.k..._classification.py']]
+        tests/examples/test_examples.py::test_command_example[shap-command19] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k..._classification.py']]
+        TEARDOWN F directory['shap']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[shap-command20] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['shap']
+        SETUP    F command[['/Users/harutaka.k...plainer_logging.py']]
+        tests/examples/test_examples.py::test_command_example[shap-command20] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...plainer_logging.py']]
+        TEARDOWN F directory['shap']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[ray_serve-command21] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['ray_serve']
+        SETUP    F command[['/Users/harutaka.k...', 'train_model.py']]
+        tests/examples/test_examples.py::test_command_example[ray_serve-command21] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...', 'train_model.py']]
+        TEARDOWN F directory['ray_serve']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pip_requirements-command22] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pip_requirements']
+        SETUP    F command[['/Users/harutaka.k...ip_requirements.py']]
+        tests/examples/test_examples.py::test_command_example[pip_requirements-command22] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...ip_requirements.py']]
+        TEARDOWN F directory['pip_requirements']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[fastai-command23] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['fastai']
+        SETUP    F command[['/Users/harutaka.k...2', '--epochs', '3']]
+        tests/examples/test_examples.py::test_command_example[fastai-command23] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...2', '--epochs', '3']]
+        TEARDOWN F directory['fastai']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pmdarima-command24] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pmdarima']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[pmdarima-command24] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['pmdarima']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command25] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k...nary_classifier.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command25] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...nary_classifier.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command26] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k...lass_classifier.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command26] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...lass_classifier.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command27] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k...te_on_regressor.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command27] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...te_on_regressor.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command28] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k..._custom_metrics.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command28] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k..._custom_metrics.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command29] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k...s_comprehensive.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command29] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...s_comprehensive.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[evaluation-command30] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['evaluation']
+        SETUP    F command[['/Users/harutaka.k...odel_validation.py']]
+        tests/examples/test_examples.py::test_command_example[evaluation-command30] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...odel_validation.py']]
+        TEARDOWN F directory['evaluation']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[diviner-command31] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['diviner']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[diviner-command31] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['diviner']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[spark_udf-command32] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['spark_udf']
+        SETUP    F command[['/Users/harutaka.k...rk_udf_datetime.py']]
+        tests/examples/test_examples.py::test_command_example[spark_udf-command32] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...rk_udf_datetime.py']]
+        TEARDOWN F directory['spark_udf']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[pyfunc-command33] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['pyfunc']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[pyfunc-command33] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['pyfunc']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[tensorflow-command34] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['tensorflow']
+        SETUP    F command[['/Users/harutaka.k...python', 'train.py']]
+        tests/examples/test_examples.py::test_command_example[tensorflow-command34] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...python', 'train.py']]
+        TEARDOWN F directory['tensorflow']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[transformers-command35] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['transformers']
+        SETUP    F command[['/Users/harutaka.k...'conversational.py']]
+        tests/examples/test_examples.py::test_command_example[transformers-command35] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...'conversational.py']]
+        TEARDOWN F directory['transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[transformers-command36] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['transformers']
+        SETUP    F command[['/Users/harutaka.k...load_components.py']]
+        tests/examples/test_examples.py::test_command_example[transformers-command36] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...load_components.py']]
+        TEARDOWN F directory['transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[transformers-command37] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['transformers']
+        SETUP    F command[['/Users/harutaka.k...ython', 'simple.py']]
+        tests/examples/test_examples.py::test_command_example[transformers-command37] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...ython', 'simple.py']]
+        TEARDOWN F directory['transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[transformers-command38] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['transformers']
+        SETUP    F command[['/Users/harutaka.k...nce_transformer.py']]
+        tests/examples/test_examples.py::test_command_example[transformers-command38] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...nce_transformer.py']]
+        TEARDOWN F directory['transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[transformers-command39] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['transformers']
+        SETUP    F command[['/Users/harutaka.k...thon', 'whisper.py']]
+        tests/examples/test_examples.py::test_command_example[transformers-command39] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...thon', 'whisper.py']]
+        TEARDOWN F directory['transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[sentence_transformers-command40] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['sentence_transformers']
+        SETUP    F command[['/Users/harutaka.k...ython', 'simple.py']]
+        tests/examples/test_examples.py::test_command_example[sentence_transformers-command40] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...ython', 'simple.py']]
+        TEARDOWN F directory['sentence_transformers']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[tracing-command41] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['tracing']
+        SETUP    F command[['/Users/harutaka.k...ython', 'fluent.py']]
+        tests/examples/test_examples.py::test_command_example[tracing-command41] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...ython', 'fluent.py']]
+        TEARDOWN F directory['tracing']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[tracing-command42] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['tracing']
+        SETUP    F command[['/Users/harutaka.k...ython', 'client.py']]
+        tests/examples/test_examples.py::test_command_example[tracing-command42] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...ython', 'client.py']]
+        TEARDOWN F directory['tracing']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[tracing-command43] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['tracing']
+        SETUP    F command[['/Users/harutaka.k...'multithreading.py']]
+        tests/examples/test_examples.py::test_command_example[tracing-command43] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...'multithreading.py']]
+        TEARDOWN F directory['tracing']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[llama_index-command44] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['llama_index']
+        SETUP    F command[['/Users/harutaka.k..., 'simple_index.py']]
+        tests/examples/test_examples.py::test_command_example[llama_index-command44] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k..., 'simple_index.py']]
+        TEARDOWN F directory['llama_index']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+tests/examples/test_examples.py::test_command_example[llama_index-command45] 
+        SETUP    F clean_up_leaked_runs
+        SETUP    F clean_up_mlruns_directory
+        SETUP    F prevent_infer_pip_requirements_fallback
+        SETUP    F reset_active_experiment_id
+        SETUP    F reset_mlflow_uri
+        SETUP    F reset_tracing
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tracking_uri_mock (fixtures used: tmp_path)
+        SETUP    F validate_trace_finish
+        SETUP    F clean_up_mlflow_virtual_environments
+        SETUP    F directory['llama_index']
+        SETUP    F command[['/Users/harutaka.k...thon', 'autolog.py']]
+        tests/examples/test_examples.py::test_command_example[llama_index-command45] (fixtures used: clean_up_envs, clean_up_leaked_runs, clean_up_mlflow_virtual_environments, clean_up_mlruns_directory, command, directory, enable_mlflow_testing, enable_test_mode_by_default_for_autologging_integrations, event_loop_policy, mock_openai, prevent_infer_pip_requirements_fallback, request, reset_active_experiment_id, reset_mlflow_uri, reset_tracing, serve_wheel, tmp_path, tmp_path_factory, tracking_uri_mock, validate_trace_finish)
+        TEARDOWN F command[['/Users/harutaka.k...thon', 'autolog.py']]
+        TEARDOWN F directory['llama_index']
+        TEARDOWN F clean_up_mlflow_virtual_environments
+        TEARDOWN F validate_trace_finish
+        TEARDOWN F tracking_uri_mock
+        TEARDOWN F tmp_path
+        TEARDOWN F reset_tracing
+        TEARDOWN F reset_mlflow_uri
+        TEARDOWN F reset_active_experiment_id
+        TEARDOWN F prevent_infer_pip_requirements_fallback
+        TEARDOWN F clean_up_mlruns_directory
+        TEARDOWN F clean_up_leaked_runs
+    TEARDOWN M mock_openai
+    TEARDOWN M clean_up_envs
+TEARDOWN S enable_test_mode_by_default_for_autologging_integrations
+TEARDOWN S serve_wheel
+TEARDOWN S tmp_path_factory
+TEARDOWN S enable_mlflow_testing
+TEARDOWN S event_loop_policy
+
+[33m=============================== warnings summary ===============================[0m
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/_internal/_config.py:295: 12 warnings
+  /Users/harutaka.kawamura/.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/_internal/_config.py:295: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.10/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/_pytest/config/__init__.py:1441
+  /Users/harutaka.kawamura/.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/fields.py:1011
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/fields.py:1011
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/fields.py:1011
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/fields.py:1011
+  /Users/harutaka.kawamura/.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/fields.py:1011: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.10/migration/
+    warn('`min_items` is deprecated and will be removed, use `min_length` instead', DeprecationWarning)
+
+../../../.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/_internal/_config.py:345
+  /Users/harutaka.kawamura/.pyenv/versions/miniconda3-latest/envs/mlflow/lib/python3.9/site-packages/pydantic/_internal/_config.py:345: UserWarning: Valid config keys have changed in V2:
+  * 'schema_extra' has been renamed to 'json_schema_extra'
+    warnings.warn(message, UserWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 10 durations =============================
+2.03s setup    tests/examples/test_examples.py::test_mlflow_run_example[h2o-params0]
+
+(9 durations < 0.005s hidden.  Use -vv to show these durations.)
+[33m============================= [33m[1m18 warnings[0m[33m in 2.46s[0m[33m =============================[0m

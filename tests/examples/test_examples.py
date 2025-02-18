@@ -108,6 +108,9 @@ def test_mlflow_run_example(directory, params, tmp_path):
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, list(map(str, cli_run_list)))
 
+    if Path("/home/runner/.cache/huggingface/hub").exists():
+        raise Exception(directory, params)
+
 
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
