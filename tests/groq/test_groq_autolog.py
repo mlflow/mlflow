@@ -25,6 +25,16 @@ DUMMY_CHAT_COMPLETION_REQUEST = {
     "messages": [{"role": "user", "content": "test message"}],
 }
 
+DUMMY_COMPLETION_USAGE = CompletionUsage(
+    completion_tokens=648,
+    prompt_tokens=20,
+    total_tokens=668,
+    completion_time=0.54,
+    prompt_time=0.000181289,
+    queue_time=0.012770949,
+    total_time=0.540181289,
+)
+
 DUMMY_CHAT_COMPLETION_RESPONSE = ChatCompletion(
     id="chatcmpl-test-id",
     choices=[
@@ -45,15 +55,7 @@ DUMMY_CHAT_COMPLETION_RESPONSE = ChatCompletion(
     model="llama3-8b-8192",
     object="chat.completion",
     system_fingerprint="fp_test",
-    usage=CompletionUsage(
-        completion_tokens=648,
-        prompt_tokens=20,
-        total_tokens=668,
-        completion_time=0.54,
-        prompt_time=0.000181289,
-        queue_time=0.012770949,
-        total_time=0.540181289,
-    ),
+    usage=DUMMY_COMPLETION_USAGE,
     x_groq={"id": "req_test"},
 )
 
@@ -144,15 +146,7 @@ DUMMY_TOOL_CALL_RESPONSE = ChatCompletion(
     model="llama3-8b-8192",
     object="chat.completion",
     system_fingerprint="fp_test",
-    usage=CompletionUsage(
-        completion_tokens=648,
-        prompt_tokens=20,
-        total_tokens=668,
-        completion_time=0.54,
-        prompt_time=0.000181289,
-        queue_time=0.012770949,
-        total_time=0.540181289,
-    ),
+    usage=DUMMY_COMPLETION_USAGE,
     x_groq={"id": "req_test"},
 )
 
@@ -223,15 +217,7 @@ DUMMY_TOOL_RESPONSE_RESPONSE = ChatCompletion(
     model="llama3-8b-8192",
     object="chat.completion",
     system_fingerprint="fp_test",
-    usage=CompletionUsage(
-        completion_tokens=648,
-        prompt_tokens=20,
-        total_tokens=668,
-        completion_time=0.54,
-        prompt_time=0.000181289,
-        queue_time=0.012770949,
-        total_time=0.540181289,
-    ),
+    usage=DUMMY_COMPLETION_USAGE,
     x_groq={"id": "req_test"},
 )
 
