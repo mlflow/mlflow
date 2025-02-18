@@ -154,7 +154,6 @@ def test_model_log():
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
         assert loaded_model.flavors == {
             "flavor1": {"a": 1, "b": 2},
             "flavor2": {"x": 1, "y": 2},
@@ -196,7 +195,7 @@ def test_model_info():
             model_info = Model.log(
                 "some/path", TestFlavor, signature=sig, input_example=input_example
             )
-        model_uri = f"runs:/{run.info.run_id}/some/path"
+        model_uri = f"models:/{model_info.model_id}"
 
         model_info_fetched = mlflow.models.get_model_info(model_uri)
         with pytest.warns(
@@ -209,8 +208,6 @@ def test_model_info():
 
         assert model_info.run_id == run.info.run_id
         assert model_info_fetched.run_id == run.info.run_id
-        assert model_info.artifact_path == "some/path"
-        assert model_info_fetched.artifact_path == "some/path"
         assert model_info.model_uri == model_uri
         assert model_info_fetched.model_uri == model_uri
 
