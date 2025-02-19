@@ -2069,7 +2069,7 @@ def last_logged_model() -> Optional[LoggedModel]:
 
         model = mlflow.create_logged_model()
         last_model = mlflow.last_logged_model()
-        assert last_model.name == model.name
+        assert last_model.model_id == model.model_id
 
     """
     if id := _last_logged_model_id.get():
