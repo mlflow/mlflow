@@ -904,8 +904,7 @@ class Model:
                         else {}
                     ),
                 }
-                model = client.create_logged_model(
-                    experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+                model = mlflow.create_logged_model(
                     # TODO: Update model name
                     name=name,
                     source_run_id=active_run.info.run_id if active_run is not None else None,
