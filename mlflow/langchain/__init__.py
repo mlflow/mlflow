@@ -906,12 +906,23 @@ class _LoadedModelTracker:
 
     def __init__(self):
         self.model_ids: dict[int, str] = {}
+        # temporary solution to track model_id for autologging
+        # TODO: remove this and pass model_id to MlflowLangchainTracer
+        self._last_model_id = None
 
     def get(self, model: Any) -> Optional[str]:
         return self.model_ids.get(id(model))
 
     def set(self, model: Any, model_id: str) -> None:
         self.model_ids[id(model)] = model_id
+
+    @property
+    def last_model_id(self) -> Optional[str]:
+        return self._last_model_id
+
+    @last_model_id.setter
+    def last_model_id(self, model_id: Optional[str]) -> None:
+        self._last_model_id = model_id
 
 
 _LOADED_MODEL_TRACKER = _LoadedModelTracker()
@@ -948,6 +959,7 @@ def load_model(model_uri, dst_path=None):
         parsed_model_uri = _parse_model_uri(model_uri)
         if parsed_model_uri.model_id:
             _LOADED_MODEL_TRACKER.set(model, parsed_model_uri.model_id)
+            _LOADED_MODEL_TRACKER.last_model_id = parsed_model_uri.model_id
     return model
 
 
@@ -1060,7 +1072,11 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-    from mlflow.langchain._langchain_autolog import patched_inference
+    from mlflow.langchain.langchain_tracer import (
+        patched_callback_manager_init,
+        patched_callback_manager_merge,
+        patched_runnable_sequence_batch,
+    )
 
     # avoid duplicate patching
     patched_classes = set()
@@ -1103,35 +1119,34 @@ def autolog(
             )
 
     try:
-        from langchain.agents.agent import AgentExecutor
-        from langchain.chains.base import Chain
-
-        for cls in [AgentExecutor, Chain]:
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "__call__",
-                functools.partial(patched_inference, "__call__"),
-            )
-    except ImportError:
-        logger.debug(
-            "AgentExecutor and Chain are not available in the current environment."
-            "Skipping patching for __call__ method.",
-            exc_info=True,
-        )
-
-    try:
-        from langchain_core.retrievers import BaseRetriever
+        from langchain_core.callbacks import BaseCallbackManager
 
         safe_patch(
             FLAVOR_NAME,
-            BaseRetriever,
-            "get_relevant_documents",
-            functools.partial(patched_inference, "get_relevant_documents"),
+            BaseCallbackManager,
+            "__init__",
+            patched_callback_manager_init,
         )
-    except ImportError:
-        logger.debug(
-            "BaseRetriever is not available in the current environment."
-            "Skipping patching for get_relevant_documents method.",
-            exc_info=True,
+    except Exception as e:
+        logger.warning(f"Failed to enable tracing for LangChain. Error: {e}")
+
+    # Special handlings for edge cases.
+    try:
+        from langchain_core.callbacks import BaseCallbackManager
+        from langchain_core.runnables import RunnableSequence
+
+        safe_patch(
+            FLAVOR_NAME,
+            RunnableSequence,
+            "batch",
+            patched_runnable_sequence_batch,
         )
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseCallbackManager,
+            "merge",
+            patched_callback_manager_merge,
+        )
+    except Exception:
+        logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
