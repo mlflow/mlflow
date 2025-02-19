@@ -1,6 +1,113 @@
 import warnings
+from typing import Any
 
 from mlflow.utils.autologging_utils import _logger
+
+
+class AutologgingRuntimeLogger:
+    """
+    Wrapper class for an `AutologgingEventLogger
+    """
+
+    def __init__(self, session, destinatinon, function_name):
+        self._logger = AutologgingEventLogger.get_logger()
+        self._session = session
+        self._destination = destinatinon
+        self._function_name = function_name
+
+
+def _catch_exception(fn):
+    """A decorator that catches exceptions thrown by the wrapped function and logs them."""
+
+    def wrapper(*args):
+        try:
+            fn(*args)
+        except Exception as e:
+            _logger.debug(f"Failed to log autologging event via '{fn}'. Exception: {e}")
+
+    return wrapper
+
+
+class AutologgingEventLoggerWrapper:
+    """
+    A wrapper around AutologgingEventLogger for DRY:
+      - Store common arguments to avoid passing them to each logger method
+      - Catches exceptions thrown by the logger and logs them
+
+    NB: We could not modify the AutologgingEventLogger class directly because
+        it is used in Databricks code base as well.
+    """
+
+    def __init__(
+        self, session, destination: Any, function_name: str, call_args: tuple, call_kwargs: dict
+    ):
+        self._session = session
+        self._destination = destination
+        self._function_name = function_name
+        self._call_args = call_args
+        self._call_kwargs = call_kwargs
+
+    @_catch_exception
+    def log_patch_function_start(self):
+        AutologgingEventLogger.get_logger().log_patch_function_start(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+        )
+
+    @_catch_exception
+    def log_patch_function_success(self):
+        AutologgingEventLogger.get_logger().log_patch_function_success(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+        )
+
+    @_catch_exception
+    def log_patch_function_error(self, exception):
+        AutologgingEventLogger.get_logger().log_patch_function_error(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+            exception,
+        )
+
+    @_catch_exception
+    def log_original_function_start(self):
+        AutologgingEventLogger.get_logger().log_original_function_start(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+        )
+
+    @_catch_exception
+    def log_original_function_success(self):
+        AutologgingEventLogger.get_logger().log_original_function_success(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+        )
+
+    @_catch_exception
+    def log_original_function_error(self, exception):
+        AutologgingEventLogger.get_logger().log_original_function_error(
+            self._session,
+            self._destination,
+            self._function_name,
+            self._call_args,
+            self._call_kwargs,
+            exception,
+        )
 
 
 class AutologgingEventLogger:
