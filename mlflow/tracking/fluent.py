@@ -99,7 +99,10 @@ _last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
 _last_logged_model_id = ThreadLocalVariable(default_factory=lambda: None)
 
 
-def _reset_last_logged_model_id():
+def _reset_last_logged_model_id() -> None:
+    """
+    Should be called only for testing purposes.
+    """
     _last_logged_model_id.set(None)
 
 
