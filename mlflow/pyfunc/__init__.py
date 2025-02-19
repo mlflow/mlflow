@@ -435,6 +435,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
     _get_dependencies_schema_from_model,
@@ -2796,6 +2797,7 @@ def save_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    auth_policy: Optional[AuthPolicy] = None,
     **kwargs,
 ):
     """
@@ -2974,6 +2976,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -3272,6 +3275,9 @@ def save_model(
 
         mlflow_model.resources = serialized_resource
 
+    if auth_policy is not None:
+        mlflow_model.auth_policy = auth_policy
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path,
@@ -3339,6 +3345,7 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    auth_policy: Optional[AuthPolicy] = None,
     name=None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -3540,6 +3547,7 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
+        auth_policy: {{ auth_policy }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -3574,6 +3582,7 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        auth_policy=auth_policy,
         params=params,
         tags=tags,
         model_type=model_type,

@@ -381,7 +381,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.13.0",
-            "maximum": "0.15.0"
+            "maximum": "0.18.0"
         }
     },
     "bedrock": {

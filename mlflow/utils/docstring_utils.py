@@ -361,6 +361,18 @@ usage.
     its commit hash are logged instead.
 """
         ),
+        "auth_policy": (
+            """Specifies the authentication policy for the model, which includes two key components.
+            Note that only one of `auth_policy` or `resources` should be defined.
+
+                - **System Auth Policy**: A list of resources required to serve this model.
+                - **User Auth Policy**: A minimal list of scopes that the user should have access to
+                    ,in order to invoke this model.
+
+    .. Note::
+        Experimental: This parameter may change or be removed in a future release without warning.
+            """
+        ),
         "params": "A dictionary of parameters to log with the model.",
         "tags": "A dictionary of tags to log with the model.",
         "model_type": "The type of the model.",

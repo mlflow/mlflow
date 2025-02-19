@@ -30,6 +30,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
+from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
@@ -1617,7 +1618,6 @@ def test_model_save_load_with_resources(tmp_path):
         python_model=mlflow.pyfunc.model.PythonModel(),
         resources=yaml_file,
     )
-
     reloaded_model = Model.load(pyfunc_model_path_2)
     assert reloaded_model.resources == expected_resources
 
@@ -2372,4 +2372,103 @@ def test_pyfunc_model_input_example_with_signature():
         ):
             mlflow.pyfunc.log_model(
                 "model", python_model=Model(), signature=signature, input_example=123
+            )
+
+
+@pytest.mark.parametrize("save_model", [True, False])
+@pytest.mark.parametrize("use_user_auth_policy", [True, False])
+@pytest.mark.parametrize("use_system_policy", [True, False])
+def test_model_log_with_auth_policy(tmp_path, save_model, use_user_auth_policy, use_system_policy):
+    pyfunc_save_artifact_path = os.path.join(tmp_path, "pyfunc_model_save")
+    pyfunc_log_artifact_path = "pyfunc_model_log"
+
+    expected_auth_policy = {"system_auth_policy": {}, "user_auth_policy": {}}
+
+    system_auth_policy = None
+    if use_system_policy:
+        system_auth_policy = SystemAuthPolicy(
+            resources=[
+                DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+                DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksUCConnection(connection_name="test_connection_1"),
+            ]
+        )
+        expected_auth_policy["system_auth_policy"] = {
+            "resources": {
+                "api_version": "1",
+                "databricks": {
+                    "function": [{"name": "rag.studio.test_function_a"}],
+                    "serving_endpoint": [{"name": "databricks-mixtral-8x7b-instruct"}],
+                    "uc_connection": [{"name": "test_connection_1"}],
+                    "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+                },
+            }
+        }
+
+    user_auth_policy = None
+    if use_user_auth_policy:
+        user_auth_policy = UserAuthPolicy(
+            api_scopes=[
+                "catalog.catalogs",
+                "vectorsearch.vector-search-indexes",
+                "workspace.workspace",
+            ]
+        )
+        expected_auth_policy["user_auth_policy"] = {
+            "api_scopes": [
+                "catalog.catalogs",
+                "vectorsearch.vector-search-indexes",
+                "workspace.workspace",
+            ]
+        }
+
+    auth_policy = AuthPolicy(
+        user_auth_policy=user_auth_policy, system_auth_policy=system_auth_policy
+    )
+
+    if save_model:
+        mlflow.pyfunc.save_model(
+            path=pyfunc_save_artifact_path,
+            conda_env=_conda_env(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            auth_policy=auth_policy,
+        )
+        reloaded_model = Model.load(pyfunc_save_artifact_path)
+    else:
+        with mlflow.start_run() as run:
+            mlflow.pyfunc.log_model(
+                pyfunc_log_artifact_path,
+                python_model=mlflow.pyfunc.model.PythonModel(),
+                auth_policy=auth_policy,
+            )
+
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_log_artifact_path}"
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+        reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    assert reloaded_model.auth_policy == expected_auth_policy
+
+
+def test_both_resources_and_auth_policy():
+    pyfunc_log_artifact_path = "pyfunc_model_log"
+    system_auth_policy = SystemAuthPolicy(
+        resources=[DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")]
+    )
+    user_auth_policy = UserAuthPolicy(api_scopes=["workspace.workspace"])
+    auth_policy = AuthPolicy(
+        user_auth_policy=user_auth_policy, system_auth_policy=system_auth_policy
+    )
+
+    with mlflow.start_run() as _:
+        with pytest.raises(
+            ValueError, match="Only one of `resources`, and `auth_policy` can be specified."
+        ):
+            mlflow.pyfunc.log_model(
+                pyfunc_log_artifact_path,
+                python_model=mlflow.pyfunc.model.PythonModel(),
+                auth_policy=auth_policy,
+                resources=[
+                    DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
+                ],
             )

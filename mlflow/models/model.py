@@ -18,6 +18,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -402,6 +403,7 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        auth_policy: Optional[AuthPolicy] = None,
         model_id: Optional[str] = None,
         **kwargs,
     ):
@@ -418,6 +420,7 @@ class Model:
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
+        self.auth_policy = auth_policy
         self.model_id = model_id
         self.__dict__.update(kwargs)
 
@@ -626,6 +629,23 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
+    @experimental
+    @property
+    def auth_policy(self) -> dict[str, dict]:
+        """
+        An optional dictionary that contains the auth policy required to serve the model.
+
+        :getter: Retrieves the auth_policy required to serve the model
+        :setter: Sets the auth_policy required to serve the model
+        :type: Dict[str, dict]
+        """
+        return self._auth_policy
+
+    @experimental
+    @auth_policy.setter
+    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
+        self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
+
     @property
     def env_vars(self) -> Optional[list[str]]:
         return self._env_vars
@@ -703,6 +723,8 @@ class Model:
             res["resources"] = self.resources
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
+        if self.auth_policy is not None:
+            res["auth_policy"] = self.auth_policy
         # Exclude null fields in case MLmodel file consumers such as Model Serving may not
         # handle them correctly.
         if self.artifact_path is None:
@@ -799,7 +821,6 @@ class Model:
 
         if _MLFLOW_VERSION_KEY not in model_dict:
             model_dict[_MLFLOW_VERSION_KEY] = None
-
         return cls(**model_dict)
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
@@ -813,6 +834,7 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        auth_policy=None,
         name: Optional[str] = None,
         model_type: Optional[str] = None,
         params: Optional[dict[str, Any]] = None,
@@ -841,6 +863,7 @@ class Model:
             run_id: The run ID to associate with this model. If not provided, a new run will be
                 started.
             resources: {{ resources }}
+            auth_policy: {{ auth_policy }}
             name: The name of the model.
             model_type: {{ model_type }}
             params: {{ params }}
@@ -885,6 +908,11 @@ class Model:
                     ]
                 )
             client.log_batch(run_id=run_id, metrics=metrics_for_step)
+
+        # Only one of Auth policy and resources should be defined
+
+        if resources is not None and auth_policy is not None:
+            raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
 
         registered_model = None
         with TempDir() as tmp:
@@ -931,6 +959,7 @@ class Model:
                 run_id=active_run.info.run_id if active_run is not None else None,
                 metadata=metadata,
                 resources=resources,
+                auth_policy=auth_policy,
                 model_id=model.model_id,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
