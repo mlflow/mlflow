@@ -1693,10 +1693,10 @@ def test_last_logged_model():
     assert mlflow.last_logged_model() is None
 
     m1 = mlflow.create_logged_model()
-    assert mlflow.last_logged_model().name == m1.name
+    assert mlflow.last_logged_model().model_id == m1.model_id
 
     m2 = mlflow.create_logged_model()
-    assert mlflow.last_logged_model().name == m2.name
+    assert mlflow.last_logged_model().model_id == m2.model_id
 
     client = MlflowClient()
     client.set_logged_model_tags(m2.model_id, {"tag": "value"})
@@ -1704,3 +1704,10 @@ def test_last_logged_model():
 
     client.delete_logged_model_tag(m2.model_id, "tag")
     assert mlflow.last_logged_model().tags == {}
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    model = mlflow.pyfunc.log_model("model", python_model=Model())
+    assert mlflow.last_logged_model().model_id == model.model_id
