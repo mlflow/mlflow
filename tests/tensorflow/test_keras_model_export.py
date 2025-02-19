@@ -490,7 +490,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
     with mlflow.start_run():
         model_info = mlflow.tensorflow.log_model(model, artifact_path, conda_env=keras_custom_env)
 
-    saved_pip_req_path = os.path.join(model_info.model_uri, "requirements.txt")
+    model_path = _download_artifact_from_uri(model_info.model_uri)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
