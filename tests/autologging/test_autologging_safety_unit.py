@@ -23,6 +23,7 @@ from mlflow.utils.autologging_utils import (
     with_managed_run,
 )
 from mlflow.utils.autologging_utils.safety import (
+    _PATCH_RUN_NAME_FOR_TESTING,
     ValidationExemptArgument,
     _AutologgingSessionManager,
     _validate_args,
@@ -403,7 +404,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
     assert autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
-        with mlflow.start_run(nested=True):
+        with mlflow.start_run(nested=True, run_name=_PATCH_RUN_NAME_FOR_TESTING):
             return original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
@@ -433,7 +434,7 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
     assert not autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
-        with mlflow.start_run(nested=True):
+        with mlflow.start_run(nested=True, run_name=_PATCH_RUN_NAME_FOR_TESTING):
             return original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
