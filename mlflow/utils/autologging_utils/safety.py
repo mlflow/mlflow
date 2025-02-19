@@ -17,8 +17,8 @@ from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
+    set_warning_behavior_during_autologging,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -338,7 +338,6 @@ def safe_patch(
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
@@ -402,74 +401,12 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        # Reroute warnings encountered during the patch function implementation to an MLflow event
-        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
-        # integration was called with `silent=True`), hiding MLflow event logging statements and
-        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
-        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
-        # execution of the original / underlying ML function
-        #
-        # Note that we've opted *not* to apply this context manager as a decorator on
-        # `safe_patch_function` because the context-manager-as-decorator pattern uses
-        # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
-        # during model serialization by ML frameworks such as scikit-learn
-        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
-        with (
-            set_mlflow_events_and_warnings_behavior_globally(
-                # MLflow warnings emitted during autologging training sessions are likely not
-                # actionable and result from the autologging implementation invoking another MLflow
-                # API. Accordingly, we reroute these warnings to the MLflow event logger with level
-                # WARNING For reference, see recommended warning and event logging behaviors from
-                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_event_logs=is_silent_mode,
-                disable_warnings=is_silent_mode,
-            ),
-            set_non_mlflow_warnings_behavior_for_current_thread(
-                # non-MLflow Warnings emitted during the autologging preamble (before the original /
-                # underlying ML function is called) and postamble (after the original / underlying
-                # ML function is called) are likely not actionable and result from the autologging
-                # implementation invoking an API from a dependent library. Accordingly, we reroute
-                # these warnings to the MLflow event logger with level WARNING. For reference, see
-                # recommended warning and event logging behaviors from
-                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
-            ),
-        ):
+        if _should_skip_autolog(autologging_integration):
+            return original(*args, **kwargs)
+
+        with set_warning_behavior_during_autologging(autologging_integration):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
-
-            # Whether or not to exclude autologged content from user-created fluent runs
-            # (i.e. runs created manually via `mlflow.start_run()`)
-            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
-            user_created_fluent_run_is_active = (
-                mlflow.active_run() and not _AutologgingSessionManager.active_session()
-            )
-            active_session_failed = (
-                _AutologgingSessionManager.active_session() is not None
-                and _AutologgingSessionManager.active_session().state == "failed"
-            )
-
-            if (
-                active_session_failed
-                or autologging_is_disabled(autologging_integration)
-                or (user_created_fluent_run_is_active and exclusive)
-                or (
-                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
-                    and autologging_integration
-                )
-            ):
-                # If the autologging integration associated with this patch is disabled,
-                # or if the current autologging integration is in exclusive mode and a user-created
-                # fluent run is active, call the original function and return. Restore the original
-                # warning behavior during original function execution, since autologging is being
-                # skipped
-                with set_non_mlflow_warnings_behavior_for_current_thread(
-                    disable_warnings=False,
-                    reroute_warnings=False,
-                ):
-                    return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
             # execution of patched code
@@ -701,6 +638,40 @@ def revert_patches(autologging_integration):
         gorilla.revert(patch)
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
+
+
+def _should_skip_autolog(autologging_integration: str) -> bool:
+    from mlflow.utils.autologging_utils import (
+        _AUTOLOGGING_GLOBALLY_DISABLED,
+        autologging_is_disabled,
+        get_autologging_config,
+    )
+
+    # Autologging is disabled for the specified flavor
+    if autologging_is_disabled(autologging_integration):
+        return True
+
+    # Autologging is globally disabled
+    if _AUTOLOGGING_GLOBALLY_DISABLED and autologging_integration:
+        return True
+
+    # Whether or not to exclude autologged content from user-created fluent runs
+    # (i.e. runs created manually via `mlflow.start_run()`)
+    exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+    user_created_fluent_run_is_active = (
+        mlflow.active_run() and not _AutologgingSessionManager.active_session()
+    )
+    if user_created_fluent_run_is_active and exclusive:
+        return True
+
+    # Failed to start an autologging session
+    if (
+        _AutologgingSessionManager.active_session() is not None
+        and _AutologgingSessionManager.active_session().state == "failed"
+    ):
+        return True
+
+    return False
 
 
 # Represents an active autologging session using two fields:
