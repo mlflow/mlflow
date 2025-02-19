@@ -469,5 +469,5 @@ def test_model_log_with_signature_inference():
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(model, artifact_path, input_example=example)
 
-    model_info = Model.load(model_info.model_uri)
-    assert model_info.signature == ols_model_signature()
+    loaded_model = Model.load(model_info.model_uri)
+    assert loaded_model.signature == ols_model_signature()
