@@ -191,4 +191,5 @@ def test_command_example(directory, command):
     if directory == "transformers":
         # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
         clear_hub_cache()
+
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
