@@ -98,6 +98,11 @@ _active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
 _last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
 _last_logged_model_id = ThreadLocalVariable(default_factory=lambda: None)
 
+
+def _reset_last_logged_model_id():
+    _last_logged_model_id.set(None)
+
+
 _experiment_lock = threading.Lock()
 
 
@@ -2052,8 +2057,8 @@ def get_logged_model(model_id: str) -> LoggedModel:
 @experimental
 def last_logged_model() -> Optional[LoggedModel]:
     """
-    Fetches the most recent logged model in the active experiment.
-    If no logged models are found, returns None.
+    Fetches the most recent logged model in the current session.
+    If no model has been logged, None is returned.
 
     Returns:
         The logged model.

@@ -48,6 +48,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
+    _reset_last_logged_model_id,
     get_run,
     search_runs,
     set_experiment,
@@ -1690,6 +1691,7 @@ def test_runs_are_ended_by_run_id():
 
 
 def test_last_logged_model():
+    _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
 
     m1 = mlflow.create_logged_model()
