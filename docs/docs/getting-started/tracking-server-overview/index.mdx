@@ -6,7 +6,7 @@ In this guide we will walk you through how to view your MLflow experiment result
 tracking server configurations. At a high level, there are 3 ways to view your MLflow experiments:
 
 - **[Method 1]** Start your own MLflow server.
-- **[Method 2]** Use a free hosted tracking server - Databricks Community Edition.
+- **[Method 2]** Use a free hosted tracking server - Databricks Free Trial.
 - **[Method 3]** Use production Databricks/AzureML.
 
 To choose among these 3 methods, here is our recommendation:
@@ -56,7 +56,7 @@ It will generate logs with the IP address, for example:
 ```
 
 Opening the URL of the MLflow tracking server in your browser will bring you to the MLflow UI. The image below is from the open source version of the MLflow UI,
-which is a bit different from the MLflow UI on Databricks CE. Below is a screenshot of the landing page:
+which is a bit different from the MLflow UI on Databricks Workspaces. Below is a screenshot of the landing page:
 
 <div className="center-div" style={{ width: 800, maxWidth: "100%" }}>
   ![Landing page of OSS MLflow server](/images/quickstart/tracking-server-overview/mlflow-localhost-landing-page.png)
@@ -140,44 +140,62 @@ of this method below:
   - Requires extra port forwarding if you deploy your server on cloud VM.
   - No serving support.
 
-## Method 2: Use Free Hosted Tracking Server (Databricks Community Edition)
+## Method 2: Use Free Hosted Tracking Server (Databricks Free Trial)
 
 **Notice**: This part of guide can be directly executed in cloud-based notebook, e.g., Google Colab or
 Databricks Notebook.
 
-[Databricks Community Edition (CE)](https://community.cloud.databricks.com/) is the free, limited-use version of the
-cloud-based big data platform Databricks. Databricks CE users can access a micro-cluster as well as
-a cluster manager and notebook environment. All users can share their notebooks and host them free of
-charge with Databricks. You can use Databricks CE to store and view your MLflow experiments without
-being charged.
+The [Databricks Free Trial](https://docs.databricks.com/en/getting-started/free-trial.html) offers an opportunity to experience a fully managed, hosted version of the Databricks platform. 
+Databricks Free Trial users can access nearly full functionlities of the Databricks platform for free. 
+You can use a Databricks Workspace to store and view your MLflow experiments without being charged within the free trial period.
 
-To use Databricks CE to store and view our MLflow experiments, basically we need to:
+To use Databricks Free Trial to store and view your MLflow experiments, basically you need to:
 
-- Create a free Databricks CE account.
-- Set up Databricks CE authentication in our dev environment.
-- Connect to Databricks CE in our MLflow experiment session.
+- Sign up for Databricks Free Trial.
+- Generate a Personal Access Token (PAT)
+- Set up Databricks workspace authentication in your dev environment.
+- Connect to your Databricks Workspace in your MLflow experiment session.
 
-Then the experiment results will be automatically sent to Databricks CE, where you can view it in
+Then the experiment results will be automatically sent to your Databricks Workspace, where you can view it in
 MLflow experiment UI. Now let's look at the code.
 
-### Create a Databricks CE Account
+### Signup for Databricks Free Trial
 
-If you don't have an account of Databricks CE yet, you can create one
-[here](https://www.databricks.com/try-databricks#account). The full process should take no longer than 3 minutes.
+If you don't have an account of the Databricks Free Trial yet, you can create one
+[here](http://signup.databricks.com). The full process should take no longer than 5 minutes.
+
+### Generate a PAT
+To create a PAT for your Databricks workspace user, follow the steps here:
+
+1. In your Databricks workspace, click your Databricks username in the top bar, and then select Settings from the drop down.
+
+2. Click **Developer**.
+
+3. Next to Access tokens, click **Manage**.
+
+4. Click **Generate new token**.
+
+5. Enter a comment that helps you to identify this token in the future.
+
+6. Set the token's lifetime in days. By default, the maximum token lifetime for a workspace is 730 days.
+
+7. Click **Generate**.
+
+8. Copy the displayed token to a secure location, and then click **Done**.
 
 ### Install Dependencies
+Run the following command in your dev environment to install dependencies.
 
 ```bash
-%pip install -q mlflow databricks-sdk
+%pip install -q mlflow[databricks]
 ```
 
-### Set Up Authentication of Databricks CE
+### Set Up Authentication of Databricks Workspace
 
-To set up Databricks CE authentication, we can use the API <APILink fn="mlflow.login" />, which will prompt you for required information:
+To set up Databricks Workspace authentication, we can use the API <APILink fn="mlflow.login" />, which will prompt you for required information:
 
 - **Databricks Host**: Use https://community.cloud.databricks.com/
-- **Username**: Your email address that signs in Databricks CE.
-- **Password**: Your password of Databricks CE.
+- **Token**: Your personal access token for your Databricks Workspace.
 
 If the authentication succeeds, you should see a message "Successfully signed in Databricks!".
 
@@ -188,27 +206,26 @@ mlflow.login()
 ```
 
 ```
-2023/10/25 22:59:27 ERROR mlflow.utils.credentials: Failed to sign in Databricks: default auth: cannot configure default credentials
-Databricks Host (should begin with https://): https://community.cloud.databricks.com/
-Username: weirdmouse@gmail.com
-Password: ··········
-2023/10/25 22:59:38 INFO mlflow.utils.credentials: Successfully signed in Databricks!
+2025/02/19 12:25:04 INFO mlflow.utils.credentials: No valid Databricks credentials found, please enter your credentials...
+Databricks Host (should begin with https://):  https://<your workspace host>.cloud.databricks.com/
+Token:  ········
+2025/02/19 12:26:24 INFO mlflow.utils.credentials: Successfully connected to MLflow hosted tracking server! Host: https://<your workspace host>.cloud.databricks.com.
 ```
 
-### Connect MLflow Session to Databricks CE
+### Connect MLflow Session to Databricks Workspace
 
-We have set up the credentials, now we need to tell MLflow to send the data into Databricks CE.
-To do so, we will use `mlflow.set_tracking_uri("databricks")` to port MLflow to Databricks CE. Basically
+We have set up the credentials, now we need to tell MLflow to send the data into Databricks Workspace.
+To do so, we will use `mlflow.set_tracking_uri("databricks")` to port MLflow to Databricks Workspace. Basically
 it is the command below. Please note that you need to always use _"databricks"_ as the keyword.
 
 ```python
 mlflow.set_tracking_uri("databricks")
 ```
 
-Now you are ready to go! Let's try starting an MLflow experiment and log some dummy metrics and view it in our UI.
+Now you are ready to go! Let's try starting an MLflow experiment and log some dummy metrics and view it in the UI.
 
 ```python
-mlflow.set_experiment("/check-databricks-connection")
+mlflow.set_experiment("/Users/<your email>/check-databricks-connection")
 
 with mlflow.start_run():
     mlflow.log_metric("foo", 1)
@@ -216,60 +233,58 @@ with mlflow.start_run():
 ```
 
 ```
-2023/10/25 23:15:42 INFO mlflow.tracking.fluent: Experiment with name '/check-databricks-ce-connection' does not exist. Creating a new experiment.
+2025/02/19 12:26:33 INFO mlflow.tracking.fluent: Experiment with name '/Users/<your email>/check-databricks-ce-connection' does not exist. Creating a new experiment.
 ```
 
-### View Your Experiment on Databricks CE
+### View Your Experiment on Databricks Workspace
 
-Now let's navigate to Databricks CE to view the experiment result. Log in to your
-[Databricks CE](https://community.cloud.databricks.com) account, and click on top left to select machine learning
+Now let's navigate to your Databricks Workspace to view the experiment result. Log in to your
+Databricks Workspace, and click on top left to select machine learning
 in the drop down list. Then click on the experiment icon. See the screenshot below:
 
 <div className="center-div" style={{ width: 800, maxWidth: "100%" }}>
-  ![Landing page of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-ce-landing-page.png)
+  ![Landing page of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-lighthouse-landing-page.png)
 </div>
 
-In the "Experiments" view, you should be able to find the experiment "/check-databricks-ce-connection", similar to
+In the "Experiments" view, you should be able to find the experiment "check-databricks-connection", similar to
 
 <div className="center-div" style={{ width: 800, maxWidth: "100%" }}>
-  ![Experiment view of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-ce-experiment-view.png)
+  ![Experiment view of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-lighthouse-experiment-view.png)
 </div>
 
-Clicking on the run name, in our example it is "youthful-lamb-287" (it's a randomly generated name, you will see
-a different name in your CE console), will bring you to the run view, similar to
+Clicking on the run name, in our example it is "skillful-jay-111" (it's a randomly generated name, you will see
+a different name in your Databricks console), will bring you to the run view, similar to
 
 <div className="center-div" style={{ width: 800, maxWidth: "100%" }}>
-  ![Run view of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-ce-run-view.png)
+  ![Run view of Databricks MLflow server](/images/quickstart/tracking-server-overview/databricks-lighthouse-run-view.png)
 </div>
 
-In the run view, you will see our dummy metrics _"foo"_ and _"bar"_ are logged successfully.
+In the run view, you will see your dummy metrics _"foo"_ and _"bar"_ are logged successfully.
 
 ### Conclusion
 
-That's all about how to use Databricks CE as the tracking server. Please see the pros and cons
+That's all about how to use the Databricks Free Trial as the tracking server. Please see the pros and cons
 of this method below:
 
 - **Pros**
 
   - Effortless setup.
-  - Free.
+  - Free within free trial credits and periods.
   - Good for collaboration, e.g., you can share your MLflow experiment with your teammates easily.
   - Compatible for developing on cloud-based notebook, e.g., Google Colab.
   - Compatible for developing on cloud VM.
 
 - **Cons**
 
-  - Has quota limit of experiments/runs.
-  - No model registration/serving support.
+  - Has quota limit and time limit.
 
 ## Method 3: Use Production Hosted Tracking Server
 
 If you are an enterprise user and willing to productionize your model, you can use a production platform like
 Databricks or Microsoft AzureML. If you use Databricks, MLflow experiment will log your model into the Databricks
-MLflow server, and you can register your model then serve your model by a few clicks. Serving feature
-is only available on production Databricks workspace, and not available on Databricks CE.
+MLflow server, and you can register your model then serve your model by a few clicks. 
 
-The method of using production Databricks is the same as using Databricks CE, you only need to
+The method of using production Databricks is the same as using Databricks Free Trial, you only need to
 change the host to be the production workspace. For example, `https://dbc-1234567-123.cloud.databricks.com`.
 For more information about how Databricks power your Machine Learning workflow, please refer to the [doc
 here](https://docs.databricks.com/en/machine-learning/index.html).
@@ -289,7 +304,7 @@ of this method below:
   - Compatible for developing on cloud-based notebook, e.g., Google Colab.
   - Compatible for developing on cloud VM.
   - Seamless model registration/serving support.
-  - Higher quota than Databricks CE (pay as you go).
+  - Higher quota than the Databricks Free Trial (pay as you go).
 
 - **Cons**
 

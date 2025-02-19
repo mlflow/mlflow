@@ -47,13 +47,8 @@ With a Databricks managed instance of MLflow, you have two options for running t
   <summary>**Expand to learn about Running Notebooks locally and using Databricks Workspace as a remote tracking server**</summary>
 
   In order to stay within the comfortable confines of your local machine and still have the use of the managed MLflow Tracking Server,
-  you can authenticate via Personal Access Token (PAT). 
-  Generate PAT by following [this guide](https://docs.databricks.com/en/dev-tools/auth/pat.html) and configure the `.databrickscfg` file with the following format:
-  ```
-  [DEFAULT]
-  host = https://dbc-xxxxxxx-xxxx.cloud.databricks.com  # Replace with your Workspace URL
-  token = REPLACE_ME # Replace with your copied PAT
-  ```
+  you can authenticate via a Personal Access Token (PAT). 
+  Generate a PAT by following [this guide](https://docs.databricks.com/en/dev-tools/auth/pat.html).
 
   Afterward, connect to the Databricks Workspace by calling `mlflow.login()` in your notebook.
 
@@ -62,7 +57,7 @@ With a Databricks managed instance of MLflow, you have two options for running t
 
   mlflow.login()
   ```
-
+  This command will ask you about the Databricks host and PAT. Fill your workspace's url and PAT.
   Once logged in, you will simply have to set your MLflow Tracking URI to the Workspace that you just logged in to:
   
   ```python
