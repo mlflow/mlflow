@@ -306,7 +306,7 @@ def log_model(
     ----------
     sktime_model : fitted ``sktime`` model
         Fitted ``sktime`` model object.
-    artifact_path : str, optional (default=None)
+    artifact_path : str
         Run-relative artifact path to save the model to.
     conda_env : Union[dict, str], optional (default=None)
         Either a dictionary representation of a Conda environment or the path to a
