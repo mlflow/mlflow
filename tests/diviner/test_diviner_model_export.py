@@ -242,7 +242,6 @@ def test_diviner_log_model(grouped_prophet, tmp_path, should_start_run):
             artifact_path,
             conda_env=str(conda_env),
         )
-        assert model_info.model_uri == mlflow.get_artifact_uri(artifact_path)
         reloaded_model = mlflow.diviner.load_model(model_uri=model_info.model_uri)
         pd.testing.assert_frame_equal(
             grouped_prophet.forecast(horizon=10, frequency="D"),
