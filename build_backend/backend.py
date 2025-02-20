@@ -15,3 +15,13 @@ def get_requires_for_build_sdist(config_settings=None):
     except Exception as e:
         sys.stderr.write(f"Failed to write SHA to mlflow/sha.py: {e}\n")
     return _orig_build_meta.get_requires_for_build_sdist(config_settings)
+
+
+def get_requires_for_build_wheel(config_settings=None):
+    try:
+        sys.stdout.write("Updating SHA in mlflow/sha.py...\n")
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
+        Path("mlflow", "sha.py").write_text(f'sha = "{sha}"\n')
+    except Exception as e:
+        sys.stderr.write(f"Failed to write SHA to mlflow/sha.py: {e}\n")
+    return _orig_build_meta.get_requires_for_build_wheel(config_settings)
