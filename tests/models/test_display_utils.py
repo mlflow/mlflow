@@ -1,9 +1,13 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from mlflow.models import infer_signature
-from mlflow.models.display_utils import should_render_agent_eval_template
+from mlflow.models.display_utils import (
+    _generate_agent_eval_recipe,
+    should_render_agent_eval_template,
+)
 from mlflow.models.rag_signatures import StringResponse
 from mlflow.types.llm import (
     ChatChoice,
@@ -84,3 +88,8 @@ def test_should_not_render_eval_template_outside_notebook_env():
         with mock.patch("IPython.get_ipython", return_value=None):
             signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
             assert not should_render_agent_eval_template(signature)
+
+
+def test_generate_agent_eval_recipe():
+    expected_html = (Path(__file__).parent / "resources" / "agent_eval_recipe.html").read_text()
+    assert _generate_agent_eval_recipe("runs:/1/model") == expected_html
