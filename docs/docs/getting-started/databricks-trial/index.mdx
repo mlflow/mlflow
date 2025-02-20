@@ -95,10 +95,13 @@ it is the command below. Please note that you need to always use _"databricks"_ 
 mlflow.set_tracking_uri("databricks")
 ```
 
+{/* TODO: Remove the UC Volume instruction below once the dbfs issue in Lighthouse is fixed. */}
 Now you are ready to go! Let's try starting an MLflow experiment and log some dummy metrics and view it in the UI.
+Firstly, you need to create a Unity Catalog Volume `test.mlflow.check-databricks-connection` by following [this guide](https://docs.databricks.com/aws/en/volumes/utility-commands#create-a-volume).
+Then, you can run the following codes to start an experiment with the Unity Catalog Volume and log metrics to it.
 Note that your experiment name must follow the `/Users/<your email>/<experiment_name>` format when using a Databricks Workspace.
-
 ```python
+mlflow.create_experiment("/Users/<your email>/check-databricks-connection", artifact_location="dbfs:/Volumes/test/mlflow/check-databricks-connection")
 mlflow.set_experiment("/Users/<your email>/check-databricks-connection")
 
 with mlflow.start_run():
@@ -107,7 +110,7 @@ with mlflow.start_run():
 ```
 
 ```
-2025/02/19 12:26:33 INFO mlflow.tracking.fluent: Experiment with name '/Users/<your email>/check-databricks-ce-connection' does not exist. Creating a new experiment.
+2025/02/19 12:26:33 INFO mlflow.tracking.fluent: Experiment with name '/Users/<your email>/check-databricks-connection' does not exist. Creating a new experiment.
 ```
 
 #### View Your Experiment on Databricks Workspace
