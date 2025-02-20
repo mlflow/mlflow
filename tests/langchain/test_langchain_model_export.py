@@ -2517,6 +2517,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         extra_args=["--env-manager", "local"],
     )
     predictions = json.loads(response.content.decode("utf-8"))
+    # Mock out the `created` timestamp as it is not deterministic
     expected = [{**try_transform_response_to_chat_format(answer), "created": mock.ANY}]
     assert expected == predictions
 
@@ -2537,6 +2538,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         ]
     }
 
+    # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
     mlflow.tracing.reset()
