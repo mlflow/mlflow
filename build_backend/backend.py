@@ -7,7 +7,7 @@ from setuptools import build_meta as _orig_build_meta
 from setuptools.build_meta import *  # noqa: F403
 
 
-def update_sha():
+def _update_sha():
     sys.stdout.write("Updating SHA in mlflow/sha.py...\n")
     sys.stdout.write(f"Current directory: {Path.cwd()}\n")
     try:
@@ -18,10 +18,10 @@ def update_sha():
 
 
 def get_requires_for_build_sdist(config_settings=None):
-    update_sha()
+    _update_sha()
     return _orig_build_meta.get_requires_for_build_sdist(config_settings)
 
 
 def get_requires_for_build_wheel(config_settings=None):
-    update_sha()
+    _update_sha()
     return _orig_build_meta.get_requires_for_build_wheel(config_settings)
