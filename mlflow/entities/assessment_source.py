@@ -36,7 +36,7 @@ class AssessmentSource(_MlflowObject):
 
     def to_proto(self):
         source = ProtoAssessmentSource()
-        source.source_type = self.source_type
+        source.source_type = ProtoAssessmentSource.SourceType.Value(self.source_type)
         if self.source_id is not None:
             source.source_id = self.source_id
         return source

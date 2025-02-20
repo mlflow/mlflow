@@ -123,7 +123,7 @@ def test_assessment_value_validation():
         Assessment(**common_args)
 
     # Invalid case: both value and error specified
-    with pytest.raises(MlflowException, match=r"Only one of `value` or `error` must be"):
+    with pytest.raises(MlflowException, match=r"Only one of `value` or `error` should be"):
         Assessment(
             value=Expectation("MLflow"),
             error=AssessmentError(error_code="E001", error_message="An error occurred."),
