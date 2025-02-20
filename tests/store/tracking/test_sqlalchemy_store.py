@@ -4741,7 +4741,7 @@ def test_search_logged_models(store: SqlAlchemyStore):
     model_2 = store.create_logged_model(experiment_id=exp_id_1)
     time.sleep(0.001)
     models = store.search_logged_models(experiment_ids=[exp_id_1])
-    assert [m.name for m in models] == [model_1.name, model_2.name]
+    assert [m.name for m in models] == [model_2.name, model_1.name]
 
     exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
     model_3 = store.create_logged_model(experiment_id=exp_id_2)
@@ -4749,4 +4749,4 @@ def test_search_logged_models(store: SqlAlchemyStore):
     assert [m.name for m in models] == [model_3.name]
 
     models = store.search_logged_models(experiment_ids=[exp_id_1, exp_id_2])
-    assert [m.name for m in models] == [model_1.name, model_2.name, model_3.name]
+    assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]

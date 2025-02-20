@@ -48,6 +48,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
+    _reset_last_logged_model_id,
     get_run,
     search_runs,
     set_experiment,
@@ -1687,3 +1688,57 @@ def test_runs_are_ended_by_run_id():
         mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
+
+
+def test_last_logged_model():
+    _reset_last_logged_model_id()
+    assert mlflow.last_logged_model() is None
+
+    model = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+    client = MlflowClient()
+    client.set_logged_model_tags(model.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags == {"tag": "value"}
+
+    client.delete_logged_model_tag(model.model_id, "tag")
+    assert mlflow.last_logged_model().tags == {}
+
+    another_model = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by client should be ignored
+    client.create_logged_model(experiment_id="0")
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by another thread should be ignored
+    t = threading.Thread(daemon=True, target=lambda: mlflow.create_logged_model())
+    t.start()
+    t.join()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+
+def test_last_logged_model_log_model():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    model = mlflow.pyfunc.log_model("model", python_model=Model())
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+
+def test_last_logged_model_autolog():
+    try:
+        from sklearn.linear_model import LinearRegression
+
+        mlflow.sklearn.autolog(log_models=True)
+
+        with mlflow.start_run() as run:
+            lr = LinearRegression()
+            lr.fit([[1], [2]], [3, 4])
+
+        model = mlflow.last_logged_model()
+        assert model is not None
+        assert model.source_run_id == run.info.run_id
+    finally:
+        mlflow.sklearn.autolog(disable=True)

@@ -1755,7 +1755,7 @@ class SqlAlchemyStore(AbstractStore):
             models = (
                 session.query(SqlLoggedModel)
                 .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
-                .order_by(SqlLoggedModel.creation_timestamp_ms)
+                .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
                 .all()
             )
             return PagedList([lm.to_mlflow_entity() for lm in models], token=None)

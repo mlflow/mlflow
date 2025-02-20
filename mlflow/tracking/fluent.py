@@ -96,6 +96,15 @@ run_id_to_system_metrics_monitor = {}
 _active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
 
 _last_active_run_id = ThreadLocalVariable(default_factory=lambda: None)
+_last_logged_model_id = ThreadLocalVariable(default_factory=lambda: None)
+
+
+def _reset_last_logged_model_id() -> None:
+    """
+    Should be called only for testing purposes.
+    """
+    _last_logged_model_id.set(None)
+
 
 _experiment_lock = threading.Lock()
 
@@ -2022,7 +2031,7 @@ def create_logged_model(
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    return MlflowClient().create_logged_model(
+    model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
@@ -2030,6 +2039,8 @@ def create_logged_model(
         params=params,
         model_type=model_type,
     )
+    _last_logged_model_id.set(model.model_id)
+    return model
 
 
 @experimental
@@ -2044,6 +2055,33 @@ def get_logged_model(model_id: str) -> LoggedModel:
         The logged model.
     """
     return MlflowClient().get_logged_model(model_id)
+
+
+@experimental
+def last_logged_model() -> Optional[LoggedModel]:
+    """
+    Fetches the most recent logged model in the current session.
+    If no model has been logged, None is returned.
+
+    Returns:
+        The logged model.
+
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        assert mlflow.last_logged_model() is None
+
+        model = mlflow.create_logged_model()
+        last_model = mlflow.last_logged_model()
+        assert last_model.model_id == model.model_id
+
+    """
+    if id := _last_logged_model_id.get():
+        return get_logged_model(id)
 
 
 @experimental
