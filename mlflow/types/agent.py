@@ -64,6 +64,26 @@ class ChatAgentMessage(BaseModel):
             raise ValueError("Either 'content' or 'tool_calls' must be provided.")
         return values
 
+    @model_validator(mode="after")
+    def check_tool_messages(cls, values):
+        """
+        Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            name = values.name
+            role = values.role
+            tool_call_id = values.tool_call_id
+        else:
+            name = values.get("name")
+            role = values.get("role")
+            tool_call_id = values.get("tool_call_id")
+
+        if role == "tool" and not name:
+            raise ValueError("'name' must be provided for tool messages.")
+        if role == "tool" and not tool_call_id:
+            raise ValueError("'tool_call_id' must be provided for tool messages.")
+        return values
+
 
 class ChatContext(BaseModel):
     """

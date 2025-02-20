@@ -134,7 +134,6 @@ class LangGraphChatAgent(ChatAgent):
     def __init__(self, agent: CompiledStateGraph):
         self.agent = agent
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
         self,
         messages: list[ChatAgentMessage],
@@ -158,7 +157,6 @@ class LangGraphChatAgent(ChatAgent):
                     response.custom_outputs = node_data["custom_outputs"]
         return response
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
@@ -171,24 +169,18 @@ class LangGraphChatAgent(ChatAgent):
             **({"context": context.model_dump_compat()} if context else {}),
         }
 
-        last_message = None
-        last_custom_outputs = None
-
         for event in self.agent.stream(request, stream_mode="updates"):
             for node_data in event.values():
                 if not node_data:
                     continue
                 messages = node_data.get("messages", [])
                 custom_outputs = node_data.get("custom_outputs")
-
-                for message in messages:
-                    if last_message:
-                        yield ChatAgentChunk(delta=last_message)
-                    last_message = message
-                if custom_outputs:
-                    last_custom_outputs = custom_outputs
-        if last_message:
-            yield ChatAgentChunk(delta=last_message, custom_outputs=last_custom_outputs)
+                for i, message in enumerate(messages):
+                    chunk = {"delta": message}
+                    # only emit custom_outputs with the last streaming chunk from this node
+                    if custom_outputs and i == len(messages) - 1:
+                        chunk["custom_outputs"] = custom_outputs
+                    yield ChatAgentChunk(**chunk)
 
 
 chat_agent = LangGraphChatAgent(graph)

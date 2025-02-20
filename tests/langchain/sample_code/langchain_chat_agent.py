@@ -81,7 +81,6 @@ class LangChainChatAgent(ChatAgent):
     def __init__(self, agent: Runnable):
         self.agent = agent
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict(
         self,
         messages: list[ChatAgentMessage],
@@ -91,7 +90,6 @@ class LangChainChatAgent(ChatAgent):
         response = self.agent.invoke({"messages": self._convert_messages_to_dict(messages)})
         return ChatAgentResponse(**response)
 
-    # TODO trace this by default once manual tracing of predict_stream is supported
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
