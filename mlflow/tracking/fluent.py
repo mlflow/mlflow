@@ -2073,8 +2073,6 @@ def last_logged_model() -> Optional[LoggedModel]:
 
         import mlflow
 
-        assert mlflow.last_logged_model() is None
-
         model = mlflow.create_logged_model()
         last_model = mlflow.last_logged_model()
         assert last_model.model_id == model.model_id
