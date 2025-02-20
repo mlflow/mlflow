@@ -353,8 +353,7 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     assert "nested" in artifact_file_names
 
     s3_artifact_repo.delete_artifacts()
-    tmpdir_objects = s3_artifact_repo.list_artifacts()
-    assert not tmpdir_objects
+    assert s3_artifact_repo.list_artifacts() == []
 
 
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
@@ -373,8 +372,7 @@ def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
         assert f"{i}.txt" in artifact_file_names
 
     s3_artifact_repo.delete_artifacts()
-    tmpdir_objects = s3_artifact_repo.list_artifacts()
-    assert not tmpdir_objects
+    assert s3_artifact_repo.list_artifacts() == []
 
 
 def test_create_multipart_upload(s3_artifact_root):
