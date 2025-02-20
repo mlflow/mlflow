@@ -140,8 +140,8 @@ dbutils.library.restartPython()
     return (
         (resources_dir / "agent_evaluation_template.html")
         .read_text()
-        .replace("{{ eval_with_synthetic_code }}", html.escape(eval_with_synthetic_code))
-        .replace("{{ eval_with_dataset_code }}", html.escape(eval_with_dataset_code))
+        .replace("{{eval_with_synthetic_code}}", html.escape(eval_with_synthetic_code))
+        .replace("{{eval_with_dataset_code}}", html.escape(eval_with_dataset_code))
     )
 
 

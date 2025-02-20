@@ -209,7 +209,8 @@ evals = generate_evals_df(
     agent_description=agent_description,
     question_guidelines=question_guidelines,
 )
-eval_result = mlflow.evaluate(data=evals, model=&quot;runs:/1/model&quot;, model_type=&quot;databricks-agent&quot;)</code></pre>
+eval_result = mlflow.evaluate(data=evals, model=&quot;runs:/1/model&quot;, model_type=&quot;databricks-agent&quot;)
+</code></pre>
 
       <pre><code class="language-python">%pip install -U databricks-agents
 dbutils.library.restartPython()
@@ -233,7 +234,8 @@ evals = [
 ]
 eval_result = mlflow.evaluate(
     data=pd.DataFrame.from_records(evals), model=&quot;runs:/1/model&quot;, model_type=&quot;databricks-agent&quot;
-)</code></pre>
+)
+</code></pre>
     </div>
   </div>
   <script>
