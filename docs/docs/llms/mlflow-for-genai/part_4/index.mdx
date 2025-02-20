@@ -2,9 +2,12 @@
 title: "Part 4: Model Deployment"
 ---
 
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
 ![MLflow for GenAI Guide Overview](/images/llms/mlflow-for-genai/steps_4.png)
 
-In this final part of the guide, we will focus on model deployment with MLflow.
+In the final part of this tutorial on using MLflow for GenAI, we will focus on model deployment with MLflow.
 
 So far, we have:
 
@@ -20,22 +23,308 @@ Building on this foundation, in this part of the guide we will:
 3. Introduce a new challenger model and evaluate it against the production model using data collected from traces.
 4. Promote the challenger model to production.
 
-### Simplifying Assumptions
+## Simplifying Assumptions
 
 Like the previous parts of the guide, this part makes some simplifying assumptions to make it possible to follow the guide on your laptop and to keep the focus on the MLflow features and capabilities we are exploring.
 
-<!-- TODO: links to deployment docs -->
-In practice, you will likely want to deploy your model to a cloud environment. MLflow supports a number of different cloud providers, including AWS, GCP, and Azure. Furthermore, you will likely want to set up a CI/CD pipeline to automate the deployment process. You might also want to set up separate staging and production MLflow environments with different permissions and configurations, controlling who has access to the models and endpoints. To keep this guide focused, we will simply use a local MLflow server and deploy our staging and production models to different ports on localhost.
+In practice, you will likely want to [deploy your model to another environment](/deployment/) such as a cloud provider. MLflow supports a number of different cloud providers, including AWS, GCP, and Azure. Furthermore, you will likely want to set up a CI/CD pipeline to automate the deployment process. You might also want to set up separate staging and production MLflow environments with different permissions and configurations, controlling who has access to the models and endpoints. To keep this guide focused, we will simply use a local MLflow server and deploy our staging and production models to different ports on localhost.
 
-### Deploying the Staging Model
+## Environment Setup and Deployment Scripts
 
-In the previous part of this guide, we registered our model in the MLflow model registry. Now we're ready to deploy it to our staging environment. Recall that we've already created separate registered models for staging and production, and registered our custom PyFunc model to the staging environment.
+Before we start deploying and testing out models, we need to set up our )environments and some scripts to help us deploy and test our models in different environments. We also need to come up with a good system for managing our API keys. We will:
 
-With our model registered, we can now proceed to deploy it to our staging environment for testing.
+- store our API keys in [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) and create a helper function to retrieve the secrets
+- a yaml file with configuration options for our deployment environments
+- a CLI script to deploy a model to a given environment
 
-### Promoting the Model to Production
+### Secrets Management
 
-Now that we have deployed and tested our model in the staging environment, we can promote it to production and deploy it to the production environment.
+One approach to managing our AI API keys is to use a secrets manager, which provides a centralized and secure place to store, rotate, and invalidate credentials.
+
+Configuring the secrets manager is not strictly necessary for this guide—we will provide a fallback option that fetches API keys from the local environment—but careful management of API keys is important when deploying a GenAI application.
+
+You can follow [this guide](https://docs.aws.amazon.com/secretsmanager/latest/userguide/create_secret.html) to adding secrets to AWS Secrets Manager.
+
+We will create a secret called `social-ai` that contains keys `OPENAI_API_KEY` and `GEMINI_API_KEY`, with the respective API keys as values.
+
+Our deployment script, defined below, includes a function for retrieving these keys. Again, if you don't want to use a secrets manager for the purpose of this guide, that's okay—you can work through the remainder of the guide with your API keys saved as local environment variables.
+
+### Environment Configuration
+
+We will create a yaml file defining three different deployment environments: staging, staging_challenger, and production. For each environment, this configuration defines the tracking URI, experiment name, environment (whether tracing is enabled), AWS secret name, and model serving argument, particularly the port on localhost which will simulate different environments in this guide.
+
+- `staging`: an environment for testing and evaluating the model, with tracing enabled
+- `staging_challenger`: an environment for testing and evaluating a *challenger* model that we may want to promote to production if it is better than our current best *champion* model.
+- `production`: an environment representing the version of the model we would use in the version of the application deployed for real-world usage, which might mean it is used by the public, our customers, or internal users at our company.
+
+The specifics of both the environment configuration and the deployment approach will depend heavily on your use case and deployment destinations. As such, we won't dwell too long on this specific configuration.
+
+```yaml title="deployment.yaml"
+staging:
+  mlflow_tracking_uri: "file:/Users/daniel.liden/git/mlflow-social-ai/mlruns"
+  mlflow_experiment: "genai-social-staging"
+  environment_variables:
+    MLFLOW_TRACING_ENABLED: "true"
+  aws_secret_name: "social-ai"
+  serve_args:
+    port: 8501
+    host: "0.0.0.0"
+    workers: 2
+
+staging_challenger:
+  mlflow_tracking_uri: "file:/Users/daniel.liden/git/mlflow-social-ai/mlruns"
+  mlflow_experiment: "genai-social-staging"
+  environment_variables:
+    MLFLOW_TRACING_ENABLED: "true"
+  aws_secret_name: "social-ai"
+  serve_args:
+    port: 8502
+    host: "0.0.0.0"
+    workers: 2
+
+production:
+  mlflow_tracking_uri: "file:/Users/daniel.liden/git/mlflow-social-ai/mlruns"
+  mlflow_experiment: "genai-social-production"
+  environment_variables:
+    MLFLOW_TRACING_ENABLED: "false"
+  aws_secret_name: "social-ai"
+  serve_args:
+    port: 8500
+    host: "0.0.0.0"
+    workers: 4
+```
+
+### Deployment Script
+
+Next, we will write a CLI script that serves a registered MLflow model version to the target environment, as configured in the yaml file we created above. This script:
+
+1. Takes an environment name, model name, and model version as arguments
+2. Loads the configuration for the specified environment from the yaml file defined above
+3. Sets the MLflow tracking uri and experiment based on the environment configuration
+4. Gets the API keys from the secrets manager or, failing that, from the local environment
+5. Runs `mlflow models serve` with environment variables and other deployment options configured according to the yaml configuration
+
+```python title="deploy.py"
+import click
+import yaml
+import os
+import subprocess
+import boto3
+import json
+import mlflow
+
+class ModelDeployer:
+    def __init__(self, config_path="deployment.yaml"):
+        self.config_path = config_path
+    
+    def _get_aws_secrets(self, secret_name, region_name="us-west-2"):
+        """Fetch secrets from AWS Secrets Manager, falling back to environment variables."""
+        try:
+            client = boto3.session.Session().client('secretsmanager', region_name=region_name)
+            response = client.get_secret_value(SecretId=secret_name)
+            return json.loads(response['SecretString'])
+        except Exception as e:
+            # Fall back to environment variables if AWS access fails
+            return {
+                "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY"),
+                    "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY")
+                }
+    
+    def deploy(self, environment, model_name="genai_social_poster", model_version="latest"):
+        """Deploy the model to the specified environment."""
+        # Load config
+        with open(self.config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        env_config = config[environment]
+
+        # Set tracking uri and experiment
+        mlflow.set_tracking_uri(env_config["mlflow_tracking_uri"])
+        mlflow.set_experiment(env_config["mlflow_experiment"])
+        
+        # Prepare environment variables
+        env = os.environ.copy()
+        env.update(env_config['environment_variables'])
+        
+        # Add secrets
+        secrets = self._get_aws_secrets(env_config['aws_secret_name'])
+        env.update(secrets)
+        
+        # Build and execute mlflow serve command
+        cmd = [
+            "mlflow", "models", "serve",
+            "-m", f"models:/{model_name}/{model_version}",
+            "--port", str(env_config['serve_args']['port']),
+            "--host", env_config['serve_args']['host'],
+            "--no-conda",
+            "--workers", str(env_config['serve_args']['workers'])
+        ]
+        
+        subprocess.run(cmd, env=env)
+
+@click.command()
+@click.option('--environment', type=click.Choice(['staging', 'staging_challenger', 'production']), required=True)
+@click.option('--model-name', default="mlflow-social-ai-staging")
+@click.option('--model-version', default="latest")
+def cli_deploy(environment, model_name, model_version):
+    deployer = ModelDeployer()
+    deployer.deploy(environment, model_name, model_version)
+
+if __name__ == '__main__':
+    cli_deploy()
+```
+
+Now that we have set up a rudimentary system for managing secrets, configuring our environments, and deploying our models to those environments, it's time to serve our first model!
+
+## Deploying the Staging Model
+
+In the [previous part of this guide](/llms/mlflow-for-genai/part_3), we registered our model in the MLflow model registry under the name `mlflow-social-ai-staging`. Now we're ready to deploy it to our staging environment. Recall that we've already created separate registered models for staging and production, and registered our custom PyFunc model to the staging environment.
+
+We can serve the model using the CLI script with:
+
+```bash
+python deploy.py --environment=staging --model-name=mlflow-social-ai-staging
+```
+
+or, if you are using `uv` for environment managent, you can use:
+
+```bash
+uv run deploy.py --environment=staging --model-name=mlflow-social-ai-staging
+```
+
+### Testing the staging model
+
+Let's test the model! First, we need to make sure we still have access to the example posts we set up in part 2:
+
+<Tabs>
+  <TabItem label="Post Example 1" value="post1">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_1 = """MLflow's GenAI evaluation metrics now work as callable functions as of MLflow 2.17, making them easier to use and integrate.
+
+Now you can use metrics like answer_relevance, answer_correctness, faithfulness, and toxicity directly as functions—no need to go through mlflow.evaluate() anymore if you're just prototyping with individual metrics or integrating metric calls into systems where mlflow.evalaute is not necessary.
+
+This means:
+
+🔍 Easier debugging during prototyping
+🔌 More flexible integration options
+🎯 Works with or without other MLflow features
+
+Check it out in action ⬇️
+
+Learn more:
+📚 Docs: https://lnkd.in/gyBzcrDr
+📝 Release notes: https://lnkd.in/gBrNQfFC
+
+#MachineLearning #AI #LLMs #LLMOps #Evals"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem label="Post Example 2" value="post2">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_2 = """If you're already building with Python ML libraries, adding mlflow.autolog() to your code instantly gives you production-grade experiment tracking, model management, and observability—no extra infrastructure or code changes needed.
+
+The automatic logging works across a remarkable breadth of libraries—from GenAI frameworks like LangChain, OpenAI, and LlamaIndex to traditional ML and deep learning libraries like PyTorch, scikit-learn, and Fastai.
+
+MLflow's autolog feature changes this equation. With a single line—mlflow.autolog()—you get automatic logging of:
+
+📊 Training metrics and parameters for scikit-learn, PyTorch, many other ML frameworks
+🔄 LLM traces, prompts, responses, and tool calls for OpenAI and LangChain
+📦 Model signatures and artifacts
+💾 Dataset information and example inputs
+
+The best part is that it works out of the box with the most popular libraries in the Python ML ecosystem: no need to modify your existing training code or add manual logging statements.
+
+Read more: https://lnkd.in/e_aTp6HH
+
+#machinelearning #mlops #ai #llmops"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem label="Post Example 3" value="post3">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_3 = """New tutorial: Step-by-step guide to building a tool-calling LLM application using MLflow's ChatModel wrapper and tracing system.
+
+This tutorial shows you how to:
+
+🔧 Create a tool-calling model using mlflow.pyfunc.ChatModel
+🔄 Implement OpenAI function calling with automatic input/output handling
+🔍 Add comprehensive tracing to debug multi-step LLM interactions
+🚀 Deploy your model with full MLflow lifecycle management
+
+The guide includes a practical example building a weather information agent, showing how ChatModel simplifies complex LLM patterns while providing enterprise-grade observability.
+
+Check out the complete tutorial here: https://lnkd.in/gdTw8N2S
+
+#MLOps #AIEngineering #LLMOps #AI"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+</Tabs>
+
+As before, we'll save these examples as a list of strings.
+
+```python
+example_posts = [post_example_1, post_example_2, post_example_3]
+```
+
+
+And now we can query the endpoint. We will use the `requests` library:
+
+```python
+import requests
+
+input = {"inputs":
+         {
+             "example_posts": example_posts,
+             "context_url": "https://mlflow.org/docs/latest/system-metrics/index.html",
+             "additional_instructions": "The post should talk about how straightforward it is to track system metrics in MLflow."
+         }}
+
+response = requests.post("http://0.0.0.0:8501/invocations", json=input)
+print(response.json()['predictions']['post'])
+```
+
+which returns:
+
+```text
+Want effortless observability for your ML experiments? MLflow makes it incredibly easy to track system metrics like
+CPU, GPU, memory, and disk usage. 
+
+With just a simple `mlflow.start_run(log_system_metrics=True)`, you get detailed insights into your resource 
+utilization—no need for complex setup.
+
+MLflow automatically logs:
+
+📊 CPU & GPU usage
+💾 Memory & disk consumption
+🚦 Network traffic
+
+These metrics are viewable directly in the MLflow UI, helping you optimize performance and troubleshoot issues.
+
+Learn more about system metrics logging: https://mlflow.org/docs/latest/system-metrics.html
+
+#MachineLearning #MLOps #AI #SystemMonitoring
+```
+
+
+## Promoting the Model to Production
+
+Now that we have deployed and tested our model in the staging environment, we can promote it to production and deploy it to the production environment. We will start by copying the staging model version over to the production model we created in the registry.
 
 ```python
 from mlflow import MlflowClient
@@ -47,7 +336,16 @@ client.copy_model_version(
 )
 ```
 
-In this code snippet, we are copying the staging model version we just deployed and tested to the empty production model we created earlier. Now we can use the CLI script to deploy this production model with `uv run deploy.py --environment=production --model-name=mlflow-social-ai-production --model-version=latest`.
+In this code snippet, we are copying the staging model version we just deployed and tested to the empty production model we created earlier. We can inspect the model in the MLflow UI to see that it has been registered and to discover the expected schema (which will be identical to the staging model).
+
+![Production Model](/images/llms/mlflow-for-genai/14_prod_model.png)
+
+
+Now we can use the CLI script to deploy this production model with
+
+```bash
+python deploy.py --environment=production --model-name=mlflow-social-ai-production --model-version=latest
+```
 
 This will start the model server on port 8500. Our model is now being served on `http://0.0.0.0:8500`—our "production" environment. Once again, we can test this and verify that it is working as intended.
 
@@ -79,7 +377,7 @@ Ready to level up your ML observability? Check out the docs: https://lnkd.in/g4g
 
 We have successfully deployed our model to our production environment! But let's take a closer look at that response. The generated post includes a (shortened) link, but the link itself is broken. It appears our model inserted a link because there are links in the example, but it's not a valid link. This brings up an important point about the model deployment process: deploying a model to production doesn't mean we're done. We need to monitor the model's performance and be prepared to update it if necessary.
 
-### Introduce a Challenger
+## Improving our Production Model
 
 Right now, our staging and production models are identical. In this section, we will evaluate our model's performance based on traces collected from the staging model, use what we learn to update the model and introduce a "challenger" model, and then evaluate the challenger model.
 
@@ -89,9 +387,9 @@ There are many different approaches we might follow to collect feedback and iter
 - Mirror all of the production traffic to a challenger model and compare the outputs
 - Deploy both models to staging and rely on internal testers or synthetic data to evaluate the models
 
-Since we are not collecting traces from the production model in this scenario, we will instead collect traces from the staging model and use them to inform development of a new challenger model.
+Since we are not collecting traces from the production model in this scenario, we will instead collect traces from the staging model (reflecting internal usage/testing) and use them to inform development of a new challenger model.
 
-#### Evaluating the Staging Model
+### Evaluating the Staging Model
 
 Suppose have a lot of internal users using the staging model, where we are collecting traces. We can use those traces to evaluate the model's performance. First, let's simulate some traffic to the staging model, generating a collection of traces.
 
@@ -221,7 +519,7 @@ def url_presence_metric() -> EvaluationMetric:
 url_metric = url_presence_metric()
 ```
 
-Now we have an evaluation dataset and a metric. Let's figure out the extent of the problem and decide whether we need to update the model to address it.
+Now we have an evaluation dataset and a metric. Let's figure out the extent of the problem and decide whether we need to update the model to address it. In this case, we will just use the evaluation metric as a callable, but we could also use the `mlflow.evaluate()` approach detailed in part 2.
 
 ```python
 results_old_model = url_metric(predictions=generated_posts)
@@ -234,9 +532,9 @@ Which returns:
 MetricValue(scores=[0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1], justifications=None, aggregate_results={'mean': np.float64(0.75), 'variance': np.float64(0.1875), 'p90': np.float64(1.0)})
 ```
 
-This tells us that the model is including links in 75% of its outputs! This is a real problem—if any users directly post the outputs without checking them, they will likely be passing in broken links. We should update the model to address this issue.
+This tells us that the model is including links in 75% of its outputs! This is a real problem—if any users directly post the outputs without checking them, they will likely be sharing broken links. We should update the model to address this issue.
 
-#### Developing a Challenger Model
+### Developing a Challenger Model
 
 We can address this issue by updating the system prompt with the instruction to include placeholders where links should be inserted, rather than making up links. We don't need to update our model code to do this—recall, we set up the model such that the system prompt can be changed via the external configuration.
 
@@ -266,6 +564,8 @@ challenger_config = {
     "model_name": "gemini-2.0-flash-exp",
 }
 ```
+
+#### Model Aliases
 
 Now, we want to register this model to staging in MLflow. But we need a way to distinguish it from our existing staging model! We could create a completely separate model in the registry. But this isn't necessary—MLflow provides a powerful model alias system that allows us to create a new model version with a different name, but still point to the same model in the registry.
 
@@ -301,7 +601,11 @@ client.set_registered_model_alias(
 )
 ```
 
-Let's deploy this new challenger model to staging and see if it addresses the issue. You can deploy it with the CLI with: `uv run deploy.py --environment=staging_challenger --model-name=mlflow-social-ai-staging --model-version=challenger`.
+Let's deploy this new challenger model to staging and see if it addresses the issue. You can deploy it with the CLI with:
+
+```bash
+python deploy.py --environment=staging_challenger --model-name=mlflow-social-ai-staging --model-version=challenger
+```
 
 Let's try a sample query and see how it works.
 
@@ -356,6 +660,8 @@ MetricValue(scores=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ```
 
 No links! This is exactly what we wanted and addresses a significant issue we found in the first version of the model. Now we want to get this new challenger model into production so our users don't have to worry about broken links.
+
+### Promoting the Challenger Model
 
 We can use the same process by which we prompted the staging model to production to get this new challenger model into production.
 

@@ -4,13 +4,6 @@ title: "Part 3: Custom MLflow Model"
 
 ![MLflow for GenAI Guide Overview](/images/llms/mlflow-for-genai/steps_3.png)
 
-<!-- TODOs:
-- Visuals
-- Links
-- Standardize language on "model" or "application" or "system" or whatever.
-
- -->
-
 This is part three of a four-part guide for using MLflow to experiment with and deploy your generative AI projects.
 
 In part one, we started with the problem of generating social media posts following the style of a set of example posts. We used MLautologging and tracing to keep track of our early informal experiments as we developed a simple prototype. In part two, we used MLflow's evaluation tools to set up and run a more structured experiment comparing the performance of a couple of different models and prompts.
@@ -22,19 +15,30 @@ Now we are ready to prepare our GenAI application for production. In this part o
 
 ## Prerequisites and Setup
 
-This guide assumes you have read and worked through parts one and two, and will frequently reference code and concepts introduced there. It also assumes you have followed the setup instructions detailed there.
+This guide assumes you have read and worked through parts [one](../part_1) and [two](../part_2), and will frequently reference code and concepts introduced there. It also assumes you have followed the setup instructions detailed there.
 
-## Part 1: Encapsulating our Model Logic
+## Encapsulating our Model Logic
 
 At this point, we have prototyped our GenAI application and refined that prototype through the evaluation process, settling on a model and prompt that generate posts that are accurate and that effectively copy the style of the example posts.
 
-<!--TODO: How much do I need to introduce the idea of an MLflow model here? Mostly want to link to resources but still worth giving a couple of sentences. -->
-
 Now that we have a working application, we need to prepare it for production use. We need to ensure that the application's interface is standardized and well defined so any downstream parts of the application, such as a frontend GUI, can effectively use the model. We also need to make sure the model environment and dependencies are recorded and packaged with the model in order to make sure the model can be deployed across different environments without dependency conflicts. Furthermore, encapsulating our application logic in a custom PyFunc model will allow us to keep track of model versions and configurations, specify how we would like tracing handled in different environments, and validate the model prior to serving.
+
+[MLflow models](/model) address these needs by providinga standardized way to save model logic, configurations, and dependencies. They also provide a standardized interface and deployment system, ensuring the model can be deployed and used across different environments.
+
+| **Component** | With MLflow Model | With MLflow Model |
+|-----------|--------------|---------------------------|
+| **Code Organization** | Scattered across files, ad-hoc structure | Single, well-defined class with standard interface |
+| **Dependencies** | Manually tracked and installed | Automatically captured and packaged with model |
+| **Configuration** | Hard-coded or managed separately | Version-controlled with model artifacts |
+| **Tracing** | Autologging or ad-hoc implementation | Configurable, standardized tracing controls |
+| **Input/Output** | Undefined schema, inconsistent validation | Type-hinted interface with automatic validation |
+| **Deployment** | Custom deployment logic needed | Standard MLflow deployment options |
+| **Versioning** | Manual version tracking | Automatic versioning through Model Registry |
+| **Environment** | "Works on my machine" | Reproducible across environments |
 
 ### ChatModel or PyFunc?
 
-MLflow offers the [ChatModel](https://mlflow.org/docs/latest/llms/chat-model-intro/index.html) class for setting up custom GenAI models with a chat interface. While this may seem like the obvious choice for our application, we will actually be using a custom [PyFunc](https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html) model instead. Though our application *uses* a chat model, it is not, itself, a chat model: the inputs and outputs are not lists of messages.
+MLflow offers the [ChatModel](/llms/chat-model-intro/) class for setting up custom GenAI models with a chat interface. While this may seem like the obvious choice for our application, we will actually be using a custom [PyFunc](/model/python_model) model instead. Though our application *uses* a chat model, it is not, itself, a chat model: the inputs and outputs are not lists of messages.
 
 The ChatModel interface is a great choice for developing and deploying conversational models with standardized input/output schemas following the OpenAI spec. PyFunc models, on the other hand, offer full control over the model interface.
 
@@ -44,12 +48,10 @@ There are a few key considerations we will make when defining the custom model.
 
 1. **Tracing:** We want to make sure tracing is easily configurable. There may, for example, be circumstances where tracing is not permissible in a production environment because of user data privacy concerns. To address cases like this, we will make tracing configurable via an environment variable.
 2. **Configuration:** We will make some of the application's configuration, such as the system prompt and model provider, available to the model via a configuration dictionary. This is a good idea for parameters we expect we may want to change in the future. It will allow us to log updated versions of the model without needing to change the custom PyFunc model code.
-<!-- TODO: Add a link to the MLflow documentation on how to set up a custom PyFunc model. -->
-3. **Models from Code:** We will save our model logic in a separate file called `model.py` and include the line `set_model(SocialPoster())` at the end of the file. When we log the model, we will set the `code_path` argument to `model.py`. This is the "models from code" approach to logging models, which is a good fit for GenAI applications using LLM APIs, where there are no model weights that need to be serialized.
-<!--TODO: Links to docs on the new model signatures feature -->
-4. **Input and Output Schema:** MLflow 2.20 introduced the ability to define model signatures for custom PyFunc models using model signatures in the `predict` method. We will use this approach to define the input and output schema for our model.
+3. **Models from Code:** We will save our model logic in a separate file called `model.py` and include the line `set_model(SocialPoster())` at the end of the file. When we log the model, we will set the `code_path` argument to `model.py`. This is the [models from code](/model/models-from-code) approach to logging models, which is a good fit for GenAI applications using LLM APIs, where there are no model weights that need to be serialized.
+4. **Input and Output Schema:** MLflow 2.20 introduced the ability to define model signatures for custom PyFunc models [using type hints](/model/python_model#model-signature-inference-based-on-type-hints) in the `predict` method. We will use this approach to define the input and output schema for our model.
 
-#### Defining the Custom PythonModel
+#### The PythonModel Class
 
 ```python
 # model.py
@@ -169,9 +171,21 @@ Let's walk through the code in detail.
 - The `predict` method calls the `_webpage_to_markdown`, `_generate_prompt`, and `_generate_post` helper functions that define specific steps in the application logic. We defined these functions in part 1 of this guide. Here, we add the `@mlflow.trace` decorator to the functions to make sure they are traced, giving us visibility into the application's execution flow and enabling us to diagnose any issues that may arise.
 - The `load_context` method is called once when the model is loaded and is responsible for initializing model-specific attributes and resources. In our case, it loads configuration values from the model context, sets up tracing based on an environment variable, and initializes the appropriate client based on the configured model provider. This initialization approach ensures that our model has all necessary resources and configurations ready before any predictions are made, while keeping sensitive information like API keys separate from the model artifacts.
 
-#### Setting up the Model Configuration
+### Setting up the Model Configuration
 
-Now that we have defined the custom model, we need to set up the model configuration. The `load_context` method we defined expects a `model_config` dictionary with the following keys:
+Now that we have defined the custom model, we need to set up the model configuration. Though optional, using a configuration that is separate from the application logic gives us an easy way to see and update aspects of the model's behavior without needing to change the model code.
+
+|  | Configuration as part of Model Code | External Configuration |
+|------------|------------------------|----------------------|
+| **Flexibility** | Configuration changes require updating core model logic in code | Frequently updated elements like prompts and model settings can be modified without code changes |
+| **Maintainability** | Configuration mixed with application logic can be difficult to identify and modify | Clear separation of concerns between model logic and configuration |
+| **Reproducibility** | Configuration choices buried in code | Configuration choices easy to identify in each MLflow run |
+
+This separation of configuration from code is particularly valuable in GenAI applications, where we often need to experiment with different prompts, model parameters, and even model providers. The external configuration approach makes it easier to track these experiments while keeping the core model logic clean and maintainable.
+
+#### Writing the Configuration Dict
+
+The `load_context` method we defined expects a `model_config` dictionary with the following keys:
 
 - `system_prompt`: The system prompt to use for the model.
 - `prompt_template`: The prompt template to use for the model.
@@ -217,13 +231,11 @@ config = {
 }
 ```
 
-Using a configuration that is separate from the application logic gives us an easy way to see and update aspects of the model's behavior without needing to change the model code.
 
-#### Logging the model
+### Logging the model
 
 Now that we have defined the `SocialPoster` class (saved in `model.py`) and the `config` dictionary, we have everything we need to log the model. We will use the `mlflow.pyfunc.log_model` function to log the model.
 
-<!-- TODO: Check in about best pattern for validation at logging time. -->
 ```python
 code_path = "model.py"
 
@@ -237,11 +249,20 @@ with mlflow.start_run():
 
 This code logs the model and saves it to the MLflow tracking server. It logs the model code defined in `model.py` and saves the model configuration in the `config` dictionary. You can inspect all of this information in the MLflow UI.
 
-<!-- TODO: Add screenshot of logged model in MLflow UI -->
+**Logged Model in the MLflow UI**
 
-Though we have successfully logged the model, we still aren't certain that it will work as expected in production. Our final step in this section is to validate the model.
+In the MLflow UI, we can inspect the model code, dependencies, and configuration.
 
-### Validating the model prior to deployment
+*Model Code*
+
+![Logged Model](/images/llms/mlflow-for-genai/9_logged_model.png)
+
+*Model Configuration*
+
+![Logged Model Configuration](/images/llms/mlflow-for-genai/10_model_config.png)
+Though we have successfully logged the model, we still aren't certain that it will work as expected in production. Let's verify that the model is ready for deployment.
+
+## Validating the model prior to deployment
 
 We need to be sure that our model will work as expected once we deploy it to a serving endpoint. To this end, we will construct a simple input example in the format we intend to use in production and validate it with the `validate_serving_input` method.
 
@@ -250,11 +271,11 @@ import os
 from mlflow.models import convert_input_example_to_serving_input
 
 
-sample_input = {
+sample_input = [{
     "example_posts": ["Example 1: This is an example post.", "Example 2: This is another example post."],
     "context_url": "https://www.example.com",
     "additional_instructions": "The post should be concise and to the point..."
-}
+}]
 
 serving_payload = convert_input_example_to_serving_input(input_example=sample_input)
 
@@ -277,17 +298,22 @@ os.environ["MLFLOW_TRACING_ENABLED"] = "true"
 validate_serving_input(model_uri, serving_payload)
 ```
 
-Inspecting the traces in the MLflow UI, we can see that the traces are now enabled and that the traces have been logged.
+Inspecting the traces in the MLflow UI, we can see that the traces are now enabled and have been logged.
 
-<!-- TODO: Add screenshot of traces in MLflow UI -->
+![Traces from Model Validation](/images/llms/mlflow-for-genai/11_validate_enable_tracing.png)
 
-Our model is ready for deployment!
+## Registering the Model
 
-### Registering the Model
+Now that we have created and validated our custom PyFunc model, let's register it to the MLflow model registry. The model registry is a great way to manage models and model versions. It will allow us to track the history of our model versions, define separate staging and production models, assign model aliases, and more.
 
-Now that we have created and validated our custom PyFunc model, let's register it to the MLflow model registry. The model registry is a great way to manage your models and their versions. It will allow us to track the history of our model versions, define separate staging and production models, assign model aliases, and more.
+First, a quick note on terminology:
 
-First, let's register empty models for our staging and production environments:
+- A **registered model** is a container for a group of model versions. It does not need to have any actual model artifacts in it.
+- A **model version** is registered to a registered model. It contains the actual model artifacts. One registered model can have many model versions.
+
+For example, you might have a "sentiment-analyzer" registered model that contains multiple versions as you iterate and improve your model over time. You might also have separate registered models for different environments (like staging and production) to manage the deployment lifecycle of your models.
+
+Now, let's register empty models for our staging and production environments:
 
 ```python
 from mlflow import MlflowClient
@@ -296,6 +322,10 @@ client = MlflowClient()
 client.create_registered_model("mlflow-social-ai-staging")
 client.create_registered_model("mlflow-social-ai-production")
 ```
+
+Again, these registered models are *containers* and do not yet contain any model artifacts. These are simply used to organize our model versions. In the MLflow UI, we can see the registered models without associated versions.
+
+![Registered Models](/images/llms/mlflow-for-genai/12_registered_models.png)
 
 Now we can register our logged model version to the staging model:
 
@@ -306,10 +336,30 @@ mv = client.create_model_version(
 )
 ```
 
+At which point we can see that the *model* now has an associated *version*.
+
+![Model Version](/images/llms/mlflow-for-genai/13_registered_version.png)
+
 In this process, we've:
 
 1. Created separate registered models for staging and production environments.
 2. Registered our custom PyFunc model to the staging environment.
+
+This separation of staging and production environments in the model registry provides a structured way to safely test new versions, maintain deployment history, and quickly rollback if needed. The registry serves as a central source of truth for our model deployment pipeline, helping us maintain reliability and reproducibility as we iterate on our models.
+
+Lastly, we can load the model from the model registry and test it out:
+
+```python
+model_uri = f"models:/{mv.name}/latest"
+model = mlflow.pyfunc.load_model(model_uri)
+model.predict([sample_input])
+```
+
+which returns:
+
+```python
+[{'post': 'Example Domain is for illustrative examples in documents. Use freely in literature without permission!\n\n👉 Learn more: https://www.iana.org/domains/example\n\n#ExampleDomain #IllustrativeExamples #Documentation\n'}]
+```
 
 ### Conclusion
 

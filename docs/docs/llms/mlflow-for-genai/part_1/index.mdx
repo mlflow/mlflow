@@ -49,7 +49,7 @@ import mlflow
 mlflow.set_experiment("genai-social")
 ```
 
-## Part 1: Initial Prototyping with MLflow autologging and tracing
+## Initial Prototyping with MLflow autologging and tracing
 
 Before we have written any code, we generally have some idea we want to try out. In this case, we want to answer the question: "Can a GenAI model generate social media posts that match our brand voice?" More specifically, we want to see if we can use GenAI to generate posts for the MLflow LinkedIn account in a style that is consistent with the existing posts.
 
@@ -98,7 +98,7 @@ response = client.chat.completions.create(
 
 ![MLflow tracing](/images/llms/mlflow-for-genai/1_mlflow_tracing.png)
 
-#### What is a Trace?
+### What is a Trace?
 
 MLflow tracing provides a record of every call to a model, including the inputs, outputs, errors, and other information. An individual trace is made up of:
 
@@ -107,7 +107,7 @@ MLflow tracing provides a record of every call to a model, including the inputs,
 
 You can learn much more about MLflow tracing [here](https://mlflow.org/docs/latest/llms/index.html).
 
-#### Generating our First Post
+### Generating our First Post
 
 Now that we have a basic system for logging our experiments, let's see if we can get a basic social media style transfer system working. As a quick reminder, we want to build a GenAI system that generates new LinkedIn posts based on some provided context and instructions in a style that is consistent with a set of provided example posts.
 
@@ -236,7 +236,7 @@ response = client.chat.completions.create(
 
 This is a reasonable first result, and gives us some confidence that this project is feasible. If you're following along, we encourage you to try out your own prompts and ideas. What is working? What isn't? What hypotheses can you come up with that you would like to test more rigorously?
 
-#### Tagging Traces
+### Tagging Traces
 
 Now, as we iterate on the prompts and helper functions, the results will automatically be logged to MLflow tracing. We can add tags to the traces to help us organize our experiments. For example, suppose we want to add tags to record the platform for which we are generating posts. We can add a tag to the last active trace as follows:
 
@@ -249,7 +249,7 @@ mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "platform", "LinkedIn
 
 Note that we can also add tags to the trace in the UI. We can use the tags to [search and filter](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.search_traces) traces.
 
-#### Tracing additional models
+### Tracing additional models
 
 We might also be interested in trying out some different models. For example, we might want to try the Gemini 2.0 Flash model as an alternative to GPT-4o. We want to make sure that calls to new models are traced alongside our OpenAI traces. We have a couple of options for making that happen:
 
