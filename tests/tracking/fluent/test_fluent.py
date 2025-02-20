@@ -1717,7 +1717,8 @@ def test_last_logged_model():
     t.join()
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
-    # log_model
+
+def test_last_logged_model_log_model():
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             return model_input
@@ -1725,7 +1726,8 @@ def test_last_logged_model():
     model = mlflow.pyfunc.log_model("model", python_model=Model())
     assert mlflow.last_logged_model().model_id == model.model_id
 
-    # autolog
+
+def test_last_logged_model_autolog():
     try:
         from sklearn.linear_model import LinearRegression
 
@@ -1736,6 +1738,7 @@ def test_last_logged_model():
             lr.fit([[1], [2]], [3, 4])
 
         model = mlflow.last_logged_model()
+        assert model is not None
         assert model.source_run_id == run.info.run_id
     finally:
         mlflow.sklearn.autolog(disable=True)
