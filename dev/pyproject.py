@@ -103,7 +103,8 @@ def build(package_type: PackageType) -> None:
     data = {
         "build-system": {
             "requires": ["setuptools"],
-            "build-backend": "setuptools.build_meta",
+            "build-backend": "backend",
+            "backend-path": ["build_backend"],
         },
         "project": {
             "name": package_name,
