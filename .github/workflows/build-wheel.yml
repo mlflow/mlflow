@@ -89,7 +89,7 @@ jobs:
       - name: List files in source distribution
         run: |
           tar -tf ${{ steps.build-dist.outputs.sdist-path }}
-          tar -xOf ${{ steps.build-dist.outputs.sdist-path }} '*/mlflow/ref.py'
+          tar -xOf ${{ steps.build-dist.outputs.sdist-path }} --wildcards '*/mlflow/ref.py'
 
       - name: List files in binary distribution
         run: |
