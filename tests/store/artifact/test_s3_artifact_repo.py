@@ -362,6 +362,28 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     assert not tmpdir_objects
 
 
+def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
+    # The maximum number of objects that can be listed in a single call is 1000
+    # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+    for i in range(1100):
+        with open(os.path.join(subdir_path, f"{i}.txt"), "w") as f:
+            f.write("A")
+
+    s3_artifact_repo.log_artifacts(subdir_path)
+
+    # confirm that artifacts are present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
+    for i in range(1100):
+        assert f"{i}.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts()
+    tmpdir_objects = s3_artifact_repo.list_artifacts()
+    assert not tmpdir_objects
+
+
 def test_create_multipart_upload(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     create = repo.create_multipart_upload("local_file")
