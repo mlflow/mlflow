@@ -218,7 +218,7 @@ Auto tracing is a powerful feature that allows you to monitor and debug your DSP
 
 Once enabled, MLflow will generate traces whenever your DSPy program is executed and record them in your MLflow Experiment.
 
-You can disable auto-tracing for DSPy by calling `mlflow.dspy.autolog(disabled=True)`.
+You can disable auto-tracing for DSPy by calling `mlflow.dspy.autolog(disable=True)`.
 
 
 .. note::
