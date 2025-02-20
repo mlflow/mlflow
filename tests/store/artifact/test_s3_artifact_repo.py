@@ -335,21 +335,16 @@ def test_get_s3_file_upload_extra_args_invalid_json():
 def test_delete_artifacts(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
-    subdir_path = str(subdir)
-    nested_path = os.path.join(subdir_path, "nested")
-    os.makedirs(nested_path)
-    path_a = os.path.join(subdir_path, "a.txt")
-    path_b = os.path.join(subdir_path, "b.tar.gz")
-    path_c = os.path.join(nested_path, "c.csv")
+    nested_path = subdir / "nested"
+    nested_path.mkdir()
+    path_a = subdir / "a.txt"
 
-    with open(path_a, "w") as f:
-        f.write("A")
-    with tarfile.open(path_b, "w:gz") as f:
-        f.add(path_a)
-    with open(path_c, "w") as f:
-        f.write("col1,col2\n1,3\n2,4\n")
+    path_a.write_text("A")
+    with tarfile.open(str(subdir / "b.tar.gz"), "w:gz") as f:
+        f.add(str(path_a))
+    (nested_path / "c.csv").write_text("col1,col2\n1,3\n2,4\n")
 
-    s3_artifact_repo.log_artifacts(subdir_path)
+    s3_artifact_repo.log_artifacts(str(subdir))
 
     # confirm that artifacts are present
     artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
@@ -358,8 +353,26 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     assert "nested" in artifact_file_names
 
     s3_artifact_repo.delete_artifacts()
-    tmpdir_objects = s3_artifact_repo.list_artifacts()
-    assert not tmpdir_objects
+    assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    # The maximum number of objects that can be listed in a single call is 1000
+    # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+    for i in range(1100):
+        (subdir / f"{i}.txt").write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir))
+
+    # confirm that artifacts are present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
+    for i in range(1100):
+        assert f"{i}.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts()
+    assert s3_artifact_repo.list_artifacts() == []
 
 
 def test_create_multipart_upload(s3_artifact_root):
