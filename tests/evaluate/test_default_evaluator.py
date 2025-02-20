@@ -53,6 +53,7 @@ from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _CustomArtifact,
     _evaluate_custom_artifacts,
+    _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
     _get_aggregate_metrics_values,
@@ -65,7 +66,6 @@ from mlflow.models.evaluation.evaluators.classifier import (
     _get_multiclass_classifier_metrics,
     _infer_model_type_by_labels,
 )
-from mlflow.models.evaluation.evaluators.default import _extract_output_and_other_columns
 from mlflow.models.evaluation.evaluators.regressor import _get_regressor_metrics
 from mlflow.models.evaluation.evaluators.shap import _compute_df_mode_or_mean
 from mlflow.models.evaluation.utils.metric import MetricDefinition
