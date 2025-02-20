@@ -12,7 +12,7 @@ def _update_sha():
     sys.stdout.write(f"Current directory: {Path.cwd()}\n")
     try:
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
-        Path("mlflow", "sha.py").write_text(f'REF = "{sha}"\n')
+        Path("mlflow", "ref.py").write_text(f'REF = "{sha}"\n')
     except Exception as e:
         sys.stderr.write(f"Failed to write REF to mlflow/sha.py: {e}\n")
 
