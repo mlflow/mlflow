@@ -101,7 +101,10 @@ Firstly, you need to create a Unity Catalog Volume `test.mlflow.check-databricks
 Then, you can run the following codes to start an experiment with the Unity Catalog Volume and log metrics to it.
 Note that your experiment name must follow the `/Users/<your email>/<experiment_name>` format when using a Databricks Workspace.
 ```python
-mlflow.create_experiment("/Users/<your email>/check-databricks-connection", artifact_location="dbfs:/Volumes/test/mlflow/check-databricks-connection")
+mlflow.create_experiment(
+    "/Users/<your email>/check-databricks-connection",
+    artifact_location="dbfs:/Volumes/test/mlflow/check-databricks-connection",
+)
 mlflow.set_experiment("/Users/<your email>/check-databricks-connection")
 
 with mlflow.start_run():
