@@ -104,7 +104,7 @@ def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
     )
 
 
-def should_render_agent_eval_template(signature: ModelSignature) -> bool:
+def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
     if not databricks_utils.is_in_databricks_runtime():
         return False
     from IPython import get_ipython
@@ -148,7 +148,7 @@ dbutils.library.restartPython()
 def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
     # For safety, we wrap in try/catch to make sure we don't break `mlflow.*.log_model`.
     try:
-        if not should_render_agent_eval_template(model_info.signature):
+        if not _should_render_agent_eval_template(model_info.signature):
             return
 
         from IPython.display import HTML, display
