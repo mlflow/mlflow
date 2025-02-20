@@ -534,7 +534,7 @@ def _generate_mlflow_version_pinning() -> str:
     from mlflow.sha import SHA
 
     if SHA:
-        return f"mlflow @ git+https://github.com/mlflow/mlflow@{SHA}"
+        return f"mlflow@git+https://github.com/mlflow/mlflow.git@{SHA}"
 
     # mlflow installed from the source for development purposes. A dev version (e.g., 2.8.1.dev0)
     # is always a micro-version ahead of the latest release (unless it's manually modified)
