@@ -1,5 +1,3 @@
-import jinja2
-
 from mlflow.models.model import ModelInfo
 from mlflow.models.signature import ModelSignature
 from mlflow.types import schema
@@ -116,6 +114,9 @@ def should_render_agent_eval_template(signature: ModelSignature) -> bool:
 def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
     # For safety, we wrap in try/catch to make sure we don't break `mlflow.*.log_model`.
     try:
+        # jinja2 is not included in mlflow-skinny
+        import jinja2
+
         if not should_render_agent_eval_template(model_info.signature):
             return
         # Create a Jinja2 environment and load the template
