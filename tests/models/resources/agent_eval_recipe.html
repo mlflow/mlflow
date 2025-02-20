@@ -194,22 +194,22 @@ dbutils.library.restartPython()
 from databricks.agents.evals import generate_evals_df
 import mlflow
 
-agent_description = &#34;A chatbot that answers questions about Databricks.&#34;
-question_guidelines = &#34;&#34;&#34;
+agent_description = &quot;A chatbot that answers questions about Databricks.&quot;
+question_guidelines = &quot;&quot;&quot;
 # User personas
 - A developer new to the Databricks platform
 # Example questions
 - What API lets me parallelize operations over rows of a delta table?
-&#34;&#34;&#34;
-# TODO: Spark/Pandas DataFrame with &#34;content&#34; and &#34;doc_uri&#34; columns.
-docs = spark.table(&#34;catalog.schema.my_table_of_docs&#34;)
+&quot;&quot;&quot;
+# TODO: Spark/Pandas DataFrame with &quot;content&quot; and &quot;doc_uri&quot; columns.
+docs = spark.table(&quot;catalog.schema.my_table_of_docs&quot;)
 evals = generate_evals_df(
     docs=docs,
     num_evals=25,
     agent_description=agent_description,
     question_guidelines=question_guidelines,
 )
-eval_result = mlflow.evaluate(data=evals, model=&#34;runs:/1/model&#34;, model_type=&#34;databricks-agent&#34;)</code></pre>
+eval_result = mlflow.evaluate(data=evals, model=&quot;runs:/1/model&quot;, model_type=&quot;databricks-agent&quot;)</code></pre>
 
       <pre><code class="language-python">%pip install -U databricks-agents
 dbutils.library.restartPython()
@@ -220,19 +220,19 @@ import mlflow
 
 evals = [
     {
-        &#34;request&#34;: {
-            &#34;messages&#34;: [
-                {&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;How do I convert a Spark DataFrame to Pandas?&#34;}
+        &quot;request&quot;: {
+            &quot;messages&quot;: [
+                {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;How do I convert a Spark DataFrame to Pandas?&quot;}
             ],
         },
         # Optional, needed for judging correctness.
-        &#34;expected_facts&#34;: [
-            &#34;To convert a Spark DataFrame to Pandas, you can use the toPandas() method.&#34;
+        &quot;expected_facts&quot;: [
+            &quot;To convert a Spark DataFrame to Pandas, you can use the toPandas() method.&quot;
         ],
     }
 ]
 eval_result = mlflow.evaluate(
-    data=pd.DataFrame.from_records(evals), model=&#34;runs:/1/model&#34;, model_type=&#34;databricks-agent&#34;
+    data=pd.DataFrame.from_records(evals), model=&quot;runs:/1/model&quot;, model_type=&quot;databricks-agent&quot;
 )</code></pre>
     </div>
   </div>
