@@ -89,10 +89,12 @@ jobs:
       - name: List files in source distribution
         run: |
           tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+          tar -xOf ${{ steps.build-dist.outputs.sdist-path }} '*/mlflow/ref.py'
 
       - name: List files in binary distribution
         run: |
           unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+          unzip -p ${{ steps.build-dist.outputs.wheel-path }} 'mlflow/ref.py'
 
       - name: Compare files in source and binary distributions
         run: |
