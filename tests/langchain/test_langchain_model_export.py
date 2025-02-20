@@ -1558,7 +1558,7 @@ def test_save_load_chain_with_model_paths():
     ):
         model_info = mlflow.langchain.log_model(model, artifact_path, code_paths=[__file__])
         mlflow.langchain.load_model(model_info.model_uri)
-        model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
+        model_uri = model_info.model_uri
         _compare_logged_code_paths(__file__, model_uri, mlflow.langchain.FLAVOR_NAME)
         add_mock.assert_called()
 
@@ -1874,8 +1874,8 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
 
     pyfunc_artifact_path = "basic_chain"
-    with mlflow.start_run() as run, mock.patch("mlflow.langchain.logger.info") as mock_log_info:
-        mlflow.langchain.log_model(chain, pyfunc_artifact_path)
+    with mlflow.start_run(), mock.patch("mlflow.langchain.logger.info") as mock_log_info:
+        model_info = mlflow.langchain.log_model(chain, pyfunc_artifact_path)
         mock_log_info.assert_called_once_with(
             "Attempting to auto-detect Databricks resource dependencies for the current "
             "langchain model. Dependency auto-detection is best-effort and may not capture "
@@ -1884,8 +1884,7 @@ def test_databricks_dependency_extraction_from_lcel_chain():
             "to mlflow.langchain.log_model() to ensure authorization to dependent resources "
             "succeeds when the model is deployed."
         )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [
@@ -1943,15 +1942,14 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
         return vectorstore.as_retriever()
 
     pyfunc_artifact_path = "retrieval_qa_chain"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
             retrievalQA,
             pyfunc_artifact_path,
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     actual = reloaded_model.resources["databricks"]
     expected = {
@@ -1995,13 +1993,12 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
         return agent.invoke(input)
 
     pyfunc_artifact_path = "retrieval_qa_chain"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
             RunnableLambda(wrap_agent),
             pyfunc_artifact_path,
         )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     actual = reloaded_model.resources["databricks"]
 
@@ -2050,12 +2047,12 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     )
 
     pyfunc_artifact_path = "retrieval_qa_chain"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
             agent,
             pyfunc_artifact_path,
         )
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_uri = model_info.model_uri
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     actual = reloaded_model.resources["databricks"]
@@ -2105,10 +2102,9 @@ def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
         _detect_databricks_dependencies(model, log_errors_as_warnings=False)
 
     pyfunc_artifact_path = "langchain_model"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(model, pyfunc_artifact_path)
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, pyfunc_artifact_path)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources is None
 
@@ -2521,12 +2517,10 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         extra_args=["--env-manager", "local"],
     )
     predictions = json.loads(response.content.decode("utf-8"))
-    # Mock out the `created` timestamp as it is not deterministic
     expected = [{**try_transform_response_to_chat_format(answer), "created": mock.ANY}]
     assert expected == predictions
 
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
@@ -2543,7 +2537,6 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         ]
     }
 
-    # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
     mlflow.tracing.reset()
@@ -2743,8 +2736,7 @@ def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_p
         )
         loaded_model = mlflow.langchain.load_model(model_info.model_uri)
         answer = "modified response"
-        model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.langchain.FLAVOR_NAME)
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.langchain.FLAVOR_NAME)
         assert loaded_model.invoke(input_example) == answer
         add_mock.assert_called()
 
@@ -2791,7 +2783,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain
         ]
     }
     artifact_path = "new_model_path"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path,
@@ -2827,8 +2819,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain
     expected_prediction["created"] = 123
     assert prediction_result == [expected_prediction]
 
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
@@ -3102,7 +3093,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
     answer = "Databricks"
     artifact_path = "model_path"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path,
@@ -3150,8 +3141,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     expected_prediction["created"] = 123
     assert prediction_result == [expected_prediction]
 
-    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
@@ -3496,8 +3486,8 @@ def test_custom_resources(chain_model_signature, tmp_path):
     }
     artifact_path = "model_path"
     chain_path = "tests/langchain/sample_code/chain.py"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path,
             signature=chain_model_signature,
@@ -3514,8 +3504,7 @@ def test_custom_resources(chain_model_signature, tmp_path):
             ],
         )
 
-        model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-        model_path = _download_artifact_from_uri(model_uri)
+        model_path = _download_artifact_from_uri(model_info.model_uri)
         reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
         assert reloaded_model.resources == expected_resources
 
@@ -3540,8 +3529,8 @@ def test_custom_resources(chain_model_signature, tmp_path):
         )
 
     artifact_path_2 = "model_path_2"
-    with mlflow.start_run() as run:
-        mlflow.langchain.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
             chain_path,
             artifact_path_2,
             signature=chain_model_signature,
@@ -3550,8 +3539,7 @@ def test_custom_resources(chain_model_signature, tmp_path):
             resources=yaml_file,
         )
 
-        model_uri = f"runs:/{run.info.run_id}/{artifact_path_2}"
-        model_path = _download_artifact_from_uri(model_uri)
+        model_path = _download_artifact_from_uri(model_info.model_uri)
         reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
         assert reloaded_model.resources == expected_resources
 
