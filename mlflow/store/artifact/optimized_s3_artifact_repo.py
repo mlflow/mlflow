@@ -344,9 +344,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         paginator = s3_client.get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
         for result in results:
+            keys = []
             for to_delete_obj in result.get("Contents", []):
                 file_path = to_delete_obj.get("Key")
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                s3_client.delete_object(Bucket=self.bucket, Key=file_path)
+                keys.append({"Key": file_path})
+            s3_client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})
