@@ -8,13 +8,13 @@ from setuptools.build_meta import *  # noqa: F403
 
 
 def _update_sha():
-    sys.stdout.write("Updating SHA in mlflow/sha.py...\n")
+    sys.stdout.write("Updating REF in mlflow/ref.py...\n")
     sys.stdout.write(f"Current directory: {Path.cwd()}\n")
     try:
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
-        Path("mlflow", "sha.py").write_text(f'SHA = "{sha}"\n')
+        Path("mlflow", "sha.py").write_text(f'REF = "{sha}"\n')
     except Exception as e:
-        sys.stderr.write(f"Failed to write SHA to mlflow/sha.py: {e}\n")
+        sys.stderr.write(f"Failed to write REF to mlflow/sha.py: {e}\n")
 
 
 def get_requires_for_build_sdist(config_settings=None):
