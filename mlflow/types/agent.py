@@ -78,10 +78,8 @@ class ChatAgentMessage(BaseModel):
             role = values.get("role")
             tool_call_id = values.get("tool_call_id")
 
-        if role == "tool" and not name:
-            raise ValueError("'name' must be provided for tool messages.")
-        if role == "tool" and not tool_call_id:
-            raise ValueError("'tool_call_id' must be provided for tool messages.")
+        if role == "tool" and (not name or not tool_call_id):
+            raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
         return values
 
 
