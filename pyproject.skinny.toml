@@ -4,7 +4,7 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "backend"
-backend-path = ["build_backend"]
+backend-path = ["mlflow/_build_backend"]
 
 [project]
 name = "mlflow-skinny"

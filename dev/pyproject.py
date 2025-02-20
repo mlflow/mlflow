@@ -104,7 +104,7 @@ def build(package_type: PackageType) -> None:
         "build-system": {
             "requires": ["setuptools"],
             "build-backend": "backend",
-            "backend-path": ["build_backend"],
+            "backend-path": ["mlflow/_build_backend"],
         },
         "project": {
             "name": package_name,
