@@ -531,6 +531,11 @@ def _generate_mlflow_version_pinning() -> str:
     # We reach here when mlflow is installed from the source outside of the MLflow CI environment
     # (e.g., Databricks notebook).
 
+    from mlflow.sha import SHA
+
+    if SHA:
+        return f"mlflow @ git+https://github.com/mlflow/mlflow@{SHA}"
+
     # mlflow installed from the source for development purposes. A dev version (e.g., 2.8.1.dev0)
     # is always a micro-version ahead of the latest release (unless it's manually modified)
     # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
