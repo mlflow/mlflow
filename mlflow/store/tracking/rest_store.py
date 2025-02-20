@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Optional
 
+import mlflow
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -53,6 +54,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
+    SearchOnlineTraces,
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
@@ -82,6 +84,7 @@ from mlflow.utils.rest_utils import (
     get_trace_assessment_endpoint,
     get_trace_info_endpoint,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _logger = logging.getLogger(__name__)
@@ -405,6 +408,35 @@ class RestStore(AbstractStore):
         )
         req_body = message_to_json(st)
         response_proto = self._call_endpoint(SearchTraces, req_body)
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+
+        if is_databricks_uri(mlflow.get_tracking_uri()):
+            online_trace_infos, page_token = self._search_online_traces(
+                model_id=st.model_id,
+                sql_warehouse_id=st.sql_warehouse_id,
+            )
+            trace_infos.extend(online_trace_infos)
+        return trace_infos, response_proto.next_page_token or None
+
+    def _search_online_traces(
+        self,
+        model_id: str,
+        sql_warehouse_id: str,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> tuple[list[TraceInfo], Optional[str]]:
+        st = SearchOnlineTraces(
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(st)
+        response_proto = self._call_endpoint(SearchOnlineTraces, req_body)
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
