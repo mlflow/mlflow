@@ -5164,34 +5164,31 @@ public final class Internal {
     java.lang.String[] descriptorData = {
       "\n\016internal.proto\022\017mlflow.internal\032\025scala" +
       "pb/scalapb.proto\032\020databricks.proto\032\rserv" +
-      "ice.proto\"\305\002\n\022SearchOnlineTraces\022\026\n\010mode" +
+      "ice.proto\"\344\001\n\022SearchOnlineTraces\022\026\n\010mode" +
       "l_id\030\001 \001(\tB\004\370\206\031\001\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_" +
       "results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022\022\n\n" +
       "page_token\030\005 \001(\t\022\036\n\020sql_warehouse_id\030\006 \001" +
       "(\tB\004\370\206\031\001\032F\n\010Response\022!\n\006traces\030\001 \003(\0132\021.m" +
       "lflow.TraceInfo\022\027\n\017next_page_token\030\002 \001(\t" +
-      ":_\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\342?1\n/com.databricks.mlflow.api.Mlfl" +
-      "owTrackingMessage\"\301\001\n\025GetOnlineTraceDeta" +
-      "ils\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022\036\n\020sql_wareh" +
-      "ouse_id\030\002 \001(\tB\004\370\206\031\001\022$\n\026source_inference_" +
-      "table\030\003 \001(\tB\004\370\206\031\001\022*\n\034source_databricks_r" +
-      "equest_id\030\004 \001(\tB\004\370\206\031\001\032\036\n\010Response\022\022\n\ntra" +
-      "ce_data\030\001 \001(\t*2\n\017InputVertexType\022\007\n\003RUN\020" +
-      "\001\022\013\n\007DATASET\020\002\022\t\n\005MODEL\020\003*4\n\020OutputVerte" +
-      "xType\022\016\n\nRUN_OUTPUT\020\001\022\020\n\014MODEL_OUTPUT\020\0022" +
-      "\237\003\n\037DatabricksInternalMlflowService\022\263\001\n\030" +
-      "searchOnlineTraceHandler\022#.mlflow.intern" +
-      "al.SearchOnlineTraces\032,.mlflow.internal." +
-      "SearchOnlineTraces.Response\"D\362\206\031<\n\"\n\003GET" +
-      "\022\025/mlflow/online-traces\032\004\010\002\020\000\020\003*\024Search " +
-      "Online Traces\272\214\031\000\022\305\001\n\025getOnlineTraceDeta" +
-      "ils\022&.mlflow.internal.GetOnlineTraceDeta" +
-      "ils\032/.mlflow.internal.GetOnlineTraceDeta" +
-      "ils.Response\"S\362\206\031K\n-\n\003GET\022 /mlflow/get-o" +
-      "nline-trace-details\032\004\010\002\020\000\020\003*\030Get Online " +
-      "Trace Details\272\214\031\000B#\n\031org.mlflow.internal" +
-      ".proto\220\001\001\342?\002\020\001"
+      "\"\301\001\n\025GetOnlineTraceDetails\022\026\n\010trace_id\030\001" +
+      " \001(\tB\004\370\206\031\001\022\036\n\020sql_warehouse_id\030\002 \001(\tB\004\370\206" +
+      "\031\001\022$\n\026source_inference_table\030\003 \001(\tB\004\370\206\031\001" +
+      "\022*\n\034source_databricks_request_id\030\004 \001(\tB\004" +
+      "\370\206\031\001\032\036\n\010Response\022\022\n\ntrace_data\030\001 \001(\t*2\n\017" +
+      "InputVertexType\022\007\n\003RUN\020\001\022\013\n\007DATASET\020\002\022\t\n" +
+      "\005MODEL\020\003*4\n\020OutputVertexType\022\016\n\nRUN_OUTP" +
+      "UT\020\001\022\020\n\014MODEL_OUTPUT\020\0022\237\003\n\037DatabricksInt" +
+      "ernalMlflowService\022\263\001\n\030searchOnlineTrace" +
+      "Handler\022#.mlflow.internal.SearchOnlineTr" +
+      "aces\032,.mlflow.internal.SearchOnlineTrace" +
+      "s.Response\"D\362\206\031<\n\"\n\003GET\022\025/mlflow/online-" +
+      "traces\032\004\010\002\020\000\020\003*\024Search Online Traces\272\214\031\000" +
+      "\022\305\001\n\025getOnlineTraceDetails\022&.mlflow.inte" +
+      "rnal.GetOnlineTraceDetails\032/.mlflow.inte" +
+      "rnal.GetOnlineTraceDetails.Response\"S\362\206\031" +
+      "K\n-\n\003GET\022 /mlflow/get-online-trace-detai" +
+      "ls\032\004\010\002\020\000\020\003*\030Get Online Trace Details\272\214\031\000" +
+      "B#\n\031org.mlflow.internal.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -5229,7 +5226,6 @@ public final class Internal {
     registry.add(com.databricks.api.proto.databricks.Databricks.graphql);
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
-    registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);

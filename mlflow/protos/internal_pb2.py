@@ -21,7 +21,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import service_pb2 as service__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0einternal.proto\x12\x0fmlflow.internal\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xc2\x02\n\x12SearchOnlineTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x1e\n\x10sql_warehouse_id\x18\x06 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:\\\xe2?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t*2\n\x0fInputVertexType\x12\x07\n\x03RUN\x10\x01\x12\x0b\n\x07\x44\x41TASET\x10\x02\x12\t\n\x05MODEL\x10\x03*4\n\x10OutputVertexType\x12\x0e\n\nRUN_OUTPUT\x10\x01\x12\x10\n\x0cMODEL_OUTPUT\x10\x02\x32\x9f\x03\n\x1f\x44\x61tabricksInternalMlflowService\x12\xb3\x01\n\x18searchOnlineTraceHandler\x12#.mlflow.internal.SearchOnlineTraces\x1a,.mlflow.internal.SearchOnlineTraces.Response\"D\xf2\x86\x19<\n\"\n\x03GET\x12\x15/mlflow/online-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Search Online Traces\xba\x8c\x19\x00\x12\xc5\x01\n\x15getOnlineTraceDetails\x12&.mlflow.internal.GetOnlineTraceDetails\x1a/.mlflow.internal.GetOnlineTraceDetails.Response\"S\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\xba\x8c\x19\x00\x42#\n\x19org.mlflow.internal.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0einternal.proto\x12\x0fmlflow.internal\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xe4\x01\n\x12SearchOnlineTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x1e\n\x10sql_warehouse_id\x18\x06 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t*2\n\x0fInputVertexType\x12\x07\n\x03RUN\x10\x01\x12\x0b\n\x07\x44\x41TASET\x10\x02\x12\t\n\x05MODEL\x10\x03*4\n\x10OutputVertexType\x12\x0e\n\nRUN_OUTPUT\x10\x01\x12\x10\n\x0cMODEL_OUTPUT\x10\x02\x32\x9f\x03\n\x1f\x44\x61tabricksInternalMlflowService\x12\xb3\x01\n\x18searchOnlineTraceHandler\x12#.mlflow.internal.SearchOnlineTraces\x1a,.mlflow.internal.SearchOnlineTraces.Response\"D\xf2\x86\x19<\n\"\n\x03GET\x12\x15/mlflow/online-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Search Online Traces\xba\x8c\x19\x00\x12\xc5\x01\n\x15getOnlineTraceDetails\x12&.mlflow.internal.GetOnlineTraceDetails\x1a/.mlflow.internal.GetOnlineTraceDetails.Response\"S\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\xba\x8c\x19\x00\x42#\n\x19org.mlflow.internal.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,8 +33,6 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_SEARCHONLINETRACES'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _globals['_SEARCHONLINETRACES'].fields_by_name['sql_warehouse_id']._loaded_options = None
     _globals['_SEARCHONLINETRACES'].fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
-    _globals['_SEARCHONLINETRACES']._loaded_options = None
-    _globals['_SEARCHONLINETRACES']._serialized_options = b'\342?Y\n&com.databricks.rpc.RPC[$this.Response]\n/com.databricks.mlflow.api.MlflowTrackingMessage'
     _globals['_GETONLINETRACEDETAILS'].fields_by_name['trace_id']._loaded_options = None
     _globals['_GETONLINETRACEDETAILS'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETONLINETRACEDETAILS'].fields_by_name['sql_warehouse_id']._loaded_options = None
@@ -47,20 +45,20 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DATABRICKSINTERNALMLFLOWSERVICE'].methods_by_name['searchOnlineTraceHandler']._serialized_options = b'\362\206\031<\n\"\n\003GET\022\025/mlflow/online-traces\032\004\010\002\020\000\020\003*\024Search Online Traces\272\214\031\000'
     _globals['_DATABRICKSINTERNALMLFLOWSERVICE'].methods_by_name['getOnlineTraceDetails']._loaded_options = None
     _globals['_DATABRICKSINTERNALMLFLOWSERVICE'].methods_by_name['getOnlineTraceDetails']._serialized_options = b'\362\206\031K\n-\n\003GET\022 /mlflow/get-online-trace-details\032\004\010\002\020\000\020\003*\030Get Online Trace Details\272\214\031\000'
-    _globals['_INPUTVERTEXTYPE']._serialized_start=612
-    _globals['_INPUTVERTEXTYPE']._serialized_end=662
-    _globals['_OUTPUTVERTEXTYPE']._serialized_start=664
-    _globals['_OUTPUTVERTEXTYPE']._serialized_end=716
+    _globals['_INPUTVERTEXTYPE']._serialized_start=518
+    _globals['_INPUTVERTEXTYPE']._serialized_end=568
+    _globals['_OUTPUTVERTEXTYPE']._serialized_start=570
+    _globals['_OUTPUTVERTEXTYPE']._serialized_end=622
     _globals['_SEARCHONLINETRACES']._serialized_start=92
-    _globals['_SEARCHONLINETRACES']._serialized_end=414
+    _globals['_SEARCHONLINETRACES']._serialized_end=320
     _globals['_SEARCHONLINETRACES_RESPONSE']._serialized_start=250
     _globals['_SEARCHONLINETRACES_RESPONSE']._serialized_end=320
-    _globals['_GETONLINETRACEDETAILS']._serialized_start=417
-    _globals['_GETONLINETRACEDETAILS']._serialized_end=610
-    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_start=580
-    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_end=610
-    _globals['_DATABRICKSINTERNALMLFLOWSERVICE']._serialized_start=719
-    _globals['_DATABRICKSINTERNALMLFLOWSERVICE']._serialized_end=1134
+    _globals['_GETONLINETRACEDETAILS']._serialized_start=323
+    _globals['_GETONLINETRACEDETAILS']._serialized_end=516
+    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_start=486
+    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_end=516
+    _globals['_DATABRICKSINTERNALMLFLOWSERVICE']._serialized_start=625
+    _globals['_DATABRICKSINTERNALMLFLOWSERVICE']._serialized_end=1040
   _builder.BuildServices(DESCRIPTOR, 'internal_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -87,7 +85,7 @@ else:
   from . import service_pb2 as service__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0einternal.proto\x12\x0fmlflow.internal\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xc5\x02\n\x12SearchOnlineTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x1e\n\x10sql_warehouse_id\x18\x06 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:_\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\xe2?1\n/com.databricks.mlflow.api.MlflowTrackingMessage\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t*2\n\x0fInputVertexType\x12\x07\n\x03RUN\x10\x01\x12\x0b\n\x07\x44\x41TASET\x10\x02\x12\t\n\x05MODEL\x10\x03*4\n\x10OutputVertexType\x12\x0e\n\nRUN_OUTPUT\x10\x01\x12\x10\n\x0cMODEL_OUTPUT\x10\x02\x32\x9f\x03\n\x1f\x44\x61tabricksInternalMlflowService\x12\xb3\x01\n\x18searchOnlineTraceHandler\x12#.mlflow.internal.SearchOnlineTraces\x1a,.mlflow.internal.SearchOnlineTraces.Response\"D\xf2\x86\x19<\n\"\n\x03GET\x12\x15/mlflow/online-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Search Online Traces\xba\x8c\x19\x00\x12\xc5\x01\n\x15getOnlineTraceDetails\x12&.mlflow.internal.GetOnlineTraceDetails\x1a/.mlflow.internal.GetOnlineTraceDetails.Response\"S\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\xba\x8c\x19\x00\x42#\n\x19org.mlflow.internal.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0einternal.proto\x12\x0fmlflow.internal\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xe4\x01\n\x12SearchOnlineTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x1e\n\x10sql_warehouse_id\x18\x06 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t*2\n\x0fInputVertexType\x12\x07\n\x03RUN\x10\x01\x12\x0b\n\x07\x44\x41TASET\x10\x02\x12\t\n\x05MODEL\x10\x03*4\n\x10OutputVertexType\x12\x0e\n\nRUN_OUTPUT\x10\x01\x12\x10\n\x0cMODEL_OUTPUT\x10\x02\x32\x9f\x03\n\x1f\x44\x61tabricksInternalMlflowService\x12\xb3\x01\n\x18searchOnlineTraceHandler\x12#.mlflow.internal.SearchOnlineTraces\x1a,.mlflow.internal.SearchOnlineTraces.Response\"D\xf2\x86\x19<\n\"\n\x03GET\x12\x15/mlflow/online-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Search Online Traces\xba\x8c\x19\x00\x12\xc5\x01\n\x15getOnlineTraceDetails\x12&.mlflow.internal.GetOnlineTraceDetails\x1a/.mlflow.internal.GetOnlineTraceDetails.Response\"S\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\xba\x8c\x19\x00\x42#\n\x19org.mlflow.internal.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _INPUTVERTEXTYPE = DESCRIPTOR.enum_types_by_name['InputVertexType']
   InputVertexType = enum_type_wrapper.EnumTypeWrapper(_INPUTVERTEXTYPE)
@@ -143,8 +141,6 @@ else:
     _SEARCHONLINETRACES.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _SEARCHONLINETRACES.fields_by_name['sql_warehouse_id']._options = None
     _SEARCHONLINETRACES.fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
-    _SEARCHONLINETRACES._options = None
-    _SEARCHONLINETRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]\342?1\n/com.databricks.mlflow.api.MlflowTrackingMessage'
     _GETONLINETRACEDETAILS.fields_by_name['trace_id']._options = None
     _GETONLINETRACEDETAILS.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
     _GETONLINETRACEDETAILS.fields_by_name['sql_warehouse_id']._options = None
@@ -157,20 +153,20 @@ else:
     _DATABRICKSINTERNALMLFLOWSERVICE.methods_by_name['searchOnlineTraceHandler']._serialized_options = b'\362\206\031<\n\"\n\003GET\022\025/mlflow/online-traces\032\004\010\002\020\000\020\003*\024Search Online Traces\272\214\031\000'
     _DATABRICKSINTERNALMLFLOWSERVICE.methods_by_name['getOnlineTraceDetails']._options = None
     _DATABRICKSINTERNALMLFLOWSERVICE.methods_by_name['getOnlineTraceDetails']._serialized_options = b'\362\206\031K\n-\n\003GET\022 /mlflow/get-online-trace-details\032\004\010\002\020\000\020\003*\030Get Online Trace Details\272\214\031\000'
-    _INPUTVERTEXTYPE._serialized_start=615
-    _INPUTVERTEXTYPE._serialized_end=665
-    _OUTPUTVERTEXTYPE._serialized_start=667
-    _OUTPUTVERTEXTYPE._serialized_end=719
+    _INPUTVERTEXTYPE._serialized_start=518
+    _INPUTVERTEXTYPE._serialized_end=568
+    _OUTPUTVERTEXTYPE._serialized_start=570
+    _OUTPUTVERTEXTYPE._serialized_end=622
     _SEARCHONLINETRACES._serialized_start=92
-    _SEARCHONLINETRACES._serialized_end=417
+    _SEARCHONLINETRACES._serialized_end=320
     _SEARCHONLINETRACES_RESPONSE._serialized_start=250
     _SEARCHONLINETRACES_RESPONSE._serialized_end=320
-    _GETONLINETRACEDETAILS._serialized_start=420
-    _GETONLINETRACEDETAILS._serialized_end=613
-    _GETONLINETRACEDETAILS_RESPONSE._serialized_start=583
-    _GETONLINETRACEDETAILS_RESPONSE._serialized_end=613
-    _DATABRICKSINTERNALMLFLOWSERVICE._serialized_start=722
-    _DATABRICKSINTERNALMLFLOWSERVICE._serialized_end=1137
+    _GETONLINETRACEDETAILS._serialized_start=323
+    _GETONLINETRACEDETAILS._serialized_end=516
+    _GETONLINETRACEDETAILS_RESPONSE._serialized_start=486
+    _GETONLINETRACEDETAILS_RESPONSE._serialized_end=516
+    _DATABRICKSINTERNALMLFLOWSERVICE._serialized_start=625
+    _DATABRICKSINTERNALMLFLOWSERVICE._serialized_end=1040
   DatabricksInternalMlflowService = service_reflection.GeneratedServiceType('DatabricksInternalMlflowService', (_service.Service,), dict(
     DESCRIPTOR = _DATABRICKSINTERNALMLFLOWSERVICE,
     __module__ = 'internal_pb2'
