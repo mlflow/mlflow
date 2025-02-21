@@ -179,7 +179,7 @@ def test_model_log_without_run(tmp_path):
 def test_model_log_with_active_run(tmp_path):
     with mlflow.start_run() as run:
         model_info = Model.log("model", TestFlavor)
-    assert model_info.run_id is run.info.run_id
+    assert model_info.run_id == run.info.run_id
 
 
 def test_model_log_inactive_run_id(tmp_path):
