@@ -171,6 +171,13 @@ def test_model_log():
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
 
+def test_model_log_inactive_run_id(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)
+    model_info = Model.log("some/path", TestFlavor, run_id=run.info.run_id)
+    assert model_info.run_id is run.info.run_id
+
+
 def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
     sig = ModelSignature(
         inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
