@@ -28,7 +28,7 @@ def log_expectation(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment_source import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSourceType
 
         log_expectation(
             trace_id="1234",
@@ -42,14 +42,15 @@ def log_expectation(
         name: The name of the expectation assessment e.g., "expected_answer
         value: The value of the expectation. It can be any JSON-serializable value.
         source: The source of the expectation assessment. Must be either an instance of
-                :py:class:`AssessmentSource` or a string that is a valid value in the
-                :py:class:`AssessmentSourceType` enum.
+                :py:class:`~mlflow.entities.AssessmentSource` or a string that
+                is a valid value in the
+                :py:class:`~mlflow.entities.AssessmentSourceType` enum.
         metadata: Additional metadata for the expectation.
         span_id: The ID of the span associated with the expectation, if it needs be
                 associated with a specific span in the trace.
 
     Returns:
-        :py:class:`Assessment`: The created expectation assessment.
+        :py:class:`~mlflow.entities.Assessment`: The created expectation assessment.
     """
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
@@ -82,7 +83,7 @@ def log_feedback(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment_source import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSourceType
 
         source = AssessmentSource(
             source_type=Type.LLM_JUDGE,
@@ -98,13 +99,13 @@ def log_feedback(
         )
 
     You can also log an error information during the feedback generation process. To do so,
-    provide an instance of :py:class:`AssessmentError` to the `error` parameter, and leave
-    the `value` parameter as `None`.
+    provide an instance of :py:class:`~mlflow.entities.AssessmentError` to the `error`
+    parameter, and leave the `value` parameter as `None`.
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment_error import AssessmentError
+        from mlflow.entities.assessment import AssessmentError
 
         source = AssessmentSource(
             source_type=Type.LLM_JUDGE,
@@ -126,8 +127,10 @@ def log_feedback(
     Args:
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
-        source: The source of the feedback. Must be one of the values
-                in the :py:class:`AssessmentSource` enum.
+        source: The source of the expectation assessment. Must be either an instance of
+                :py:class:`~mlflow.entities.AssessmentSource` or a string that
+                is a valid value in the
+                :py:class:`~mlflow.entities.AssessmentSourceType` enum.
         value: The value of the expectation. It can be any JSON-serializable value.
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Either this or `value`
@@ -138,7 +141,7 @@ def log_feedback(
                 associated with a specific span in the trace.
 
     Returns:
-        :py:class:`Assessment`: The created feedback assessment.
+        :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
     """
     return MlflowClient().log_assessment(
         trace_id=trace_id,
