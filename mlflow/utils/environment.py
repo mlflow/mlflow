@@ -519,12 +519,12 @@ def _generate_mlflow_version_pinning() -> str:
         A pinned requirement for the current MLflow version.
 
     """
-    # TODO: Remove this before 3.0 RC release
-    return "mlflow@git+https://github.com/mlflow/mlflow.git@mlflow-3"
-
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
         return f"mlflow=={VERSION}"
+
+    # TODO: Remove this before 3.0 RC release
+    return "mlflow@git+https://github.com/mlflow/mlflow.git@mlflow-3"
 
     version = Version(VERSION)
     if not version.is_devrelease:
