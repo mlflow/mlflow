@@ -1,11 +1,11 @@
 import json
 import os
 import time
+from unittest import mock
 
 import datasets
 import pandas as pd
 import pytest
-from mock import patch
 
 import mlflow.data
 import mlflow.data.huggingface_dataset
@@ -38,7 +38,7 @@ def mock_datasets_load_dataset():
                     continue
                 raise
 
-    with patch("datasets.load_dataset", new=mock_load_dataset):
+    with mock.patch("datasets.load_dataset", new=mock_load_dataset):
         yield mock_load_dataset
 
 
