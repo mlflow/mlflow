@@ -62888,7 +62888,7 @@ public final class Service {
      * The type of the source.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
      * @return Whether the sourceType field is set.
      */
     boolean hasSourceType();
@@ -62897,7 +62897,7 @@ public final class Service {
      * The type of the source.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
      * @return The sourceType.
      */
     org.mlflow.api.proto.Service.AssessmentSource.SourceType getSourceType();
@@ -62908,7 +62908,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return Whether the sourceId field is set.
      */
     boolean hasSourceId();
@@ -62918,7 +62918,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return The sourceId.
      */
     java.lang.String getSourceId();
@@ -62928,7 +62928,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for sourceId.
      */
     com.google.protobuf.ByteString
@@ -63182,7 +63182,7 @@ public final class Service {
      * The type of the source.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
      * @return Whether the sourceType field is set.
      */
     @java.lang.Override public boolean hasSourceType() {
@@ -63193,7 +63193,7 @@ public final class Service {
      * The type of the source.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+     * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
      * @return The sourceType.
      */
     @java.lang.Override public org.mlflow.api.proto.Service.AssessmentSource.SourceType getSourceType() {
@@ -63210,7 +63210,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return Whether the sourceId field is set.
      */
     @java.lang.Override
@@ -63223,7 +63223,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return The sourceId.
      */
     @java.lang.Override
@@ -63247,7 +63247,7 @@ public final class Service {
      * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
      * </pre>
      *
-     * <code>optional string source_id = 2;</code>
+     * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for sourceId.
      */
     @java.lang.Override
@@ -63610,7 +63610,7 @@ public final class Service {
        * The type of the source.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
        * @return Whether the sourceType field is set.
        */
       @java.lang.Override public boolean hasSourceType() {
@@ -63621,7 +63621,7 @@ public final class Service {
        * The type of the source.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
        * @return The sourceType.
        */
       @java.lang.Override
@@ -63635,7 +63635,7 @@ public final class Service {
        * The type of the source.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
        * @param value The sourceType to set.
        * @return This builder for chaining.
        */
@@ -63653,7 +63653,7 @@ public final class Service {
        * The type of the source.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1;</code>
+       * <code>optional .mlflow.AssessmentSource.SourceType source_type = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearSourceType() {
@@ -63670,7 +63670,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @return Whether the sourceId field is set.
        */
       public boolean hasSourceId() {
@@ -63682,7 +63682,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @return The sourceId.
        */
       public java.lang.String getSourceId() {
@@ -63705,7 +63705,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for sourceId.
        */
       public com.google.protobuf.ByteString
@@ -63727,7 +63727,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The sourceId to set.
        * @return This builder for chaining.
        */
@@ -63747,7 +63747,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearSourceId() {
@@ -63762,7 +63762,7 @@ public final class Service {
        * Example: For human -&gt; user name; for LLM judge -&gt; judge source (databricks or custom); for code -&gt; empty.
        * </pre>
        *
-       * <code>optional string source_id = 2;</code>
+       * <code>optional string source_id = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for sourceId to set.
        * @return This builder for chaining.
        */
@@ -66194,6 +66194,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -66203,6 +66205,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -66212,6 +66216,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -66225,7 +66231,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return Whether the assessmentName field is set.
      */
     boolean hasAssessmentName();
@@ -66234,7 +66240,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The assessmentName.
      */
     java.lang.String getAssessmentName();
@@ -66243,7 +66249,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for assessmentName.
      */
     com.google.protobuf.ByteString
@@ -66387,25 +66393,6 @@ public final class Service {
      * <code>optional .google.protobuf.Timestamp last_update_time = 7;</code>
      */
     com.google.protobuf.TimestampOrBuilder getLastUpdateTimeOrBuilder();
-
-    /**
-     * <pre>
-     * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-     * </pre>
-     *
-     * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-     * @return Whether the assessmentType field is set.
-     */
-    boolean hasAssessmentType();
-    /**
-     * <pre>
-     * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-     * </pre>
-     *
-     * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-     * @return The assessmentType.
-     */
-    org.mlflow.api.proto.Service.Assessment.AssessmentType getAssessmentType();
 
     /**
      * <pre>
@@ -66599,7 +66586,6 @@ public final class Service {
       assessmentName_ = "";
       traceId_ = "";
       spanId_ = "";
-      assessmentType_ = 0;
       rationale_ = "";
     }
 
@@ -66697,18 +66683,6 @@ public final class Service {
               bitField0_ |= 0x00000040;
               break;
             }
-            case 64: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.Assessment.AssessmentType value = org.mlflow.api.proto.Service.Assessment.AssessmentType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(8, rawValue);
-              } else {
-                bitField0_ |= 0x00000080;
-                assessmentType_ = rawValue;
-              }
-              break;
-            }
             case 74: {
               org.mlflow.api.proto.Service.Feedback.Builder subBuilder = null;
               if (valueCase_ == 9) {
@@ -66739,13 +66713,13 @@ public final class Service {
             }
             case 90: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
+              bitField0_ |= 0x00000200;
               rationale_ = bs;
               break;
             }
             case 98: {
               org.mlflow.api.proto.Service.AssessmentError.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000800) != 0)) {
+              if (((bitField0_ & 0x00000400) != 0)) {
                 subBuilder = error_.toBuilder();
               }
               error_ = input.readMessage(org.mlflow.api.proto.Service.AssessmentError.PARSER, extensionRegistry);
@@ -66753,14 +66727,14 @@ public final class Service {
                 subBuilder.mergeFrom(error_);
                 error_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00000400;
               break;
             }
             case 106: {
-              if (!((mutable_bitField0_ & 0x00001000) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
                 metadata_ = com.google.protobuf.MapField.newMapField(
                     MetadataDefaultEntryHolder.defaultEntry);
-                mutable_bitField0_ |= 0x00001000;
+                mutable_bitField0_ |= 0x00000800;
               }
               com.google.protobuf.MapEntry<java.lang.String, com.google.protobuf.Value>
               metadata__ = input.readMessage(
@@ -66983,6 +66957,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -66995,6 +66971,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -67018,6 +66996,8 @@ public final class Service {
     /**
      * <pre>
      * Unique ID of the assessment.
+     * NB: This is not marked as required field via "validate_required", because the message is
+     *  used in the context of creating a new assessment, where the ID is not known.
      * </pre>
      *
      * <code>optional string assessment_id = 1;</code>
@@ -67045,7 +67025,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return Whether the assessmentName field is set.
      */
     @java.lang.Override
@@ -67057,7 +67037,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The assessmentName.
      */
     @java.lang.Override
@@ -67080,7 +67060,7 @@ public final class Service {
      * Name of the assessment. The name must not contain ".".
      * </pre>
      *
-     * <code>optional string assessment_name = 2;</code>
+     * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for assessmentName.
      */
     @java.lang.Override
@@ -67332,33 +67312,6 @@ public final class Service {
       return lastUpdateTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : lastUpdateTime_;
     }
 
-    public static final int ASSESSMENT_TYPE_FIELD_NUMBER = 8;
-    private int assessmentType_;
-    /**
-     * <pre>
-     * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-     * </pre>
-     *
-     * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-     * @return Whether the assessmentType field is set.
-     */
-    @java.lang.Override public boolean hasAssessmentType() {
-      return ((bitField0_ & 0x00000080) != 0);
-    }
-    /**
-     * <pre>
-     * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-     * </pre>
-     *
-     * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-     * @return The assessmentType.
-     */
-    @java.lang.Override public org.mlflow.api.proto.Service.Assessment.AssessmentType getAssessmentType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.Assessment.AssessmentType result = org.mlflow.api.proto.Service.Assessment.AssessmentType.valueOf(assessmentType_);
-      return result == null ? org.mlflow.api.proto.Service.Assessment.AssessmentType.ASSESSMENT_TYPE_UNSPECIFIED : result;
-    }
-
     public static final int FEEDBACK_FIELD_NUMBER = 9;
     /**
      * <pre>
@@ -67457,7 +67410,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasRationale() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
@@ -67517,7 +67470,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasError() {
-      return ((bitField0_ & 0x00000800) != 0);
+      return ((bitField0_ & 0x00000400) != 0);
     }
     /**
      * <pre>
@@ -67679,19 +67632,16 @@ public final class Service {
       if (((bitField0_ & 0x00000040) != 0)) {
         output.writeMessage(7, getLastUpdateTime());
       }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        output.writeEnum(8, assessmentType_);
-      }
       if (valueCase_ == 9) {
         output.writeMessage(9, (org.mlflow.api.proto.Service.Feedback) value_);
       }
       if (valueCase_ == 10) {
         output.writeMessage(10, (org.mlflow.api.proto.Service.Expectation) value_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 11, rationale_);
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         output.writeMessage(12, getError());
       }
       com.google.protobuf.GeneratedMessageV3
@@ -67733,10 +67683,6 @@ public final class Service {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, getLastUpdateTime());
       }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(8, assessmentType_);
-      }
       if (valueCase_ == 9) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(9, (org.mlflow.api.proto.Service.Feedback) value_);
@@ -67745,10 +67691,10 @@ public final class Service {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(10, (org.mlflow.api.proto.Service.Expectation) value_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, rationale_);
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(12, getError());
       }
@@ -67811,10 +67757,6 @@ public final class Service {
       if (hasLastUpdateTime()) {
         if (!getLastUpdateTime()
             .equals(other.getLastUpdateTime())) return false;
-      }
-      if (hasAssessmentType() != other.hasAssessmentType()) return false;
-      if (hasAssessmentType()) {
-        if (assessmentType_ != other.assessmentType_) return false;
       }
       if (hasRationale() != other.hasRationale()) return false;
       if (hasRationale()) {
@@ -67879,10 +67821,6 @@ public final class Service {
       if (hasLastUpdateTime()) {
         hash = (37 * hash) + LAST_UPDATE_TIME_FIELD_NUMBER;
         hash = (53 * hash) + getLastUpdateTime().hashCode();
-      }
-      if (hasAssessmentType()) {
-        hash = (37 * hash) + ASSESSMENT_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + assessmentType_;
       }
       if (hasRationale()) {
         hash = (37 * hash) + RATIONALE_FIELD_NUMBER;
@@ -68097,16 +68035,14 @@ public final class Service {
           lastUpdateTimeBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000040);
-        assessmentType_ = 0;
-        bitField0_ = (bitField0_ & ~0x00000080);
         rationale_ = "";
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         if (errorBuilder_ == null) {
           error_ = null;
         } else {
           errorBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000400);
         internalGetMutableMetadata().clear();
         valueCase_ = 0;
         value_ = null;
@@ -68178,10 +68114,6 @@ public final class Service {
           }
           to_bitField0_ |= 0x00000040;
         }
-        if (((from_bitField0_ & 0x00000080) != 0)) {
-          to_bitField0_ |= 0x00000080;
-        }
-        result.assessmentType_ = assessmentType_;
         if (valueCase_ == 9) {
           if (feedbackBuilder_ == null) {
             result.value_ = value_;
@@ -68196,17 +68128,17 @@ public final class Service {
             result.value_ = expectationBuilder_.build();
           }
         }
-        if (((from_bitField0_ & 0x00000400) != 0)) {
-          to_bitField0_ |= 0x00000400;
+        if (((from_bitField0_ & 0x00000200) != 0)) {
+          to_bitField0_ |= 0x00000200;
         }
         result.rationale_ = rationale_;
-        if (((from_bitField0_ & 0x00000800) != 0)) {
+        if (((from_bitField0_ & 0x00000400) != 0)) {
           if (errorBuilder_ == null) {
             result.error_ = error_;
           } else {
             result.error_ = errorBuilder_.build();
           }
-          to_bitField0_ |= 0x00000800;
+          to_bitField0_ |= 0x00000400;
         }
         result.metadata_ = internalGetMetadata();
         result.metadata_.makeImmutable();
@@ -68289,11 +68221,8 @@ public final class Service {
         if (other.hasLastUpdateTime()) {
           mergeLastUpdateTime(other.getLastUpdateTime());
         }
-        if (other.hasAssessmentType()) {
-          setAssessmentType(other.getAssessmentType());
-        }
         if (other.hasRationale()) {
-          bitField0_ |= 0x00000400;
+          bitField0_ |= 0x00000200;
           rationale_ = other.rationale_;
           onChanged();
         }
@@ -68364,6 +68293,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68375,6 +68306,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68397,6 +68330,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68418,6 +68353,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68437,6 +68374,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68451,6 +68390,8 @@ public final class Service {
       /**
        * <pre>
        * Unique ID of the assessment.
+       * NB: This is not marked as required field via "validate_required", because the message is
+       *  used in the context of creating a new assessment, where the ID is not known.
        * </pre>
        *
        * <code>optional string assessment_id = 1;</code>
@@ -68474,7 +68415,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @return Whether the assessmentName field is set.
        */
       public boolean hasAssessmentName() {
@@ -68485,7 +68426,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @return The assessmentName.
        */
       public java.lang.String getAssessmentName() {
@@ -68507,7 +68448,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for assessmentName.
        */
       public com.google.protobuf.ByteString
@@ -68528,7 +68469,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The assessmentName to set.
        * @return This builder for chaining.
        */
@@ -68547,7 +68488,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearAssessmentName() {
@@ -68561,7 +68502,7 @@ public final class Service {
        * Name of the assessment. The name must not contain ".".
        * </pre>
        *
-       * <code>optional string assessment_name = 2;</code>
+       * <code>optional string assessment_name = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for assessmentName to set.
        * @return This builder for chaining.
        */
@@ -69260,65 +69201,6 @@ public final class Service {
         return lastUpdateTimeBuilder_;
       }
 
-      private int assessmentType_ = 0;
-      /**
-       * <pre>
-       * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-       * </pre>
-       *
-       * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-       * @return Whether the assessmentType field is set.
-       */
-      @java.lang.Override public boolean hasAssessmentType() {
-        return ((bitField0_ & 0x00000080) != 0);
-      }
-      /**
-       * <pre>
-       * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-       * </pre>
-       *
-       * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-       * @return The assessmentType.
-       */
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.Assessment.AssessmentType getAssessmentType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.Assessment.AssessmentType result = org.mlflow.api.proto.Service.Assessment.AssessmentType.valueOf(assessmentType_);
-        return result == null ? org.mlflow.api.proto.Service.Assessment.AssessmentType.ASSESSMENT_TYPE_UNSPECIFIED : result;
-      }
-      /**
-       * <pre>
-       * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-       * </pre>
-       *
-       * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-       * @param value The assessmentType to set.
-       * @return This builder for chaining.
-       */
-      public Builder setAssessmentType(org.mlflow.api.proto.Service.Assessment.AssessmentType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000080;
-        assessmentType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The type of the assessment. Must align with the type of Feedback/Assessment in value.
-       * </pre>
-       *
-       * <code>optional .mlflow.Assessment.AssessmentType assessment_type = 8;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearAssessmentType() {
-        bitField0_ = (bitField0_ & ~0x00000080);
-        assessmentType_ = 0;
-        onChanged();
-        return this;
-      }
-
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Service.Feedback, org.mlflow.api.proto.Service.Feedback.Builder, org.mlflow.api.proto.Service.FeedbackOrBuilder> feedbackBuilder_;
       /**
@@ -69683,7 +69565,7 @@ public final class Service {
        * @return Whether the rationale field is set.
        */
       public boolean hasRationale() {
-        return ((bitField0_ & 0x00000400) != 0);
+        return ((bitField0_ & 0x00000200) != 0);
       }
       /**
        * <pre>
@@ -69742,7 +69624,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
+  bitField0_ |= 0x00000200;
         rationale_ = value;
         onChanged();
         return this;
@@ -69756,7 +69638,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearRationale() {
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         rationale_ = getDefaultInstance().getRationale();
         onChanged();
         return this;
@@ -69775,7 +69657,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
+  bitField0_ |= 0x00000200;
         rationale_ = value;
         onChanged();
         return this;
@@ -69793,7 +69675,7 @@ public final class Service {
        * @return Whether the error field is set.
        */
       public boolean hasError() {
-        return ((bitField0_ & 0x00000800) != 0);
+        return ((bitField0_ & 0x00000400) != 0);
       }
       /**
        * <pre>
@@ -69827,7 +69709,7 @@ public final class Service {
         } else {
           errorBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00000400;
         return this;
       }
       /**
@@ -69845,7 +69727,7 @@ public final class Service {
         } else {
           errorBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00000400;
         return this;
       }
       /**
@@ -69857,7 +69739,7 @@ public final class Service {
        */
       public Builder mergeError(org.mlflow.api.proto.Service.AssessmentError value) {
         if (errorBuilder_ == null) {
-          if (((bitField0_ & 0x00000800) != 0) &&
+          if (((bitField0_ & 0x00000400) != 0) &&
               error_ != null &&
               error_ != org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance()) {
             error_ =
@@ -69869,7 +69751,7 @@ public final class Service {
         } else {
           errorBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00000400;
         return this;
       }
       /**
@@ -69886,7 +69768,7 @@ public final class Service {
         } else {
           errorBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000400);
         return this;
       }
       /**
@@ -69897,7 +69779,7 @@ public final class Service {
        * <code>optional .mlflow.AssessmentError error = 12;</code>
        */
       public org.mlflow.api.proto.Service.AssessmentError.Builder getErrorBuilder() {
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00000400;
         onChanged();
         return getErrorFieldBuilder().getBuilder();
       }
@@ -70164,7 +70046,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return Whether the assessment field is set.
      */
     boolean hasAssessment();
@@ -70173,7 +70055,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return The assessment.
      */
     org.mlflow.api.proto.Service.Assessment getAssessment();
@@ -70182,7 +70064,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
     org.mlflow.api.proto.Service.AssessmentOrBuilder getAssessmentOrBuilder();
   }
@@ -70977,7 +70859,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return Whether the assessment field is set.
      */
     @java.lang.Override
@@ -70989,7 +70871,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return The assessment.
      */
     @java.lang.Override
@@ -71001,7 +70883,7 @@ public final class Service {
      * The assessment to create.
      * </pre>
      *
-     * <code>optional .mlflow.Assessment assessment = 1;</code>
+     * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
     @java.lang.Override
     public org.mlflow.api.proto.Service.AssessmentOrBuilder getAssessmentOrBuilder() {
@@ -71339,7 +71221,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        * @return Whether the assessment field is set.
        */
       public boolean hasAssessment() {
@@ -71350,7 +71232,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        * @return The assessment.
        */
       public org.mlflow.api.proto.Service.Assessment getAssessment() {
@@ -71365,7 +71247,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setAssessment(org.mlflow.api.proto.Service.Assessment value) {
         if (assessmentBuilder_ == null) {
@@ -71385,7 +71267,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setAssessment(
           org.mlflow.api.proto.Service.Assessment.Builder builderForValue) {
@@ -71403,7 +71285,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder mergeAssessment(org.mlflow.api.proto.Service.Assessment value) {
         if (assessmentBuilder_ == null) {
@@ -71427,7 +71309,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearAssessment() {
         if (assessmentBuilder_ == null) {
@@ -71444,7 +71326,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public org.mlflow.api.proto.Service.Assessment.Builder getAssessmentBuilder() {
         bitField0_ |= 0x00000001;
@@ -71456,7 +71338,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public org.mlflow.api.proto.Service.AssessmentOrBuilder getAssessmentOrBuilder() {
         if (assessmentBuilder_ != null) {
@@ -71471,7 +71353,7 @@ public final class Service {
        * The assessment to create.
        * </pre>
        *
-       * <code>optional .mlflow.Assessment assessment = 1;</code>
+       * <code>optional .mlflow.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Service.Assessment, org.mlflow.api.proto.Service.Assessment.Builder, org.mlflow.api.proto.Service.AssessmentOrBuilder> 
@@ -92825,205 +92707,204 @@ public final class Service {
       "experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022" +
       "&\n\nexperiment\030\001 \001(\0132\022.mlflow.Experiment:" +
       "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\256\001\n\020AssessmentSource\0228\n\013source_type" +
+      "nse]\"\272\001\n\020AssessmentSource\022>\n\013source_type" +
       "\030\001 \001(\0162#.mlflow.AssessmentSource.SourceT" +
-      "ype\022\021\n\tsource_id\030\002 \001(\t\"M\n\nSourceType\022\033\n\027" +
-      "SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005HUMAN\020\001\022\r\n\t" +
-      "LLM_JUDGE\020\002\022\010\n\004CODE\020\003\"<\n\017AssessmentError" +
-      "\022\022\n\nerror_code\030\001 \001(\t\022\025\n\rerror_message\030\002 " +
-      "\001(\t\"4\n\013Expectation\022%\n\005value\030\002 \001(\0132\026.goog" +
-      "le.protobuf.Value\"1\n\010Feedback\022%\n\005value\030\002" +
-      " \001(\0132\026.google.protobuf.Value\"\221\005\n\nAssessm" +
-      "ent\022\025\n\rassessment_id\030\001 \001(\t\022\027\n\017assessment" +
-      "_name\030\002 \001(\t\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id" +
-      "\030\004 \001(\t\022(\n\006source\030\005 \001(\0132\030.mlflow.Assessme" +
-      "ntSource\022/\n\013create_time\030\006 \001(\0132\032.google.p" +
-      "rotobuf.Timestamp\0224\n\020last_update_time\030\007 " +
-      "\001(\0132\032.google.protobuf.Timestamp\022:\n\017asses" +
-      "sment_type\030\010 \001(\0162!.mlflow.Assessment.Ass" +
-      "essmentType\022$\n\010feedback\030\t \001(\0132\020.mlflow.F" +
-      "eedbackH\000\022*\n\013expectation\030\n \001(\0132\023.mlflow." +
-      "ExpectationH\000\022\021\n\trationale\030\013 \001(\t\022&\n\005erro" +
-      "r\030\014 \001(\0132\027.mlflow.AssessmentError\0222\n\010meta" +
-      "data\030\r \003(\0132 .mlflow.Assessment.MetadataE" +
-      "ntry\032G\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022%\n\005va" +
-      "lue\030\002 \001(\0132\026.google.protobuf.Value:\0028\001\"P\n" +
-      "\016AssessmentType\022\037\n\033ASSESSMENT_TYPE_UNSPE" +
-      "CIFIED\020\000\022\014\n\010FEEDBACK\020\001\022\017\n\013EXPECTATION\020\002B" +
-      "\007\n\005value\"\227\001\n\020CreateAssessment\022&\n\nassessm" +
-      "ent\030\001 \001(\0132\022.mlflow.Assessment\0322\n\010Respons" +
-      "e\022&\n\nassessment\030\001 \001(\0132\022.mlflow.Assessmen" +
-      "t:\'\342?$\n\"com.databricks.rpc.RPC[Assessmen" +
-      "t]\"\344\001\n\tTraceInfo\022\022\n\nrequest_id\030\001 \001(\t\022\025\n\r" +
-      "experiment_id\030\002 \001(\t\022\024\n\014timestamp_ms\030\003 \001(" +
-      "\003\022\031\n\021execution_time_ms\030\004 \001(\003\022#\n\006status\030\005" +
+      "ypeB\004\370\206\031\001\022\027\n\tsource_id\030\002 \001(\tB\004\370\206\031\001\"M\n\nSo" +
+      "urceType\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n" +
+      "\005HUMAN\020\001\022\r\n\tLLM_JUDGE\020\002\022\010\n\004CODE\020\003\"<\n\017Ass" +
+      "essmentError\022\022\n\nerror_code\030\001 \001(\t\022\025\n\rerro" +
+      "r_message\030\002 \001(\t\"4\n\013Expectation\022%\n\005value\030" +
+      "\002 \001(\0132\026.google.protobuf.Value\"1\n\010Feedbac" +
+      "k\022%\n\005value\030\002 \001(\0132\026.google.protobuf.Value" +
+      "\"\333\004\n\nAssessment\022\025\n\rassessment_id\030\001 \001(\t\022\035" +
+      "\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_i" +
+      "d\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\022(\n\006source\030\005 \001(\013" +
+      "2\030.mlflow.AssessmentSource\022/\n\013create_tim" +
+      "e\030\006 \001(\0132\032.google.protobuf.Timestamp\0224\n\020l" +
+      "ast_update_time\030\007 \001(\0132\032.google.protobuf." +
+      "Timestamp\022$\n\010feedback\030\t \001(\0132\020.mlflow.Fee" +
+      "dbackH\000\022*\n\013expectation\030\n \001(\0132\023.mlflow.Ex" +
+      "pectationH\000\022\021\n\trationale\030\013 \001(\t\022&\n\005error\030" +
+      "\014 \001(\0132\027.mlflow.AssessmentError\0222\n\010metada" +
+      "ta\030\r \003(\0132 .mlflow.Assessment.MetadataEnt" +
+      "ry\032G\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022%\n\005valu" +
+      "e\030\002 \001(\0132\026.google.protobuf.Value:\0028\001\"P\n\016A" +
+      "ssessmentType\022\037\n\033ASSESSMENT_TYPE_UNSPECI" +
+      "FIED\020\000\022\014\n\010FEEDBACK\020\001\022\017\n\013EXPECTATION\020\002B\007\n" +
+      "\005value\"\235\001\n\020CreateAssessment\022,\n\nassessmen" +
+      "t\030\001 \001(\0132\022.mlflow.AssessmentB\004\370\206\031\001\0322\n\010Res" +
+      "ponse\022&\n\nassessment\030\001 \001(\0132\022.mlflow.Asses" +
+      "sment:\'\342?$\n\"com.databricks.rpc.RPC[Asses" +
+      "sment]\"\344\001\n\tTraceInfo\022\022\n\nrequest_id\030\001 \001(\t" +
+      "\022\025\n\rexperiment_id\030\002 \001(\t\022\024\n\014timestamp_ms\030" +
+      "\003 \001(\003\022\031\n\021execution_time_ms\030\004 \001(\003\022#\n\006stat" +
+      "us\030\005 \001(\0162\023.mlflow.TraceStatus\0226\n\020request" +
+      "_metadata\030\006 \003(\0132\034.mlflow.TraceRequestMet" +
+      "adata\022\036\n\004tags\030\007 \003(\0132\020.mlflow.TraceTag\"2\n" +
+      "\024TraceRequestMetadata\022\013\n\003key\030\001 \001(\t\022\r\n\005va" +
+      "lue\030\002 \001(\t\"&\n\010TraceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005va" +
+      "lue\030\002 \001(\t\"\361\001\n\nStartTrace\022\025\n\rexperiment_i" +
+      "d\030\001 \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\0226\n\020request" +
+      "_metadata\030\003 \003(\0132\034.mlflow.TraceRequestMet" +
+      "adata\022\036\n\004tags\030\004 \003(\0132\020.mlflow.TraceTag\0321\n" +
+      "\010Response\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.T" +
+      "raceInfo:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\221\002\n\010EndTrace\022\022\n\nrequest_id" +
+      "\030\001 \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\022#\n\006status\030\003" +
       " \001(\0162\023.mlflow.TraceStatus\0226\n\020request_met" +
-      "adata\030\006 \003(\0132\034.mlflow.TraceRequestMetadat" +
-      "a\022\036\n\004tags\030\007 \003(\0132\020.mlflow.TraceTag\"2\n\024Tra" +
-      "ceRequestMetadata\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030" +
-      "\002 \001(\t\"&\n\010TraceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030" +
-      "\002 \001(\t\"\361\001\n\nStartTrace\022\025\n\rexperiment_id\030\001 " +
-      "\001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\0226\n\020request_met" +
-      "adata\030\003 \003(\0132\034.mlflow.TraceRequestMetadat" +
-      "a\022\036\n\004tags\030\004 \003(\0132\020.mlflow.TraceTag\0321\n\010Res" +
+      "adata\030\004 \003(\0132\034.mlflow.TraceRequestMetadat" +
+      "a\022\036\n\004tags\030\005 \003(\0132\020.mlflow.TraceTag\0321\n\010Res" +
       "ponse\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.Trace" +
       "Info:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\221\002\n\010EndTrace\022\022\n\nrequest_id\030\001 \001" +
-      "(\t\022\024\n\014timestamp_ms\030\002 \001(\003\022#\n\006status\030\003 \001(\016" +
-      "2\023.mlflow.TraceStatus\0226\n\020request_metadat" +
-      "a\030\004 \003(\0132\034.mlflow.TraceRequestMetadata\022\036\n" +
-      "\004tags\030\005 \003(\0132\020.mlflow.TraceTag\0321\n\010Respons" +
-      "e\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.TraceInfo" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\202\001\n\014GetTraceInfo\022\022\n\nrequest_id\030\001 \001" +
-      "(\t\0321\n\010Response\022%\n\ntrace_info\030\001 \001(\0132\021.mlf" +
-      "low.TraceInfo:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\353\001\n\014SearchTraces\022\026\n\016e" +
-      "xperiment_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\022\030\n\013m" +
-      "ax_results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022" +
-      "\022\n\npage_token\030\005 \001(\t\032F\n\010Response\022!\n\006trace" +
-      "s\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_page_" +
-      "token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\303\001\n\014DeleteTraces\022\033\n\rexp" +
-      "eriment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timestamp_" +
-      "millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013requ" +
-      "est_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_dele" +
-      "ted\030\001 \001(\005:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"v\n\013SetTraceTag\022\022\n\nrequest" +
-      "_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n" +
-      "\010Response:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"j\n\016DeleteTraceTag\022\022\n\nrequ" +
-      "est_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Response:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]\"h\n\016DatasetSummary\022\033\n\rexperiment_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\024\n\006digest\030" +
-      "\003 \001(\tB\004\370\206\031\001\022\017\n\007context\030\004 \001(\t\"\224\001\n\016SearchD" +
-      "atasets\022\026\n\016experiment_ids\030\001 \003(\t\032=\n\010Respo" +
-      "nse\0221\n\021dataset_summaries\030\001 \003(\0132\026.mlflow." +
-      "DatasetSummary:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]*6\n\010ViewType\022\017\n\013ACTIV" +
-      "E_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nS" +
-      "ourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJ" +
-      "ECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunSta" +
-      "tus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINIS" +
-      "HED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013TraceSt" +
-      "atus\022\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022\006\n\002OK" +
-      "\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\0032\272#\n\rMlflo" +
-      "wService\022\246\001\n\023getExperimentByName\022\033.mlflo" +
-      "w.GetExperimentByName\032$.mlflow.GetExperi" +
-      "mentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflo" +
-      "w/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get E" +
-      "xperiment By Name\022\224\001\n\020createExperiment\022\030" +
-      ".mlflow.CreateExperiment\032!.mlflow.Create" +
-      "Experiment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlfl" +
-      "ow/experiments/create\032\004\010\002\020\000\020\001*\021Create Ex" +
-      "periment\022\301\001\n\021searchExperiments\022\031.mlflow." +
-      "SearchExperiments\032\".mlflow.SearchExperim" +
-      "ents.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow/exp" +
-      "eriments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/ex" +
-      "periments/search\032\004\010\002\020\000\020\001*\022Search Experim" +
-      "ents\022\210\001\n\rgetExperiment\022\025.mlflow.GetExper" +
-      "iment\032\036.mlflow.GetExperiment.Response\"@\362" +
-      "\206\0318\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020" +
-      "\000\020\001*\016Get Experiment\272\214\031\000\022\224\001\n\020deleteExperi" +
-      "ment\022\030.mlflow.DeleteExperiment\032!.mlflow." +
-      "DeleteExperiment.Response\"C\362\206\031?\n(\n\004POST\022" +
-      "\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Del" +
-      "ete Experiment\022\231\001\n\021restoreExperiment\022\031.m" +
-      "lflow.RestoreExperiment\032\".mlflow.Restore" +
-      "Experiment.Response\"E\362\206\031A\n)\n\004POST\022\033/mlfl" +
-      "ow/experiments/restore\032\004\010\002\020\000\020\001*\022Restore " +
-      "Experiment\022\224\001\n\020updateExperiment\022\030.mlflow" +
-      ".UpdateExperiment\032!.mlflow.UpdateExperim" +
-      "ent.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/expe" +
-      "riments/update\032\004\010\002\020\000\020\001*\021Update Experimen" +
-      "t\022q\n\tcreateRun\022\021.mlflow.CreateRun\032\032.mlfl" +
-      "ow.CreateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/ml" +
-      "flow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022q\n\t" +
-      "updateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Up" +
-      "dateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/" +
-      "runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\tdelet" +
-      "eRun\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteR" +
-      "un.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/" +
-      "delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nrestoreRun" +
-      "\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreRun" +
-      ".Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/re" +
-      "store\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlogMetric\022" +
-      "\021.mlflow.LogMetric\032\032.mlflow.LogMetric.Re" +
-      "sponse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-m" +
-      "etric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logParam\022\020." +
-      "mlflow.LogParam\032\031.mlflow.LogParam.Respon" +
-      "se\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-param" +
-      "eter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setExperimen" +
-      "tTag\022\030.mlflow.SetExperimentTag\032!.mlflow." +
-      "SetExperimentTag.Response\"P\362\206\031L\n4\n\004POST\022" +
-      "&/mlflow/experiments/set-experiment-tag\032" +
-      "\004\010\002\020\000\020\001*\022Set Experiment Tag\022f\n\006setTag\022\016." +
-      "mlflow.SetTag\032\027.mlflow.SetTag.Response\"3" +
-      "\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000" +
-      "\020\001*\007Set Tag\022\210\001\n\013setTraceTag\022\023.mlflow.Set" +
-      "TraceTag\032\034.mlflow.SetTraceTag.Response\"F" +
-      "\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{request_i" +
-      "d}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag\022\225\001\n\016delet" +
-      "eTraceTag\022\026.mlflow.DeleteTraceTag\032\037.mlfl" +
-      "ow.DeleteTraceTag.Response\"J\362\206\031F\n0\n\006DELE" +
-      "TE\022 /mlflow/traces/{request_id}/tags\032\004\010\002" +
-      "\020\000\020\003*\020Delete Trace Tag\022u\n\tdeleteTag\022\021.ml" +
-      "flow.DeleteTag\032\032.mlflow.DeleteTag.Respon" +
-      "se\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-ta" +
-      "g\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n\006getRun\022\016.mlflow" +
-      ".GetRun\032\027.mlflow.GetRun.Response\"2\362\206\031*\n\035" +
-      "\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run" +
-      "\272\214\031\000\022y\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033" +
-      ".mlflow.SearchRuns.Response\":\362\206\0312\n!\n\004POS" +
-      "T\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search R" +
-      "uns\272\214\031\000\022\207\001\n\rlistArtifacts\022\025.mlflow.ListA" +
-      "rtifacts\032\036.mlflow.ListArtifacts.Response" +
-      "\"?\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010" +
-      "\002\020\000\020\001*\016List Artifacts\272\214\031\000\022\225\001\n\020getMetricH" +
-      "istory\022\030.mlflow.GetMetricHistory\032!.mlflo" +
-      "w.GetMetricHistory.Response\"D\362\206\031@\n(\n\003GET" +
-      "\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022G" +
-      "et Metric History\022\267\001\n\034getMetricHistoryBu" +
-      "lkInterval\022$.mlflow.GetMetricHistoryBulk" +
-      "Interval\032-.mlflow.GetMetricHistoryBulkIn" +
-      "terval.Response\"B\362\206\031:\n6\n\003GET\022)/mlflow/me" +
-      "trics/get-history-bulk-interval\032\004\010\002\020\013\020\003\272" +
-      "\214\031\000\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlfl" +
-      "ow.LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlf" +
-      "low/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n" +
-      "\010logModel\022\020.mlflow.LogModel\032\031.mlflow.Log" +
-      "Model.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/ru" +
-      "ns/log-model\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogIn" +
-      "puts\022\021.mlflow.LogInputs\032\032.mlflow.LogInpu" +
-      "ts.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/" +
-      "log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs\022\207\001\n\016searc" +
-      "hDatasets\022\026.mlflow.SearchDatasets\032\037.mlfl" +
-      "ow.SearchDatasets.Response\"<\362\206\0314\n0\n\004POST" +
-      "\022\"mlflow/experiments/search-datasets\032\004\010\002" +
-      "\020\000\020\003\272\214\031\000\022p\n\nstartTrace\022\022.mlflow.StartTra" +
-      "ce\032\033.mlflow.StartTrace.Response\"1\362\206\031-\n\034\n" +
-      "\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\013Start Tra" +
-      "ce\022v\n\010endTrace\022\020.mlflow.EndTrace\032\031.mlflo" +
-      "w.EndTrace.Response\"=\362\206\0319\n*\n\005PATCH\022\033/mlf" +
-      "low/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd Tra" +
-      "ce\022\211\001\n\014getTraceInfo\022\024.mlflow.GetTraceInf" +
-      "o\032\035.mlflow.GetTraceInfo.Response\"D\362\206\031@\n-" +
-      "\n\003GET\022 /mlflow/traces/{request_id}/info\032" +
-      "\004\010\002\020\000\020\003*\rGet TraceInfo\022w\n\014searchTraces\022\024" +
-      ".mlflow.SearchTraces\032\035.mlflow.SearchTrac" +
-      "es.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/traces" +
-      "\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n\014deleteTraces" +
-      "\022\024.mlflow.DeleteTraces\032\035.mlflow.DeleteTr" +
-      "aces.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflow/tra" +
-      "ces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Traces" +
-      "\022\320\001\n\020createAssessment\022\030.mlflow.CreateAss" +
-      "essment\032\022.mlflow.Assessment\"\215\001\362\206\031\210\001\n>\n\004P" +
-      "OST\0220/mlflow/traces/{assessment.trace_id" +
-      "}/assessments\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Create " +
-      "an assessment of a trace or a span withi" +
-      "n the traceB\036\n\024org.mlflow.api.proto\220\001\001\342?" +
-      "\002\020\001"
+      "Response]\"\202\001\n\014GetTraceInfo\022\022\n\nrequest_id" +
+      "\030\001 \001(\t\0321\n\010Response\022%\n\ntrace_info\030\001 \001(\0132\021" +
+      ".mlflow.TraceInfo:+\342?(\n&com.databricks.r" +
+      "pc.RPC[$this.Response]\"\353\001\n\014SearchTraces\022" +
+      "\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\022" +
+      "\030\n\013max_results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 " +
+      "\003(\t\022\022\n\npage_token\030\005 \001(\t\032F\n\010Response\022!\n\006t" +
+      "races\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_p" +
+      "age_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\303\001\n\014DeleteTraces\022\033\n" +
+      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timest" +
+      "amp_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013" +
+      "request_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_" +
+      "deleted\030\001 \001(\005:+\342?(\n&com.databricks.rpc.R" +
+      "PC[$this.Response]\"v\n\013SetTraceTag\022\022\n\nreq" +
+      "uest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(" +
+      "\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc.R" +
+      "PC[$this.Response]\"j\n\016DeleteTraceTag\022\022\n\n" +
+      "request_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"h\n\016DatasetSummary\022\033\n\rexperiment_i" +
+      "d\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\024\n\006dig" +
+      "est\030\003 \001(\tB\004\370\206\031\001\022\017\n\007context\030\004 \001(\t\"\224\001\n\016Sea" +
+      "rchDatasets\022\026\n\016experiment_ids\030\001 \003(\t\032=\n\010R" +
+      "esponse\0221\n\021dataset_summaries\030\001 \003(\0132\026.mlf" +
+      "low.DatasetSummary:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]*6\n\010ViewType\022\017\n\013A" +
+      "CTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*" +
+      "I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007" +
+      "PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRu" +
+      "nStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010F" +
+      "INISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013Tra" +
+      "ceStatus\022\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022\006" +
+      "\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\0032\272#\n\rM" +
+      "lflowService\022\246\001\n\023getExperimentByName\022\033.m" +
+      "lflow.GetExperimentByName\032$.mlflow.GetEx" +
+      "perimentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/m" +
+      "lflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026G" +
+      "et Experiment By Name\022\224\001\n\020createExperime" +
+      "nt\022\030.mlflow.CreateExperiment\032!.mlflow.Cr" +
+      "eateExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032/" +
+      "mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Creat" +
+      "e Experiment\022\301\001\n\021searchExperiments\022\031.mlf" +
+      "low.SearchExperiments\032\".mlflow.SearchExp" +
+      "eriments.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow" +
+      "/experiments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflo" +
+      "w/experiments/search\032\004\010\002\020\000\020\001*\022Search Exp" +
+      "eriments\022\210\001\n\rgetExperiment\022\025.mlflow.GetE" +
+      "xperiment\032\036.mlflow.GetExperiment.Respons" +
+      "e\"@\362\206\0318\n$\n\003GET\022\027/mlflow/experiments/get\032" +
+      "\004\010\002\020\000\020\001*\016Get Experiment\272\214\031\000\022\224\001\n\020deleteEx" +
+      "periment\022\030.mlflow.DeleteExperiment\032!.mlf" +
+      "low.DeleteExperiment.Response\"C\362\206\031?\n(\n\004P" +
+      "OST\022\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*" +
+      "\021Delete Experiment\022\231\001\n\021restoreExperiment" +
+      "\022\031.mlflow.RestoreExperiment\032\".mlflow.Res" +
+      "toreExperiment.Response\"E\362\206\031A\n)\n\004POST\022\033/" +
+      "mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Rest" +
+      "ore Experiment\022\224\001\n\020updateExperiment\022\030.ml" +
+      "flow.UpdateExperiment\032!.mlflow.UpdateExp" +
+      "eriment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/" +
+      "experiments/update\032\004\010\002\020\000\020\001*\021Update Exper" +
+      "iment\022q\n\tcreateRun\022\021.mlflow.CreateRun\032\032." +
+      "mlflow.CreateRun.Response\"5\362\206\0311\n!\n\004POST\022" +
+      "\023/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run" +
+      "\022q\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflo" +
+      "w.UpdateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlf" +
+      "low/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\td" +
+      "eleteRun\022\021.mlflow.DeleteRun\032\032.mlflow.Del" +
+      "eteRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/r" +
+      "uns/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nrestor" +
+      "eRun\022\022.mlflow.RestoreRun\032\033.mlflow.Restor" +
+      "eRun.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/run" +
+      "s/restore\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlogMet" +
+      "ric\022\021.mlflow.LogMetric\032\032.mlflow.LogMetri" +
+      "c.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/l" +
+      "og-metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logPara" +
+      "m\022\020.mlflow.LogParam\032\031.mlflow.LogParam.Re" +
+      "sponse\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-p" +
+      "arameter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setExper" +
+      "imentTag\022\030.mlflow.SetExperimentTag\032!.mlf" +
+      "low.SetExperimentTag.Response\"P\362\206\031L\n4\n\004P" +
+      "OST\022&/mlflow/experiments/set-experiment-" +
+      "tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022f\n\006setTa" +
+      "g\022\016.mlflow.SetTag\032\027.mlflow.SetTag.Respon" +
+      "se\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004" +
+      "\010\002\020\000\020\001*\007Set Tag\022\210\001\n\013setTraceTag\022\023.mlflow" +
+      ".SetTraceTag\032\034.mlflow.SetTraceTag.Respon" +
+      "se\"F\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{reque" +
+      "st_id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag\022\225\001\n\016d" +
+      "eleteTraceTag\022\026.mlflow.DeleteTraceTag\032\037." +
+      "mlflow.DeleteTraceTag.Response\"J\362\206\031F\n0\n\006" +
+      "DELETE\022 /mlflow/traces/{request_id}/tags" +
+      "\032\004\010\002\020\000\020\003*\020Delete Trace Tag\022u\n\tdeleteTag\022" +
+      "\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag.Re" +
+      "sponse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delet" +
+      "e-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n\006getRun\022\016.ml" +
+      "flow.GetRun\032\027.mlflow.GetRun.Response\"2\362\206" +
+      "\031*\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get" +
+      " Run\272\214\031\000\022y\n\nsearchRuns\022\022.mlflow.SearchRu" +
+      "ns\032\033.mlflow.SearchRuns.Response\":\362\206\0312\n!\n" +
+      "\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Sear" +
+      "ch Runs\272\214\031\000\022\207\001\n\rlistArtifacts\022\025.mlflow.L" +
+      "istArtifacts\032\036.mlflow.ListArtifacts.Resp" +
+      "onse\"?\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/lis" +
+      "t\032\004\010\002\020\000\020\001*\016List Artifacts\272\214\031\000\022\225\001\n\020getMet" +
+      "ricHistory\022\030.mlflow.GetMetricHistory\032!.m" +
+      "lflow.GetMetricHistory.Response\"D\362\206\031@\n(\n" +
+      "\003GET\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\020" +
+      "\001*\022Get Metric History\022\267\001\n\034getMetricHisto" +
+      "ryBulkInterval\022$.mlflow.GetMetricHistory" +
+      "BulkInterval\032-.mlflow.GetMetricHistoryBu" +
+      "lkInterval.Response\"B\362\206\031:\n6\n\003GET\022)/mlflo" +
+      "w/metrics/get-history-bulk-interval\032\004\010\002\020" +
+      "\013\020\003\272\214\031\000\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031." +
+      "mlflow.LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026" +
+      "/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batc" +
+      "h\022p\n\010logModel\022\020.mlflow.LogModel\032\031.mlflow" +
+      ".LogModel.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflo" +
+      "w/runs/log-model\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tl" +
+      "ogInputs\022\021.mlflow.LogInputs\032\032.mlflow.Log" +
+      "Inputs.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/r" +
+      "uns/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs\022\207\001\n\016s" +
+      "earchDatasets\022\026.mlflow.SearchDatasets\032\037." +
+      "mlflow.SearchDatasets.Response\"<\362\206\0314\n0\n\004" +
+      "POST\022\"mlflow/experiments/search-datasets" +
+      "\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nstartTrace\022\022.mlflow.Star" +
+      "tTrace\032\033.mlflow.StartTrace.Response\"1\362\206\031" +
+      "-\n\034\n\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\013Start" +
+      " Trace\022v\n\010endTrace\022\020.mlflow.EndTrace\032\031.m" +
+      "lflow.EndTrace.Response\"=\362\206\0319\n*\n\005PATCH\022\033" +
+      "/mlflow/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd" +
+      " Trace\022\211\001\n\014getTraceInfo\022\024.mlflow.GetTrac" +
+      "eInfo\032\035.mlflow.GetTraceInfo.Response\"D\362\206" +
+      "\031@\n-\n\003GET\022 /mlflow/traces/{request_id}/i" +
+      "nfo\032\004\010\002\020\000\020\003*\rGet TraceInfo\022w\n\014searchTrac" +
+      "es\022\024.mlflow.SearchTraces\032\035.mlflow.Search" +
+      "Traces.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/tr" +
+      "aces\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n\014deleteTr" +
+      "aces\022\024.mlflow.DeleteTraces\032\035.mlflow.Dele" +
+      "teTraces.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflow" +
+      "/traces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Tr" +
+      "aces\022\320\001\n\020createAssessment\022\030.mlflow.Creat" +
+      "eAssessment\032\022.mlflow.Assessment\"\215\001\362\206\031\210\001\n" +
+      ">\n\004POST\0220/mlflow/traces/{assessment.trac" +
+      "e_id}/assessments\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Cre" +
+      "ate an assessment of a trace or a span w" +
+      "ithin the traceB\036\n\024org.mlflow.api.proto\220" +
+      "\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -93434,7 +93315,7 @@ public final class Service {
     internal_static_mlflow_Assessment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Assessment_descriptor,
-        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "AssessmentType", "Feedback", "Expectation", "Rationale", "Error", "Metadata", "Value", });
+        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "Feedback", "Expectation", "Rationale", "Error", "Metadata", "Value", });
     internal_static_mlflow_Assessment_MetadataEntry_descriptor =
       internal_static_mlflow_Assessment_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_Assessment_MetadataEntry_fieldAccessorTable = new
