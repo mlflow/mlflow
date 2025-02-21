@@ -89,10 +89,8 @@ def test_autolog_log_models_configuration(log_models):
     with mlflow.start_run() as run:
         train_model()
 
-    artifacts = MlflowClient().list_artifacts(run.info.run_id)
-    assert (
-        len(mlflow.search_logged_models(filter_string=f"source_run_id='{run.info.run_id}'")) > 0
-    ) == log_models
+    MlflowClient().list_artifacts(run.info.run_id)
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 def test_autolog_registering_model():
