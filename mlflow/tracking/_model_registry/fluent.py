@@ -191,7 +191,7 @@ def _register_model(
 
 
 def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
-    """Get all logged models from the source run that have the specified model name.
+    """Get all logged models from the source rnu that have the specified model name.
 
     Args:
         source_run: Source run from which to retrieve logged models.
