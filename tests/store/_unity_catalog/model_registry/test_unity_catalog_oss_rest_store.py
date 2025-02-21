@@ -154,10 +154,10 @@ def test_create_model_version(mock_http, store, creds):
             )
 
 
+@pytest.mark.parametrize("version", [0, "0"])
 @mock_http_200
-def test_get_model_version(mock_http, store, creds):
+def test_get_model_version(mock_http, store, creds, version):
     model_name = "catalog_1.schema_1.model_1"
-    version = 0
     store.get_model_version(name=model_name, version=version)
     _verify_requests(
         mock_http,
@@ -167,10 +167,10 @@ def test_get_model_version(mock_http, store, creds):
     )
 
 
+@pytest.mark.parametrize("version", [0, "0"])
 @mock_http_200
-def test_update_model_version(mock_http, store, creds):
+def test_update_model_version(mock_http, store, creds, version):
     model_name = "catalog_1.schema_1.model_1"
-    version = 0
     store.update_model_version(name=model_name, version=version, description="new description")
     _verify_requests(
         mock_http,
@@ -184,10 +184,10 @@ def test_update_model_version(mock_http, store, creds):
     )
 
 
+@pytest.mark.parametrize("version", [0, "0"])
 @mock_http_200
-def test_delete_model_version(mock_http, store, creds):
+def test_delete_model_version(mock_http, store, creds, version):
     model_name = "catalog_1.schema_1.model_1"
-    version = 0
     store.delete_model_version(name=model_name, version=version)
     _verify_requests(
         mock_http,
