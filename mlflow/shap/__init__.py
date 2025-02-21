@@ -351,7 +351,7 @@ def log_explainer(
         model_id: {{ model_id }}
     """
 
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.shap,
