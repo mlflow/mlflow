@@ -233,10 +233,8 @@ def test_log_model(sequential_model, data, sequential_predicted):
     try:
         artifact_path = "pytorch"
         model_info = mlflow.pytorch.log_model(sequential_model, artifact_path)
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
 
-        sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
+        sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_info.model_uri)
         test_predictions = _predict(sequential_model_loaded, data)
         np.testing.assert_array_equal(test_predictions, sequential_predicted)
     finally:
@@ -248,16 +246,15 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
             artifact_path,
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="AdsModel1",
         )
 
@@ -469,14 +466,12 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             sequential_model,
             artifact_path,
             conda_env=pytorch_custom_env,
         )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
@@ -496,14 +491,12 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             sequential_model,
             artifact_path,
             conda_env=pytorch_custom_env,
         )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
@@ -521,12 +514,10 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model,
 ):
-    artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(sequential_model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.pytorch.log_model(sequential_model, "model")
 
-    _assert_pip_requirements(model_uri, mlflow.pytorch.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -719,12 +710,12 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
 
     artifact_path = "pytorch_model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
             artifact_path,
             pickle_module=custom_pickle_module,
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        model_uri = model_info.model_uri
 
     import_module_fn = importlib.import_module
     imported_modules = []
@@ -791,10 +782,8 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(module_scoped_subclassed_model, artifact_path)
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_info = mlflow.pytorch.log_model(module_scoped_subclassed_model, artifact_path)
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -1199,10 +1188,11 @@ def test_log_model_with_code_paths(sequential_model):
         mlflow.start_run(),
         mock.patch("mlflow.pytorch._add_code_from_conf_to_system_path") as add_mock,
     ):
-        mlflow.pytorch.log_model(sequential_model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.pytorch.FLAVOR_NAME)
-        mlflow.pytorch.load_model(model_uri)
+        model_info = mlflow.pytorch.log_model(
+            sequential_model, artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.pytorch.FLAVOR_NAME)
+        mlflow.pytorch.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -1230,14 +1220,13 @@ def test_model_log_with_metadata(sequential_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             sequential_model,
             artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
