@@ -12,6 +12,7 @@ from typing import Any, Optional
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.struct_pb2 import Value
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
@@ -157,6 +158,42 @@ def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
     _stringify_all_experiment_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
+
+
+def set_pb_value(proto: Value, value: Any):
+    """Set a value to the google.protobuf.Value object."""
+    if isinstance(value, dict):
+        for key, val in value.items():
+            set_pb_value(proto.struct_value.fields[key], val)
+    elif isinstance(value, list):
+        for idx, val in enumerate(value):
+            pb = Value()
+            set_pb_value(pb, val)
+            proto.list_value.values.append(pb)
+    elif isinstance(value, bool):
+        proto.bool_value = value
+    elif isinstance(value, (int, float)):
+        proto.number_value = value
+    elif isinstance(value, str):
+        proto.string_value = value
+    else:
+        raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def parse_pb_value(proto: Value) -> Optional[Any]:
+    """Extract a value from the google.protobuf.Value object."""
+    if proto.HasField("struct_value"):
+        return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
+    elif proto.HasField("list_value"):
+        return [parse_pb_value(val) for val in proto.list_value.values]
+    elif proto.HasField("bool_value"):
+        return proto.bool_value
+    elif proto.HasField("number_value"):
+        return proto.number_value
+    elif proto.HasField("string_value"):
+        return proto.string_value
+
+    return None
 
 
 class NumpyEncoder(JSONEncoder):
