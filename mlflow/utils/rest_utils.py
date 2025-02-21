@@ -384,10 +384,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     response_to_parse = response.text
     js_dict = json.loads(response_to_parse)
 
-    # TODO: hack, revert this before merging, once the DB backend prot is fixed
-    if "assessment_id" in js_dict:
-        js_dict = {"assessment": js_dict}
-
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
