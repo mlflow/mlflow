@@ -1315,11 +1315,11 @@ message AssessmentSource {
     CODE = 3;
   }
   // The type of the source.
-  optional SourceType source_type = 1;
+  optional SourceType source_type = 1 [(validate_required) = true];
 
   // Identifier for the source.
   // Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty.
-  optional string source_id = 2;
+  optional string source_id = 2 [(validate_required) = true];
 }
 
 message AssessmentError {
@@ -1353,10 +1353,12 @@ message Feedback {
 // Data and metadata for an assessment of a trace.
 message Assessment {
   // Unique ID of the assessment.
+  // NB: This is not marked as required field via "validate_required", because the message is
+  //  used in the context of creating a new assessment, where the ID is not known.
   optional string assessment_id = 1;
 
   // Name of the assessment. The name must not contain ".".
-  optional string assessment_name = 2;
+  optional string assessment_name = 2 [(validate_required) = true];
   // ID of the trace this assessment is associated with.
   optional string trace_id = 3;
 
@@ -1380,9 +1382,6 @@ message Assessment {
     // The inputs contained in the trace.
     EXPECTATION = 2;
   }
-
-  // The type of the assessment. Must align with the type of Feedback/Assessment in value.
-  optional AssessmentType assessment_type = 8;
 
   // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
   // The name of the Feedback or Expectation must be the same with the assessment_name.
@@ -1409,7 +1408,7 @@ message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[Assessment]";
 
   // The assessment to create.
-  optional Assessment assessment = 1;
+  optional Assessment assessment = 1 [(validate_required) = true];;
 
   message Response {
     // The created assessment.

@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from google.protobuf.struct_pb2 import Value
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource
@@ -13,6 +11,7 @@ from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.service_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.service_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import parse_pb_value, set_pb_value
 
 # Assessment value should be one of the following types:
 # - float
@@ -121,29 +120,29 @@ class Assessment(_MlflowObject):
             assessment.error.CopyFrom(self.error.to_proto())
 
         if isinstance(self.value, Expectation):
-            _set_pb_value(assessment.expectation.value, self.value.value)
+            set_pb_value(assessment.expectation.value, self.value.value)
         elif isinstance(self.value, Feedback):
-            _set_pb_value(assessment.feedback.value, self.value.value)
+            set_pb_value(assessment.feedback.value, self.value.value)
 
         # The metadata values are google.protobuf.Value and does not support
         # assignment like metadata[key] = value.
         if self.metadata:
             for key, value in self.metadata.items():
-                _set_pb_value(assessment.metadata[key], value)
+                set_pb_value(assessment.metadata[key], value)
 
         return assessment
 
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            value = Expectation(_parse_pb_value(proto.expectation.value))
+            value = Expectation(parse_pb_value(proto.expectation.value))
         elif proto.WhichOneof("value") == "feedback":
-            value = Feedback(_parse_pb_value(proto.feedback.value))
+            value = Feedback(parse_pb_value(proto.feedback.value))
         else:
             value = None
 
         error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
-        metadata = {key: _parse_pb_value(proto.metadata[key]) for key in proto.metadata}
+        metadata = {key: parse_pb_value(proto.metadata[key]) for key in proto.metadata}
 
         return cls(
             _assessment_id=proto.assessment_id or None,
@@ -184,39 +183,3 @@ class Feedback(_MlflowObject):
         feedback = ProtoFeedback()
         feedback.value = self.value
         return feedback
-
-
-def _set_pb_value(proto: Value, value: AssessmentValueType):
-    """Set a value to the google.protobuf.Value object."""
-    if isinstance(value, dict):
-        for key, val in value.items():
-            _set_pb_value(proto.struct_value.fields[key], val)
-    elif isinstance(value, list):
-        for idx, val in enumerate(value):
-            pb = Value()
-            _set_pb_value(pb, val)
-            proto.list_value.values.append(pb)
-    elif isinstance(value, bool):
-        proto.bool_value = value
-    elif isinstance(value, (int, float)):
-        proto.number_value = value
-    elif isinstance(value, str):
-        proto.string_value = value
-    else:
-        raise ValueError(f"Unsupported value type: {type(value)}")
-
-
-def _parse_pb_value(proto: Value) -> Optional[AssessmentValueType]:
-    """Extract a value from the google.protobuf.Value object."""
-    if proto.HasField("struct_value"):
-        return {key: _parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
-    elif proto.HasField("list_value"):
-        return [_parse_pb_value(val) for val in proto.list_value.values]
-    elif proto.HasField("bool_value"):
-        return proto.bool_value
-    elif proto.HasField("number_value"):
-        return proto.number_value
-    elif proto.HasField("string_value"):
-        return proto.string_value
-
-    return None
