@@ -75,12 +75,13 @@ def test_chat_completions_autolog(client, log_models):
         run_id = client.chat.completions._mlflow_run_id
         assert run_id is not None
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        logged_model = mlflow.last_logged_model()
+        loaded_model = mlflow.openai.load_model(logged_model.model_uri)
         assert loaded_model == {
             "model": "gpt-4o-mini",
             "task": "chat.completions",
         }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         assert pyfunc_model.predict("test") == [json.dumps(messages)]
 
     else:
@@ -263,12 +264,13 @@ def test_completions_autolog(client, log_models):
         run_id = client.completions._mlflow_run_id
         assert run_id is not None
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        logged_model = mlflow.last_logged_model()
+        loaded_model = mlflow.openai.load_model(logged_model.model_uri)
         assert loaded_model == {
             "model": "gpt-4o-mini",
             "task": "completions",
         }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         assert pyfunc_model.predict("test") == ["test"]
     else:
         assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
@@ -354,12 +356,13 @@ def test_embeddings_autolog(client, log_models):
         run_id = client.embeddings._mlflow_run_id
         assert run_id is not None
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        logged_model = mlflow.last_logged_model()
+        loaded_model = mlflow.openai.load_model(logged_model.model_uri)
         assert loaded_model == {
             "model": "text-embedding-ada-002",
             "task": "embeddings",
         }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         output = pyfunc_model.predict("test")
         assert len(output) == 1
         assert len(output[0]) == 1536
