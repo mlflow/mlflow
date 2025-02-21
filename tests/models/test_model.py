@@ -171,10 +171,21 @@ def test_model_log():
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
 
+def test_model_log_without_run(tmp_path):
+    model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id is None
+
+
+def test_model_log_with_active_run(tmp_path):
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id is run.info.run_id
+
+
 def test_model_log_inactive_run_id(tmp_path):
     experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
     run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)
-    model_info = Model.log("some/path", TestFlavor, run_id=run.info.run_id)
+    model_info = Model.log("model", TestFlavor, run_id=run.info.run_id)
     assert model_info.run_id is run.info.run_id
 
 

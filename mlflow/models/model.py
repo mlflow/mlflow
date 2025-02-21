@@ -920,8 +920,8 @@ class Model:
             tracking_uri = _resolve_tracking_uri()
             client = mlflow.MlflowClient(tracking_uri)
             active_run = mlflow.tracking.fluent.active_run()
-            if active_run is not None:
-                run_id = run_id or active_run.info.run_id
+            if not run_id:
+                run_id = ar.info.run_id if (ar := mlflow.active_run()) else None
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -944,7 +944,7 @@ class Model:
                     else None,
                 )
 
-            if active_run is not None:
+            if run_id is not None:
                 client.log_outputs(
                     run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
                 )
