@@ -919,7 +919,6 @@ class Model:
 
             tracking_uri = _resolve_tracking_uri()
             client = mlflow.MlflowClient(tracking_uri)
-            active_run = mlflow.tracking.fluent.active_run()
             if not run_id:
                 run_id = ar.info.run_id if (ar := mlflow.active_run()) else None
             if model_id is not None:
@@ -927,11 +926,7 @@ class Model:
             else:
                 params = {
                     **(params or {}),
-                    **(
-                        client.get_run(active_run.info.run_id).data.params
-                        if active_run is not None
-                        else {}
-                    ),
+                    **(client.get_run(run_id).data.params if run_id else {}),
                 }
                 model = mlflow.create_logged_model(
                     # TODO: Update model name
