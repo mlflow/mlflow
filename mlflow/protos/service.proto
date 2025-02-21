@@ -4,6 +4,8 @@ package mlflow;
 
 import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -533,6 +535,25 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Traces",
+    };
+  }
+
+  // Create an assessment associated with a trace.
+  rpc createAssessment(CreateAssessment) returns (Assessment) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{assessment.trace_id}/assessments"
+        since {major: 2, minor: 0},
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create an assessment of a trace or a span within the trace",
     };
   }
 }
@@ -1281,6 +1302,120 @@ message GetExperimentByName {
     optional Experiment experiment = 1;
   }
 }
+
+message AssessmentSource {
+  // Type of the assessment source.
+  enum SourceType {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    // Assessment from a human.
+    HUMAN = 1;
+    // Assessment from an LLM Judge.
+    LLM_JUDGE = 2;
+    // Code-based assessment, (e.g. Python UDF).
+    CODE = 3;
+  }
+  // The type of the source.
+  optional SourceType source_type = 1 [(validate_required) = true];
+
+  // Identifier for the source.
+  // Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty.
+  optional string source_id = 2 [(validate_required) = true];
+}
+
+message AssessmentError {
+  // Value of an assessment when an error has occurred.
+  optional string error_code = 1;
+
+  optional string error_message = 2;
+}
+
+// An expectation for the values or guidelines for the outputs that a model or agent should produce
+// from the inputs contained in the trace.
+message Expectation {
+  // Value of the expectation-based assessment.
+  // We use google.protobuf.Value to support a flexible schema of expectation values.
+  optional google.protobuf.Value value = 2;
+}
+
+// Feedback provided on the model / agent output(s) contained in the trace
+message Feedback {
+  // Value of the feedback-based assessment.
+  // We use google.protobuf.Value to support a flexible schema of feedback values.
+  // Supported initial types:
+  // - Numeric values like integers or floats
+  // - Boolean values
+  // - Text value (can contain json text the user wishes to store, but it will only be searchable as text)
+  // - Non-empty list values containing only strings
+  // - Other values like structs, non-string lists etc. will be rejected for now
+  optional google.protobuf.Value value = 2;
+}
+
+// Data and metadata for an assessment of a trace.
+message Assessment {
+  // Unique ID of the assessment.
+  // NB: This is not marked as required field via "validate_required", because the message is
+  //  used in the context of creating a new assessment, where the ID is not known.
+  optional string assessment_id = 1;
+
+  // Name of the assessment. The name must not contain ".".
+  optional string assessment_name = 2 [(validate_required) = true];
+  // ID of the trace this assessment is associated with.
+  optional string trace_id = 3;
+
+  // ID of the span if the assessment is for a particular span (optional).
+  optional string span_id = 4;
+
+  // The source this assessment came from.
+  optional AssessmentSource source = 5;
+
+  // The creation time of this assessment.
+  optional google.protobuf.Timestamp create_time = 6;
+
+  // The last update time of this assessment.
+  optional google.protobuf.Timestamp last_update_time = 7;
+
+  enum AssessmentType {
+    ASSESSMENT_TYPE_UNSPECIFIED = 0;
+    // The assessment provides feedback on the model / agent output(s) contained in the trace
+    FEEDBACK = 1;
+    // The assessment provides expected values or guidelines for output(s) that a model or agent should produce from
+    // The inputs contained in the trace.
+    EXPECTATION = 2;
+  }
+
+  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
+  // The name of the Feedback or Expectation must be the same with the assessment_name.
+  oneof value {
+    // The feedback on the trace from this assessment.
+    Feedback feedback = 9;
+    // A representation of the guidelines and/or expected response from the agent.
+    Expectation expectation = 10;
+  }
+
+  // Justification for the assessment.
+  optional string rationale = 11;
+
+  // An error encountered while computing the assessment.
+  optional AssessmentError error = 12;
+  
+  // Additional metadata describing the assessment and store additional information,
+  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
+  map<string, google.protobuf.Value> metadata = 13;
+}
+
+
+message CreateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[Assessment]";
+
+  // The assessment to create.
+  optional Assessment assessment = 1 [(validate_required) = true];;
+
+  message Response {
+    // The created assessment.
+    optional Assessment assessment = 1;
+  }
+}
+
 
 // TraceInfo. Represents metadata of a trace.
 message TraceInfo {
