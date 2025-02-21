@@ -363,7 +363,7 @@ def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
 
 
-def get_create_assessment_endpoint(trace_id: str):
+def get_assessments_endpoint(trace_id: str):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
 
 

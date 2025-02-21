@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import AssessmentError
+from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 
@@ -70,6 +70,25 @@ def test_log_expectation_invalid_parameters():
             value=1.0,
             source="INVALID_SOURCE_TYPE",
         )
+
+def test_update_expectation(store):
+    mlflow.set_tracking_uri("databricks")
+
+    mlflow.update_expectation(
+        assessment_id="1234",
+        trace_id="tr-1234",
+        value="MLflow",
+    )
+
+    assert store.update_assessment.call_count == 1
+    call_args = store.update_assessment.call_args[1]
+    assert call_args["trace_id"] == "tr-1234"
+    assert call_args["assessment_id"] == "1234"
+    assert call_args["name"] is None
+    assert call_args["expectation"] == Expectation(value="MLflow")
+    assert call_args["feedback"] is None
+    assert call_args["rationale"] is None
+    assert call_args["metadata"] is None
 
 
 def test_log_feedback(store):
@@ -160,8 +179,29 @@ def test_log_feedback_invalid_parameters():
             source=None,
         )
 
+def test_update_feedback(store):
+    mlflow.set_tracking_uri("databricks")
 
-def test_assessment_apis_only_available_in_databricks(store):
+    mlflow.update_feedback(
+        assessment_id="1234",
+        trace_id="tr-1234",
+        value=1.0,
+        rationale="This answer is very faithful.",
+        metadata={"model": "gpt-4o-mini"},
+    )
+
+    assert store.update_assessment.call_count == 1
+    call_args = store.update_assessment.call_args[1]
+    assert call_args["trace_id"] == "tr-1234"
+    assert call_args["assessment_id"] == "1234"
+    assert call_args["name"] is None
+    assert call_args["expectation"] is None
+    assert call_args["feedback"] == Feedback(value=1.0)
+    assert call_args["rationale"] == "This answer is very faithful."
+    assert call_args["metadata"] == {"model": "gpt-4o-mini"}
+
+
+def test_assessment_apis_only_available_in_databricks():
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
         mlflow.log_expectation(
             trace_id="1234",

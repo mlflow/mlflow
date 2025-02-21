@@ -18,7 +18,7 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
-from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -804,3 +804,99 @@ def test_log_assessment():
         mock_http, creds, "traces/tr-1234/assessments", "POST", message_to_json(request)
     )
     assert isinstance(res, Assessment)
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected_request_json"),
+    [
+        (
+            {"name": "updated_name"},
+            {
+                "assessment": {
+                    "assessment_id": "1234",
+                    "trace_id": "tr-1234",
+                    "assessment_name": "updated_name",
+                },
+                "update_mask": "assessmentName",
+            },
+        ),
+        (
+            {"expectation": Expectation(value="updated_value")},
+            {
+                "assessment": {
+                    "assessment_id": "1234",
+                    "trace_id": "tr-1234",
+                    "expectation": {"value": "updated_value"},
+                },
+                "update_mask": "expectation",
+            },
+        ),
+        (
+            {
+                "feedback": Feedback(value=0.5),
+                "rationale": "update",
+                "metadata": {"model": "gpt-4o-mini"},
+            },
+            {
+                "assessment": {
+                    "assessment_id": "1234",
+                    "trace_id": "tr-1234",
+                    "feedback": {"value": 0.5},
+                    "rationale": "update",
+                    "metadata": {"model": "gpt-4o-mini"},
+                },
+                "update_mask": "feedback,rationale,metadata",
+            },
+        ),
+    ],
+)
+def test_update_assessment(updates, expected_request_json):
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_id": "tr-1234",
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-25T01:23:45Z",
+                "feedback": {"value": True},
+                "rationale": "rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.update_assessment(
+            trace_id="tr-1234",
+            assessment_id="1234",
+            **updates,
+        )
+
+    _verify_requests(
+        mock_http, creds, "traces/tr-1234/assessments", "PATCH", json.dumps(expected_request_json)
+    )
+    assert isinstance(res, Assessment)
+
+
+def test_update_assessment_invalid_update():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with pytest.raises(MlflowException, match="Exactly one of `expectation` or `feedback`"):
+        store.update_assessment(
+            trace_id="tr-1234",
+            assessment_id="1234",
+            expectation=Expectation(value="updated_value"),
+            feedback=Feedback(value=0.5),
+        )

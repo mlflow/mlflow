@@ -1,3 +1,4 @@
+import functools
 import textwrap
 import warnings
 

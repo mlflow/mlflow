@@ -10,7 +10,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities import (
     ExperimentTag,
@@ -22,7 +22,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
-from mlflow.entities.assessment import Assessment
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -437,6 +437,44 @@ class TrackingServiceClient:
             )
 
         return self.store.create_assessment(assessment)
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ):
+        """
+        Update an existing assessment entity in the backend store.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the feedback assessment to update.
+            name: The updated name of the feedback.
+            expectation: The updated expectation value of the assessment.
+            feedback: The updated feedback value of the assessment.
+            rationale: The updated rationale of the feedback.
+            metadata: Additional metadata for the feedback.
+        """
+        if not is_databricks_uri(self.tracking_uri):
+            raise MlflowException(
+                "This API is currently only available for Databricks Managed MLflow. This "
+                "will be available in the open-source version of MLflow in a future release."
+            )
+
+        return self.store.update_assessment(
+            trace_id=trace_id,
+            assessment_id=assessment_id,
+            name=name,
+            expectation=expectation,
+            feedback=feedback,
+            rationale=rationale,
+            metadata=metadata,
+        )
 
     def search_experiments(
         self,

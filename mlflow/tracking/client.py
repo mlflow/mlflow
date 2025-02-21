@@ -1114,6 +1114,26 @@ class MlflowClient:
         )
         return self._tracking_client.create_assessment(assessment)
 
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Assessment:
+        return self._tracking_client.update_assessment(
+            trace_id=trace_id,
+            assessment_id=assessment_id,
+            name=name,
+            expectation=expectation,
+            feedback=feedback,
+            rationale=rationale,
+            metadata=metadata,
+        )
+
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
