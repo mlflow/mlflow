@@ -100,6 +100,7 @@ spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
+txtai = LazyLoader("mlflow.txtai", globals(), "mlflow.txtai")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
