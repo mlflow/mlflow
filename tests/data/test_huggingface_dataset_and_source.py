@@ -28,7 +28,7 @@ def mock_datasets_load_dataset():
 
     original = datasets.load_dataset
 
-    def mock_load_dataset(*args, **kwargs):
+    def load_dataset(*args, **kwargs):
         for i in range(5):
             try:
                 return original(*args, **kwargs)
@@ -38,8 +38,9 @@ def mock_datasets_load_dataset():
                     continue
                 raise
 
-    with mock.patch("datasets.load_dataset", new=mock_load_dataset):
-        yield mock_load_dataset
+    with mock.patch("datasets.load_dataset", wraps=load_dataset) as mock_load_dataset:
+        yield
+        mock_load_dataset.assert_called()
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():
