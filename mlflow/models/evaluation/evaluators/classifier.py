@@ -93,7 +93,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _generate_model_predictions(self, model, input_df):
         predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
         # Classifier model is guaranteed to output single column of predictions
-        y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
+        y_pred = (
+            self.dataset.predictions_data if model is None else predict_fn(input_df)
+        )
 
         # Predict class probabilities if the model supports it
         y_probs = predict_proba_fn(input_df) if predict_proba_fn is not None else None
@@ -138,7 +140,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
             )
 
     def _compute_builtin_metrics(self, model):
-        self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
+        self._evaluate_sklearn_model_score_if_scorable(
+            model, self.y_true, self.sample_weights
+        )
 
         if len(self.label_list) <= 2:
             metrics = _get_binary_classifier_metrics(
@@ -193,7 +197,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 )
 
                 self.metrics_values.update(
-                    _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+                    _get_aggregate_metrics_values(
+                        {"precision_recall_auc": self.pr_curve.auc}
+                    )
                 )
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
@@ -209,11 +215,13 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_multiclass_classifier_artifacts(self):
-        per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            y=self.y_true,
-            y_pred=self.y_pred,
-            labels=self.label_list,
-            sample_weights=self.sample_weights,
+        per_class_metrics_collection_df = (
+            _get_classifier_per_class_metrics_collection_df(
+                y=self.y_true,
+                y_pred=self.y_pred,
+                labels=self.label_list,
+                sample_weights=self.sample_weights,
+            )
         )
 
         log_roc_pr_curve = False
@@ -263,7 +271,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
             per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
-        self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
+        self._log_pandas_df_artifact(
+            per_class_metrics_collection_df, "per_class_metrics"
+        )
 
     def _log_roc_curve(self):
         def _plot_roc_curve():
@@ -285,6 +295,23 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
+    def _log_calibration_curve(self):
+        from mlflow.models.evaluation.calibration_curve import plot_calibration_curve
+
+        def _plot_calibration_curve():
+            return plot_calibration_curve(
+                self.y_true,
+                self.y_probs,
+                self.pos_label,
+                {
+                    k: v
+                    for k, v in self.evaluator_config.items()
+                    if k.startswith("calibration_")
+                },
+            )
+
+        self._log_image_artifact(_plot_calibration_curve, "calibration_curve_plot")
+
     def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
             with _suppress_class_imbalance_errors(log_warning=False):
@@ -293,6 +320,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self._log_precision_recall_curve()
             with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self._log_lift_curve()
+            with _suppress_class_imbalance_errors(TypeError, log_warning=False):
+                self._log_calibration_curve()
 
     def _log_confusion_matrix(self):
         """
@@ -379,7 +408,9 @@ def _extract_predict_fn_and_prodict_proba_fn(model):
 
             # Because shap evaluation will pass evaluation data in ndarray format
             # (without feature names), if set validate_features=True it will raise error.
-            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
+            predict_fn = _wrapped_xgboost_model_predict_fn(
+                raw_model, validate_features=False
+            )
             predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
                 raw_model, validate_features=False
             )
@@ -417,7 +448,9 @@ def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True)
             raise e
 
 
-def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
+def _get_binary_sum_up_label_pred_prob(
+    positive_class_index, positive_class, y, y_pred, y_probs
+):
     y = np.array(y)
     y_bin = np.where(y == positive_class, 1, 0)
     y_pred_bin = None
@@ -438,7 +471,9 @@ def _get_common_classifier_metrics(
 ):
     metrics = {
         "example_count": len(y_true),
-        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
+        "accuracy_score": sk_metrics.accuracy_score(
+            y_true, y_pred, sample_weight=sample_weights
+        ),
         "recall_score": sk_metrics.recall_score(
             y_true,
             y_pred,
@@ -588,7 +623,9 @@ def _gen_classifier_curve(
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
 
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            auc = sk_metrics.roc_auc_score(
+                y_true=_y, y_score=_y_prob, sample_weight=sample_weights
+            )
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
@@ -612,7 +649,10 @@ def _gen_classifier_curve(
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
             ap = sk_metrics.average_precision_score(
-                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+                y_true=_y,
+                y_score=_y_prob,
+                pos_label=_pos_label,
+                sample_weight=sample_weights,
             )
             return recall, precision, f"AP={ap:.3f}", ap
 
