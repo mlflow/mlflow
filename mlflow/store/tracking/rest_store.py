@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -11,6 +11,7 @@ from mlflow.protos.service_pb2 import (
     CreateAssessment,
     CreateExperiment,
     CreateRun,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -661,3 +662,18 @@ class RestStore(AbstractStore):
         datasets_protos = [dataset.to_proto() for dataset in datasets]
         req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
         self._call_endpoint(LogInputs, req_body)
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment associated with a trace.
+
+        Args:
+            trace_id: String ID of the trace.
+            assessment_id: String ID of the assessment to delete.
+        """
+        req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
+        self._call_endpoint(
+            DeleteAssessment,
+            req_body,
+            endpoint=get_assessments_endpoint(trace_id),
+        )

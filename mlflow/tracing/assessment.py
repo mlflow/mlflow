@@ -135,6 +135,23 @@ def update_expectation(
 
 
 @experimental
+def delete_expectation(trace_id: str, assessment_id: str):
+    """
+
+    .. important::
+
+        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+
+    Deletes an expectation associated with a trace.
+
+    Args:
+        trace_id: The ID of the trace.
+        assessment_id: The ID of the expectation assessment to delete.
+    """
+    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+
+
+@experimental
 def log_feedback(
     trace_id: str,
     name: str,
@@ -292,6 +309,23 @@ def update_feedback(
         rationale=rationale,
         metadata=metadata,
     )
+
+
+@experimental
+def delete_feedback(trace_id: str, assessment_id: str):
+    """
+
+    .. important::
+
+        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+
+    Deletes feedback associated with a trace.
+
+    Args:
+        trace_id: The ID of the trace.
+        assessment_id: The ID of the feedback assessment to delete.
+    """
+    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
 def _parse_source(source: Union[str, AssessmentSource]) -> AssessmentSource:

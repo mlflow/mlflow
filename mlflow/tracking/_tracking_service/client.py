@@ -10,7 +10,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Optional, Union
+from typing import Optional
 
 from mlflow.entities import (
     ExperimentTag,
@@ -475,6 +475,22 @@ class TrackingServiceClient:
             rationale=rationale,
             metadata=metadata,
         )
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment associated with a trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to delete.
+        """
+        if not is_databricks_uri(self.tracking_uri):
+            raise MlflowException(
+                "This API is currently only available for Databricks Managed MLflow. This "
+                "will be available in the open-source version of MLflow in a future release."
+            )
+
+        self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
     def search_experiments(
         self,

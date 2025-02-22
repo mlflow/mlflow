@@ -126,6 +126,8 @@ from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
 from mlflow.tracing.assessment import (
+    delete_expectation,
+    delete_feedback,
     log_expectation,
     log_feedback,
     update_expectation,
@@ -264,6 +266,8 @@ __all__ = [
     "log_trace",
     "update_current_trace",
     # Assessment APIs
+    "delete_expectation",
+    "delete_feedback",
     "log_expectation",
     "log_feedback",
     "update_expectation",

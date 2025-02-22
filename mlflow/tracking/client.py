@@ -1134,6 +1134,9 @@ class MlflowClient:
             metadata=metadata,
         )
 
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        return self._tracking_client.delete_assessment(trace_id, assessment_id)
+
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,

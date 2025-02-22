@@ -591,6 +591,19 @@ service MlflowService {
       rpc_doc_title: "Update an existing assessment on a trace.",
     };
   }
+
+  // Delete an assessment.
+  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1456,6 +1469,18 @@ message UpdateAssessment {
     // The Assessment after the update.
     optional Assessment assessment = 1;
   }
+}
+
+// A request to delete an assessment identified by its trace_id and assessment_id.
+// The response is empty on successful deletion.
+message DeleteAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // The ID of the trace.
+  optional string trace_id = 1 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 2 [(validate_required) = true];
+
+  message Response {}
 }
 
 
