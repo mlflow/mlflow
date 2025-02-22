@@ -867,9 +867,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
     if compression and compression in _COMPRESSION_EXTENSION:
-        custom_model_config_kwargs = {
-            CONFIG_KEY_COMPRESSION: compression,
-        }
+        custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
         saved_python_model_subpath += _COMPRESSION_EXTENSION[compression]
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
