@@ -82,6 +82,7 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
 _COMPRESSION_EXTENSION = {"lzma": ".xz", "bzip2": ".bz2", "gzip": ".gz"}
+_COMPRESSION_OPEN = {"lzma": lzma.open, "bzip2": bz2.open, "gzip": gzip.open}
 _logger = logging.getLogger(__name__)
 
 
@@ -775,34 +776,25 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
 
 def _maybe_compress_cloudpickle_dump(python_model, path, compression):
-    if compression is None:
-        out = open(path, "wb")
-    elif compression == "lzma":
-        out = lzma.open(path, "wb")
-    elif compression == "bzip2":
-        out = bz2.open(path, "wb")
-    elif compression == "gzip":
-        out = gzip.open(path, "wb")
-    else:
-        raise ValueError(f"Unrecognized {compression=}")
-    cloudpickle.dump(python_model, out)
-    out.close()
+    if compression and compression not in _COMPRESSION_OPEN:
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method specified: `{compression}` please use one of "
+            '"lzma", "bzip2", "gzip", falling back to dump to regular file'
+        )
+    file_open = _COMPRESSION_OPEN.get(compression, open)
+    with file_open(path, "wb") as out:
+        cloudpickle.dump(python_model, out)
 
 
 def _maybe_decompress_cloudpickle_load(path, compression):
-    if compression is None:
-        f = open(path, "rb")
-    elif compression == "lzma":
-        f = lzma.open(path, "rb")
-    elif compression == "bzip2":
-        f = bz2.open(path, "rb")
-    elif compression == "gzip":
-        f = gzip.open(path, "rb")
-    else:
-        raise ValueError(f"Unrecognized {compression=}")
-    content = cloudpickle.load(f)
-    f.close()
-    return content
+    if compression and compression not in _COMPRESSION_OPEN:
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method specified: `{compression}` please use one of "
+            '"lzma", "bzip2", "gzip", falling back to load from regular file'
+        )
+    file_open = _COMPRESSION_OPEN.get(compression, open)
+    with file_open(path, "rb") as f:
+        return cloudpickle.load(f)
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
@@ -872,14 +864,13 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     if callable(python_model):
         python_model = _FunctionPythonModel(func=python_model, signature=signature)
 
-    if compression:
+    saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
+
+    if compression and compression in _COMPRESSION_EXTENSION:
         custom_model_config_kwargs = {
             CONFIG_KEY_COMPRESSION: compression,
         }
-
-    saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH + _COMPRESSION_EXTENSION.get(
-        compression, ""
-    )
+        saved_python_model_subpath += _COMPRESSION_EXTENSION[compression]
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
     # pickle/save the python_model since the module won't be able to be imported.
