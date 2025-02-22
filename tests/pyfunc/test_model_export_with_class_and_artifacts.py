@@ -2469,3 +2469,30 @@ def test_both_resources_and_auth_policy():
                     DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
                 ],
             )
+
+
+@pytest.mark.parametrize("compression", ["lzma", "bzip2", "gzip"])
+def test_model_save_load_compression(
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path, compression
+):
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
+        compression=compression,
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    np.testing.assert_array_equal(
+        loaded_pyfunc_model.predict(iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
+    )

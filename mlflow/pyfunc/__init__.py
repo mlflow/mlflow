@@ -2773,6 +2773,7 @@ def save_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
+    compression: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -2952,6 +2953,9 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        compression: One of "lzma", "bzip2" or "gzip", the cloudpickle file will be compressed
+                using the respective format before being written to disk.
+                Default None ie. no compression.
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -3282,6 +3286,7 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
+            compression=compression,
         )
 
 
@@ -3321,6 +3326,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
+    compression: Optional[str] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3518,6 +3524,10 @@ def log_model(
 
         auth_policy: {{ auth_policy }}
 
+        compression: One of "lzma", "bzip2" or "gzip", the cloudpickle file will be compressed
+                     using the respective format before being written to disk.
+                     Default None ie. no compression.
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -3545,6 +3555,7 @@ def log_model(
         resources=resources,
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
+        compression=compression,
     )
 
 
