@@ -4,10 +4,11 @@ import inspect
 import itertools
 import typing
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from typing import Optional
 
 import mlflow
+from mlflow.exceptions import MlflowException
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
@@ -263,6 +264,11 @@ def safe_patch(
     """
 
     if manage_run:
+        if inspect.iscoroutinefunction(patch_function):
+            raise MlflowException.invalid_parameter_value(
+                f"Managed run is not supported for patching async function.",
+            )
+
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
         patch_function = with_managed_run(
             autologging_integration,
@@ -280,6 +286,11 @@ def safe_patch(
     if original_fn != raw_original_obj:
         raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
+        if inspect.iscoroutinefunction(original_fn.fget):
+            raise MlflowException(
+                f"Async property method is not supported for patching."
+            )
+
         is_property_method = True
 
         # For property decorated methods (a kind of method delegation), e.g.
@@ -386,6 +397,60 @@ def safe_patch(
                             patch_error,
                         )
 
+    async def async_safe_patch_function(*args, **kwargs):
+        """Async version of `safe_patch_function`."""
+        if _should_skip_autolog(autologging_integration):
+            return await original(*args, **kwargs)
+
+        async with set_warning_behavior_during_autologging(autologging_integration):
+            original_fn_state = FunctionCallState()
+            patch_function_exception = None
+
+            async with _AutologgingSessionManager.async_start_session(autologging_integration) as session:
+                event_logger = AutologgingEventLoggerWrapper(
+                    None, destination, function_name, args, kwargs
+                )
+
+                @wraps(original)
+                async def _call_original(*og_args, **og_kwargs):
+                    _validate_args_if_testing(args, kwargs, og_args, og_kwargs)
+                    try:
+                        event_logger.log_original_function_start()
+                        original_fn_result = await original(*og_args, **og_kwargs)
+
+                        async with set_non_mlflow_warnings_behavior_for_current_thread(False, False):
+                            original_fn_state.set_result(original_fn_result)
+
+                        event_logger.log_original_function_success()
+                        return original_fn_result
+                    except Exception as e:
+                        original_fn_state.set_exception(e)
+                        event_logger.log_original_function_error(e)
+                        raise
+
+                try:
+                    event_logger.log_patch_function_start()
+                    await patch_function(_call_original, *args, **kwargs)
+                    event_logger.log_patch_function_success()
+                except Exception as e:
+                    patch_function_exception = e
+                    if original_fn_state.exception or is_testing():
+                        raise
+
+                try:
+                    if original_fn_state.has_been_called:
+                        return original_fn_state.result
+                    else:
+                        return await _call_original(*args, **kwargs)
+                finally:
+                    if patch_function_exception is not None and original_fn_state.exception is None:
+                        event_logger.log_patch_function_error(patch_function_exception)
+                        _logger.warning(
+                            "Encountered unexpected error during {} autologging: %s",
+                            autologging_integration,
+                            patch_function_exception,
+                        )
+
     if is_property_method:
         # Create a patched function (also property decorated)
         # like:
@@ -419,6 +484,8 @@ def safe_patch(
 
         # Make unbound method `class.target_method` keep the same doc and signature
         safe_patch_obj = property(get_bound_safe_patch_fn)
+    elif inspect.iscoroutinefunction(original):
+        safe_patch_obj = update_wrapper_extended(async_safe_patch_function, original)
     else:
         safe_patch_obj = update_wrapper_extended(safe_patch_function, original)
 
@@ -486,16 +553,9 @@ class _AutologgingSessionManager:
     @classmethod
     @contextmanager
     def start_session(cls, integration):
-        with cls._start_session(integration) as session:
-            if is_testing():
-                with _test_only_run_validation(integration):
-                    yield session
-            else:
-                yield session
+        if is_testing():
+            preexisting_run = mlflow.active_run()
 
-    @classmethod
-    @contextmanager
-    def _start_session(cls, integration):
         try:
             prev_session = cls._session
             if prev_session is None:
@@ -514,15 +574,41 @@ class _AutologgingSessionManager:
             # the session; otherwise, leave the session open for later termination
             # by its creator
             if prev_session is None:
-                cls._end_session()
+                cls._session = None
+
+            if is_testing():
+                _test_only_run_validation(preexisting_run, integration)
+
+    @classmethod
+    @contextmanager
+    async def async_start_session(cls, integration):
+        if is_testing():
+            preexisting_run = mlflow.active_run()
+
+        try:
+            prev_session = cls._session
+            if prev_session is None:
+                session_id = uuid.uuid4().hex
+                cls._session = AutologgingSession(integration, session_id)
+            yield cls._session
+
+            cls._session.state = "succeeded"
+
+        except Exception as e:
+            cls._session.state = "failed"
+            raise e
+
+        finally:
+            if prev_session is None:
+                cls._session = None
+
+            if is_testing():
+                _test_only_run_validation(preexisting_run, integration)
 
     @classmethod
     def active_session(cls):
         return cls._session
 
-    @classmethod
-    def _end_session(cls):
-        cls._session = None
 
 
 def wraps(wrapped):
@@ -864,13 +950,7 @@ def _validate_args(
             )
 
 
-@contextmanager
-def _test_only_run_validation(flavor):
-    """ """
-    preexisting_run = mlflow.active_run()
-
-    yield
-
+def _test_only_run_validation(preexisting_run, flavor):
     if preexisting_run:
         # If a run was already active before the patch function, nothing
         return
