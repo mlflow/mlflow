@@ -424,19 +424,21 @@ def safe_patch(
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
                 event_logger = AutologgingEventLoggerWrapper(
-                    session, destination, function_name, args, kwargs
+                    session,
+                    destination,
+                    function_name,
                 )
 
                 def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
                     try:
-                        event_logger.log_original_function_start()
+                        event_logger.log_original_function_start(og_args, og_kwargs)
 
                         original_fn_result = original_fn(*og_args, **og_kwargs)
 
-                        event_logger.log_original_function_success()
+                        event_logger.log_original_function_success(og_args, og_kwargs)
                         return original_fn_result
                     except Exception as e:
-                        event_logger.log_original_function_error(e)
+                        event_logger.log_original_function_error(og_args, og_kwargs, e)
 
                         nonlocal failed_during_original
                         failed_during_original = True
@@ -487,7 +489,7 @@ def safe_patch(
                     # the signature of the `original` argument during execution
                     call_original = update_wrapper_extended(call_original, original)
 
-                    event_logger.log_patch_function_start()
+                    event_logger.log_patch_function_start(args, kwargs)
 
                     if patch_is_class:
                         patch_function.call(call_original, *args, **kwargs)
@@ -495,7 +497,7 @@ def safe_patch(
                         patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
-                    event_logger.log_patch_function_success()
+                    event_logger.log_patch_function_success(args, kwargs)
 
                 except Exception as e:
                     session.state = "failed"
@@ -529,7 +531,11 @@ def safe_patch(
                     # even if `patch_function_exception` exists, because original function failure
                     # means there's some error in user code (e.g. user provide wrong arguments)
                     if patch_function_exception is not None and not failed_during_original:
-                        event_logger.log_patch_function_error(patch_function_exception)
+                        event_logger.log_patch_function_error(
+                            args,
+                            kwargs,
+                            patch_function_exception,
+                        )
 
                         _logger.warning(
                             "Encountered unexpected error during %s autologging: %s",

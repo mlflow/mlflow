@@ -38,74 +38,70 @@ class AutologgingEventLoggerWrapper:
         it is used in Databricks code base as well.
     """
 
-    def __init__(
-        self, session, destination: Any, function_name: str, call_args: tuple, call_kwargs: dict
-    ):
+    def __init__(self, session, destination: Any, function_name: str):
         self._session = session
         self._destination = destination
         self._function_name = function_name
-        self._call_args = call_args
-        self._call_kwargs = call_kwargs
 
     @_catch_exception
-    def log_patch_function_start(self):
+    def log_patch_function_start(self, args, kwargs):
         AutologgingEventLogger.get_logger().log_patch_function_start(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
         )
 
     @_catch_exception
-    def log_patch_function_success(self):
+    def log_patch_function_success(self, args, kwargs):
         AutologgingEventLogger.get_logger().log_patch_function_success(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
         )
 
     @_catch_exception
-    def log_patch_function_error(self, exception):
+    def log_patch_function_error(self, args, kwargs, exception):
         AutologgingEventLogger.get_logger().log_patch_function_error(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
             exception,
         )
 
     @_catch_exception
-    def log_original_function_start(self):
+    def log_original_function_start(self, args, kwargs):
         AutologgingEventLogger.get_logger().log_original_function_start(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
         )
 
     @_catch_exception
-    def log_original_function_success(self):
+    def log_original_function_success(self, args, kwargs):
         AutologgingEventLogger.get_logger().log_original_function_success(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
         )
 
     @_catch_exception
-    def log_original_function_error(self, exception):
+    def log_original_function_error(self, args, kwargs, exception):
         AutologgingEventLogger.get_logger().log_original_function_error(
             self._session,
             self._destination,
             self._function_name,
-            self._call_args,
-            self._call_kwargs,
+            args,
+            kwargs,
             exception,
         )
 
