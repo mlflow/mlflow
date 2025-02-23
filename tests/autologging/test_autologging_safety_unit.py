@@ -1775,14 +1775,14 @@ def test_safe_patch_preserves_original_function_attributes():
 def test_should_skip_autolog(patch_destination):
     patch_impl_call_count = 0
 
-    @autologging_integration("test")
+    @autologging_integration("test-flavor")
     def autolog(disable=False, exclusive=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
             return original(*args, **kwargs)
 
-        safe_patch("test", patch_destination, "fn", patch_impl)
+        safe_patch("test-flavor", patch_destination, "fn", patch_impl)
 
     # Autologging is enabled -> patch should be applied
     autolog()
