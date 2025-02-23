@@ -10,7 +10,7 @@ from mlflow.utils.annotations import experimental
 
 @experimental
 @dataclass
-class AssessmentSource(_MlflowObject):
+class AssessmentSourceV3(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
 
@@ -31,7 +31,7 @@ class AssessmentSource(_MlflowObject):
         return asdict(self)
 
     @classmethod
-    def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSource":
+    def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSourceV3":
         return cls(**source_dict)
 
     def to_proto(self):
@@ -43,7 +43,7 @@ class AssessmentSource(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return AssessmentSource(
+        return AssessmentSourceV3(
             source_type=AssessmentSourceType.from_proto(proto.source_type),
             source_id=proto.source_id if proto.source_id else None,
         )

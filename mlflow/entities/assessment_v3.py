@@ -5,7 +5,7 @@ from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment_source_v3 import AssessmentSourceV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.service_pb2 import Expectation as ProtoExpectation
@@ -26,7 +26,7 @@ AssessmentValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueTyp
 
 @experimental
 @dataclass
-class Assessment(_MlflowObject):
+class AssessmentV3(_MlflowObject):
     """
     Assessment object associated with a trace.
 
@@ -60,7 +60,7 @@ class Assessment(_MlflowObject):
 
     trace_id: str
     name: str
-    source: AssessmentSource
+    source: AssessmentSourceV3
     create_time_ms: int
     last_update_time_ms: int
     value: Optional[Union[Expectation, Feedback]] = None
@@ -148,7 +148,7 @@ class Assessment(_MlflowObject):
             _assessment_id=proto.assessment_id or None,
             trace_id=proto.trace_id,
             name=proto.assessment_name,
-            source=AssessmentSource.from_proto(proto.source),
+            source=AssessmentSourceV3.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
             last_update_time_ms=proto.last_update_time.ToMilliseconds(),
             value=value,
