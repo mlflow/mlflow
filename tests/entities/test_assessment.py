@@ -151,13 +151,6 @@ def test_assessment_value_validation():
     "metadata",
     [
         {"key1": "value1"},
-        {
-            "key2": 1,
-            "key3": 2.0,
-            "key4": True,
-            "key5": [1, 2, 3],
-            "key6": {"key7": "value7"},
-        },
         None,
     ],
 )

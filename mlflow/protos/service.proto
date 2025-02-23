@@ -4,6 +4,7 @@ package mlflow;
 
 import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -508,6 +509,20 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get TraceInfo",
+    };
+  }
+
+
+  // MLflow 3.0 version of the RPC.
+  rpc getTraceInfoV3 (GetTraceInfoV3) returns (GetTraceInfoV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}",
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo v3",
     };
   }
 
@@ -1374,15 +1389,6 @@ message Assessment {
   // The last update time of this assessment.
   optional google.protobuf.Timestamp last_update_time = 7;
 
-  enum AssessmentType {
-    ASSESSMENT_TYPE_UNSPECIFIED = 0;
-    // The assessment provides feedback on the model / agent output(s) contained in the trace
-    FEEDBACK = 1;
-    // The assessment provides expected values or guidelines for output(s) that a model or agent should produce from
-    // The inputs contained in the trace.
-    EXPECTATION = 2;
-  }
-
   // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
   // The name of the Feedback or Expectation must be the same with the assessment_name.
   oneof value {
@@ -1400,12 +1406,12 @@ message Assessment {
   
   // Additional metadata describing the assessment and store additional information,
   // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
-  map<string, google.protobuf.Value> metadata = 13;
+  map<string, string> metadata = 13;
 }
 
 
 message CreateAssessment {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[Assessment]";
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The assessment to create.
   optional Assessment assessment = 1 [(validate_required) = true];;
@@ -1527,6 +1533,17 @@ message GetTraceInfo {
   }
 }
 
+message GetTraceInfoV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1;
+
+  message Response {
+    optional Trace trace = 1;
+  }
+}
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1605,6 +1622,95 @@ message DeleteTraceTag {
 
   message Response {
   }
+}
+
+message Trace {
+  optional TraceInfoV3 trace_info = 1;
+}
+
+
+// The location where the traces was stored and produced
+message TraceLocation {
+
+  enum TraceLocationType {
+    TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
+    MLFLOW_EXPERIMENT = 1;
+    INFERENCE_TABLE= 2;
+  }
+  optional TraceLocationType type = 1;
+
+  message MlflowExperimentLocation {
+    // MLflow experiment ID which is the ACL container holding the trace.
+    optional string experiment_id = 1;
+  }
+
+  message InferenceTableLocation {
+    // Full inference table name in the form of catalog.schema.table_name
+    optional string full_table_name = 1;
+  }
+
+  oneof identifier {
+    MlflowExperimentLocation mlflow_experiment = 2;
+    InferenceTableLocation inference_table = 3;
+  }
+}
+
+message TraceInfoV3 {
+  // The primary key associated with the trace
+  optional string trace_id = 1;
+
+  // Client supplied request ID associated with the trace. This could be used to identify the trace/request from an
+  // external system that produced the trace.
+  optional string client_request_id = 2;
+
+  optional TraceLocation trace_location = 3;
+
+  // Request to the model/agent.
+  // Equivalent to the input of the root span but added for ease of access.
+  // Represented as a JSON string.
+  optional string request = 4;
+
+  // Response of the model/agent.
+  // Equivalent to the output of the root span but added for ease of access.
+  // Represented as a JSON string.
+  optional string response = 5;
+
+  // Start time of the trace
+  optional google.protobuf.Timestamp request_time = 6;
+
+  // Execution time of the trace
+  optional google.protobuf.Duration execution_duration = 7;
+
+  // Execution state of the trace at the time that it was logged.
+  enum State {
+    STATE_UNSPECIFIED = 0;
+
+    // The operation being traced was successful.
+    OK = 1;
+
+    // The operation being traced failed.
+    ERROR = 2;
+
+    // The operation being traced is still in progress. This is useful for incremental/distributed tracing logging in
+    // contrast with when the full trace is logged only upon its completion.
+    IN_PROGRESS = 3;
+  }
+  optional State state = 8;
+
+  // Metadata associated with the trace.
+  // Examples include:
+  // - run_id: The ID of the mlflow Run (i.e. evaluation job) that produced the trace. May not be
+  //           applicable in certain situations such as if the trace was created via interactive vibe checks)
+  // - model_id: The ID of the associated model that produced the trace.
+  // - dataset_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - dataset_record_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - session_id: The ID of the session (e.g. chat conversation) where the request came from
+  map<string, string> trace_metadata = 9;
+
+  repeated Assessment assessments = 10;
+
+  // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
+  map<string, string> tags = 11;
 }
 
 // DatasetSummary. Represents a summary of information about a dataset.

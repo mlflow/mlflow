@@ -127,8 +127,7 @@ class Assessment(_MlflowObject):
         # The metadata values are google.protobuf.Value and does not support
         # assignment like metadata[key] = value.
         if self.metadata:
-            for key, value in self.metadata.items():
-                set_pb_value(assessment.metadata[key], value)
+            assessment.metadata.update(self.metadata)
 
         return assessment
 
@@ -142,7 +141,7 @@ class Assessment(_MlflowObject):
             value = None
 
         error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
-        metadata = {key: parse_pb_value(proto.metadata[key]) for key in proto.metadata}
+        metadata = proto.metadata
 
         return cls(
             _assessment_id=proto.assessment_id or None,
@@ -158,6 +157,22 @@ class Assessment(_MlflowObject):
             span_id=proto.span_id or None,
         )
 
+    def to_dictionary(self):
+        value_key = "expectation" if isinstance(self.value, Expectation) else "feedback" if isinstance(self.value, Feedback) else None
+        return {
+            "trace_id": self.trace_id,
+            "name": self.name,
+            "source": self.source.to_dictionary(),
+            "create_time_ms": self.create_time_ms,
+            "last_update_time_ms": self.last_update_time_ms,
+            value_key: self.value.to_dictionary() if self.value else None,
+            "rationale": self.rationale,
+            "metadata": self.metadata,
+            "error": self.error.to_dictionary() if self.error else None,
+            "span_id": self.span_id,
+            "_assessment_id": self._assessment_id,
+        }
+
 
 @experimental
 @dataclass
@@ -171,6 +186,11 @@ class Expectation(_MlflowObject):
         expectation.value = self.value
         return expectation
 
+    def to_dictionary(self):
+        return {
+            "value": self.value
+        }
+
 
 @experimental
 @dataclass
@@ -183,3 +203,8 @@ class Feedback(_MlflowObject):
         feedback = ProtoFeedback()
         feedback.value = self.value
         return feedback
+
+    def to_dictionary(self):
+        return {
+            "value": self.value
+        }
