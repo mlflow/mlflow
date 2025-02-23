@@ -1,8 +1,11 @@
 import abc
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import inspect
 from collections import namedtuple
 from contextlib import nullcontext as does_not_raise
+from threading import Thread
 from unittest import mock
 
 import pytest
@@ -28,6 +31,7 @@ from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
+    wraps,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -166,12 +170,51 @@ def test_is_testing_respects_environment_variable(monkeypatch):
     assert is_testing()
 
 
+def _test_async(is_async):
+    """
+    Decorator that converts a function to an async function if `is_async` is True. This is useful
+    for testing purposes, where we want to test both synchronous and asynchronous code paths.
+    """
+    def decorator(fn):
+        if is_async:
+
+            @wraps(fn)
+            async def async_fn(*args, **kwargs):
+
+                if args and inspect.iscoroutinefunction(args[0]):
+                    original = args[0]
+                    @wraps(original)
+                    def wrapped_original(*og_args, **og_kwargs):
+                        # Run the original async function in a separate thread. This is a workaround
+                        # for the fact that we cannot use asyncio.run here because an event loop is
+                        # already running in the main thread.
+                        with ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, original(*og_args, **og_kwargs))
+                            return future.result()
+                    args = (wrapped_original, *args[1:])
+
+                return fn(*args, **kwargs)
+            return async_fn
+        else:
+            return fn
+
+    return decorator
+
+
+def _call_sync_or_async(fn, *args, **kwargs):
+    if inspect.iscoroutinefunction(fn):
+        return asyncio.run(fn(*args, **kwargs))
+    else:
+        return fn(*args, **kwargs)
+
+
 def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implementation(
     patch_destination, test_autologging_integration
 ):
     foo_val = None
     bar_val = None
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, foo, bar=10):
         nonlocal foo_val
         nonlocal bar_val
@@ -179,14 +222,13 @@ def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implemen
         bar_val = bar
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    patch_destination.fn(foo=7, bar=11)
+    _call_sync_or_async(patch_destination.fn, 7, bar=11)
     assert foo_val == 7
     assert bar_val == 11
 
 
-def test_safe_patch_provides_expected_original_function(
-    patch_destination, test_autologging_integration
-):
+def test_safe_patch_provides_expected_original_function(test_autologging_integration, patch_destination):
+    @_test_async(patch_destination.is_async)
     def original_fn(foo, bar=10):
         return {
             "foo": foo,
@@ -195,11 +237,13 @@ def test_safe_patch_provides_expected_original_function(
 
     patch_destination.fn = original_fn
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, foo, bar):
         return original(foo + 1, bar + 2)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
+
+    assert _call_sync_or_async(patch_destination.fn, 1, 2) == {"foo": 2, "bar": 4}
 
 
 def test_safe_patch_propagates_exceptions_raised_from_original_function(
@@ -207,6 +251,7 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 ):
     exc_to_throw = Exception("Bad original function")
 
+    @_test_async(patch_destination.is_async)
     def original(*args, **kwargs):
         raise exc_to_throw
 
@@ -214,6 +259,7 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 
     patch_impl_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
@@ -222,7 +268,7 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
     with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
 
     assert exc.value == exc_to_throw
     assert patch_impl_called
@@ -233,12 +279,13 @@ def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warni
 ):
     exc_to_throw = Exception("Bad patch implementation")
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         raise exc_to_throw
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     with mock.patch("mlflow.utils.autologging_utils._logger.warning") as logger_mock:
-        assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+        assert _call_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
         assert logger_mock.call_count == 1
         message, formatting_arg1, formatting_arg2 = logger_mock.call_args[0]
         assert "Encountered unexpected error" in message
@@ -252,12 +299,13 @@ def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in
 ):
     exc_to_throw = Exception("Bad patch implementation")
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         raise exc_to_throw
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     with pytest.raises(Exception, match=str(exc_to_throw)) as exc:
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
 
     assert exc.value == exc_to_throw
 
@@ -267,13 +315,14 @@ def test_safe_patch_calls_original_function_when_patch_preamble_throws(
 ):
     patch_impl_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
         raise Exception("Bad patch preamble")
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert _call_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
     assert patch_destination.fn_call_count == 1
     assert patch_impl_called
 
@@ -283,6 +332,7 @@ def test_safe_patch_returns_original_result_without_second_call_when_patch_posta
 ):
     patch_impl_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
@@ -290,7 +340,7 @@ def test_safe_patch_returns_original_result_without_second_call_when_patch_posta
         raise Exception("Bad patch postamble")
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert _call_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
     assert patch_destination.fn_call_count == 1
     assert patch_impl_called
 
@@ -300,6 +350,7 @@ def test_safe_patch_respects_disable_flag(patch_destination):
 
     @autologging_integration("test_respects_disable")
     def autolog(disable=False, silent=False):
+        @_test_async(patch_destination.is_async)
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -308,11 +359,11 @@ def test_safe_patch_respects_disable_flag(patch_destination):
         safe_patch("test_respects_disable", patch_destination, "fn", patch_impl)
 
     autolog(disable=False)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 1
 
     autolog(disable=True)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 1
 
 
@@ -321,13 +372,14 @@ def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
 ):
     patch_impl_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
         return 10
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert _call_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
     assert patch_destination.fn_call_count == 1
     assert patch_impl_called
 
@@ -336,6 +388,7 @@ def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
 def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     patch_destination, test_autologging_integration
 ):
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         return original("1", "2", "3")
 
@@ -348,7 +401,7 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
             wraps=autologging_utils.safety._validate_args,
         ) as validate_mock,
     ):
-        patch_destination.fn("a", "b", "c")
+        _call_sync_or_async(patch_destination.fn, "a", "b", "c")
 
     assert validate_mock.call_count == 1
 
@@ -359,12 +412,13 @@ def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
 ):
     assert autologging_utils.is_testing()
 
+    @_test_async(patch_destination.is_async)
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
     with pytest.raises(AssertionError, match="leaked an active run"):
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
 
     # End the leaked run
     mlflow.end_run()
@@ -372,7 +426,7 @@ def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
     with mlflow.start_run():
         # If a user-generated run existed prior to the autologged training session, we expect
         # that safe patch will not throw a leaked run exception
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
         # End the leaked nested run
         mlflow.end_run()
 
@@ -384,11 +438,12 @@ def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_
 ):
     assert not autologging_utils.is_testing()
 
+    @_test_async(patch_destination.is_async)
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert mlflow.active_run()
 
     # End the leaked run
@@ -403,6 +458,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
 ):
     assert autologging_utils.is_testing()
 
+    @_test_async(patch_destination.is_async)
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True, run_name=_PATCH_RUN_NAME_FOR_TESTING):
             return original(*args, **kwargs)
@@ -416,7 +472,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
         with pytest.raises(
             AssertionError, match="failed to set autologging tag with expected value"
         ):
-            patch_destination.fn()
+            _call_sync_or_async(patch_destination.fn)
         assert validate_run_mock.call_count == 1
 
         validate_run_mock.reset_mock()
@@ -424,7 +480,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
         with mlflow.start_run(nested=True):
             # If a user-generated run existed prior to the autologged training session, we expect
             # that safe patch will not attempt to validate it
-            patch_destination.fn()
+            _call_sync_or_async(patch_destination.fn)
         assert not validate_run_mock.called
 
 
@@ -433,6 +489,7 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
 ):
     assert not autologging_utils.is_testing()
 
+    @_test_async(patch_destination.is_async)
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True, run_name=_PATCH_RUN_NAME_FOR_TESTING):
             return original(*args, **kwargs)
@@ -443,12 +500,12 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
         "mlflow.utils.autologging_utils.safety._validate_autologging_run",
         wraps=_validate_autologging_run,
     ) as validate_run_mock:
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
 
         with mlflow.start_run(nested=True):
             # If a user-generated run existed prior to the autologged training session, we expect
             # that safe patch will not attempt to validate it
-            patch_destination.fn()
+            _call_sync_or_async(patch_destination.fn)
 
         assert not validate_run_mock.called
 
@@ -459,25 +516,31 @@ def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
     client = MlflowClient()
     active_run = None
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal active_run
         active_run = mlflow.active_run()
         return original(*args, **kwargs)
 
+
+    if patch_destination.is_async:
+        with pytest.raises(Exception, match="Managed run is not supported for"):
+            safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True)
+        return
+
     with mock.patch(
         "mlflow.utils.autologging_utils.safety.with_managed_run", wraps=with_managed_run
     ) as managed_run_mock:
-        safe_patch(
-            test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True
-        )
-        patch_destination.fn()
-        assert managed_run_mock.call_count == 1
-        assert active_run is not None
-        assert active_run.info.run_id is not None
-        assert (
-            client.get_run(active_run.info.run_id).data.tags[MLFLOW_AUTOLOGGING]
-            == "test_integration"
-        )
+        safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True)
+
+    _call_sync_or_async(patch_destination.fn)
+    assert managed_run_mock.call_count == 1
+    assert active_run is not None
+    assert active_run.info.run_id is not None
+    assert (
+        client.get_run(active_run.info.run_id).data.tags[MLFLOW_AUTOLOGGING]
+        == "test_integration"
+    )
 
 
 def test_safe_patch_does_not_manage_run_if_unspecified(
@@ -485,6 +548,7 @@ def test_safe_patch_does_not_manage_run_if_unspecified(
 ):
     active_run = None
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal active_run
         active_run = mlflow.active_run()
@@ -496,7 +560,7 @@ def test_safe_patch_does_not_manage_run_if_unspecified(
         safe_patch(
             test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=False
         )
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
         assert managed_run_mock.call_count == 0
         assert active_run is None
 
@@ -504,6 +568,7 @@ def test_safe_patch_does_not_manage_run_if_unspecified(
 def test_safe_patch_preserves_signature_of_patched_function(
     patch_destination, test_autologging_integration
 ):
+    @_test_async(patch_destination.is_async)
     def original(a, b, c=10, *, d=11):
         return 10
 
@@ -511,13 +576,14 @@ def test_safe_patch_preserves_signature_of_patched_function(
 
     patch_impl_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
         return original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    patch_destination.fn(1, 2)
+    _call_sync_or_async(patch_destination.fn, 1, 2)
     assert patch_impl_called
     assert inspect.signature(patch_destination.fn) == inspect.signature(original)
 
@@ -525,6 +591,7 @@ def test_safe_patch_preserves_signature_of_patched_function(
 def test_safe_patch_provides_original_function_with_expected_signature(
     patch_destination, test_autologging_integration
 ):
+    @_test_async(patch_destination.is_async)
     def original(a, b, c=10, *, d=11):
         return 10
 
@@ -532,13 +599,14 @@ def test_safe_patch_provides_original_function_with_expected_signature(
 
     original_signature = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal original_signature
         original_signature = inspect.signature(original)
         return original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    patch_destination.fn(1, 2)
+    _call_sync_or_async(patch_destination.fn, 1, 2)
     assert original_signature == inspect.signature(original)
 
 
@@ -550,6 +618,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     patch_session = None
     og_call_kwargs = {}
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal og_call_kwargs
         kwargs.update({"extra_func": picklable_exception_safe_function(lambda k: "foo")})
@@ -562,7 +631,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    patch_destination.fn("a", 1, b=2)
+    _call_sync_or_async(patch_destination.fn, "a", 1, b=2)
     expected_order = ["patch_start", "original_start", "original_success", "patch_success"]
     assert [call.method for call in mock_event_logger.calls] == expected_order
     assert all(call.session == patch_session for call in mock_event_logger.calls)
@@ -586,6 +655,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_an
 
     throw_location = None
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal throw_location
 
@@ -608,7 +678,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_an
 
     for throw_location in ["before", "after"]:
         mock_event_logger.reset()
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
         assert [call.method for call in mock_event_logger.calls] == expected_order
         patch_start, original_start, original_success, patch_error = mock_event_logger.calls
         assert patch_start.exception is None
@@ -627,6 +697,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_an
 
     throw_location = None
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal throw_location
 
@@ -645,7 +716,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_an
     for throw_location in ["before", "after"]:
         mock_event_logger.reset()
         with pytest.raises(Exception, match="throw from original"):
-            patch_destination.throw_error_fn(original_err_to_raise)
+            _call_sync_or_async(patch_destination.throw_error_fn, original_err_to_raise)
         assert [call.method for call in mock_event_logger.calls] == expected_order
         patch_start, original_start, original_error = mock_event_logger.calls
         assert patch_start.exception is None
@@ -660,18 +731,20 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
 ):
     exc_to_raise = Exception("thrown from patch")
 
+    @_test_async(patch_destination.is_async)
     def original(*args, **kwargs):
         raise exc_to_raise
 
     patch_destination.fn = original
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
     with pytest.raises(Exception, match="thrown from patch"):
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
     expected_order = ["patch_start", "original_start", "original_error"]
     assert [call.method for call in mock_event_logger.calls] == expected_order
     patch_start, original_start, original_error = mock_event_logger.calls
@@ -687,6 +760,7 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     patch_preamble_called = False
     patch_postamble_called = False
 
+    @_test_async(patch_destination.is_async)
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_preamble_called
         patch_preamble_called = True
@@ -747,7 +821,7 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
 
     logger = ThrowingLogger()
     AutologgingEventLogger.set_logger(logger)
-    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert _call_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
     assert patch_preamble_called
     assert patch_postamble_called
     expected_calls = ["patch_start", "original_start", "original_success", "patch_success"]
@@ -1393,36 +1467,39 @@ def test_session_manager_creates_session_before_patch_executes(
 ):
     is_session_active = None
 
+    @_test_async(patch_destination.is_async)
     def check_session_manager_status(original):
         nonlocal is_session_active
         is_session_active = _AutologgingSessionManager.active_session()
 
     safe_patch(test_autologging_integration, patch_destination, "fn", check_session_manager_status)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert is_session_active is not None
 
 
 def test_session_manager_exits_session_after_patch_executes(
     patch_destination, test_autologging_integration
 ):
+    @_test_async(patch_destination.is_async)
     def patch_fn(original):
         assert _AutologgingSessionManager.active_session() is not None
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_fn)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert _AutologgingSessionManager.active_session() is None
 
 
 def test_session_manager_exits_session_if_error_in_patch(
     patch_destination, test_autologging_integration
 ):
+    @_test_async(patch_destination.is_async)
     def patch_fn(original):
         raise Exception("Exception that should stop autologging session")
 
     # If use safe_patch to patch, exception would not come from original fn and so would be logged
     patch_destination.fn = patch_fn
     with pytest.raises(Exception, match="Exception that should stop autologging session"):
-        patch_destination.fn(lambda: None)
+        _call_sync_or_async(patch_destination.fn, lambda: None)
 
     assert _AutologgingSessionManager.active_session() is None
 
@@ -1446,11 +1523,13 @@ def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed
         "test_nested_call_autologging_disabled_when_top_level_call_autologging_failed"
     )
     def autolog(disable=False, exclusive=False, silent=False):
+        @_test_async(patch_destination.is_async)
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
 
             level = kwargs["level"]
+            print(f"level: {level}")
 
             if level == 0:
                 raise RuntimeError("analog top level call autologging failure.")
@@ -1469,7 +1548,7 @@ def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed
         patch_impl_call_count = 0
         patch_destination.recurse_fn_call_count = 0
         with mlflow.start_run():
-            patch_destination.recursive_fn(level=0, max_depth=max_depth)
+            _call_sync_or_async(patch_destination.recursive_fn, level=0, max_depth=max_depth)
         assert patch_impl_call_count == 1
         assert patch_destination.recurse_fn_call_count == max_depth + 1
 
@@ -1596,6 +1675,7 @@ def test_should_skip_autolog(patch_destination):
 
     @autologging_integration("test-flavor")
     def autolog(disable=False, exclusive=False, silent=False):
+        @_test_async(patch_destination.is_async)
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -1605,37 +1685,38 @@ def test_should_skip_autolog(patch_destination):
 
     # Autologging is enabled -> patch should be applied
     autolog()
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 1
 
     # Autologging is enabled and user-created fluent run
     with mlflow.start_run():
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 2
 
     # Autologging globally disabled via context manager -> patch should not be applied
     with disable_autologging():
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 2
 
     # User-created fluent run exists and "exclusive" is set to True -> patch should not be applied
     autolog(exclusive=True)
     with mlflow.start_run():
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 2
 
     # Autologging session failed to start -> patch should not be applied
+    patch_target = "async_start_session" if patch_destination.is_async else "start_session"
     with (
         mock.patch(
-            "mlflow.utils.autologging_utils.safety._AutologgingSessionManager.start_session",
+            f"mlflow.utils.autologging_utils.safety._AutologgingSessionManager.{patch_target}",
             side_effect=Exception("Session failed to start"),
         ),
         pytest.raises(Exception, match="Session failed to start"),
     ):
-        patch_destination.fn()
+        _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 2
 
     # Autologging is disabled for the flavor -> patch should not be applied
     autolog(disable=True)
-    patch_destination.fn()
+    _call_sync_or_async(patch_destination.fn)
     assert patch_impl_call_count == 2

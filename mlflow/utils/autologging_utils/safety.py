@@ -17,7 +17,8 @@ from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLoggerWrapper
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_non_mlflow_warnings_behavior_for_current_thread,
+    NonMlflowWarningsBehaviorForCurrentThread,
+    async_set_warning_behavior_during_autologging,
     set_warning_behavior_during_autologging,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -343,22 +344,18 @@ def safe_patch(
             patch_error = None
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
-                event_logger = AutologgingEventLoggerWrapper(
-                    session,
-                    destination,
-                    function_name,
-                )
+                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
 
                 @wraps(original)
                 def _call_original(*og_args, **og_kwargs):
                     _validate_args_if_testing(args, kwargs, og_args, og_kwargs)
                     try:
                         event_logger.log_original_function_start(og_args, og_kwargs)
-                        original_fn_result = original(*og_args, **og_kwargs)
 
-                        with set_non_mlflow_warnings_behavior_for_current_thread(False, False):
-                            original_fn_state.set_result(original_fn_result)
+                        with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                            original_fn_result = original(*og_args, **og_kwargs)
 
+                        original_fn_state.set_result(original_fn_result)
                         event_logger.log_original_function_success(og_args, og_kwargs)
                         return original_fn_result
                     except Exception as e:
@@ -370,9 +367,8 @@ def safe_patch(
                     event_logger.log_patch_function_start(args, kwargs)
                     patch_function(_call_original, *args, **kwargs)
                     event_logger.log_patch_function_success(args, kwargs)
-                    session.state = "succeeded"
                 except Exception as e:
-                    session.state = "failed"
+                    session.set_failed()
                     patch_error = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
@@ -402,38 +398,37 @@ def safe_patch(
         if _should_skip_autolog(autologging_integration):
             return await original(*args, **kwargs)
 
-        async with set_warning_behavior_during_autologging(autologging_integration):
+        async with async_set_warning_behavior_during_autologging(autologging_integration):
             original_fn_state = FunctionCallState()
-            patch_function_exception = None
+            patch_error = None
 
             async with _AutologgingSessionManager.async_start_session(autologging_integration) as session:
-                event_logger = AutologgingEventLoggerWrapper(
-                    None, destination, function_name, args, kwargs
-                )
+                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
 
                 @wraps(original)
                 async def _call_original(*og_args, **og_kwargs):
                     _validate_args_if_testing(args, kwargs, og_args, og_kwargs)
                     try:
-                        event_logger.log_original_function_start()
-                        original_fn_result = await original(*og_args, **og_kwargs)
+                        event_logger.log_original_function_start(og_args, og_kwargs)
 
-                        async with set_non_mlflow_warnings_behavior_for_current_thread(False, False):
-                            original_fn_state.set_result(original_fn_result)
+                        async with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                            original_fn_result = await original(*og_args, **og_kwargs)
 
-                        event_logger.log_original_function_success()
+                        original_fn_state.set_result(original_fn_result)
+                        event_logger.log_original_function_success(og_args, og_kwargs)
                         return original_fn_result
                     except Exception as e:
                         original_fn_state.set_exception(e)
-                        event_logger.log_original_function_error(e)
+                        event_logger.log_original_function_error(og_args, og_kwargs, e)
                         raise
 
                 try:
-                    event_logger.log_patch_function_start()
+                    event_logger.log_patch_function_start(args, kwargs)
                     await patch_function(_call_original, *args, **kwargs)
-                    event_logger.log_patch_function_success()
+                    event_logger.log_patch_function_success(args, kwargs)
                 except Exception as e:
-                    patch_function_exception = e
+                    session.set_failed()
+                    patch_error = e
                     if original_fn_state.exception or is_testing():
                         raise
 
@@ -443,13 +438,22 @@ def safe_patch(
                     else:
                         return await _call_original(*args, **kwargs)
                 finally:
-                    if patch_function_exception is not None and original_fn_state.exception is None:
-                        event_logger.log_patch_function_error(patch_function_exception)
+                    if patch_error is not None and original_fn_state.exception is None:
+                        event_logger.log_patch_function_error(args, kwargs, patch_error)
                         _logger.warning(
                             "Encountered unexpected error during {} autologging: %s",
                             autologging_integration,
-                            patch_function_exception,
+                            patch_error,
                         )
+
+    if is_testing():
+        is_target_async = inspect.iscoroutinefunction(original)
+        is_patch_async = inspect.iscoroutinefunction(patch_function)
+        if is_target_async != is_patch_async:
+            raise MlflowException(
+                f"Original function is {'async' if is_target_async else 'sync'}, but patch function is "
+                f"{'async' if is_patch_async else 'sync'}. This causes unexpected autologging behavior."
+            )
 
     if is_property_method:
         # Create a patched function (also property decorated)
@@ -531,7 +535,7 @@ def _should_skip_autolog(autologging_integration: str) -> bool:
         return True
 
     # Failed to start an autologging session
-    if session is not None and session.state == "failed":
+    if session is not None and session.is_failed():
         return True
     return False
 
@@ -541,10 +545,23 @@ def _should_skip_autolog(autologging_integration: str) -> bool:
 # - id: a unique session identifier (e.g., a UUID)
 # - state: the state of AutologgingSession, will be one of running/succeeded/failed
 class AutologgingSession:
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    RUNNING = "running"
+
     def __init__(self, integration, id_):
         self.integration = integration
         self.id = id_
-        self.state = "running"
+        self.state = self.RUNNING
+
+    def set_succeeded(self):
+        self.state = self.SUCCEEDED
+
+    def set_failed(self):
+        self.state = self.FAILED
+
+    def is_failed(self):
+        return self.state == self.FAILED
 
 
 class _AutologgingSessionManager:
@@ -563,10 +580,9 @@ class _AutologgingSessionManager:
                 cls._session = AutologgingSession(integration, session_id)
             yield cls._session
 
-            cls._session.state = "succeeded"
-
+            cls._session.set_succeeded()
         except Exception as e:
-            cls._session.state = "failed"
+            cls._session.set_failed()
             raise e
 
         finally:
@@ -580,7 +596,7 @@ class _AutologgingSessionManager:
                 _test_only_run_validation(preexisting_run, integration)
 
     @classmethod
-    @contextmanager
+    @asynccontextmanager
     async def async_start_session(cls, integration):
         if is_testing():
             preexisting_run = mlflow.active_run()
@@ -592,10 +608,10 @@ class _AutologgingSessionManager:
                 cls._session = AutologgingSession(integration, session_id)
             yield cls._session
 
-            cls._session.state = "succeeded"
+            cls._session.set_succeeded()
 
         except Exception as e:
-            cls._session.state = "failed"
+            cls._session.set_failed()
             raise e
 
         finally:
