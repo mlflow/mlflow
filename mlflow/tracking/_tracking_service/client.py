@@ -419,6 +419,12 @@ class TrackingServiceClient:
             assessment: The assessment to create. This contains the target
                 trace_id as well.
         """
+        if not is_databricks_uri(self.tracking_uri):
+            raise MlflowException(
+                "This API is currently only available for Databricks Managed MLflow. This "
+                "will be available in the open-source version of MLflow in a future release."
+            )
+
         return self.store.create_assessment(assessment)
 
     def search_experiments(

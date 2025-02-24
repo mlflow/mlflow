@@ -2,24 +2,27 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.assessment import log_expectation, log_feedback
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
 # passes the correct arguments to the low-level client. Once the OSS backend is implemented,
 # we should also test the end-to-end assessment CRUD functionality.
 @pytest.fixture
-def mock_tracking_client():
-    mock_client = mock.MagicMock()
-    with mock.patch("mlflow.tracking.client.TrackingServiceClient", return_value=mock_client):
-        yield mock_client
+def store():
+    mock_store = mock.MagicMock()
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+        mock_get_store.return_value = mock_store
+        yield mock_store
 
 
-def test_log_expectation(mock_tracking_client):
-    log_expectation(
+def test_log_expectation(store):
+    mlflow.set_tracking_uri("databricks")
+
+    mlflow.log_expectation(
         trace_id="1234",
         name="expected_answer",
         value="MLflow",
@@ -27,8 +30,8 @@ def test_log_expectation(mock_tracking_client):
         metadata={"key": "value"},
     )
 
-    assert mock_tracking_client.create_assessment.call_count == 1
-    assessment = mock_tracking_client.create_assessment.call_args[0][0]
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -45,7 +48,7 @@ def test_log_expectation(mock_tracking_client):
 
 def test_log_expectation_invalid_parameters():
     with pytest.raises(MlflowException, match=r"Expectation value cannot be None."):
-        log_expectation(
+        mlflow.log_expectation(
             trace_id="1234",
             name="expected_answer",
             value=None,
@@ -53,7 +56,7 @@ def test_log_expectation_invalid_parameters():
         )
 
     with pytest.raises(MlflowException, match=r"`source` must be provided."):
-        log_feedback(
+        mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=1.0,
@@ -61,7 +64,7 @@ def test_log_expectation_invalid_parameters():
         )
 
     with pytest.raises(MlflowException, match=r"Invalid assessment source type"):
-        log_feedback(
+        mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=1.0,
@@ -69,8 +72,10 @@ def test_log_expectation_invalid_parameters():
         )
 
 
-def test_log_feedback(mock_tracking_client):
-    log_feedback(
+def test_log_feedback(store):
+    mlflow.set_tracking_uri("databricks")
+
+    mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
         value=1.0,
@@ -82,8 +87,8 @@ def test_log_feedback(mock_tracking_client):
         metadata={"model": "gpt-4o-mini"},
     )
 
-    assert mock_tracking_client.create_assessment.call_count == 1
-    assessment = mock_tracking_client.create_assessment.call_args[0][0]
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -98,8 +103,10 @@ def test_log_feedback(mock_tracking_client):
     assert assessment.error is None
 
 
-def test_log_feedback_with_error(mock_tracking_client):
-    log_feedback(
+def test_log_feedback_with_error(store):
+    mlflow.set_tracking_uri("databricks")
+
+    mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
         source=AssessmentSourceType.LLM_JUDGE,
@@ -109,8 +116,8 @@ def test_log_feedback_with_error(mock_tracking_client):
         ),
     )
 
-    assert mock_tracking_client.create_assessment.call_count == 1
-    assessment = mock_tracking_client.create_assessment.call_args[0][0]
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -126,14 +133,14 @@ def test_log_feedback_with_error(mock_tracking_client):
 
 def test_log_feedback_invalid_parameters():
     with pytest.raises(MlflowException, match=r"Either `value` or `error` must be specified."):
-        log_feedback(
+        mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             source=AssessmentSourceType.LLM_JUDGE,
         )
 
     with pytest.raises(MlflowException, match=r"Only one of `value` or `error` should be "):
-        log_feedback(
+        mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             source=AssessmentSourceType.LLM_JUDGE,
@@ -145,9 +152,27 @@ def test_log_feedback_invalid_parameters():
         )
 
     with pytest.raises(MlflowException, match=r"`source` must be provided."):
-        log_feedback(
+        mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=1.0,
             source=None,
+        )
+
+
+def test_assessment_apis_only_available_in_databricks(store):
+    with pytest.raises(MlflowException, match=r"This API is currently only available"):
+        mlflow.log_expectation(
+            trace_id="1234",
+            name="expected_answer",
+            value="MLflow",
+            source=AssessmentSourceType.HUMAN,
+        )
+
+    with pytest.raises(MlflowException, match=r"This API is currently only available"):
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="faithfulness",
+            value=1.0,
+            source=AssessmentSourceType.LLM_JUDGE,
         )

@@ -17,8 +17,8 @@ from mlflow.tracking.client import MlflowClient
 def log_expectation(
     trace_id: str,
     name: str,
-    value: AssessmentValueType,
     source: Union[str, AssessmentSource],
+    value: AssessmentValueType,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
 ) -> Assessment:
@@ -34,11 +34,11 @@ def log_expectation(
     Args:
         trace_id: The ID of the trace.
         name: The name of the expectation assessment e.g., "expected_answer
-        value: The value of the expectation. It can be any JSON-serializable value.
         source: The source of the expectation assessment. Must be either an instance of
                 :py:class:`~mlflow.entities.AssessmentSource` or a string that
                 is a valid value in the
                 :py:class:`~mlflow.entities.AssessmentSourceType` enum.
+        value: The value of the expectation. It can be any JSON-serializable value.
         metadata: Additional metadata for the expectation.
         span_id: The ID of the span associated with the expectation, if it needs be
                 associated with a specific span in the trace.
