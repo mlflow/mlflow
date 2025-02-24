@@ -593,9 +593,11 @@ class _AutologgingSessionManager:
                 cls._session = AutologgingSession(integration, session_id)
             yield cls._session
 
-            cls._session.set_succeeded()
+            if cls._session:
+                cls._session.set_succeeded()
         except Exception as e:
-            cls._session.set_failed()
+            if cls._session:
+                cls._session.set_failed()
             raise e
 
         finally:
