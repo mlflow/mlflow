@@ -980,3 +980,15 @@ bedrock:
     minimum: "1.33.0"
     maximum: "1.35.97"
     run: pytest tests/bedrock
+
+txtai:
+  package_info:
+    pip_release: "txtai"
+    module_name: "txtai"
+    install_dev: |
+      pip install git+https://github.com/neuml/txtai
+  autologging:
+    minimum: "8.0.0"
+    maximum: "8.3.1"
+    requirements:
+    run: pytest tests/txtai

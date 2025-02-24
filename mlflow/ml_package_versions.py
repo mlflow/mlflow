@@ -393,6 +393,16 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "1.33.0",
             "maximum": "1.35.97"
         }
+    },
+    "txtai": {
+        "package_info": {
+            "pip_release": "txtai",
+            "module_name": "txtai"
+        },
+        "autologging": {
+            "minimum": "8.0.0",
+            "maximum": "8.3.1"
+        }
     }
 }
 
@@ -424,5 +434,6 @@ FLAVOR_TO_MODULE_NAME = {
     "litellm": "litellm",
     "groq": "groq",
     "bedrock": "boto3",
+    "txtai": "txtai",
     "pyspark.ml": "pyspark"
 }
