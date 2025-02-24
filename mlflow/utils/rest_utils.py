@@ -358,6 +358,10 @@ def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
 
 
+def get_create_assessment_endpoint(trace_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
@@ -379,6 +383,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
     js_dict = json.loads(response_to_parse)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
