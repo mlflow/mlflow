@@ -26,6 +26,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -323,7 +324,7 @@ class TrackingServiceClient:
             """
             # Only the Databricks backend supports additional assessments; avoid making an unnecessary
             # duplicate call to GET trace_info if not necessary.
-            if isinstance(self.store, RestStore):
+            if MLFLOW_TRACKING_URI.get() == "databricks":
                 trace_info_with_assessments = self.get_trace_info(trace_info.request_id)
                 trace_info.assessments = trace_info_with_assessments.assessments
             try:

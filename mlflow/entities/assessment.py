@@ -65,7 +65,7 @@ class Assessment(_MlflowObject):
     last_update_time_ms: int
     value: Optional[Union[Expectation, Feedback]] = None
     rationale: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[dict[str, str]] = None
     error: Optional[AssessmentError] = None
     span_id: Optional[str] = None
     # NB: The assessment ID should always be generated in the backend. The CreateAssessment
@@ -124,8 +124,6 @@ class Assessment(_MlflowObject):
         elif isinstance(self.value, Feedback):
             set_pb_value(assessment.feedback.value, self.value.value)
 
-        # The metadata values are google.protobuf.Value and does not support
-        # assignment like metadata[key] = value.
         if self.metadata:
             assessment.metadata.update(self.metadata)
 

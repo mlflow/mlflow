@@ -513,7 +513,8 @@ service MlflowService {
   }
 
 
-  // MLflow 3.0 version of the RPC.
+  // Get Trace (returning a TraceInfoV3). Differences between TraceV3 and Trace
+  // are assessments and semantics of TraceLocation, which describes where the Trace is stored.
   rpc getTraceInfoV3 (GetTraceInfoV3) returns (GetTraceInfoV3.Response) {
     option (rpc) = {
       endpoints: [{

@@ -7,9 +7,12 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, Run, RunInfo, RunTag
+from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -450,6 +453,85 @@ def test_search_traces_with_filestore(tmp_path):
         assert res2[0].info == trace_infos[0]
         assert res2.token is None
         assert mock_download_trace_data.call_count == 3
+
+
+def test_search_traces_with_assessments(tmp_path):
+    client = TrackingServiceClient(tmp_path.as_uri())
+    with (
+        mock.patch.object(
+            client,
+            "_search_traces",
+            side_effect=[
+                # Page 1
+                (
+                    [
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                        TraceInfo(
+                            request_id="test",
+                            experiment_id="test",
+                            timestamp_ms=0,
+                            execution_time_ms=0,
+                            status=TraceStatus.OK,
+                            request_metadata={},
+                            tags={"mlflow.artifactLocation": "test"},
+                        ),
+                    ],
+                    None,
+                ),
+            ],
+        ) as mock_search_traces,
+        mock.patch.object(
+            client,
+            "_download_trace_data",
+            side_effect=[
+                TraceData(),
+                TraceData(),
+            ],
+        ) as mock_download_trace_data,
+        mock.patch.object(
+            client,
+            "get_trace_info",
+            return_value=TraceInfo(
+                request_id="test",
+                experiment_id="test",
+                timestamp_ms=0,
+                execution_time_ms=0,
+                status=TraceStatus.OK,
+                request_metadata={},
+                tags={"mlflow.artifactLocation": "test"},
+                assessments=[
+                    Assessment(
+                        trace_id="test",
+                        name="test",
+                        source=AssessmentSource(
+                            source_id="test", source_type=AssessmentSourceType.HUMAN
+                        ),
+                        create_time_ms=0,
+                        last_update_time_ms=0,
+                        value=Feedback("test"),
+                    )
+                ],
+            ),
+        ) as mock_get_trace_info,
+        mock.patch(
+            "mlflow.environment_variables.MLFLOW_TRACKING_URI.get", return_value="databricks"
+        ),
+    ):
+        res1 = client.search_traces(experiment_ids=["0"], max_results=2)
+        assert len(res1) == 2
+        assert res1.token == None
+
+        assert mock_search_traces.call_count == 1
+        assert mock_download_trace_data.call_count == 2
+        assert mock_get_trace_info.call_count == 2
 
 
 @pytest.fixture
