@@ -52,6 +52,7 @@ def set_warning_behavior_during_autologging(autologging_integration: str):
     ):
         yield
 
+
 @asynccontextmanager
 async def async_set_warning_behavior_during_autologging(autologging_integration: str):
     """
@@ -254,6 +255,7 @@ class NonMlflowWarningsBehaviorForCurrentThread:
         reroute_warnings: If `True`, reroute non-MLflow warnings to an MLflow event logger with
             level WARNING. If `False`, do not reroute non-MLflow warnings.
     """
+
     def __init__(self, disable_warnings, reroute_warnings):
         """
         Args:
@@ -320,6 +322,7 @@ class MlflowEventsAndWarningsBehavior:
         reroute_warnings: If `True`, reroute MLflow warnings to an MLflow event logger with
             level WARNING. If `False`, do not reroute MLflow warnings.
     """
+
     _lock = RLock()
     _disable_event_logs_count = 0
     _disable_warnings_count = 0

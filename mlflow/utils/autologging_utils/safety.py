@@ -1,4 +1,5 @@
 import abc
+import asyncio
 import functools
 import inspect
 import itertools
@@ -8,10 +9,10 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import Optional
 
 import mlflow
-from mlflow.exceptions import MlflowException
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
@@ -267,7 +268,7 @@ def safe_patch(
     if manage_run:
         if inspect.iscoroutinefunction(patch_function):
             raise MlflowException.invalid_parameter_value(
-                f"Managed run is not supported for patching async function.",
+                "Managed run is not supported for patching async function.",
             )
 
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
@@ -288,9 +289,7 @@ def safe_patch(
         raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         if inspect.iscoroutinefunction(original_fn.fget):
-            raise MlflowException(
-                f"Async property method is not supported for patching."
-            )
+            raise MlflowException("Async property method is not supported for patching.")
 
         is_property_method = True
 
@@ -382,9 +381,9 @@ def safe_patch(
                     else:
                         return _call_original(*args, **kwargs)
                 finally:
-                    # If original function succeeds but patch function fails, it indicates patch code
-                    # fault, so we call `log_patch_function_error`. But if the original function also
-                    # fails, there's some error in user code so we don't log it.
+                    # If original function succeeds but patch function fails, it indicates patch
+                    # code fault, so we call `log_patch_function_error`. But if the original
+                    # function also fails, there's some error in user code so we don't log it.
                     if patch_error is not None and original_fn_state.exception is None:
                         event_logger.log_patch_function_error(args, kwargs, patch_error)
                         _logger.warning(
@@ -402,7 +401,9 @@ def safe_patch(
             original_fn_state = FunctionCallState()
             patch_error = None
 
-            async with _AutologgingSessionManager.async_start_session(autologging_integration) as session:
+            async with _AutologgingSessionManager.async_start_session(
+                autologging_integration
+            ) as session:
                 event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
 
                 @wraps(original)
@@ -451,8 +452,8 @@ def safe_patch(
         is_patch_async = inspect.iscoroutinefunction(patch_function)
         if is_target_async != is_patch_async:
             raise MlflowException(
-                f"Original function is {'async' if is_target_async else 'sync'}, but patch function is "
-                f"{'async' if is_patch_async else 'sync'}. This causes unexpected autologging behavior."
+                f"Original function is {'async' if is_target_async else 'sync'}, but patch function "
+                f"is {'async' if is_patch_async else 'sync'}. They should have the same type."
             )
 
     if is_property_method:
@@ -489,6 +490,18 @@ def safe_patch(
         # Make unbound method `class.target_method` keep the same doc and signature
         safe_patch_obj = property(get_bound_safe_patch_fn)
     elif inspect.iscoroutinefunction(original):
+        # Test only logic
+        if getattr(patch_function, "_mlflow_test_patch", False):
+            _original_patch = async_safe_patch_function
+
+            @wraps(_original_patch)
+            def async_safe_patch_function(*args, **kwargs):
+                try:
+                    return asyncio.run(_original_patch(*args, **kwargs))
+                except RuntimeError:
+                    # If the event loop is already running, we can't call asyncio.run
+                    return _original_patch(*args, **kwargs)
+
         safe_patch_obj = update_wrapper_extended(async_safe_patch_function, original)
     else:
         safe_patch_obj = update_wrapper_extended(safe_patch_function, original)
@@ -624,7 +637,6 @@ class _AutologgingSessionManager:
     @classmethod
     def active_session(cls):
         return cls._session
-
 
 
 def wraps(wrapped):

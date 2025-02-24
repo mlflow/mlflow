@@ -14,6 +14,7 @@ PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
 @pytest.fixture(params=[False, True], ids=["sync", "async"])
 def patch_destination(request):
     if not request.param:
+
         class Destination:
             def __init__(self):
                 self.fn_call_count = 0
@@ -38,6 +39,7 @@ def patch_destination(request):
                 return False
 
     else:
+
         class Destination:
             def __init__(self):
                 self.fn_call_count = 0
