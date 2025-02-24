@@ -1,6 +1,6 @@
 import pandas as pd
 
-from mlflow.entities.evaluation import Evaluation as EvaluationEntity
+from mlflow.evaluation.evaluation import EvaluationEntity as EvaluationEntity
 from mlflow.utils.annotations import experimental
 
 

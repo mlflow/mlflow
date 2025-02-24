@@ -1,8 +1,8 @@
 from mlflow.entities import Metric
-from mlflow.entities.assessment import Assessment
-from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.evaluation import Evaluation
-from mlflow.entities.evaluation_tag import EvaluationTag
+from mlflow.evaluation.assessment import AssessmentEntity
+from mlflow.evaluation.assessment import AssessmentSource
+from mlflow.evaluation.evaluation import EvaluationEntity
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 
 
 def test_evaluation_equality():
@@ -11,7 +11,7 @@ def test_evaluation_equality():
     tag_1 = EvaluationTag(key="tag1", value="value1")
 
     # Valid evaluations
-    evaluation_1 = Evaluation(
+    evaluation_1 = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -20,7 +20,7 @@ def test_evaluation_equality():
         request_id="req1",
         targets={"actual": 0.6},
         assessments=[
-            Assessment(
+            AssessmentEntity(
                 evaluation_id="eval1",
                 name="relevance",
                 source=source_1,
@@ -33,7 +33,7 @@ def test_evaluation_equality():
         error_code="E001",
         error_message="An error occurred",
     )
-    evaluation_2 = Evaluation(
+    evaluation_2 = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -42,7 +42,7 @@ def test_evaluation_equality():
         request_id="req1",
         targets={"actual": 0.6},
         assessments=[
-            Assessment(
+            AssessmentEntity(
                 evaluation_id="eval1",
                 name="relevance",
                 source=source_1,
@@ -55,7 +55,7 @@ def test_evaluation_equality():
         error_code="E001",
         error_message="An error occurred",
     )
-    evaluation_3 = Evaluation(
+    evaluation_3 = EvaluationEntity(
         evaluation_id="eval2",
         run_id="run2",
         inputs_id="inputs2",
@@ -64,7 +64,7 @@ def test_evaluation_equality():
         request_id="req2",
         targets={"actual": 0.7},
         assessments=[
-            Assessment(
+            AssessmentEntity(
                 evaluation_id="eval2",
                 name="relevance",
                 source=source_1,
@@ -86,7 +86,7 @@ def test_evaluation_properties():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
     metric = Metric(key="metric1", value=1.1, timestamp=123, step=0)
     tag = EvaluationTag(key="tag1", value="value1")
-    assessment = Assessment(
+    assessment = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
@@ -95,7 +95,7 @@ def test_evaluation_properties():
         rationale="Rationale text",
         metadata={"key1": "value1"},
     )
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -128,7 +128,7 @@ def test_evaluation_to_from_dictionary():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
     metric = Metric(key="metric1", value=1.1, timestamp=123, step=0)
     tag = EvaluationTag(key="tag1", value="value1")
-    assessment = Assessment(
+    assessment = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
@@ -137,7 +137,7 @@ def test_evaluation_to_from_dictionary():
         rationale="Rationale text",
         metadata={"key1": "value1"},
     )
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -169,17 +169,17 @@ def test_evaluation_to_from_dictionary():
     }
     assert evaluation_dict == expected_dict
 
-    recreated_evaluation = Evaluation.from_dictionary(evaluation_dict)
+    recreated_evaluation = EvaluationEntity.from_dictionary(evaluation_dict)
     assert recreated_evaluation == evaluation
 
 
 def test_evaluation_construction_with_minimal_required_fields():
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
         inputs={"feature1": 1.0, "feature2": 2.0},
     )
     evaluation_dict = evaluation.to_dictionary()
-    recreated_evaluation = Evaluation.from_dictionary(evaluation_dict)
+    recreated_evaluation = EvaluationEntity.from_dictionary(evaluation_dict)
     assert recreated_evaluation == evaluation

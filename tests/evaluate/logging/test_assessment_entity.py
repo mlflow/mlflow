@@ -1,6 +1,7 @@
 import pytest
 
-from mlflow.entities.assessment import Assessment, AssessmentSource
+from mlflow.evaluation.assessment import AssessmentEntity
+from mlflow.evaluation.assessment import AssessmentSource
 from mlflow.exceptions import MlflowException
 
 
@@ -10,35 +11,35 @@ def test_assessment_equality():
     source_3 = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
 
     # Valid assessments
-    assessment_1 = Assessment(
+    assessment_1 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_1,
         timestamp=123456789,
         numeric_value=0.9,
     )
-    assessment_2 = Assessment(
+    assessment_2 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_2,
         timestamp=123456789,
         numeric_value=0.9,
     )
-    assessment_3 = Assessment(
+    assessment_3 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_1,
         timestamp=123456789,
         numeric_value=0.8,
     )
-    assessment_4 = Assessment(
+    assessment_4 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_3,
         timestamp=123456789,
         numeric_value=0.9,
     )
-    assessment_5 = Assessment(
+    assessment_5 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_1,
@@ -46,7 +47,7 @@ def test_assessment_equality():
         error_code="E002",
         error_message="A different error occurred.",
     )
-    assessment_6 = Assessment(
+    assessment_6 = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source_1,
@@ -65,7 +66,7 @@ def test_assessment_equality():
 
 def test_assessment_properties():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment = Assessment(
+    assessment = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
@@ -88,7 +89,7 @@ def test_assessment_properties():
 
 def test_assessment_to_from_dictionary():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment = Assessment(
+    assessment = AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
@@ -114,7 +115,7 @@ def test_assessment_to_from_dictionary():
     }
     assert assessment_dict == expected_dict
 
-    recreated_assessment = Assessment.from_dictionary(assessment_dict)
+    recreated_assessment = AssessmentEntity.from_dictionary(assessment_dict)
     assert recreated_assessment == assessment
 
 
@@ -122,28 +123,28 @@ def test_assessment_value_validation():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
 
     # Valid cases
-    Assessment(
+    AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
         timestamp=123456789,
         boolean_value=True,
     )
-    Assessment(
+    AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
         timestamp=123456789,
         numeric_value=0.9,
     )
-    Assessment(
+    AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
         timestamp=123456789,
         string_value="value",
     )
-    Assessment(
+    AssessmentEntity(
         evaluation_id="eval1",
         name="relevance",
         source=source,
@@ -158,7 +159,7 @@ def test_assessment_value_validation():
         match="Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
         "specified for an assessment.",
     ):
-        Assessment(
+        AssessmentEntity(
             evaluation_id="eval1",
             name="relevance",
             source=source,
@@ -173,7 +174,7 @@ def test_assessment_value_validation():
         match="Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
         "specified for an assessment.",
     ):
-        Assessment(
+        AssessmentEntity(
             evaluation_id="eval1",
             name="relevance",
             source=source,
@@ -186,7 +187,7 @@ def test_assessment_value_validation():
         match="error_message cannot be specified when boolean_value, numeric_value, or "
         "string_value is specified.",
     ):
-        Assessment(
+        AssessmentEntity(
             evaluation_id="eval1",
             name="relevance",
             source=source,
@@ -200,7 +201,7 @@ def test_assessment_value_validation():
         match="error_message cannot be specified when boolean_value, numeric_value, or "
         "string_value is specified.",
     ):
-        Assessment(
+        AssessmentEntity(
             evaluation_id="eval1",
             name="relevance",
             source=source,
@@ -214,7 +215,7 @@ def test_assessment_value_validation():
         match="error_message cannot be specified when boolean_value, numeric_value, or "
         "string_value is specified.",
     ):
-        Assessment(
+        AssessmentEntity(
             evaluation_id="eval1",
             name="relevance",
             source=source,
