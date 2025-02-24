@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from mlflow.entities.assessment_v3 import (
+from mlflow.entities.assessment import (
     AssessmentV3,
     AssessmentError,
     AssessmentSourceV3,

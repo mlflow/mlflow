@@ -3,7 +3,7 @@ import json
 from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.evaluation.assessment import AssessmentEntity
+from mlflow.evaluation.assessment import Assessment, AssessmentEntity
 from mlflow.evaluation.evaluation_tag import EvaluationTag  # Assuming EvaluationTag is in this module
 from mlflow.entities.metric import Metric
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -208,7 +208,7 @@ class Evaluation(_MlflowObject):
         targets: Optional[dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
-        assessments: Optional[list[AssessmentEntity]] = None,
+        assessments: Optional[list[Assessment]] = None,
         metrics: Optional[Union[dict[str, float], list[Metric]]] = None,
         tags: Optional[dict[str, str]] = None,
     ):
@@ -283,7 +283,7 @@ class Evaluation(_MlflowObject):
         return self._error_message
 
     @property
-    def assessments(self) -> Optional[list[AssessmentEntity]]:
+    def assessments(self) -> Optional[list[Assessment]]:
         """The evaluation assessments."""
         return self._assessments
 
@@ -365,7 +365,7 @@ class Evaluation(_MlflowObject):
         assessments = None
         if "assessments" in evaluation_dict:
             assessments = [
-                AssessmentEntity.from_dictionary(assess) for assess in evaluation_dict["assessments"]
+                Assessment.from_dictionary(assess) for assess in evaluation_dict["assessments"]
             ]
         metrics = None
         if "metrics" in evaluation_dict:

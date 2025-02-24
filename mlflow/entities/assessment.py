@@ -5,7 +5,7 @@ from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.assessment_source_v3 import AssessmentSourceV3
+from mlflow.entities.assessment_source import AssessmentSourceV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.service_pb2 import Expectation as ProtoExpectation
