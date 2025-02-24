@@ -13,7 +13,7 @@ from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
 from mlflow.store.artifact.utils.models import (
-    _parse_model_id_if_present,
+    _parse_model_uri,
     get_model_name_and_version,
     is_using_databricks_registry,
 )
@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
+    is_models_uri,
     is_oss_unity_catalog_uri,
 )
 
@@ -101,12 +102,11 @@ class ModelsArtifactRepository(ArtifactRepository):
         return uri, ""
 
     @staticmethod
-    def _is_logged_model_uri(uri):
+    def _is_logged_model_uri(uri: str) -> bool:
         """
-        Get the model name and version or model ID from the given URI.
+        Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
         """
-        model_id = _parse_model_id_if_present(uri)
-        return model_id is not None
+        return is_models_uri(uri) and _parse_model_uri(uri).model_id is not None
 
     @staticmethod
     def _get_model_uri_infos(uri):

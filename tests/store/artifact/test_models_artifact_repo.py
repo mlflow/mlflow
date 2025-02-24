@@ -22,6 +22,19 @@ from tests.store.artifact.constants import (
 
 
 @pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("models:/123", True),
+        ("models:/name/1", False),
+        ("/path/to/model", False),
+        ("s3://bucket/path/to/model", False),
+    ],
+)
+def test_is_logged_model_uri(uri: str, expected: bool):
+    assert ModelsArtifactRepository._is_logged_model_uri(uri) is expected
+
+
+@pytest.mark.parametrize(
     "uri_with_profile",
     [
         "models://profile@databricks/MyModel/12",
