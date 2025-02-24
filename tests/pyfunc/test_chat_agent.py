@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import pydantic
 import pytest
 
 import mlflow
@@ -60,6 +61,23 @@ class SimpleChatAgent(ChatAgent):
             mock_response = get_mock_response(messages, f"message {i}")
             mock_response["delta"] = mock_response["messages"][0]
             yield ChatAgentChunk(**mock_response)
+
+
+class SimpleBadChatAgent(ChatAgent):
+    @mlflow.trace
+    def predict(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
+        return ChatAgentResponse(messages=mock_response)
+
+    def predict_stream(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ):
+        for i in range(5):
+            mock_response = get_mock_response(messages, f"message {i}")
+            mock_response["delta"] = mock_response["messages"][0]
+            yield ChatAgentChunk(delta=mock_response)
 
 
 class SimpleDictChatAgent(ChatAgent):
@@ -372,6 +390,12 @@ def test_chat_agent_predict_wrapper():
         model.predict({"malformed dict": "bad"})
     with pytest.raises(MlflowException, match="Invalid dictionary input for a ChatAgent"):
         model.predict_stream({"malformed dict": "bad"})
+
+    model = SimpleBadChatAgent()
+    with pytest.raises(pydantic.ValidationError, match="validation error for ChatAgentResponse"):
+        model.predict(dict_input_example)
+    with pytest.raises(pydantic.ValidationError, match="validation error for ChatAgentChunk"):
+        list(model.predict_stream(dict_input_example))
 
 
 def test_chat_agent_predict_with_params(tmp_path):
