@@ -1,6 +1,5 @@
 from mlflow.entities import Metric
-from mlflow.evaluation.assessment import AssessmentEntity
-from mlflow.evaluation.assessment import AssessmentSource
+from mlflow.evaluation.assessment import AssessmentEntity, AssessmentSource
 from mlflow.evaluation.evaluation import EvaluationEntity
 from mlflow.evaluation.evaluation_tag import EvaluationTag
 

@@ -2,11 +2,10 @@ import pytest
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.evaluation.assessment import AssessmentSourceType
-from mlflow.evaluation.evaluation_tag import EvaluationTag
 from mlflow.evaluation import Assessment, Evaluation, log_evaluations
+from mlflow.evaluation.assessment import AssessmentSource, AssessmentSourceType
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 
-from mlflow.evaluation.assessment import AssessmentSource
 from tests.evaluate.logging.utils import get_evaluation
 
 

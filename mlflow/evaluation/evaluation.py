@@ -1,11 +1,18 @@
+"""
+THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED SOON. PLEASE DO NOT USE THESE CLASSES
+IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES.
+"""
+
 import hashlib
 import json
 from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.evaluation.assessment import Assessment, AssessmentEntity
-from mlflow.evaluation.evaluation_tag import EvaluationTag  # Assuming EvaluationTag is in this module
 from mlflow.entities.metric import Metric
+from mlflow.evaluation.assessment import Assessment, AssessmentEntity
+from mlflow.evaluation.evaluation_tag import (
+    EvaluationTag,  # Assuming EvaluationTag is in this module
+)
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.annotations import experimental
 
@@ -169,7 +176,8 @@ class EvaluationEntity(_MlflowObject):
         assessments = None
         if "assessments" in evaluation_dict:
             assessments = [
-                AssessmentEntity.from_dictionary(assess) for assess in evaluation_dict["assessments"]
+                AssessmentEntity.from_dictionary(assess)
+                for assess in evaluation_dict["assessments"]
             ]
         metrics = None
         if "metrics" in evaluation_dict:

@@ -3,9 +3,9 @@ import time
 import pytest
 
 from mlflow.entities.assessment import (
-    AssessmentV3,
+    Assessment,
     AssessmentError,
-    AssessmentSourceV3,
+    AssessmentSource,
     Expectation,
     Feedback,
 )
@@ -17,7 +17,7 @@ def test_assessment_creation():
     default_params = {
         "trace_id": "trace_id",
         "name": "relevance",
-        "source": AssessmentSourceV3(source_type="HUMAN", source_id="user_1"),
+        "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
         "create_time_ms": 123456789,
         "last_update_time_ms": 123456789,
         "value": Feedback(0.9),
@@ -28,11 +28,11 @@ def test_assessment_creation():
         "_assessment_id": "assessment_id",
     }
 
-    assessment = AssessmentV3(**default_params)
+    assessment = Assessment(**default_params)
     for key, value in default_params.items():
         assert getattr(assessment, key) == value
 
-    assessment_with_error = AssessmentV3(
+    assessment_with_error = Assessment(
         **{
             **default_params,
             "value": None,
@@ -44,9 +44,9 @@ def test_assessment_creation():
 
 
 def test_assessment_equality():
-    source_1 = AssessmentSourceV3(source_type="HUMAN", source_id="user_1")
-    source_2 = AssessmentSourceV3(source_type="HUMAN", source_id="user_1")
-    source_3 = AssessmentSourceV3(source_type="LLM_JUDGE", source_id="llm_1")
+    source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
+    source_2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
+    source_3 = AssessmentSource(source_type="LLM_JUDGE", source_id="llm_1")
 
     common_args = {
         "trace_id": "trace_id",
@@ -56,27 +56,27 @@ def test_assessment_equality():
     }
 
     # Valid assessments
-    assessment_1 = AssessmentV3(
+    assessment_1 = Assessment(
         source=source_1,
         value=Feedback(0.9),
         **common_args,
     )
-    assessment_2 = AssessmentV3(
+    assessment_2 = Assessment(
         source=source_2,
         value=Feedback(0.9),
         **common_args,
     )
-    assessment_3 = AssessmentV3(
+    assessment_3 = Assessment(
         source=source_1,
         value=Feedback(0.8),
         **common_args,
     )
-    assessment_4 = AssessmentV3(
+    assessment_4 = Assessment(
         source=source_3,
         value=Feedback(0.9),
         **common_args,
     )
-    assessment_5 = AssessmentV3(
+    assessment_5 = Assessment(
         source=source_1,
         error=AssessmentError(
             error_code="E002",
@@ -84,7 +84,7 @@ def test_assessment_equality():
         ),
         **common_args,
     )
-    assessment_6 = AssessmentV3(
+    assessment_6 = Assessment(
         source=source_1,
         error=AssessmentError(
             error_code="E001",
@@ -105,26 +105,26 @@ def test_assessment_value_validation():
     common_args = {
         "trace_id": "trace_id",
         "name": "relevance",
-        "source": AssessmentSourceV3(source_type="HUMAN", source_id="user_1"),
+        "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
         "create_time_ms": 123456789,
         "last_update_time_ms": 123456789,
     }
 
     # Valid cases
-    AssessmentV3(value=Expectation("MLflow"), **common_args)
-    AssessmentV3(value=Feedback("This is correct."), **common_args)
+    Assessment(value=Expectation("MLflow"), **common_args)
+    Assessment(value=Feedback("This is correct."), **common_args)
 
     # Invalid case: invalid value type
     with pytest.raises(MlflowException, match=r"Value must be an instance of "):
-        AssessmentV3(value="Invalid value type", **common_args)
+        Assessment(value="Invalid value type", **common_args)
 
     # Invalid case: no value specified
     with pytest.raises(MlflowException, match=r"Either `value` or `error` must be specified"):
-        AssessmentV3(**common_args)
+        Assessment(**common_args)
 
     # Invalid case: both value and error specified
     with pytest.raises(MlflowException, match=r"Only one of `value` or `error` should be"):
-        AssessmentV3(
+        Assessment(
             value=Expectation("MLflow"),
             error=AssessmentError(error_code="E001", error_message="An error occurred."),
             **common_args,
@@ -143,8 +143,8 @@ def test_assessment_value_validation():
 @pytest.mark.parametrize(
     "source",
     [
-        AssessmentSourceV3(source_type="HUMAN", source_id="user_1"),
-        AssessmentSourceV3(source_type="CODE"),
+        AssessmentSource(source_type="HUMAN", source_id="user_1"),
+        AssessmentSource(source_type="CODE"),
     ],
 )
 @pytest.mark.parametrize(
@@ -163,7 +163,7 @@ def test_assessment_value_validation():
 )
 def test_assessment_proto_conversion(value, error, source, metadata):
     timestamp_ms = int(time.time() * 1000)
-    assessment = AssessmentV3(
+    assessment = Assessment(
         trace_id="trace_id",
         name="relevance",
         source=source,
@@ -180,5 +180,5 @@ def test_assessment_proto_conversion(value, error, source, metadata):
 
     assert isinstance(proto, ProtoAssessment)
 
-    result = AssessmentV3.from_proto(proto)
+    result = Assessment.from_proto(proto)
     assert result == assessment

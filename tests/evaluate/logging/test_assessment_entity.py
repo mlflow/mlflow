@@ -1,7 +1,6 @@
 import pytest
 
-from mlflow.evaluation.assessment import AssessmentEntity
-from mlflow.evaluation.assessment import AssessmentSource
+from mlflow.evaluation.assessment import AssessmentEntity, AssessmentSource
 from mlflow.exceptions import MlflowException
 
 
