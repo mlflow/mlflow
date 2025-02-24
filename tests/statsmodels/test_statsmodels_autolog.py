@@ -184,7 +184,7 @@ def test_statsmodels_autolog_respects_log_models_flag(log_models):
     run = get_latest_run()
     client = MlflowClient()
     artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
-    assert ("model" in artifact_paths) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 def test_statsmodels_autolog_loads_model_from_artifact():
