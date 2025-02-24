@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.entities.evaluation_tag import EvaluationTag
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 
 
 def test_evaluation_tag_equality():
