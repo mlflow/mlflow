@@ -1,4 +1,5 @@
 import json
+import time
 from unittest import mock
 
 import pytest
@@ -17,12 +18,15 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
+from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateRun,
     DeleteExperiment,
     DeleteRun,
@@ -750,3 +754,54 @@ def test_set_trace_tag():
             mock_http, creds, f"traces/{request_id}/tags", "PATCH", message_to_json(request)
         )
         assert res is None
+
+
+def test_log_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_id": "tr-1234",
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-20T05:47:23Z",
+                "feedback": {"value": True},
+                "rationale": "rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    assessment = Assessment(
+        trace_id="tr-1234",
+        name="assessment_name",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4o-mini"
+        ),
+        create_time_ms=int(time.time() * 1000),
+        last_update_time_ms=int(time.time() * 1000),
+        value=Feedback(value=True),
+        rationale="rationale",
+        metadata={"model": "gpt-4o-mini"},
+        error=None,
+        span_id=None,
+    )
+
+    request = CreateAssessment(assessment=assessment.to_proto())
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.create_assessment(assessment)
+
+    _verify_requests(
+        mock_http, creds, "traces/tr-1234/assessments", "POST", message_to_json(request)
+    )
+    assert isinstance(res, Assessment)
