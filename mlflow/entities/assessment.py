@@ -63,7 +63,8 @@ class Assessment(_MlflowObject):
     source: AssessmentSource
     create_time_ms: int
     last_update_time_ms: int
-    value: Optional[Union[Expectation, Feedback]] = None
+    expectation: Optional[Expectation] = None
+    feedback: Optional[Feedback] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
     error: Optional[AssessmentError] = None
@@ -84,19 +85,12 @@ class Assessment(_MlflowObject):
         return self._assessment_id
 
     def __post_init__(self):
-        if self.value is not None and self.error is not None:
+        if (
+            sum([self.expectation is not None, self.feedback is not None, self.error is not None])
+            != 1
+        ):
             raise MlflowException.invalid_parameter_value(
-                "Only one of `value` or `error` should be specified, not both.",
-            )
-
-        if self.value is None and self.error is None:
-            raise MlflowException.invalid_parameter_value(
-                "Either `value` or `error` must be specified.",
-            )
-
-        if not isinstance(self.value, (Expectation, Feedback)) and self.value is not None:
-            raise MlflowException.invalid_parameter_value(
-                f"Value must be an instance of Expectation or Feedback. Got {type(self.value)}.",
+                "Exactly one of `expectation`, `feedback` or `error` should be specified.",
             )
 
     def to_proto(self):
@@ -119,10 +113,10 @@ class Assessment(_MlflowObject):
         if self.error is not None:
             assessment.error.CopyFrom(self.error.to_proto())
 
-        if isinstance(self.value, Expectation):
-            set_pb_value(assessment.expectation.value, self.value.value)
-        elif isinstance(self.value, Feedback):
-            set_pb_value(assessment.feedback.value, self.value.value)
+        if self.expectation is not None:
+            set_pb_value(assessment.expectation.value, self.expectation.value)
+        elif self.feedback is not None:
+            set_pb_value(assessment.feedback.value, self.feedback.value)
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
@@ -132,11 +126,14 @@ class Assessment(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            value = Expectation(parse_pb_value(proto.expectation.value))
+            expectation = Expectation(parse_pb_value(proto.expectation.value))
+            feedback = None
         elif proto.WhichOneof("value") == "feedback":
-            value = Feedback(parse_pb_value(proto.feedback.value))
+            expectation = None
+            feedback = Feedback(parse_pb_value(proto.feedback.value))
         else:
-            value = None
+            expectation = None
+            feedback = None
 
         error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
         metadata = proto.metadata
@@ -148,7 +145,8 @@ class Assessment(_MlflowObject):
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
             last_update_time_ms=proto.last_update_time.ToMilliseconds(),
-            value=value,
+            expectation=expectation,
+            feedback=feedback,
             rationale=proto.rationale or None,
             metadata=metadata or None,
             error=error,
@@ -156,14 +154,14 @@ class Assessment(_MlflowObject):
         )
 
     def to_dictionary(self):
-        value_key = "expectation" if isinstance(self.value, Expectation) else "feedback" if isinstance(self.value, Feedback) else None
         return {
             "trace_id": self.trace_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
             "create_time_ms": self.create_time_ms,
             "last_update_time_ms": self.last_update_time_ms,
-            value_key: self.value.to_dictionary() if self.value else None,
+            "expectation": self.expectation,
+            "feedback": self.feedback,
             "rationale": self.rationale,
             "metadata": self.metadata,
             "error": self.error.to_dictionary() if self.error else None,
@@ -185,9 +183,7 @@ class Expectation(_MlflowObject):
         return expectation
 
     def to_dictionary(self):
-        return {
-            "value": self.value
-        }
+        return {"value": self.value}
 
 
 @experimental
@@ -203,6 +199,4 @@ class Feedback(_MlflowObject):
         return feedback
 
     def to_dictionary(self):
-        return {
-            "value": self.value
-        }
+        return {"value": self.value}
