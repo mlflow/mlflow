@@ -1,4 +1,3 @@
-import json
 import os
 import pickle
 import sys
@@ -46,6 +45,7 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -826,6 +826,12 @@ def test_log_trace(tracking_uri):
     assert backend_traces[0].data.response == trace.data.response
     assert len(backend_traces[0].data.spans) == len(trace.data.spans)
     assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
+
+    # If the experiment ID is None in the given trace, it should be set to the default experiment
+    trace.info.experiment_id = None
+    new_request_id = client._log_trace(trace)
+    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    assert len(backend_traces) == 1
 
 
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
@@ -1608,78 +1614,3 @@ def test_file_store_download_upload_trace_data(tmp_path):
         trace_data = client.get_trace(span.request_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
-
-
-def test_store_trace_spans_tag():
-    client = MlflowClient()
-
-    trace_spans_tag_value = {
-        "name": "test",
-        "type": "UNKNOWN",
-        "inputs": ["test"],
-        "outputs": ["result"],
-    }
-
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-    ) as mock_set_trace_tag:
-        span = client.start_trace("test", inputs={"test": 1})
-        client.end_trace(span.request_id, outputs={"result": 2})
-        mock_set_trace_tag.assert_called_once()
-        assert mock_set_trace_tag.call_args[0][0] == span.request_id
-        assert mock_set_trace_tag.call_args[0][1] == "mlflow.traceSpans"
-        result = json.loads(mock_set_trace_tag.call_args[0][2])
-        for key in trace_spans_tag_value:
-            assert result[0][key] == trace_spans_tag_value[key]
-
-
-def test_store_trace_span_tag_when_not_dict_input_outputs():
-    client = MlflowClient()
-
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-    ) as mock_set_trace_tag:
-        span = client.start_trace("trace_name", inputs="test")
-        client.end_trace(span.request_id, outputs={"result": 2})
-        mock_set_trace_tag.assert_called_once()
-        assert mock_set_trace_tag.call_args[0][0] == span.request_id
-        assert mock_set_trace_tag.call_args[0][1] == "mlflow.traceSpans"
-        result = json.loads(mock_set_trace_tag.call_args[0][2])
-        assert result[0]["name"] == "trace_name"
-        assert result[0]["type"] == "UNKNOWN"
-        assert result[0]["outputs"] == ["result"]
-        assert "inputs" not in result[0]
-
-    with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-    ) as mock_set_trace_tag:
-        span = client.start_trace("trace_name", inputs="{'input': 2}")
-        client.end_trace(span.request_id, outputs="result")
-        mock_set_trace_tag.assert_called_once()
-        assert mock_set_trace_tag.call_args[0][0] == span.request_id
-        assert mock_set_trace_tag.call_args[0][1] == "mlflow.traceSpans"
-        result = json.loads(mock_set_trace_tag.call_args[0][2])
-        assert result[0]["name"] == "trace_name"
-        assert result[0]["type"] == "UNKNOWN"
-        assert "outputs" not in result[0]
-        assert "inputs" not in result[0]
-
-
-# when JSON is too large, we skip logging the tag. The trace should still be logged.
-def test_store_trace_span_tag_when_exception_raised():
-    client = MlflowClient()
-
-    with (
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
-        ) as mock_upload_trace_data,
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
-            side_effect=MlflowException("Failed to log parameters"),
-        ) as mock_set_trace_tag,
-    ):
-        # This should not raise an exception
-        span = client.start_trace("trace_name", inputs={"input": "a" * 1000000})
-        client.end_trace(span.request_id, outputs={"result": "b" * 1000000})
-        mock_set_trace_tag.assert_called_once()
-        mock_upload_trace_data.assert_called_once()

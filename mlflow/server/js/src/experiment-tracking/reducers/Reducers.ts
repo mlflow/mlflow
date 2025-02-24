@@ -524,7 +524,7 @@ export const artifactRootUriByRunUuid = (state = {}, action: any) => {
   }
 };
 
-export const getExperimentDatasets = (experimentId: string, state: any) => {
+const getExperimentDatasets = (experimentId: string, state: any) => {
   return state.entities.datasetsByExperimentId[experimentId];
 };
 
@@ -548,7 +548,7 @@ export const datasetsByExperimentId = (state = {}, action: any) => {
   }
 };
 
-export const entities = combineReducers({
+const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
   runInfoOrderByUuid,
@@ -629,7 +629,7 @@ const defaultCompareExperimentsState: ComparedExperimentsReducerReduxState = {
   // Should be set to false when the user navigates to `/experiments/<experiment_id>`
   hasComparedExperimentsBefore: false,
 };
-export const compareExperiments = (
+const compareExperiments = (
   state: ComparedExperimentsReducerReduxState = defaultCompareExperimentsState,
   action: any,
 ): ComparedExperimentsReducerReduxState => {

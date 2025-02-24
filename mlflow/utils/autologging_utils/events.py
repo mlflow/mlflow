@@ -63,9 +63,9 @@ class AutologgingEventLogger:
         """
         if len(call_args) > 0:
             warnings.warn(
-                "Received %d positional arguments via `call_args`. `call_args` is"
+                f"Received {len(call_args)} positional arguments via `call_args`. `call_args` is"
                 " deprecated in MLflow > 1.13.1, and all arguments should be passed"
-                " in keyword form via `call_kwargs`." % len(call_args),
+                " in keyword form via `call_kwargs`.",
                 category=DeprecationWarning,
                 stacklevel=2,
             )

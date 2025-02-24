@@ -87,6 +87,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
     _validate_metric,
@@ -267,6 +268,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_experiment_name(name)
         if artifact_location:
             artifact_location = resolve_uri_if_local(artifact_location)
+            _validate_experiment_artifact_location_length(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
@@ -1335,7 +1337,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.join(non_attr_filter)
             for idx, dataset_filter in enumerate(dataset_filters):
                 # need to reference the anon table in the join condition
-                anon_table_name = f"anon_{idx+1}"
+                anon_table_name = f"anon_{idx + 1}"
                 stmt = stmt.join(
                     dataset_filter,
                     text(f"runs.run_uuid = {anon_table_name}.destination_id"),
@@ -1592,11 +1594,6 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceStatus.IN_PROGRESS,
             )
 
-            # tags could contain special tag='request_id' to make it possible to
-            # override `request_id` from Python tests in other stores like GO store.
-            # Filter it from here.
-            if "request_id" in tags:
-                del tags["request_id"]
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 

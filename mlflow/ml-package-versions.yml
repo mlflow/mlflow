@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.6.0"
+    maximum: "1.6.1"
     requirements:
       "< 1.3.0": ["numpy<2"]
       "< 1.0": ["scipy==1.7.3"]
@@ -15,7 +15,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.6.0"
+    maximum: "1.6.1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.3.0": ["numpy<2"]
@@ -62,7 +62,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.4.0"
+    maximum: "2.5.0.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
     run: |
@@ -76,7 +76,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.7.0"
+    maximum: "3.8.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -85,7 +85,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.7.0"
+    maximum: "3.8.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -260,12 +260,11 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.0.0"
-    maximum: "3.8.2"
+    minimum: "3.4.4"
+    maximum: "3.8.3"
+    python:
+      ">= 3.8.4": "3.10"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
-      "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
-      ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
       "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
@@ -310,7 +309,7 @@ spark:
 
   models:
     minimum: "3.1.2"
-    maximum: "3.5.3"
+    maximum: "3.5.4"
     java:
       "> 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -320,7 +319,7 @@ spark:
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
-      ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
+      ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -339,7 +338,7 @@ spark:
 
   autologging:
     minimum: "3.1.2"
-    maximum: "3.5.3"
+    maximum: "3.5.4"
     runs_on:
       # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
       "== 3.3.4": "ubuntu-24.04"
@@ -355,7 +354,7 @@ spark:
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
-      if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
+      if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
         python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
       pushd mlflow/java/spark
@@ -426,8 +425,14 @@ pmdarima:
     maximum: "2.0.4"
     requirements:
       "< 1.9": ["scikit-learn<1.3"]
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0.0": ["prophet", "holidays!=0.25", "numpy<2"]
+      ">= 0.0.0": [
+          "prophet",
+          # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+          "holidays!=0.25",
+          "numpy<2",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
+        ]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -443,7 +448,13 @@ diviner:
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25", "numpy<2"]
+      ">= 0.0": [
+          "cmdstanpy!=1.0.2",
+          "holidays!=0.25",
+          "numpy<2",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
+        ]
       "<= 0.1.0": ["pmdarima<2.0.0"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
@@ -498,7 +509,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.47.0"
+    maximum: "4.48.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -522,6 +533,8 @@ transformers:
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           "accelerate<1",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
@@ -545,7 +558,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.47.0"
+    maximum: "4.48.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -564,6 +577,8 @@ transformers:
           "setfit",
           "optuna",
           "accelerate<1",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
       # to check nltk availability. This function is only available in transformers>=4.34.0.
@@ -592,7 +607,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.57.1"
+    maximum: "1.59.6"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -611,7 +626,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.57.1"
+    maximum: "1.59.6"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -641,14 +656,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.17"
-    maximum: "2.5.41"
+    maximum: "2.5.43"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.5.41"
+    maximum: "2.5.43"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -662,7 +677,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.10"
+    maximum: "0.3.14"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -693,9 +708,7 @@ langchain:
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
-          # TODO: replace to package names once they are released to PyPI
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
+          "unitycatalog-langchain",
         ]
     run: |
       # Run all langchain tests except autologging and evaluation
@@ -709,7 +722,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.10"
+    maximum: "0.3.14"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -724,6 +737,8 @@ langchain:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Some model logging/loading requires langchain community
+          "langchain-community",
         ]
       "< 0.3.0": ["langchain_openai<0.2.0"]
       ">= 0.3.0": [
@@ -758,7 +773,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.5"
+    maximum: "0.12.10"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -776,7 +791,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.5"
+    maximum: "0.12.10"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -797,7 +812,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.39"
+    maximum: "0.2.40"
     python:
       "== dev": "3.10"
     requirements:
@@ -810,15 +825,18 @@ autogen:
 
 gemini:
   package_info:
-    pip_release: "google-generativeai"
-    module_name: "google.generativeai"
+    pip_release: "google-genai"
+    module_name: "google.genai"
     install_dev: |
-      pip install git+https://github.com/google-gemini/generative-ai-python
+      pip install git+https://github.com/googleapis/python-genai
   autologging:
-    minimum: "0.8.0"
-    maximum: "0.8.3"
+    minimum: "1.0.0"
+    maximum: "1.0.0"
     requirements:
-    run: pytest tests/gemini
+    run: |
+      # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
+      pip install google-generativeai
+      pytest tests/gemini
 
 anthropic:
   package_info:
@@ -827,7 +845,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.40.0"
+    maximum: "0.42.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -849,6 +867,23 @@ crewai:
     requirements:
     run: pytest tests/crewai
 
+mistral:
+  package_info:
+    pip_release: "mistralai"
+    module_name: "mistralai"
+    install_dev: |
+      TMP_DIR=$(mktemp -d)
+      git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
+      cd $TMP_DIR
+      python scripts/prepare-readme.py
+      pip install .
+      rm -rf $TMP_DIR
+  autologging:
+    minimum: "1.0.0"
+    maximum: "1.2.6"
+    requirements:
+    run: pytest tests/mistral
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
@@ -865,6 +900,8 @@ sentence_transformers:
           "hf_transfer",
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
+          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
+          "boto3<1.36",
         ]
       "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
@@ -894,7 +931,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.16.2"
+    maximum: "1.17.1"
     requirements:
       # Requirements to run sparkudf predict test
       # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
@@ -912,7 +949,7 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.54.1"
+    maximum: "1.58.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -930,7 +967,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.13.1"
+    maximum: "0.18.0"
     requirements:
     run: pytest tests/groq
 
@@ -941,5 +978,5 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.35.76"
+    maximum: "1.35.97"
     run: pytest tests/bedrock

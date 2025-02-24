@@ -256,7 +256,9 @@ def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, ke
     dependencies = databricks_dependencies.get(key, [])
     deps = []
     for dependency in dependencies:
-        deps.append({"type": resource_type, **dependency})
+        if dependency.get("on_behalf_of_user", False):
+            continue
+        deps.append({"type": resource_type, "name": dependency["name"]})
     return deps
 
 

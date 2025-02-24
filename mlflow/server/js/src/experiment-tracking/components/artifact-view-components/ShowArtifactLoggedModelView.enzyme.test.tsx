@@ -159,7 +159,7 @@ flavors:
     });
   });
 
-  test('should render predict validation in code snippet', (done) => {
+  test('should render models predict in code snippet', (done) => {
     const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
@@ -194,7 +194,6 @@ flavors:
   test('should fetch artifacts and serving input on component update', () => {
     instance = wrapper.instance();
     instance.fetchLoggedModelMetadata = jest.fn();
-    instance.fetchServingInputExample = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
@@ -241,60 +240,49 @@ flavors:
     });
   });
 
-  test('should render predict validation code snippet if input_example exists', (done) => {
-    const getArtifact = jest
-      .fn()
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`
+  test('should render serving validation code snippet if serving_input_example exists', (done) => {
+    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
+      return Promise.resolve(`
 flavors:
   python_function:
     python_version: 3.9.18
 saved_input_example_info:
   artifact_path: input_example.json
 `);
-      })
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`["x", "y", "z"]`);
-      });
+    });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().input_example).toBeDefined();
+      expect(impl.state().hasInputExample).toBe(true);
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
-      const validatePredictCodeContent = codeContent.at(0).text();
-      expect(validatePredictCodeContent.includes('input_example = \'["x", "y", "z"]\'')).toBe(true);
-      expect(validatePredictCodeContent.includes('input_data = json.loads(input_example)')).toBe(true);
-      expect(validatePredictCodeContent.includes('mlflow.models.predict')).toBe(true);
+      const codeContentText = codeContent.at(0).text();
+      expect(codeContentText.includes('input_data = pyfunc_model.input_example')).toBe(true);
+      expect(codeContentText.includes('mlflow.models.predict')).toBe(true);
       done();
     });
   });
 
-  test('should render predict validation code snippet if input_example does not exist', (done) => {
-    const getArtifact = jest
-      .fn()
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`
+  test('should render serving validation code snippet if serving_input_example does not exist', (done) => {
+    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
+      return Promise.resolve(`
 flavors:
   sklearn:
     version: 1.2.3
 `);
-      })
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.reject(new Error('file not existing'));
-      });
+    });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().input_example).toBeDefined();
+      expect(impl.state().hasInputExample).toBe(false);
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
-      expect(codeContentText.includes('input_data = INPUT_EXAMPLE')).toBe(true);
+      expect(codeContentText.includes('# Replace INPUT_EXAMPLE with your own input example to the model')).toBe(true);
       expect(codeContentText.includes('mlflow.models.predict')).toBe(true);
       done();
     });

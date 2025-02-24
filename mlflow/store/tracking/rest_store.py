@@ -3,7 +3,9 @@ import logging
 from typing import Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -20,6 +22,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
+    GetTraceInfoV3,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -51,6 +54,7 @@ from mlflow.utils.rest_utils import (
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
     get_trace_info_endpoint,
+    get_trace_assessment_endpoint
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -339,7 +343,22 @@ class RestStore(AbstractStore):
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        assessments = None
+        if MLFLOW_TRACKING_URI.get() == "databricks":
+            try:
+                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
+                tracev3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
+                )
+                assessments = [Assessment.from_proto(a) for a in tracev3_response_proto.trace.trace_info.assessments]
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                pass
+        trace_info = TraceInfo.from_proto(
+            response_proto.trace_info,
+            assessments=assessments)
+        return trace_info
 
     def search_traces(
         self,

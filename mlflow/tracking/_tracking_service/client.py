@@ -26,6 +26,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -316,11 +317,16 @@ class TrackingServiceClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
+        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
-            Downloads the trace data for the given trace_info and returns a Trace object.
+            Downloads the trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
             """
+            # Only the Databricks backend supports additional assessments; avoid making an unnecessary
+            # duplicate call to GET trace_info if not necessary.
+            if MLFLOW_TRACKING_URI.get() == "databricks":
+                trace_info_with_assessments = self.get_trace_info(trace_info.request_id)
+                trace_info.assessments = trace_info_with_assessments.assessments
             try:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
@@ -362,7 +368,7 @@ class TrackingServiceClient:
                     order_by=order_by,
                     page_token=next_token,
                 )
-                traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
+                traces.extend(t for t in executor.map(download_trace_extra_fields, trace_infos) if t)
 
                 if not next_token:
                     break

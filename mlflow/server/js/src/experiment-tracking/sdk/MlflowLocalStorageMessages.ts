@@ -55,31 +55,3 @@ export const ExperimentPagePersistedState = Immutable.Record(
   },
   'ExperimentPagePersistedState',
 );
-/**
- * This class wraps attributes of the ExperimentPage component's state that should be
- * persisted in / restored from local storage.
- */
-export const ExperimentViewPersistedState = Immutable.Record(
-  {
-    // Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
-    // a run has been minimized (its child runs are hidden).
-    runsHiddenByExpander: {},
-    // Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
-    // a run has been expanded (its child runs are visible).
-    runsExpanded: {},
-    // Arrays of "unbagged", or split-out metric and param keys (strings). We maintain these as
-    // lists to help keep them ordered (i.e. splitting out a column shouldn't change the ordering of
-    // columns that have already been split out)
-    unbaggedMetrics: [],
-    unbaggedParams: [],
-  },
-  'ExperimentViewPersistedState',
-);
-
-/**
- * This class wraps persisted states for AgGrid based table.
- */
-export const AgGridPersistedState = Immutable.Record({
-  // column group open/close state
-  columnGroupState: [],
-});

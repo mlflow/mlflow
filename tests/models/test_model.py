@@ -127,7 +127,7 @@ def _log_model_with_signature_and_example(
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
-        Model.log(
+        model = Model.log(
             "some/path",
             TestFlavor,
             signature=sig,
@@ -139,10 +139,7 @@ def _log_model_with_signature_and_example(
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
     # with tmp_path fixture
     output_path = tmp_path if isinstance(tmp_path, pathlib.PosixPath) else tmp_path.path("")
-    local_path = _download_artifact_from_uri(
-        f"runs:/{run.info.run_id}/some/path", output_path=output_path
-    )
-
+    local_path = _download_artifact_from_uri(model.model_uri, output_path=output_path)
     return local_path, run
 
 
@@ -273,30 +270,15 @@ def test_load_model_without_mlflow_version():
 
 def test_model_log_with_databricks_runtime():
     dbr_version = "8.3.x"
-    with (
-        TempDir(chdr=True) as tmp,
-        mock.patch("mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version),
-    ):
-        sig = ModelSignature(
-            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = {"x": 1, "y": 2}
-        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
+        ) as mock_get_dbr_version:
+            model = Model.log("path", TestFlavor, signature=None, input_example=None)
+            mock_get_dbr_version.assert_called()
 
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
-        assert loaded_model.flavors == {
-            "flavor1": {"a": 1, "b": 2},
-            "flavor2": {"x": 1, "y": 2},
-        }
-        assert loaded_model.signature == sig
-        x = _read_example(
-            Model(saved_input_example_info=loaded_model.saved_input_example_info), local_path
-        )
-        assert x == input_example
-        assert loaded_model.databricks_runtime == dbr_version
+    loaded_model = Model.load(model.model_uri)
+    assert loaded_model.databricks_runtime == dbr_version
 
 
 def test_model_log_with_input_example_succeeds():

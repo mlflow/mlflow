@@ -6,6 +6,8 @@ from unittest import mock
 import dspy
 import pytest
 from dspy.evaluate import Evaluate
+from dspy.evaluate.metrics import answer_exact_match
+from dspy.predict import Predict
 from dspy.primitives.example import Example
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
@@ -15,6 +17,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -47,6 +50,17 @@ def test_autolog_lm():
     assert spans[0].attributes["model_type"] == "chat"
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
+
+    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test input",
+        },
+        {
+            "role": "assistant",
+            "content": "[[ ## output ## ]]\ntest output",
+        },
+    ]
 
 
 def test_autolog_cot():
@@ -99,8 +113,10 @@ def test_autolog_cot():
     assert len(spans[3].outputs) == 3
     # Output parser will run per completion output (n=3)
     for i in range(3):
-        assert spans[4 + i].name == f"ChatAdapter.parse_{i+1}"
+        assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
+
+    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5
 
 
 def test_mlflow_callback_exception():
@@ -141,6 +157,12 @@ def test_mlflow_callback_exception():
     assert spans[2].status.status_code == "OK"
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
+
+    # Chat attribute should capture input message only when an error occurs
+    messages = spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
 
 
 @pytest.mark.skipif(
@@ -204,6 +226,9 @@ def test_autolog_react():
         "DummyLM.__call___3",
         "ChatAdapter.parse_3",
     ]
+
+    assert spans[3].span_type == SpanType.CHAT_MODEL
+    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 3
 
 
 def test_autolog_retriever():
@@ -305,47 +330,82 @@ def test_autolog_custom_module():
     ]
 
 
-def test_autolog_tracing_disabled_during_compile_evaluate():
+def test_autolog_tracing_during_compilation_disabled_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
         lm=DummyLM(
-            [
-                {
-                    "answer": "John Townes Van Zandt",
-                    "reasoning": "No more responses",
-                }
-            ]
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
         )
     )
 
     # Samples from HotpotQA dataset
     trainset = [
-        Example(
-            {
-                "question": "At My Window was released by which American singer-songwriter?",
-                "answer": "John Townes Van Zandt",
-            }
-        ).with_inputs("question"),
-        Example(
-            {
-                "question": "which  American actor was Candace Kita  guest starred with ",
-                "answer": "Bill Murray",
-            }
-        ).with_inputs("question"),
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
     ]
 
+    program = Predict("question -> answer")
+
+    # Compile should NOT generate traces by default
     teleprompter = BootstrapFewShot()
-    teleprompter.compile(RAG(), trainset=trainset)
+    teleprompter.compile(program, trainset=trainset)
 
-    assert mlflow.get_last_active_trace() is None
+    assert len(get_traces()) == 0
 
-    # Evaluate the model
+    # If opted in, traces should be generated during compilation
+    mlflow.dspy.autolog(log_traces_from_compile=True)
+
+    teleprompter.compile(program, trainset=trainset)
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+
+    # Opt-out again
+    mlflow.dspy.autolog(log_traces_from_compile=False)
+
+    teleprompter.compile(program, trainset=trainset)
+    assert len(get_traces()) == 2  # no new traces
+
+
+def test_autolog_tracing_during_evaluation_enabled_by_default():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+
+    # Samples from HotpotQA dataset
+    trainset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+
+    program = Predict("question -> answer")
+
+    # Evaluate should generate traces by default
     evaluator = Evaluate(devset=trainset)
-    score = evaluator(RAG(), metric=lambda example, pred, _: example.answer == pred.answer)
+    score = evaluator(program, metric=answer_exact_match)
 
-    assert score == 0.0
-    assert mlflow.get_last_active_trace() is None
+    assert score == 50.0
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+
+    # If opted out, traces should NOT be generated during evaluation
+    mlflow.dspy.autolog(log_traces_from_eval=False)
+
+    score = evaluator(program, metric=answer_exact_match)
+    assert len(get_traces()) == 2  # no new traces
 
 
 def test_autolog_should_not_override_existing_callbacks():

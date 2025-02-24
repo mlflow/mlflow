@@ -23,7 +23,14 @@ from pyspark.ml.evaluation import (
     MulticlassClassificationEvaluator,
     RegressionEvaluator,
 )
-from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenizer, VectorAssembler
+from pyspark.ml.feature import (
+    HashingTF,
+    IndexToString,
+    StandardScaler,
+    StringIndexer,
+    Tokenizer,
+    VectorAssembler,
+)
 from pyspark.ml.functions import array_to_vector
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
@@ -218,9 +225,9 @@ def test_models_in_allowlist_exist(spark_session):
     non_existent_classes = list(
         filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
     )
-    assert (
-        len(non_existent_classes) == 0
-    ), f"{non_existent_classes} in log_model_allowlist don't exist"
+    assert len(non_existent_classes) == 0, (
+        f"{non_existent_classes} in log_model_allowlist don't exist"
+    )
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
@@ -507,7 +514,10 @@ def test_pipeline(dataset_text):
         assert run_data.tags == get_expected_class_tags(estimator)
         assert MODEL_DIR in run_data.artifacts
         loaded_model = load_model_by_run_id(run_id)
-        assert loaded_model.uid == model.uid
+        pd.testing.assert_frame_equal(
+            loaded_model.transform(dataset_text).toPandas(),
+            model.transform(dataset_text).toPandas(),
+        )
         assert run_data.artifacts == ["estimator_info.json", "model"]
 
 
@@ -1221,16 +1231,16 @@ def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
 
     output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
     features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
-    assert features_col.dataType == ArrayType(
-        DoubleType(), False
-    ), "'features' column isn't of expected type array<double>"
+    assert features_col.dataType == ArrayType(DoubleType(), False), (
+        "'features' column isn't of expected type array<double>"
+    )
 
 
 def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
-    assert get_feature_cols(input_df_with_non_features, pipeline_model) == {
-        "id"
-    }, "Wrong feature columns returned"
+    assert get_feature_cols(input_df_with_non_features, pipeline_model) == {"id"}, (
+        "Wrong feature columns returned"
+    )
 
 
 def test_get_feature_cols_with_indexer_and_assembler(spark_session):
@@ -1266,9 +1276,9 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
     features_col = next(
         filter(lambda f: f.name == "features", df_with_vector_features.schema.fields)
     )
-    assert isinstance(
-        features_col.dataType, VectorUDT
-    ), "'features' column wasn't cast to vector type"
+    assert isinstance(features_col.dataType, VectorUDT), (
+        "'features' column wasn't cast to vector type"
+    )
     pipeline_model.transform(df_with_vector_features)
     with pytest.raises(
         IllegalArgumentException, match="requirement failed: Column features must be of type"
@@ -1331,3 +1341,22 @@ def test_model_with_vector_input_vector_output(spark_session):
 
     test_pdf = pd.DataFrame({"features": [[1.0, 2.0], [3.0, 4.0]]})
     model.predict(test_pdf)  # ensure enforcing input / output schema passing
+
+
+def test_autolog_custom_output_col_pipeline(spark_session):
+    mlflow.pyspark.ml.autolog()
+    scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+    pipeline = Pipeline(stages=[scaler])
+    train_df = spark_session.createDataFrame(
+        [
+            (Vectors.dense([0.0]), 1.0),
+            (Vectors.dense([2.0]), 2.0),
+        ],
+        ["features", "label"],
+    )
+    with mlflow.start_run():
+        pipeline_model = pipeline.fit(train_df)
+
+    assert pipeline_model.stages[-1].getOutputCol() == "scaled_features"
+    pred_df = pipeline_model.transform(train_df)
+    assert "scaled_features" in pred_df.columns

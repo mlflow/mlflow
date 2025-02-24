@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from mlflow.entities import Span
+from mlflow.tracing.constant import SpanAttributeKey
 
 
 @dataclass
@@ -36,3 +37,29 @@ class TraceData:
             "request": self.request,
             "response": self.response,
         }
+
+    @property
+    def intermediate_outputs(self) -> Optional[dict[str, Any]]:
+        """
+        Returns intermediate outputs produced by the model or agent while handling the request.
+        There are mainly two flows to return intermediate outputs:
+        1. When a trace is generate by the `mlflow.log_trace` API,
+        return `intermediate_outputs` attribute of the span.
+        2. When a trace is created normally with a tree of spans,
+        aggregate the outputs of non-root spans.
+        """
+        root_span = self._get_root_span()
+        if root_span and root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS):
+            return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
+
+        if len(self.spans) > 1:
+            return {
+                span.name: span.outputs
+                for span in self.spans
+                if span.parent_id and span.outputs is not None
+            }
+
+    def _get_root_span(self) -> Optional[Span]:
+        for span in self.spans:
+            if span.parent_id is None:
+                return span

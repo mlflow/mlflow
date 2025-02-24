@@ -33,7 +33,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -1235,8 +1238,7 @@ def test_log_null_param(store: SqlAlchemyStore):
 @pytest.mark.skipif(
     Version(sqlalchemy.__version__) < Version("2.0")
     and mlflow.get_tracking_uri().startswith("mssql"),
-    reason="large string parameters are sent as TEXT/NTEXT; "
-    "see tests/db/compose.yml for details",
+    reason="large string parameters are sent as TEXT/NTEXT; see tests/db/compose.yml for details",
 )
 def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
@@ -3295,7 +3297,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         # made to the input tags
         overwrite_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(
             run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
@@ -3356,7 +3358,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
         new_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -4182,19 +4184,21 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-        # In case if under the hood of `store` is a GO implementation it is
-        # not possible to mock `generate.request_id`. Let's send generated
-        # `request_id` via special tag='request_id' so GO implementation can catch it.
-        if tags:
-            tags["request_id"] = request_id
-        else:
-            tags = {"request_id": request_id}
+        # In case if under the hood of `store` is a GO implementation, it is
+        # not possible to mock `generate.request_id`. Let's send generated `request_id`
+        # via special tag='mock.generate_request_id.go.testing.tag'
+        # so GO implementation can catch it.
+        if _MLFLOW_GO_STORE_TESTING.get():
+            if tags:
+                tags["mock.generate_request_id.go.testing.tag"] = request_id
+            else:
+                tags = {"mock.generate_request_id.go.testing.tag": request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=tags,
+            tags=tags or {},
         )
 
     store.end_trace(
@@ -4419,7 +4423,7 @@ def test_search_traces_pagination_tie_breaker(store):
         _create_trace(store, rid, exp1, timestamp_ms=0)
 
     # Insert 5 more traces with newer timestamp
-    request_ids = [f"tr-{i+5}" for i in range(5)]
+    request_ids = [f"tr-{i + 5}" for i in range(5)]
     random.shuffle(request_ids)
     for rid in request_ids:
         _create_trace(store, rid, exp1, timestamp_ms=1)

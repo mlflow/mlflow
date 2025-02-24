@@ -32,6 +32,13 @@ import contextlib
 from mlflow.version import VERSION
 
 __version__ = VERSION
+
+import mlflow.mismatch
+
+# `check_version_mismatch` must be called here before importing any other modules
+with contextlib.suppress(Exception):
+    mlflow.mismatch._check_version_mismatch()
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -67,6 +74,7 @@ litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
+mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
@@ -122,6 +130,7 @@ from mlflow.tracing.fluent import (
     get_current_active_span,
     get_last_active_trace,
     get_trace,
+    log_trace,
     search_traces,
     start_span,
     trace,
@@ -218,6 +227,7 @@ __all__ = [
     "log_params",
     "log_table",
     "log_text",
+    "log_trace",
     "login",
     "pyfunc",
     "register_model",

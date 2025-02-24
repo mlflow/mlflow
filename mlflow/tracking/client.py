@@ -60,7 +60,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
-    TraceTagKey,
 )
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -524,7 +523,7 @@ class MlflowClient:
         self,
         name: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
         attributes: Optional[dict[str, str]] = None,
         tags: Optional[dict[str, str]] = None,
         experiment_id: Optional[str] = None,
@@ -639,7 +638,7 @@ class MlflowClient:
     def end_trace(
         self,
         request_id: str,
-        outputs: Optional[dict[str, Any]] = None,
+        outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
@@ -704,11 +703,17 @@ class MlflowClient:
         Returns:
             The request ID of the logged trace.
         """
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        # If the trace is created outside MLflow experiment (e.g. model serving), it does
+        # not have an experiment ID, but we need to log it to the tracking server.
+        experiment_id = trace.info.experiment_id or _get_experiment_id()
+
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
         # no way to insert the trace with a specific request ID given by the user.
         new_info = self._tracking_client.start_trace(
-            experiment_id=trace.info.experiment_id,
+            experiment_id=experiment_id,
             timestamp_ms=trace.info.timestamp_ms,
             request_metadata={},
             tags={},
@@ -721,37 +726,8 @@ class MlflowClient:
             request_metadata=trace.info.request_metadata,
             tags=trace.info.tags,
         )
-
-        # Upload trace data
-        self._upload_trace_spans_as_tag(new_info, trace.data)
         self._upload_trace_data(new_info, trace.data)
-
         return new_info.request_id
-
-    def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
-        # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
-        # https://databricks.atlassian.net/browse/ML-40306
-        parsed_spans = []
-        for span in trace_data.spans:
-            parsed_span = {}
-
-            parsed_span["name"] = span.name
-            parsed_span["type"] = span.span_type
-            span_inputs = span.inputs
-            if span_inputs and isinstance(span_inputs, dict):
-                parsed_span["inputs"] = list(span_inputs.keys())
-            span_outputs = span.outputs
-            if span_outputs and isinstance(span_outputs, dict):
-                parsed_span["outputs"] = list(span_outputs.keys())
-
-            parsed_spans.append(parsed_span)
-
-        # Directly set the tag on the trace in the backend
-        self._tracking_client.set_trace_tag(
-            trace_info.request_id,
-            TraceTagKey.TRACE_SPANS,
-            json.dumps(parsed_spans, ensure_ascii=False),
-        )
 
     def start_span(
         self,
@@ -759,7 +735,7 @@ class MlflowClient:
         request_id: str,
         parent_id: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
@@ -922,7 +898,7 @@ class MlflowClient:
         self,
         request_id: str,
         span_id: str,
-        outputs: Optional[dict[str, Any]] = None,
+        outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
@@ -2395,6 +2371,8 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
+            # TODO: reconsider the separator used here since % has special meaning in URL encoding.
+            # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )

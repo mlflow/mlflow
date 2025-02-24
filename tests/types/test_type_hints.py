@@ -13,16 +13,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
-    PYDANTIC_V1_OR_OLDER,
     InvalidTypeHintException,
+    UnsupportedTypeHintException,
     _convert_data_to_type_hint,
     _convert_dataframe_to_example_format,
     _infer_schema_from_list_type_hint,
     _is_example_valid_for_type_from_example,
     _signature_cannot_be_inferred_from_type_hint,
-    _validate_example_against_type_hint,
+    _validate_data_against_type_hint,
 )
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 class CustomModel(pydantic.BaseModel):
@@ -179,17 +180,18 @@ def test_type_hints_needs_signature(type_hint):
 
 
 def test_infer_schema_from_type_hints_errors():
-    message = r"Type hint for model input must be `list\[...\]`"
-    with pytest.raises(MlflowException, match=message):
+    with pytest.raises(MlflowException, match=r"Type hints must be wrapped in list\[...\]"):
         _infer_schema_from_list_type_hint(str)
 
-    with pytest.raises(MlflowException, match=message):
+    with pytest.raises(
+        MlflowException, match=r"Type hint `list` doesn't contain a collection element type"
+    ):
         _infer_schema_from_list_type_hint(list)
 
     class InvalidModel(pydantic.BaseModel):
         bool_field: Optional[bool]
 
-    if not PYDANTIC_V1_OR_OLDER:
+    if IS_PYDANTIC_V2_OR_NEWER:
         message = (
             r"Optional field `bool_field` in Pydantic model `InvalidModel` "
             r"doesn't have a default value. Please set default value to None for this field."
@@ -203,14 +205,19 @@ def test_infer_schema_from_type_hints_errors():
         with pytest.raises(MlflowException, match=message):
             _infer_schema_from_list_type_hint(list[list[InvalidModel]])
 
-    message = r"To define Optional inputs, use a Pydantic-based type hint definition"
+    message = r"Input cannot be Optional type"
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(Optional[list[str]])
+
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Optional[str]])
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])
 
-    with pytest.raises(MlflowException, match=r"List type hint must contain only one element type"):
+    with pytest.raises(
+        MlflowException, match=r"Collections must have only a single type definition"
+    ):
         _infer_schema_from_list_type_hint(list[str, int])
 
     with pytest.raises(MlflowException, match=r"Dictionary key type must be str"):
@@ -234,7 +241,7 @@ def test_infer_schema_from_type_hints_errors():
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[dict])
 
-    with pytest.raises(InvalidTypeHintException, match=r"Unsupported type hint"):
+    with pytest.raises(UnsupportedTypeHintException, match=r"Unsupported type hint"):
         _infer_schema_from_list_type_hint(list[object])
 
 
@@ -321,18 +328,15 @@ def test_infer_schema_from_type_hints_errors():
 )
 def test_pydantic_model_validation(type_hint, example):
     if isinstance(example, dict):
-        assert _validate_example_against_type_hint(
-            example=example, type_hint=type_hint
-        ) == type_hint(**example)
+        assert _validate_data_against_type_hint(data=example, type_hint=type_hint) == type_hint(
+            **example
+        )
     elif isinstance(example, list):
-        assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == [
+        assert _validate_data_against_type_hint(data=example, type_hint=type_hint) == [
             get_args(type_hint)[0](**item) for item in example
         ]
     else:
-        assert (
-            _validate_example_against_type_hint(example=example.dict(), type_hint=type_hint)
-            == example
-        )
+        assert _validate_data_against_type_hint(data=example.dict(), type_hint=type_hint) == example
 
 
 @pytest.mark.parametrize(
@@ -358,51 +362,48 @@ def test_pydantic_model_validation(type_hint, example):
     ],
 )
 def test_python_type_hints_validation(type_hint, example):
-    assert _validate_example_against_type_hint(example=example, type_hint=type_hint) == example
+    assert _validate_data_against_type_hint(data=example, type_hint=type_hint) == example
 
 
 def test_type_hints_validation_errors():
-    with pytest.raises(
-        MlflowException, match=r"Input example is not valid for Pydantic model `CustomModel`"
-    ):
-        _validate_example_against_type_hint({"long_field": 1, "str_field": "a"}, CustomModel)
+    with pytest.raises(MlflowException, match=r"Data doesn't match type hint"):
+        _validate_data_against_type_hint({"long_field": 1, "str_field": "a"}, CustomModel)
 
-    with pytest.raises(MlflowException, match=r"Expected type <class 'int'>, but got str"):
-        _validate_example_against_type_hint("a", int)
+    with pytest.raises(MlflowException, match=r"Expected type int, but got str"):
+        _validate_data_against_type_hint("a", int)
 
     with pytest.raises(MlflowException, match=r"Expected list, but got str"):
-        _validate_example_against_type_hint("a", list[str])
+        _validate_data_against_type_hint("a", list[str])
 
     with pytest.raises(
         MlflowException,
-        match=r'Invalid elements in list: {\'1\': "Expected type <class \'str\'>, but got int"}',
+        match=r"Failed to validate data against type hint `list\[str\]`",
     ):
-        _validate_example_against_type_hint(["a", 1], list[str])
+        _validate_data_against_type_hint(["a", 1], list[str])
 
     with pytest.raises(
         MlflowException,
         match=r"Expected dict, but got list",
     ):
-        _validate_example_against_type_hint(["a", 1], dict[str, int])
+        _validate_data_against_type_hint(["a", 1], dict[str, int])
 
     with pytest.raises(
         MlflowException,
-        match=r"Invalid elements in dict: {'1': 'Key must be a string, got int', "
-        r"'a': 'Expected list, but got int'}",
+        match=r"Failed to validate data against type hint `dict\[str, list\[str\]\]`",
     ):
-        _validate_example_against_type_hint({1: ["a", "b"], "a": 1}, dict[str, list[str]])
+        _validate_data_against_type_hint({1: ["a", "b"], "a": 1}, dict[str, list[str]])
 
     with pytest.raises(
         MlflowException,
-        match=r"Expected type <class 'int'>, but got str",
+        match=r"Expected type int, but got str",
     ):
-        _validate_example_against_type_hint("a", Optional[int])
+        _validate_data_against_type_hint("a", Optional[int])
 
     with pytest.raises(
         InvalidTypeHintException,
-        match=r"Unsupported type hint `<class 'list'>`, it must include a valid element type.",
+        match=r"Invalid type hint `list`, it must include a valid element type.",
     ):
-        _validate_example_against_type_hint(["a"], list)
+        _validate_data_against_type_hint(["a"], list)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
@@ -434,13 +435,10 @@ def test_type_hint_for_python_3_10():
         ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
         (1, Optional[int], 1),
         (None, Optional[int], None),
-        (pd.DataFrame([["a", "b"]]), Any, pd.DataFrame([["a", "b"]])),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
         # This is a temp workaround for evaluate
         (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
-        (["x", "y"], Any, ["x", "y"]),
-        ([1, "a", None], Optional[Any], [1, "a", None]),
     ],
 )
 def test_maybe_convert_data_for_type_hint(data, type_hint, expected_data):
@@ -461,7 +459,7 @@ def test_maybe_convert_data_for_type_hint_errors():
 
     with pytest.raises(
         MlflowException,
-        match=r"Only `list\[...\]` or `Any` type hint supports pandas DataFrame input",
+        match=r"Only `list\[\.\.\.\]` type hint supports pandas DataFrame input",
     ):
         _convert_data_to_type_hint(pd.DataFrame([["a", "b"]]), str)
 

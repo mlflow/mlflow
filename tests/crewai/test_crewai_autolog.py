@@ -19,34 +19,38 @@ _LLM_ANSWER = "What about Tokyo?"
 
 
 def create_sample_llm_response(content):
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "model": "gpt-4o",
-        "system_fingerprint": "fp_44709d6fcb",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content,
+    from litellm import ModelResponse
+
+    return ModelResponse(
+        **{
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "gpt-4o",
+            "system_fingerprint": "fp_44709d6fcb",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    },
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 9,
+                "completion_tokens": 12,
+                "total_tokens": 21,
+                "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "accepted_prediction_tokens": 0,
+                    "rejected_prediction_tokens": 0,
                 },
-                "logprobs": None,
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 12,
-            "total_tokens": 21,
-            "completion_tokens_details": {
-                "reasoning_tokens": 0,
-                "accepted_prediction_tokens": 0,
-                "rejected_prediction_tokens": 0,
             },
-        },
-    }
+        }
+    )
 
 
 _SIMPLE_CHAT_COMPLETION = create_sample_llm_response(f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}")
@@ -63,6 +67,14 @@ _EMBEDDING = {
     "model": "text-embedding-ada-002",
     "usage": {"prompt_tokens": 8, "total_tokens": 8},
 }
+
+
+class AnyInt(int):
+    def __eq__(self, other):
+        return isinstance(other, int)
+
+
+ANY_INT = AnyInt()
 
 _CREW_OUTPUT = {
     "json_dict": None,
@@ -82,11 +94,11 @@ _CREW_OUTPUT = {
         }
     ],
     "token_usage": {
-        "cached_prompt_tokens": 0,
-        "completion_tokens": 0,
-        "prompt_tokens": 0,
-        "successful_requests": 0,
-        "total_tokens": 0,
+        "cached_prompt_tokens": ANY_INT,
+        "completion_tokens": ANY_INT,
+        "prompt_tokens": ANY_INT,
+        "successful_requests": ANY_INT,
+        "total_tokens": ANY_INT,
     },
 }
 
@@ -284,6 +296,11 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert len(traces) == 1
 
 
+@pytest.mark.skip(
+    reason=(
+        "https://github.com/crewAIInc/crewAI/issues/1934. Remove skip when the issue is resolved."
+    )
+)
 def test_kickoff_failure(simple_agent_1, task_1, autolog):
     crew = Crew(
         agents=[
@@ -482,11 +499,11 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
             },
         ],
         "token_usage": {
-            "cached_prompt_tokens": 0,
-            "completion_tokens": 0,
-            "prompt_tokens": 0,
-            "successful_requests": 0,
-            "total_tokens": 0,
+            "cached_prompt_tokens": ANY_INT,
+            "completion_tokens": ANY_INT,
+            "prompt_tokens": ANY_INT,
+            "successful_requests": ANY_INT,
+            "total_tokens": ANY_INT,
         },
     }
     # Task

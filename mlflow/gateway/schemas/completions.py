@@ -75,7 +75,7 @@ class StreamDelta(ResponseModel):
 class StreamChoice(ResponseModel):
     index: int
     finish_reason: Optional[str] = None
-    delta: StreamDelta
+    text: Optional[str] = None
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
