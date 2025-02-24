@@ -70,10 +70,6 @@ python_gencode_replacements = [
         "from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
         "from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
     ),
-    (
-        "import service_pb2 as service__pb2",
-        "from . import service_pb2 as service__pb2",
-    ),
     ("import databricks_pb2 as databricks__pb2", "from . import databricks_pb2 as databricks__pb2"),
     (
         "import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",
