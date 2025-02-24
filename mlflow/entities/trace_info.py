@@ -2,8 +2,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.assessment import Assessment
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag

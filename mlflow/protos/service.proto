@@ -1536,7 +1536,6 @@ message GetTraceInfo {
 
 message GetTraceInfoV3 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace to fetch. Must be provided.
   optional string trace_id = 1;

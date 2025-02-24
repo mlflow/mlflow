@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -48,11 +48,13 @@ class Assessment(_MlflowObject):
         source: The source of the assessment.
         create_time_ms: The creation time of the assessment in milliseconds.
         last_update_time_ms: The last update time of the assessment in milliseconds.
-        value: The value of the assessment. It can be an expectation or feedback.
+        expectation: The expectation value of the assessment.
+        feedback: The feedback value of the assessment. Only one of `expectation`, `feedback`
+            or `error` should be specified.
         rationale: The rationale / justification for the assessment.
         metadata: The metadata associated with the assessment.
         error: An error object representing any issues during generating the assessment.
-            Either `value` or `error` should be specified, not both.
+            If this is set, the assessment should not contain `expectation` or `feedback`.
         span_id: The ID of the span associated with the assessment, if the assessment should
             be associated with a particular span in the trace.
         _assessment_id: The ID of the assessment. This must be generated in the backend.

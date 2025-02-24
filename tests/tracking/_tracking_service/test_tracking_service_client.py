@@ -12,7 +12,6 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -455,8 +454,9 @@ def test_search_traces_with_filestore(tmp_path):
         assert mock_download_trace_data.call_count == 3
 
 
-def test_search_traces_with_assessments(tmp_path):
-    client = TrackingServiceClient(tmp_path.as_uri())
+@pytest.mark.parametrize("tracking_uri", ["databricks", "databricks://profile"])
+def test_search_traces_with_assessments(tracking_uri):
+    client = TrackingServiceClient(tracking_uri)
     with (
         mock.patch.object(
             client,
@@ -516,22 +516,23 @@ def test_search_traces_with_assessments(tmp_path):
                         ),
                         create_time_ms=0,
                         last_update_time_ms=0,
-                        value=Feedback("test"),
+                        feedback=Feedback("test"),
                     )
                 ],
             ),
         ) as mock_get_trace_info,
-        mock.patch(
-            "mlflow.environment_variables.MLFLOW_TRACKING_URI.get", return_value="databricks"
-        ),
     ):
         res1 = client.search_traces(experiment_ids=["0"], max_results=2)
         assert len(res1) == 2
-        assert res1.token == None
+        assert res1.token is None
 
         assert mock_search_traces.call_count == 1
         assert mock_download_trace_data.call_count == 2
         assert mock_get_trace_info.call_count == 2
+        assert mock_get_trace_info.call_args_list == [
+            mock.call("test", should_query_v3=True),
+            mock.call("test", should_query_v3=True),
+        ]
 
 
 @pytest.fixture

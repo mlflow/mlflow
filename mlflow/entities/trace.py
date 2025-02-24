@@ -231,5 +231,5 @@ class Trace(_MlflowObject):
             "request_metadata",
             "spans",
             "tags",
-            "assessments"
+            "assessments",
         ]

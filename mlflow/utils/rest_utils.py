@@ -358,6 +358,7 @@ def get_trace_assessment_endpoint(request_id):
     # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
     return f"{get_single_trace_endpoint(request_id)}"
 
+
 def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
 

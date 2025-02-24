@@ -379,10 +379,9 @@ def test_requestor():
             message_to_json(expected_message),
         )
 
-    with (mock_http_request() as mock_http,
-          mock.patch("mlflow.environment_variables.MLFLOW_TRACKING_URI.get", return_value="databricks")):
+    with mock_http_request() as mock_http:
         request_id = "tr-123"
-        store.get_trace_info(request_id)
+        store.get_trace_info(request_id, should_query_v3=True)
         expected_message = GetTraceInfo(request_id=request_id)
         _verify_requests(
             mock_http,
@@ -790,7 +789,7 @@ def test_log_assessment():
         ),
         create_time_ms=int(time.time() * 1000),
         last_update_time_ms=int(time.time() * 1000),
-        value=Feedback(value=True),
+        feedback=Feedback(value=True),
         rationale="rationale",
         metadata={"model": "gpt-4o-mini"},
         error=None,
