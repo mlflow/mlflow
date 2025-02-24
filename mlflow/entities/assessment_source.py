@@ -14,7 +14,7 @@ class AssessmentSource(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
 
-    Attributes:
+    Args:
         source_type: The type of the assessment source. Must be one of the values in
             the AssessmentSourceType enum.
         source_id: An identifier for the source, e.g. user ID or LLM judge ID.
