@@ -389,12 +389,15 @@ class RestStore(AbstractStore):
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
 
-    def create_assessment(self, assessment: Assessment):
+    def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Create an assessment entity in the backend store.
 
         Args:
-            assessment: The assessment to log.
+            assessment: The assessment to log (without an assessment_id).
+
+        Returns:
+            The created Assessment object.
         """
         req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
         response_proto = self._call_endpoint(
