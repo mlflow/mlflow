@@ -202,7 +202,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         ],
     }
     trace = MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
     mock_artifact_repo.download_trace_data.assert_called_once()
 
     assert trace.info.request_id == "tr-1234567"
