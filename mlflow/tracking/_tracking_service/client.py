@@ -257,17 +257,19 @@ class TrackingServiceClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace info matching the ``request_id``.
 
         Args:
             request_id: String id of the trace to fetch.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
-        return self.store.get_trace_info(request_id)
+        return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
 
     def get_trace(self, request_id) -> Trace:
         """
@@ -337,11 +339,18 @@ class TrackingServiceClient:
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
+        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
-            Downloads the trace data for the given trace_info and returns a Trace object.
+            Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
             """
+            # Only the Databricks backend supports additional assessments; avoid making
+            # an unnecessary duplicate call to GET trace_info if not necessary.
+            if is_databricks_uri(self.tracking_uri):
+                trace_info_with_assessments = self.get_trace_info(
+                    trace_info.request_id, should_query_v3=True
+                )
+                trace_info.assessments = trace_info_with_assessments.assessments
             try:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
@@ -384,7 +393,9 @@ class TrackingServiceClient:
                     page_token=next_token,
                     model_id=model_id,
                 )
-                traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
+                traces.extend(
+                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                )
 
                 if not next_token:
                     break
