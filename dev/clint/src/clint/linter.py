@@ -17,6 +17,7 @@ from clint.config import Config
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
 DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
+MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 
 def ignore_map(code: str) -> dict[str, set[int]]:
@@ -325,6 +326,11 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
 
         self.generic_visit(node)
+
+    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if docstring := self._docstring(node):
+            if MARKDOWN_LINK_RE.search(docstring.s):
+                self._check(docstring, rules.LazyBuiltinImport())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
