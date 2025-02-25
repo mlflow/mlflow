@@ -330,12 +330,13 @@ class Linter(ast.NodeVisitor):
     def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if docstring := self._docstring(node):
             if MARKDOWN_LINK_RE.search(docstring.s):
-                self._check(docstring, rules.LazyBuiltinImport())
+                self._check(docstring, rules.MarkdownLink())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._markdown_link(node)
         self._invalid_abstract_method(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
@@ -354,6 +355,7 @@ class Linter(ast.NodeVisitor):
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._markdown_link(node)
         self._invalid_abstract_method(node)
         self.stack.append(node)
         self._no_rst(node)
