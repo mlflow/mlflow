@@ -125,6 +125,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
+from mlflow.tracing.assessment import log_expectation, log_feedback
 from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
@@ -236,7 +237,6 @@ __all__ = [
     "log_params",
     "log_table",
     "log_text",
-    "log_trace",
     "login",
     "pyfunc",
     "register_model",
@@ -266,7 +266,11 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "log_trace",
     "update_current_trace",
+    # Assessment APIs
+    "log_expectation",
+    "log_feedback",
 ]
 
 
