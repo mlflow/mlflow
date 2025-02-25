@@ -388,9 +388,9 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> li
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
-    lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
-    /docs/modules/chains#lcel-chains), which is a langchain_core.runnables.RunnableSerializable.
-    [Legacy chains](https://python.langchain.com/docs/modules/chains#legacy-chains) have limited
+    lc_model can be an arbitrary `chain that is built with LCEL <https://python.langchain.com/docs/modules/chains#lcel-chains>`_,
+    which is a langchain_core.runnables.RunnableSerializable.
+    `Legacy chains <https://python.langchain.com/docs/modules/chains#legacy-chains>`_ have limited
     support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
     MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
     supported. If you need to support a custom chain, you need to monkey patch
