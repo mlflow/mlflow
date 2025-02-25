@@ -3,6 +3,8 @@ import sys
 
 import pytest
 
+from mlflow.recipes import Recipe
+
 WARNING_MESSAGE = "MLflow Recipes is deprecated"
 
 
@@ -17,6 +19,7 @@ def test_no_warns(monkeypatch: pytest.MonkeyPatch) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        # As there is no model 'foo', the command will fail.
         check=False,
     )
     assert WARNING_MESSAGE not in prc.stdout
@@ -25,9 +28,7 @@ def test_no_warns(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_warns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir("examples/recipes/regression")
 
-    from mlflow.recipes import Recipe
-
-    with pytest.warns(FutureWarning, match=r"MLflow Recipes is deprecated"):
+    with pytest.warns(FutureWarning, match=WARNING_MESSAGE):
         Recipe(profile="local")
 
     stdout = subprocess.check_output(
@@ -40,4 +41,4 @@ def test_warns(monkeypatch: pytest.MonkeyPatch) -> None:
         stderr=subprocess.STDOUT,
         text=True,
     )
-    assert WARNING_MESSAGE in stdout, stdout
+    assert WARNING_MESSAGE in stdout
