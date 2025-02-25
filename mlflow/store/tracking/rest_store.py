@@ -53,8 +53,9 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
-    get_assessments_endpoint,
+    get_create_assessment_endpoint,
     get_set_trace_tag_endpoint,
+    get_single_assessment_endpoint,
     get_single_trace_endpoint,
     get_trace_assessment_endpoint,
     get_trace_info_endpoint,
@@ -424,7 +425,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             CreateAssessment,
             req_body,
-            endpoint=get_assessments_endpoint(assessment.trace_id),
+            endpoint=get_create_assessment_endpoint(assessment.trace_id),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -485,9 +486,24 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_assessments_endpoint(trace_id),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
         return Assessment.from_proto(response_proto.assessment)
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment associated with a trace.
+
+        Args:
+            trace_id: String ID of the trace.
+            assessment_id: String ID of the assessment to delete.
+        """
+        req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
+        self._call_endpoint(
+            DeleteAssessment,
+            req_body,
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+        )
 
     def log_metric(self, run_id: str, metric: Metric):
         """
@@ -662,18 +678,3 @@ class RestStore(AbstractStore):
         datasets_protos = [dataset.to_proto() for dataset in datasets]
         req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
         self._call_endpoint(LogInputs, req_body)
-
-    def delete_assessment(self, trace_id: str, assessment_id: str):
-        """
-        Delete an assessment associated with a trace.
-
-        Args:
-            trace_id: String ID of the trace.
-            assessment_id: String ID of the assessment to delete.
-        """
-        req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
-        self._call_endpoint(
-            DeleteAssessment,
-            req_body,
-            endpoint=get_assessments_endpoint(trace_id),
-        )

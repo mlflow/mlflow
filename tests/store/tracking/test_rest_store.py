@@ -884,7 +884,11 @@ def test_update_assessment(updates, expected_request_json):
         )
 
     _verify_requests(
-        mock_http, creds, "traces/tr-1234/assessments", "PATCH", json.dumps(expected_request_json)
+        mock_http,
+        creds,
+        "traces/tr-1234/assessments/1234",
+        "PATCH",
+        json.dumps(expected_request_json),
     )
     assert isinstance(res, Assessment)
 
@@ -900,3 +904,23 @@ def test_update_assessment_invalid_update():
             expectation=Expectation(value="updated_value"),
             feedback=Feedback(value=0.5),
         )
+
+
+def test_delete_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
+
+    expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
+    _verify_requests(
+        mock_http,
+        creds,
+        "traces/tr-1234/assessments/1234",
+        "DELETE",
+        json.dumps(expected_request_json),
+    )
