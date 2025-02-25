@@ -118,6 +118,9 @@ def fit_func_name(request):
 
 
 def _get_model_uri(name: str = MODEL_DIR) -> str:
+    """
+    Get the model URI for the last active run.
+    """
     last_active_run = mlflow.last_active_run()
     return f"runs:/{last_active_run.info.run_id}/{name}"
 
