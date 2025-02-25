@@ -65,7 +65,7 @@ _MODEL_DATA_SUBPATH = "model.fastai"
 
 _logger = logging.getLogger(__name__)
 
-warnings.warn("fastai flavor is deprecated and will be removed in a future release.", FutureWarning)
+warnings.warn("fastai flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
