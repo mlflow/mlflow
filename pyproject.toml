@@ -278,7 +278,7 @@ exclude = [
   "mlflow/server/js",
   "mlflow/store/db_migrations",
   "tests/protos",
-  "tests/cached_evaluate/evaluate/metrics",
+  "tests/cached_evaluate/evaluate",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
