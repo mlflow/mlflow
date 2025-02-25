@@ -209,9 +209,7 @@ def _get_tracer(module_name: str):
     If the tracer provider is not initialized, this function will initialize the tracer provider.
     Other simultaneous calls to this function will block until the initialization is done.
     """
-    # Initiate tracer provider only once in the application lifecycle
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
-    return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
+    return _get_tracer_provider().get_tracer(module_name)
 
 
 def _get_trace_exporter():
@@ -223,6 +221,18 @@ def _get_trace_exporter():
         # There should be only one processor used for MLflow tracing
         processor = processors[0]
         return processor.span_exporter
+
+
+def _get_tracer_provider():
+    """
+    Get a tracer provider for the given module name.
+
+    If the tracer provider is not initialized, this function will initialize the tracer provider.
+    Other simultaneous calls to this function will block until the initialization is done.
+    """
+    # Initiate tracer provider only once in the application lifecycle
+    _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
+    return _MLFLOW_TRACER_PROVIDER
 
 
 def _setup_tracer_provider(disabled=False):
