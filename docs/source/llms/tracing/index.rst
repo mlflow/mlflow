@@ -97,6 +97,11 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
                     <img src="../../_static/images/logos/instructor-logo.svg" alt="Instructor Logo"/>
                 </div>
             </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/txtai-logo.svg" alt="Txtai Logo"/>
+                </div>
+            </a>
     </section>
 
 
@@ -717,6 +722,37 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/mistral/mistral-tracing.png
             :alt: Mistral Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: Txtai
+
+        .. raw:: html
+
+            <h3>Txtai Automatic Tracing</h3>
+
+        |
+
+
+        MLflow Tracing ensures observability for your interactions with txtai.
+        Auto tracing for txtai can be enabled by calling the `mlflow.txtai.autolog` function, MLflow will capture traces for LLM invocation, embeddings, vector search, and log them to the active MLflow Experiment.
+
+        To get started, install the `MLflow txtai extension <https://github.com/neuml/mlflow-txtai/tree/master>`_:
+
+        .. code-block:: bash
+
+            pip install mlflow-txtai
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.txtai.autolog()
+
+        To see the full example of tracing txtai, please refer to the `MLflow txtai extension documentation <https://github.com/neuml/mlflow-txtai/tree/master>`_
+
+        .. figure:: ../../_static/images/llms/mistral/txtai-rag-tracing.png
+            :alt: Txtai Tracing
             :width: 100%
             :align: center
 
