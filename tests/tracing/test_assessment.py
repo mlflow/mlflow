@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
+from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 
@@ -39,8 +39,8 @@ def test_log_expectation(store):
     assert assessment.source.source_id is None
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
-    assert isinstance(assessment.value, Expectation)
-    assert assessment.value.value == "MLflow"
+    assert assessment.expectation.value == "MLflow"
+    assert assessment.feedback is None
     assert assessment.rationale is None
     assert assessment.metadata == {"key": "value"}
     assert assessment.error is None
@@ -96,8 +96,8 @@ def test_log_feedback(store):
     assert assessment.source.source_id == "faithfulness-judge"
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
-    assert isinstance(assessment.value, Feedback)
-    assert assessment.value.value == 1.0
+    assert assessment.feedback.value == 1.0
+    assert assessment.expectation is None
     assert assessment.rationale == "This answer is very faithful."
     assert assessment.metadata == {"model": "gpt-4o-mini"}
     assert assessment.error is None
@@ -125,21 +125,22 @@ def test_log_feedback_with_error(store):
     assert assessment.source.source_id is None
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
-    assert assessment.value is None
+    assert assessment.expectation is None
+    assert assessment.feedback is None
     assert assessment.rationale is None
     assert assessment.error.error_code == "RATE_LIMIT_EXCEEDED"
     assert assessment.error.error_message == "Rate limit for the judge exceeded."
 
 
 def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be specified."):
+    with pytest.raises(MlflowException, match=r"Exactly one of `expectation`, "):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             source=AssessmentSourceType.LLM_JUDGE,
         )
 
-    with pytest.raises(MlflowException, match=r"Only one of `value` or `error` should be "):
+    with pytest.raises(MlflowException, match=r"Exactly one of `expectation`, "):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",

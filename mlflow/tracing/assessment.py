@@ -70,7 +70,7 @@ def log_expectation(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
-        value=Expectation(value) if value is not None else None,
+        expectation=Expectation(value) if value is not None else None,
         metadata=metadata,
         span_id=span_id,
     )
@@ -167,7 +167,7 @@ def log_feedback(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
-        value=Feedback(value) if value is not None else None,
+        feedback=Feedback(value) if value is not None else None,
         error=error,
         rationale=rationale,
         metadata=metadata,

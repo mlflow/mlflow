@@ -975,6 +975,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         "request_metadata",
         "spans",
         "tags",
+        "assessments",
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].request_id == trace.info.request_id
