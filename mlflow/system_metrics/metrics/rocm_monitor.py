@@ -19,20 +19,21 @@ except ImportError:
     # We don't log a warning here to avoid spamming warning at every import.
     pass
 
+
 class ROCMMonitor(BaseMetricsMonitor):
     """
-        Class for monitoring AMD GPU stats. This is
-        class has been modified and has been inspired by
-        the original GPUMonitor class written by MLflow.
-        This class uses the package pyrsmi which is an
-        offical ROCM python package which tracks and monitor
-        AMD GPU's, has been tested on AMD MI250x 128GB GPUs
+    Class for monitoring AMD GPU stats. This is
+    class has been modified and has been inspired by
+    the original GPUMonitor class written by MLflow.
+    This class uses the package pyrsmi which is an
+    official ROCM python package which tracks and monitor
+    AMD GPU's, has been tested on AMD MI250x 128GB GPUs
 
-        For more information see:
-        https://github.com/ROCm/pyrsmi
+    For more information see:
+    https://github.com/ROCm/pyrsmi
 
-        PyPi package:
-        https://pypi.org/project/pyrsmi/
+    PyPi package:
+    https://pypi.org/project/pyrsmi/
 
 
     """
@@ -88,7 +89,7 @@ class ROCMMonitor(BaseMetricsMonitor):
         self.num_gpus = rocml.smi_get_device_count()
 
         for i in range(self.num_gpus):
-            memory_used  = rocml.smi_get_device_memory_used(i)
+            memory_used = rocml.smi_get_device_memory_used(i)
             memory_total = rocml.smi_get_device_memory_total(i)
             self._metrics[f"gpu_{i}_memory_usage_percentage"].append(
                 round(memory_used / memory_total * 100, 1)
@@ -108,12 +109,11 @@ class ROCMMonitor(BaseMetricsMonitor):
             # TODO:
             # memory_busy (and other useful metrics) are available in pyrsmi>1.1.0.
             # We are currently on pyrsmi==1.0.1, so these are not available
-            #memory_busy  = rocml.smi_get_device_memory_busy(i)
-            #self._metrics[f"gpu_{i}_memory_busy_time_percent"].append(memory_busy)
+            # memory_busy  = rocml.smi_get_device_memory_busy(i)
+            # self._metrics[f"gpu_{i}_memory_busy_time_percent"].append(memory_busy)
 
     def aggregate_metrics(self):
         return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}
 
     def __del__(self):
         rocml.smi_shutdown()
-
