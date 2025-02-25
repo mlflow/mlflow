@@ -293,10 +293,12 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         def _plot_calibration_curve():
             return plot_calibration_curve(
-                self.y_true,
-                self.y_probs,
-                self.pos_label,
-                {k: v for k, v in self.evaluator_config.items() if k.startswith("calibration_")},
+                y_true=self.y_true,
+                y_probs=self.y_probs,
+                pos_label=self.pos_label,
+                calibration_config={
+                    k: v for k, v in self.evaluator_config.items() if k.startswith("calibration_")
+                },
                 label_list=self.label_list,
             )
 

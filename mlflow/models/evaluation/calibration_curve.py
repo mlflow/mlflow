@@ -6,7 +6,7 @@ from sklearn.calibration import CalibrationDisplay, calibration_curve
 def make_multi_class_calibration_plot(
     n_classes, y_true, y_probs, calibration_config, label_list
 ) -> Figure:
-    """generate one calibration plot for a classes for a multi-class classifier
+    """Generate one calibration plot for all classes of a multi-class classifier
 
     Args:
         n_classes (int): number of classes in multi-class prediction
@@ -19,7 +19,7 @@ def make_multi_class_calibration_plot(
         label_list (array-like): list of label names for each class
 
     Returns:
-        Figure: Multi-Class Calibartion Plot
+        Figure: Multi-Class Calibration Plot
     """
     fig, ax = plt.subplots()
     # add calibration line for each class
@@ -55,7 +55,7 @@ def make_multi_class_calibration_plot(
     return fig
 
 
-def plot_calibration_curve(y_true, y_probs, pos_label, calibration_config, **kwargs) -> Figure:
+def plot_calibration_curve(y_true, y_probs, pos_label, calibration_config, label_list) -> Figure:
     """Generate a calibration curve for a trained classifier
 
     Args:
@@ -69,14 +69,15 @@ def plot_calibration_curve(y_true, y_probs, pos_label, calibration_config, **kwa
 
         calibration_config (dict[str, Union[str, int]]):
             Additional parameters for sklearn.CalibrationDisplay
-        **kwargs: Additional arguments passed to plotting functions.
+
+        label_list: List of class names
 
     Raises:
         TypeError: if calibration_config["calibration_classifier_name"] is not str
         TypeError: if calibration_config["calibration_n_bins"] is not int
 
     Returns:
-        Axes: Calibration Curve for Evaluated Classifier
+        Figure: Calibration Curve for Evaluated Classifier
     """
     # get number of classes
     n_classes = y_probs.shape[-1]
@@ -104,5 +105,5 @@ def plot_calibration_curve(y_true, y_probs, pos_label, calibration_config, **kwa
     # evaluating a multi-class classifier, create a calibration curve for each class
 
     return make_multi_class_calibration_plot(
-        n_classes, y_true, y_probs, calibration_config, label_list=kwargs["label_list"]
+        n_classes, y_true, y_probs, calibration_config, label_list
     )
