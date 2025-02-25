@@ -15,10 +15,12 @@ export const ExperimentViewRunsTableResizer = ({
   width,
   onResize,
   children,
+  onHiddenChange,
 }: React.PropsWithChildren<{
   runListHidden: boolean;
   width: number;
   onResize: React.Dispatch<React.SetStateAction<number>>;
+  onHiddenChange?: (isHidden: boolean) => void;
 }>) => {
   const updateUIState = useUpdateExperimentViewUIState();
   const [dragging, setDragging] = useState(false);
@@ -36,6 +38,10 @@ export const ExperimentViewRunsTableResizer = ({
           <ExperimentViewRunsTableResizerHandle
             runListHidden={runListHidden}
             updateRunListHidden={(value) => {
+              if (onHiddenChange) {
+                onHiddenChange(value);
+                return;
+              }
               updateUIState((state) => ({ ...state, runListHidden: value }));
             }}
           />

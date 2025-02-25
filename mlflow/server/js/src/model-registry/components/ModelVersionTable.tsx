@@ -188,7 +188,7 @@ export const ModelVersionTable = ({
           description: 'Column title text for created at timestamp in model version table',
         }),
         accessorKey: 'creation_timestamp',
-        cell: ({ getValue }) => Utils.formatTimestamp(getValue()),
+        cell: ({ getValue }) => Utils.formatTimestamp(getValue(), intl),
       },
 
       {

@@ -9,8 +9,7 @@ import {
   PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useEffect, useState } from 'react';
-import { shouldEnableTaggingMultipleRuns } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useState } from 'react';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';

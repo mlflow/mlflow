@@ -19,7 +19,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
 describe('ModelView', () => {
   let wrapper: any;

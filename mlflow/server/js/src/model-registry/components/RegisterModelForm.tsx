@@ -19,7 +19,7 @@ const CREATE_NEW_MODEL_LABEL = 'Create New Model';
 export const CREATE_NEW_MODEL_OPTION_VALUE = `$$$__${CREATE_NEW_MODEL_LABEL}__$$$`;
 export const SELECTED_MODEL_FIELD = 'selectedModel';
 export const MODEL_NAME_FIELD = 'modelName';
-export const DESCRIPTION_FIELD = 'description';
+const DESCRIPTION_FIELD = 'description';
 
 type Props = {
   modelByName?: any;

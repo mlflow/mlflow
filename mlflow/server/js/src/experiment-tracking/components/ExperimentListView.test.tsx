@@ -1,12 +1,5 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { screen, fireEvent, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
@@ -15,14 +8,11 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
-import { RenameExperimentModal } from './modals/RenameExperimentModal';
-import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { DesignSystemProvider } from '@databricks/design-system';
+import { DesignSystemProvider, DesignSystemThemeInterface } from '@databricks/design-system';
 
 // Make the autosizer render items.
 // https://github.com/bvaughn/react-virtualized/blob/v9.22.3/source/AutoSizer/AutoSizer.jest.js#L68
-function mockOffsetSize(width: any, height: any) {
+function mockOffsetSize(width: number, height: number) {
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
     configurable: true,
     value: height,
@@ -42,13 +32,14 @@ afterAll(() => {
 });
 
 // Need to mock this since the hoc doesn't pick up theme
-const designSystemThemeApi = {
+const designSystemThemeApi: DesignSystemThemeInterface = {
   theme: {
     colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
     general: { iconSize: 24 },
     spacing: { xs: 4 },
+    typography: { fontSize: 13 },
   },
-};
+} as any;
 
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
@@ -64,9 +55,7 @@ const mountComponent = (props: any) => {
         <BrowserRouter>
           <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
         </BrowserRouter>
-        ,
       </Provider>
-      ,
     </DesignSystemProvider>,
   );
 };

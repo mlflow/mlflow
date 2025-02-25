@@ -1,8 +1,12 @@
+"""
+THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED SOON. PLEASE DO NOT USE THESE CLASSES
+IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES.
+"""
+
 import uuid
 from typing import Optional
 
-from mlflow.entities.evaluation import Evaluation as EvaluationEntity
-from mlflow.evaluation.evaluation import Evaluation
+from mlflow.evaluation.evaluation import Evaluation, EvaluationEntity
 from mlflow.evaluation.utils import evaluations_to_dataframes
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run

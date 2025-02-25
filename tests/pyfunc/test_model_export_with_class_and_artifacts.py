@@ -30,6 +30,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
+from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
@@ -48,9 +49,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
-)
-from mlflow.tracking.artifact_utils import (
-    get_artifact_uri as utils_get_artifact_uri,
 )
 from mlflow.types.schema import ColSpec, Map, Schema
 from mlflow.types.type_hints import _infer_schema_from_list_type_hint
@@ -206,27 +204,22 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={"sk_model": sklearn_model_uri},
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
-        pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        assert model_info.model_uri == pyfunc_model_uri
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
@@ -302,54 +295,37 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                     np.testing.assert_array_equal(_read_example(mlflow_model, path), example)
 
 
+class DummyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        return model_input
+
+
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
-    with register_model_patch:
-        sklearn_artifact_path = "sk_model_no_run"
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-            sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
-
-        def test_predict(sk_model, model_input):
-            return sk_model.predict(model_input) * 2
-
-        pyfunc_artifact_path = "pyfunc_model"
-        assert mlflow.active_run() is None
-        mlflow.pyfunc.log_model(
-            pyfunc_artifact_path,
-            artifacts={"sk_model": sklearn_model_uri},
-            python_model=main_scoped_model_class(test_predict),
-            registered_model_name="AdsModel1",
-        )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.tracking._model_registry.fluent._register_model"
+        ) as register_model_mock:
+            registered_model_name = "AdsModel1"
+            pyfunc_model_info = mlflow.pyfunc.log_model(
+                "pyfunc_model",
+                python_model=DummyModel(),
+                registered_model_name=registered_model_name,
+            )
         assert_register_model_called_with_local_model_path(
-            mlflow.tracking._model_registry.fluent._register_model,
-            model_uri,
-            "AdsModel1",
+            register_model_mock, pyfunc_model_info.model_uri, registered_model_name
         )
-        mlflow.end_run()
 
 
 def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model_class):
-    register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
-    with register_model_patch:
-        sklearn_artifact_path = "sk_model_no_run"
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-            sklearn_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{sklearn_artifact_path}"
-
-        def test_predict(sk_model, model_input):
-            return sk_model.predict(model_input) * 2
-
-        pyfunc_artifact_path = "pyfunc_model"
-        assert mlflow.active_run() is None
-        mlflow.pyfunc.log_model(
-            pyfunc_artifact_path,
-            artifacts={"sk_model": sklearn_model_uri},
-            python_model=main_scoped_model_class(test_predict),
-        )
-        mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
-        mlflow.end_run()
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.tracking._model_registry.fluent._register_model"
+        ) as register_model_mock:
+            mlflow.pyfunc.log_model(
+                "pyfunc_model",
+                python_model=DummyModel(),
+            )
+        register_model_mock.assert_not_called()
 
 
 def test_model_load_from_remote_uri_succeeds(
@@ -753,24 +729,17 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
-            },
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(predict_fn=None),
             conda_env=pyfunc_custom_env,
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -791,24 +760,17 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        pyfunc_model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
-            artifacts={
-                "sk_model": utils_get_artifact_uri(
-                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
-                )
-            },
+            artifacts={"sk_model": sklearn_model_info.model_uri},
             python_model=main_scoped_model_class(predict_fn=None),
             conda_env=pyfunc_custom_env,
         )
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
 
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
@@ -1653,7 +1615,6 @@ def test_model_save_load_with_resources(tmp_path):
         python_model=mlflow.pyfunc.model.PythonModel(),
         resources=yaml_file,
     )
-
     reloaded_model = Model.load(pyfunc_model_path_2)
     assert reloaded_model.resources == expected_resources
 
@@ -2408,4 +2369,103 @@ def test_pyfunc_model_input_example_with_signature():
         ):
             mlflow.pyfunc.log_model(
                 "model", python_model=Model(), signature=signature, input_example=123
+            )
+
+
+@pytest.mark.parametrize("save_model", [True, False])
+@pytest.mark.parametrize("use_user_auth_policy", [True, False])
+@pytest.mark.parametrize("use_system_policy", [True, False])
+def test_model_log_with_auth_policy(tmp_path, save_model, use_user_auth_policy, use_system_policy):
+    pyfunc_save_artifact_path = os.path.join(tmp_path, "pyfunc_model_save")
+    pyfunc_log_artifact_path = "pyfunc_model_log"
+
+    expected_auth_policy = {"system_auth_policy": {}, "user_auth_policy": {}}
+
+    system_auth_policy = None
+    if use_system_policy:
+        system_auth_policy = SystemAuthPolicy(
+            resources=[
+                DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
+                DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksUCConnection(connection_name="test_connection_1"),
+            ]
+        )
+        expected_auth_policy["system_auth_policy"] = {
+            "resources": {
+                "api_version": "1",
+                "databricks": {
+                    "function": [{"name": "rag.studio.test_function_a"}],
+                    "serving_endpoint": [{"name": "databricks-mixtral-8x7b-instruct"}],
+                    "uc_connection": [{"name": "test_connection_1"}],
+                    "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
+                },
+            }
+        }
+
+    user_auth_policy = None
+    if use_user_auth_policy:
+        user_auth_policy = UserAuthPolicy(
+            api_scopes=[
+                "catalog.catalogs",
+                "vectorsearch.vector-search-indexes",
+                "workspace.workspace",
+            ]
+        )
+        expected_auth_policy["user_auth_policy"] = {
+            "api_scopes": [
+                "catalog.catalogs",
+                "vectorsearch.vector-search-indexes",
+                "workspace.workspace",
+            ]
+        }
+
+    auth_policy = AuthPolicy(
+        user_auth_policy=user_auth_policy, system_auth_policy=system_auth_policy
+    )
+
+    if save_model:
+        mlflow.pyfunc.save_model(
+            path=pyfunc_save_artifact_path,
+            conda_env=_conda_env(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            auth_policy=auth_policy,
+        )
+        reloaded_model = Model.load(pyfunc_save_artifact_path)
+    else:
+        with mlflow.start_run() as run:
+            mlflow.pyfunc.log_model(
+                pyfunc_log_artifact_path,
+                python_model=mlflow.pyfunc.model.PythonModel(),
+                auth_policy=auth_policy,
+            )
+
+        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_log_artifact_path}"
+        pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+        reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+
+    assert reloaded_model.auth_policy == expected_auth_policy
+
+
+def test_both_resources_and_auth_policy():
+    pyfunc_log_artifact_path = "pyfunc_model_log"
+    system_auth_policy = SystemAuthPolicy(
+        resources=[DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")]
+    )
+    user_auth_policy = UserAuthPolicy(api_scopes=["workspace.workspace"])
+    auth_policy = AuthPolicy(
+        user_auth_policy=user_auth_policy, system_auth_policy=system_auth_policy
+    )
+
+    with mlflow.start_run() as _:
+        with pytest.raises(
+            ValueError, match="Only one of `resources`, and `auth_policy` can be specified."
+        ):
+            mlflow.pyfunc.log_model(
+                pyfunc_log_artifact_path,
+                python_model=mlflow.pyfunc.model.PythonModel(),
+                auth_policy=auth_policy,
+                resources=[
+                    DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
+                ],
             )

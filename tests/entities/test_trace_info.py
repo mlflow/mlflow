@@ -23,6 +23,7 @@ def trace_info():
             "baz": "qux",
             "k" * 2000: "v" * 2000,
         },
+        assessments=[],
     )
 
 
@@ -90,6 +91,7 @@ def test_to_dict(trace_info):
             "baz": "qux",
             "k" * 2000: "v" * 2000,
         },
+        "assessments": [],
     }
 
 
@@ -125,6 +127,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
             "baz": "qux",
             "k" * 250: "v" * 250,
         },
+        "assessments": [],
     }
     # python native dictionary -> TraceInfo
     assert TraceInfo.from_dict(trace_info_as_dict) == trace_info

@@ -18,5 +18,5 @@ evals = [
     }
 ]
 eval_result = mlflow.evaluate(
-    data=pd.DataFrame.from_records(evals), model="{{ modelUri }}", model_type="databricks-agent"
+    data=pd.DataFrame.from_records(evals), model="{{modelUri}}", model_type="databricks-agent"
 )

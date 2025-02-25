@@ -1,14 +1,14 @@
-import { ImageIcon } from '@databricks/design-system';
-import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ImageIcon, Spinner } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
 import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 
-export const MAX_IMAGE_SIZE = 225;
-export const MIN_IMAGE_SIZE = 120;
+const MAX_IMAGE_SIZE = 225;
+const MIN_IMAGE_SIZE = 120;
 export const IMAGE_GAP_SIZE = 10;
 
 export const getImageSize = (numImages: number, width: number) => {
@@ -31,11 +31,35 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
 
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    // Load the image in the memory (should reuse the same request) in order to get the loading state
+    setImageLoading(true);
+    const img = new window.Image();
+    img.onload = () => setImageLoading(false);
+    img.onerror = () => setImageLoading(false);
+    img.src = compressedImageUrl;
+    return () => {
+      img.src = '';
+    };
+  }, [compressedImageUrl]);
+
   return (
     <div css={{ width: imageSize, height: imageSize || '100%' }}>
       <div css={{ height: imageSize || '100%' }}>
-        {compressedImageUrl === undefined ? (
-          <GenericSkeleton label="Loading..." css={{ height: imageSize, width: imageSize }} />
+        {compressedImageUrl === undefined || imageLoading ? (
+          <div
+            css={{
+              height: '100%',
+              backgroundColor: theme.colors.backgroundSecondary,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spinner />
+          </div>
         ) : (
           <div
             css={{

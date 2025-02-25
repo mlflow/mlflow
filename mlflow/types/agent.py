@@ -18,12 +18,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import model_validator
-else:
-    from pydantic import root_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ChatAgentMessage(BaseModel):
@@ -53,28 +48,39 @@ class ChatAgentMessage(BaseModel):
     # TODO make this a pydantic class with subtypes once we have more details on usage
     attachments: Optional[dict[str, str]] = None
 
-    if IS_PYDANTIC_V2_OR_NEWER:
-
-        @model_validator(mode="after")
-        def check_content_and_tool_calls(cls, chat_agent_msg):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
-            if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return chat_agent_msg
-    else:
-
-        @root_validator
-        def check_content_and_tool_calls(cls, values):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
+    @model_validator(mode="after")
+    def check_content_and_tool_calls(cls, values):
+        """
+        Ensure at least one of 'content' or 'tool_calls' is set.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            content = values.content
+            tool_calls = values.tool_calls
+        else:
             content = values.get("content")
             tool_calls = values.get("tool_calls")
-            if not content and not tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return values
+
+        if not content and not tool_calls:
+            raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+        return values
+
+    @model_validator(mode="after")
+    def check_tool_messages(cls, values):
+        """
+        Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            name = values.name
+            role = values.role
+            tool_call_id = values.tool_call_id
+        else:
+            name = values.get("name")
+            role = values.get("role")
+            tool_call_id = values.get("tool_call_id")
+
+        if role == "tool" and (not name or not tool_call_id):
+            raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
+        return values
 
 
 class ChatContext(BaseModel):

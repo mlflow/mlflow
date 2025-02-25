@@ -34,7 +34,6 @@ import {
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import {
   DatasetsCellRenderer,
   DatasetsCellRendererSuppressKeyboardEvents,
@@ -65,9 +64,6 @@ const VISIBILITY_TOGGLE_WIDTH = 32;
  * for compare runs mode when checkboxes are hidden.
  */
 const getActionsColumnWidth = (isComparingRuns?: boolean) => {
-  if (!shouldUseNewRunRowsVisibilityModel()) {
-    return BASE_RUN_ACTIONS_COLUMN_WIDTH;
-  }
   return isComparingRuns ? BASE_RUN_ACTIONS_COLUMN_WIDTH : BASE_RUN_ACTIONS_COLUMN_WIDTH - VISIBILITY_TOGGLE_WIDTH;
 };
 
@@ -123,7 +119,7 @@ export const getFrameworkComponents = () => ({
  * Certain columns are described as run attributes (opposed to metrics, params etc.), however
  * they actually source their data from the run tags. This objects maps tag names to column identifiers.
  */
-export const TAGS_TO_COLUMNS_MAP = {
+const TAGS_TO_COLUMNS_MAP = {
   [ATTRIBUTE_COLUMN_SORT_KEY.USER]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'User'),
   [ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Run Name'),
   [ATTRIBUTE_COLUMN_SORT_KEY.SOURCE]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Source'),

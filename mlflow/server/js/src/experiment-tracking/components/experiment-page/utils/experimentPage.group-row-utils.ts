@@ -80,7 +80,7 @@ export const normalizeRunsGroupByKey = (groupBy?: string | RunsGroupByConfig | n
   };
 };
 
-export const createGroupRenderMetadata = (
+const createGroupRenderMetadata = (
   groupId: string,
   expanded: boolean,
   runsInGroup: SingleRunData[],

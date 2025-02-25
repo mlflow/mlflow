@@ -6,6 +6,8 @@ export type DarkModePref = 'system' | 'dark' | 'light';
 
 export const DARK_MODE_PREF_DEFAULT = 'system';
 
+export const LOCAL_STORAGE_DARK_MODE_PREF_KEY: any = 'dark-mode-pref';
+
 export interface SupportsDuBoisThemesProps {
   disabled?: boolean;
 }
@@ -31,3 +33,7 @@ export function systemPrefersDark(): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export function setDarkModeSupported(value: boolean) {}
+
+export function WorkspaceImg(props: React.ImgHTMLAttributes<HTMLImageElement> & { src?: string; alt?: string }) {
+  return <img alt="altt" {...props} />;
+}

@@ -3,9 +3,9 @@ import React, { Suspense } from 'react';
 
 const ParallelCoordinatesPlot = React.lazy(() => import('./ParallelCoordinatesPlot'));
 
-const LazyParallelCoordinatesPlot = (props: any) => {
+const LazyParallelCoordinatesPlot = ({ fallback, ...props }: any) => {
   return (
-    <Suspense fallback={<LegacySkeleton />}>
+    <Suspense fallback={fallback ?? <LegacySkeleton />}>
       <ParallelCoordinatesPlot {...props}></ParallelCoordinatesPlot>
     </Suspense>
   );

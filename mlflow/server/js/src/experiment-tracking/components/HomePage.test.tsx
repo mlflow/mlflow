@@ -1,4 +1,4 @@
-import { render, screen } from '../../common/utils/TestUtils.react17';
+import { render, screen } from '../../common/utils/TestUtils.react18';
 import HomePage from './HomePage';
 
 import configureStore from 'redux-mock-store';

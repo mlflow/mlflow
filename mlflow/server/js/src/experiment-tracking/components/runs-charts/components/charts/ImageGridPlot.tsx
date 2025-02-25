@@ -1,17 +1,14 @@
-import { useDispatch } from 'react-redux';
 import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
-import { useEffect } from 'react';
-import { shouldEnableImageGridCharts } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { ImageGridSingleKeyPlot } from './ImageGridSingleKeyPlot';
 import { ImageGridMultipleKeyPlot } from './ImageGridMultipleKeyPlot';
 import {
-  DEFAULT_IMAGE_GRID_CHART_NAME,
   LOG_IMAGE_TAG_INDICATOR,
   NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+import { Empty } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 export const ImageGridPlot = ({
   previewData,
@@ -26,11 +23,34 @@ export const ImageGridPlot = ({
   setCardConfig?: (setter: (current: RunsChartsCardConfig) => RunsChartsImageCardConfig) => void;
   containerWidth: number;
 }) => {
+  const containsLoggedImages = previewData.some((run: RunsChartsRunData) => Boolean(run.tags[LOG_IMAGE_TAG_INDICATOR]));
+
   const filteredPreviewData = previewData
     .filter((run: RunsChartsRunData) => {
       return run.tags[LOG_IMAGE_TAG_INDICATOR];
     })
     .slice(-NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE);
+
+  if (!containsLoggedImages) {
+    return (
+      <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="No images found"
+              description="Title for the empty state when no images are found in the currently visible runs"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="No logged images found in the currently visible runs"
+              description="Description for the empty state when no images are found in the currently visible runs"
+            />
+          }
+        />
+      </div>
+    );
+  }
 
   if (cardConfig.imageKeys.length === 1) {
     return <ImageGridSingleKeyPlot previewData={filteredPreviewData} cardConfig={cardConfig} width={containerWidth} />;

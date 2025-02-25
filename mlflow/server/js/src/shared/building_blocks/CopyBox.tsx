@@ -19,7 +19,7 @@ export const CopyBox = ({ copyText }: Props) => (
       componentId="codegen_mlflow_app_src_shared_building_blocks_copybox.tsx_18"
       readOnly
       value={copyText}
-      data-test-id="copy-box"
+      data-testid="copy-box"
     />
     <CopyButton copyText={copyText} />
   </div>

@@ -377,6 +377,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "mlflow.models.resources.Resource"),
     ("py:class", "mlflow.models.resources.ResourceType"),
+    ("py:class", "mlflow.models.auth_policy.AuthPolicy"),
     ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
@@ -435,9 +436,8 @@ nitpick_ignore = [
     ("py:class", "ChatMessage"),
     ("py:class", "ChatTool"),
     # sphinx can't resolve alias import e.g. from xyz import abc as xyz_abc in type annotations
-    ("py:class", "EvaluationEntity"),
-    ("py:class", "mlflow.evaluation.assessment.Assessment"),
-    ("py:class", "mlflow.entities.assessment_source.AssessmentSource"),
+    ("py:class", "mlflow.entities.assessment.Expectation"),
+    ("py:class", "mlflow.entities.assessment.Feedback"),
 ]
 
 

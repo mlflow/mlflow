@@ -46,7 +46,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'getting-started/community-edition/index',
+          id: 'getting-started/databricks-trial/index',
         },
         {
           type: 'category',

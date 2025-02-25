@@ -48,7 +48,7 @@ export const JsonPreview: React.FC<JsonPreviewProps> = ({ json, wrapperStyle, ov
   );
 };
 
-export function useFormattedJson(json: string) {
+function useFormattedJson(json: string) {
   return React.useMemo(() => {
     try {
       const parsed = JSON.parse(json);

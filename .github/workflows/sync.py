@@ -48,10 +48,6 @@ def main():
                 break
             page += 1
 
-    if pr := next((pr for pr in iter_pull_requests() if pr["title"] == PR_TITLE), None):
-        print(f"PR already exists: {pr['html_url']}")
-        sys.exit(0)
-
     # Fetch master and mlflow-3 branches
     subprocess.check_call(["git", "config", "user.name", "mlflow-automation"])
     subprocess.check_call(
@@ -85,8 +81,30 @@ def main():
         print("Branch is already up to date with master, no changes to sync")
         sys.exit(0)
 
-    # Create a pull request
-    subprocess.check_call(["git", "push", "origin", PR_BRANCH_NAME])
+    if existing_pr := next((pr for pr in iter_pull_requests() if pr["title"] == PR_TITLE), None):
+        head_ref = existing_pr["head"]["ref"]
+        assert head_ref.startswith("sync-"), f"Unexpected head ref: {head_ref}"
+        subprocess.check_call(
+            [
+                "git",
+                "push",
+                "-f",
+                "origin",
+                f"{PR_BRANCH_NAME}:{head_ref}",
+            ]
+        )
+        print(f"Updated existing PR: {existing_pr['html_url']}")
+        sys.exit(0)
+    else:
+        subprocess.check_call(
+            [
+                "git",
+                "push",
+                "origin",
+                PR_BRANCH_NAME,
+            ]
+        )
+
     # PR creation right after the push sometimes fails with 422,
     # so retry up to 5 times with an exponential backoff
     for i in range(5):

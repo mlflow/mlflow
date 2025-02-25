@@ -434,6 +434,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
     _get_dependencies_schema_from_model,
@@ -534,9 +535,11 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     get_dbconnect_udf_sandbox_info,
     is_databricks_connect,
     is_in_databricks_runtime,
+    is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -2769,6 +2772,7 @@ def save_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    auth_policy: Optional[AuthPolicy] = None,
     **kwargs,
 ):
     """
@@ -2947,6 +2951,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -3245,6 +3250,9 @@ def save_model(
 
         mlflow_model.resources = serialized_resource
 
+    if auth_policy is not None:
+        mlflow_model.auth_policy = auth_policy
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path,
@@ -3312,6 +3320,7 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    auth_policy: Optional[AuthPolicy] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3507,6 +3516,8 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
+        auth_policy: {{ auth_policy }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -3533,6 +3544,7 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        auth_policy=auth_policy,
     )
 
 
@@ -3606,12 +3618,18 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if is_in_databricks_serverless_runtime()
+                else None
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                extra_env_vars=extra_env_vars,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

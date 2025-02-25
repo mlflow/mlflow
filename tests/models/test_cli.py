@@ -145,20 +145,16 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
 def test_serve_uvicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
-    with mlflow.start_run() as active_run:
+    with mlflow.start_run():
         x, _ = iris_data
-        mlflow.sklearn.log_model(
-            sk_model, "model", registered_model_name="imlegit", input_example=pd.DataFrame(x)
+        model_info = mlflow.sklearn.log_model(
+            sk_model, "model", registered_model_name="test", input_example=pd.DataFrame(x)
         )
-        run_id = active_run.info.run_id
 
-    model_uris = [
-        "models:/{name}/{stage}".format(name="imlegit", stage="None"),
-        f"runs:/{run_id}/model",
-    ]
+    model_uris = ["models:/test/None", model_info.model_uri]
     for model_uri in model_uris:
         with TempDir() as tpm:
-            output_file_path = tpm.path("stoudt")
+            output_file_path = tpm.path("stdout")
             inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
                 scoring_response = pyfunc_serve_and_score_model(
@@ -175,7 +171,7 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            "uvicorn.*--workers 3.*mlflow.pyfunc.scoring_server.app:app"
+            r"uvicorn.*--workers 3.*mlflow\.pyfunc\.scoring_server\.app:app"
         )
         assert expected_command_pattern.search(stdout) is not None
 

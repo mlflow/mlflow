@@ -1,7 +1,7 @@
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { useEditExperimentTraceTags } from './useEditExperimentTraceTags';
 import { renderWithIntl, screen, within } from '../../../../common/utils/TestUtils.react18';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../../sdk/MlflowService';
 
 jest.setTimeout(30000); // Larger timeout for integration testing (form rendering)

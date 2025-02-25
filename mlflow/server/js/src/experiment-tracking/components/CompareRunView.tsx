@@ -45,7 +45,7 @@ type CompareRunViewProps = {
 };
 
 type CompareRunViewState = any;
-export class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
+class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
   compareRunViewRef: any;
   runDetailsTableRef: any;
 
@@ -167,6 +167,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
 
   getExperimentLink() {
     const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } = this.props;
+
+    // Do not attempt to construct experiment links if they are not loaded
+    if (!experimentIds[0] || !experiments[0]) {
+      return '';
+    }
 
     if (hasComparedExperimentsBefore) {
       return this.getCompareExperimentsPageLink(comparedExperimentIds);
@@ -339,8 +344,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       const endTime = runInfo.endTime;
       return {
         runUuid: runInfo.runUuid,
-        startTime: startTime ? Utils.formatTimestamp(startTime) : unknown,
-        endTime: endTime ? Utils.formatTimestamp(endTime) : unknown,
+        startTime: startTime ? Utils.formatTimestamp(startTime, this.props.intl) : unknown,
+        endTime: endTime ? Utils.formatTimestamp(endTime, this.props.intl) : unknown,
         duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : unknown,
       };
     };
@@ -383,7 +388,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           {title}
         </th>
         {data.map(([runUuid, value]) => (
-          <td className="data-value" key={runUuid} css={colWidthStyle}>
+          <td className="data-value" key={runUuid as string} css={colWidthStyle}>
             <LegacyTooltip
               title={value}
               // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
@@ -442,7 +447,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
 
     return (
       <div className="CompareRunView" ref={this.compareRunViewRef}>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <PageHeader title={title} breadcrumbs={breadcrumbs} spacerSize="xs" />
         {displayChartSection && (
           <CollapsibleSection
             title={this.props.intl.formatMessage({
@@ -743,7 +748,6 @@ const parsePythonDictString = (value: string) => {
     const jsonString = value.replace(/'/g, '"');
     return JSON.parse(jsonString);
   } catch (e) {
-    console.error('Failed to parse string to JSON:', e);
     return null;
   }
 };

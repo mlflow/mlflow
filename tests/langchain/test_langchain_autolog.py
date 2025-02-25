@@ -600,7 +600,7 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
         mock.patch("mlflow.langchain.log_model") as log_model_mock,
         mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
     ):
-        model.get_relevant_documents(query)
+        model.invoke(query)
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
 
@@ -1069,14 +1069,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
     square = RunnableLambda(func=lambda x: x**2)
     model = RouterRunnable(runnables={"add": add, "square": square})
 
-    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
-        model.invoke({"key": "square", "input": 3})
-        if should_log_traces:
-            mock_debug.assert_called_once_with(
-                "Injected MLflow callbacks into the model call args."
-            )
-        else:
-            mock_debug.assert_not_called()
+    model.invoke({"key": "square", "input": 3})
 
     if async_logging_enabled and should_log_traces:
         mlflow.flush_trace_async_logging(terminate=True)
@@ -1087,30 +1080,6 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
         assert traces[0].data.spans[0].span_type == "CHAIN"
     else:
         assert len(traces) == 0
-
-
-def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
-    class CustomRunnable(Runnable):
-        def invoke(self, input, config=None):
-            return "test"
-
-        def _type(self):
-            return "CHAIN"
-
-    class AnotherRunnable(CustomRunnable):
-        def invoke(self, input, config=None):
-            # LangChain runnable passes config to its child
-            return super().invoke(input, config)
-
-        def _type(self):
-            return "CHAT_MODEL"
-
-    mlflow.langchain.autolog(extra_model_classes=[CustomRunnable, AnotherRunnable])
-    model = AnotherRunnable()
-    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
-        assert model.invoke("test") == "test"
-        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model call args.")
-        assert mock_debug.call_count == 1
 
 
 def test_langchain_autolog_extra_model_classes_warning():

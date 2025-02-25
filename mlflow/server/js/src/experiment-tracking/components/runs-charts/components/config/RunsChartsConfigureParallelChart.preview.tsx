@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { Empty, NoIcon } from '@databricks/design-system';
+import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 
 export const RunsChartsConfigureParallelChartPreview = ({
   previewData,
@@ -62,6 +63,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
       axesRotateThreshold={6}
       onHover={setTooltip}
       onUnhover={resetTooltip}
+      fallback={<RunsChartCardLoadingPlaceholder />}
     />
   ) : (
     <Empty

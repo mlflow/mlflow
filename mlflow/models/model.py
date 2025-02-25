@@ -17,6 +17,7 @@ import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -347,6 +348,7 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        auth_policy: Optional[AuthPolicy] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -362,6 +364,7 @@ class Model:
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
+        self.auth_policy = auth_policy
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -569,6 +572,23 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
+    @experimental
+    @property
+    def auth_policy(self) -> dict[str, dict]:
+        """
+        An optional dictionary that contains the auth policy required to serve the model.
+
+        :getter: Retrieves the auth_policy required to serve the model
+        :setter: Sets the auth_policy required to serve the model
+        :type: Dict[str, dict]
+        """
+        return self._auth_policy
+
+    @experimental
+    @auth_policy.setter
+    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
+        self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
+
     @property
     def env_vars(self) -> Optional[list[str]]:
         return self._env_vars
@@ -645,6 +665,8 @@ class Model:
             res["resources"] = self.resources
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
+        if self.auth_policy is not None:
+            res["auth_policy"] = self.auth_policy
         # Exclude null fields in case MLmodel file consumers such as Model Serving may not
         # handle them correctly.
         if self.artifact_path is None:
@@ -741,7 +763,6 @@ class Model:
 
         if _MLFLOW_VERSION_KEY not in model_dict:
             model_dict[_MLFLOW_VERSION_KEY] = None
-
         return cls(**model_dict)
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
@@ -755,6 +776,7 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        auth_policy=None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -777,12 +799,19 @@ class Model:
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
             resources: {{ resources }}
+            auth_policy: {{ auth_policy }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+
+        # Only one of Auth policy and resources should be defined
+
+        if resources is not None and auth_policy is not None:
+            raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None
@@ -791,7 +820,11 @@ class Model:
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
-                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+                artifact_path=artifact_path,
+                run_id=run_id,
+                metadata=metadata,
+                resources=resources,
+                auth_policy=auth_policy,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in

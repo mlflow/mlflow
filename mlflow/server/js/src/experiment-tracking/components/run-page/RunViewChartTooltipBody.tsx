@@ -6,7 +6,7 @@ import {
 } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import Utils from '../../../common/utils/Utils';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { isUndefined } from 'lodash';
 import type {
   RunsCompareMultipleTracesTooltipData,
@@ -30,6 +30,7 @@ export const RunViewChartTooltipBody = ({
   RunsMetricsBarPlotHoverData | RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
   const singleTraceHoverData = containsMultipleRunsTooltipData(hoverData) ? hoverData.hoveredDataPoint : hoverData;
+  const intl = useIntl();
 
   if (
     mode === RunsChartsTooltipMode.MultipleTracesWithScanline &&
@@ -69,7 +70,7 @@ export const RunViewChartTooltipBody = ({
             />
             :
           </strong>{' '}
-          {Utils.formatTimestamp(timestamp)}
+          {Utils.formatTimestamp(timestamp, intl)}
         </div>
       )}
       {value && (

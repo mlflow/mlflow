@@ -35,6 +35,10 @@ export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'o
     quickActions?: DatePickerQuickActionProps[];
     onOkPress?: () => void;
     okButtonLabel?: string;
+    /**
+     * DO NOT USE THIS PROP. This is only for internal use.
+     */
+    showTimeZone?: boolean;
 }
 interface DatePickerQuickActionProps {
     label: string;

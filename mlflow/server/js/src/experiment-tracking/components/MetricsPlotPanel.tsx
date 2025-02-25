@@ -681,7 +681,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
-          initialLineSmoothness={lineSmoothness}
+          lineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
           handleDownloadCsv={this.handleDownloadCsv}

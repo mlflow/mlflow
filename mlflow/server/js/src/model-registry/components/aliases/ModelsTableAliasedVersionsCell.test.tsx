@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { type Location, useLocation } from '../../../common/utils/RoutingUtils';
 import {
   setupTestRouter,

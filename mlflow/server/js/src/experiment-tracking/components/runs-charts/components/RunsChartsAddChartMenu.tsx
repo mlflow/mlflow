@@ -9,10 +9,7 @@ import { ReactComponent as ChartScatterIcon } from '../../../../common/static/ch
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
 import { RunsChartType } from '../runs-charts.types';
-import {
-  shouldEnableDifferenceViewCharts,
-  shouldEnableImageGridCharts,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableDifferenceViewCharts } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 
 export interface RunsChartsAddChartMenuProps {
@@ -128,7 +125,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             />
           </DropdownMenu.Item>
         )}
-        {shouldEnableImageGridCharts() && isChartTypeSupported(RunsChartType.IMAGE) && (
+        {isChartTypeSupported(RunsChartType.IMAGE) && (
           <DropdownMenu.Item
             componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_126"
             onClick={() => onAddChart(RunsChartType.IMAGE)}

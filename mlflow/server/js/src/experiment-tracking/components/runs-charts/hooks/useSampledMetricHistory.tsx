@@ -27,7 +27,7 @@ const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 100;
  *
  * REST-based implementation.
  */
-export const useSampledMetricHistoryREST = (params: {
+const useSampledMetricHistoryREST = (params: {
   runUuids: string[];
   metricKeys: string[];
   maxResults?: number;

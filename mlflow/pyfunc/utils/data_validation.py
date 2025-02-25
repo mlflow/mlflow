@@ -88,17 +88,19 @@ def _wrap_chat_agent_predict(func):
             try:
                 model_validate(ChatAgentRequest, args[0])
                 request = ChatAgentRequest(**args[0])
+            except pydantic.ValidationError as e:
+                raise MlflowException(
+                    "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
+                    f"ChatAgentRequest schema. Pydantic validation error: {e}"
+                ) from e
+            else:
                 return func(
                     self,
                     messages=request.messages,
                     context=request.context,
                     custom_inputs=request.custom_inputs,
                 )
-            except pydantic.ValidationError as e:
-                raise MlflowException(
-                    "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
-                    f"ChatAgentRequest schema. Pydantic validation error: {e}"
-                ) from e
+
         else:
             # After logging, signature enforcement happens in the _convert_input method
             # of _ChatAgentPyfuncWrapper

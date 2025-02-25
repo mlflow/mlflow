@@ -3,10 +3,12 @@ import logging
 from typing import Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateRun,
     DeleteExperiment,
@@ -20,6 +22,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
+    GetTraceInfoV3,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -48,8 +51,10 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_create_assessment_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
+    get_trace_assessment_endpoint,
     get_trace_info_endpoint,
 )
 
@@ -326,12 +331,14 @@ class RestStore(AbstractStore):
         res = self._call_endpoint(DeleteTraces, req_body)
         return res.traces_deleted
 
-    def get_trace_info(self, request_id):
+    def get_trace_info(self, request_id, should_query_v3: bool = False):
         """
         Get the trace matching the `request_id`.
 
         Args:
             request_id: String id of the trace to fetch.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
@@ -339,7 +346,22 @@ class RestStore(AbstractStore):
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        assessments = None
+        if should_query_v3:
+            try:
+                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
+                tracev3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
+                )
+                assessments = [
+                    Assessment.from_proto(a)
+                    for a in tracev3_response_proto.trace.trace_info.assessments
+                ]
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                pass
+        return TraceInfo.from_proto(response_proto.trace_info, assessments=assessments)
 
     def search_traces(
         self,
@@ -386,7 +408,25 @@ class RestStore(AbstractStore):
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
 
-    def log_metric(self, run_id, metric):
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Create an assessment entity in the backend store.
+
+        Args:
+            assessment: The assessment to log (without an assessment_id).
+
+        Returns:
+            The created Assessment object.
+        """
+        req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
+        response_proto = self._call_endpoint(
+            CreateAssessment,
+            req_body,
+            endpoint=get_create_assessment_endpoint(assessment.trace_id),
+        )
+        return Assessment.from_proto(response_proto.assessment)
+
+    def log_metric(self, run_id: str, metric: Metric):
         """
         Log a metric for the specified run
 

@@ -1,10 +1,10 @@
 import { Global } from '@emotion/react';
 
-export const gray600 = '#6B6B6B';
+const gray600 = '#6B6B6B';
 
-export const blue500 = '#2374BB';
+const blue500 = '#2374BB';
 
-export const accessibilityOverrides = {
+const accessibilityOverrides = {
   a: {
     // using webapp colors
     color: '#2374bb',

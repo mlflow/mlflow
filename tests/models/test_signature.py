@@ -234,17 +234,15 @@ def test_set_signature_to_saved_model(tmp_path):
 
 def test_set_signature_overwrite():
     artifact_path = "regr-model"
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
             RandomForestRegressor(),
             artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/{artifact_path}"
-    set_signature(model_uri, new_signature)
-    model_info = get_model_info(model_uri)
+    set_signature(model_info.model_uri, new_signature)
+    model_info = get_model_info(model_info.model_uri)
     assert model_info.signature == new_signature
 
 

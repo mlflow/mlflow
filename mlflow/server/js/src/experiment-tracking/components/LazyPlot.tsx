@@ -11,9 +11,9 @@ import { SectionErrorBoundary } from '../../common/components/error-boundaries/S
 
 const Plot = React.lazy(() => import('react-plotly.js'));
 
-export const LazyPlot = (props: any) => (
+export const LazyPlot = ({ fallback, ...props }: any) => (
   <SectionErrorBoundary>
-    <React.Suspense fallback={<LegacySkeleton active />}>
+    <React.Suspense fallback={fallback ?? <LegacySkeleton active />}>
       <Plot {...props} />
     </React.Suspense>
   </SectionErrorBoundary>

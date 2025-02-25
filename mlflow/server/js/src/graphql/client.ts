@@ -1,5 +1,11 @@
-import { ApolloClient, ApolloLink, InMemoryCache, Operation, createHttpLink } from '@apollo/client';
-import { RetryLink } from '@apollo/client/link/retry';
+import {
+  ApolloClient,
+  ApolloLink,
+  InMemoryCache,
+  Operation,
+  createHttpLink,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { RetryLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];

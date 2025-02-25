@@ -1,0 +1,2282 @@
+{
+  "AlignCenterIcon": [
+    "Center Align",
+    "Align Center",
+    "Centered Lines",
+    "Centering Icon",
+    "Horizontal Center Align",
+    "Middle Align"
+  ],
+  "AlignLeftIcon": [
+    "Left Alignment",
+    "Align Text Left",
+    "Align Left",
+    "Left Justify",
+    "Text Align Left",
+    "Left Align Icon"
+  ],
+  "AlignRightIcon": [
+    "Right Align",
+    "Align Right",
+    "Text Align Right",
+    "Align to the Right",
+    "Right Alignment",
+    "Text Right Align",
+    "Right Justification"
+  ],
+  "AppIcon": [
+    "Grid of dots",
+    "App grid",
+    "Menu icon",
+    "Dot layout",
+    "App launcher",
+    "Grid icon",
+    "Circle arrangement",
+    "Navigation icon"
+  ],
+  "ArrowDownDotIcon": [
+    "Download Icon",
+    "Download Arrow",
+    "Downward Arrow",
+    "Arrow with Dot",
+    "Download Indicator",
+    "Downward Direction Icon",
+    "Arrow Down with Circle",
+    "Chevron"
+  ],
+  "ArrowDownIcon": [
+    "Downward Arrow",
+    "Download Arrow",
+    "Drop Down Arrow",
+    "South Arrow",
+    "Arrow Pointing Down",
+    "Pointing Downwards",
+    "Descending Arrow",
+    "Chevron"
+  ],
+  "ArrowInIcon": ["Login Arrow", "Sign In Arrow", "Entrance Arrow", "Access Arrow", "Submit Arrow", "Chevron"],
+  "ArrowLeftIcon": [
+    "Left Arrow",
+    "Back Arrow",
+    "Previous Arrow",
+    "Navigate Left",
+    "Arrow Pointing Left",
+    "Backward Arrow",
+    "Left Direction Arrow",
+    "Chevron"
+  ],
+  "ArrowOverIcon": [
+    "Curved Arrow Icon",
+    "Arrow with Circle",
+    "Circular Arrow",
+    "Return Arrow",
+    "Back Arrow",
+    "Rewind Icon",
+    "Undo Arrow",
+    "Right Turn Arrow",
+    "Chevron"
+  ],
+  "ArrowRightIcon": [
+    "right arrow",
+    "arrow right",
+    "arrow pointing right",
+    "forward arrow",
+    "next arrow",
+    "navigation arrow right",
+    "arrow to the right",
+    "play arrow",
+    "move right",
+    "Chevron"
+  ],
+  "ArrowUpDotIcon": [
+    "Upward Arrow with Dot",
+    "Arrow Pointing Up with Circle",
+    "Ascend Icon",
+    "Raise Symbol",
+    "Direction Up with Marker",
+    "Chevron"
+  ],
+  "ArrowUpIcon": [
+    "Upward Arrow",
+    "Vertical Arrow",
+    "Ascend Arrow",
+    "Arrow Up",
+    "Northeast Arrow",
+    "Raise Arrow",
+    "Arrow Pointing Up",
+    "Chevron"
+  ],
+  "ArrowsUpDownIcon": [
+    "Vertical arrows",
+    "Up and down arrows",
+    "Bidirectional arrows",
+    "Arrow symbols",
+    "Movement icons",
+    "Navigation arrows",
+    "Direction indicators",
+    "Flow arrows",
+    "Chevron"
+  ],
+  "AssistantIcon": [
+    "Help Icon",
+    "Support Symbol",
+    "Chat Assistance",
+    "Message Assistant",
+    "Guidance Icon",
+    "Inquiry Symbol"
+  ],
+  "BadgeCodeIcon": [
+    "Code Badge",
+    "Developer Badge",
+    "Programming Badge",
+    "Code Snippet Icon",
+    "Source Code Badge",
+    "Debug Badge",
+    "Software Development Icon"
+  ],
+  "BadgeCodeOffIcon": [
+    "disabled badge",
+    "badge not available",
+    "badge removed",
+    "no badge",
+    "inactive badge",
+    "badge off"
+  ],
+  "BarChartIcon": [
+    "Bar graph",
+    "Column chart",
+    "Graph",
+    "Data visualization",
+    "Statistical chart",
+    "Financial chart",
+    "Performance metrics",
+    "Analytics graph",
+    "Revenue chart"
+  ],
+  "BarGroupedIcon": [
+    "Grouped Bar Chart",
+    "Stacked Bar Symbol",
+    "Data Visualization Bars",
+    "Multi-Bar Chart",
+    "Bar Graph Icon",
+    "Bar Chart Representation",
+    "Vertical Bar Indicator",
+    "Analytics Bar Icon"
+  ],
+  "BarStackedIcon": [
+    "Stacked Bars",
+    "Bar Graph",
+    "Vertical Bar Chart",
+    "Data Visualization",
+    "Column Chart",
+    "Histogram",
+    "Bar Diagram"
+  ],
+  "BarStackedPercentageIcon": [
+    "Stacked Bar Chart",
+    "Percentage Bar Chart",
+    "Multi-Bar Indicator",
+    "Vertical Stacked Bars",
+    "Proportional Bar Icon"
+  ],
+  "BeakerIcon": ["laboratory flask", "science beaker", "chemical flask", "lab beaker", "glass container"],
+  "BinaryIcon": [
+    "Binary Code",
+    "Digital Icon",
+    "Bit Pattern",
+    "Data Representation",
+    "Computer Language",
+    "Binary Numbers",
+    "0s and 1s",
+    "Machine Language"
+  ],
+  "BlockQuoteIcon": [
+    "Quote Icon",
+    "Cite Icon",
+    "Text Block Icon",
+    "Quotation Mark Icon",
+    "Reference Icon",
+    "Paragraph Icon"
+  ],
+  "BoldIcon": ["Bold Letter B", "Thick B Character", "B Icon", "Bold Typography B", "Heavy B Symbol", "Capital B Mark"],
+  "BookIcon": [
+    "Library Icon",
+    "Reading Icon",
+    "Book Symbol",
+    "Literature Icon",
+    "Notebook Icon",
+    "Document Icon",
+    "Publishing Icon",
+    "Education Icon"
+  ],
+  "BookmarkFillIcon": [
+    "Favorite Icon",
+    "Save Icon",
+    "Page Marker",
+    "Bookmark Symbol",
+    "Bookmark Tag",
+    "Webpage Marker",
+    "Annotation Icon",
+    "Reference Icon"
+  ],
+  "BookmarkIcon": [
+    "Bookmark",
+    "Favorite",
+    "Save",
+    "Label",
+    "Tag",
+    "Flag",
+    "Highlight",
+    "Reference",
+    "Marker",
+    "Reminder"
+  ],
+  "BooksIcon": [
+    "Book Stack",
+    "Library Icon",
+    "Bookshelf",
+    "Reading Material",
+    "Literature Icon",
+    "Education Symbol",
+    "Archive Icon",
+    "Study Icon"
+  ],
+  "BracketsCurlyIcon": [
+    "Curly Braces",
+    "Curly Brackets",
+    "Brace Icon",
+    "Code Block Brackets",
+    "Open Close Braces",
+    "JSON Brackets",
+    "Set Braces"
+  ],
+  "BracketsSquareIcon": [
+    "Square Brackets",
+    "Text Editor Brackets",
+    "Code Brackets",
+    "Pair Brackets",
+    "Bracket Outline",
+    "Boxed Brackets"
+  ],
+  "BracketsXIcon": [
+    "Curly Braces with Cross",
+    "Bracket X Icon",
+    "Code Closure Icon",
+    "Syntax Error Symbol",
+    "Braces and Cross Mark"
+  ],
+  "BranchIcon": [
+    "Connection Icon",
+    "Node Icon",
+    "Graph Icon",
+    "Link Icon",
+    "Network Icon",
+    "Connector Icon",
+    "Branching Nodes",
+    "Flow Icon"
+  ],
+  "BriefcaseFillIcon": [
+    "Business Case",
+    "Work Portfolio",
+    "Professional Briefcase",
+    "Office Bag",
+    "Job Case",
+    "Executive Briefcase",
+    "Document Carrier"
+  ],
+  "BriefcaseIcon": ["Business Briefcase", "Work Bag", "Professional Case", "Office Briefcase", "Business Portfolio"],
+  "BugIcon": ["Insect Icon", "Error Icon", "Bug Symbol", "Debug Icon", "Critter Icon", "Pest Icon", "Glitch Icon"],
+  "CalendarClockIcon": [
+    "Date and Time Icon",
+    "Schedule Icon",
+    "Appointment Icon",
+    "Time Management Icon",
+    "Clock and Calendar Icon",
+    "Event Planner Icon",
+    "Reminder Icon"
+  ],
+  "CalendarEventIcon": [
+    "Event Calendar",
+    "Date Icon",
+    "Schedule Icon",
+    "Appointment Icon",
+    "Reminder Icon",
+    "Calendar Reminder",
+    "Event Scheduler",
+    "Date Picker"
+  ],
+  "CalendarIcon": [
+    "Date Icon",
+    "Schedule Icon",
+    "Event Icon",
+    "Agenda Icon",
+    "Planner Icon",
+    "Date Selector",
+    "Timetable Icon",
+    "Monthly Calendar"
+  ],
+  "CaretDownSquareIcon": [
+    "Dropdown Arrow",
+    "Caret Down",
+    "Expand Icon",
+    "Down Arrow in Square",
+    "Collapse Icon",
+    "Open Menu Icon"
+  ],
+  "CaretUpSquareIcon": [
+    "Up Arrow in Square",
+    "Square Upward Caret",
+    "Upward Triangle in Box",
+    "Up Arrow Symbol",
+    "Square Arrow Up",
+    "Caret Pointing Up in Square"
+  ],
+  "CatalogCloudIcon": [
+    "Cloud Storage",
+    "Data Storage",
+    "Online Catalog",
+    "Digital Library",
+    "File Repository",
+    "Cloud Documents",
+    "Remote Access",
+    "Cloud Sync",
+    "Virtual Library"
+  ],
+  "CatalogGearIcon": [
+    "Settings Catalog",
+    "Configuration Book",
+    "Gear Settings Icon",
+    "Manage Catalog",
+    "Book Settings Icon",
+    "Catalog Management Gear",
+    "Settings Book Icon"
+  ],
+  "CatalogHIcon": [
+    "Book Icon",
+    "Library Icon",
+    "Catalog Icon",
+    "File Icon",
+    "Documentation Icon",
+    "E-book Icon",
+    "Reading Icon",
+    "Resource Icon"
+  ],
+  "CatalogHomeIcon": [
+    "Library Home",
+    "Book Home",
+    "Home Library",
+    "Catalog Home",
+    "Book Catalog",
+    "Home Books",
+    "Library Dashboard"
+  ],
+  "CatalogIcon": ["Book Icon", "Library Icon", "Document Icon", "Reference Icon", "File Icon", "Notebook Icon"],
+  "CatalogOffIcon": [
+    "Book Off",
+    "Library Off",
+    "Catalog Disabled",
+    "Unavailable Catalog",
+    "Document Off",
+    "No Catalog Access",
+    "Empty Catalog",
+    "Catalog Not Available"
+  ],
+  "CatalogSharedIcon": [
+    "Shareable Catalog",
+    "Shared Book",
+    "Library Sharing",
+    "Document Sharing",
+    "Resource Share Icon",
+    "Share Catalog",
+    "Shared Resource"
+  ],
+  "ChainIcon": [
+    "Link symbol",
+    "Connection icon",
+    "Link graphic",
+    "Chain symbol",
+    "Web link",
+    "Hyperlink icon",
+    "Interconnection logo"
+  ],
+  "ChartLineIcon": [
+    "line chart",
+    "trend line",
+    "data trend",
+    "analytics graph",
+    "performance graph",
+    "growth chart",
+    "financial chart",
+    "statistical line",
+    "progress line",
+    "metric chart"
+  ],
+  "CheckCircleBadgeIcon": [
+    "Checked Badge",
+    "Verification Icon",
+    "Confirmation Badge",
+    "Success Circle",
+    "Approval Icon",
+    "Checkmark Badge",
+    "Done Icon",
+    "Completed Circle",
+    "Validation Badge",
+    "Tick Icon"
+  ],
+  "CheckCircleFillIcon": [
+    "Circle Check",
+    "Confirmed Check",
+    "Approval Check",
+    "Validation Tick",
+    "Checked Circle",
+    "Success Checkmark",
+    "Filled Check Icon",
+    "Positive Affirmation",
+    "Done Circle",
+    "Completion Check"
+  ],
+  "CheckCircleIcon": ["Check mark", "Validated", "Success", "Confirmation", "Approval", "Done", "Complete", "Verified"],
+  "CheckIcon": [
+    "Tick",
+    "Check Mark",
+    "Check Box",
+    "Validation Icon",
+    "Approval Symbol",
+    "Completion Indicator",
+    "Yes Symbol",
+    "Confirmed",
+    "Selection Marker"
+  ],
+  "CheckLineIcon": [
+    "Check mark icon",
+    "Tick mark symbol",
+    "Verification symbol",
+    "Completion indicator",
+    "Approval check",
+    "Success mark",
+    "Confirmed status",
+    "Agree icon"
+  ],
+  "CheckSmallIcon": ["Checkmark", "Tick", "Verification Symbol", "Done Icon", "Selection Indicator", "Approval Mark"],
+  "CheckboxIcon": [
+    "check mark",
+    "tick mark",
+    "selection box",
+    "checked box",
+    "completed task",
+    "confirmation box",
+    "boolean checkbox",
+    "task completed",
+    "checklist item"
+  ],
+  "ChecklistIcon": [
+    "Task List",
+    "Completion Checklist",
+    "To-Do List",
+    "Checkmark List",
+    "Done List",
+    "List with Checkmarks",
+    "Verification List",
+    "Items to Complete"
+  ],
+  "ChevronDoubleDownIcon": [
+    "double down arrow",
+    "two down chevrons",
+    "downward arrows",
+    "vertical chevrons",
+    "expand down",
+    "collapse down",
+    "drop-down indicator"
+  ],
+  "ChevronDoubleLeftIcon": ["Double Left Arrow", "Back Arrow", "Previous Icon", "Navigate Left", "Rewind Symbol"],
+  "ChevronDoubleRightIcon": [
+    "Double Arrow Right",
+    "Right Chevron",
+    "Fast Forward",
+    "Next",
+    "Skip Forward",
+    "Advance Right",
+    "Move Right"
+  ],
+  "ChevronDoubleUpIcon": [
+    "Double Arrow Up",
+    "Vertical Chevron Up",
+    "Two Arrows Pointing Up",
+    "Upward Facing Chevron",
+    "Double Up Arrow",
+    "Chevron Upward",
+    "Two Tier Arrow Up"
+  ],
+  "ChevronDownIcon": [
+    "downward arrow",
+    "collapse icon",
+    "expand down",
+    "dropdown arrow",
+    "down chevron",
+    "arrow pointing down",
+    "downward pointing triangle"
+  ],
+  "ChevronLeftIcon": ["Back Arrow", "Previous", "Left Arrow", "Backward Chevron", "Navigate Left", "Return"],
+  "ChevronRightIcon": [
+    "Right Arrow",
+    "Next Arrow",
+    "Forward Arrow",
+    "Chevron Right",
+    "Arrow Right",
+    "Expand Right",
+    "Navigate Right",
+    "Move Right"
+  ],
+  "ChevronUpIcon": [
+    "Up Arrow",
+    "Arrow Up",
+    "Chevron Arrow Up",
+    "Pointing Up",
+    "Vertical Arrow Up",
+    "Scroll Up",
+    "Expand Up"
+  ],
+  "CircleIcon": ["Circular Symbol", "Round Shape", "Dot", "Sphere", "Orb", "Circle", "Round Icon", "Simple Shape"],
+  "CircleOfflineIcon": [
+    "Disconnected Circle",
+    "Offline Status",
+    "No Connection Circle",
+    "Unavailable Icon",
+    "Network Offline Symbol",
+    "Disconnected Network",
+    "Offline Indicator",
+    "Network Disconnected Symbol"
+  ],
+  "CircleOutlineIcon": [
+    "Outline Circle",
+    "Circular Outline",
+    "Round Outline",
+    "Empty Circle",
+    "Circle Icon",
+    "Bordered Circle",
+    "Hollow Circle",
+    "Circle Shape"
+  ],
+  "ClipboardIcon": [
+    "Copy Icon",
+    "Paste Icon",
+    "Clipboard",
+    "Clipboard Symbol",
+    "Document Clipboard",
+    "Clipboard Image",
+    "Clipboard Graphic"
+  ],
+  "ClockIcon": ["Time Icon", "Hourglass", "Watch Symbol", "Schedule Icon", "Timer Icon", "Clock Face", "Time Tracker"],
+  "ClockKeyIcon": [
+    "Time Management Icon",
+    "Clock and Key Symbol",
+    "Unlock Time Icon",
+    "Time Access Icon",
+    "Key to Time Icon",
+    "Clock with Key Image",
+    "Unlock Clock Icon"
+  ],
+  "CloseIcon": [
+    "Delete Icon",
+    "Cancel Icon",
+    "Remove Icon",
+    "Exit Icon",
+    "Hide Icon",
+    "Dismiss Icon",
+    "Close Button",
+    "X Icon"
+  ],
+  "CloseSmallIcon": [
+    "close button",
+    "dismiss icon",
+    "remove icon",
+    "exit button",
+    "cancel icon",
+    "delete icon",
+    "cross mark"
+  ],
+  "CloudDatabaseIcon": [
+    "Cloud Storage",
+    "Database in the Cloud",
+    "Cloud Data Storage",
+    "Remote Database",
+    "Cloud Database Service",
+    "Cloud-Hosted Database",
+    "Cloud-Based Database",
+    "Online Database",
+    "Cloud Computing Database"
+  ],
+  "CloudDownloadIcon": [
+    "Download Cloud",
+    "Cloud Upload",
+    "Download from Cloud",
+    "Cloud Download",
+    "Cloud Icon for Download",
+    "Download Symbol",
+    "Data Download",
+    "Cloud Data Transfer",
+    "Download Files",
+    "Get from Cloud"
+  ],
+  "CloudIcon": [
+    "Weather Cloud",
+    "Condensation Icon",
+    "Sky Symbol",
+    "Fluffy Cloud",
+    "Overcast Icon",
+    "Cloud Graphic",
+    "Nimbus Symbol",
+    "Cloudy Weather Icon",
+    "Atmospheric Cloud"
+  ],
+  "CloudKeyIcon": [
+    "cloud key",
+    "cloud security",
+    "cloud access",
+    "cloud lock",
+    "key to cloud",
+    "secure cloud",
+    "cloud authentication",
+    "cloud vault"
+  ],
+  "CloudModelIcon": [
+    "Cloud Sharing",
+    "Data Sync",
+    "Cloud Storage",
+    "Cloud Connection",
+    "Cloud Transfer",
+    "Cloud Collaboration",
+    "Data Exchange"
+  ],
+  "CloudOffIcon": [
+    "No Cloud",
+    "Cloud Disabled",
+    "Cloud Off",
+    "Cloud Removal",
+    "Disable Cloud Storage",
+    "Clear Sky",
+    "Remove Cloud"
+  ],
+  "CloudUploadIcon": [
+    "Upload cloud",
+    "Cloud upload",
+    "Cloud file upload",
+    "Upload to cloud",
+    "Data upload",
+    "File transfer to cloud",
+    "Cloud storage upload",
+    "Upload icon"
+  ],
+  "CodeIcon": [
+    "Code Snippet",
+    "Code Symbol",
+    "Code Brackets",
+    "Source Code Icon",
+    "Programming Icon",
+    "Code Fragment",
+    "Development Icon"
+  ],
+  "ColorFillIcon": [
+    "Paint Bucket",
+    "Color Dropper",
+    "Palette Picker",
+    "Ink Spill",
+    "Fill Tool",
+    "Color Swatch",
+    "Liquid Color",
+    "Hue Selector"
+  ],
+  "ColumnIcon": [
+    "Vertical Bar",
+    "Stacked Blocks",
+    "Column Symbol",
+    "Rectangular Sections",
+    "Vertical Divider",
+    "Layered Rectangles"
+  ],
+  "ColumnsIcon": [
+    "Grid Icon",
+    "Three Columns Icon",
+    "Table Icon",
+    "Layout Icon",
+    "Column Layout Icon",
+    "Section Icon",
+    "Panel Icon"
+  ],
+  "CommandPaletteIcon": [
+    "Command key",
+    "Command symbol",
+    "Mac command icon",
+    "Apple command glyph",
+    "Keyboard shortcut icon",
+    "Modifier key symbol"
+  ],
+  "ConnectIcon": [
+    "Network Symbol",
+    "Link Icon",
+    "Connection Graphic",
+    "Connect Mark",
+    "Interface Symbol",
+    "Association Icon"
+  ],
+  "CopyIcon": ["duplicate icon", "clone symbol", "replicate graphic", "copy symbol", "multiplier icon", "copy graphic"],
+  "CursorIcon": [
+    "Pointer",
+    "Mouse Pointer",
+    "Arrow Cursor",
+    "Select Tool",
+    "Click Pointer",
+    "Navigation Cursor",
+    "Interact Pointer"
+  ],
+  "CursorTypeIcon": [
+    "Arrow cursor",
+    "Resize cursor",
+    "Pointer icon",
+    "Directional cursor",
+    "Expand icon",
+    "Adjust cursor",
+    "Selection cursor"
+  ],
+  "DagIcon": [
+    "Data Flow Symbol",
+    "Connection Diagram",
+    "Network Icon",
+    "Workflow Node",
+    "Process Map",
+    "Data Structure Icon",
+    "Dependency Indicator",
+    "Information Link"
+  ],
+  "DIcon": ["Letter D", "Square D", "Stylized D", "Minimalist D", "Bold D"],
+  "DangerFillIcon": [
+    "Warning Icon",
+    "Alert Symbol",
+    "Caution Sign",
+    "Notice Icon",
+    "Danger Sign",
+    "Exclamation Mark Icon",
+    "Hazard Icon"
+  ],
+  "DangerIcon": [
+    "Warning Sign",
+    "Alert Icon",
+    "Caution Symbol",
+    "Hazard Indicator",
+    "Attention Mark",
+    "Important Notice Icon"
+  ],
+  "DashIcon": ["Line", "Horizontal Line", "Separator", "Dash", "Minus Sign", "Short Line", "Horizontal Separator"],
+  "DashboardIcon": ["GridIcon", "LayoutIcon", "ControlPanelIcon", "PanelIcon", "MatrixIcon"],
+  "DataIcon": [
+    "Geometric Shapes Icon",
+    "Abstract Shapes Symbol",
+    "Shape Collection",
+    "Simple Shapes Icon",
+    "Basic Geometry Icon"
+  ],
+  "DatabaseIcon": [
+    "Data Storage",
+    "Data Container",
+    "Database Symbol",
+    "Information Storage",
+    "Data Stack",
+    "Data Structure",
+    "Database Storage"
+  ],
+  "CustomAppIcon": ["Logo", "Brand", "Mark"],
+  "DecimalIcon": ["decimal point", "decimal separator", "currency format", "number format", "floating point"],
+  "DotsCircleIcon": ["ellipsis icon", "three dots icon", "more options icon", "menu icon", "overflow icon"],
+  "DownloadIcon": [
+    "Download Symbol",
+    "Download Button",
+    "Save Icon",
+    "Download Arrow",
+    "Download Graphic",
+    "Download File",
+    "Download Indicator",
+    "Download Mark",
+    "Get File Icon"
+  ],
+  "DragIcon": [
+    "Move Icon",
+    "Drag Symbol",
+    "Transfer Icon",
+    "Reorder Icon",
+    "Arrangement Icon",
+    "Positioning Icon",
+    "Sorting Icon"
+  ],
+  "ErdIcon": [
+    "Entity Relationship Diagram Icon",
+    "ERD Symbol",
+    "Database Diagram Icon",
+    "Data Model Icon",
+    "Diagram Representation Icon",
+    "Structure Diagram Icon"
+  ],
+  "ExpandLessIcon": [
+    "collapse icon",
+    "minimize icon",
+    "upward arrow",
+    "less icon",
+    "chevron up",
+    "arrow up",
+    "reduce icon",
+    "hide icon"
+  ],
+  "ExpandMoreIcon": [
+    "Expand More",
+    "Expand Dropdown",
+    "Drop Down Icon",
+    "More Options",
+    "Show More",
+    "Toggle Expand",
+    "Vertical Expand",
+    "Arrow Down"
+  ],
+  "FaceFrownIcon": [
+    "Sad Face",
+    "Frowning Face",
+    "Disappointed Icon",
+    "Unhappy Face",
+    "Emotional Frown",
+    "Depressed Emoji",
+    "Sorrowful Expression",
+    "Glum Face"
+  ],
+  "FaceNeutralIcon": [
+    "Neutral Face Icon",
+    "Blank Expression Emoji",
+    "Indifferent Face",
+    "Straight Face Icon",
+    "Emotionless Emoji",
+    "Neutral Emotion Icon",
+    "Nonchalant Face"
+  ],
+  "FaceSmileIcon": [
+    "Happy Face",
+    "Smiley Face",
+    "Joy Icon",
+    "Positive Emotion Icon",
+    "Cheerful Face",
+    "Grinning Face",
+    "Friendly Smile"
+  ],
+  "FileCodeIcon": [
+    "Code File Icon",
+    "File with Code Symbol",
+    "Script Document Icon",
+    "Programming File Icon",
+    "Code Document Icon",
+    "Source Code File Icon",
+    "Programming Script Icon",
+    "File with Code Brackets"
+  ],
+  "FileDocumentIcon": [
+    "Document Icon",
+    "File Icon",
+    "Page Icon",
+    "Text Document Icon",
+    "File with Text Icon",
+    "Document with Corners Icon",
+    "New Document Icon"
+  ],
+  "FileIcon": ["Document Icon", "File Document", "Paper Icon", "File Symbol", "Document Symbol", "Paper Sheet Icon"],
+  "FileImageIcon": [
+    "Image File Icon",
+    "Photo Icon",
+    "Picture Icon",
+    "Graphic File Icon",
+    "Media Icon",
+    "Visual Content Icon"
+  ],
+  "FileModelIcon": ["Document Icon", "File Attachment", "Link Icon", "Connector Icon", "Share Icon", "Clipboard Icon"],
+  "FilterIcon": ["Funnel Icon", "Filter Symbol", "Filter Graphic", "Filtering Tool", "Sorting Icon", "Content Filter"],
+  "FlagPointerIcon": [
+    "Location Pointer",
+    "Map Marker",
+    "Tag Icon",
+    "Navigation Marker",
+    "Position Indicator",
+    "Pointing Flag",
+    "Destination Marker"
+  ],
+  "FloatIcon": ["Version Indicator", "Numerical Display", "Decimal Marker", "Version Number", "Update Indicator"],
+  "FolderBranchFillIcon": [
+    "Shared folder icon",
+    "Branch folder icon",
+    "Collaboration folder icon",
+    "Connected folder symbol",
+    "Folder with network nodes",
+    "File sharing icon"
+  ],
+  "FolderBranchIcon": [
+    "Folder Structure Icon",
+    "Branch Folder Icon",
+    "Folder Network Icon",
+    "Directory Branch Icon",
+    "Folder with Links Icon",
+    "Organizational Folder Icon",
+    "File Sharing Icon",
+    "Connected Folder Icon"
+  ],
+  "FolderCloudFilledIcon": [
+    "Cloud Storage Folder",
+    "Uploaded File Icon",
+    "Folder with Cloud",
+    "Cloud Backup Icon",
+    "File Sync Icon",
+    "Cloud Drive Folder",
+    "Online Storage Folder"
+  ],
+  "FolderCloudIcon": [
+    "Cloud Storage Folder",
+    "Online Folder",
+    "Cloud Directory",
+    "Sync Folder",
+    "Cloud File Storage",
+    "Cloud Drive Folder",
+    "Folder for Cloud Files",
+    "Remote Storage Folder"
+  ],
+  "FolderFillIcon": [
+    "Filled Folder Icon",
+    "Closed Folder Icon",
+    "File Storage Icon",
+    "Directory Icon",
+    "Document Folder Icon",
+    "Archive Icon",
+    "Content Folder Icon"
+  ],
+  "FolderIcon": [
+    "directory icon",
+    "file folder",
+    "storage folder",
+    "document container",
+    "data folder",
+    "file storage icon"
+  ],
+  "FontIcon": ["TextIcon", "TypographyIcon", "LetterIcon", "CharacterIcon", "TypeFaceIcon", "AlphabetIcon"],
+  "ForkIcon": [
+    "branch icon",
+    "fork symbol",
+    "divergent path",
+    "split icon",
+    "junction icon",
+    "decision tree",
+    "network node"
+  ],
+  "FullscreenExitIcon": [
+    "Exit Fullscreen",
+    "Leave Fullscreen",
+    "Fullscreen Off",
+    "Exit Theater Mode",
+    "Close Fullscreen",
+    "Minimize Fullscreen"
+  ],
+  "FullscreenIcon": [
+    "expand",
+    "maximize",
+    "fullscreen mode",
+    "view in fullscreen",
+    "full screen toggle",
+    "enter fullscreen",
+    "go fullscreen"
+  ],
+  "FunctionIcon": [
+    "Mathematical Function",
+    "Function Symbol",
+    "Function Representation",
+    "Math Function Icon",
+    "Function Operator",
+    "FX Symbol",
+    "Function Action"
+  ],
+  "GearFillIcon": [
+    "Settings Icon",
+    "Configuration Icon",
+    "Options Icon",
+    "Mechanism Icon",
+    "Tools Icon",
+    "Control Icon",
+    "Adjustments Icon"
+  ],
+  "GearIcon": [
+    "settings",
+    "cog",
+    "gear",
+    "configuration",
+    "tools",
+    "mechanical",
+    "adjustment",
+    "preferences",
+    "control",
+    "setup"
+  ],
+  "GiftIcon": [
+    "Present",
+    "Gift Box",
+    "Wrapped Gift",
+    "Holiday Gift",
+    "Surprise Package",
+    "Celebration Icon",
+    "Gift Wrapper",
+    "Treasure Box"
+  ],
+  "GitCommitIcon": [
+    "Version Control Symbol",
+    "Commit Symbol",
+    "Revision Icon",
+    "Git Version Indicator",
+    "Source Control Icon",
+    "Merge Symbol",
+    "Code Change Indicator"
+  ],
+  "GlobeIcon": [
+    "Earth Symbol",
+    "World Icon",
+    "Globe Symbol",
+    "Global Icon",
+    "Geography Icon",
+    "International Symbol",
+    "Planet Icon",
+    "Map Symbol"
+  ],
+  "GridDashIcon": [
+    "Dashboard Icon",
+    "Grid Layout Icon",
+    "Square Grid Icon",
+    "Dashboard Grid",
+    "Grid View Icon",
+    "Modular Layout Icon"
+  ],
+  "GridIcon": [
+    "Square Layout",
+    "Tile Icon",
+    "Grid Layout",
+    "Block Icon",
+    "Matrix Icon",
+    "Four Squares",
+    "Pattern Icon",
+    "Grid View"
+  ],
+  "H1Icon": [
+    "Header One Icon",
+    "Main Heading Symbol",
+    "Primary Heading Image",
+    "Level One Title Icon",
+    "H1 Representation"
+  ],
+  "H2Icon": ["Hydrogen Two", "Water Molecule", "Dihydrogen", "H2 Symbol", "Molecular Hydrogen"],
+  "H3Icon": ["Header Level 3", "H3 Tag", "HTML H3", "Third Header", "Section Heading Level 3", "H3 Element"],
+  "HistoryIcon": [
+    "Time Rewind",
+    "Back in Time",
+    "Time Reset",
+    "Chrono Icon",
+    "Undo History",
+    "Time Travel",
+    "Rewind Clock",
+    "Hourglass Icon",
+    "Temporal Navigation",
+    "History Tracker"
+  ],
+  "HomeIcon": ["house symbol", "home symbol", "home button", "residence icon", "shelter symbol", "domicile icon"],
+  "ImageIcon": ["Picture Icon", "Photo Icon", "Graphic Icon", "Image Symbol", "Thumbnail Icon"],
+  "IndentDecreaseIcon": [
+    "Decrease Indent",
+    "Reduce Indent",
+    "Indent Outdent",
+    "Shift Left",
+    "Remove Indentation",
+    "Outdent",
+    "Left Arrow Indent",
+    "Decrease Tab"
+  ],
+  "IndentIncreaseIcon": [
+    "Increase Indent",
+    "Indent Right",
+    "Add Indent",
+    "Indent Level Up",
+    "Right Arrow Indent",
+    "Indent More",
+    "Increase Margin"
+  ],
+  "InfinityIcon": [
+    "Eternal Loop",
+    "Endless Symbol",
+    "Infinity Sign",
+    "Infinite Loop",
+    "Cycle Symbol",
+    "Never-ending",
+    "Boundless",
+    "Unbounded Symbol",
+    "Forever Symbol",
+    "Limitless Design"
+  ],
+  "InfoBookIcon": [
+    "Information Book",
+    "Info Guide",
+    "Help Book",
+    "Knowledge Base",
+    "Reference Material",
+    "Info Resource",
+    "Documentation Icon",
+    "Help Document"
+  ],
+  "InfoFillIcon": [
+    "Information Icon",
+    "Info Circular",
+    "Info Symbol",
+    "Information Circle",
+    "Help Icon",
+    "Info Badge",
+    "Info Button",
+    "Information Mark"
+  ],
+  "InfoIcon": ["Information Icon", "Info Symbol", "Info Sign", "Information Symbol", "Help Icon", "Help Symbol"],
+  "IngestionIcon": [
+    "Data Ingestion",
+    "Data Input",
+    "Data Flow",
+    "Data Pipeline",
+    "Information Stream",
+    "Input Channel",
+    "Data Capture",
+    "Feed Source",
+    "Content Inflow"
+  ],
+  "ItalicIcon": ["Italic Symbol", "Slanted Text Icon", "Text Styling Italic", "Font Style Icon", "Italicized Letter"],
+  "KeyIcon": [
+    "Unlock Symbol",
+    "Access Key",
+    "Security Key",
+    "Password Key",
+    "Entry Key",
+    "Lock and Key",
+    "Key Graphic",
+    "Key Symbol"
+  ],
+  "KeyboardIcon": [
+    "computer keyboard",
+    "typing keyboard",
+    "mechanical keyboard",
+    "laptop keyboard",
+    "QWERTY keyboard",
+    "digital keyboard"
+  ],
+  "LayerGraphIcon": [
+    "Layered structure icon",
+    "Graphical layer symbol",
+    "Layer diagram symbol",
+    "Data structure icon",
+    "Flow diagram icon"
+  ],
+  "LayerIcon": [
+    "Stacked Layers",
+    "Layered Squares",
+    "Overlay Icon",
+    "Multi-Layer Icon",
+    "Layer Arrangement",
+    "Composite Layers",
+    "Layer Stack",
+    "Image Layers",
+    "Layered Design"
+  ],
+  "LeafIcon": [
+    "plant symbol",
+    "nature icon",
+    "greenery symbol",
+    "eco-friendly graphic",
+    "outdoor emblem",
+    "flora representation",
+    "botanical graphic"
+  ],
+  "LettersIcon": ["Alphabet Icon", "Text Icon", "Letter Symbol", "Character Icon", "Typography Icon", "Font Icon"],
+  "LibrariesIcon": ["Book Icon", "Bookshelf Icon", "Library Symbol", "Reading Material Icon", "Literature Icon"],
+  "LightningIcon": [
+    "Thunderbolt",
+    "Electric Symbol",
+    "Flash Icon",
+    "Spark Icon",
+    "Lightning Bolt",
+    "Power Symbol",
+    "Energy Icon"
+  ],
+  "LinkIcon": [
+    "Hyperlink Icon",
+    "Chain Link Icon",
+    "Link Symbol",
+    "Connector Icon",
+    "Interconnected Links",
+    "Chain Icon",
+    "Link Representation",
+    "URL Icon",
+    "Web Link Icon"
+  ],
+  "LinkOffIcon": [
+    "Disconnect",
+    "Unlink",
+    "Break Link",
+    "Remove Link",
+    "Disable Link",
+    "Link Broken",
+    "No Connection",
+    "Link Removal"
+  ],
+  "ListBorderIcon": [
+    "List Icon",
+    "Bordered List",
+    "Checklist Icon",
+    "Organized List",
+    "Itemized List",
+    "List View Icon",
+    "Bullet List Icon"
+  ],
+  "ListClearIcon": [
+    "Clear List Icon",
+    "Delete List Icon",
+    "Remove Items Icon",
+    "Trash List Icon",
+    "Purge List Icon",
+    "Empty List Icon",
+    "List Reset Icon"
+  ],
+  "ListIcon": ["Bulleted List Icon", "Navigation List Icon", "Menu Icon", "Task List Icon", "Ordered List Icon"],
+  "LoadingIcon": [
+    "Spinner",
+    "Loading Spinner",
+    "Wait Indicator",
+    "Progress Loader",
+    "Activity Indicator",
+    "Buffering Icon",
+    "Circle Loader",
+    "Rotating Loader"
+  ],
+  "LockFillIcon": [
+    "padlock",
+    "security lock",
+    "lock icon",
+    "closed lock",
+    "locked padlock",
+    "secure lock",
+    "safety lock",
+    "privacy lock",
+    "encrypted lock",
+    "lock symbol"
+  ],
+  "LockIcon": ["padlock", "security lock", "locked padlock", "secure lock", "safety lock", "encryption icon"],
+  "LockShareIcon": [
+    "Secure Share",
+    "Protected Link",
+    "Privacy Share",
+    "Lock and Share",
+    "Share with Lock",
+    "Share Security",
+    "Lock for Sharing",
+    "Authorized Sharing"
+  ],
+  "LockUnlockedIcon": [
+    "unlocked padlock",
+    "open lock",
+    "secure access",
+    "free access",
+    "access granted",
+    "unlock symbol",
+    "security open",
+    "access unlocked"
+  ],
+  "MIcon": ["Minimal M", "Modern Letter M", "Simple M Icon", "Mono M", "Square M Mark", "Stylized M Symbol"],
+  "MailIcon": [
+    "envelope",
+    "email symbol",
+    "mail symbol",
+    "message icon",
+    "letter icon",
+    "postal icon",
+    "electronic mail",
+    "mailing icon"
+  ],
+  "MegaphoneIcon": [
+    "Loudspeaker",
+    " bullhorn",
+    "Announcement Speaker",
+    "Audio Amplifier",
+    "Public Address System",
+    "Sound Horn",
+    "Speech Amplifier",
+    "Call Horn",
+    "Megaphone"
+  ],
+  "MenuIcon": [
+    "hamburger icon",
+    "navigation icon",
+    "sidebar icon",
+    "collapsed menu icon",
+    "three-line menu",
+    "toggle menu icon",
+    "action menu icon"
+  ],
+  "MinusCircleFillIcon": [
+    "minus icon",
+    "subtract icon",
+    "decrease icon",
+    "negative icon",
+    "removal icon",
+    "less icon",
+    "minus sign",
+    "minus circle"
+  ],
+  "MinusCircleIcon": [
+    "subtract icon",
+    "minus symbol",
+    "negative sign",
+    "remove symbol",
+    "decrease icon",
+    "negative action",
+    "less than icon"
+  ],
+  "MinusSquareIcon": [
+    "Remove Box",
+    "Subtract Box",
+    "Minus Symbol in Box",
+    "Contraction Box",
+    "Decrement Box",
+    "Minus Sign in Square",
+    "Decrease Box",
+    "Negative Box"
+  ],
+  "ModelsIcon": [
+    "Graphical Representation",
+    "Connection Diagram",
+    "Network Icon",
+    "Data Flow Symbol",
+    "Node and Link Illustration",
+    "Interconnected Nodes",
+    "Model Visualization"
+  ],
+  "NewWindowIcon": [
+    "External Link Icon",
+    "Open in New Tab Icon",
+    "New Window Symbol",
+    "Launch Icon",
+    "External Window Icon"
+  ],
+  "NoIcon": [
+    "Prohibition Symbol",
+    "No Symbol",
+    "Not Allowed Icon",
+    "Ban Sign",
+    "Circle with Slash",
+    "No Entry Sign",
+    "Restriction Icon"
+  ],
+  "NotebookIcon": ["Notepad", "Journal", "Planner", "Writing pad", "Draft book", "Sketchbook", "Memo pad", "Logbook"],
+  "NotificationIcon": [
+    "Alert Bell",
+    "Notification Bell",
+    "Bell Icon",
+    "Reminder Icon",
+    "Message Alert",
+    "Alert Icon",
+    "Bell Notification",
+    "Signal Icon"
+  ],
+  "NotificationOffIcon": [
+    "Mute Notification",
+    "Disable Alerts",
+    "Silent Mode",
+    "No Notifications",
+    "Turn Off Notifications",
+    "Notification Silence",
+    "Alert Disabled",
+    "Mute Alerts"
+  ],
+  "NumbersIcon": [
+    "Numeric Symbols",
+    "Digits Icon",
+    "Count Icon",
+    "Numbers Graphic",
+    "Numeral Icon",
+    "Counting Symbol",
+    "Number Representation"
+  ],
+  "OfficeIcon": ["Document icon", "File icon", "Text file icon", "Document file symbol", "Sheet icon", "Paper icon"],
+  "OverflowIcon": [
+    "MoreOptions",
+    "MenuIcon",
+    "ThreeDots",
+    "EllipsisIcon",
+    "VerticalDots",
+    "OverflowMenu",
+    "ActionMenu"
+  ],
+  "PageBottomIcon": [
+    "down arrow",
+    "collapse icon",
+    "expand to bottom",
+    "scroll down indicator",
+    "view more",
+    "navigate down",
+    "show more content"
+  ],
+  "PageFirstIcon": [
+    "First Page",
+    "Navigate to Start",
+    "Go to Beginning",
+    "Move to First Page",
+    "Jump to Start",
+    "Back to Start"
+  ],
+  "PageLastIcon": ["Next Page", "Forward Arrow", "Right Arrow", "Skip to Last", "Last Page Arrow", "Navigate Forward"],
+  "PageTopIcon": ["Scroll to Top", "Back to Top", "Go Up", "Top Arrow", "Scroll Up", "Return to Top", "Move Up"],
+  "PauseIcon": [
+    "PlayPause",
+    "MediaPause",
+    "PlaybackPause",
+    "PauseButton",
+    "StopButton",
+    "PauseSymbol",
+    "VideoPause",
+    "AudioPause",
+    "TwoVerticalBars",
+    "PauseControl"
+  ],
+  "PencilIcon": [
+    "Drawing Tool",
+    "Sketch Pen",
+    "Writing Instrument",
+    "Stationery Item",
+    "Graphite Tool",
+    "Art Supply",
+    "Color Pencil",
+    "Drafting Pencil"
+  ],
+  "PieChartIcon": [
+    "chart",
+    "graph",
+    "data visualization",
+    "statistics",
+    "analytics",
+    "proportion chart",
+    "donut chart",
+    "segment chart",
+    "business insights",
+    "reporting"
+  ],
+  "PinCancelIcon": ["Remove Pin", "Unpin", "Cancel Pin", "Dismiss Pin", "Detach Pin", "Delete Pin", "Stop Pinning"],
+  "PinFillIcon": ["Map Pin", "Location Marker", "Drop Pin", "Pin Marker", "Place Pin"],
+  "PinIcon": ["Thumbtack", "Pushpin", "Map pin", "Pin", "Marker", "Bulletin board pin", "Notice pin", "Tack"],
+  "PipelineIcon": [
+    "Pipe",
+    "Flow Icon",
+    "Connection",
+    "Conduit Symbol",
+    "Fluid Path",
+    "Channel Icon",
+    "Tubing Graphic",
+    "Duct Icon",
+    "Transfer Line"
+  ],
+  "PlayCircleFillIcon": [
+    "Play Button",
+    "Circular Play Icon",
+    "Video Play Icon",
+    "Play Circle",
+    "Playback Icon",
+    "Start Button"
+  ],
+  "PlayCircleIcon": [
+    "Play button",
+    "Circular play icon",
+    "Media play symbol",
+    "Video play button",
+    "Playback icon",
+    "Play symbol",
+    "Circle play button"
+  ],
+  "PlayIcon": [
+    "Play button",
+    "Media play icon",
+    "Play symbol",
+    "Playback icon",
+    "Audio play icon",
+    "Video play icon",
+    "Start playback icon"
+  ],
+  "PlugIcon": ["Connector Symbol", "Electrical Plug", "Link Icon", "Socket Icon", "Connection Symbol", "Adapter Icon"],
+  "PlusCircleFillIcon": [
+    "Add Circle Icon",
+    "Circle Plus Icon",
+    "Plus Sign Icon",
+    "Add Icon",
+    "Circle Add Icon",
+    "Positive Action Icon"
+  ],
+  "PlusCircleIcon": [
+    "Add Icon",
+    "Plus Sign",
+    "Addition Symbol",
+    "Circle Plus",
+    "Add Circle",
+    "Plus Button",
+    "Positive Symbol",
+    "Increase Icon"
+  ],
+  "PlusIcon": ["Add Icon", "Addition Symbol", "Plus Sign", "Add Button", "Increase Icon"],
+  "PlusSquareIcon": [
+    "Add Icon",
+    "Plus Button",
+    "Add Square",
+    "Insert Icon",
+    "Increase Icon",
+    "Add Symbol",
+    "Plus Sign",
+    "Addition Symbol",
+    "Add Action"
+  ],
+  "QueryEditorIcon": [
+    "SQL Editor",
+    "Database Query Interface",
+    "Command Line Interface",
+    "Code Editor",
+    "Script Editor"
+  ],
+  "QueryIcon": ["Search Icon", "Magnifying Glass", "Find Icon", "Investigate Icon", "Search Document", "Query Symbol"],
+  "QuestionMarkFillIcon": [
+    "Help Icon",
+    "Inquiry Icon",
+    "Support Icon",
+    "Information Icon",
+    "Question Icon",
+    "FAQ Icon",
+    "Assistance Icon"
+  ],
+  "QuestionMarkIcon": [
+    "Help Icon",
+    "Inquiry Icon",
+    "Assistance Symbol",
+    "Help Request",
+    "Info Icon",
+    "Diagnostic Symbol",
+    "Clarification Mark"
+  ],
+  "ReaderModeIcon": [
+    "Reading Mode",
+    "Text Mode",
+    "Annotation View",
+    "Distraction-Free Mode",
+    "Reading View",
+    "Content Mode"
+  ],
+  "RedoIcon": [
+    "Undo Redo Arrow",
+    "Backward Arrow",
+    "Reverse Icon",
+    "Back Button",
+    "Undo Icon",
+    "Previous Action Arrow",
+    "Revert Icon"
+  ],
+  "RefreshIcon": ["Reload", "Refresh", "Update", "Circular Arrow", "Repeat", "Reboot", "Sync", "Redo"],
+  "ReplyIcon": ["Response Arrow", "Reply Arrow", "Message Reply", "Return Message", "Feedback Arrow", "Response Icon"],
+  "Robot2Icon": [
+    "Friendly Bot",
+    "Cute Robot",
+    "Robot Buddy",
+    "Tech Companion",
+    "Mini Automaton",
+    "Sleek Cyborg",
+    "Charming Android",
+    "Digital Assistant",
+    "Helper Bot",
+    "AI Pal"
+  ],
+  "RobotIcon": [
+    "Cute Robot",
+    "Friendly Bot",
+    "Tech Assistant",
+    "Retro Robot",
+    "Digital Companion",
+    "Mechanical Friend",
+    "Chat Bot",
+    "AI Assistant"
+  ],
+  "RocketIcon": [
+    "space ship",
+    "launch symbol",
+    "aircraft icon",
+    "rocket symbol",
+    "space vehicle",
+    "flying rocket",
+    "jet icon"
+  ],
+  "RunningIcon": [
+    "Jogging Symbol",
+    "Exercise Icon",
+    "Running Emblem",
+    "Athletic Figure",
+    "Motion Symbol",
+    "Fitness Icon",
+    "Sports Emblem"
+  ],
+  "SaveIcon": ["Diskette", "Floppy Disk", "Save Symbol", "Save Button", "Data Save"],
+  "SchemaIcon": ["Flowchart Icon", "Diagram Icon", "Hierarchy Icon", "Process Icon", "Organizational Chart Icon"],
+  "SchoolIcon": ["Graduation Cap", "Mortarboard", "Academic Cap", "Student Hat", "Scholar Cap"],
+  "SearchDataIcon": [
+    "Data Search",
+    "Find Data",
+    "Search Icon",
+    "Data Finder",
+    "Information Search",
+    "Search Magnifying Glass",
+    "Data Exploration",
+    "Query Icon"
+  ],
+  "SearchIcon": [
+    "magnifying glass",
+    "search symbol",
+    "find icon",
+    "lookup icon",
+    "search button",
+    "explore icon",
+    "search graphic"
+  ],
+  "SendIcon": [
+    "Send Button",
+    "Arrow Icon",
+    "Message Send",
+    "Transmission Arrow",
+    "Submit Icon",
+    "Forward Arrow",
+    "Send Action",
+    "Upload Arrow",
+    "Dispatch Icon"
+  ],
+  "ShareIcon": [
+    "Upload symbol",
+    "Send icon",
+    "Share symbol",
+    "Export icon",
+    "Arrow upwards",
+    "Share button",
+    "Share graphic",
+    "Post icon"
+  ],
+  "ShieldIcon": [
+    "Protective Emblem",
+    "Defense Shield",
+    "Security Badge",
+    "Guard Icon",
+    "Crest Symbol",
+    "Armor Symbol",
+    "Fortress Icon",
+    "Safe Haven Icon",
+    "Shield Icon",
+    "Protection Symbol",
+    "Defense Emblem",
+    "Safe Icon",
+    "Security Shield",
+    "Safety Badge",
+    "Guardian Symbol",
+    "Firewall Icon"
+  ],
+  "ShortcutIcon": [
+    "Shortcut",
+    "Quick Access",
+    "Link Icon",
+    "Hotkey Symbol",
+    "Fast Launch",
+    "Application Shortcut",
+    "Desktop Shortcut",
+    "Tool Shortcut"
+  ],
+  "SidebarAutoIcon": [
+    "Auto Sidebar",
+    "Dynamic Sidebar",
+    "Expandable Sidebar",
+    "Collapsible Menu Icon",
+    "Menu Toggle Icon",
+    "Sidebar Control Icon"
+  ],
+  "SidebarCollapseIcon": [
+    "Collapse Sidebar",
+    "Hide Sidebar",
+    "Sidebar Minimize",
+    "Toggle Sidebar",
+    "Reduce Sidebar",
+    "Left Sidebar Collapse"
+  ],
+  "SidebarExpandIcon": [
+    "Expand Sidebar",
+    "Open Sidebar",
+    "Sidebar Open",
+    "Show Sidebar",
+    "Sidebar Expansion",
+    "Expand Panel",
+    "Open Navigation"
+  ],
+  "SidebarIcon": ["Menu Icon", "Navigation Icon", "Panel Icon", "Drawer Icon", "Sidebar Toggle Icon"],
+  "SlidersIcon": [
+    "volume controls",
+    "audio sliders",
+    "adjustment sliders",
+    "settings sliders",
+    "control panel sliders",
+    "track adjusters",
+    "mixing sliders"
+  ],
+  "SortAlphabeticalAscendingIcon": [
+    "Alphabetical Sort Up",
+    "Sort Ascending",
+    "A to Z Sort",
+    "Ascending Order",
+    "Sort by Name",
+    "Alphabetical Order",
+    "Sort Letters A-Z",
+    "Sort Alphabetically"
+  ],
+  "SortAlphabeticalDescendingIcon": [
+    "Descending Sort Icon",
+    "Sort Z to A Icon",
+    "Reverse Alphabetical Order Icon",
+    "Sort By Name Descending",
+    "Alphabetical Sort Down Icon",
+    "Z to A Sort Icon",
+    "Downward Alphabetic Sort Icon"
+  ],
+  "SortAlphabeticalLeftIcon": [
+    "Sort A to Z",
+    "Sort Alphabetically",
+    "Sort Left",
+    "Alphabetical Order",
+    "Ascending Order",
+    "Arrange Alphabetically"
+  ],
+  "SortAlphabeticalRightIcon": [
+    "Sort Ascending",
+    "Alphabetical Sort",
+    "Sort A to Z",
+    "Sort Forward",
+    "Ascending Order",
+    "Alphabetize",
+    "Sort Letters"
+  ],
+  "SortAscendingIcon": [
+    "Ascending Sort Icon",
+    "Sort Up Icon",
+    "Increase Icon",
+    "Sort by Ascending Order",
+    "Ascending Arrow Icon",
+    "Up Arrow Sort Icon",
+    "Sort in Ascending Order"
+  ],
+  "SortDescendingIcon": [
+    "Descending sort icon",
+    "Sort down icon",
+    "Sort least to greatest icon",
+    "Arrange in descending order icon",
+    "Decrease order icon",
+    "Lower values first icon"
+  ],
+  "SortUnsortedIcon": [
+    "Sort icon",
+    "Unsorted icon",
+    "Rearrange icon",
+    "Order icon",
+    "Filter icon",
+    "Sort and filter",
+    "Ascending descending icon",
+    "List view icon"
+  ],
+  "SparkleDoubleFillIcon": [
+    "Star Icon",
+    "Shine Icon",
+    "Twinkle Icon",
+    "Sparkle Icon",
+    "Glitter Icon",
+    "Dazzle Icon",
+    "Radiance Icon"
+  ],
+  "SparkleDoubleIcon": [
+    "Sparkle Icon",
+    "Shiny Gem",
+    "Glitter Star",
+    "Twinkle Icon",
+    "Dazzle Symbol",
+    "Starburst Icon",
+    "Radiant Sparkle",
+    "Brilliant Flare",
+    "Illumination Icon",
+    "Celestial Spark"
+  ],
+  "SparkleFillIcon": ["Additive Icon", "Plus Sign Icon", "Increase Icon", "Expand Icon", "Positive Icon"],
+  "SparkleIcon": [
+    "Shine Star",
+    "Twinkle Symbol",
+    "Lustrous Mark",
+    "Glittering Shape",
+    "Radiance Icon",
+    "Dazzle Emblem",
+    "Brilliance Sign",
+    "Sparkling Symbol"
+  ],
+  "SparkleRectangleIcon": [
+    "Add Rectangle",
+    "Rectangle with Sparkle",
+    "Enhanced Rectangle",
+    "Rectangle Plus",
+    "Rectangle with Glow",
+    "Sparkling Rectangle",
+    "Rectangle Boost"
+  ],
+  "SpeechBubbleIcon": [
+    "Chat Bubble",
+    "Message Bubble",
+    "Talk Bubble",
+    "Comment Icon",
+    "Dialogue Bubble",
+    "Discussion Icon",
+    "Text Bubble",
+    "Speech Icon"
+  ],
+  "SpeechBubblePlusIcon": [
+    "Chat Bubble with Plus Sign",
+    "Add Comment Icon",
+    "Speech Balloon with Addition",
+    "Message Plus Icon",
+    "Comment Bubble with Plus",
+    "New Message Icon",
+    "Speech Bubble with Add Symbol",
+    "Plus Sign Chat Icon",
+    "Speech Balloon Add Icon"
+  ],
+  "SpeechBubbleQuestionMarkIcon": [
+    "Question Mark in Speech Bubble",
+    "Help Icon",
+    "Inquiry Symbol",
+    "Ask Question Bubble",
+    "FAQ Icon",
+    "Support Bubble",
+    "Comment Question Icon"
+  ],
+  "SpeechBubbleStarIcon": [
+    "Star Feedback",
+    "Favorite Comment",
+    "Highlighted Message",
+    "Starred Note",
+    "Speech Bubble with Star",
+    "Prominent Feedback",
+    "Top Comment Indicator"
+  ],
+  "StarFillIcon": [
+    "filled star",
+    "star symbol",
+    "solid star",
+    "star shape",
+    "star icon",
+    "rating star",
+    "favorite star",
+    "award star"
+  ],
+  "StarIcon": [
+    "star shape",
+    "five-pointed star",
+    "star symbol",
+    "rating star",
+    "star graphic",
+    "star emblem",
+    "stellar icon",
+    "favorite star"
+  ],
+  "StopCircleFillIcon": [
+    "Stop Button",
+    "Circular Stop Symbol",
+    "Stop Circle Icon",
+    "Filled Stop Circle",
+    "Stop Sign",
+    "Circle with Square",
+    "Stop Mark",
+    "Circular Stop Indicator"
+  ],
+  "StopCircleIcon": ["stop button", "circular stop icon", "halt circle", "stop symbol", "pause circle", "stop sign"],
+  "StopIcon": ["Stop Sign", "Block Icon", "End Icon", "Halt Symbol", "No Go Icon"],
+  "StorefrontIcon": [
+    "shop",
+    "retail",
+    "market",
+    "store",
+    "boutique",
+    "vendor",
+    "commerce",
+    "shopping",
+    "business",
+    "merchant"
+  ],
+  "StreamIcon": ["Streaming Symbol", "Wave Icon", "Fluid Motion Icon", "Streaming Design", "Digital Flow Icon"],
+  "SyncIcon": [
+    "Refresh Icon",
+    "Reload Symbol",
+    "Update Symbol",
+    "Circular Arrows",
+    "Recycling Icon",
+    "Sync Symbol",
+    "Rotate Symbol"
+  ],
+  "TableGlassesIcon": [
+    "Dining Glasses",
+    "Tableware Glasses",
+    "Drinkware Icon",
+    "Glassware Symbol",
+    "Table Setting Icon",
+    "Beverage Glasses",
+    "Cocktail Glass Icon",
+    "Drink Icon"
+  ],
+  "TableGlobeIcon": [
+    "Data Table with Globe",
+    "World Map Table",
+    "Global Data View",
+    "Table and Globe",
+    "International Data Layout",
+    "Globe Table Icon",
+    "Global Information Table"
+  ],
+  "TableIcon": [
+    "data table",
+    "grid icon",
+    "tabular structure",
+    "data grid",
+    "spreadsheet icon",
+    "table layout",
+    "chart icon",
+    "record list"
+  ],
+  "TableLightningIcon": [
+    "Data Table Alert",
+    "Lightning Table",
+    "Dynamic Data Update",
+    "Table Edit Notification",
+    "Quick Action Table"
+  ],
+  "TableModelIcon": [
+    "Data Table Icon",
+    "Grid Model Icon",
+    "Structure Icon",
+    "Database Table Icon",
+    "Tabular Data Icon",
+    "Data Structure Icon",
+    "Table Representation Icon",
+    "Modeling Icon"
+  ],
+  "TableOnlineViewIcon": [
+    "Data Table Icon",
+    "Table Layout Icon",
+    "Table View Icon",
+    "Online Table Icon",
+    "Spreadsheet Icon",
+    "Grid View Icon",
+    "Table Display Icon"
+  ],
+  "TableStreamIcon": [
+    "Data Stream Icon",
+    "Table Data Flow",
+    "Streamlined Table",
+    "Flowing Data Icon",
+    "Database Stream Icon",
+    "Table Connection Icon"
+  ],
+  "TableVectorIcon": [
+    "Data Table",
+    "Vector Graphic",
+    "Graphical Table",
+    "Data Visualization",
+    "Table Design",
+    "Chart Layout",
+    "Information Grid",
+    "Data Structure",
+    "Vector Table"
+  ],
+  "TableViewIcon": [
+    "Grid View Icon",
+    "Data Table Icon",
+    "Spreadsheet Icon",
+    "List View Icon",
+    "Table Display Icon",
+    "Content Overview Icon"
+  ],
+  "TagIcon": [
+    "label",
+    "price tag",
+    "tag symbol",
+    "category tag",
+    "identifier",
+    "marker",
+    "tagging icon",
+    "label icon",
+    "metadata tag",
+    "bookmark"
+  ],
+  "TargetIcon": [
+    "Focus Icon",
+    "Camera Target",
+    "Concentration Symbol",
+    "Capture Icon",
+    "Aim Icon",
+    "Feature Highlight",
+    "Focal Point Symbol"
+  ],
+  "TerminalIcon": [
+    "Command Line Icon",
+    "Shell Icon",
+    "Console Icon",
+    "Command Prompt Icon",
+    "Terminal Window Icon",
+    "CLI Icon",
+    "Shell Interface Icon"
+  ],
+  "TextBoxIcon": [
+    "Text Field Icon",
+    "Input Box Icon",
+    "Text Entry Icon",
+    "Textbox Symbol",
+    "Text Input Icon",
+    "Text Area Icon",
+    "Form Field Icon"
+  ],
+  "TextUnderlineIcon": [
+    "Underline Text",
+    "Text Decoration Underline",
+    "Text Formatting Underline",
+    "Underlined Characters",
+    "Text Underline"
+  ],
+  "ThumbsDownIcon": [
+    "Dislike Icon",
+    "Thumbs Down",
+    "Negative Feedback",
+    "Disapproval Symbol",
+    "Reject Icon",
+    "Unapprove Icon",
+    "Bad Rating",
+    "Dissatisfaction Icon"
+  ],
+  "ThumbsUpIcon": [
+    "Like Icon",
+    "Approval Icon",
+    "Thumbs Up Symbol",
+    "Positive Feedback Icon",
+    "Good Job Icon",
+    "Okay Gesture",
+    "Praise Icon",
+    "Support Icon"
+  ],
+  "TrashIcon": [
+    "Bin",
+    "Waste Basket",
+    "Garbage Can",
+    "Recycle Bin",
+    "Rubbish Bin",
+    "Trash Can",
+    "Debris Container",
+    "Refuse Container"
+  ],
+  "TreeIcon": [
+    "Node Structure",
+    "Branching Diagram",
+    "Hierarchical Representation",
+    "Dependency Tree",
+    "Organizational Chart",
+    "Data Tree",
+    "Multi-Level Structure"
+  ],
+  "UnderlineIcon": [
+    "Underline",
+    "Text Underline",
+    "Text Formatting Underline",
+    "U with Line",
+    "Underline Symbol",
+    "Underline Mark",
+    "Lowercase U with Line"
+  ],
+  "UndoIcon": ["Revert", "Back", "Cancel", "Restore", "Redo", "Return", "Reverse", "Withdraw"],
+  "UploadIcon": [
+    "Upload Arrow",
+    "File Upload Icon",
+    "Upload Symbol",
+    "Send File Icon",
+    "Cloud Upload Icon",
+    "Transfer Arrow",
+    "File Transfer Icon"
+  ],
+  "UsbIcon": [
+    "Universal Serial Bus",
+    "USB connector",
+    "USB symbol",
+    "USB port",
+    "USB interface",
+    "USB plug",
+    "USB device",
+    "USB connection"
+  ],
+  "UserBadgeIcon": [
+    "Badge Icon",
+    "User Badge",
+    "Identity Badge",
+    "Profile Badge",
+    "Account Badge",
+    "Member Badge",
+    "Credential Icon",
+    "User Identity"
+  ],
+  "UserCircleIcon": [
+    "Profile Icon",
+    "User Avatar",
+    "User Circle",
+    "Account Icon",
+    "Person Icon",
+    "Profile Picture",
+    "User Symbol"
+  ],
+  "UserGroupIcon": [
+    "People icon",
+    "Group icon",
+    "Users icon",
+    "Community icon",
+    "Member icon",
+    "Collaboration icon",
+    "Team icon",
+    "Social icon"
+  ],
+  "UserIcon": ["Profile Icon", "User Avatar", "Account Icon", "User Symbol", "Profile Picture", "Identity Icon"],
+  "VisibleIcon": ["Eye Symbol", "Vision Icon", "View Icon", "Visibility Symbol", "Eye Graphic"],
+  "VisibleOffIcon": [
+    "hidden eye",
+    "eye off",
+    "invisible eye",
+    "eye visibility toggle",
+    "hide visibility",
+    "disable view"
+  ],
+  "WarningFillIcon": [
+    "Alert Icon",
+    "Exclamation Triangle",
+    "Warning Sign",
+    "Caution Symbol",
+    "Error Notification",
+    "Attention Icon",
+    "Danger Alert"
+  ],
+  "WarningIcon": [
+    "caution symbol",
+    "alert icon",
+    "exclamation mark warning",
+    "danger signal",
+    "notification alert",
+    "safety warning",
+    "attention icon"
+  ],
+  "WorkflowsIcon": [
+    "Process Icon",
+    "Flow Diagram Icon",
+    "Task Automation Icon",
+    "Workflow Management Icon",
+    "Integration Icon",
+    "Operation Workflow Icon",
+    "Sequence Icon"
+  ],
+  "WorkspacesIcon": [
+    "Collaboration Icon",
+    "Group Work Icon",
+    "Task Management Icon",
+    "Project Organization Icon",
+    "Teamwork Icon",
+    "Shared Workspace Icon"
+  ],
+  "WrenchIcon": [
+    "Tool",
+    "Adjustable Wrench",
+    "Spanner",
+    "Mechanical Tool",
+    "Repair Tool",
+    "Hand Tool",
+    "Fixing Tool",
+    "Wrench Spanner"
+  ],
+  "XCircleFillIcon": [
+    "Close Icon",
+    "Cancel Icon",
+    "Delete Icon",
+    "Remove Icon",
+    "Exit Icon",
+    "Dismiss Icon",
+    "Hide Icon"
+  ],
+  "XCircleIcon": [
+    "Close Circle",
+    "Cancel Icon",
+    "Remove Circle",
+    "Delete Circle",
+    "Exit Circle",
+    "Exit Icon",
+    "Deny Icon",
+    "X Icon"
+  ],
+  "ZoomInIcon": [
+    "Magnifying Glass",
+    "Enlarge Icon",
+    "Plus Magnifier",
+    "Zoom In Button",
+    "Expand Icon",
+    "Increase Size Icon",
+    "Focus Icon"
+  ],
+  "ZoomMarqueeSelection": [
+    "Zoom Tool",
+    "Selection Rect",
+    "Zoom Rectangle",
+    "Area Zoom",
+    "Magnification Selector",
+    "Zoom In Selection",
+    "Selection Zoom Tool"
+  ],
+  "ZoomOutIcon": [
+    "minus icon",
+    "zoom out button",
+    "decrease magnification",
+    "remove zoom",
+    "scale down icon",
+    "reduce size",
+    "magnifying glass with minus",
+    "contract icon"
+  ],
+  "LettersNumbersIcon": [
+    "Alphabet Numbers Icon",
+    "Text and Digits Icon",
+    "Letters and Numbers Symbol",
+    "Character and Numeric Icon",
+    "ABC and 123 Icon",
+    "Text and Number Icon"
+  ],
+  "LoopIcon": ["Repeat Icon", "Refresh Symbol", "Backward Arrow", "Loop Symbol", "Undo Icon"],
+  "ResizeIcon": ["equal sign", "horizontal bars", "alignment icon", "menu icon", "list icon", "toggle icon"],
+  "AtIcon": ["Email symbol", "At sign", "At symbol", "Email character", "Contact icon", "User mention icon"],
+  "CommandIcon": ["command key", "cmd key", "command symbol", "mac command icon", "Command modifier"],
+  "SlashSquareIcon": [
+    "Diagonal Slash",
+    "Square Slash",
+    "Forward Slash in Square",
+    "Slash Symbol in Box",
+    "Icon with Slash",
+    "Square with Diagonal Line"
+  ],
+  "StrikeThroughIcon": [
+    "Crossed out symbol",
+    "Delete icon",
+    "Strike through mark",
+    "Cancel icon",
+    "Remove icon",
+    "Text deletion symbol"
+  ]
+}

@@ -1,4 +1,4 @@
-import { Button, PencilIcon, Spinner, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { KeyValueEntity } from '../../../types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
@@ -56,6 +56,7 @@ export const RunViewTagsBox = ({
         paddingBottom: theme.spacing.xs,
         display: 'flex',
         flexWrap: 'wrap',
+        alignItems: 'center',
         '> *': {
           marginRight: '0 !important',
         },
@@ -64,27 +65,30 @@ export const RunViewTagsBox = ({
     >
       {visibleTagEntities.length < 1 ? (
         <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_67"
+          componentId="mlflow.run_details.overview.tags.add_button"
           size="small"
-          type="link"
+          type="tertiary"
           onClick={showEditModal}
         >
-          <FormattedMessage defaultMessage="Add" description="Run page > Overview > Tags cell > 'Add' button label" />
+          <FormattedMessage
+            defaultMessage="Add tags"
+            description="Run page > Overview > Tags cell > 'Add' button label"
+          />
         </Button>
       ) : (
         <>
           {visibleTagEntities.map((tag) => (
-            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal />
+            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal css={{ marginRight: 0 }} />
           ))}
-          <LegacyTooltip title={editTagsLabel}>
+          <Tooltip componentId="mlflow.run_details.overview.tags.edit_button.tooltip" content={editTagsLabel}>
             <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_76"
+              componentId="mlflow.run_details.overview.tags.edit_button"
               aria-label={editTagsLabel}
               size="small"
               icon={<PencilIcon />}
               onClick={showEditModal}
             />
-          </LegacyTooltip>
+          </Tooltip>
         </>
       )}
       {isLoading && <Spinner size="small" />}

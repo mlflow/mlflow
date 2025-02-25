@@ -7,7 +7,6 @@
 
 import React, { useCallback, useRef, useEffect } from 'react';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
-import { message, ConfigProvider } from 'antd';
 import { ColorsPaletteDatalist } from './ColorsPaletteDatalist';
 
 const isInsideShadowDOM = (element: any) => element instanceof window.Node && element.getRootNode() !== document;
@@ -31,15 +30,6 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   const modalContainerElement = useRef();
   const { isDarkTheme = false, children } = props;
 
-  useEffect(() => {
-    if (isInsideShadowDOM(modalContainerElement.current)) {
-      message.config({
-        // @ts-expect-error TS(2322): Type '() => undefined' is not assignable to type '... Remove this comment to see the full error message
-        getContainer: () => modalContainerElement.current,
-      });
-    }
-  }, []);
-
   const getPopupContainer = useCallback(() => {
     if (isInsideShadowDOM(modalContainerElement.current)) {
       return modalContainerElement.current;
@@ -51,11 +41,9 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
     <ThemeProvider isDarkTheme={isDarkTheme}>
       {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
       <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
-        <ConfigProvider prefixCls="ant">
-          {children}
-          {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
-          <div ref={modalContainerElement} />
-        </ConfigProvider>
+        {children}
+        {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
+        <div ref={modalContainerElement} />
       </DesignSystemProvider>
       <ColorsPaletteDatalist />
     </ThemeProvider>

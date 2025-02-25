@@ -55,7 +55,6 @@ export const useSharedExperimentViewState = (
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
-
         // First, extract search facets part of the shared view state
         const sharedSearchFacetsState = pick(
           parsedSharedViewState,

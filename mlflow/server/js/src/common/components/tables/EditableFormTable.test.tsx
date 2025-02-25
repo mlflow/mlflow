@@ -1,7 +1,7 @@
 import React from 'react';
 import { EditableTable } from './EditableFormTable';
 import { renderWithIntl, screen } from '../../utils/TestUtils.react18';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 describe('unit tests', () => {
   const minimalProps = {

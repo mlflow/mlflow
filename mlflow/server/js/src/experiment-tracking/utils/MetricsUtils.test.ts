@@ -109,7 +109,6 @@ describe('MetricsUtils', () => {
       '2020-01-04 02:00:00',
       '2020-01-05 02:00:00',
     ]);
-    expect(Utils.formatTimestamp).toBeCalledWith(new Date('2020-01-02 14:00:00').getTime(), 'yyyy-mm-dd HH:MM:ss.l');
   });
 
   describe('generateInfinityAnnotations', () => {

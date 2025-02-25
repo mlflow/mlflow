@@ -1,25 +1,26 @@
-import { u as useDesignSystemContext, a as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, b as DesignSystemEventProviderAnalyticsEventTypes, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as addDebugOutlineStylesIfEnabled, g as getAnimationCss, f as useNotifyOnFirstView, h as addDebugOutlineIfEnabled, C as CloseIcon, i as getDarkModePortalStyles, j as useUniqueId, k as Root$7, T as Trigger$4, l as Content$5, A as Arrow$2, B as Button, m as ChevronRightIcon, L as LoadingState, v as visuallyHidden, n as DesignSystemEventSuppressInteractionProviderContext, o as DesignSystemEventSuppressInteractionTrueContextValue, p as Typography, q as importantify, s as safex, r as CheckIcon, S as Spinner, t as getValidationStateColor, w as ApplyDesignSystemContextOverrides, x as getShadowScrollStyles, y as DangerIcon, W as WarningIcon, z as LoadingIcon, E as Title$2, F as AccessibleContainer, G as ChevronLeftIcon, H as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, J as lightColorList, K as getDefaultStyles, M as getPrimaryStyles, N as getDisabledSplitButtonStyles } from './Typography-C4ciIwWZ.js';
-export { Z as ApplyDesignSystemFlags, a5 as ColorVars, V as DesignSystemContext, P as DesignSystemEventProvider, Y as DesignSystemProvider, U as DesignSystemThemeContext, X as DesignSystemThemeProvider, a1 as LoadingStateContext, a0 as NewWindowIcon, a2 as Popover, $ as WithDesignSystemThemeHoc, a4 as getBottomOnlyShadowScrollStyles, O as getButtonEmotionStyles, a3 as getTypographyColor, _ as useAntDConfigProviderContext, Q as useDesignSystemEventSuppressInteractionContext } from './Typography-C4ciIwWZ.js';
+import { u as useDesignSystemContext, a as useDesignSystemTheme, I as Icon, S as Spinner, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, b as DesignSystemEventProviderAnalyticsEventTypes, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as addDebugOutlineStylesIfEnabled, g as getAnimationCss, f as DesignSystemEventProviderComponentSubTypeMap, h as useNotifyOnFirstView, i as addDebugOutlineIfEnabled, C as CloseIcon, j as useDesignSystemSafexFlags, k as getDarkModePortalStyles, l as useUniqueId, m as Root$8, T as Trigger$4, n as Content$5, A as Arrow$2, B as Button, o as ChevronRightIcon, L as LoadingState, v as visuallyHidden, p as DesignSystemEventSuppressInteractionProviderContext, q as DesignSystemEventSuppressInteractionTrueContextValue, r as Typography, s as importantify, t as CheckIcon, w as ComponentFinderContext, x as getComboboxOptionItemWrapperStyles, y as getComboboxContentWrapperStyles, z as getFooterStyles, E as highlightFirstNonDisabledOption, F as getInfoIconStyles, G as getKeyboardNavigationFunctions, H as dialogComboboxLookAheadKeyDown, J as getCheckboxStyles, K as getDialogComboboxOptionLabelWidth, M as getContentOptions, N as findHighlightedOption, O as highlightOption, P as findClosestOptionSibling, Q as getComboboxOptionLabelStyles, U as getSelectItemWithHintColumnStyles, V as getHintColumnStyles, W as useComponentFinderContext, X as getValidationStateColor, Y as ApplyDesignSystemContextOverrides, Z as getShadowScrollStyles, _ as DangerIcon, $ as WarningIcon, a0 as LoadingIcon, a1 as Title$2, a2 as AccessibleContainer, a3 as ChevronLeftIcon, a4 as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, a5 as safex, a6 as lightColorList, a7 as getDefaultStyles, a8 as getPrimaryStyles, a9 as getDisabledSplitButtonStyles, aa as getDisabledPrimarySplitButtonStyles } from './Typography-EFtM7f6H.js';
+export { al as ApplyDesignSystemFlags, aw as ColorVars, ai as DesignSystemContext, af as DesignSystemEventProvider, ad as DesignSystemEventProviderComponentSubTypes, ak as DesignSystemProvider, ah as DesignSystemThemeContext, aj as DesignSystemThemeProvider, ar as LoadingStateContext, aq as NewWindowIcon, as as Popover, ap as WithDesignSystemThemeHoc, ae as augmentWithDataComponentProps, au as getBottomOnlyShadowScrollStyles, ac as getButtonEmotionStyles, ab as getMemoizedButtonEmotionStyles, at as getTypographyColor, av as getVirtualizedComboboxMenuItemStyles, an as isOptionDisabled, ao as resetTabIndexToFocusedElement, am as useAntDConfigProviderContext, ag as useDesignSystemEventSuppressInteractionContext } from './Typography-EFtM7f6H.js';
 import * as React from 'react';
-import React__default, { useRef, useMemo, forwardRef, useCallback, useEffect, useState, createContext, useImperativeHandle, useContext, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
+import React__default, { useRef, useMemo, forwardRef, createContext, useContext, useCallback, useEffect, useState, useImperativeHandle, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
 import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
-import { I as Input } from './index-D9gS2nVh.js';
-export { C as ClockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-D9gS2nVh.js';
-import { u as useModalContext, I as InfoIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './Tooltip-W5oNcJKF.js';
-export { C as Content, D as DangerModal, M as Modal, N as Nav, a as NavButton, P as Panel, e as PanelBody, b as PanelHeader, d as PanelHeaderButtons, c as PanelHeaderTitle, f as Sidebar } from './Tooltip-W5oNcJKF.js';
+import { I as Input } from './index-BP9a_E5e.js';
+export { C as ClockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-BP9a_E5e.js';
+import { u as useModalContext, I as InfoIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './Tooltip-BVYL7lTx.js';
+export { C as Content, D as DangerModal, M as Modal, N as Nav, a as NavButton, P as Panel, e as PanelBody, b as PanelHeader, d as PanelHeaderButtons, c as PanelHeaderTitle, f as Sidebar } from './Tooltip-BVYL7lTx.js';
 import { css, Global, keyframes, ClassNames, createElement } from '@emotion/react';
 import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Dropdown as Dropdown$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, Form, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Tabs as Tabs$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tree as Tree$1 } from 'antd';
 import classnames from 'classnames';
 import _isNil from 'lodash/isNil';
 import _isUndefined from 'lodash/isUndefined';
+import { useMergeRefs, useFloating, autoUpdate, offset, flip, shift } from '@floating-ui/react';
 import { ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuArrow, ContextMenuSub, ContextMenu as ContextMenu$2, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioGroup, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
 import * as DropdownMenu$1 from '@radix-ui/react-dropdown-menu';
 import * as Popover from '@radix-ui/react-popover';
-import { useMergeRefs, useFloating, autoUpdate, offset, flip, shift } from '@floating-ui/react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useController } from 'react-hook-form';
 import _uniqueId from 'lodash/uniqueId';
 import { useCombobox, useMultipleSelection } from 'downshift';
+import { computePosition, flip as flip$1, size } from '@floating-ui/dom';
 import { createPortal } from 'react-dom';
 import * as RadixHoverCard from '@radix-ui/react-hover-card';
 import AntDIcon, { InfoCircleOutlined } from '@ant-design/icons';
@@ -27,6 +28,7 @@ import * as RadixNavigationMenu from '@radix-ui/react-navigation-menu';
 import * as Toast from '@radix-ui/react-toast';
 import _times from 'lodash/times';
 import _random from 'lodash/random';
+import * as RadixSlider from '@radix-ui/react-slider';
 import _debounce from 'lodash/debounce';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import * as RadixTabs from '@radix-ui/react-tabs';
@@ -84,6 +86,66 @@ const useThemedStyles = styleFactory => {
   const styleFactoryRef = useRef(styleFactory);
   return useMemo(() => styleFactoryRef.current(theme), [theme]);
 };
+
+function SvgAzHorizontalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M4.346 4.5a.75.75 0 0 0-.695.468L1 11.5h1.619l.406-1h2.643l.406 1h1.619L5.04 4.968a.75.75 0 0 0-.695-.468M5.06 9H3.634l.712-1.756zM12.667 6H9V4.5h5.25a.75.75 0 0 1 .58 1.225L11.333 10H15v1.5H9.75a.75.75 0 0 1-.58-1.225z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const AzHorizontalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgAzHorizontalIcon
+  });
+});
+AzHorizontalIcon.displayName = 'AzHorizontalIcon';
+
+function SvgAzVerticalIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("g", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      clipPath: "url(#AZVerticalIcon_svg__a)",
+      clipRule: "evenodd",
+      children: jsx("path", {
+        d: "M7.996 0a.75.75 0 0 1 .695.468L11.343 7h-1.62l-.405-1H6.675l-.406 1H4.65L7.301.468A.75.75 0 0 1 7.996 0m-.712 4.5h1.425l-.713-1.756zM8.664 9.5H4.996V8h5.25a.75.75 0 0 1 .58 1.225L7.33 13.5h3.667V15h-5.25a.75.75 0 0 1-.58-1.225z"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+const AzVerticalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgAzVerticalIcon
+  });
+});
+AzVerticalIcon.displayName = 'AzVerticalIcon';
 
 function SvgAlignCenterIcon(props) {
   return jsx("svg", {
@@ -604,6 +666,98 @@ const BarStackedPercentageIcon = /*#__PURE__*/forwardRef((props, forwardedRef) =
   });
 });
 BarStackedPercentageIcon.displayName = 'BarStackedPercentageIcon';
+
+function SvgBarsAscendingHorizontalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "M3.25 9v6h1.5V9zM11.25 1v14h1.5V1zM8.75 15V5h-1.5v10z"
+    })
+  });
+}
+const BarsAscendingHorizontalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgBarsAscendingHorizontalIcon
+  });
+});
+BarsAscendingHorizontalIcon.displayName = 'BarsAscendingHorizontalIcon';
+
+function SvgBarsAscendingVerticalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "M7 3.25H1v1.5h6zM15 11.25H1v1.5h14zM1 8.75h10v-1.5H1z"
+    })
+  });
+}
+const BarsAscendingVerticalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgBarsAscendingVerticalIcon
+  });
+});
+BarsAscendingVerticalIcon.displayName = 'BarsAscendingVerticalIcon';
+
+function SvgBarsDescendingHorizontalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "M12.75 9v6h-1.5V9zM4.75 1v14h-1.5V1zM7.25 15V5h1.5v10z"
+    })
+  });
+}
+const BarsDescendingHorizontalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgBarsDescendingHorizontalIcon
+  });
+});
+BarsDescendingHorizontalIcon.displayName = 'BarsDescendingHorizontalIcon';
+
+function SvgBarsDescendingVerticalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "M7 12.75H1v-1.5h6zM15 4.75H1v-1.5h14zM1 7.25h10v1.5H1z"
+    })
+  });
+}
+const BarsDescendingVerticalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgBarsDescendingVerticalIcon
+  });
+});
+BarsDescendingVerticalIcon.displayName = 'BarsDescendingVerticalIcon';
 
 function SvgBeakerIcon(props) {
   return jsx("svg", {
@@ -2325,6 +2479,29 @@ const CopyIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 CopyIcon.displayName = 'CopyIcon';
+
+function SvgCreditCardIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "M14.4 4.4v7.2q0 .483-.353.842a1.15 1.15 0 0 1-.847.358H2.8q-.483 0-.842-.358A1.15 1.15 0 0 1 1.6 11.6V4.4q0-.483.358-.841.36-.36.842-.359h10.4q.495 0 .848.359.352.357.352.841M2.8 5.6h10.4V4.4H2.8zm0 2.4v3.6h10.4V8z"
+    })
+  });
+}
+const CreditCardIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgCreditCardIcon
+  });
+});
+CreditCardIcon.displayName = 'CreditCardIcon';
 
 function SvgCursorIcon(props) {
   return jsxs("svg", {
@@ -4208,6 +4385,41 @@ const LibrariesIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 LibrariesIcon.displayName = 'LibrariesIcon';
 
+function SvgLightbulbIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: 1.5,
+      d: "M7 15h2"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.475 10.019a2.5 2.5 0 1 0-2.95 0c.528.386.975 1.048.975 1.879V12h1v-.102c0-.83.447-1.492.975-1.88m.887 1.21a.84.84 0 0 0-.362.669v.852a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-.852a.84.84 0 0 0-.362-.67 4 4 0 1 1 4.724 0",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: 1.5,
+      d: "M11.375 3.78 12 3M13.051 6.316 14 6M4.625 3.78 4 3M2.949 6.316 2 6M8 2.5v-1"
+    })]
+  });
+}
+const LightbulbIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgLightbulbIcon
+  });
+});
+LightbulbIcon.displayName = 'LightbulbIcon';
+
 function SvgLightningIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -4580,17 +4792,25 @@ const MenuIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 MenuIcon.displayName = 'MenuIcon';
 
 function SvgMetricViewIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
+    children: [jsx("path", {
       fill: "currentColor",
-      d: "M14.1 3.915 8.6.905a1.24 1.24 0 0 0-1.2 0l-5.5 3.01a1.25 1.25 0 0 0-.65 1.097v5.976a1.25 1.25 0 0 0 .65 1.097l5.5 3.01a1.24 1.24 0 0 0 1.2 0l5.5-3.01a1.25 1.25 0 0 0 .65-1.097V5.012a1.25 1.25 0 0 0-.65-1.097M8 2.285l4.5 2.465L8 7.213 3.5 4.75zM2.75 6.05l4.5 2.463v4.792l-4.5-2.464zm6 7.255V8.512l4.5-2.463v4.791z"
-    })
+      fillRule: "evenodd",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75zM13.5 5.5v-3h-11v3z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M11.25 15v-3.45a.75.75 0 0 0-1.5 0V15zM13.626 15v-2.65a.75.75 0 0 0-1.5 0V15zM8.874 15v-2.65a.75.75 0 0 0-1.5 0V15zM15.202 15a.8.8 0 0 0 .8-.8v-2.65a.75.75 0 0 0-1.5 0V15zM6.498 15v-3.45c0-.414-.288-.75-.75-.75-.366 0-.702.336-.75.75v2.65a.8.8 0 0 0 .8.8z"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M5.22 14.78c.14.141.331.22.53.22h9.5a.75.75 0 0 0 .75-.75V12.5h-1.5v1h-8v-1H5v1.75c0 .199.079.39.22.53"
+    })]
   });
 }
 const MetricViewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -4991,6 +5211,56 @@ const PageTopIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 PageTopIcon.displayName = 'PageTopIcon';
+
+function SvgPanelDockedIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H14.3a.7.7 0 0 0 .7-.7V1.75a.75.75 0 0 0-.75-.75zM8 13.5V8.7a.7.7 0 0 1 .7-.7h4.8V2.5h-11v11z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const PanelDockedIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgPanelDockedIcon
+  });
+});
+PanelDockedIcon.displayName = 'PanelDockedIcon';
+
+function SvgPanelFloatingIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11zM5.6 5a.6.6 0 0 0-.6.6v4.8a.6.6 0 0 0 .6.6h4.8a.6.6 0 0 0 .6-.6V5.6a.6.6 0 0 0-.6-.6z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const PanelFloatingIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgPanelFloatingIcon
+  });
+});
+PanelFloatingIcon.displayName = 'PanelFloatingIcon';
 
 function SvgPaperclipIcon(props) {
   return jsx("svg", {
@@ -6335,158 +6605,6 @@ const SlidersIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 SlidersIcon.displayName = 'SlidersIcon';
-
-function SvgSortAlphabeticalAscendingIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsxs("g", {
-      fill: "currentColor",
-      clipPath: "url(#SortAlphabeticalAscendingIcon_svg__a)",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0m-.852 4.9h1.693l-.844-2.124z",
-        clipRule: "evenodd"
-      }), jsx("path", {
-        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191zM12 .94l4.03 4.03-1.06 1.06-2.22-2.22V10h-1.5V3.81L9.03 6.03 7.97 4.97z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-const SortAlphabeticalAscendingIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgSortAlphabeticalAscendingIcon
-  });
-});
-SortAlphabeticalAscendingIcon.displayName = 'SortAlphabeticalAscendingIcon';
-
-function SvgSortAlphabeticalDescendingIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsxs("g", {
-      fill: "currentColor",
-      clipPath: "url(#SortAlphabeticalDescendingIcon_svg__a)",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0m-.852 4.9h1.693l-.844-2.124z",
-        clipRule: "evenodd"
-      }), jsx("path", {
-        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191zM12 15.06l-4.03-4.03 1.06-1.06 2.22 2.22V6h1.5v6.19l2.22-2.22 1.06 1.06z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-const SortAlphabeticalDescendingIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgSortAlphabeticalDescendingIcon
-  });
-});
-SortAlphabeticalDescendingIcon.displayName = 'SortAlphabeticalDescendingIcon';
-
-function SvgSortAlphabeticalLeftIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsxs("g", {
-      fill: "currentColor",
-      clipPath: "url(#SortAlphabeticalLeftIcon_svg__a)",
-      children: [jsx("path", {
-        d: "M.94 4 4.97-.03l1.06 1.06-2.22 2.22H10v1.5H3.81l2.22 2.22-1.06 1.06z"
-      }), jsx("path", {
-        fillRule: "evenodd",
-        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9m-.852 4.9h1.693l-.844-2.124z",
-        clipRule: "evenodd"
-      }), jsx("path", {
-        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191L10.723 14.5H14V16H9.25a.75.75 0 0 1-.607-1.191z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-const SortAlphabeticalLeftIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgSortAlphabeticalLeftIcon
-  });
-});
-SortAlphabeticalLeftIcon.displayName = 'SortAlphabeticalLeftIcon';
-
-function SvgSortAlphabeticalRightIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsxs("g", {
-      fill: "currentColor",
-      clipPath: "url(#SortAlphabeticalRightIcon_svg__a)",
-      children: [jsx("path", {
-        d: "m14.06 4-4.03 4.03-1.06-1.06 2.22-2.22H5v-1.5h6.19L8.97 1.03l1.06-1.06z"
-      }), jsx("path", {
-        fillRule: "evenodd",
-        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9m-.852 4.9h1.693l-.844-2.124z",
-        clipRule: "evenodd"
-      }), jsx("path", {
-        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191l-3.134 4.31H14V16H9.25a.75.75 0 0 1-.607-1.192z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-const SortAlphabeticalRightIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgSortAlphabeticalRightIcon
-  });
-});
-SortAlphabeticalRightIcon.displayName = 'SortAlphabeticalRightIcon';
 
 function SvgSortAscendingIcon(props) {
   return jsx("svg", {
@@ -7911,6 +8029,43 @@ const WarningFillIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 WarningFillIcon.displayName = 'WarningFillIcon';
 
+function SvgWorkflowCodeIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsxs("g", {
+      fill: "currentColor",
+      clipPath: "url(#WorkflowCodeIcon_svg__a)",
+      children: [jsx("path", {
+        d: "m13.32 10.66-1.061 1.061 1.548 1.549-1.548 1.548 1.06 1.06 2.61-2.608zM10.68 10.66l1.061 1.061-1.548 1.549 1.548 1.548-1.06 1.06-2.61-2.608z"
+      }), jsx("path", {
+        fillRule: "evenodd",
+        d: "M2.75 5.5c1.259 0 2.32-.846 2.646-2h5.229a1.875 1.875 0 0 1 .11 3.747l-3.3-2.357a.75.75 0 0 0-.87 0L3.256 7.252A3.375 3.375 0 0 0 3.375 14H7v-1.5H3.375a1.875 1.875 0 0 1-.11-3.747l3.3 2.357a.75.75 0 0 0 .87 0l3.308-2.362A3.375 3.375 0 0 0 10.625 2H5.396A2.751 2.751 0 1 0 2.75 5.5M4 2.75a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0m3 3.672L4.79 8 7 9.578 9.21 8z",
+        clipRule: "evenodd"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+const WorkflowCodeIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgWorkflowCodeIcon
+  });
+});
+WorkflowCodeIcon.displayName = 'WorkflowCodeIcon';
+
 function SvgWorkflowsIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -8073,6 +8228,56 @@ const XCircleIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 XCircleIcon.displayName = 'XCircleIcon';
 
+function SvgZaHorizontalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M11.654 4.5a.75.75 0 0 1 .695.468L15 11.5h-1.619l-.406-1h-2.643l-.406 1H8.307l2.652-6.532a.75.75 0 0 1 .695-.468M10.94 9h1.425l-.712-1.756zM4.667 6H1V4.5h5.25a.75.75 0 0 1 .58 1.225L3.333 10H7v1.5H1.75a.75.75 0 0 1-.58-1.225z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const ZaHorizontalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgZaHorizontalIcon
+  });
+});
+ZaHorizontalIcon.displayName = 'ZaHorizontalIcon';
+
+function SvgZaVerticalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M7.996 8a.75.75 0 0 0-.695.468L4.65 15h1.619l.406-1h2.643l.406 1h1.619L8.69 8.468A.75.75 0 0 0 7.996 8m.713 4.5H7.284l.712-1.756zM8.664 1.5H4.996V0h5.25a.75.75 0 0 1 .58 1.225L7.33 5.5h3.667V7h-5.25a.75.75 0 0 1-.58-1.225z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const ZaVerticalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgZaVerticalIcon
+  });
+});
+ZaVerticalIcon.displayName = 'ZaVerticalIcon';
+
 function SvgZoomInIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -8157,6 +8362,191 @@ const ZoomOutIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 ZoomOutIcon.displayName = 'ZoomOutIcon';
 
+const getButtonStyles = theme => {
+  return /*#__PURE__*/css({
+    color: theme.colors.textPlaceholder,
+    fontSize: theme.typography.fontSizeSm,
+    marginLeft: theme.spacing.xs,
+    ':hover': {
+      color: theme.colors.actionTertiaryTextHover
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getButtonStyles;");
+};
+const ClearSelectionButton = _ref => {
+  let {
+    ...restProps
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(XCircleFillIcon, {
+    "aria-hidden": "false",
+    css: getButtonStyles(theme),
+    role: "button",
+    "aria-label": "Clear selection",
+    ...restProps
+  });
+};
+
+const dialogComboboxContextDefaults = {
+  componentId: 'codegen_design-system_src_design-system_dialogcombobox_providers_dialogcomboboxcontext.tsx_27',
+  id: '',
+  label: '',
+  value: [],
+  isInsideDialogCombobox: false,
+  multiSelect: false,
+  setValue: () => {},
+  setIsControlled: () => {},
+  stayOpenOnSelection: false,
+  isOpen: false,
+  setIsOpen: () => {},
+  contentWidth: undefined,
+  setContentWidth: () => {},
+  textOverflowMode: 'multiline',
+  setTextOverflowMode: () => {},
+  scrollToSelectedElement: true,
+  rememberLastScrollPosition: false
+};
+const DialogComboboxContext = /*#__PURE__*/createContext(dialogComboboxContextDefaults);
+const DialogComboboxContextProvider = _ref => {
+  let {
+    children,
+    value
+  } = _ref;
+  return jsx(DialogComboboxContext.Provider, {
+    value: value,
+    children: children
+  });
+};
+
+const useDialogComboboxContext = () => {
+  return useContext(DialogComboboxContext);
+};
+
+const EmptyResults = _ref => {
+  var _ref2;
+  let {
+    emptyText
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    emptyText: emptyTextFromContext
+  } = useDialogComboboxContext();
+  return jsx("div", {
+    "aria-live": "assertive",
+    css: /*#__PURE__*/css({
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      padding: '6px 12px',
+      width: '100%',
+      boxSizing: 'border-box'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:EmptyResults;"),
+    children: (_ref2 = emptyTextFromContext !== null && emptyTextFromContext !== void 0 ? emptyTextFromContext : emptyText) !== null && _ref2 !== void 0 ? _ref2 : 'No results found'
+  });
+};
+
+const HintRow$1 = _ref => {
+  let {
+    disabled,
+    children
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx("div", {
+    css: /*#__PURE__*/css({
+      color: theme.colors.textSecondary,
+      fontSize: theme.typography.fontSizeSm,
+      ...(disabled && {
+        color: theme.colors.actionDisabledText
+      })
+    }, process.env.NODE_ENV === "production" ? "" : ";label:HintRow;"),
+    children: children
+  });
+};
+
+const LoadingSpinner = props => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(Spinner, {
+    css: /*#__PURE__*/css({
+      display: 'flex',
+      alignSelf: 'center',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: theme.general.heightSm,
+      width: theme.general.heightSm,
+      '> span': {
+        fontSize: 20
+      }
+    }, process.env.NODE_ENV === "production" ? "" : ";label:LoadingSpinner;"),
+    ...props
+  });
+};
+
+const SectionHeader = _ref => {
+  let {
+    children,
+    ...props
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx("div", {
+    ...props,
+    css: /*#__PURE__*/css({
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      padding: `${theme.spacing.xs}px ${theme.spacing.lg / 2}px`,
+      alignSelf: 'stretch',
+      fontWeight: 400,
+      color: theme.colors.textSecondary
+    }, process.env.NODE_ENV === "production" ? "" : ";label:SectionHeader;"),
+    children: children
+  });
+};
+
+const Separator$2 = props => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx("div", {
+    ...props,
+    css: /*#__PURE__*/css({
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      margin: `${theme.spacing.xs}px ${theme.spacing.lg / 2}px`,
+      border: `1px solid ${theme.colors.borderDecorative}`,
+      borderBottom: 0,
+      alignSelf: 'stretch'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:Separator;")
+  });
+};
+
+const getCommonTabsListStyles = theme => {
+  return {
+    display: 'flex',
+    borderBottom: `1px solid ${theme.colors.border}`,
+    marginBottom: theme.spacing.md,
+    height: theme.general.heightSm,
+    boxSizing: 'border-box'
+  };
+};
+const getCommonTabsTriggerStyles = theme => {
+  return {
+    display: 'flex',
+    fontWeight: theme.typography.typographyBoldFontWeight,
+    fontSize: theme.typography.fontSizeMd,
+    backgroundColor: 'transparent',
+    marginRight: theme.spacing.md
+  };
+};
+
 function getAccordionEmotionStyles(clsPrefix, theme) {
   const classItem = `.${clsPrefix}-item`;
   const classItemActive = `${classItem}-active`;
@@ -8190,12 +8580,12 @@ function getAccordionEmotionStyles(clsPrefix, theme) {
       color: theme.colors.textPrimary,
       fontWeight: 600,
       '&:focus-visible': {
-        outlineColor: `${theme.colors.primary} !important`,
+        outlineColor: `${theme.colors.actionDefaultBorderFocus} !important`,
         outlineStyle: 'auto !important'
       }
     },
     [`& > ${classItem} > ${classHeader} > ${classArrow}`]: {
-      fontSize: theme.general.iconSize,
+      fontSize: theme.general.iconFontSize,
       right: 12
     },
     [classArrow]: {
@@ -8274,7 +8664,9 @@ const Accordion = /* #__PURE__ */(() => {
       children: jsx(Collapse
       // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
       , {
-        expandIcon: () => jsx(ChevronDownIcon, {}),
+        expandIcon: () => jsx(ChevronDownIcon, {
+          ...eventContext.dataComponentProps
+        }),
         expandIconPosition: "right",
         accordion: displayMode === 'single',
         ...props,
@@ -8307,7 +8699,7 @@ const SeverityIcon = /*#__PURE__*/forwardRef(function (props, ref) {
 const Alert = _ref => {
   let {
     componentId,
-    analyticsEvents = [],
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnView],
     dangerouslySetAntdProps,
     closable = true,
     closeIconLabel = 'Close alert',
@@ -8322,6 +8714,7 @@ const Alert = _ref => {
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Alert,
     componentId,
+    componentSubType: DesignSystemEventProviderComponentSubTypeMap[props.type],
     analyticsEvents: memoizedAnalyticsEvents
   });
   const closeButtonEventContext = useDesignSystemEventComponentCallbacks({
@@ -8330,7 +8723,7 @@ const Alert = _ref => {
     analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
   });
   const {
-    elementRef: closeIconRef
+    elementRef
   } = useNotifyOnFirstView({
     onView: eventContext.onView
   });
@@ -8341,6 +8734,7 @@ const Alert = _ref => {
     showIcon: true,
     closable
   };
+  const closeIconRef = useRef(null);
   useEffect(() => {
     if (closeIconRef.current) {
       var _closeIconRef$current;
@@ -8360,7 +8754,8 @@ const Alert = _ref => {
       className: classnames(mergedProps.className),
       css: getAlertEmotionStyles(clsPrefix, theme, mergedProps),
       icon: jsx(SeverityIcon, {
-        severity: mergedProps.type
+        severity: mergedProps.type,
+        ref: elementRef
       })
       // Antd calls this prop `closeText` but we can use it to set any React element to replace the close icon.
       ,
@@ -8374,7 +8769,8 @@ const Alert = _ref => {
       // Always set a description for consistent styling (e.g. icon size)
       ,
       description: props.description || ' ',
-      ...dangerouslySetAntdProps
+      ...dangerouslySetAntdProps,
+      ...eventContext.dataComponentProps
     })
   });
 };
@@ -8408,7 +8804,7 @@ const getAlertEmotionStyles = (clsPrefix, theme, props) => {
     [classCloseIcon]: {
       '&:focus-visible': {
         outlineStyle: 'auto',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       }
     },
     [`${classCloseIcon}, ${classCloseButton}`]: {
@@ -8509,12 +8905,15 @@ const AutoComplete = /* #__PURE__ */(() => {
     const {
       theme
     } = useDesignSystemTheme();
+    const {
+      useNewShadows
+    } = useDesignSystemSafexFlags();
     return jsx(DesignSystemAntDConfigProvider, {
       children: jsx(AutoComplete$1, {
         ...addDebugOutlineIfEnabled(),
         dropdownStyle: {
           boxShadow: theme.general.shadowLow,
-          ...getDarkModePortalStyles(theme)
+          ...getDarkModePortalStyles(theme, useNewShadows)
         },
         ...props,
         ...dangerouslySetAntdProps,
@@ -8577,6 +8976,9 @@ const LegacyTooltip = _ref => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const tooltipRef = useRef(null);
   const duboisId = useUniqueId('dubois-tooltip-component-');
   const id = dangerouslySetAntdProps !== null && dangerouslySetAntdProps !== void 0 && dangerouslySetAntdProps.id ? dangerouslySetAntdProps === null || dangerouslySetAntdProps === void 0 ? void 0 : dangerouslySetAntdProps.id : duboisId;
@@ -8666,7 +9068,7 @@ const LegacyTooltip = _ref => {
         padding: '4px 8px',
         boxShadow: theme.general.shadowLow,
         ...overlayInnerStyle,
-        ...getDarkModePortalStyles(theme)
+        ...getDarkModePortalStyles(theme, useNewShadows)
       },
       overlayStyle: {
         zIndex: theme.options.zIndexBase + 70,
@@ -8747,7 +9149,7 @@ const InfoPopover = _ref => {
     onKeyDown,
     ...restPopoverProps
   } = popoverProps || {};
-  return jsxs(Root$7, {
+  return jsxs(Root$8, {
     componentId: "codegen_design-system_src_design-system_popover_infopopover.tsx_36",
     open: open,
     onOpenChange: setOpen,
@@ -8764,6 +9166,11 @@ const InfoPopover = _ref => {
         onKeyDown: handleKeyDown,
         "aria-label": iconTitle ? undefined : ariaLabel,
         role: "button",
+        onClick: e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(!open);
+        },
         children: jsx(InfoIcon, {
           "aria-hidden": iconTitle ? false : true,
           title: iconTitle,
@@ -8795,14 +9202,14 @@ const InfoPopover = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$s() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$h = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$u() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$i = process.env.NODE_ENV === "production" ? {
   name: "1amee4m",
   styles: "line-height:0"
 } : {
   name: "c77cjr-trigger",
   styles: "line-height:0;label:trigger;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$u
 };
 const OverflowPopover = _ref => {
   let {
@@ -8817,7 +9224,7 @@ const OverflowPopover = _ref => {
   const [showTooltip, setShowTooltip] = useState(true);
   const label = `+${items.length}`;
   let trigger = jsx("span", {
-    css: _ref2$h,
+    css: _ref2$i,
     ...addDebugOutlineIfEnabled(),
     children: jsx(Trigger$4, {
       asChild: true,
@@ -8834,7 +9241,7 @@ const OverflowPopover = _ref => {
       children: trigger
     });
   }
-  return jsxs(Root$7, {
+  return jsxs(Root$8, {
     componentId: "codegen_design-system_src_design-system_overflow_overflowpopover.tsx_37",
     onOpenChange: open => setShowTooltip(!open),
     children: [trigger, jsx(Content$5, {
@@ -8888,6 +9295,7 @@ function getAvatarEmotionStyles(_ref) {
     size = DEFAULT_SIZE,
     theme
   } = _ref;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TODO(FEINF-3982)
   const {
     avatarSize,
     fontSize,
@@ -9098,6 +9506,7 @@ function AvatarGroup(_ref5) {
   const styles = getAvatarGroupEmotionStyles(theme);
   const displayedUsers = useMemo(() => users.slice(0, MAX_AVATAR_GROUP_USERS), [users]);
   const extraUsers = useMemo(() => users.slice(MAX_AVATAR_GROUP_USERS), [users]);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TODO(FEINF-3982)
   const {
     avatarSize,
     groupShift: avatarShift,
@@ -9160,7 +9569,7 @@ const Breadcrumb = /* #__PURE__ */(() => {
       // TODO: Consider making this global within dubois components
       a: {
         '&:focus-visible': {
-          outlineColor: `${theme.colors.primary} !important`,
+          outlineColor: `${theme.colors.actionDefaultBorderFocus} !important`,
           outlineStyle: 'auto !important'
         }
       },
@@ -9247,14 +9656,14 @@ const genSkeletonAnimatedColor = function (theme) {
   }, process.env.NODE_ENV === "production" ? "" : ";label:genSkeletonAnimatedColor;");
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$r() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$t() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const GenericContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "12h7em6",
   styles: "cursor:progress;border-radius:var(--border-radius)"
 } : {
   name: "19fx6jo-GenericContainerStyles",
   styles: "cursor:progress;border-radius:var(--border-radius);label:GenericContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$t
 };
 const GenericSkeleton = _ref => {
   let {
@@ -9285,14 +9694,14 @@ const GenericSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$q() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$s() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const paragraphContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "sj05g9",
   styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center"
 } : {
   name: "u3a3v7-paragraphContainerStyles",
   styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center;label:paragraphContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
 };
 const paragraphFillStyles = process.env.NODE_ENV === "production" ? {
   name: "10nptxl",
@@ -9300,7 +9709,7 @@ const paragraphFillStyles = process.env.NODE_ENV === "production" ? {
 } : {
   name: "h6xifd-paragraphFillStyles",
   styles: "border-radius:var(--border-radius);height:8px;label:paragraphFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
 };
 const ParagraphSkeleton = _ref => {
   let {
@@ -9338,14 +9747,14 @@ const ParagraphSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$p() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$r() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const titleContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "116rc6i",
   styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center"
 } : {
   name: "1dar8xl-titleContainerStyles",
   styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center;label:titleContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
 };
 const titleFillStyles = process.env.NODE_ENV === "production" ? {
   name: "9fmdbb",
@@ -9353,7 +9762,7 @@ const titleFillStyles = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1vyd6dg-titleFillStyles",
   styles: "border-radius:var(--border-radius);height:12px;width:100%;label:titleFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
 };
 const TitleSkeleton = _ref => {
   let {
@@ -9387,7 +9796,7 @@ const TitleSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$o() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$q() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 // Class names that can be used to reference children within
 // Should not be used outside of design system
 // TODO: PE-239 Maybe we could add "dangerous" into the names or make them completely random.
@@ -9410,7 +9819,7 @@ const repeatingElementsStyles = {
   } : {
     name: "10gwa9a-cell",
     styles: "display:inline-grid;position:relative;flex:1;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;};label:cell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   header: process.env.NODE_ENV === "production" ? {
     name: "ik7qgz",
@@ -9418,7 +9827,7 @@ const repeatingElementsStyles = {
   } : {
     name: "1xg6jn4-header",
     styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}};label:header;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   row: process.env.NODE_ENV === "production" ? {
     name: "ndcf6g",
@@ -9426,7 +9835,7 @@ const repeatingElementsStyles = {
   } : {
     name: "8dtpje-row",
     styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:not(.table-row-isGrid)&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > *{border-right:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > :first-of-type{border-left:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid.table-isHeader:first-of-type > *{border-top:1px solid;border-color:var(--table-separator-color);};label:row;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   }
 };
 
@@ -9451,7 +9860,7 @@ const tableStyles = {
   } : {
     name: "1csnd2v-table",
     styles: ".table-isScrollable &{flex:1;overflow:auto;};label:table;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   headerButtonTarget: process.env.NODE_ENV === "production" ? {
     name: "sezlox",
@@ -9459,7 +9868,7 @@ const tableStyles = {
   } : {
     name: "1iv4trp-headerButtonTarget",
     styles: "align-items:flex-end;display:flex;overflow:hidden;width:100%;justify-content:inherit;&:focus{.table-header-text{color:var(--table-header-focus-color);}.table-header-icon-container{color:var(--table-header-focus-color);display:inline;}}&:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}};label:headerButtonTarget;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   sortHeaderIconOnRight: process.env.NODE_ENV === "production" ? {
     name: "1hdiaor",
@@ -9467,7 +9876,7 @@ const tableStyles = {
   } : {
     name: "evh3p3-sortHeaderIconOnRight",
     styles: "margin-left:var(--table-spacing-xs);label:sortHeaderIconOnRight;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   sortHeaderIconOnLeft: process.env.NODE_ENV === "production" ? {
     name: "d4plmt",
@@ -9475,7 +9884,7 @@ const tableStyles = {
   } : {
     name: "1gr7edl-sortHeaderIconOnLeft",
     styles: "margin-right:var(--table-spacing-xs);label:sortHeaderIconOnLeft;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   checkboxCell: process.env.NODE_ENV === "production" ? {
     name: "4cdr0s",
@@ -9483,7 +9892,7 @@ const tableStyles = {
   } : {
     name: "17au6u2-checkboxCell",
     styles: "display:flex;align-items:center;flex:0;padding-left:var(--table-spacing-sm);padding-top:0;padding-bottom:0;min-width:var(--table-spacing-md);max-width:var(--table-spacing-md);box-sizing:content-box;label:checkboxCell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   resizeHandleContainer: /*#__PURE__*/css({
     position: 'absolute',
@@ -9504,7 +9913,7 @@ const tableStyles = {
   } : {
     name: "1ot7jju-resizeHandle",
     styles: "width:1px;background:var(--table-resize-handle-color);label:resizeHandle;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   },
   paginationContainer: process.env.NODE_ENV === "production" ? {
     name: "ehlmid",
@@ -9512,7 +9921,7 @@ const tableStyles = {
   } : {
     name: "p324df-paginationContainer",
     styles: "display:flex;justify-content:flex-end;padding-top:var(--table-spacing-sm);padding-bottom:var(--table-spacing-sm);label:paginationContainer;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   }
 };
 
@@ -9599,6 +10008,15 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
   });
 });
 
+function _EMOTION_STRINGIFIED_CSS_ERROR__$p() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$h = process.env.NODE_ENV === "production" ? {
+  name: "1hipw91",
+  styles: "&:has(> button){overflow:visible;}"
+} : {
+  name: "4vmsrk-content",
+  styles: "&:has(> button){overflow:visible;};label:content;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
+};
 const TableCell = /*#__PURE__*/forwardRef(function (_ref, ref) {
   let {
     children,
@@ -9621,7 +10039,10 @@ const TableCell = /*#__PURE__*/forwardRef(function (_ref, ref) {
   const content = wrapContent === true ? jsx(Typography.Text, {
     ellipsis: !multiline,
     size: typographySize,
-    title: !multiline && typeof children === 'string' && children || undefined,
+    title: !multiline && typeof children === 'string' && children || undefined
+    // Needed for the button focus outline to be visible for the expand/collapse buttons
+    ,
+    css: _ref2$h,
     children: children
   }) : children;
   return jsx("div", {
@@ -9696,7 +10117,7 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$n() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$o() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const TableRowActionStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "gk361n",
@@ -9704,7 +10125,7 @@ const TableRowActionStyles = {
   } : {
     name: "q9pljs-container",
     styles: "width:32px;padding-top:var(--vertical-padding);padding-bottom:var(--vertical-padding);display:flex;align-items:start;justify-content:center;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$n
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   }
 };
 const TableRowAction = /*#__PURE__*/forwardRef(function TableRowAction(_ref, ref) {
@@ -9740,7 +10161,7 @@ const TableRowAction = /*#__PURE__*/forwardRef(function TableRowAction(_ref, ref
 /** @deprecated Use `TableRowAction` instead */
 const TableRowMenuContainer = TableRowAction;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$m() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$n() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const TableSkeletonStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "6kz1wu",
@@ -9748,7 +10169,7 @@ const TableSkeletonStyles = {
   } : {
     name: "1we0er9-container",
     styles: "display:flex;flex-direction:column;align-items:flex-start;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$n
   },
   cell: process.env.NODE_ENV === "production" ? {
     name: "1t820zr",
@@ -9756,7 +10177,7 @@ const TableSkeletonStyles = {
   } : {
     name: "1m8dl5b-cell",
     styles: "width:100%;height:8px;border-radius:4px;background:var(--table-skeleton-color);margin-top:var(--table-skeleton-row-vertical-margin);margin-bottom:var(--table-skeleton-row-vertical-margin);label:cell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$n
   }
 };
 const TableSkeleton = _ref => {
@@ -9764,9 +10185,8 @@ const TableSkeleton = _ref => {
     lines = 1,
     seed = '',
     frameRate = 60,
-    style
-    // TODO: Re-enable this after Clusters fixes tests: https://databricks.slack.com/archives/C04LYE3F8HX/p1679597678339659
-    /** children, ...rest */
+    style,
+    ...rest
   } = _ref;
   const {
     theme
@@ -9776,6 +10196,7 @@ const TableSkeleton = _ref => {
   } = useContext(TableContext);
   const widths = getOffsets(seed);
   return jsx("div", {
+    ...rest,
     ...addDebugOutlineIfEnabled(),
     "aria-busy": true,
     css: TableSkeletonStyles.container,
@@ -9841,12 +10262,16 @@ function getStyles$1(args) {
     disableHover,
     hasTopBar,
     hasBottomBar,
-    hasHref
+    hasHref,
+    useNewShadows
   } = args;
   const hoverOrFocusStyle = {
-    boxShadow: disableHover || loading ? '' : theme.general.shadowLow,
+    boxShadow: disableHover || loading ? '' : useNewShadows ? theme.shadows.sm : theme.general.shadowLow,
     ...(hasHref && {
-      border: `1px solid ${theme.colors.actionDefaultBorderHover}`
+      border: `1px solid ${theme.colors.actionDefaultBorderHover}`,
+      ...(useNewShadows && {
+        boxShadow: theme.shadows.md
+      })
     })
   };
   return /*#__PURE__*/css({
@@ -9868,6 +10293,9 @@ function getStyles$1(args) {
     '&:hover': hoverOrFocusStyle,
     '&:focus': hoverOrFocusStyle,
     cursor: disableHover || loading ? 'default' : 'pointer',
+    ...(useNewShadows && {
+      boxShadow: theme.shadows.sm
+    }),
     transition: `box-shadow 0.2s ease-in-out`,
     textDecoration: 'none !important',
     ...getAnimationCss(theme.options.enableAnimation)
@@ -9911,6 +10339,9 @@ const Card = _ref => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const hasTopBar = !_isUndefined(topBarContent);
   const hasBottomBar = !_isUndefined(bottomBarContent);
   const cardStyle = /*#__PURE__*/css(getStyles$1({
@@ -9920,7 +10351,8 @@ const Card = _ref => {
     disableHover,
     hasBottomBar,
     hasTopBar,
-    hasHref: Boolean(href)
+    hasHref: Boolean(href),
+    useNewShadows
   }), process.env.NODE_ENV === "production" ? "" : ";label:cardStyle;");
   const ref = React__default.useRef(null);
   const bottomBar = bottomBarContent ? jsx("div", {
@@ -9939,6 +10371,12 @@ const Card = _ref => {
     analyticsEvents: memoizedAnalyticsEvents,
     shouldStartInteraction
   });
+  const {
+    elementRef: cardRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
+  const mergedRef = useMergeRefs([ref, cardRef]);
   const navigate = useCallback(async () => {
     if (navigateFn) {
       await navigateFn();
@@ -9958,7 +10396,7 @@ const Card = _ref => {
     onClick === null || onClick === void 0 || onClick(e);
   }, [navigate, eventContext, onClick]);
   const content = jsx("div", {
-    ref: ref
+    ref: mergedRef
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
     ,
     tabIndex: 0,
@@ -9976,6 +10414,7 @@ const Card = _ref => {
         (_dataAndAttributes$on = dataAndAttributes.onKeyDown) === null || _dataAndAttributes$on === void 0 || _dataAndAttributes$on.call(dataAndAttributes, e);
       }
     }),
+    ...eventContext.dataComponentProps,
     children: loading ? jsx(DefaultCardLoadingContent, {
       width: width,
       customLoadingContent: customLoadingContent
@@ -10023,6 +10462,8 @@ function DefaultCardLoadingContent(_ref2) {
 
 function getCheckboxEmotionStyles(clsPrefix, theme) {
   let isHorizontal = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+  let useNewShadows = arguments.length > 3 ? arguments[3] : undefined;
+  let useNewFormUISpacing = arguments.length > 4 ? arguments[4] : undefined;
   const classInput = `.${clsPrefix}-input`;
   const classInner = `.${clsPrefix}-inner`;
   const classIndeterminate = `.${clsPrefix}-indeterminate`;
@@ -10034,6 +10475,7 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
   const defaultSelector = `${classInput} + ${classInner}`;
   const hoverSelector = `${classInput}:hover + ${classInner}`;
   const pressSelector = `${classInput}:active + ${classInner}`;
+  const cleanClsPrefix = `.${clsPrefix.replace('-checkbox', '')}`;
   const styles = {
     [`.${clsPrefix}`]: {
       top: 'unset',
@@ -10057,8 +10499,18 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
       display: 'flex',
       flexDirection: 'column',
       rowGap: theme.spacing.sm,
-      columnGap: 0
+      columnGap: 0,
+      ...(useNewFormUISpacing && {
+        [`& + ${cleanClsPrefix}-form-message`]: {
+          marginTop: theme.spacing.sm
+        }
+      })
     },
+    ...(useNewFormUISpacing && {
+      [`${cleanClsPrefix}-hint + &${classContainer}`]: {
+        marginTop: theme.spacing.sm
+      }
+    }),
     ...(isHorizontal && {
       [`&${classContainer}`]: {
         display: 'flex',
@@ -10073,7 +10525,7 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
     // Keyboard focus
     [`${classInput}:focus-visible + ${classInner}`]: {
       outlineWidth: '2px',
-      outlineColor: theme.colors.primary,
+      outlineColor: theme.colors.actionDefaultBorderFocus,
       outlineOffset: '4px',
       outlineStyle: 'solid'
     },
@@ -10089,6 +10541,11 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
     },
     // Checked state
     [classChecked]: {
+      ...(useNewShadows && {
+        [classInner]: {
+          boxShadow: theme.shadows.xs
+        }
+      }),
       '&::after': {
         border: 'none'
       },
@@ -10110,6 +10567,9 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
     // Indeterminate
     [classIndeterminate]: {
       [classInner]: {
+        ...(useNewShadows && {
+          boxShadow: theme.shadows.xs
+        }),
         backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
         borderColor: theme.colors.actionPrimaryBackgroundDefault,
         // The after pseudo-element is used for the check image itself
@@ -10192,12 +10652,14 @@ const getWrapperStyle = _ref => {
   let {
     clsPrefix,
     theme,
-    wrapperStyle = {}
+    wrapperStyle = {},
+    useNewFormUISpacing
   } = _ref;
+  const extraSelector = useNewFormUISpacing ? `, && + .${clsPrefix}-hint + .${clsPrefix}-form-message` : '';
   const styles = {
     height: theme.typography.lineHeightBase,
     lineHeight: theme.typography.lineHeightBase,
-    [`&& + .${clsPrefix}-hint, && + .${clsPrefix}-form-message`]: {
+    [`&& + .${clsPrefix}-hint, && + .${clsPrefix}-form-message${extraSelector}`]: {
       paddingLeft: theme.spacing.lg,
       marginTop: 0
     },
@@ -10224,6 +10686,10 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
     classNamePrefix,
     getPrefixedClassName
   } = useDesignSystemTheme();
+  const {
+    useNewShadows,
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('checkbox');
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -10243,7 +10709,8 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
       css: getWrapperStyle({
         clsPrefix: classNamePrefix,
         theme,
-        wrapperStyle
+        wrapperStyle,
+        useNewFormUISpacing
       }),
       children: jsx(Checkbox$1, {
         checked: isChecked === null ? undefined : isChecked,
@@ -10253,13 +10720,12 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
         indeterminate: isChecked === null
         // Individual checkboxes don't depend on isHorizontal flag, orientation and spacing is handled by end users
         ,
-        css: /*#__PURE__*/css(importantify(getCheckboxEmotionStyles(clsPrefix, theme, false)), process.env.NODE_ENV === "production" ? "" : ";label:Checkbox;"),
+        css: /*#__PURE__*/css(importantify(getCheckboxEmotionStyles(clsPrefix, theme, false, useNewShadows, useNewFormUISpacing)), process.env.NODE_ENV === "production" ? "" : ";label:Checkbox;"),
         style: style,
         "aria-checked": isChecked === null ? 'mixed' : isChecked,
         ...restProps,
         ...dangerouslySetAntdProps,
-        "data-component-type": DesignSystemEventProviderComponentTypes.Checkbox,
-        "data-component-id": componentId,
+        ...eventContext.dataComponentProps,
         children: jsx(RestoreAntDDefaultClsPrefix, {
           children: children
         })
@@ -10278,12 +10744,16 @@ const CheckboxGroup = /*#__PURE__*/forwardRef(function CheckboxGroup(_ref3, ref)
     getPrefixedClassName
   } = useDesignSystemTheme();
   const clsPrefix = getPrefixedClassName('checkbox');
+  const {
+    useNewShadows,
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Checkbox$1.Group, {
       ...addDebugOutlineIfEnabled(),
       ref: ref,
       ...props,
-      css: getCheckboxEmotionStyles(clsPrefix, theme, layout === 'horizontal'),
+      css: getCheckboxEmotionStyles(clsPrefix, theme, layout === 'horizontal', useNewShadows, useNewFormUISpacing),
       children: jsx(RestoreAntDDefaultClsPrefix, {
         children: children
       })
@@ -10299,6 +10769,80 @@ const Checkbox = CheckboxNamespace;
 // We should remove this once we have a better storybook integration,
 // since these will be exposed in the library's exports.
 const __INTERNAL_DO_NOT_USE__Group = CheckboxGroup;
+
+const getAllMenuItemsInContainer = container => {
+  return container.querySelectorAll('[role^="menuitem"]');
+};
+const focusNextItem = e => {
+  const container = e.currentTarget.closest('[role="menu"]');
+  if (!container) {
+    return;
+  }
+  const menuItems = getAllMenuItemsInContainer(container);
+  const activeElement = document.activeElement;
+  const shouldNavigateUp = e.key === 'ArrowUp' || e.key === 'Tab' && e.shiftKey;
+  const activeIndex = Array.from(menuItems).findIndex(item => item === activeElement);
+  let nextIndex = shouldNavigateUp ? activeIndex - 1 : activeIndex + 1;
+  if (nextIndex < 0 || nextIndex >= menuItems.length) {
+    nextIndex = shouldNavigateUp ? menuItems.length - 1 : 0;
+  }
+  const nextItem = menuItems[nextIndex];
+  if (nextItem) {
+    const isDisabled = nextItem.hasAttribute('data-disabled');
+    if (isDisabled) {
+      const tooltip = nextItem.querySelector('[data-disabled-tooltip]');
+      tooltip === null || tooltip === void 0 || tooltip.setAttribute('tabindex', '0');
+      if (tooltip) {
+        e.preventDefault();
+        tooltip.focus();
+      }
+    } else {
+      nextItem.focus();
+      nextItem.setAttribute('data-highlighted', 'true');
+    }
+  }
+};
+const blurTooltipAndFocusNextItem = e => {
+  const tooltip = document.activeElement;
+  const parentItem = tooltip.closest('[role^="menuitem"]');
+  const container = tooltip.closest('[role="menu"]');
+  if (!container) {
+    return;
+  }
+  const menuItems = getAllMenuItemsInContainer(container);
+  const activeIndex = Array.from(menuItems).findIndex(item => item === parentItem);
+  const shouldNavigateUp = e.key === 'ArrowUp' || e.key === 'Tab' && e.shiftKey;
+  let nextIndex = shouldNavigateUp ? activeIndex - 1 : activeIndex + 1;
+  if (nextIndex < 0 || nextIndex >= menuItems.length) {
+    nextIndex = shouldNavigateUp ? menuItems.length - 1 : 0;
+  }
+  const nextItem = menuItems[nextIndex];
+  if (nextItem) {
+    tooltip.removeAttribute('tabindex');
+    tooltip.blur();
+    const isDisabled = nextItem.hasAttribute('data-disabled');
+    if (isDisabled) {
+      const tooltip = nextItem.querySelector('[data-disabled-tooltip]');
+      tooltip === null || tooltip === void 0 || tooltip.setAttribute('tabindex', '0');
+      if (tooltip) {
+        e.preventDefault();
+        tooltip.focus();
+      }
+    } else {
+      nextItem.focus();
+    }
+  }
+};
+const handleKeyboardNavigation = e => {
+  var _document$activeEleme, _document$activeEleme2, _document$activeEleme3, _document$activeEleme4;
+  const isItemFocused = ((_document$activeEleme = document.activeElement) === null || _document$activeEleme === void 0 ? void 0 : _document$activeEleme.getAttribute('role')) === 'menuitem' || ((_document$activeEleme2 = document.activeElement) === null || _document$activeEleme2 === void 0 ? void 0 : _document$activeEleme2.getAttribute('role')) === 'menuitemcheckbox' || ((_document$activeEleme3 = document.activeElement) === null || _document$activeEleme3 === void 0 ? void 0 : _document$activeEleme3.getAttribute('role')) === 'menuitemradio';
+  const isTooltipFocused = (_document$activeEleme4 = document.activeElement) === null || _document$activeEleme4 === void 0 ? void 0 : _document$activeEleme4.hasAttribute('data-disabled-tooltip');
+  if (isItemFocused || !isTooltipFocused) {
+    focusNextItem(e);
+  } else {
+    blurTooltipAndFocusNextItem(e);
+  }
+};
 
 const infoIconStyles = theme => ({
   display: 'inline-flex',
@@ -10356,7 +10900,7 @@ const DropdownContext = /*#__PURE__*/createContext({
   setIsOpen: isOpen => {}
 });
 const useDropdownContext = () => React__default.useContext(DropdownContext);
-const Root$6 = _ref => {
+const Root$7 = _ref => {
   let {
     children,
     ...props
@@ -10406,6 +10950,12 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
     getPopupContainer
   } = useDesignSystemContext();
   const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
+  const {
     setIsOpen
   } = useDropdownContext();
   const {
@@ -10417,7 +10967,7 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
       ...addDebugOutlineIfEnabled(),
       ref: ref,
       loop: true,
-      css: [contentStyles, {
+      css: [contentStyles(theme, useNewShadows), {
         minWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       sideOffset: 4,
@@ -10433,8 +10983,8 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
           }
           onEscapeKeyDown === null || onEscapeKeyDown === void 0 || onEscapeKeyDown(e.nativeEvent);
         }
-        if (e.key === 'Tab') {
-          handleTabKeyPress(e);
+        if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          handleKeyboardNavigation(e);
         }
         onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
       },
@@ -10463,53 +11013,51 @@ const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref3, ref) {
   const {
     getPopupContainer
   } = useDesignSystemContext();
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const [contentFitsInViewport, setContentFitsInViewport] = React__default.useState(true);
   const [dataSide, setDataSide] = React__default.useState(null);
   const {
     isOpen
   } = useSubContext();
-  const useResponsiveDropdownPosition = safex('databricks.fe.designsystem.useResponsiveDropdownPosition', false);
   const elemRef = useRef(null);
   useImperativeHandle(ref, () => elemRef.current);
   const checkAvailableWidth = useCallback(() => {
-    if (useResponsiveDropdownPosition) {
-      if (elemRef.current) {
-        const elemStyle = getComputedStyle(elemRef.current);
-        const availableWidth = parseFloat(elemStyle.getPropertyValue('--radix-dropdown-menu-content-available-width'));
-        const elemWidth = elemRef.current.offsetWidth;
-        const openOnSide = elemRef.current.getAttribute('data-side');
-        if (openOnSide === 'left' || openOnSide === 'right') {
-          setDataSide(openOnSide);
-        } else {
-          setDataSide(null);
-        }
-        if (availableWidth < elemWidth) {
-          setContentFitsInViewport(false);
-        } else {
-          setContentFitsInViewport(true);
-        }
+    if (elemRef.current) {
+      const elemStyle = getComputedStyle(elemRef.current);
+      const availableWidth = parseFloat(elemStyle.getPropertyValue('--radix-dropdown-menu-content-available-width'));
+      const elemWidth = elemRef.current.offsetWidth;
+      const openOnSide = elemRef.current.getAttribute('data-side');
+      if (openOnSide === 'left' || openOnSide === 'right') {
+        setDataSide(openOnSide);
+      } else {
+        setDataSide(null);
+      }
+      if (availableWidth < elemWidth) {
+        setContentFitsInViewport(false);
+      } else {
+        setContentFitsInViewport(true);
       }
     }
-  }, [useResponsiveDropdownPosition]);
+  }, []);
   useEffect(() => {
-    if (useResponsiveDropdownPosition) {
-      window.addEventListener('resize', checkAvailableWidth);
-      checkAvailableWidth();
-      return () => {
-        window.removeEventListener('resize', checkAvailableWidth);
-      };
-    }
-    return;
-  }, [useResponsiveDropdownPosition, checkAvailableWidth]);
+    window.addEventListener('resize', checkAvailableWidth);
+    checkAvailableWidth();
+    return () => {
+      window.removeEventListener('resize', checkAvailableWidth);
+    };
+  }, [checkAvailableWidth]);
   useEffect(() => {
-    if (useResponsiveDropdownPosition) {
-      if (isOpen) {
-        setTimeout(() => {
-          checkAvailableWidth();
-        }, 25);
-      }
+    if (isOpen) {
+      setTimeout(() => {
+        checkAvailableWidth();
+      }, 25);
     }
-  }, [isOpen, useResponsiveDropdownPosition, checkAvailableWidth]);
+  }, [isOpen, checkAvailableWidth]);
   let transformCalc = `calc(var(--radix-dropdown-menu-content-available-width) + var(--radix-dropdown-menu-trigger-width) * -1)`;
   if (dataSide === 'left') {
     transformCalc = `calc(var(--radix-dropdown-menu-trigger-width) - var(--radix-dropdown-menu-content-available-width))`;
@@ -10524,15 +11072,15 @@ const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref3, ref) {
       ...addDebugOutlineIfEnabled(),
       ref: elemRef,
       loop: true,
-      css: [contentStyles, {
+      css: [contentStyles(theme, useNewShadows), {
         minWidth
-      }, useResponsiveDropdownPosition ? contentFitsInViewport ? '' : responsiveCss : '', process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
+      }, contentFitsInViewport ? '' : responsiveCss, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       sideOffset: -2,
       alignOffset: -5,
       onKeyDown: e => {
-        if (e.key === 'Tab') {
+        if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.stopPropagation();
-          handleTabKeyPress(e);
+          handleKeyboardNavigation(e);
         }
         onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
       },
@@ -10584,7 +11132,15 @@ const Item$2 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
         onClick === null || onClick === void 0 || onClick(e);
       }
     },
+    onKeyDown: e => {
+      var _props$onKeyDown;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown = props.onKeyDown) === null || _props$onKeyDown === void 0 || _props$onKeyDown.call(props, e);
+    },
     ...props,
+    ...eventContext.dataComponentProps,
     children: getNewChildren(children, props, disabledReason, itemRef)
   });
 });
@@ -10605,7 +11161,7 @@ const Label$2 = /*#__PURE__*/forwardRef(function Label(_ref6, ref) {
     children: children
   });
 });
-const Separator$2 = /*#__PURE__*/forwardRef(function Separator(_ref7, ref) {
+const Separator$1 = /*#__PURE__*/forwardRef(function Separator(_ref7, ref) {
   let {
     children,
     ...props
@@ -10632,6 +11188,13 @@ const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref8, ref) {
         backgroundColor: theme.colors.actionTertiaryBackgroundHover
       }
     }), process.env.NODE_ENV === "production" ? "" : ";label:TriggerItem;"],
+    onKeyDown: e => {
+      var _props$onKeyDown2;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown2 = props.onKeyDown) === null || _props$onKeyDown2 === void 0 || _props$onKeyDown2.call(props, e);
+    },
     ...props,
     children: [getNewChildren(children, props, disabledReason, subTriggerRef), jsx(HintColumn, {
       css: theme => ({
@@ -10680,7 +11243,15 @@ const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref9, ref)
     ref: checkboxItemRef,
     css: theme => [dropdownItemStyles, checkboxItemStyles(theme)],
     onCheckedChange: onCheckedChangeWrapper,
+    onKeyDown: e => {
+      var _props$onKeyDown3;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown3 = props.onKeyDown) === null || _props$onKeyDown3 === void 0 || _props$onKeyDown3.call(props, e);
+    },
     ...props,
+    ...eventContext.dataComponentProps,
     children: getNewChildren(children, props, disabledReason, checkboxItemRef)
   });
 });
@@ -10710,6 +11281,7 @@ const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref10, ref) {
     ref: radioGroupItemRef,
     onValueChange: onValueChangeWrapper,
     ...props,
+    ...eventContext.dataComponentProps,
     children: children
   });
 });
@@ -10822,7 +11394,7 @@ const HintColumn = /*#__PURE__*/forwardRef(function HintColumn(_ref15, ref) {
     children: children
   });
 });
-const HintRow$1 = /*#__PURE__*/forwardRef(function HintRow(_ref16, ref) {
+const HintRow = /*#__PURE__*/forwardRef(function HintRow(_ref16, ref) {
   let {
     children,
     ...props
@@ -10893,19 +11465,19 @@ const CONSTANTS$1 = {
     return 2;
   }
 };
-const dropdownContentStyles = theme => ({
+const dropdownContentStyles = (theme, useNewShadows) => ({
   backgroundColor: theme.colors.backgroundPrimary,
   color: theme.colors.textPrimary,
   lineHeight: theme.typography.lineHeightBase,
   border: `1px solid ${theme.colors.borderDecorative}`,
   borderRadius: theme.legacyBorders.borderRadiusMd,
   padding: `${theme.spacing.xs}px 0`,
-  boxShadow: theme.general.shadowLow,
+  boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
   userSelect: 'none',
   // Allow for scrolling within the dropdown when viewport is too small
   overflowY: 'auto',
   maxHeight: 'var(--radix-dropdown-menu-content-available-height)',
-  ...getDarkModePortalStyles(theme),
+  ...getDarkModePortalStyles(theme, useNewShadows),
   // Ant Design uses 1000s for their zIndex space; this ensures Radix works with that, but
   // we'll likely need to be sure that all Radix components are using the same zIndex going forward.
   //
@@ -10921,8 +11493,8 @@ const dropdownContentStyles = theme => ({
     }
   })
 });
-const contentStyles = theme => ({
-  ...dropdownContentStyles(theme)
+const contentStyles = (theme, useNewShadows) => ({
+  ...dropdownContentStyles(theme, useNewShadows)
 });
 const dropdownItemStyles = theme => ({
   padding: `${CONSTANTS$1.itemPaddingVertical(theme)}px ${CONSTANTS$1.itemPaddingHorizontal(theme)}px`,
@@ -10967,77 +11539,6 @@ const dropdownSeparatorStyles = theme => ({
   margin: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
   backgroundColor: theme.colors.borderDecorative
 });
-const getAllMenuItemsInContainer = container => {
-  return [...container.querySelectorAll('[role="menuitem"]'), ...container.querySelectorAll('[role="menuitemcheckbox"]')];
-};
-const focusNextItem = e => {
-  const container = e.currentTarget.closest('[role="menu"]');
-  if (!container) {
-    return;
-  }
-  const menuItems = getAllMenuItemsInContainer(container);
-  const activeElement = document.activeElement;
-  const activeIndex = Array.from(menuItems).findIndex(item => item === activeElement);
-  let nextIndex = e.shiftKey ? activeIndex - 1 : activeIndex + 1;
-  if (nextIndex < 0 || nextIndex >= menuItems.length) {
-    nextIndex = e.shiftKey ? menuItems.length - 1 : 0;
-  }
-  const nextItem = menuItems[nextIndex];
-  if (nextItem) {
-    const isDisabled = nextItem.hasAttribute('data-disabled');
-    if (isDisabled) {
-      const tooltip = nextItem.querySelector('[data-disabled-tooltip]');
-      tooltip === null || tooltip === void 0 || tooltip.setAttribute('tabindex', '0');
-      if (tooltip) {
-        e.preventDefault();
-        tooltip.focus();
-      }
-    } else {
-      nextItem.focus();
-    }
-  }
-};
-const blurTooltipAndFocusNextItem = e => {
-  var _tooltip$closest;
-  const tooltip = document.activeElement;
-  const parentItem = (_tooltip$closest = tooltip.closest('[role="menuitem"]')) !== null && _tooltip$closest !== void 0 ? _tooltip$closest : tooltip.closest('[role="menuitemcheckbox"]');
-  const container = tooltip.closest('[role="menu"]');
-  if (!container) {
-    return;
-  }
-  const menuItems = getAllMenuItemsInContainer(container);
-  const activeIndex = Array.from(menuItems).findIndex(item => item === parentItem);
-  let nextIndex = e.shiftKey ? activeIndex - 1 : activeIndex + 1;
-  if (nextIndex < 0 || nextIndex >= menuItems.length) {
-    nextIndex = e.shiftKey ? menuItems.length - 1 : 0;
-  }
-  const nextItem = menuItems[nextIndex];
-  if (nextItem) {
-    tooltip.removeAttribute('tabindex');
-    tooltip.blur();
-    const isDisabled = nextItem.hasAttribute('data-disabled');
-    if (isDisabled) {
-      const tooltip = nextItem.querySelector('[data-disabled-tooltip]');
-      tooltip === null || tooltip === void 0 || tooltip.setAttribute('tabindex', '0');
-      if (tooltip) {
-        e.preventDefault();
-        tooltip.focus();
-      }
-    } else {
-      nextItem.focus();
-    }
-  }
-};
-const handleTabKeyPress = e => {
-  var _document$activeEleme, _document$activeEleme2, _document$activeEleme3;
-  const isItemFocused = ((_document$activeEleme = document.activeElement) === null || _document$activeEleme === void 0 ? void 0 : _document$activeEleme.getAttribute('role')) === 'menuitem' || ((_document$activeEleme2 = document.activeElement) === null || _document$activeEleme2 === void 0 ? void 0 : _document$activeEleme2.getAttribute('role')) === 'menuitemcheckbox';
-  const isTooltipFocused = (_document$activeEleme3 = document.activeElement) === null || _document$activeEleme3 === void 0 ? void 0 : _document$activeEleme3.hasAttribute('data-disabled-tooltip');
-  if (isItemFocused || !isTooltipFocused) {
-    focusNextItem(e);
-  } else {
-    blurTooltipAndFocusNextItem(e);
-  }
-};
 
 var DropdownMenu = /*#__PURE__*/Object.freeze({
   __proto__: null,
@@ -11046,15 +11547,15 @@ var DropdownMenu = /*#__PURE__*/Object.freeze({
   Content: Content$4,
   Group: Group$2,
   HintColumn: HintColumn,
-  HintRow: HintRow$1,
+  HintRow: HintRow,
   IconWrapper: IconWrapper,
   Item: Item$2,
   ItemIndicator: ItemIndicator$1,
   Label: Label$2,
   RadioGroup: RadioGroup$1,
   RadioItem: RadioItem$1,
-  Root: Root$6,
-  Separator: Separator$2,
+  Root: Root$7,
+  Separator: Separator$1,
   Sub: Sub$1,
   SubContent: SubContent$1,
   SubTrigger: SubTrigger$1,
@@ -11075,7 +11576,7 @@ const ContextMenuProps = /*#__PURE__*/createContext({
   setIsOpen: isOpen => {}
 });
 const useContextMenuProps = () => React__default.useContext(ContextMenuProps);
-const Root$5 = _ref => {
+const Root$6 = _ref => {
   let {
     children,
     onOpenChange,
@@ -11113,6 +11614,13 @@ const SubTrigger = _ref2 => {
     ...props,
     css: dropdownItemStyles(theme),
     ref: ref,
+    onKeyDown: e => {
+      var _props$onKeyDown;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown = props.onKeyDown) === null || _props$onKeyDown === void 0 || _props$onKeyDown.call(props, e);
+    },
     children: [getNewChildren(children, props, disabledReason, ref), withChevron && jsx(ContextMenu.Hint, {
       children: jsx(ChevronRightIcon, {})
     })]
@@ -11140,6 +11648,9 @@ const Content$3 = _ref3 => {
     isOpen,
     setIsOpen
   } = useContextMenuProps();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   return jsx(ContextMenuPortal, {
     container: getPopupContainer && getPopupContainer(),
     children: isOpen && jsx(ContextMenuContent, {
@@ -11154,11 +11665,14 @@ const Content$3 = _ref3 => {
             setIsOpen(false);
           }
           onEscapeKeyDown === null || onEscapeKeyDown === void 0 || onEscapeKeyDown(e.nativeEvent);
+        } else if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.stopPropagation();
+          handleKeyboardNavigation(e);
         }
         onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
       },
       ...childrenProps,
-      css: [dropdownContentStyles(theme), {
+      css: [dropdownContentStyles(theme, useNewShadows), {
         minWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       children: children
@@ -11177,14 +11691,25 @@ const SubContent = _ref4 => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   return jsx(ContextMenuPortal, {
     container: getPopupContainer && getPopupContainer(),
     children: jsx(ContextMenuSubContent, {
       ...addDebugOutlineIfEnabled(),
       ...childrenProps,
-      css: [dropdownContentStyles(theme), {
+      css: [dropdownContentStyles(theme, useNewShadows), {
         minWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:SubContent;"],
+      onKeyDown: e => {
+        var _childrenProps$onKeyD;
+        if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.stopPropagation();
+          handleKeyboardNavigation(e);
+        }
+        (_childrenProps$onKeyD = childrenProps.onKeyDown) === null || _childrenProps$onKeyD === void 0 || _childrenProps$onKeyD.call(childrenProps, e);
+      },
       children: children
     })
   });
@@ -11221,6 +11746,14 @@ const Item$1 = _ref5 => {
     onClick: onClickWrapper,
     css: dropdownItemStyles(theme),
     ref: ref,
+    onKeyDown: e => {
+      var _props$onKeyDown2;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown2 = props.onKeyDown) === null || _props$onKeyDown2 === void 0 || _props$onKeyDown2.call(props, e);
+    },
+    ...eventContext.dataComponentProps,
     children: getNewChildren(children, props, disabledReason, ref)
   });
 };
@@ -11253,6 +11786,14 @@ const CheckboxItem = _ref6 => {
     onCheckedChange: onCheckedChangeWrapper,
     css: dropdownItemStyles(theme),
     ref: ref,
+    onKeyDown: e => {
+      var _props$onKeyDown3;
+      if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+      (_props$onKeyDown3 = props.onKeyDown) === null || _props$onKeyDown3 === void 0 || _props$onKeyDown3.call(props, e);
+    },
+    ...eventContext.dataComponentProps,
     children: [jsx(ContextMenuItemIndicator, {
       css: itemIndicatorStyles(theme),
       children: jsx(CheckIcon, {})
@@ -11284,7 +11825,8 @@ const RadioGroup = _ref7 => {
   }, [eventContext, onValueChange]);
   return jsx(ContextMenuRadioGroup, {
     ...props,
-    onValueChange: onValueChangeWrapper
+    onValueChange: onValueChangeWrapper,
+    ...eventContext.dataComponentProps
   });
 };
 const RadioItem = _ref8 => {
@@ -11344,7 +11886,7 @@ const Hint$1 = _ref10 => {
     children: children
   });
 };
-const Separator$1 = () => {
+const Separator = () => {
   const {
     theme
   } = useDesignSystemTheme();
@@ -11357,7 +11899,7 @@ const itemIndicatorStyles = theme => /*#__PURE__*/css({
   paddingRight: theme.spacing.xs
 }, process.env.NODE_ENV === "production" ? "" : ";label:itemIndicatorStyles;");
 const ContextMenu = {
-  Root: Root$5,
+  Root: Root$6,
   Trigger: Trigger$2,
   Label: Label$1,
   Item: Item$1,
@@ -11366,7 +11908,7 @@ const ContextMenu = {
   CheckboxItem,
   RadioItem,
   Arrow,
-  Separator: Separator$1,
+  Separator,
   Sub,
   SubTrigger,
   SubContent,
@@ -11387,8 +11929,8 @@ var ContextMenu$1 = /*#__PURE__*/Object.freeze({
   Label: Label$1,
   RadioGroup: RadioGroup,
   RadioItem: RadioItem,
-  Root: Root$5,
-  Separator: Separator$1,
+  Root: Root$6,
+  Separator: Separator,
   Sub: Sub,
   SubContent: SubContent,
   SubTrigger: SubTrigger,
@@ -11691,41 +12233,6 @@ const LegacyDatePicker = /* #__PURE__ */Object.assign(DuboisDatePicker, {
   YearPicker
 });
 
-const dialogComboboxContextDefaults = {
-  componentId: 'codegen_design-system_src_design-system_dialogcombobox_providers_dialogcomboboxcontext.tsx_27',
-  id: '',
-  label: '',
-  value: [],
-  isInsideDialogCombobox: false,
-  multiSelect: false,
-  setValue: () => {},
-  setIsControlled: () => {},
-  stayOpenOnSelection: false,
-  isOpen: false,
-  setIsOpen: () => {},
-  contentWidth: undefined,
-  setContentWidth: () => {},
-  textOverflowMode: 'multiline',
-  setTextOverflowMode: () => {},
-  scrollToSelectedElement: true,
-  rememberLastScrollPosition: false
-};
-const DialogComboboxContext = /*#__PURE__*/createContext(dialogComboboxContextDefaults);
-const DialogComboboxContextProvider = _ref => {
-  let {
-    children,
-    value
-  } = _ref;
-  return jsx(DialogComboboxContext.Provider, {
-    value: value,
-    children: children
-  });
-};
-
-const useDialogComboboxContext = () => {
-  return useContext(DialogComboboxContext);
-};
-
 const DialogCombobox = _ref => {
   let {
     children,
@@ -11790,14 +12297,19 @@ const DialogCombobox = _ref => {
       analyticsEvents,
       valueHasNoPii
     },
-    children: jsx(Root$4, {
+    children: jsx(Root$5, {
       open: open !== undefined ? open : isOpen,
       ...props,
-      children: children
+      children: jsx(ComponentFinderContext.Provider, {
+        value: {
+          dataComponentProps: eventContext.dataComponentProps
+        },
+        children: children
+      })
     })
   });
 };
-const Root$4 = props => {
+const Root$5 = props => {
   const {
     children,
     stayOpenOnSelection,
@@ -11823,455 +12335,6 @@ const Root$4 = props => {
     ...restProps,
     children: children
   });
-};
-
-const getButtonStyles = theme => {
-  return /*#__PURE__*/css({
-    color: theme.colors.textPlaceholder,
-    fontSize: theme.typography.fontSizeSm,
-    marginLeft: theme.spacing.xs,
-    ':hover': {
-      color: theme.colors.actionTertiaryTextHover
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getButtonStyles;");
-};
-const ClearSelectionButton = _ref => {
-  let {
-    ...restProps
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(XCircleFillIcon, {
-    "aria-hidden": "false",
-    css: getButtonStyles(theme),
-    role: "button",
-    "aria-label": "Clear selection",
-    ...restProps
-  });
-};
-
-const EmptyResults = _ref => {
-  var _ref2;
-  let {
-    emptyText
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const {
-    emptyText: emptyTextFromContext
-  } = useDialogComboboxContext();
-  return jsx("div", {
-    "aria-live": "assertive",
-    css: /*#__PURE__*/css({
-      color: theme.colors.textSecondary,
-      textAlign: 'center',
-      padding: '6px 12px',
-      width: '100%',
-      boxSizing: 'border-box'
-    }, process.env.NODE_ENV === "production" ? "" : ";label:EmptyResults;"),
-    children: (_ref2 = emptyTextFromContext !== null && emptyTextFromContext !== void 0 ? emptyTextFromContext : emptyText) !== null && _ref2 !== void 0 ? _ref2 : 'No results found'
-  });
-};
-
-const HintRow = _ref => {
-  let {
-    disabled,
-    children
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    css: /*#__PURE__*/css({
-      color: theme.colors.textSecondary,
-      fontSize: theme.typography.fontSizeSm,
-      ...(disabled && {
-        color: theme.colors.actionDisabledText
-      })
-    }, process.env.NODE_ENV === "production" ? "" : ";label:HintRow;"),
-    children: children
-  });
-};
-
-const LoadingSpinner = props => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(Spinner, {
-    css: /*#__PURE__*/css({
-      display: 'flex',
-      alignSelf: 'center',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: theme.general.heightSm,
-      width: theme.general.heightSm,
-      '> span': {
-        fontSize: 20
-      }
-    }, process.env.NODE_ENV === "production" ? "" : ";label:LoadingSpinner;"),
-    ...props
-  });
-};
-
-const SectionHeader = _ref => {
-  let {
-    children,
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    ...props,
-    css: /*#__PURE__*/css({
-      display: 'flex',
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      padding: `${theme.spacing.xs}px ${theme.spacing.lg / 2}px`,
-      alignSelf: 'stretch',
-      fontWeight: 400,
-      color: theme.colors.textSecondary
-    }, process.env.NODE_ENV === "production" ? "" : ";label:SectionHeader;"),
-    children: children
-  });
-};
-
-const Separator = props => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    ...props,
-    css: /*#__PURE__*/css({
-      display: 'flex',
-      flexDirection: 'row',
-      alignItems: 'center',
-      margin: `${theme.spacing.xs}px ${theme.spacing.lg / 2}px`,
-      border: `1px solid ${theme.colors.borderDecorative}`,
-      borderBottom: 0,
-      alignSelf: 'stretch'
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Separator;")
-  });
-};
-
-const getDialogComboboxOptionLabelWidth = (theme, width) => {
-  const paddingLeft = theme.spacing.xs + theme.spacing.sm;
-  const iconWidth = theme.spacing.md;
-  const labelMarginLeft = theme.spacing.sm;
-  if (typeof width === 'string') {
-    return `calc(${width} - ${paddingLeft + iconWidth + labelMarginLeft}px)`;
-  }
-  return width - paddingLeft + iconWidth + labelMarginLeft;
-};
-function isOptionDisabled(option) {
-  return option.hasAttribute('disabled') && option.getAttribute('disabled') !== 'false';
-}
-function highlightFirstNonDisabledOption(firstOptionItem) {
-  let startAt = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'start';
-  let previousSelection = arguments.length > 2 ? arguments[2] : undefined;
-  if (isOptionDisabled(firstOptionItem)) {
-    const firstHighlightableOption = findClosestOptionSibling(firstOptionItem, startAt === 'end' ? 'previous' : 'next');
-    if (firstHighlightableOption) {
-      highlightOption(firstHighlightableOption, previousSelection);
-    }
-  } else {
-    highlightOption(firstOptionItem, previousSelection);
-  }
-}
-function findClosestOptionSibling(element, direction) {
-  const nextSibling = direction === 'previous' ? element.previousElementSibling : element.nextElementSibling;
-  if ((nextSibling === null || nextSibling === void 0 ? void 0 : nextSibling.getAttribute('role')) === 'option') {
-    if (isOptionDisabled(nextSibling)) {
-      return findClosestOptionSibling(nextSibling, direction);
-    }
-    return nextSibling;
-  } else if (nextSibling) {
-    let nextOptionSibling = nextSibling;
-    while (nextOptionSibling && (nextOptionSibling.getAttribute('role') !== 'option' || isOptionDisabled(nextOptionSibling))) {
-      nextOptionSibling = direction === 'previous' ? nextOptionSibling.previousElementSibling : nextOptionSibling.nextElementSibling;
-    }
-    return nextOptionSibling;
-  }
-  return null;
-}
-const resetAllHighlightedOptions = currentSelection => {
-  const options = getContentOptions(currentSelection);
-  options === null || options === void 0 || options.forEach(option => {
-    option.setAttribute('tabIndex', '-1');
-    option.setAttribute('data-highlighted', 'false');
-  });
-};
-const highlightOption = function (currentSelection, prevSelection) {
-  var _currentSelection$scr;
-  let focus = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-  if (prevSelection) {
-    prevSelection.setAttribute('tabIndex', '-1');
-    prevSelection.setAttribute('data-highlighted', 'false');
-  }
-  if (focus) {
-    currentSelection.focus();
-  }
-  currentSelection.setAttribute('tabIndex', '0');
-  currentSelection.setAttribute('data-highlighted', 'true');
-  (_currentSelection$scr = currentSelection.scrollIntoView) === null || _currentSelection$scr === void 0 || _currentSelection$scr.call(currentSelection, {
-    block: 'center'
-  });
-};
-const findHighlightedOption = options => {
-  var _options$find;
-  return (_options$find = options.find(option => option.getAttribute('data-highlighted') === 'true')) !== null && _options$find !== void 0 ? _options$find : undefined;
-};
-const getContentOptions = element => {
-  var _element$closest;
-  const options = (_element$closest = element.closest('[data-combobox-option-list="true"]')) === null || _element$closest === void 0 ? void 0 : _element$closest.querySelectorAll('[role="option"]');
-  return options ? Array.from(options) : undefined;
-};
-const getKeyboardNavigationFunctions = (handleSelect, _ref) => {
-  let {
-    onKeyDown,
-    onMouseEnter,
-    onDefaultKeyDown
-  } = _ref;
-  return {
-    onKeyDown: e => {
-      onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          const nextSibling = findClosestOptionSibling(e.currentTarget, 'next');
-          if (nextSibling) {
-            highlightOption(nextSibling, e.currentTarget);
-          } else {
-            var _getContentOptions;
-            const firstOption = (_getContentOptions = getContentOptions(e.currentTarget)) === null || _getContentOptions === void 0 ? void 0 : _getContentOptions[0];
-            if (firstOption) {
-              highlightFirstNonDisabledOption(firstOption, 'start', e.currentTarget);
-            }
-          }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          const previousSibling = findClosestOptionSibling(e.currentTarget, 'previous');
-          if (previousSibling) {
-            highlightOption(previousSibling, e.currentTarget);
-          } else {
-            var _getContentOptions2;
-            const lastOption = (_getContentOptions2 = getContentOptions(e.currentTarget)) === null || _getContentOptions2 === void 0 ? void 0 : _getContentOptions2.slice(-1)[0];
-            if (lastOption) {
-              highlightFirstNonDisabledOption(lastOption, 'end', e.currentTarget);
-            }
-          }
-          break;
-        case 'Enter':
-          e.preventDefault();
-          handleSelect(e);
-          break;
-        default:
-          onDefaultKeyDown === null || onDefaultKeyDown === void 0 || onDefaultKeyDown(e);
-          break;
-      }
-    },
-    onMouseEnter: e => {
-      onMouseEnter === null || onMouseEnter === void 0 || onMouseEnter(e);
-      resetTabIndexToFocusedElement(e.currentTarget);
-    }
-  };
-};
-const resetTabIndexToFocusedElement = elem => {
-  resetAllHighlightedOptions(elem);
-  elem.setAttribute('tabIndex', '0');
-  elem.focus();
-};
-const dialogComboboxLookAheadKeyDown = (e, setLookAhead, lookAhead) => {
-  var _e$currentTarget$pare, _e$currentTarget$pare2;
-  if (e.key === 'Escape' || e.key === 'Tab' || e.key === 'Enter') {
-    return;
-  }
-  e.preventDefault();
-  const siblings = Array.from((_e$currentTarget$pare = (_e$currentTarget$pare2 = e.currentTarget.parentElement) === null || _e$currentTarget$pare2 === void 0 ? void 0 : _e$currentTarget$pare2.children) !== null && _e$currentTarget$pare !== void 0 ? _e$currentTarget$pare : []);
-  // Look for the first sibling that starts with the pressed key + recently pressed keys (lookAhead, cleared after 1.5 seconds of inactivity)
-  const nextSiblingIndex = siblings.findIndex(sibling => {
-    var _sibling$textContent$, _sibling$textContent;
-    const siblingLabel = (_sibling$textContent$ = (_sibling$textContent = sibling.textContent) === null || _sibling$textContent === void 0 ? void 0 : _sibling$textContent.toLowerCase()) !== null && _sibling$textContent$ !== void 0 ? _sibling$textContent$ : '';
-    return siblingLabel.startsWith(lookAhead + e.key);
-  });
-  if (nextSiblingIndex !== -1) {
-    const nextSibling = siblings[nextSiblingIndex];
-    nextSibling.focus();
-    if (setLookAhead) {
-      setLookAhead(lookAhead + e.key);
-    }
-    resetTabIndexToFocusedElement(nextSibling);
-  }
-};
-
-const getComboboxContentWrapperStyles = (theme, _ref) => {
-  let {
-    maxHeight = '100vh',
-    maxWidth = '100vw',
-    minHeight = 0,
-    minWidth = 0,
-    width
-  } = _ref;
-  return /*#__PURE__*/css({
-    maxHeight,
-    maxWidth,
-    minHeight,
-    minWidth,
-    ...(width ? {
-      width
-    } : {}),
-    background: theme.colors.backgroundPrimary,
-    color: theme.colors.textPrimary,
-    overflow: 'auto',
-    // Making sure the content popover overlaps the remove button when opens to the right
-    zIndex: theme.options.zIndexBase + 10,
-    boxSizing: 'border-box',
-    border: `1px solid ${theme.colors.border}`,
-    boxShadow: theme.general.shadowLow,
-    borderRadius: theme.general.borderRadiusBase,
-    colorScheme: theme.isDarkMode ? 'dark' : 'light',
-    ...getDarkModePortalStyles(theme)
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getComboboxContentWrapperStyles;");
-};
-const getComboboxOptionItemWrapperStyles = theme => {
-  return /*#__PURE__*/css(importantify({
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    alignSelf: 'stretch',
-    padding: '6px 32px 6px 12px',
-    lineHeight: theme.typography.lineHeightBase,
-    boxSizing: 'content-box',
-    cursor: 'pointer',
-    userSelect: 'none',
-    '&:hover, &[data-highlighted="true"]': {
-      background: theme.colors.actionTertiaryBackgroundHover
-    },
-    '&:focus': {
-      background: theme.colors.actionTertiaryBackgroundHover,
-      outline: 'none'
-    },
-    '&[disabled]': {
-      pointerEvents: 'none',
-      color: theme.colors.actionDisabledText,
-      background: theme.colors.backgroundPrimary
-    }
-  }), process.env.NODE_ENV === "production" ? "" : ";label:getComboboxOptionItemWrapperStyles;");
-};
-const getComboboxOptionLabelStyles = _ref2 => {
-  let {
-    theme,
-    dangerouslyHideCheck,
-    textOverflowMode,
-    contentWidth,
-    hasHintColumn
-  } = _ref2;
-  return /*#__PURE__*/css({
-    marginLeft: !dangerouslyHideCheck ? theme.spacing.sm : 0,
-    fontSize: theme.typography.fontSizeBase,
-    fontStyle: 'normal',
-    fontWeight: 400,
-    cursor: 'pointer',
-    overflow: 'hidden',
-    wordBreak: 'break-word',
-    ...(textOverflowMode === 'ellipsis' && {
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap'
-    }),
-    ...(contentWidth ? {
-      width: getDialogComboboxOptionLabelWidth(theme, contentWidth)
-    } : {}),
-    ...(hasHintColumn && {
-      display: 'flex'
-    })
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getComboboxOptionLabelStyles;");
-};
-const getInfoIconStyles = theme => {
-  return /*#__PURE__*/css({
-    paddingLeft: theme.spacing.xs,
-    color: theme.colors.textSecondary,
-    pointerEvents: 'all',
-    cursor: 'pointer',
-    verticalAlign: 'middle'
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getInfoIconStyles;");
-};
-const getCheckboxStyles = (theme, textOverflowMode) => {
-  return /*#__PURE__*/css({
-    pointerEvents: 'none',
-    height: 'unset',
-    width: '100%',
-    '& > label': {
-      display: 'flex',
-      width: '100%',
-      fontSize: theme.typography.fontSizeBase,
-      fontStyle: 'normal',
-      fontWeight: 400,
-      cursor: 'pointer',
-      '& > span:first-of-type': {
-        alignSelf: 'flex-start',
-        display: 'inline-flex',
-        alignItems: 'center',
-        paddingTop: theme.spacing.xs / 2
-      },
-      '& > span:last-of-type': {
-        paddingRight: 0,
-        width: '100%',
-        overflow: 'hidden',
-        wordBreak: 'break-word',
-        ...(textOverflowMode === 'ellipsis' ? {
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        } : {})
-      }
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getCheckboxStyles;");
-};
-const getFooterStyles = theme => {
-  return /*#__PURE__*/css({
-    width: '100%',
-    background: theme.colors.backgroundPrimary,
-    padding: `${theme.spacing.sm}px ${theme.spacing.lg / 2}px ${theme.spacing.sm}px ${theme.spacing.lg / 2}px`,
-    position: 'sticky',
-    bottom: 0,
-    boxSizing: 'border-box',
-    '&:has(> .combobox-footer-add-button)': {
-      padding: `${theme.spacing.sm}px 0 ${theme.spacing.sm}px 0`,
-      '& > :not(.combobox-footer-add-button)': {
-        marginLeft: `${theme.spacing.lg / 2}px`,
-        marginRight: `${theme.spacing.lg / 2}px`
-      },
-      '& > .combobox-footer-add-button': {
-        justifyContent: 'flex-start !important'
-      }
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getFooterStyles;");
-};
-const getSelectItemWithHintColumnStyles = function () {
-  let hintColumnWidthPercent = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 50;
-  return /*#__PURE__*/css({
-    flexGrow: 1,
-    display: 'inline-grid',
-    gridTemplateColumns: `${100 - hintColumnWidthPercent}% ${hintColumnWidthPercent}%`
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getSelectItemWithHintColumnStyles;");
-};
-const getHintColumnStyles = (theme, disabled, textOverflowMode) => {
-  return /*#__PURE__*/css({
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.fontSizeSm,
-    textAlign: 'right',
-    ...(disabled && {
-      color: theme.colors.actionDisabledText
-    }),
-    ...(textOverflowMode === 'ellipsis' && {
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden'
-    })
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getHintColumnStyles;");
 };
 
 const DialogComboboxAddButton = _ref => {
@@ -12313,7 +12376,7 @@ const DialogComboboxAddButton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$l() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$m() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const defaultMaxHeight = 'var(--radix-popover-content-available-height)';
 var _ref2$g = process.env.NODE_ENV === "production" ? {
   name: "1ij1o5n",
@@ -12321,7 +12384,7 @@ var _ref2$g = process.env.NODE_ENV === "production" ? {
 } : {
   name: "189loa6-DialogComboboxContent",
   styles: "display:flex;flex-direction:column;align-items:flex-start;justify-content:center;label:DialogComboboxContent;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$l
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
 };
 const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -12364,6 +12427,9 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   const {
     getPopupContainer
   } = useDesignSystemContext();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const [lastScrollPosition, setLastScrollPosition] = useState(0);
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxContent` must be used within `DialogCombobox`');
@@ -12417,7 +12483,8 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
         maxWidth,
         minHeight,
         minWidth,
-        width: realContentWidth
+        width: realContentWidth,
+        useNewShadows
       }),
       align: align,
       side: side,
@@ -12535,14 +12602,14 @@ const DialogComboboxOptionListContextProvider = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$k() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$l() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$f = process.env.NODE_ENV === "production" ? {
   name: "1pgv7dg",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
 } : {
   name: "1dtf9pj-DialogComboboxOptionList",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$l
 };
 const DialogComboboxOptionList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -12633,14 +12700,14 @@ const useDialogComboboxOptionListContext = () => {
   return useContext(DialogComboboxOptionListContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$j() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$k() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$e = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "tiu4as-content",
   styles: "display:flex;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
 };
 var _ref3$6 = process.env.NODE_ENV === "production" ? {
   name: "qhxz92",
@@ -12648,7 +12715,7 @@ var _ref3$6 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "i7t2ch-DuboisDialogComboboxOptionListCheckboxItem",
   styles: "max-width:100%;label:DuboisDialogComboboxOptionListCheckboxItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
 };
 const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -12751,7 +12818,7 @@ DuboisDialogComboboxOptionListCheckboxItem.defaultProps = {
 };
 const DialogComboboxOptionListCheckboxItem = DuboisDialogComboboxOptionListCheckboxItem;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$i() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$j() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const extractTextContent = node => {
   if (typeof node === 'string' || typeof node === 'number') {
     return node.toString();
@@ -12784,7 +12851,7 @@ var _ref2$d = process.env.NODE_ENV === "production" ? {
 } : {
   name: "csdki6-DialogComboboxOptionListSearch",
   styles: "width:100%;label:DialogComboboxOptionListSearch;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
 };
 const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   var _filteredChildren, _filteredChildren2;
@@ -12939,14 +13006,14 @@ const useSelectContext = () => {
   return useContext(SelectContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$h() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$i() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$c = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "tiu4as-content",
   styles: "display:flex;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
 };
 var _ref3$5 = process.env.NODE_ENV === "production" ? {
   name: "kjj0ot",
@@ -12954,7 +13021,7 @@ var _ref3$5 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "15osdio-DuboisDialogComboboxOptionListSelectItem",
   styles: "padding-top:2px;label:DuboisDialogComboboxOptionListSelectItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
 };
 const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -13118,14 +13185,14 @@ DuboisDialogComboboxOptionListSelectItem.defaultProps = {
 };
 const DialogComboboxOptionListSelectItem = DuboisDialogComboboxOptionListSelectItem;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$g() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$h() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$b = process.env.NODE_ENV === "production" ? {
   name: "1pgv7dg",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
 } : {
   name: "18t0chz-DialogComboboxOptionControlledList",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionControlledList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$g
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
 };
 const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -13301,14 +13368,19 @@ const DialogComboboxSeparator = props => {
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxSeparator` must be used within `DialogCombobox`');
   }
-  return jsx(Separator, {
+  return jsx(Separator$2, {
     ...props
   });
 };
 
-const getTriggerWrapperStyles = (removable, width) => /*#__PURE__*/css(importantify({
+const getTriggerWrapperStyles = (theme, clsPrefix, removable, width, useNewFormUISpacing) => /*#__PURE__*/css(importantify({
   display: 'inline-flex',
   alignItems: 'center',
+  ...(useNewFormUISpacing && {
+    [`& + .${clsPrefix}-form-message`]: {
+      marginTop: theme.spacing.sm
+    }
+  }),
   ...(width && {
     width: width
   }),
@@ -13329,6 +13401,7 @@ const getTriggerStyles = function (theme) {
   let validationState = arguments.length > 6 ? arguments[6] : undefined;
   let isBare = arguments.length > 7 ? arguments[7] : undefined;
   let isSelect = arguments.length > 8 ? arguments[8] : undefined;
+  let useNewShadows = arguments.length > 9 ? arguments[9] : undefined;
   const removeButtonInteractionStyles = {
     ...(removable && {
       zIndex: theme.options.zIndexBase + 2,
@@ -13351,6 +13424,9 @@ const getTriggerStyles = function (theme) {
     boxSizing: 'border-box',
     height: isBare ? theme.typography.lineHeightBase : theme.general.heightSm,
     border: isBare ? 'none' : `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+    ...(useNewShadows && {
+      boxShadow: theme.shadows.xs
+    }),
     borderRadius: 4,
     color: theme.colors.textPrimary,
     lineHeight: theme.typography.lineHeightBase,
@@ -13393,12 +13469,14 @@ const getTriggerStyles = function (theme) {
         borderColor: theme.colors.actionDefaultBorderHover
       },
       '&&:focus, &[data-state="open"]': {
-        outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+        outlineColor: theme.colors.actionDefaultBorderFocus,
         outlineWidth: 2,
         outlineOffset: -2,
         outlineStyle: 'solid',
         borderColor: 'transparent',
-        boxShadow: 'none'
+        ...(!useNewShadows && {
+          boxShadow: 'none'
+        })
       }
     }),
     [`&[disabled]`]: {
@@ -13430,7 +13508,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     placeholder,
     id: legacyId,
     isBare = false,
-    formatDisplayedValue = value => value,
+    renderDisplayedValue: formatDisplayedValue = value => value,
     ...restProps
   } = _ref;
   const {
@@ -13449,6 +13527,10 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     isSelect,
     placeholder: selectPlaceholder
   } = useSelectContext();
+  const {
+    useNewShadows,
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   const id = topLevelId !== null && topLevelId !== void 0 ? topLevelId : legacyId;
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxTrigger` must be used within `DialogCombobox`');
@@ -13534,7 +13616,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     "aria-invalid": validationState === 'error',
     id: id,
     ...restProps,
-    css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect),
+    css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect, useNewShadows),
     children: [jsx("span", {
       css: /*#__PURE__*/css({
         whiteSpace: 'nowrap',
@@ -13568,7 +13650,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     "aria-haspopup": "listbox",
     "aria-invalid": validationState === 'error',
     ...restProps,
-    css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect),
+    css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect, useNewShadows),
     children: [jsxs("span", {
       css: /*#__PURE__*/css({
         display: 'flex',
@@ -13618,11 +13700,13 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
       }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;")
     }) : null]
   });
+  const dataComponentProps = useComponentFinderContext(DesignSystemEventProviderComponentTypes.DialogCombobox);
   return jsxs("div", {
     ...wrapperProps,
     className: `${(_restProps$className = restProps === null || restProps === void 0 ? void 0 : restProps.className) !== null && _restProps$className !== void 0 ? _restProps$className : ''} ${dialogComboboxClassname} ${selectV2Classname}`.trim(),
-    css: [getTriggerWrapperStyles(removable, width), wrapperProps === null || wrapperProps === void 0 ? void 0 : wrapperProps.css, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxTrigger;"],
+    css: [getTriggerWrapperStyles(theme, classNamePrefix, removable, width, useNewFormUISpacing), wrapperProps === null || wrapperProps === void 0 ? void 0 : wrapperProps.css, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxTrigger;"],
     ...addDebugOutlineIfEnabled(),
+    ...dataComponentProps,
     children: [showTooltip && value !== null && value !== void 0 && value.length ? jsx(LegacyTooltip, {
       title: customSelectContent !== null && customSelectContent !== void 0 ? customSelectContent : displayedValues,
       children: triggerContent
@@ -13651,7 +13735,7 @@ const DialogComboboxCustomButtonTriggerWrapper = _ref3 => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$g() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const DEFAULT_WIDTH = 320;
 const MIN_WIDTH = 320;
 const MAX_WIDTH = '90vw';
@@ -13664,7 +13748,7 @@ var _ref2$a = process.env.NODE_ENV === "production" ? {
 } : {
   name: "h5yqvj-Content",
   styles: "flex-grow:1;margin-bottom:0;margin-top:0;white-space:nowrap;overflow:hidden;label:Content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$g
 };
 const Content$2 = _ref => {
   let {
@@ -13679,8 +13763,10 @@ const Content$2 = _ref => {
     onInteractOutside,
     seeThrough,
     hideClose,
+    onCloseClick,
     componentId = 'design_system.drawer.content',
-    analyticsEvents = [],
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnView],
+    size = 'default',
     ...props
   } = _ref;
   const {
@@ -13689,7 +13775,7 @@ const Content$2 = _ref => {
   const {
     theme
   } = useDesignSystemTheme();
-  const horizontalContentPadding = theme.spacing.lg;
+  const horizontalContentPadding = size === 'small' ? theme.spacing.md : theme.spacing.lg;
   const [shouldContentBeFocusable, setShouldContentBeFocusable] = useState(false);
   const contentContainerRef = useRef(null);
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
@@ -13698,6 +13784,9 @@ const Content$2 = _ref => {
     componentId,
     analyticsEvents: memoizedAnalyticsEvents
   });
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const {
     elementRef: onViewRef
   } = useNotifyOnFirstView({
@@ -13727,7 +13816,7 @@ const Content$2 = _ref => {
   const dialogPrimitiveContentStyle = /*#__PURE__*/css({
     color: theme.colors.textPrimary,
     backgroundColor: theme.colors.backgroundPrimary,
-    boxShadow: 'hsl(206 22% 7% / 35%) 0px 10px 38px -10px, hsl(206 22% 7% / 20%) 0px 10px 20px -15px',
+    boxShadow: useNewShadows ? theme.shadows.xl : 'hsl(206 22% 7% / 35%) 0px 10px 38px -10px, hsl(206 22% 7% / 20%) 0px 10px 20px -15px',
     position: 'fixed',
     top: 0,
     left: position === 'left' ? 0 : undefined,
@@ -13738,7 +13827,7 @@ const Content$2 = _ref => {
     maxWidth: MAX_WIDTH,
     zIndex: theme.options.zIndexBase + ZINDEX_CONTENT,
     height: '100vh',
-    paddingTop: theme.spacing.md,
+    paddingTop: size === 'small' ? theme.spacing.sm : theme.spacing.md,
     paddingLeft: 0,
     paddingBottom: 0,
     paddingRight: 0,
@@ -13771,7 +13860,9 @@ const Content$2 = _ref => {
         opacity: seeThrough ? 0 : 1,
         ...(theme.isDarkMode && {
           borderLeft: `1px solid ${theme.colors.borderDecorative}`,
-          boxShadow: 'none'
+          ...(!useNewShadows && {
+            boxShadow: 'none'
+          })
         })
       },
       "aria-hidden": seeThrough,
@@ -13783,12 +13874,13 @@ const Content$2 = _ref => {
       },
       onInteractOutside: onInteractOutside,
       ...props,
+      ...eventContext.dataComponentProps,
       children: jsxs(ApplyDesignSystemContextOverrides, {
         getPopupContainer: () => {
           var _contentContainerRef$;
           return (_contentContainerRef$ = contentContainerRef.current) !== null && _contentContainerRef$ !== void 0 ? _contentContainerRef$ : document.body;
         },
-        children: [jsxs("div", {
+        children: [(title || !hideClose) && jsxs("div", {
           css: /*#__PURE__*/css({
             flexGrow: 0,
             flexShrink: 1,
@@ -13805,7 +13897,8 @@ const Content$2 = _ref => {
             asChild: typeof title === 'string',
             css: _ref2$a,
             children: typeof title === 'string' ? jsx(Typography.Title, {
-              level: 2,
+              elementLevel: 2,
+              level: size === 'small' ? 3 : 2,
               withoutMargins: true,
               ellipsis: true,
               children: title
@@ -13816,10 +13909,12 @@ const Content$2 = _ref => {
               flexShrink: 1,
               marginLeft: theme.spacing.xs
             }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
+            onClick: onCloseClick,
             children: jsx(Button, {
               componentId: `${componentId}.close`,
               "aria-label": "Close",
-              icon: jsx(CloseIcon, {})
+              icon: jsx(CloseIcon, {}),
+              size: size === 'small' ? 'small' : undefined
             })
           })]
         }), jsxs("div", {
@@ -13839,14 +13934,14 @@ const Content$2 = _ref => {
             ...(!useCustomScrollBehavior ? getShadowScrollStyles(theme) : {})
           }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
           children: [children, !footer && jsx(Spacer, {
-            size: "lg"
+            size: size === 'small' ? 'md' : 'lg'
           })]
         }), footer && jsx("div", {
           style: {
             paddingTop: theme.spacing.md,
             paddingRight: horizontalContentPadding,
             paddingLeft: horizontalContentPadding,
-            paddingBottom: theme.spacing.lg,
+            paddingBottom: size === 'small' ? theme.spacing.md : theme.spacing.lg,
             flexGrow: 0,
             flexShrink: 1
           },
@@ -13856,7 +13951,7 @@ const Content$2 = _ref => {
     })]
   });
 };
-function Root$3(props) {
+function Root$4(props) {
   return jsx(DialogPrimitive.Root, {
     ...props
   });
@@ -13871,7 +13966,7 @@ function Trigger$1(props) {
 var Drawer = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Content: Content$2,
-  Root: Root$3,
+  Root: Root$4,
   Trigger: Trigger$1
 });
 
@@ -13900,7 +13995,7 @@ const Dropdown = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
   Title: Title$1,
   Paragraph
@@ -13942,13 +14037,13 @@ function getEmptyDescriptionStyles(theme, clsPrefix) {
   };
   return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getEmptyDescriptionStyles;");
 }
-var _ref$6 = process.env.NODE_ENV === "production" ? {
+var _ref$7 = process.env.NODE_ENV === "production" ? {
   name: "zl1inp",
   styles: "display:flex;justify-content:center"
 } : {
   name: "11tid6c-Empty",
   styles: "display:flex;justify-content:center;label:Empty;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
 };
 const Empty = props => {
   const {
@@ -13966,7 +14061,7 @@ const Empty = props => {
   return jsx("div", {
     ...dataProps,
     ...addDebugOutlineIfEnabled(),
-    css: _ref$6,
+    css: _ref$7,
     children: jsxs("div", {
       css: [getEmptyStyles(theme), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Empty;"],
       children: [image, title && jsx(Title$1, {
@@ -13981,7 +14076,7 @@ const Empty = props => {
   });
 };
 
-const getMessageStyles = (clsPrefix, theme) => {
+const getMessageStyles = (clsPrefix, theme, useNewFormUISpacing) => {
   const errorClass = `.${clsPrefix}-form-error-message`;
   const infoClass = `.${clsPrefix}-form-info-message`;
   const successClass = `.${clsPrefix}-form-success-message`;
@@ -13990,7 +14085,9 @@ const getMessageStyles = (clsPrefix, theme) => {
     '&&': {
       lineHeight: theme.typography.lineHeightSm,
       fontSize: theme.typography.fontSizeSm,
-      marginTop: theme.spacing.sm,
+      ...(!useNewFormUISpacing && {
+        marginTop: theme.spacing.sm
+      }),
       display: 'flex',
       alignItems: 'start'
     },
@@ -14028,6 +14125,9 @@ function FormMessage(_ref) {
     classNamePrefix,
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   const stateClass = `${classNamePrefix}-form-${type}-message`;
   const StateIcon = VALIDATION_STATE_ICONS[type];
   const wrapperClass = `${classNamePrefix}-form-message ${className} ${stateClass}`.trim();
@@ -14037,7 +14137,7 @@ function FormMessage(_ref) {
     }),
     className: wrapperClass,
     ...addDebugOutlineIfEnabled(),
-    css: [getMessageStyles(classNamePrefix, theme), css, process.env.NODE_ENV === "production" ? "" : ";label:FormMessage;"],
+    css: [getMessageStyles(classNamePrefix, theme, useNewFormUISpacing), css, process.env.NODE_ENV === "production" ? "" : ";label:FormMessage;"],
     role: "alert",
     children: [jsx(StateIcon, {}), jsx("div", {
       style: {
@@ -14077,7 +14177,7 @@ const Hint = props => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getLabelStyles$1 = (theme, _ref) => {
   let {
     inline
@@ -14109,7 +14209,7 @@ var _ref2$9 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "10kkfun-label",
   styles: "display:flex;align-items:center;label:label;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
 };
 const Label = props => {
   const {
@@ -14153,7 +14253,8 @@ function getSelectEmotionStyles(_ref) {
   let {
     clsPrefix,
     theme,
-    validationState
+    validationState,
+    useNewFormUISpacing
   } = _ref;
   const classFocused = `.${clsPrefix}-focused`;
   const classOpen = `.${clsPrefix}-open`;
@@ -14174,9 +14275,15 @@ function getSelectEmotionStyles(_ref) {
   const classSearchClear = `.${clsPrefix}-clear`;
   const classAllowClear = `.${clsPrefix}-allow-clear`;
   const classSearchInput = `.${clsPrefix}-selection-search-input`;
+  const classFormMessage = `.${clsPrefix.replace('-select', '')}-form-message`;
   const validationColor = getValidationStateColor(theme, validationState);
   const styles = {
     ...addDebugOutlineStylesIfEnabled(theme),
+    ...(useNewFormUISpacing && {
+      [`& + ${classFormMessage}`]: {
+        marginTop: theme.spacing.sm
+      }
+    }),
     '&:hover': {
       [classSelector]: {
         borderColor: theme.colors.actionDefaultBorderHover
@@ -14237,7 +14344,7 @@ function getSelectEmotionStyles(_ref) {
     },
     [`&${classFocused}`]: {
       [classSelector]: {
-        outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+        outlineColor: theme.colors.actionDefaultBorderFocus,
         outlineWidth: 2,
         outlineOffset: -2,
         outlineStyle: 'solid',
@@ -14411,7 +14518,7 @@ function getSelectEmotionStyles(_ref) {
   const importantStyles = importantify(styles);
   return /*#__PURE__*/css(importantStyles, process.env.NODE_ENV === "production" ? "" : ";label:getSelectEmotionStyles;");
 }
-function getDropdownStyles(clsPrefix, theme) {
+function getDropdownStyles(clsPrefix, theme, useNewShadows) {
   const classItem = `.${clsPrefix}-item-option`;
   const classItemActive = `.${clsPrefix}-item-option-active`;
   const classItemSelected = `.${clsPrefix}-item-option-selected`;
@@ -14453,7 +14560,7 @@ function getDropdownStyles(clsPrefix, theme) {
       display: 'block'
     },
     ...getAnimationCss(theme.options.enableAnimation),
-    ...getDarkModePortalStyles(theme)
+    ...getDarkModePortalStyles(theme, useNewShadows)
   };
   const importantStyles = importantify(styles);
   return /*#__PURE__*/css(importantStyles, process.env.NODE_ENV === "production" ? "" : ";label:getDropdownStyles;");
@@ -14491,6 +14598,10 @@ function DuboisSelect(_ref2, ref) {
     theme,
     getPrefixedClassName
   } = useDesignSystemTheme();
+  const {
+    useNewShadows,
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('select');
   const [isOpen, setIsOpen] = useState(false);
   const [uniqueId, setUniqueId] = useState('');
@@ -14533,7 +14644,8 @@ function DuboisSelect(_ref2, ref) {
           css: getSelectEmotionStyles({
             clsPrefix,
             theme,
-            validationState
+            validationState,
+            useNewFormUISpacing
           }),
           removeIcon: jsx(CloseIcon, {
             "aria-hidden": "false",
@@ -14565,7 +14677,7 @@ function DuboisSelect(_ref2, ref) {
             }, process.env.NODE_ENV === "production" ? "" : ";label:DuboisSelect;"),
             children: "No results found"
           }),
-          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme), dropdownClassName]),
+          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme, useNewShadows), dropdownClassName]),
           listHeight: MAX_HEIGHT,
           maxTagPlaceholder: items => `+ ${items.length} more`,
           mode: mode,
@@ -14651,10 +14763,18 @@ const LegacySelect = /* #__PURE__ */(() => {
 })();
 
 const RadioGroupContext = /*#__PURE__*/React__default.createContext(undefined);
+const useRadioGroupContext = () => {
+  const context = React__default.useContext(RadioGroupContext);
+  if (!context) {
+    throw new Error('Radio components are only allowed within a Radio.Group');
+  }
+  return context;
+};
 const getRadioInputStyles = _ref => {
   let {
     clsPrefix,
-    theme
+    theme,
+    useNewShadows
   } = _ref;
   return {
     [`.${clsPrefix}`]: {
@@ -14708,6 +14828,9 @@ const getRadioInputStyles = _ref => {
         [`> .${clsPrefix}-input + .${clsPrefix}-inner`]: {
           background: theme.colors.actionPrimaryBackgroundDefault,
           borderColor: theme.colors.primary,
+          ...(useNewShadows && {
+            boxShadow: theme.shadows.xs
+          }),
           '&:after': {
             content: `""`,
             borderRadius: theme.spacing.xs,
@@ -14729,7 +14852,7 @@ const getRadioInputStyles = _ref => {
         [`&:not(.${clsPrefix}-disabled) > .${clsPrefix}-input:focus-visible + .${clsPrefix}-inner`]: {
           background: theme.colors.actionDefaultBackgroundPress,
           borderColor: theme.colors.actionDefaultBorderFocus,
-          boxShadow: `0 0 0 1px ${theme.colors.actionDefaultBackgroundDefault}, 0 0 0 3px ${theme.colors.primary}`
+          boxShadow: `0 0 0 1px ${theme.colors.actionDefaultBackgroundDefault}, 0 0 0 3px ${theme.colors.actionDefaultBorderFocus}`
         },
         // Active
         [`&:not(.${clsPrefix}-disabled) > .${clsPrefix}-input:active + .${clsPrefix}-inner`]: {
@@ -14756,7 +14879,8 @@ const getCommonRadioGroupStyles = _ref2 => {
   let {
     theme,
     clsPrefix,
-    classNamePrefix
+    classNamePrefix,
+    useNewShadows
   } = _ref2;
   return /*#__PURE__*/css({
     '& > label': {
@@ -14769,7 +14893,8 @@ const getCommonRadioGroupStyles = _ref2 => {
     },
     ...getRadioInputStyles({
       theme,
-      clsPrefix
+      clsPrefix,
+      useNewShadows
     }),
     ...getAnimationCss(theme.options.enableAnimation)
   }, process.env.NODE_ENV === "production" ? "" : ";label:getCommonRadioGroupStyles;");
@@ -14777,16 +14902,28 @@ const getCommonRadioGroupStyles = _ref2 => {
 const getHorizontalRadioGroupStyles = _ref3 => {
   let {
     theme,
-    classNamePrefix
+    classNamePrefix,
+    useEqualColumnWidths,
+    useNewFormUISpacing
   } = _ref3;
   return /*#__PURE__*/css({
     '&&': {
       display: 'grid',
       gridTemplateRows: '[label] auto [hint] auto',
-      gridAutoColumns: 'max-content',
-      gridColumnGap: theme.spacing.md
+      gridAutoColumns: useEqualColumnWidths ? 'minmax(0, 1fr)' : 'max-content',
+      gridColumnGap: theme.spacing.md,
+      ...(useNewFormUISpacing && {
+        [`& + .${classNamePrefix}-form-message`]: {
+          marginTop: theme.spacing.sm
+        }
+      })
     },
-    '& > label': {
+    ...(useNewFormUISpacing && {
+      [`:has(> .${classNamePrefix}-hint)`]: {
+        marginTop: theme.spacing.sm
+      }
+    }),
+    [`& > label, & > .${classNamePrefix}-radio-tile`]: {
       gridRow: 'label / label',
       marginRight: 0
     },
@@ -14799,12 +14936,25 @@ const getHorizontalRadioGroupStyles = _ref3 => {
 const getVerticalRadioGroupStyles = _ref4 => {
   let {
     theme,
-    classNamePrefix
+    classNamePrefix,
+    useNewFormUISpacing
   } = _ref4;
   return /*#__PURE__*/css({
     display: 'flex',
     flexDirection: 'column',
     flexWrap: 'wrap',
+    ...(useNewFormUISpacing && {
+      [`& + .${classNamePrefix}-form-message`]: {
+        marginTop: theme.spacing.sm
+      },
+      [`~ .${classNamePrefix}-label)`]: {
+        marginTop: theme.spacing.sm,
+        background: 'red'
+      }
+    }),
+    [`.${classNamePrefix}-radio-tile + .${classNamePrefix}-radio-tile`]: {
+      marginTop: theme.spacing.md
+    },
     '& > label': {
       fontWeight: 'normal',
       paddingBottom: theme.spacing.sm
@@ -14825,7 +14975,8 @@ const getVerticalRadioGroupStyles = _ref4 => {
 const getRadioStyles = _ref5 => {
   let {
     theme,
-    clsPrefix
+    clsPrefix,
+    useNewShadows
   } = _ref5;
   // Default as bold for standalone radios
   const fontWeight = 'normal';
@@ -14835,7 +14986,8 @@ const getRadioStyles = _ref5 => {
   return /*#__PURE__*/css({
     ...getRadioInputStyles({
       theme,
-      clsPrefix
+      clsPrefix,
+      useNewShadows
     }),
     ...styles
   }, process.env.NODE_ENV === "production" ? "" : ";label:getRadioStyles;");
@@ -14845,6 +14997,11 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
   let {
     children,
     dangerouslySetAntdProps,
+    __INTERNAL_DISABLE_RADIO_ROLE,
+    componentId,
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii,
+    onChange,
     ...props
   } = _ref6;
   const {
@@ -14852,21 +15009,44 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
     getPrefixedClassName
   } = useDesignSystemTheme();
   const {
-    componentId
+    componentId: contextualComponentId
   } = (_React$useContext = React__default.useContext(RadioGroupContext)) !== null && _React$useContext !== void 0 ? _React$useContext : {};
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('radio');
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Radio,
+    componentId,
+    analyticsEvents: memoizedAnalyticsEvents,
+    valueHasNoPii
+  });
+  const onChangeWrapper = useCallback(e => {
+    // Only call the onValueChange callback if the Radio is standalone and not part of a RadioGroup
+    if (contextualComponentId === undefined) {
+      var _eventContext$onValue;
+      (_eventContext$onValue = eventContext.onValueChange) === null || _eventContext$onValue === void 0 || _eventContext$onValue.call(eventContext, e.target.value);
+    }
+    onChange === null || onChange === void 0 || onChange(e);
+  }, [contextualComponentId, eventContext, onChange]);
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Radio$1, {
       ...addDebugOutlineIfEnabled(),
       css: getRadioStyles({
         theme,
-        clsPrefix
+        clsPrefix,
+        useNewShadows
       }),
       ...props,
       ...dangerouslySetAntdProps,
+      ...(__INTERNAL_DISABLE_RADIO_ROLE ? {
+        role: 'none'
+      } : {}),
+      onChange: onChangeWrapper,
       ref: ref,
-      "data-component-type": DesignSystemEventProviderComponentTypes.RadioGroup,
-      "data-component-id": componentId,
+      "data-component-type": contextualComponentId ? DesignSystemEventProviderComponentTypes.RadioGroup : DesignSystemEventProviderComponentTypes.Radio,
+      "data-component-id": contextualComponentId !== null && contextualComponentId !== void 0 ? contextualComponentId : componentId,
       children: jsx(RestoreAntDDefaultClsPrefix, {
         children: children
       })
@@ -14874,6 +15054,7 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
   });
 });
 const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7, ref) {
+  var _props$defaultValue;
   let {
     children,
     dangerouslySetAntdProps,
@@ -14888,23 +15069,53 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
     getPrefixedClassName,
     classNamePrefix
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('radio');
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const [value, setValue] = React__default.useState((_props$defaultValue = props.defaultValue) !== null && _props$defaultValue !== void 0 ? _props$defaultValue : '');
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.RadioGroup,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const internalRef = useRef();
+  useImperativeHandle(ref, () => internalRef.current);
   const onChangeWrapper = useCallback(e => {
-    var _eventContext$onValue;
-    (_eventContext$onValue = eventContext.onValueChange) === null || _eventContext$onValue === void 0 || _eventContext$onValue.call(eventContext, e.target.value);
+    var _eventContext$onValue2;
+    (_eventContext$onValue2 = eventContext.onValueChange) === null || _eventContext$onValue2 === void 0 || _eventContext$onValue2.call(eventContext, e.target.value);
+    setValue(e.target.value);
     onChange === null || onChange === void 0 || onChange(e);
   }, [eventContext, onChange]);
+  useEffect(() => {
+    if (props.value !== undefined) {
+      setValue(props.value);
+
+      // Antd's Radio (rc-checkbox) is not updating checked state correctly even though state is managed appropriately on our end
+      // Manually add and remove checked attribute to the radio input to ensure it is checked and A11y tools and tests can rely on this for validation
+      if (internalRef !== null && internalRef !== void 0 && internalRef.current) {
+        // Remove checked attribute from old radio input
+        const checkedInput = internalRef.current.querySelector('input[checked]');
+        if (checkedInput) {
+          checkedInput.removeAttribute('checked');
+        }
+
+        // Add checked attribute to new radio input
+        const toBeCheckedInput = internalRef.current.querySelector(`input[value="${props.value}"]`);
+        if (toBeCheckedInput) {
+          toBeCheckedInput.setAttribute('checked', 'checked');
+        }
+      }
+    }
+  }, [props.value]);
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(RadioGroupContext.Provider, {
       value: {
-        componentId
+        componentId,
+        value,
+        onChange: onChangeWrapper
       },
       children: jsx(Radio$1.Group, {
         ...addDebugOutlineIfEnabled(),
@@ -14912,11 +15123,13 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
         css: getCommonRadioGroupStyles({
           theme,
           clsPrefix,
-          classNamePrefix
+          classNamePrefix,
+          useNewShadows
         }),
+        value: value,
         onChange: onChangeWrapper,
         ...dangerouslySetAntdProps,
-        ref: ref,
+        ref: internalRef,
         children: jsx(RestoreAntDDefaultClsPrefix, {
           children: children
         })
@@ -14927,16 +15140,22 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
 const HorizontalGroup = /*#__PURE__*/forwardRef(function HorizontalGroup(_ref8, ref) {
   let {
     dangerouslySetAntdProps,
+    useEqualColumnWidths,
     ...props
   } = _ref8;
   const {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
+  const {
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   return jsx(StyledRadioGroup, {
     css: getHorizontalRadioGroupStyles({
       theme,
-      classNamePrefix
+      classNamePrefix,
+      useEqualColumnWidths,
+      useNewFormUISpacing
     }),
     ...props,
     ref: ref,
@@ -14947,19 +15166,26 @@ const Group = /*#__PURE__*/forwardRef(function HorizontalGroup(_ref9, ref) {
   let {
     dangerouslySetAntdProps,
     layout = 'vertical',
+    useEqualColumnWidths,
     ...props
   } = _ref9;
   const {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
+  const {
+    useNewFormUISpacing
+  } = useDesignSystemSafexFlags();
   return jsx(StyledRadioGroup, {
     css: layout === 'horizontal' ? getHorizontalRadioGroupStyles({
       theme,
-      classNamePrefix
+      classNamePrefix,
+      useEqualColumnWidths,
+      useNewFormUISpacing
     }) : getVerticalRadioGroupStyles({
       theme,
-      classNamePrefix
+      classNamePrefix,
+      useNewFormUISpacing
     }),
     ...props,
     ref: ref,
@@ -15138,6 +15364,7 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
     return '';
   });
   const innerRef = useRef(null);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TODO(FEINF-3982)
   useImperativeHandle(ref, () => innerRef.current, []);
   const previousExternalValue = useRef(value);
   const [internalValue, setInternalValue] = useState(value);
@@ -15221,6 +15448,7 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
           },
           id: id,
           value: internalValue,
+          ...eventContext.dataComponentProps,
           children: selectedLabel || placeholder
         }), jsx("input", {
           type: "hidden",
@@ -15301,7 +15529,8 @@ const getSwitchWithLabelStyles = _ref => {
   let {
     clsPrefix,
     theme,
-    disabled
+    disabled,
+    useNewShadows
   } = _ref;
   // Default value
   const SWITCH_WIDTH = 28;
@@ -15313,33 +15542,66 @@ const getSwitchWithLabelStyles = _ref => {
         color: theme.colors.actionDisabledText
       }
     }),
+    ...(useNewShadows && {
+      [`&.${clsPrefix}-switch, &.${clsPrefix}-switch-checked`]: {
+        [`.${clsPrefix}-switch-handle`]: {
+          top: -1
+        },
+        [`.${clsPrefix}-switch-handle, .${clsPrefix}-switch-handle:before`]: {
+          width: 16,
+          height: 16,
+          borderRadius: 99999
+        }
+      }
+    }),
     // Switch is Off
     [`&.${clsPrefix}-switch`]: {
       backgroundColor: theme.colors.backgroundPrimary,
       border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
       [`.${clsPrefix}-switch-handle:before`]: {
-        boxShadow: `0px 0px 0px 1px ${theme.colors.actionDefaultBorderDefault}`,
+        ...(useNewShadows ? {
+          border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+          boxShadow: theme.shadows.xs,
+          left: -1
+        } : {
+          boxShadow: `0px 0px 0px 1px ${theme.colors.actionDefaultBorderDefault}`
+        }),
         transition: 'none'
       },
       [`&:hover:not(.${clsPrefix}-switch-disabled)`]: {
         backgroundColor: theme.colors.actionDefaultBackgroundHover,
         border: `1px solid ${theme.colors.actionPrimaryBackgroundHover}`,
         [`.${clsPrefix}-switch-handle:before`]: {
-          boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundHover}`
+          ...(useNewShadows ? {
+            boxShadow: theme.shadows.xs,
+            border: `1px solid ${theme.colors.actionPrimaryBackgroundHover}`
+          } : {
+            boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundHover}`
+          })
         }
       },
       [`&:active:not(.${clsPrefix}-switch-disabled)`]: {
         backgroundColor: theme.colors.actionDefaultBackgroundPress,
         border: `1px solid ${theme.colors.actionPrimaryBackgroundPress}`,
         [`.${clsPrefix}-switch-handle:before`]: {
-          boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundHover}`
+          ...(useNewShadows ? {
+            boxShadow: 'none',
+            border: `1px solid ${theme.colors.actionPrimaryBackgroundPress}`
+          } : {
+            boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundHover}`
+          })
         }
       },
       [`&.${clsPrefix}-switch-disabled`]: {
         backgroundColor: theme.colors.actionDisabledBackground,
         border: `1px solid ${theme.colors.actionDisabledBorder}`,
         [`.${clsPrefix}-switch-handle:before`]: {
-          boxShadow: `0px 0px 0px 1px ${theme.colors.actionDisabledBorder}`
+          ...(useNewShadows ? {
+            boxShadow: 'none',
+            border: `1px solid ${theme.colors.actionDisabledBorder}`
+          } : {
+            boxShadow: `0px 0px 0px 1px ${theme.colors.actionDisabledBorder}`
+          })
         }
       },
       [`&:focus-visible`]: {
@@ -15349,7 +15611,12 @@ const getSwitchWithLabelStyles = _ref => {
         outlineWidth: '1px',
         outlineColor: theme.colors.actionDefaultBorderFocus,
         [`.${clsPrefix}-switch-handle:before`]: {
-          boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundDefault}`
+          ...(useNewShadows ? {
+            boxShadow: theme.shadows.xs,
+            border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`
+          } : {
+            boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundDefault}`
+          })
         }
       },
       [`&:focus`]: {
@@ -15362,19 +15629,43 @@ const getSwitchWithLabelStyles = _ref => {
       border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
       [`&:hover:not(.${clsPrefix}-switch-disabled)`]: {
         backgroundColor: theme.colors.actionPrimaryBackgroundHover,
-        border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`
+        ...(useNewShadows ? {
+          border: `1px solid ${theme.colors.actionPrimaryBackgroundHover}`,
+          [`.${clsPrefix}-switch-handle:before`]: {
+            border: `1px solid ${theme.colors.actionPrimaryBackgroundHover}`
+          }
+        } : {
+          border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`
+        })
       },
       [`&:active:not(.${clsPrefix}-switch-disabled)`]: {
-        backgroundColor: theme.colors.actionPrimaryBackgroundPress
+        backgroundColor: theme.colors.actionPrimaryBackgroundPress,
+        ...(useNewShadows && {
+          border: `1px solid ${theme.colors.actionPrimaryBackgroundPress}`,
+          [`.${clsPrefix}-switch-handle:before`]: {
+            border: `1px solid ${theme.colors.actionPrimaryBackgroundPress}`
+          }
+        })
       },
       [`.${clsPrefix}-switch-handle:before`]: {
-        boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundDefault}`
+        ...(useNewShadows ? {
+          boxShadow: theme.shadows.xs,
+          border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
+          right: -1
+        } : {
+          boxShadow: `0px 0px 0px 1px ${theme.colors.actionPrimaryBackgroundDefault}`
+        })
       },
       [`&.${clsPrefix}-switch-disabled`]: {
         backgroundColor: theme.colors.actionDisabledText,
         border: `1px solid ${theme.colors.actionDisabledText}`,
         [`.${clsPrefix}-switch-handle:before`]: {
-          boxShadow: `0px 0px 0px 1px ${theme.colors.actionDisabledText}`
+          ...(useNewShadows ? {
+            boxShadow: 'none',
+            border: `1px solid ${theme.colors.actionDisabledText}`
+          } : {
+            boxShadow: `0px 0px 0px 1px ${theme.colors.actionDisabledText}`
+          })
         }
       },
       [`&:focus-visible`]: {
@@ -15417,6 +15708,9 @@ const Switch = _ref2 => {
     classNamePrefix
   } = useDesignSystemTheme();
   const duboisId = useUniqueId('dubois-switch');
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const uniqueId = (_props$id = props.id) !== null && _props$id !== void 0 ? _props$id : duboisId;
   const [isChecked, setIsChecked] = useState(props.checked || props.defaultChecked);
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
@@ -15459,7 +15753,9 @@ const Switch = _ref2 => {
       ... /*#__PURE__*/css(getAnimationCss(theme.options.enableAnimation), process.env.NODE_ENV === "production" ? "" : ";label:switchComponent;"),
       ...getSwitchWithLabelStyles({
         clsPrefix: classNamePrefix,
-        theme
+        theme,
+        disabled: props.disabled,
+        useNewShadows
       })
     }, process.env.NODE_ENV === "production" ? "" : ";label:switchComponent;")
   });
@@ -15480,8 +15776,10 @@ const Switch = _ref2 => {
       css: getSwitchWithLabelStyles({
         clsPrefix: classNamePrefix,
         theme,
-        disabled: props.disabled
+        disabled: props.disabled,
+        useNewShadows
       }),
+      ...eventContext.dataComponentProps,
       children: hasNewLabels ? jsxs(Fragment, {
         children: [labelComponent, jsx("span", {
           style: {
@@ -15506,9 +15804,11 @@ const Switch = _ref2 => {
         ...getSwitchWithLabelStyles({
           clsPrefix: classNamePrefix,
           theme,
-          disabled: props.disabled
+          disabled: props.disabled,
+          useNewShadows
         })
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Switch;")
+      }, process.env.NODE_ENV === "production" ? "" : ";label:Switch;"),
+      ...eventContext.dataComponentProps
     })
   });
 };
@@ -15535,14 +15835,14 @@ const TypeaheadComboboxContextProvider = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$c() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$8 = process.env.NODE_ENV === "production" ? {
   name: "18nns55",
   styles: "display:inline-block;width:100%"
 } : {
   name: "19m0398-TypeaheadComboboxRoot",
   styles: "display:inline-block;width:100%;label:TypeaheadComboboxRoot;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$c
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
 };
 const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -15578,6 +15878,8 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
       css: _ref2$8,
       ...props,
       ref: ref,
+      "data-component-type": DesignSystemEventProviderComponentTypes.TypeaheadCombobox,
+      "data-component-id": comboboxState.componentId,
       children: children
     })
   });
@@ -15768,17 +16070,17 @@ const useTypeaheadComboboxContext = () => {
   return useContext(TypeaheadComboboxContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$b() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref$5 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$c() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref$6 = process.env.NODE_ENV === "production" ? {
   name: "xv0ss6",
   styles: "padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;position:absolute"
 } : {
   name: "1sd733r-getTypeaheadComboboxMenuStyles",
   styles: "padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;position:absolute;label:getTypeaheadComboboxMenuStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$b
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$c
 };
 const getTypeaheadComboboxMenuStyles = () => {
-  return _ref$5;
+  return _ref$6;
 };
 const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   let {
@@ -15807,6 +16109,10 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
     suppressRefError: true
   });
   const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
+  const [viewPortMaxHeight, setViewPortMaxHeight] = useState(undefined);
+  const {
     floatingUiRefs,
     floatingStyles,
     isInsideTypeaheadCombobox,
@@ -15815,13 +16121,38 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   if (!isInsideTypeaheadCombobox) {
     throw new Error('`TypeaheadComboboxMenu` must be used within `TypeaheadCombobox`');
   }
-  const mergedRef = useMergeRefs([ref, downshiftRef, floatingUiRefs === null || floatingUiRefs === void 0 ? void 0 : floatingUiRefs.setFloating]);
+  const mergedRef = useMergeRefs([ref, downshiftRef, floatingUiRefs === null || floatingUiRefs === void 0 ? void 0 : floatingUiRefs.setFloating, virtualizerRef]);
   const {
     theme
   } = useDesignSystemTheme();
   const {
     getPopupContainer
   } = useDesignSystemContext();
+  const recalculateMaxHeight = useCallback(() => {
+    if (isOpen && floatingUiRefs !== null && floatingUiRefs !== void 0 && floatingUiRefs.floating && floatingUiRefs.reference.current && floatingUiRefs !== null && floatingUiRefs !== void 0 && floatingUiRefs.reference && floatingUiRefs.floating.current) {
+      computePosition(floatingUiRefs.reference.current, floatingUiRefs.floating.current, {
+        middleware: [flip$1(), size({
+          padding: theme.spacing.sm,
+          apply(_ref3) {
+            let {
+              availableHeight
+            } = _ref3;
+            setViewPortMaxHeight(availableHeight);
+          }
+        })]
+      });
+    }
+  }, [isOpen, floatingUiRefs, theme.spacing.sm]);
+  useEffect(() => {
+    if (isOpen && !maxHeight) {
+      window.addEventListener('scroll', recalculateMaxHeight);
+      return () => {
+        window.removeEventListener('scroll', recalculateMaxHeight);
+      };
+    } else {
+      return;
+    }
+  }, [isOpen, maxHeight, recalculateMaxHeight]);
   if (!isOpen) return null;
   const hasFragmentWrapper = children && !Array.isArray(children) && children.type === Fragment$1;
   const filterableChildren = hasFragmentWrapper ? children.props.children : children;
@@ -15833,18 +16164,27 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
     }
     return false;
   });
-  const footer = Children.toArray(children).filter(child => /*#__PURE__*/React__default.isValidElement(child) && child.props._TYPE === 'TypeaheadComboboxFooter');
+  const [menuItemChildren, footer] = Children.toArray(children).reduce((acc, child) => {
+    const isFooter = /*#__PURE__*/React__default.isValidElement(child) && child.props._TYPE === 'TypeaheadComboboxFooter';
+    if (isFooter) {
+      acc[1].push(child);
+    } else {
+      acc[0].push(child);
+    }
+    return acc;
+  }, [[], []]);
   return /*#__PURE__*/createPortal(jsx("ul", {
     ...addDebugOutlineIfEnabled(),
     "aria-busy": loading,
     ...downshiftProps,
     ref: mergedRef,
     css: [getComboboxContentWrapperStyles(theme, {
-      maxHeight,
+      maxHeight: maxHeight !== null && maxHeight !== void 0 ? maxHeight : viewPortMaxHeight,
       maxWidth,
       minHeight,
       minWidth,
-      width
+      width,
+      useNewShadows
     }), getTypeaheadComboboxMenuStyles(), matchTriggerWidth && inputWidth && {
       width: inputWidth
     }, process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxMenu;"],
@@ -15855,16 +16195,18 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
     children: loading ? jsx(LoadingSpinner, {
       "aria-label": "Loading",
       alt: "Loading spinner"
-    }) : hasResults ? jsx("div", {
-      ref: virtualizerRef,
-      style: {
-        position: 'relative',
-        width: '100%',
-        ...(listWrapperHeight && {
-          height: listWrapperHeight
-        })
-      },
-      children: children
+    }) : hasResults ? jsxs(Fragment, {
+      children: [jsx("div", {
+        style: {
+          position: 'relative',
+          width: '100%',
+          ...(listWrapperHeight && {
+            height: listWrapperHeight,
+            flexShrink: 0
+          })
+        },
+        children: menuItemChildren
+      }), footer]
     }) : jsxs(Fragment, {
       children: [jsx(EmptyResults, {
         emptyText: emptyText
@@ -15873,7 +16215,7 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   }), getPopupContainer ? getPopupContainer() : document.body);
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$a() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$b() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getMenuItemStyles = (theme, isHighlighted, disabled) => {
   return /*#__PURE__*/css({
     ...(disabled && {
@@ -15906,7 +16248,7 @@ var _ref2$7 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1uez6s6-TypeaheadComboboxMenuItem",
   styles: "padding-top:2px;label:TypeaheadComboboxMenuItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$b
 };
 var _ref3$4 = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
@@ -15914,7 +16256,7 @@ var _ref3$4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1p9uv37-TypeaheadComboboxMenuItem",
   styles: "display:flex;label:TypeaheadComboboxMenuItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$b
 };
 const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -15985,7 +16327,7 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   return jsxs("li", {
     role: "option",
     "aria-selected": isSelected,
-    disabled: isDisabled,
+    "aria-disabled": isDisabled,
     onClick: handleClick,
     css: [getComboboxOptionItemWrapperStyles(theme), getMenuItemStyles(theme, isHighlighted, isDisabled), process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxMenuItem;"],
     ...downshiftItemProps,
@@ -16009,7 +16351,7 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
             title: disabledReason
           })
         })]
-      }) : children, jsx(HintRow, {
+      }) : children, jsx(HintRow$1, {
         disabled: isDisabled,
         children: hintContent
       })]
@@ -16020,14 +16362,14 @@ TypeaheadComboboxMenuItem.defaultProps = {
   _TYPE: 'TypeaheadComboboxMenuItem'
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$a() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$6 = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "1pneh3l-TypeaheadComboboxCheckboxItem",
   styles: "display:flex;label:TypeaheadComboboxCheckboxItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
 };
 const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -16125,7 +16467,7 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
               title: disabledReason
             })
           })]
-        }) : children, jsx(HintRow, {
+        }) : children, jsx(HintRow$1, {
           disabled: isDisabled,
           children: hintContent
         })]
@@ -16180,14 +16522,14 @@ const TypeaheadComboboxToggleButton = /*#__PURE__*/React__default.forwardRef((_r
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$8() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref2$5 = process.env.NODE_ENV === "production" ? {
   name: "l1fpjx",
   styles: "pointer-events:all;vertical-align:text-top"
 } : {
   name: "4edanz-TypeaheadComboboxControls",
   styles: "pointer-events:all;vertical-align:text-top;label:TypeaheadComboboxControls;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
 };
 const TypeaheadComboboxControls = _ref => {
   let {
@@ -16218,17 +16560,17 @@ const TypeaheadComboboxControls = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref$4 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$8() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref$5 = process.env.NODE_ENV === "production" ? {
   name: "5ob2ly",
   styles: "display:flex;position:relative"
 } : {
   name: "9x5b62-getContainerStyles",
   styles: "display:flex;position:relative;label:getContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
 };
 const getContainerStyles$1 = () => {
-  return _ref$4;
+  return _ref$5;
 };
 const getInputStyles$1 = (theme, showComboboxToggleButton) => /*#__PURE__*/css({
   paddingRight: showComboboxToggleButton ? 52 : 26,
@@ -16460,7 +16802,7 @@ const CountBadge = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getContainerStyles = (theme, validationState, width, maxHeight, disabled) => {
   const validationColor = getValidationStateColor(theme, validationState);
   return /*#__PURE__*/css({
@@ -16486,7 +16828,7 @@ const getContainerStyles = (theme, validationState, width, maxHeight, disabled) 
       border: `1px solid ${theme.colors.actionPrimaryBackgroundHover}`
     },
     '&:focus-within': {
-      outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+      outlineColor: theme.colors.actionDefaultBorderFocus,
       outlineWidth: 2,
       outlineOffset: -2,
       outlineStyle: 'solid',
@@ -16501,7 +16843,7 @@ const getContainerStyles = (theme, validationState, width, maxHeight, disabled) 
         borderColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundHover
       },
       '&:focus': {
-        outlineColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundDefault,
+        outlineColor: validationState ? validationColor : theme.colors.actionDefaultBorderFocus,
         outlineWidth: 2,
         outlineOffset: -2,
         outlineStyle: 'solid',
@@ -16530,21 +16872,21 @@ var _ref2$4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "azzs2i-getContentWrapperStyles",
   styles: "display:flex;flex:auto;flex-wrap:wrap;max-width:100%;position:relative;label:getContentWrapperStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
 };
 const getContentWrapperStyles = () => {
   return _ref2$4;
 };
-var _ref$3 = process.env.NODE_ENV === "production" ? {
+var _ref$4 = process.env.NODE_ENV === "production" ? {
   name: "qngrd1",
   styles: "display:inline-flex;position:relative;max-width:100%;align-self:auto;flex:none"
 } : {
   name: "10x8s5t-getInputWrapperStyles",
   styles: "display:inline-flex;position:relative;max-width:100%;align-self:auto;flex:none;label:getInputWrapperStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
 };
 const getInputWrapperStyles = () => {
-  return _ref$3;
+  return _ref$4;
 };
 const getInputStyles = theme => {
   return /*#__PURE__*/css({
@@ -16572,7 +16914,7 @@ var _ref4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1noplic-content",
   styles: "visibility:hidden;white-space:pre;position:absolute;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
 };
 const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) => {
   var _measureRef$current, _itemsRef$current, _containerRef$current, _innerRef$current2;
@@ -16763,7 +17105,7 @@ const TypeaheadComboboxSeparator = props => {
   if (!isInsideTypeaheadCombobox) {
     throw new Error('`TypeaheadComboboxSeparator` must be used within `TypeaheadComboboxMenu`');
   }
-  return jsx(Separator, {
+  return jsx(Separator$2, {
     ...props
   });
 };
@@ -16793,7 +17135,7 @@ DuboisTypeaheadComboboxFooter.defaultProps = {
 };
 const TypeaheadComboboxFooter = DuboisTypeaheadComboboxFooter;
 
-const TypeaheadComboboxAddButton = _ref => {
+const TypeaheadComboboxAddButton = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
     children,
     ...restProps
@@ -16838,9 +17180,10 @@ const TypeaheadComboboxAddButton = _ref => {
       }), process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxAddButton;")
     }, process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxAddButton;"),
     icon: jsx(PlusIcon, {}),
+    ref: forwardedRef,
     children: children
   });
-};
+});
 
 function RHFControlledInput(_ref) {
   let {
@@ -17448,7 +17791,7 @@ const Space = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getHeaderStyles = (clsPrefix, theme) => {
   const breadcrumbClass = `.${clsPrefix}-breadcrumb`;
   const styles = {
@@ -17458,13 +17801,13 @@ const getHeaderStyles = (clsPrefix, theme) => {
   };
   return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getHeaderStyles;");
 };
-var _ref$2 = process.env.NODE_ENV === "production" ? {
+var _ref$3 = process.env.NODE_ENV === "production" ? {
   name: "1q4vxyr",
   styles: "margin-left:8px"
 } : {
   name: "ozrfom-buttonContainer",
   styles: "margin-left:8px;label:buttonContainer;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 var _ref2$3 = process.env.NODE_ENV === "production" ? {
   name: "s079uh",
@@ -17472,7 +17815,7 @@ var _ref2$3 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1ky5whb-titleIfOtherElementsPresent",
   styles: "margin-top:2px;label:titleIfOtherElementsPresent;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 var _ref3$3 = process.env.NODE_ENV === "production" ? {
   name: "fuxm9z",
@@ -17480,7 +17823,7 @@ var _ref3$3 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "h5m2l9-title",
   styles: "margin-top:0;margin-bottom:0 !important;align-self:stretch;label:title;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 const Header$1 = _ref4 => {
   let {
@@ -17521,7 +17864,7 @@ const Header$1 = _ref4 => {
     title: _ref3$3,
     // TODO: Look into a more emotion-idomatic way of doing this.
     titleIfOtherElementsPresent: _ref2$3,
-    buttonContainer: _ref$2,
+    buttonContainer: _ref$3,
     titleAddOnsWrapper: /*#__PURE__*/css({
       display: 'inline-flex',
       verticalAlign: 'middle',
@@ -17611,7 +17954,6 @@ const HoverCard = _ref => {
     })]
   });
 };
-
 // CONSTANTS used for defining the Arrow's appearance and behavior
 const CONSTANTS = {
   arrowWidth: 12,
@@ -17628,7 +17970,6 @@ const CONSTANTS = {
     return 2;
   }
 };
-
 /**
  * A custom hook to generate CSS styles for the HoverCard's content and arrow.
  * These styles are dynamically generated based on the theme and optional min/max width props.
@@ -17642,6 +17983,9 @@ const useHoverCardStyles = _ref2 => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   return {
     content: {
       backgroundColor: theme.colors.backgroundPrimary,
@@ -17650,12 +17994,12 @@ const useHoverCardStyles = _ref2 => {
       border: `1px solid ${theme.colors.borderDecorative}`,
       borderRadius: theme.legacyBorders.borderRadiusMd,
       padding: `${theme.spacing.sm}px`,
-      boxShadow: theme.general.shadowLow,
+      boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
       userSelect: 'none',
       zIndex: theme.options.zIndexBase + 30,
       minWidth,
       maxWidth,
-      ...getDarkModePortalStyles(theme),
+      ...getDarkModePortalStyles(theme, useNewShadows),
       a: importantify({
         color: theme.colors.actionTertiaryTextDefault,
         cursor: 'default',
@@ -17667,7 +18011,7 @@ const useHoverCardStyles = _ref2 => {
         outlineStyle: 'solid',
         outlineWidth: '2px',
         outlineOffset: '1px',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       }
     },
     arrow: {
@@ -18050,8 +18394,8 @@ const LegacySkeleton = /* #__PURE__ */(() => {
   return LegacySkeleton;
 })();
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-function getPaginationEmotionStyles(clsPrefix, theme) {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function getPaginationEmotionStyles(clsPrefix, theme, useNewShadows) {
   const classRoot = `.${clsPrefix}-pagination`;
   const classItem = `.${clsPrefix}-pagination-item`;
   const classLink = `.${clsPrefix}-pagination-item-link`;
@@ -18064,6 +18408,7 @@ function getPaginationEmotionStyles(clsPrefix, theme) {
   const classSizeChanger = `.${clsPrefix}-pagination-options-size-changer`;
   const classOptions = `.${clsPrefix}-pagination-options`;
   const classDisabled = `.${clsPrefix}-pagination-disabled`;
+  const classSelector = `.${clsPrefix}-select-selector`;
   const styles = {
     'span[role=img]': {
       color: theme.colors.textSecondary,
@@ -18156,7 +18501,12 @@ function getPaginationEmotionStyles(clsPrefix, theme) {
       },
       [`input,  ${classOptions}`]: {
         height: '32px'
-      }
+      },
+      ...(useNewShadows && {
+        [`${classSelector}`]: {
+          boxShadow: theme.shadows.xs
+        }
+      })
     }
   };
   const importantStyles = importantify(styles);
@@ -18178,6 +18528,9 @@ const Pagination = function Pagination(_ref) {
     classNamePrefix,
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const {
     pageSizeSelectAriaLabel,
     pageQuickJumperAriaLabel,
@@ -18212,7 +18565,7 @@ const Pagination = function Pagination(_ref) {
       ref: ref,
       children: jsx(Pagination$1, {
         ...addDebugOutlineIfEnabled(),
-        css: getPaginationEmotionStyles(classNamePrefix, theme),
+        css: getPaginationEmotionStyles(classNamePrefix, theme, useNewShadows),
         current: currentPageIndex,
         pageSize: pageSize,
         responsive: false,
@@ -18223,7 +18576,8 @@ const Pagination = function Pagination(_ref) {
         size: "small",
         style: style,
         hideOnSinglePage: hideOnSinglePage,
-        ...restDangerouslySetAntdProps
+        ...restDangerouslySetAntdProps,
+        ...eventContext.dataComponentProps
       })
     })
   });
@@ -18234,7 +18588,7 @@ var _ref3$2 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1am9qog-CursorPagination",
   styles: "width:120px;label:CursorPagination;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
 };
 const CursorPagination = function CursorPagination(_ref2) {
   let {
@@ -18261,9 +18615,10 @@ const CursorPagination = function CursorPagination(_ref2) {
   } = useDesignSystemTheme();
   const [pageSizeValue, setPageSizeValue] = useState(defaultPageSize);
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const pageSizeEventComponentId = `${componentId}.page_size`;
   const pageSizeEventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.LegacySelect,
-    componentId: `${componentId}.page_size`,
+    componentId: pageSizeEventComponentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
@@ -18277,6 +18632,7 @@ const CursorPagination = function CursorPagination(_ref2) {
         content: 'none'
       }
     }, process.env.NODE_ENV === "production" ? "" : ";label:CursorPagination;"),
+    ...pageSizeEventContext.dataComponentProps,
     children: [jsx(Button, {
       componentId: `${componentId}.previous_page`,
       icon: jsx(ChevronLeftIcon, {}),
@@ -18433,7 +18789,7 @@ const getLegacyTabEmotionStyles = (clsPrefix, theme) => {
       },
       outlineWidth: 2,
       outlineStyle: 'none',
-      outlineColor: theme.colors.primary,
+      outlineColor: theme.colors.actionDefaultBorderFocus,
       outlineOffset: 2,
       '&:focus-visible': {
         outlineStyle: 'auto'
@@ -18496,7 +18852,7 @@ const getLegacyTabEmotionStyles = (clsPrefix, theme) => {
       '&:focus-visible': {
         outlineWidth: 2,
         outlineStyle: 'solid',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       }
     },
     [classAddButton]: {
@@ -18520,7 +18876,7 @@ const getLegacyTabEmotionStyles = (clsPrefix, theme) => {
       '&:focus-visible': {
         outlineWidth: 2,
         outlineStyle: 'solid',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       },
       '& > .anticon': {
         fontSize: 16
@@ -18673,26 +19029,7 @@ const Menu = /* #__PURE__ */(() => {
   return Menu;
 })();
 
-const getCommonTabsListStyles = theme => {
-  return {
-    display: 'flex',
-    borderBottom: `1px solid ${theme.colors.border}`,
-    marginBottom: theme.spacing.md,
-    height: theme.general.heightSm,
-    boxSizing: 'border-box'
-  };
-};
-const getCommonTabsTriggerStyles = theme => {
-  return {
-    display: 'flex',
-    fontWeight: theme.typography.typographyBoldFontWeight,
-    fontSize: theme.typography.fontSizeMd,
-    backgroundColor: 'transparent',
-    marginRight: theme.spacing.md
-  };
-};
-
-const Root$2 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
+const Root$3 = /*#__PURE__*/React__default.forwardRef((props, forwardedRef) => {
   return jsx(RadixNavigationMenu.Root, {
     ...props,
     ref: forwardedRef
@@ -18772,7 +19109,7 @@ var NavigationMenu = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Item: Item,
   List: List$1,
-  Root: Root$2
+  Root: Root$3
 });
 
 const hideAnimation = keyframes({
@@ -18799,7 +19136,7 @@ const swipeOutAnimation = keyframes({
     transform: 'translateX(calc(100% + 12px))'
   }
 });
-const getToastRootStyle = (theme, classNamePrefix) => {
+const getToastRootStyle = (theme, classNamePrefix, useNewShadows) => {
   return /*#__PURE__*/css({
     '&&': {
       position: 'relative',
@@ -18807,12 +19144,12 @@ const getToastRootStyle = (theme, classNamePrefix) => {
       background: theme.colors.backgroundPrimary,
       padding: 12,
       columnGap: 4,
-      boxShadow: theme.general.shadowLow,
+      boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
       borderRadius: theme.general.borderRadiusBase,
       lineHeight: '20px',
       gridTemplateRows: '[header] auto [content] auto',
       gridTemplateColumns: '[icon] auto [content] 1fr [close] auto',
-      ...getDarkModePortalStyles(theme)
+      ...getDarkModePortalStyles(theme, useNewShadows)
     },
     [`.${classNamePrefix}-notification-severity-icon`]: {
       gridRow: 'header / content',
@@ -18855,22 +19192,26 @@ const getToastRootStyle = (theme, classNamePrefix) => {
     }
   }, process.env.NODE_ENV === "production" ? "" : ";label:getToastRootStyle;");
 };
-const Root$1 = /*#__PURE__*/forwardRef(function (_ref, ref) {
+const Root$2 = /*#__PURE__*/forwardRef(function (_ref, ref) {
   let {
     children,
     severity = 'info',
     componentId,
-    analyticsEvents = [],
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnView],
     ...props
   } = _ref;
   const {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Notification,
     componentId,
+    componentSubType: DesignSystemEventProviderComponentSubTypeMap[severity],
     analyticsEvents: memoizedAnalyticsEvents,
     shouldStartInteraction: false
   });
@@ -18882,7 +19223,7 @@ const Root$1 = /*#__PURE__*/forwardRef(function (_ref, ref) {
   });
   return jsxs(Toast.Root, {
     ref: ref,
-    css: getToastRootStyle(theme, classNamePrefix),
+    css: getToastRootStyle(theme, classNamePrefix, useNewShadows),
     ...props,
     ...addDebugOutlineIfEnabled(),
     children: [jsx(SeverityIcon, {
@@ -19028,7 +19369,7 @@ var Notification = /*#__PURE__*/Object.freeze({
   Close: Close,
   Description: Description,
   Provider: Provider,
-  Root: Root$1,
+  Root: Root$2,
   Title: Title,
   Viewport: Viewport
 });
@@ -19123,6 +19464,7 @@ function getTagEmotionStyles(theme) {
     content: {
       display: 'flex',
       alignItems: 'center',
+      minWidth: 0,
       ...(useNewTagColors && {
         height: theme.typography.lineHeightBase
       })
@@ -19200,7 +19542,8 @@ function getTagEmotionStyles(theme) {
       height: theme.typography.lineHeightBase,
       display: 'inline-flex',
       alignItems: 'center',
-      borderRadius: theme.legacyBorders.borderRadiusMd
+      borderRadius: theme.legacyBorders.borderRadiusMd,
+      minWidth: 0
     }
   };
 }
@@ -19235,9 +19578,10 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
     onView: eventContext.onView
   });
   const mergedRef = useMergeRefs([elementRef, forwardedRef]);
+  const closeButtonComponentId = componentId ? `${componentId}.close` : undefined;
   const closeButtonEventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Button,
-    componentId: componentId ? `${componentId}.close` : undefined,
+    componentId: closeButtonComponentId,
     analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
   });
   const handleClick = useCallback(e => {
@@ -19257,15 +19601,15 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   return useNewTagColors ? jsxs("div", {
     ref: mergedRef,
     role: role,
+    onClick: handleClick,
     css: [styles.wrapper, process.env.NODE_ENV === "production" ? "" : ";label:Tag;"],
     ...attributes,
     ...addDebugOutlineIfEnabled(),
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+    tabIndex: isClickable ? 0 : -1,
     children: [jsxs("div", {
       css: [styles.tag, styles.content, styles.text, "margin-right:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:Tag;")],
-      onClick: handleClick
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-      ,
-      tabIndex: isClickable ? 0 : -1,
+      ...eventContext.dataComponentProps,
       children: [icon && jsx("div", {
         css: [styles.icon, process.env.NODE_ENV === "production" ? "" : ";label:Tag;"],
         children: icon
@@ -19282,6 +19626,7 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
         e.stopPropagation();
       },
       ...closeButtonProps,
+      ...closeButtonEventContext.dataComponentProps,
       children: jsx(CloseIcon, {
         css: /*#__PURE__*/css({
           fontSize: theme.general.iconFontSize - 4
@@ -19295,6 +19640,7 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
     onClick: handleClick,
     css: styles.tag,
     ...addDebugOutlineIfEnabled(),
+    ...eventContext.dataComponentProps,
     children: jsxs("div", {
       css: [styles.content, styles.text, process.env.NODE_ENV === "production" ? "" : ";label:Tag;"],
       children: [children, closable && jsx("button", {
@@ -19306,6 +19652,7 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
           e.stopPropagation();
         },
         ...closeButtonProps,
+        ...closeButtonEventContext.dataComponentProps,
         children: jsx(CloseIcon, {
           css: /*#__PURE__*/css({
             fontSize: theme.general.iconFontSize - 4
@@ -19390,6 +19737,118 @@ const PageWrapper = _ref => {
     }, process.env.NODE_ENV === "production" ? "" : ";label:PageWrapper;"),
     ...props,
     children: children
+  });
+};
+
+const getRadioTileStyles = (theme, classNamePrefix, maxWidth) => {
+  const radioWrapper = `.${classNamePrefix}-radio-wrapper`;
+  return /*#__PURE__*/css({
+    '&&': {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+      padding: theme.spacing.md,
+      gap: theme.spacing.xs,
+      borderRadius: theme.borders.borderRadiusSm,
+      background: 'transparent',
+      cursor: 'pointer',
+      ...(maxWidth && {
+        maxWidth
+      }),
+      // Label, radio and icon container
+      '& > div:first-of-type': {
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: theme.spacing.sm
+      },
+      // Description container
+      '& > div:nth-of-type(2)': {
+        alignSelf: 'flex-start',
+        textAlign: 'left',
+        color: theme.colors.textSecondary,
+        fontSize: theme.typography.fontSizeSm
+      },
+      '&:hover': {
+        backgroundColor: theme.colors.actionDefaultBackgroundHover,
+        borderColor: theme.colors.actionDefaultBorderHover
+      },
+      '&:disabled': {
+        borderColor: theme.colors.actionDisabledBorder,
+        backgroundColor: 'transparent',
+        cursor: 'not-allowed',
+        '& > div:nth-of-type(2)': {
+          color: theme.colors.actionDisabledText
+        }
+      }
+    },
+    [radioWrapper]: {
+      display: 'flex',
+      flexDirection: 'row-reverse',
+      justifyContent: 'space-between',
+      flex: 1,
+      margin: 0,
+      '& > span': {
+        padding: 0
+      },
+      '::after': {
+        display: 'none'
+      }
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRadioTileStyles;");
+};
+const RadioTile = props => {
+  const {
+    description,
+    icon,
+    maxWidth,
+    checked,
+    defaultChecked,
+    onChange,
+    ...rest
+  } = props;
+  const {
+    theme,
+    classNamePrefix
+  } = useDesignSystemTheme();
+  const {
+    value: groupValue,
+    onChange: groupOnChange
+  } = useRadioGroupContext();
+  return jsxs("button", {
+    role: "radio",
+    "aria-checked": groupValue === props.value,
+    onClick: () => {
+      if (props.disabled) {
+        return;
+      }
+      onChange === null || onChange === void 0 || onChange(props.value);
+      groupOnChange === null || groupOnChange === void 0 || groupOnChange({
+        target: {
+          value: props.value
+        }
+      });
+    },
+    tabIndex: 0,
+    className: `${classNamePrefix}-radio-tile`,
+    css: getRadioTileStyles(theme, classNamePrefix, maxWidth),
+    disabled: props.disabled,
+    children: [jsxs("div", {
+      children: [icon ? jsx("span", {
+        css: /*#__PURE__*/css({
+          color: props.disabled ? theme.colors.actionDisabledText : theme.colors.textSecondary
+        }, process.env.NODE_ENV === "production" ? "" : ";label:RadioTile;"),
+        children: icon
+      }) : null, jsx(Radio, {
+        __INTERNAL_DISABLE_RADIO_ROLE: true,
+        ...rest,
+        tabIndex: -1
+      })]
+    }), description ? jsx("div", {
+      children: description
+    }) : null]
   });
 };
 
@@ -19481,6 +19940,7 @@ function getSegmentedControlGroupEmotionStyles(clsPrefix) {
 function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
   let spaced = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
   let truncateButtons = arguments.length > 4 ? arguments[4] : undefined;
+  let useNewShadows = arguments.length > 5 ? arguments[5] : undefined;
   const classWrapperChecked = `.${clsPrefix}-radio-button-wrapper-checked`;
   const classWrapper = `.${clsPrefix}-radio-button-wrapper`;
   const classWrapperDisabled = `.${clsPrefix}-radio-button-wrapper-disabled`;
@@ -19495,6 +19955,9 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
     backgroundColor: theme.colors.actionDefaultBackgroundDefault,
     borderColor: theme.colors.actionDefaultBorderDefault,
     color: theme.colors.actionDefaultTextDefault,
+    ...(useNewShadows && {
+      boxShadow: theme.shadows.xs
+    }),
     // This handles the left border of the button when they're adjacent
     '::before': {
       display: spaced ? 'none' : 'block',
@@ -19521,7 +19984,9 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
       backgroundColor: theme.colors.actionTertiaryBackgroundPress,
       borderColor: theme.colors.actionDefaultBorderPress,
       color: theme.colors.actionTertiaryTextPress,
-      boxShadow: 'none',
+      ...(!useNewShadows && {
+        boxShadow: 'none'
+      }),
       '::before': {
         backgroundColor: theme.colors.actionDefaultBorderPress
       },
@@ -19540,10 +20005,9 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
       verticalAlign: 'middle',
       ...(truncateButtons && {
         flexShrink: 1,
-        overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        minWidth: 68 // Don't allow the button to shrink and truncate below 3 characters
+        minWidth: size === 'small' ? 58 : 68 // Don't allow the button to shrink and truncate below 3 characters
       }),
       ...(spaced ? {
         borderWidth: 1,
@@ -19553,7 +20017,7 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
         outlineStyle: 'solid',
         outlineWidth: '2px',
         outlineOffset: '-2px',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       },
       ...(truncateButtons && {
         'span:last-of-type': {
@@ -19620,6 +20084,9 @@ const SegmentedControlButton = /*#__PURE__*/forwardRef(function SegmentedControl
     spaced
   } = useContext(SegmentedControlGroupContext);
   const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false);
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const buttonRef = useRef(null);
   useImperativeHandle(ref, () => buttonRef.current);
   const getLabelFromChildren = useCallback(() => {
@@ -19642,7 +20109,7 @@ const SegmentedControlButton = /*#__PURE__*/forwardRef(function SegmentedControl
   }, [buttonRef, getLabelFromChildren]);
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Radio$1.Button, {
-      css: getSegmentedControlButtonEmotionStyles(classNamePrefix, theme, size, spaced, truncateButtons),
+      css: getSegmentedControlButtonEmotionStyles(classNamePrefix, theme, size, spaced, truncateButtons, useNewShadows),
       ...props,
       ...dangerouslySetAntdProps,
       ref: buttonRef
@@ -19687,10 +20154,119 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
         css: getSegmentedControlGroupEmotionStyles(classNamePrefix, spaced, truncateButtons),
         onChange: onChangeWrapper,
         ...dangerouslySetAntdProps,
-        ref: ref
+        ref: ref,
+        ...eventContext.dataComponentProps
       })
     })
   });
+});
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref$2 = process.env.NODE_ENV === "production" ? {
+  name: "1tciq3q",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
+} : {
+  name: "18im58f-getRootStyles",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+};
+const getRootStyles = () => {
+  return _ref$2;
+};
+const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixSlider.Root, {
+    ...addDebugOutlineIfEnabled(),
+    css: getRootStyles(),
+    ...props,
+    ref: ref
+  });
+});
+const getTrackStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.grey100,
+    position: 'relative',
+    flexGrow: 1,
+    borderRadius: 9999,
+    '&[data-orientation="vertical"]': {
+      width: 3
+    },
+    '&[data-orientation="horizontal"]': {
+      height: 3
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
+};
+const Track = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Track, {
+    css: getTrackStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getRangeStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.primary,
+    position: 'absolute',
+    borderRadius: 9999,
+    height: '100%',
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey100
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
+};
+const Range = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Range, {
+    css: getRangeStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getThumbStyles = (theme, useNewShadows) => {
+  return /*#__PURE__*/css({
+    display: 'block',
+    width: 20,
+    height: 20,
+    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+    boxShadow: useNewShadows ? theme.shadows.xs : `0 2px 4px 0 ${theme.colors.grey400}`,
+    borderRadius: 10,
+    outline: 'none',
+    '&:hover': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundHover
+    },
+    '&:focus': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundPress
+    },
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey200,
+      boxShadow: 'none'
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
+};
+const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
+  return jsx(RadixSlider.Thumb, {
+    css: getThumbStyles(theme, useNewShadows),
+    ...props,
+    ref: ref
+  });
+});
+
+var Slider = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Range: Range,
+  Root: Root$1,
+  Thumb: Thumb,
+  Track: Track
 });
 
 const ButtonGroup = Button$1.Group;
@@ -19785,7 +20361,7 @@ const DropdownButton = props => {
       ...dropdownProps,
       overlay: overlay,
       children: rightButtonToRender
-    }) : jsxs(Root$6, {
+    }) : jsxs(Root$7, {
       ...dropdownMenuRootProps,
       children: [jsx(Trigger$3, {
         disabled: disabled,
@@ -19800,7 +20376,7 @@ const DropdownButton = props => {
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const BUTTON_HORIZONTAL_PADDING = 12;
-function getSplitButtonEmotionStyles(classNamePrefix, theme) {
+function getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows) {
   const classDefault = `.${classNamePrefix}-btn`;
   const classPrimary = `.${classNamePrefix}-btn-primary`;
   const classDropdownTrigger = `.${classNamePrefix}-dropdown-trigger`;
@@ -19808,14 +20384,14 @@ function getSplitButtonEmotionStyles(classNamePrefix, theme) {
   const styles = {
     [classDefault]: {
       ...getDefaultStyles(theme),
-      boxShadow: 'none',
+      boxShadow: useNewShadows ? theme.shadows.xs : 'none',
       height: theme.general.heightSm,
       padding: `4px ${BUTTON_HORIZONTAL_PADDING}px`,
       '&:focus-visible': {
         outlineStyle: 'solid',
         outlineWidth: '2px',
         outlineOffset: '-2px',
-        outlineColor: theme.colors.primary
+        outlineColor: theme.colors.actionDefaultBorderFocus
       },
       '.anticon, &:focus-visible .anticon': {
         color: theme.colors.textSecondary
@@ -19829,6 +20405,9 @@ function getSplitButtonEmotionStyles(classNamePrefix, theme) {
     },
     [classPrimary]: {
       ...getPrimaryStyles(theme),
+      ...(useNewShadows && {
+        boxShadow: theme.shadows.xs
+      }),
       [`&:first-of-type`]: {
         borderRight: `1px solid ${theme.colors.actionPrimaryTextDefault}`,
         marginRight: 1
@@ -19857,17 +20436,28 @@ function getSplitButtonEmotionStyles(classNamePrefix, theme) {
         padding: 5
       }
     },
-    '[disabled]': {
-      ...getDisabledSplitButtonStyles(theme),
-      [`&:first-of-type`]: {
-        borderRight: `1px solid ${theme.colors.actionPrimaryIcon}`,
-        marginRight: 1
+    '&&': {
+      [`[disabled], ${classPrimary}[disabled]`]: {
+        ...getDisabledSplitButtonStyles(theme, useNewShadows),
+        ...(useNewShadows && {
+          boxShadow: 'none'
+        }),
+        [`&:first-of-type`]: {
+          borderRight: `1px solid ${theme.colors.actionPrimaryIcon}`,
+          marginRight: 1
+        },
+        [classDropdownTrigger]: {
+          borderLeft: `1px solid ${theme.colors.actionPrimaryIcon}`
+        },
+        '.anticon, &:hover .anticon, &:active .anticon, &:focus-visible .anticon': {
+          color: theme.colors.actionDisabledText
+        }
       },
-      [classDropdownTrigger]: {
-        borderLeft: `1px solid ${theme.colors.actionPrimaryIcon}`
-      },
-      '.anticon, &:hover .anticon, &:active .anticon, &:focus-visible .anticon': {
-        color: theme.colors.actionPrimaryIcon
+      [`${classPrimary}[disabled]`]: {
+        ...getDisabledPrimarySplitButtonStyles(theme, useNewShadows),
+        '.anticon, &:hover .anticon, &:active .anticon, &:focus-visible .anticon': {
+          color: theme.colors.actionPrimaryTextDefault
+        }
       }
     },
     [`${classDefault}:not(:first-of-type)`]: {
@@ -19893,6 +20483,9 @@ const SplitButton = props => {
     classNamePrefix
   } = useDesignSystemTheme();
   const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
+  const {
     children,
     icon,
     deprecatedMenu,
@@ -19903,11 +20496,9 @@ const SplitButton = props => {
     dangerouslySetAntdProps,
     ...dropdownButtonProps
   } = props;
-
   // Size of button when loading only icon is shown
   const LOADING_BUTTON_SIZE = theme.general.iconFontSize + 2 * BUTTON_HORIZONTAL_PADDING + 2 * theme.general.borderWidth;
   const [width, setWidth] = useState(LOADING_BUTTON_SIZE);
-
   // Set the width to the button's width in regular state to later use when in loading state
   // We do this to have just a loading icon in loading state at the normal width to avoid flicker and width changes in page
   const ref = useCallback(node => {
@@ -19936,7 +20527,7 @@ const SplitButton = props => {
         ...dropdownButtonProps,
         overlay: deprecatedMenu,
         trigger: ['click'],
-        css: getSplitButtonEmotionStyles(classNamePrefix, theme),
+        css: getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows),
         icon: jsx(ChevronDownIcon, {
           css: /*#__PURE__*/css({
             fontSize: theme.general.iconFontSize
@@ -20190,7 +20781,7 @@ const TableHeaderResizeHandle = /*#__PURE__*/forwardRef(function TableHeaderResi
       css: tableStyles.resizeHandle
     })
   });
-  return increaseWidthHandler && decreaseWidthHandler ? jsxs(Root$7, {
+  return increaseWidthHandler && decreaseWidthHandler ? jsxs(Root$8, {
     componentId: "codegen_design-system_src_design-system_tableui_tableheader.tsx_114",
     onOpenChange: setIsPopoverOpen,
     children: [jsx(Trigger$4, {
@@ -20341,6 +20932,7 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
       textAlign: align,
       ...style
     },
+    ...eventContext.dataComponentProps,
     children: [sortable && !isResizing ? jsxs("div", {
       css: [tableStyles.headerButtonTarget, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
       role: "button",
@@ -20391,6 +20983,9 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     ...rest
   } = _ref;
   const {
+    theme
+  } = useDesignSystemTheme();
+  const {
     isHeader
   } = useContext(TableRowContext);
   const {
@@ -20407,7 +21002,8 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     ref: ref,
     css: tableStyles.checkboxCell,
     style: {
-      ['--row-checkbox-opacity']: someRowsSelected ? 1 : 0
+      ['--row-checkbox-opacity']: someRowsSelected ? 1 : 0,
+      zIndex: theme.options.zIndexBase
     },
     role: isHeader ? 'columnheader' : 'cell'
     // TODO: Ideally we shouldn't need to specify this `className`, but it allows for row-hovering to reveal
@@ -20427,7 +21023,10 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
 
 const TabsRootContext = /*#__PURE__*/React__default.createContext({
   activeValue: undefined,
-  componentId: 'design_system.tabs.default_component_id'
+  dataComponentProps: {
+    'data-component-id': 'design_system.tabs.default_component_id',
+    'data-component-type': DesignSystemEventProviderComponentTypes.Tabs
+  }
 });
 const TabsListContext = /*#__PURE__*/React__default.createContext({
   viewportRef: {
@@ -20466,7 +21065,7 @@ const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   return jsx(TabsRootContext.Provider, {
     value: {
       activeValue: isControlled ? value : uncontrolledActiveValue,
-      componentId
+      dataComponentProps: eventContext.dataComponentProps
     },
     children: jsx(RadixTabs.Root, {
       value: value,
@@ -20481,17 +21080,24 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
   let {
     addButtonProps,
     scrollAreaViewportCss,
+    tabListCss,
     children,
     dangerouslyAppendEmotionCSS,
     shadowScrollStylesBackgroundColor,
     scrollbarHeight,
+    getScrollAreaViewportRef,
     ...props
   } = _ref2;
   const viewportRef = React__default.useRef(null);
   const {
-    componentId
+    dataComponentProps
   } = React__default.useContext(TabsRootContext);
   const css = useListStyles(shadowScrollStylesBackgroundColor, scrollbarHeight);
+  React__default.useEffect(() => {
+    if (getScrollAreaViewportRef) {
+      getScrollAreaViewportRef(viewportRef.current);
+    }
+  }, [getScrollAreaViewportRef]);
   return jsx(TabsListContext.Provider, {
     value: {
       viewportRef
@@ -20505,9 +21111,10 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
           css: [css['viewport'], scrollAreaViewportCss, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
           ref: viewportRef,
           children: jsx(RadixTabs.List, {
-            css: css['list'],
+            css: [css['list'], tabListCss, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
             ...props,
             ref: forwardedRef,
+            ...dataComponentProps,
             children: children
           })
         }), jsx(ScrollArea.Scrollbar, {
@@ -20525,7 +21132,7 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
           "aria-label": "Add tab",
           css: css['addButton'],
           onClick: addButtonProps.onClick,
-          componentId: `${componentId}.add_tab`,
+          componentId: `${dataComponentProps['data-component-id']}.add_tab`,
           className: addButtonProps.className
         })
       })]
@@ -20544,8 +21151,9 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
   const mergedRef = useMergeRefs([forwardedRef, triggerRef]);
   const {
     activeValue,
-    componentId
+    dataComponentProps
   } = React__default.useContext(TabsRootContext);
+  const componentId = dataComponentProps['data-component-id'];
   const {
     viewportRef
   } = React__default.useContext(TabsListContext);
@@ -20771,12 +21379,15 @@ var Tabs = /*#__PURE__*/Object.freeze({
 });
 
 const SMALL_BUTTON_HEIGHT = 24;
-const getStyles = (theme, size, onlyIcon) => {
+const getStyles = (theme, size, onlyIcon, useNewShadows) => {
   return /*#__PURE__*/css({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     whiteSpace: 'nowrap',
+    ...(useNewShadows && {
+      boxShadow: theme.shadows.xs
+    }),
     border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
     borderRadius: theme.general.borderRadiusBase,
     backgroundColor: 'transparent',
@@ -20810,6 +21421,9 @@ const getStyles = (theme, size, onlyIcon) => {
       borderColor: theme.colors.actionDisabledBorder,
       color: theme.colors.actionDisabledText,
       backgroundColor: 'transparent',
+      ...(useNewShadows && {
+        boxShadow: 'none'
+      }),
       '& > svg': {
         stroke: theme.colors.border
       }
@@ -20874,6 +21488,9 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
   const [isPressed, setIsPressed] = React__default.useState(defaultPressed);
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -20902,11 +21519,12 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
   return jsxs(Toggle.Root, {
     ...addDebugOutlineIfEnabled(),
-    css: getStyles(theme, size, iconOnly),
+    css: getStyles(theme, size, iconOnly, useNewShadows),
     ...props,
     pressed: isPressed,
     onPressedChange: handleOnPressedChange,
     ref: ref,
+    ...eventContext.dataComponentProps,
     children: [jsx("span", {
       className: "togglebutton-icon-wrapper",
       style: {
@@ -21183,7 +21801,7 @@ function getTreeEmotionStyles(clsPrefix, theme, size) {
       backgroundColor: 'transparent',
       outlineWidth: 2,
       outlineOffset: 1,
-      outlineColor: theme.colors.primary,
+      outlineColor: theme.colors.actionDefaultBorderFocus,
       outlineStyle: 'solid'
     },
     [classCheckbox]: {
@@ -21289,5 +21907,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderFillIcon, FolderIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MeasureIcon, Menu, MenuIcon, MetricViewIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, SlidersIcon, SortAlphabeticalAscendingIcon, SortAlphabeticalDescendingIcon, SortAlphabeticalLeftIcon, SortAlphabeticalRightIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableModelIcon, TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, isOptionDisabled, resetTabIndexToFocusedElement, useComboboxState, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
+export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, AzHorizontalIcon, AzVerticalIcon, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BarsAscendingHorizontalIcon, BarsAscendingVerticalIcon, BarsDescendingHorizontalIcon, BarsDescendingVerticalIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ComponentFinderContext, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CreditCardIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentSubTypeMap, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderFillIcon, FolderIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightbulbIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MeasureIcon, Menu, MenuIcon, MetricViewIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PanelDockedIcon, PanelFloatingIcon, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, RadioTile, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, Slider, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableModelIcon, TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowCodeIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZaHorizontalIcon, ZaVerticalIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, useComboboxState, useComponentFinderContext, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemSafexFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useRadioGroupContext, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

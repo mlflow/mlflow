@@ -1,49 +1,82 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React from 'react';
-import { Collapse } from 'antd';
-import { useIntl } from 'react-intl';
+import React, { useCallback } from 'react';
 import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
-import { ChevronRightIcon, importantify, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ChevronRightIcon,
+  useDesignSystemTheme,
+  Accordion,
+  DesignSystemThemeInterface,
+  importantify,
+} from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 
-type OwnProps = {
+interface CollapsibleSectionProps {
   title: string | any;
   forceOpen?: boolean;
   children: React.ReactNode;
   showServerError?: boolean;
   defaultCollapsed?: boolean;
-  onChange?: (...args: any[]) => any;
+  onChange?: (key: string | string[]) => void;
+  className?: string;
+  componentId?: string;
+}
+
+// Custom styles to make <Accordion> look like previously used <Collapse> from antd
+const getAccordionStyles = ({
+  theme,
+  getPrefixedClassName,
+}: Pick<DesignSystemThemeInterface, 'theme' | 'getPrefixedClassName'>) => {
+  const clsPrefix = getPrefixedClassName('collapse');
+
+  const classItem = `.${clsPrefix}-item`;
+  const classHeader = `.${clsPrefix}-header`;
+  const classContentBox = `.${clsPrefix}-content-box`;
+
+  return {
+    fontSize: 14,
+    [`& > ${classItem} > ${classHeader}`]: {
+      paddingLeft: 0,
+      paddingTop: 12,
+      paddingBottom: 12,
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: 16,
+      fontWeight: 'normal',
+      lineHeight: theme.typography.lineHeightLg,
+    },
+    [classContentBox]: {
+      padding: `${theme.spacing.xs}px 0 ${theme.spacing.md}px 0`,
+    },
+  };
 };
 
-// @ts-expect-error TS(2565): Property 'defaultProps' is used before being assig... Remove this comment to see the full error message
-type Props = OwnProps & typeof CollapsibleSection.defaultProps;
+export function CollapsibleSection(props: CollapsibleSectionProps) {
+  const {
+    title,
+    forceOpen,
+    showServerError,
+    defaultCollapsed,
+    onChange,
+    className,
+    componentId = 'mlflow.common.generic_collapsible_section',
+  } = props;
 
-export function CollapsibleSection(props: Props) {
-  const { title, forceOpen, showServerError, defaultCollapsed, onChange } = props;
   // We need to spread `activeKey` into <Collapse/> as an optional prop because its enumerability
   // affects rendering, i.e. passing `activeKey={undefined}` is different from not passing activeKey
   const activeKeyProp = forceOpen && { activeKey: ['1'] };
   const defaultActiveKey = defaultCollapsed ? null : ['1'];
-  const { formatMessage } = useIntl();
-  const { theme } = useDesignSystemTheme();
 
-  return (
-    <Collapse
-      className="collapsible-section"
-      // @ts-expect-error TS(2322): Type '{ '.collapsible-panel': { position: string; ... Remove this comment to see the full error message
-      css={classNames.wrapper}
-      bordered={false}
-      {...activeKeyProp}
-      // @ts-expect-error TS(2322): Type 'string[] | null' is not assignable to type '... Remove this comment to see the full error message
-      defaultActiveKey={defaultActiveKey}
-      expandIcon={({ isActive }) => (
-        // Font-size !important because antd's css clobbers any sort of svg size here.
+  const { theme, getPrefixedClassName } = useDesignSystemTheme();
+  const { formatMessage } = useIntl();
+
+  const getExpandIcon = useCallback(
+    ({ isActive }: { isActive?: boolean }) => (
+      <div
+        css={importantify({ width: theme.general.heightBase / 2, transform: isActive ? 'rotate(90deg)' : undefined })}
+      >
         <ChevronRightIcon
+          css={{
+            svg: { width: theme.general.heightBase / 2, height: theme.general.heightBase / 2 },
+          }}
           aria-label={
             isActive
               ? formatMessage(
@@ -61,39 +94,28 @@ export function CollapsibleSection(props: Props) {
                   { title },
                 )
           }
-          css={{ fontSize: '20px!important' }}
-          rotate={isActive ? 90 : 0}
         />
-      )}
+      </div>
+    ),
+    [theme, title, formatMessage],
+  );
+
+  return (
+    <Accordion
+      componentId={componentId}
+      {...activeKeyProp}
+      dangerouslyAppendEmotionCSS={getAccordionStyles({ theme, getPrefixedClassName })}
+      dangerouslySetAntdProps={{
+        className,
+        expandIconPosition: 'left',
+        expandIcon: getExpandIcon,
+      }}
+      defaultActiveKey={defaultActiveKey ?? undefined}
       onChange={onChange}
     >
-      <Collapse.Panel
-        className="collapsible-panel"
-        header={title}
-        key="1"
-        css={{
-          '&, .ant-collapse-header, .ant-collapse-content': importantify({
-            color: theme.colors.textPrimary,
-          }),
-        }}
-      >
+      <Accordion.Panel header={title} key="1">
         <SectionErrorBoundary showServerError={showServerError}>{props.children}</SectionErrorBoundary>
-      </Collapse.Panel>
-    </Collapse>
+      </Accordion.Panel>
+    </Accordion>
   );
 }
-
-const classNames = {
-  wrapper: {
-    '.collapsible-panel': {
-      position: 'relative',
-    },
-    '& > .collapsible-panel > [role="button"]:focus': {
-      outline: 'revert',
-    },
-  },
-};
-
-CollapsibleSection.defaultProps = {
-  forceOpen: false,
-};

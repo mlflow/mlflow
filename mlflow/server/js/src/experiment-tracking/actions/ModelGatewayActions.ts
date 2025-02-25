@@ -9,7 +9,7 @@ import {
   SearchMlflowDeploymentsModelRoutesResponse,
 } from '../sdk/ModelGatewayService';
 
-export const SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES = 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
+const SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES = 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
 
 export interface SearchMlflowDeploymentsModelRoutesAction
   extends AsyncAction<SearchMlflowDeploymentsModelRoutesResponse> {
@@ -23,11 +23,3 @@ export const searchMlflowDeploymentsRoutesApi = (filter?: string): SearchMlflowD
   }) as Promise<SearchMlflowDeploymentsModelRoutesResponse>,
   meta: { id: getUUID() },
 });
-export const QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API = 'QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API';
-export const queryMlflowDeploymentsRouteApi = (route: ModelGatewayRoute, data: ModelGatewayQueryPayload) => {
-  return {
-    type: QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API,
-    payload: ModelGatewayService.queryMLflowDeploymentEndpointRoute(route, data),
-    meta: { id: getUUID(), startTime: performance.now() },
-  };
-};

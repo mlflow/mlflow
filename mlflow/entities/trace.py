@@ -111,6 +111,7 @@ class Trace(_MlflowObject):
             "request_metadata": self.info.request_metadata,
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
+            "assessments": self.info.assessments,
         }
 
     def _deserialize_json_attr(self, value: str):
@@ -230,4 +231,5 @@ class Trace(_MlflowObject):
             "request_metadata",
             "spans",
             "tags",
+            "assessments",
         ]

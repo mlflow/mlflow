@@ -23,10 +23,10 @@ export const getLanguage = (path: any) => {
   return ext;
 };
 
-export const MLPROJECT_FILE_NAME = 'mlproject';
-export const MLMODEL_FILE_NAME = 'mlmodel';
+const MLPROJECT_FILE_NAME = 'mlproject';
+const MLMODEL_FILE_NAME = 'mlmodel';
 
-export const MLFLOW_FILE_LANGUAGES = {
+const MLFLOW_FILE_LANGUAGES = {
   [MLPROJECT_FILE_NAME.toLowerCase()]: 'yaml',
   [MLMODEL_FILE_NAME.toLowerCase()]: 'yaml',
 };

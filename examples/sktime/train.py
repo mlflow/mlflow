@@ -12,8 +12,6 @@ from sktime.performance_metrics.forecasting import (
 
 import mlflow
 
-ARTIFACT_PATH = "model"
-
 with mlflow.start_run() as run:
     y, X = load_longley()
     y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
@@ -46,12 +44,12 @@ with mlflow.start_run() as run:
     # (version) in whatever environment you're going to use this model for
     # inference to ensure that the model will load with appropriate version of
     # pickle.
-    flavor.log_model(
+    model_info = flavor.log_model(
         sktime_model=forecaster,
-        artifact_path=ARTIFACT_PATH,
+        artifact_path="sktime_model",
         serialization_format="pickle",
     )
-    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+    model_uri = model_info.model_uri
 
 # Load model in native sktime flavor and pyfunc flavor
 loaded_model = flavor.load_model(model_uri=model_uri)

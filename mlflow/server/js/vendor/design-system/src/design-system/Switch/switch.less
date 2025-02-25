@@ -1,0 +1,91 @@
+@import '~antd/lib/switch/style/index.less';
+
+// TODO: Use shared color variables
+@switch-color: #2273b5;
+@switch-color-unchecked: #64727d;
+@switch-color-disabled: #a2aeb8;
+@switch-hover-color: #186099;
+@switch-hover-active: #0d4f85;
+@switch-bg: white;
+
+.@{switch-prefix-cls} {
+  transition: none;
+  border: 1px solid @switch-color-unchecked;
+  background-color: white;
+  margin-right: 8px;
+
+  .@{switch-prefix-cls}-handle::before {
+    box-shadow: 0px 0px 0px 1px @switch-color-unchecked;
+  }
+
+  &-checked {
+    border: 1px solid @switch-color;
+    background-color: @switch-color;
+
+    .@{switch-prefix-cls}-handle::before {
+      box-shadow: none;
+    }
+  }
+
+  &:focus-visible {
+    box-shadow: 0px 0px 0px 1px @switch-color;
+    border: 1px solid @switch-color;
+
+    .@{switch-prefix-cls}-handle::before {
+      box-shadow: 0px 0px 0px 1px @switch-color;
+    }
+  }
+
+  &-checked:focus-visible {
+    box-shadow: 0px 0px 0px 1px #ffffff, 0px 0px 0px 3px @switch-color;
+  }
+
+  &:hover {
+    border: 1px solid @switch-hover-color;
+    background-color: fade(@switch-color, 8%);
+
+    .@{switch-prefix-cls}-handle::before {
+      box-shadow: 0px 0px 0px 1px @switch-hover-color;
+    }
+  }
+
+  &-checked:hover {
+    background-color: @switch-hover-color;
+  }
+
+  &:active {
+    background-color: fade(@switch-color, 16%);
+  }
+
+  &-checked:active {
+    background-color: @switch-hover-active;
+  }
+
+  &-disabled,
+  &-disabled:hover {
+    border: 1px solid @switch-color-disabled;
+
+    .@{switch-prefix-cls}-handle::before {
+      box-shadow: 0px 0px 0px 1px @switch-color-disabled;
+    }
+  }
+
+  &-disabled&-checked {
+    background-color: @switch-color-disabled;
+  }
+
+  // Don't expand handle when it's active
+  &:not(&-disabled):active {
+    .@{switch-prefix-cls}-handle::before {
+      right: 0;
+      left: 0;
+    }
+
+    &.@{switch-prefix-cls}-checked {
+      .@{switch-prefix-cls}-handle::before {
+        right: 0;
+        left: 0;
+      }
+    }
+  }
+}

@@ -31,11 +31,18 @@ import {
 } from '../../../../common/utils/FeatureUtils';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import { useMemo } from 'react';
+import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import { ErrorBoundary } from 'react-error-boundary';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual('../../../actions'),
   searchRunsApi: jest.fn(),
   loadMoreRunsApi: jest.fn(),
+}));
+
+jest.mock('../../../../model-registry/actions', () => ({
+  ...jest.requireActual('../../../../model-registry/actions'),
+  searchModelVersionsApi: jest.fn(),
 }));
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
@@ -165,6 +172,8 @@ const testSearchFacets = createExperimentPageSearchFacetsState();
 
 // This suite tests useExperimentRuns hook, related reducers, actions and selectors.
 describe('useExperimentRuns - integration test', () => {
+  const errorBoundaryFn = jest.fn();
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.mocked(searchRunsApi).mockClear();
@@ -198,7 +207,11 @@ describe('useExperimentRuns - integration test', () => {
           experimentIds: string[];
         }) => useExperimentRuns(uiState, searchFacets, experimentIds),
         {
-          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          wrapper: ({ children }) => (
+            <ErrorBoundary onError={errorBoundaryFn} fallback={<div />}>
+              <Provider store={store}>{children}</Provider>
+            </ErrorBoundary>
+          ),
           initialProps: {
             uiState: initialUiState,
             searchFacets: initialSearchFacets,
@@ -388,7 +401,8 @@ describe('useExperimentRuns - integration test', () => {
     });
     jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
     const { result } = await renderTestHook();
-    expect(result.current.requestError?.getMessageField()).toEqual('request failure');
+    expect(result.current.requestError).toBeInstanceOf(ErrorWrapper);
+    expect((result.current.requestError as ErrorWrapper).getMessageField()).toEqual('request failure');
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
   });
 

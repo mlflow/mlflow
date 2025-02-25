@@ -91,5 +91,10 @@ export interface WizardStep {
      * The wizard must have property `enableClickingToSteps` set to true for this to work
      */
     clickEnabled?: boolean;
+    /**
+     * If a disabledReason is provided, it will display as a tooltip when the next and all extra buttons are hovered over, but only if the button is in a disabled state
+     * This is useful for providing context to the user as to why the button is disabled
+     */
+    disabledReason?: string;
 }
 //# sourceMappingURL=WizardStep.d.ts.map

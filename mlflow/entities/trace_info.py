@@ -2,6 +2,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -31,6 +32,7 @@ class TraceInfo(_MlflowObject):
     status: TraceStatus
     request_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
+    assessments: list[Assessment] = field(default_factory=list)
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -69,7 +71,7 @@ class TraceInfo(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto, assessments=None):
         return cls(
             request_id=proto.request_id,
             experiment_id=proto.experiment_id,
@@ -78,6 +80,7 @@ class TraceInfo(_MlflowObject):
             status=TraceStatus.from_proto(proto.status),
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
+            assessments=assessments or [],
         )
 
     def to_dict(self):

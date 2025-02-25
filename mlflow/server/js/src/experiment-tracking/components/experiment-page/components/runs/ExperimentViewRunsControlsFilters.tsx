@@ -65,7 +65,7 @@ export type ExperimentViewRunsControlsFiltersProps = {
   updateViewState: UpdateExperimentViewStateFn;
   runsData: ExperimentRunsSelectorResult;
   onDownloadCsv: () => void;
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
   additionalControls?: React.ReactNode;
   refreshRuns: () => void;
   viewMaximized: boolean;

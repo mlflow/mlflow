@@ -1,0 +1,45 @@
+@import '~antd/lib/notification/style/index.less';
+
+@shadowLow: 0px 4px 16px rgba(46, 56, 64, 0.12);
+
+.@{notification-prefix-cls}-notice {
+  padding: 10px 40px 10px 32px;
+  box-shadow: @shadowLow;
+
+  .@{notification-prefix-cls}-notice-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    margin-left: 0;
+    left: 12px;
+    top: 12px;
+    line-height: 16px;
+  }
+
+  .@{notification-prefix-cls}-notice-close {
+    top: 12px;
+    right: 12px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+
+    span[role='img'] {
+      font-size: 16px;
+    }
+  }
+
+  .@{notification-prefix-cls}-notice-message {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .@{notification-prefix-cls}-notice-message,
+  .@{notification-prefix-cls}-notice-description {
+    margin-left: unset;
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+}
