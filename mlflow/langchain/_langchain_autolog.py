@@ -102,10 +102,9 @@ def _setup_autolog_run(config, model):
 
     Returns: yields the run IDs
     """
-    if propagated_run_id := getattr(model, "source_run_id", None):
-        # When model has "source_run_id" attribute, it means the model is already invoked
-        # once with autolog enabled and the source_run_id is propagated from the previous call,
-        # so we don't create a new run.
+    if propagated_run_id := getattr(model, "run_id", None):
+        # When model has "run_id" attribute, it means the model is already invoked once with autolog
+        # enabled and the run_id is propagated from the previous call, so we don't create a new run.
         run_id = propagated_run_id
         # The run should be already terminated at the end of the previous call.
         should_terminate_run = False
