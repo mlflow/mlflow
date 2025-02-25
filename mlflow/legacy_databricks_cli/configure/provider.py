@@ -325,7 +325,9 @@ class ProfileConfigProvider(DatabricksConfigProvider):
             client_secret=client_secret,
             auth_type=auth_type,
         )
-        _logger.warning(f"Liang debug config is valid {config.is_valid}, host {host}, token {token}")
+        _logger.warning(
+            f"Liang debug config is valid {config.is_valid}, host {host}, token {token}"
+        )
 
         if config.is_valid:
             return config

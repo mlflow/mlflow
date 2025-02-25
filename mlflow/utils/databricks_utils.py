@@ -847,10 +847,12 @@ def _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(datab
             host_creds.token,
             host_creds.databricks_auth_profile,
         )
-        # Older Databricks SDK versions don't have the 
+        # Older Databricks SDK versions don't have the
         # enable_experimental_files_api_client attribute on the config object
-        if (hasattr(ws_client.config, "enable_experimental_files_api_client")
-                and ws_client.config.enable_experimental_files_api_client):
+        if (
+            hasattr(ws_client.config, "enable_experimental_files_api_client")
+            and ws_client.config.enable_experimental_files_api_client
+        ):
             return ws_client
         return None
     return None

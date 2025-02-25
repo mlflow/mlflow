@@ -26,9 +26,11 @@ def set_creds(monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "abc")
     monkeypatch.setenv("DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT", "False")
 
+
 @pytest.fixture(autouse=False)
 def enable_experimental_files_api(monkeypatch):
     monkeypatch.setenv("DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT", "True")
+
 
 @pytest.fixture
 def artifact_repo(monkeypatch):
@@ -84,10 +86,13 @@ def test_log_artifact(artifact_repo, artifact_path, tmp_path):
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifact_files_api(enable_experimental_files_api, artifact_repo, artifact_path, tmp_path):
-
+def test_log_artifact_files_api(
+    enable_experimental_files_api, artifact_repo, artifact_path, tmp_path
+):
     with mock.patch.object(artifact_repo.workspace_client.files, "upload") as mock_upload:
-        with mock.patch("mlflow.store.artifact.uc_volume_artifact_repo.http_request") as mock_request:
+        with mock.patch(
+            "mlflow.store.artifact.uc_volume_artifact_repo.http_request"
+        ) as mock_request:
             tmp_file = tmp_path.joinpath("local_file")
             tmp_file.touch()
             artifact_repo.log_artifact(tmp_file, artifact_path)
@@ -243,16 +248,20 @@ def test_download_file(artifact_repo, remote_file_path, tmp_path):
 
 
 @pytest.mark.parametrize("remote_file_path", ["file", "dir/file"])
-def test_download_file_files_api(enable_experimental_files_api, artifact_repo, remote_file_path, tmp_path):
+def test_download_file_files_api(
+    enable_experimental_files_api, artifact_repo, remote_file_path, tmp_path
+):
     mock_file_contents = b"content"
     mock_file_like = mock.MagicMock()
     mock_file_like.contents = io.BytesIO(mock_file_contents)
 
     mock_context_manager = mock.MagicMock()
     mock_context_manager.__enter__.return_value = mock_file_like
-    
+
     with mock.patch.object(artifact_repo.workspace_client.files, "download") as mock_download:
-        with mock.patch("mlflow.store.artifact.uc_volume_artifact_repo.http_request") as mock_request:
+        with mock.patch(
+            "mlflow.store.artifact.uc_volume_artifact_repo.http_request"
+        ) as mock_request:
             mock_download.return_value = mock_context_manager
             output_path = tmp_path.joinpath("output_path")
 

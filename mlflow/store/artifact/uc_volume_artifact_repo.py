@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import posixpath
 from pathlib import Path
 from typing import Optional
@@ -11,7 +11,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.utils.databricks_utils import _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled, get_databricks_host_creds
+from mlflow.utils.databricks_utils import (
+    _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled,
+    get_databricks_host_creds,
+)
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.request_utils import augmented_raise_for_status
 from mlflow.utils.rest_utils import http_request
@@ -117,7 +120,11 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         See also:
             https://docs.databricks.com/api/workspace/files/download
         """
-        self.workspace_client = _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(self.databricks_profile_uri)
+        self.workspace_client = (
+            _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(
+                self.databricks_profile_uri
+            )
+        )
         if self.workspace_client:
             _logger.debug("Using Databricks SDK experimental Files API for file download.")
             with open(output_path, "wb") as f:
@@ -130,7 +137,6 @@ class UCVolumesArtifactRepository(ArtifactRepository):
                     for content in resp.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                         f.write(content)
                     augmented_raise_for_status(resp)
-                    
 
     def _upload(self, local_file, file_path):
         """
@@ -146,7 +152,11 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         See also:
             https://docs.databricks.com/api/workspace/files/upload
         """
-        self.workspace_client = _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(self.databricks_profile_uri)
+        self.workspace_client = (
+            _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(
+                self.databricks_profile_uri
+            )
+        )
         if self.workspace_client:
             _logger.debug("Using Databricks SDK experimental Files API for file upload.")
             with open(local_file, "rb") as f:
@@ -154,7 +164,9 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         else:
             endpoint = f"{FILES_API_ENDPOINT}{file_path}"
             with open(local_file, "rb") as f:
-                resp = self._api_request(endpoint=endpoint, method="PUT", data=f, allow_redirects=False)
+                resp = self._api_request(
+                    endpoint=endpoint, method="PUT", data=f, allow_redirects=False
+                )
             augmented_raise_for_status(resp)
 
     def _get_path(self, artifact_path=None):
