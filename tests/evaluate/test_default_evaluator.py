@@ -4274,13 +4274,14 @@ def test_evaluate_errors_invalid_pos_label():
 
 
 @pytest.mark.parametrize(
-    "model_output",
+    ("model_output", "predictions"),
     [
-        pd.DataFrame({"output": [0, 1, 2]}),
-        pd.Series([0, 1, 2]),
+        (pd.DataFrame({"output": [0, 1, 2]}), None),
+        (pd.DataFrame({"output_1": [0, 1, 2], "output_2": [4, 5, 6]}), "output_1"),
+        (pd.Series([0, 1, 2]), None),
     ],
 )
-def test_regressor_returning_pandas_object(model_output):
+def test_regressor_returning_pandas_object(model_output, predictions):
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             return model_output
@@ -4297,6 +4298,7 @@ def test_regressor_returning_pandas_object(model_output):
             ),
             targets="output",
             model_type="regressor",
+            predictions=predictions,
             evaluators=["regressor"],
         )
         assert result.metrics == {
