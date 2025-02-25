@@ -580,7 +580,7 @@ def test_loaded_runnable_sequence_autolog():
         log_model_mock.assert_not_called()
 
         logged_model = mlflow.last_logged_model()
-        mlflow_model = get_mlflow_model(logged_model.artifact_location, "")
+        mlflow_model = Model.load(logged_model.model_uri)
         saved_example = _read_example(mlflow_model, logged_model.model_uri)
         assert saved_example == input_example
 
