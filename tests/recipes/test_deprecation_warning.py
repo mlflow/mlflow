@@ -8,7 +8,7 @@ from mlflow.recipes import Recipe
 WARNING_MESSAGE = "MLflow Recipes is deprecated"
 
 
-def test_no_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_no_warns() -> None:
     stdout = subprocess.check_output(
         [sys.executable, "-c", "import mlflow"], stderr=subprocess.STDOUT, text=True
     )
