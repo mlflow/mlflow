@@ -3,6 +3,12 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 `REST API <../rest-api.html>`_.
 """
 
+from mlflow.entities.assessment import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
+    AssessmentSourceType,
+)
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.dataset_summary import _DatasetSummary
@@ -73,4 +79,8 @@ __all__ = [
     "LoggedModelTag",
     "LoggedModelParameter",
     "Document",
+    "Assessment",
+    "AssessmentError",
+    "AssessmentSource",
+    "AssessmentSourceType",
 ]

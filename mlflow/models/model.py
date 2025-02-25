@@ -860,8 +860,7 @@ class Model:
                 function waits for five minutes. Specify 0 or None to skip
                 waiting.
             metadata: {{ metadata }}
-            run_id: The run ID to associate with this model. If not provided, a new run will be
-                started.
+            run_id: The run ID to associate with this model.
             resources: {{ resources }}
             auth_policy: {{ auth_policy }}
             name: The name of the model.
@@ -920,22 +919,19 @@ class Model:
 
             tracking_uri = _resolve_tracking_uri()
             client = mlflow.MlflowClient(tracking_uri)
-            active_run = mlflow.tracking.fluent.active_run()
+            if not run_id:
+                run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
                 params = {
                     **(params or {}),
-                    **(
-                        client.get_run(active_run.info.run_id).data.params
-                        if active_run is not None
-                        else {}
-                    ),
+                    **(client.get_run(run_id).data.params if run_id else {}),
                 }
                 model = mlflow.create_logged_model(
                     # TODO: Update model name
                     name=name,
-                    source_run_id=active_run.info.run_id if active_run is not None else None,
+                    source_run_id=run_id,
                     model_type=model_type,
                     params={key: str(value) for key, value in params.items()},
                     tags={key: str(value) for key, value in tags.items()}
@@ -943,8 +939,7 @@ class Model:
                     else None,
                 )
 
-            if active_run is not None:
-                run_id = active_run.info.run_id
+            if run_id is not None:
                 client.log_outputs(
                     run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
                 )
@@ -955,7 +950,7 @@ class Model:
             mlflow_model = cls(
                 artifact_path=model.artifact_location,
                 model_uuid=model.model_id,
-                run_id=active_run.info.run_id if active_run is not None else None,
+                run_id=run_id,
                 metadata=metadata,
                 resources=resources,
                 auth_policy=auth_policy,

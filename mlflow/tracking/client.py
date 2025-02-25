@@ -12,6 +12,7 @@ import posixpath
 import re
 import sys
 import tempfile
+import time
 import urllib
 import uuid
 import warnings
@@ -40,6 +41,13 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.assessment import (
+    Assessment,
+    AssessmentError,
+    Expectation,
+    Feedback,
+)
+from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
@@ -1082,6 +1090,36 @@ class MlflowClient:
 
         # If the trace is not active, try to delete the tag on the trace in the backend
         self._tracking_client.delete_trace_tag(request_id, key)
+
+    def log_assessment(
+        self,
+        trace_id: str,
+        name: str,
+        source: AssessmentSource,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        error: Optional[AssessmentError] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        span_id: Optional[str] = None,
+    ) -> Assessment:
+        timestamp = int(time.time() * 1000)  # milliseconds
+
+        assessment = Assessment(
+            # assessment_id must be None when creating a new assessment
+            trace_id=trace_id,
+            name=name,
+            source=source,
+            create_time_ms=timestamp,
+            last_update_time_ms=timestamp,
+            expectation=expectation,
+            feedback=feedback,
+            error=error,
+            rationale=rationale,
+            metadata=metadata,
+            span_id=span_id,
+        )
+        return self._tracking_client.create_assessment(assessment)
 
     def search_experiments(
         self,
