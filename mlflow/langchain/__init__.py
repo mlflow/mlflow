@@ -924,6 +924,10 @@ class _LoadedModelTracker:
     def last_model_id(self, model_id: Optional[str]) -> None:
         self._last_model_id = model_id
 
+    def clear(self):
+        self.model_ids.clear()
+        self._last_model_id = None
+
 
 _LOADED_MODEL_TRACKER = _LoadedModelTracker()
 
