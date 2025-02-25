@@ -37,7 +37,7 @@ dependencies = [
   "gunicorn<24; platform_system != 'Windows'",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<3",
+  "numpy<2",
   "pandas<3",
   "pyarrow<20,>=4.0.0",
   "scikit-learn<2",
