@@ -4,18 +4,6 @@ from typing import Any
 from mlflow.utils.autologging_utils import _logger
 
 
-class AutologgingRuntimeLogger:
-    """
-    Wrapper class for an `AutologgingEventLogger
-    """
-
-    def __init__(self, session, destinatinon, function_name):
-        self._logger = AutologgingEventLogger.get_logger()
-        self._session = session
-        self._destination = destinatinon
-        self._function_name = function_name
-
-
 def _catch_exception(fn):
     """A decorator that catches exceptions thrown by the wrapped function and logs them."""
 
@@ -42,67 +30,42 @@ class AutologgingEventLoggerWrapper:
         self._session = session
         self._destination = destination
         self._function_name = function_name
+        self._logger = AutologgingEventLogger.get_logger()
 
     @_catch_exception
     def log_patch_function_start(self, args, kwargs):
-        AutologgingEventLogger.get_logger().log_patch_function_start(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
+        self._logger.log_patch_function_start(
+            self._session, self._destination, self._function_name, args, kwargs
         )
 
     @_catch_exception
     def log_patch_function_success(self, args, kwargs):
-        AutologgingEventLogger.get_logger().log_patch_function_success(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
+        self._logger.log_patch_function_success(
+            self._session, self._destination, self._function_name, args, kwargs
         )
 
     @_catch_exception
     def log_patch_function_error(self, args, kwargs, exception):
-        AutologgingEventLogger.get_logger().log_patch_function_error(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
-            exception,
+        self._logger.log_patch_function_error(
+            self._session, self._destination, self._function_name, args, kwargs, exception
         )
 
     @_catch_exception
     def log_original_function_start(self, args, kwargs):
-        AutologgingEventLogger.get_logger().log_original_function_start(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
+        self._logger.log_original_function_start(
+            self._session, self._destination, self._function_name, args, kwargs
         )
 
     @_catch_exception
     def log_original_function_success(self, args, kwargs):
-        AutologgingEventLogger.get_logger().log_original_function_success(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
+        self._logger.log_original_function_success(
+            self._session, self._destination, self._function_name, args, kwargs
         )
 
     @_catch_exception
     def log_original_function_error(self, args, kwargs, exception):
-        AutologgingEventLogger.get_logger().log_original_function_error(
-            self._session,
-            self._destination,
-            self._function_name,
-            args,
-            kwargs,
-            exception,
+        self._logger.log_original_function_error(
+            self._session, self._destination, self._function_name, args, kwargs, exception
         )
 
 
