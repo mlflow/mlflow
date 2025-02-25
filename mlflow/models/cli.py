@@ -99,7 +99,9 @@ def serve(
 
     """
     if enable_mlserver:
-        warnings.warn("MLServer integration is deprecated and will be removed in MLflow 3.0.")
+        warnings.warn(
+            "MLServer integration is deprecated and will be removed in MLflow 3.0.", FutureWarning
+        )
 
     env_manager = _EnvManager.LOCAL if no_conda else env_manager
 
