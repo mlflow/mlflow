@@ -1,4 +1,3 @@
-import os
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -73,11 +72,6 @@ MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
 # So the expected output will be the prompt itself.
 TEST_CONTENT = "What is MLflow?"
-
-
-def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
-    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
-    return Model.load(model_conf_path)
 
 
 def create_openai_llmchain():
@@ -359,9 +353,9 @@ def test_loaded_llmchain_autolog():
         assert loaded_model.invoke(question) == answer
         log_model_mock.assert_not_called()
 
-        mlflow_model = get_mlflow_model(run.info.artifact_uri)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-        input_example = _read_example(mlflow_model, model_path)
+        logged_model = mlflow.last_logged_model()
+        mlflow_model = Model.load(logged_model.model_uri)
+        input_example = _read_example(mlflow_model, logged_model.model_uri)
         assert input_example == question
 
         pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
