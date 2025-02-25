@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import click
 
@@ -97,6 +98,9 @@ def serve(
         }'
 
     """
+    if enable_mlserver:
+        warnings.warn("MLServer integration is deprecated and will be removed in MLflow 3.0.")
+
     env_manager = _EnvManager.LOCAL if no_conda else env_manager
 
     return get_flavor_backend(
