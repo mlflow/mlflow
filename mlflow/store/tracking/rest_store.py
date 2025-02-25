@@ -17,10 +17,12 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
@@ -69,6 +71,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_create_assessment_endpoint,
     get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
@@ -407,6 +410,24 @@ class RestStore(AbstractStore):
         self._call_endpoint(
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Create an assessment entity in the backend store.
+
+        Args:
+            assessment: The assessment to log (without an assessment_id).
+
+        Returns:
+            The created Assessment object.
+        """
+        req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
+        response_proto = self._call_endpoint(
+            CreateAssessment,
+            req_body,
+            endpoint=get_create_assessment_endpoint(assessment.trace_id),
+        )
+        return Assessment.from_proto(response_proto.assessment)
 
     def log_metric(self, run_id: str, metric: Metric):
         """
