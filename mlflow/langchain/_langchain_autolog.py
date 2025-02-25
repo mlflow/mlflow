@@ -71,7 +71,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if mid := _LOADED_MODEL_TRACKER.last_model_id:
         model_id = mid
     elif config.log_models:
-        logged_model = mlflow.create_logged_model()
+        logged_model = mlflow.create_logged_model(name="model")
         model_id = logged_model.model_id
         _LOADED_MODEL_TRACKER.last_model_id = model_id
     else:
@@ -102,9 +102,10 @@ def _setup_autolog_run(config, model):
 
     Returns: yields the run IDs
     """
-    if propagated_run_id := getattr(model, "run_id", None):
-        # When model has "run_id" attribute, it means the model is already invoked once with autolog
-        # enabled and the run_id is propagated from the previous call, so we don't create a new run.
+    if propagated_run_id := getattr(model, "source_run_id", None):
+        # When model has "source_run_id" attribute, it means the model is already invoked
+        # once with autolog enabled and the source_run_id is propagated from the previous call,
+        # so we don't create a new run.
         run_id = propagated_run_id
         # The run should be already terminated at the end of the previous call.
         should_terminate_run = False
@@ -279,7 +280,7 @@ def _log_optional_artifacts(
                 with disable_patching():
                     mlflow.langchain.log_model(
                         self,
-                        "model",
+                        name="model",
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,

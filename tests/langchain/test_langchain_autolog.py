@@ -579,9 +579,9 @@ def test_loaded_runnable_sequence_autolog():
         assert loaded_model.invoke(input_example) == TEST_CONTENT
         log_model_mock.assert_not_called()
 
-        mlflow_model = get_mlflow_model(run.info.artifact_uri)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-        saved_example = _read_example(mlflow_model, model_path)
+        logged_model = mlflow.last_logged_model()
+        mlflow_model = get_mlflow_model(logged_model.artifact_location, "")
+        saved_example = _read_example(mlflow_model, logged_model.model_uri)
         assert saved_example == input_example
 
         pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
