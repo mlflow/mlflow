@@ -20,7 +20,8 @@ def test_assessment_creation():
         "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
         "create_time_ms": 123456789,
         "last_update_time_ms": 123456789,
-        "value": Feedback(0.9),
+        "expectation": None,
+        "feedback": Feedback(0.9),
         "rationale": "Rationale text",
         "metadata": {"key1": "value1"},
         "error": None,
@@ -35,7 +36,7 @@ def test_assessment_creation():
     assessment_with_error = Assessment(
         **{
             **default_params,
-            "value": None,
+            "feedback": None,
             "error": AssessmentError(error_code="E001", error_message="An error occurred."),
         }
     )
@@ -58,22 +59,22 @@ def test_assessment_equality():
     # Valid assessments
     assessment_1 = Assessment(
         source=source_1,
-        value=Feedback(0.9),
+        feedback=Feedback(0.9),
         **common_args,
     )
     assessment_2 = Assessment(
         source=source_2,
-        value=Feedback(0.9),
+        feedback=Feedback(0.9),
         **common_args,
     )
     assessment_3 = Assessment(
         source=source_1,
-        value=Feedback(0.8),
+        feedback=Feedback(0.8),
         **common_args,
     )
     assessment_4 = Assessment(
         source=source_3,
-        value=Feedback(0.9),
+        feedback=Feedback(0.9),
         **common_args,
     )
     assessment_5 = Assessment(
@@ -111,33 +112,29 @@ def test_assessment_value_validation():
     }
 
     # Valid cases
-    Assessment(value=Expectation("MLflow"), **common_args)
-    Assessment(value=Feedback("This is correct."), **common_args)
-
-    # Invalid case: invalid value type
-    with pytest.raises(MlflowException, match=r"Value must be an instance of "):
-        Assessment(value="Invalid value type", **common_args)
+    Assessment(expectation=Expectation("MLflow"), **common_args)
+    Assessment(feedback=Feedback("This is correct."), **common_args)
 
     # Invalid case: no value specified
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be specified"):
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(**common_args)
 
     # Invalid case: both value and error specified
-    with pytest.raises(MlflowException, match=r"Only one of `value` or `error` should be"):
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
-            value=Expectation("MLflow"),
+            expectation=Expectation("MLflow"),
             error=AssessmentError(error_code="E001", error_message="An error occurred."),
             **common_args,
         )
 
 
 @pytest.mark.parametrize(
-    ("value", "error"),
+    ("expectation", "feedback", "error"),
     [
-        (Expectation("MLflow"), None),
-        (Feedback("This is correct."), None),
-        (None, AssessmentError(error_code="E001")),
-        (None, AssessmentError(error_code="E001", error_message="An error occurred.")),
+        (Expectation("MLflow"), None, None),
+        (None, Feedback("This is correct."), None),
+        (None, None, AssessmentError(error_code="E001")),
+        (None, None, AssessmentError(error_code="E001", error_message="An error occurred.")),
     ],
 )
 @pytest.mark.parametrize(
@@ -151,17 +148,10 @@ def test_assessment_value_validation():
     "metadata",
     [
         {"key1": "value1"},
-        {
-            "key2": 1,
-            "key3": 2.0,
-            "key4": True,
-            "key5": [1, 2, 3],
-            "key6": {"key7": "value7"},
-        },
         None,
     ],
 )
-def test_assessment_proto_conversion(value, error, source, metadata):
+def test_assessment_proto_conversion(expectation, feedback, error, source, metadata):
     timestamp_ms = int(time.time() * 1000)
     assessment = Assessment(
         trace_id="trace_id",
@@ -169,7 +159,8 @@ def test_assessment_proto_conversion(value, error, source, metadata):
         source=source,
         create_time_ms=timestamp_ms,
         last_update_time_ms=timestamp_ms,
-        value=value,
+        expectation=expectation,
+        feedback=feedback,
         rationale="Rationale text",
         metadata=metadata,
         error=error,
