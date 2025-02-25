@@ -38,7 +38,8 @@ def _parse_abfss_uri(uri):
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, domain suffix, and path
+        A tuple containing the name of the filesystem, account name, domain suffix,
+        path, and SAS token
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
@@ -56,7 +57,8 @@ def _parse_abfss_uri(uri):
     path = parsed.path
     if path.startswith("/"):
         path = path[1:]
-    return filesystem, account_name, domain_suffix, path
+    sas_token = parsed.query
+    return filesystem, account_name, domain_suffix, path, sas_token
 
 
 def _get_data_lake_client(account_url, credential):
@@ -80,7 +82,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def __init__(
         self,
         artifact_uri,
-        credential,
+        credential=None,
         credential_refresh_def=None,
     ):
         super().__init__(artifact_uri)
@@ -91,8 +93,17 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
 
     def _parse_credentials(self, credential):
         self.credential = credential
-        (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
+        (filesystem, account_name, domain_suffix, path, sas_token) = _parse_abfss_uri(
+            self.artifact_uri
+        )
         account_url = f"https://{account_name}.{domain_suffix}"
+        if sas_token:
+            account_url += f"?{sas_token}"
+        elif self.credential is None:
+            raise MlflowException(
+                "You must specify a SAS token in the artifact uri to authenticate with "
+                "Azure Data Lake Storage."
+            )
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.domain_suffix = domain_suffix
@@ -258,10 +269,10 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Returns:
             a string presigned URL.
         """
-        sas_token = self.credential.signature
+        sas_token = f"?{self.credential.signature}" if self.credential else ""
         return (
             f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
-            f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+            f"{self.base_data_lake_directory}/{artifact_file_path}{sas_token}"
         )
 
     def _get_write_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:
