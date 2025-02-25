@@ -438,7 +438,7 @@ class RestStore(AbstractStore):
         feedback: Optional[Feedback] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
-    ):
+    ) -> Assessment:
         """
         Update an existing assessment entity in the backend store.
 

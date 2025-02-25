@@ -273,7 +273,9 @@ class TrackingServiceClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.get_trace_info(request_id)
+        trace_info = self.get_trace_info(
+            request_id=request_id, should_query_v3=is_databricks_uri(self.tracking_uri)
+        )
         try:
             trace_data = self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:

@@ -914,7 +914,7 @@ def test_delete_assessment():
     response.text = "{}"
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
+        store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
     expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
     _verify_requests(

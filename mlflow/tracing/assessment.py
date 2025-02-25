@@ -23,13 +23,11 @@ def log_expectation(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
 
     Logs an expectation (ground truth) to a Trace.
-
 
     Args:
         trace_id: The ID of the trace.
@@ -85,12 +83,23 @@ def update_expectation(
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
 
     Updates an existing expectation (ground truth) in a Trace.
+
+    Args:
+        trace_id: The ID of the trace.
+        assessment_id: The ID of the expectation assessment to update.
+        name: The updated name of the expectation. Specify only when updating the name.
+        value: The updated value of the expectation. Specify only when updating the value.
+        metadata: Additional metadata for the expectation. Specify only when updating the metadata.
+
+    Returns:
+        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
+
+    Example:
 
     The following code updates an existing expectation with a new value.
     To update other fields, provide the corresponding parameters.
@@ -114,16 +123,6 @@ def update_expectation(
             assessment_id=assessment.assessment_id,
             value=43,
         )
-
-    Args:
-        trace_id: The ID of the trace.
-        assessment_id: The ID of the expectation assessment to update.
-        name: The updated name of the expectation. Specify only when updating the name.
-        value: The updated value of the expectation. Specify only when updating the value.
-        metadata: Additional metadata for the expectation. Specify only when updating the metadata.
-
-    Returns:
-        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
     """
     return MlflowClient().update_assessment(
         assessment_id=assessment_id,
@@ -137,7 +136,6 @@ def update_expectation(
 @experimental
 def delete_expectation(trace_id: str, assessment_id: str):
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
@@ -163,7 +161,6 @@ def log_feedback(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
@@ -260,12 +257,25 @@ def update_feedback(
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
 
     Updates an existing feedback in a Trace.
+
+
+    Args:
+        trace_id: The ID of the trace.
+        assessment_id: The ID of the feedback assessment to update.
+        name: The updated name of the feedback. Specify only when updating the name.
+        value: The updated value of the feedback. Specify only when updating the value.
+        rationale: The updated rationale of the feedback. Specify only when updating the rationale.
+        metadata: Additional metadata for the feedback. Specify only when updating the metadata.
+
+    Returns:
+        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
+
+    Example:
 
     The following code updates an existing feedback with a new value.
     To update other fields, provide the corresponding parameters.
@@ -289,17 +299,6 @@ def update_feedback(
             assessment_id=assessment.assessment_id,
             value=0.95,
         )
-
-    Args:
-        trace_id: The ID of the trace.
-        assessment_id: The ID of the feedback assessment to update.
-        name: The updated name of the feedback. Specify only when updating the name.
-        value: The updated value of the feedback. Specify only when updating the value.
-        rationale: The updated rationale of the feedback. Specify only when updating the rationale.
-        metadata: Additional metadata for the feedback. Specify only when updating the metadata.
-
-    Returns:
-        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
     """
     return MlflowClient().update_assessment(
         trace_id=trace_id,
@@ -314,7 +313,6 @@ def update_feedback(
 @experimental
 def delete_feedback(trace_id: str, assessment_id: str):
     """
-
     .. important::
 
         This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
