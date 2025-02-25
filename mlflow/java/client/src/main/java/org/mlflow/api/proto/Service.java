@@ -103770,7 +103770,7 @@ public final class Service {
       "CHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006" +
       "KILLED\020\005*O\n\013TraceStatus\022\034\n\030TRACE_STATUS_" +
       "UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_P" +
-      "ROGRESS\020\0032\366\'\n\rMlflowService\022\246\001\n\023getExper" +
+      "ROGRESS\020\0032\336\'\n\rMlflowService\022\246\001\n\023getExper" +
       "imentByName\022\033.mlflow.GetExperimentByName" +
       "\032$.mlflow.GetExperimentByName.Response\"L" +
       "\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-" +
@@ -103887,18 +103887,18 @@ public final class Service {
       "nse\"\215\001\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{ass" +
       "essment.trace_id}/assessments\032\004\010\002\020\000\020\003\030\350\007" +
       "\030\356\007\030\014\030\001*:Create an assessment of a trace" +
-      " or a span within the trace\022\350\001\n\020updateAs" +
+      " or a span within the trace\022\320\001\n\020updateAs" +
       "sessment\022\030.mlflow.UpdateAssessment\032!.mlf" +
-      "low.UpdateAssessment.Response\"\226\001\362\206\031\221\001\nZ\n" +
-      "\005PATCH\022K/mlflow/traces/{assessment.trace" +
-      "_id}/assessments/{assessment.assessment_" +
-      "id}\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\001*)Update an existing " +
-      "assessment on a trace.\022\261\001\n\020deleteAssessm" +
-      "ent\022\030.mlflow.DeleteAssessment\032!.mlflow.D" +
-      "eleteAssessment.Response\"`\362\206\031\\\nE\n\006DELETE" +
-      "\0225/mlflow/traces/{trace_id}/assessments/" +
-      "{assessment_id}\032\004\010\002\020\000\020\003*\021Delete Assessme" +
-      "ntB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "low.UpdateAssessment.Response\"\177\362\206\031{\nD\n\005P" +
+      "ATCH\0225/mlflow/traces/{trace_id}/assessme" +
+      "nts/{assessment_id}\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\001*)Upd" +
+      "ate an existing assessment on a trace.\022\261" +
+      "\001\n\020deleteAssessment\022\030.mlflow.DeleteAsses" +
+      "sment\032!.mlflow.DeleteAssessment.Response" +
+      "\"`\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{trace_" +
+      "id}/assessments/{assessment_id}\032\004\010\002\020\000\020\003*" +
+      "\021Delete AssessmentB\036\n\024org.mlflow.api.pro" +
+      "to\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

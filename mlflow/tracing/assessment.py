@@ -25,7 +25,7 @@ def log_expectation(
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Logs an expectation (ground truth) to a Trace.
 
@@ -85,7 +85,7 @@ def update_expectation(
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Updates an existing expectation (ground truth) in a Trace.
 
@@ -138,7 +138,7 @@ def delete_expectation(trace_id: str, assessment_id: str):
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Deletes an expectation associated with a trace.
 
@@ -163,7 +163,7 @@ def log_feedback(
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Logs a feedback to a Trace.
 
@@ -259,7 +259,7 @@ def update_feedback(
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Updates an existing feedback in a Trace.
 
@@ -315,7 +315,7 @@ def delete_feedback(trace_id: str, assessment_id: str):
     """
     .. important::
 
-        This API is currently only available for [Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow).
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Deletes feedback associated with a trace.
 

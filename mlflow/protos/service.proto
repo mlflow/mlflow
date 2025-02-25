@@ -579,7 +579,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/traces/{assessment.trace_id}/assessments/{assessment.assessment_id}"
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
         since {major: 2, minor: 0},
       }],
       error_codes: [
