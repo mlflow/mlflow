@@ -62,7 +62,6 @@ textractor("https://github.com/neuml/txtai")
 The next example traces a [RAG pipeline](https://neuml.github.io/txtai/pipeline/text/rag/).
 
 ```python
-
 import mlflow
 from txtai import Embeddings, RAG
 
@@ -87,7 +86,7 @@ rag = RAG(
     "hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4",
     system="You are a friendly assistant. You answer questions from users.",
     template=template,
-    context=10
+    context=10,
 )
 
 rag("Tell me about the Roman Empire", maxlength=2048)
@@ -108,11 +107,12 @@ from txtai import Agent, Embeddings
 # Enable MLflow auto-tracing for txtai
 mlflow.txtai.autolog()
 
+
 def search(query):
     """
     Searches a database of astronomy data.
 
-    Make sure to call this tool only with a string input, never use JSON.    
+    Make sure to call this tool only with a string input, never use JSON.
 
     Args:
         query: concepts to search for using similarity search
@@ -123,8 +123,10 @@ def search(query):
 
     return embeddings.search(
         "SELECT id, text, distance FROM txtai WHERE similar(:query)",
-        10, parameters={"query": query}
+        10,
+        parameters={"query": query},
     )
+
 
 embeddings = Embeddings()
 embeddings.load(provider="huggingface-hub", container="neuml/txtai-astronomy")
@@ -145,9 +147,14 @@ Do the following.
  - Write a Markdown report
 """
 
-agent(researcher.format(command="""
+agent(
+    researcher.format(
+        command="""
 Write a detailed list with explanations of 10 candidate stars that could potentially be habitable to life.
-"""), maxlength=16000)
+"""
+    ),
+    maxlength=16000,
+)
 ```
 
 ![txtai Agent Tracing via autolog](/images/llms/tracing/txtai-agent-tracing.png)
