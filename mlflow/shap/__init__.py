@@ -3,7 +3,7 @@ import tempfile
 import types
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -166,8 +166,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
             .. code-block:: python
 
-                def predict_function(X) -> pred:
-                    ...
+                def predict_function(X) -> pred: ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
             - ``pred``: An array-like object whose shape should be (# samples) for a regressor or
@@ -340,7 +339,7 @@ def log_explainer(
         metadata: {{ metadata }}
     """
 
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.shap,
         explainer=explainer,
@@ -652,10 +651,16 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.explainer
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

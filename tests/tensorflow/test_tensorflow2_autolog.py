@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MlflowCallback
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -42,6 +43,7 @@ SavedModelInfo = collections.namedtuple(
 @pytest.fixture(autouse=True)
 def clear_session():
     yield
+    _shut_down_async_logging()
     tf.keras.backend.clear_session()
 
 
@@ -1009,7 +1011,7 @@ def get_text_vec_model(train_samples):
     reason=(
         "Deserializing a model with `TextVectorization` and `Embedding` "
         "fails in tensorflow < 2.3.0. See this issue: "
-        "https://github.com/tensorflow/tensorflow/issues/38250"
+        "https://github.com/tensorflow/tensorflow/issues/38250."
     ),
 )
 def test_autolog_text_vec_model(tmp_path):
@@ -1018,7 +1020,7 @@ def test_autolog_text_vec_model(tmp_path):
     """
     mlflow.tensorflow.autolog()
 
-    train_samples = np.array(["this is an example", "another example"], dtype=object)
+    train_samples = tf.convert_to_tensor(["this is an example", "another example"])
     train_labels = np.array([0.4, 0.2])
     model = get_text_vec_model(train_samples)
 

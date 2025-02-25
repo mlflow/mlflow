@@ -138,14 +138,17 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 
     uri = f"{db_type}://hostname/database"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
-    with patch_create_engine as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when fetching
-        # the store, results in an error when called with a mocked sqlalchemy engine.
-        # Accordingly, we mock `SqlAlchemyStore.search_experiments`
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
-        return_value=[],
+    with (
+        patch_create_engine as mock_create_engine,
+        mock.patch("mlflow.store.db.utils._verify_schema"),
+        mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch(
+            # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when
+            # fetching the store, results in an error when called with a mocked sqlalchemy engine.
+            # Accordingly, we mock `SqlAlchemyStore.search_experiments`
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
+            return_value=[],
+        ),
     ):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
@@ -164,13 +167,16 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     uri = f"{db_type}://hostname/database"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
-    with mock.patch(
-        "sqlalchemy.create_engine",
-    ) as mock_create_engine, mock.patch("mlflow.store.db.utils._verify_schema"), mock.patch(
-        "mlflow.store.db.utils._initialize_tables"
-    ), mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
-        return_value=[],
+    with (
+        mock.patch(
+            "sqlalchemy.create_engine",
+        ) as mock_create_engine,
+        mock.patch("mlflow.store.db.utils._verify_schema"),
+        mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
+            return_value=[],
+        ),
     ):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
@@ -233,7 +239,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 
-    with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
+    with mock.patch("mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]):
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # entrypoints.get_group_all
@@ -291,7 +297,7 @@ def test_plugin_registration_via_entrypoints():
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
@@ -310,7 +316,7 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         tracking_store = TrackingStoreRegistry()
 
@@ -396,3 +402,9 @@ def test_get_store_raises_on_uc_uri(store_uri):
         "supported in the current version of the MLflow client",
     ):
         mlflow.tracking.MlflowClient()
+
+
+@pytest.mark.parametrize("tracking_uri", ["file:///tmp/mlruns", "sqlite:///tmp/mlruns.db", ""])
+def test_set_get_tracking_uri_consistency(tracking_uri):
+    mlflow.set_tracking_uri(tracking_uri)
+    assert mlflow.get_tracking_uri() == tracking_uri

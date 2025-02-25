@@ -95,6 +95,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
         }}
       >
         <Input
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunssortselectorv2.tsx_97"
           prefix={<SearchIcon />}
           value={filter}
           type="search"
@@ -122,6 +123,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_desc"
             onClick={() => setOrder(false)}
             aria-label="Sort descending"
+            data-testid="sort-select-desc"
           />
           <ToggleIconButton
             pressed={orderByAsc}
@@ -129,12 +131,14 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_asc"
             onClick={() => setOrder(true)}
             aria-label="Sort ascending"
+            data-testid="sort-select-asc"
           />
         </div>
       </div>
       <DropdownMenu.Group css={{ maxHeight: 400, overflowY: 'auto' }}>
         {filteredSortOptions.map((sortOption, index) => (
           <DropdownMenu.CheckboxItem
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunssortselectorv2.tsx_137"
             key={sortOption.value}
             onClick={() => handleChange(sortOption.value)}
             checked={sortOption.value === orderByKey}
@@ -148,7 +152,10 @@ const ExperimentViewRunsSortSelectorV2Body = ({
           </DropdownMenu.CheckboxItem>
         ))}
         {!filteredSortOptions.length && (
-          <DropdownMenu.Item disabled>
+          <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunssortselectorv2.tsx_151"
+            disabled
+          >
             <FormattedMessage
               defaultMessage="No results"
               description="Experiment page > sort selector > no results after filtering by search query"
@@ -189,11 +196,18 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
     // Get sort options for metrics
     const metricsSortOptions = useMemo(
       () =>
-        metricKeys.map((sortLabelKey) => ({
-          label: customMetricBehaviorDefs[sortLabelKey]?.displayName ?? sortLabelKey,
-          value: `${makeCanonicalSortKey(COLUMN_TYPES.METRICS, sortLabelKey)}`,
-        })),
-      [metricKeys],
+        metricKeys.map((sortLabelKey) => {
+          const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, sortLabelKey);
+          const displayName = customMetricBehaviorDefs[sortLabelKey]?.displayName ?? sortLabelKey;
+          return {
+            label: displayName,
+            value: canonicalSortKey,
+          };
+        }),
+      [
+        // A list of metric key names that need to be turned into canonical sort keys
+        metricKeys,
+      ],
     );
 
     // Get sort options for params

@@ -1,6 +1,6 @@
 import warnings
 
-import entrypoints
+from mlflow.utils.plugins import get_entry_points
 
 REQUEST_AUTH_PROVIDER_ENTRYPOINT = "mlflow.request_auth_provider"
 
@@ -13,7 +13,7 @@ class RequestAuthProviderRegistry:
         self._registry.append(request_auth_provider())
 
     def register_entrypoints(self):
-        for entrypoint in entrypoints.get_group_all(REQUEST_AUTH_PROVIDER_ENTRYPOINT):
+        for entrypoint in get_entry_points(REQUEST_AUTH_PROVIDER_ENTRYPOINT):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:

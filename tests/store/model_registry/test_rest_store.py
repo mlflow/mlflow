@@ -437,8 +437,9 @@ def test_await_model_version_creation_pending(store):
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
     )
-    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
-        MlflowException, match="Exceeded max wait time"
+    with (
+        mock.patch.object(store, "get_model_version", return_value=pending_mv),
+        pytest.raises(MlflowException, match="Exceeded max wait time"),
     ):
         store._await_model_version_creation(pending_mv, 0.5)
 
@@ -450,7 +451,8 @@ def test_await_model_version_creation_failed(store):
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
     )
-    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
-        MlflowException, match="Model version creation failed for model name"
+    with (
+        mock.patch.object(store, "get_model_version", return_value=pending_mv),
+        pytest.raises(MlflowException, match="Model version creation failed for model name"),
     ):
         store._await_model_version_creation(pending_mv, 0.5)

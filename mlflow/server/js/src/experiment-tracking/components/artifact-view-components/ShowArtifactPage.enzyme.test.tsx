@@ -20,8 +20,10 @@ import {
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   DATA_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
@@ -142,6 +144,12 @@ describe('ShowArtifactPage', () => {
     DATA_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(LazyShowArtifactTableView).length).toBe(1);
+    });
+  });
+  test('should render audio view for common audio data extensions', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactAudioView).length).toBe(1);
     });
   });
 });

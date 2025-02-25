@@ -1,9 +1,8 @@
 import warnings
 
-import entrypoints
-
 from mlflow.exceptions import MlflowException
 from mlflow.utils.import_hooks import register_post_import_hook
+from mlflow.utils.plugins import get_entry_points
 
 
 class ModelEvaluatorRegistry:
@@ -13,14 +12,20 @@ class ModelEvaluatorRegistry:
 
     def __init__(self):
         self._registry = {}
+        self._builtin_evaluators = {}
 
     def register(self, scheme, evaluator):
         """Register model evaluator provided by other packages"""
         self._registry[scheme] = evaluator
 
+    def register_builtin(self, scheme, evaluator):
+        """Register built-in model evaluator"""
+        self._registry[scheme] = evaluator
+        self._builtin_evaluators[scheme] = evaluator
+
     def register_entrypoints(self):
         # Register ModelEvaluator implementation provided by other packages
-        for entrypoint in entrypoints.get_group_all("mlflow.model_evaluator"):
+        for entrypoint in get_entry_points("mlflow.model_evaluator"):
             try:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -43,14 +48,31 @@ class ModelEvaluatorRegistry:
             )
         return evaluator_cls()
 
+    def is_builtin(self, name):
+        return name in self._builtin_evaluators
+
+    def is_registered(self, name):
+        return name in self._registry
+
 
 _model_evaluation_registry = ModelEvaluatorRegistry()
 
 
 def register_evaluators(module):
-    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+    from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
+    from mlflow.models.evaluation.evaluators.regressor import RegressorEvaluator
+    from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
 
-    module._model_evaluation_registry.register("default", DefaultEvaluator)
+    # Built-in evaluators
+    module._model_evaluation_registry.register_builtin(DefaultEvaluator.name, DefaultEvaluator)
+    module._model_evaluation_registry.register_builtin(
+        ClassifierEvaluator.name, ClassifierEvaluator
+    )
+    module._model_evaluation_registry.register_builtin(RegressorEvaluator.name, RegressorEvaluator)
+    module._model_evaluation_registry.register_builtin(ShapEvaluator.name, ShapEvaluator)
+
+    # Plugin evaluators
     module._model_evaluation_registry.register_entrypoints()
 
 

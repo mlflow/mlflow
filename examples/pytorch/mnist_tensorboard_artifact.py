@@ -215,22 +215,30 @@ with mlflow.start_run():
     print("Uploading TensorBoard events as a run artifact...")
     mlflow.log_artifacts(output_dir, artifact_path="events")
     print(
-        "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
-        % os.path.join(mlflow.get_artifact_uri(), "events")
+        "\nLaunch TensorBoard with:\n\ntensorboard --logdir={}".format(
+            os.path.join(mlflow.get_artifact_uri(), "events")
+        )
     )
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
-    mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
-    print(
-        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+    model_info = mlflow.pytorch.log_model(
+        model, artifact_path="pytorch-model", pickle_module=pickle
     )
+    print(f"\nThe model is logged at:\n{model_info.artifact_path}")
+
+    # Get the device (GPU or CPU)
+    device = torch.device("cuda" if args.cuda else "cpu")
 
     # Since the model was logged as an artifact, it can be loaded to make predictions
-    loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
+    loaded_model = mlflow.pytorch.load_model(model_info.model_uri)
 
     # Extract a few examples from the test dataset to evaluate on
     eval_data, eval_labels = next(iter(test_loader))
+
+    # Move evaluation data to the same device as the model
+    eval_data = eval_data.to(device)
+    eval_labels = eval_labels.to(device)
 
     # Make a few predictions
     predictions = loaded_model(eval_data).data.max(1)[1]

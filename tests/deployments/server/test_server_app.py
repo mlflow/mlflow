@@ -56,7 +56,7 @@ model_response = {
     "id": "chatcmpl-abc123",
     "object": "chat.completion",
     "created": 1677858242,
-    "model": "gpt-3.5-turbo-0301",
+    "model": "gpt-4o-mini",
     "usage": {
         "prompt_tokens": 13,
         "completion_tokens": 7,
@@ -79,7 +79,7 @@ test_response = {
     "id": "chatcmpl-abc123",
     "object": "chat.completion",
     "created": 1677858242,
-    "model": "gpt-3.5-turbo-0301",
+    "model": "gpt-4o-mini",
     "usage": {
         "prompt_tokens": 13,
         "completion_tokens": 7,
@@ -91,6 +91,7 @@ test_response = {
                 "role": "assistant",
                 "content": "\n\nThis is a test!",
                 "tool_calls": None,
+                "refusal": None,
             },
             "finish_reason": "stop",
             "index": 0,

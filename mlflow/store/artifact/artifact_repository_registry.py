@@ -1,7 +1,4 @@
 import warnings
-from typing import Dict
-
-import entrypoints
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -19,6 +16,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_repo_factory
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme, is_uc_volumes_uri
 
 
@@ -44,7 +42,7 @@ class ArtifactRepositoryRegistry:
 
     def register_entrypoints(self):
         # Register artifact repositories provided by other packages
-        for entrypoint in entrypoints.get_group_all("mlflow.artifact_repository"):
+        for entrypoint in get_entry_points("mlflow.artifact_repository"):
             try:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -133,7 +131,7 @@ def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
 
 
-def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
+def get_registered_artifact_repositories() -> dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 

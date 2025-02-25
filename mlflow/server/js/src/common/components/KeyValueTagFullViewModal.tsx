@@ -15,6 +15,7 @@ export const KeyValueTagFullViewModal = React.memo((props: KeyValueTagFullViewMo
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_common_components_keyvaluetagfullviewmodal.tsx_17"
       title={'Tag: ' + props.tagKey}
       visible={props.isKeyValueTagFullViewModalVisible}
       onCancel={() => props.setIsKeyValueTagFullViewModalVisible(false)}

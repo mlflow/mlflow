@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -6,7 +7,7 @@ import yaml
 
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException
-from mlflow.utils import insecure_hash, process
+from mlflow.utils import process
 from mlflow.utils.environment import Environment
 from mlflow.utils.os import is_windows
 
@@ -61,12 +62,16 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
     if env_id:
         conda_env_contents += env_id
 
-    env_name = "mlflow-%s" % insecure_hash.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    env_name = "mlflow-{}".format(
+        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
+    )
     if env_root_dir:
         env_root_dir = os.path.normpath(env_root_dir)
         # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
         # hashing `conda_env_contents` and `env_root_dir` separately helps debugging
-        env_name += "-%s" % insecure_hash.sha1(env_root_dir.encode("utf-8")).hexdigest()
+        env_name += "-{}".format(
+            hashlib.sha1(env_root_dir.encode("utf-8"), usedforsecurity=False).hexdigest()
+        )
 
     return env_name
 
@@ -116,7 +121,6 @@ def _create_conda_env(
                 project_env_name,
                 "--file",
                 conda_env_path,
-                "--quiet",
             ],
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
@@ -208,6 +212,7 @@ def get_or_create_conda_env(
     capture_output=False,
     env_root_dir=None,
     pip_requirements_override=None,
+    extra_envs=None,
 ):
     """Given a `Project`, creates a conda environment containing the project's dependencies if such
     a conda environment doesn't already exist. Returns the name of the conda environment.
@@ -224,6 +229,8 @@ def get_or_create_conda_env(
         env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
         pip_requirements_override: If specified, install the specified python dependencies to
             the environment (upgrade if already installed).
+        extra_envs: If specified, a dictionary of extra environment variables will be passed to the
+            model inference environment.
 
     Returns:
         The name of the conda environment.
@@ -235,7 +242,7 @@ def get_or_create_conda_env(
 
     try:
         # Checks if Conda executable exists
-        process._exec_cmd([conda_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_path, "--help"], throw_on_error=False, extra_env=extra_envs)
     except OSError:
         raise ExecutionException(
             f"Could not find Conda executable at {conda_path}. "
@@ -249,7 +256,9 @@ def get_or_create_conda_env(
 
     try:
         # Checks if executable for environment creation exists
-        process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
+        process._exec_cmd(
+            [conda_env_create_path, "--help"], throw_on_error=False, extra_env=extra_envs
+        )
     except OSError:
         raise ExecutionException(
             f"You have set the env variable {MLFLOW_CONDA_CREATE_ENV_CMD}, but "
@@ -260,6 +269,8 @@ def get_or_create_conda_env(
         )
 
     conda_extra_env_vars = _get_conda_extra_env_vars(env_root_dir)
+    if extra_envs:
+        conda_extra_env_vars.update(extra_envs)
 
     # Include the env_root_dir hash in the project_env_name,
     # this is for avoid conda env name conflicts between different CONDA_ENVS_PATH.
@@ -298,7 +309,6 @@ def get_or_create_conda_env(
                 "-n",
                 project_env_name,
                 "--yes",
-                "--quiet",
                 *pip_requirements_override,
             ]
             process._exec_cmd(cmd, extra_env=conda_extra_env_vars, capture_output=capture_output)
@@ -309,8 +319,7 @@ def get_or_create_conda_env(
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):
                 _logger.warning(
-                    "Encountered unexpected error while creating conda environment. "
-                    "Removing %s.",
+                    "Encountered unexpected error while creating conda environment. Removing %s.",
                     project_env_path,
                 )
                 process._exec_cmd(

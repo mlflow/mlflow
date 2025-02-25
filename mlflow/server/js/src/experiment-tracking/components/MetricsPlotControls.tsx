@@ -20,7 +20,7 @@ export const X_AXIS_STEP = 'step';
 export const X_AXIS_RELATIVE = 'relative';
 export const MAX_LINE_SMOOTHNESS = 100;
 
-type OwnProps = {
+type Props = {
   distinctMetricKeys: string[];
   selectedMetricKeys: string[];
   selectedXAxis: string;
@@ -28,9 +28,9 @@ type OwnProps = {
   handleShowPointChange: (...args: any[]) => any;
   handleMetricsSelectChange: (...args: any[]) => any;
   handleYAxisLogScaleChange: (...args: any[]) => any;
-  handleLineSmoothChange: (...args: any[]) => any;
+  handleLineSmoothChange: (value: number) => void;
   chartType: string;
-  initialLineSmoothness: number;
+  lineSmoothness: number;
   yAxisLogScale: boolean;
   showPoint: boolean;
   intl: {
@@ -42,9 +42,7 @@ type OwnProps = {
   disableSmoothnessControl: boolean;
 };
 
-type Props = OwnProps & typeof MetricsPlotControlsImpl.defaultProps;
-
-export class MetricsPlotControlsImpl extends React.Component<Props> {
+class MetricsPlotControlsImpl extends React.Component<Props> {
   static defaultProps = {
     disableSmoothnessControl: false,
   };
@@ -62,15 +60,8 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
   };
 
   render() {
-    const {
-      chartType,
-      yAxisLogScale,
-      initialLineSmoothness,
-      showPoint,
-      numRuns,
-      numCompletedRuns,
-      disableSmoothnessControl,
-    } = this.props;
+    const { chartType, yAxisLogScale, lineSmoothness, showPoint, numRuns, numCompletedRuns, disableSmoothnessControl } =
+      this.props;
 
     const lineSmoothnessTooltipText = (
       <FormattedMessage
@@ -118,6 +109,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_120"
                 data-testid="show-point-toggle"
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
@@ -138,8 +130,8 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   data-testid="smoothness-toggle"
                   min={1}
                   max={MAX_LINE_SMOOTHNESS}
-                  onChange={_.debounce(this.props.handleLineSmoothChange, 100)}
-                  defaultValue={initialLineSmoothness}
+                  onChange={this.props.handleLineSmoothChange}
+                  value={lineSmoothness}
                 />
               </div>
             )}
@@ -152,6 +144,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <RadioGroup
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_154"
                 name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
@@ -217,7 +210,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
-          <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
+          <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_220"
+            defaultChecked={yAxisLogScale}
+            onChange={this.props.handleYAxisLogScaleChange}
+          />
         </div>
         <div className="inline-control">
           <Button

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from mlflow.entities import (
@@ -73,8 +75,24 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
             "params": {p.key: p.value for p in params},
             "tags": {t.key: t.value for t in tags},
         },
-        "inputs": {"dataset_inputs": datasets},
+        "inputs": {
+            "dataset_inputs": [
+                {
+                    "dataset": {
+                        "digest": "digest1",
+                        "name": "name1",
+                        "profile": None,
+                        "schema": None,
+                        "source": "source",
+                        "source_type": "my_source_type",
+                    },
+                    "tags": {"key": "value"},
+                }
+            ],
+        },
     }
+    # Run must be json serializable
+    json.dumps(run1.to_dictionary())
 
     proto = run1.to_proto()
     run2 = Run.from_proto(proto)

@@ -34,7 +34,6 @@ import {
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import {
   DatasetsCellRenderer,
   DatasetsCellRendererSuppressKeyboardEvents,
@@ -45,8 +44,10 @@ import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
 
-const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
-  context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
+  return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+};
+
 /**
  * Width for "run name" column.
  */
@@ -63,9 +64,6 @@ const VISIBILITY_TOGGLE_WIDTH = 32;
  * for compare runs mode when checkboxes are hidden.
  */
 const getActionsColumnWidth = (isComparingRuns?: boolean) => {
-  if (!shouldUseNewRunRowsVisibilityModel()) {
-    return BASE_RUN_ACTIONS_COLUMN_WIDTH;
-  }
   return isComparingRuns ? BASE_RUN_ACTIONS_COLUMN_WIDTH : BASE_RUN_ACTIONS_COLUMN_WIDTH - VISIBILITY_TOGGLE_WIDTH;
 };
 
@@ -121,7 +119,7 @@ export const getFrameworkComponents = () => ({
  * Certain columns are described as run attributes (opposed to metrics, params etc.), however
  * they actually source their data from the run tags. This objects maps tag names to column identifiers.
  */
-export const TAGS_TO_COLUMNS_MAP = {
+const TAGS_TO_COLUMNS_MAP = {
   [ATTRIBUTE_COLUMN_SORT_KEY.USER]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'User'),
   [ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Run Name'),
   [ATTRIBUTE_COLUMN_SORT_KEY.SOURCE]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Source'),
@@ -158,6 +156,7 @@ export interface UseRunsColumnDefinitionsParams {
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows?: boolean;
   allRunsHidden?: boolean;
+  usingCustomVisibility?: boolean;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
 }
 
@@ -247,7 +246,6 @@ export const useRunsColumnDefinitions = ({
   onDatasetSelected,
   isComparingRuns,
   expandRows,
-  allRunsHidden,
   runsHiddenMode,
 }: UseRunsColumnDefinitionsParams) => {
   const { theme } = useDesignSystemTheme();
@@ -269,7 +267,7 @@ export const useRunsColumnDefinitions = ({
       valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
       checkboxSelection: true,
       headerComponent: 'RowActionsHeaderCellRenderer',
-      headerComponentParams: { onToggleVisibility, allRunsHidden },
+      headerComponentParams: { onToggleVisibility },
       headerCheckboxSelection: true,
       headerName: '',
       cellClass: 'is-checkbox-cell',
@@ -457,12 +455,17 @@ export const useRunsColumnDefinitions = ({
         children: metricKeys.map((metricKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
           const customMetricColumnDef = customMetricBehaviorDefs[metricKey];
+          const displayName = customMetricColumnDef?.displayName ?? metricKey;
+          const fieldName = createMetricFieldName(metricKey);
+          const tooltip = getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey);
           return {
-            headerName: customMetricColumnDef?.displayName ?? metricKey,
+            headerName: displayName,
             colId: canonicalSortKey,
-            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey),
-            field: createMetricFieldName(metricKey),
-            tooltipField: createMetricFieldName(metricKey),
+            headerTooltip: tooltip,
+            field: fieldName,
+            tooltipValueGetter: (params) => {
+              return params.data?.[fieldName];
+            },
             initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
             initialHide: true,
             sortable: true,
@@ -539,7 +542,6 @@ export const useRunsColumnDefinitions = ({
     isComparingRuns,
     onDatasetSelected,
     expandRows,
-    allRunsHidden,
     usingCompactViewport,
   ]);
 

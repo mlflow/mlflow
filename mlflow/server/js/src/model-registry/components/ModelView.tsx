@@ -10,7 +10,6 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
@@ -26,6 +25,7 @@ import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-track
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -162,10 +162,12 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         this.setState({ isTagsRequestPending: false });
         (form as any).resetFields();
       })
-      .catch((ex: any) => {
+      .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(ex);
-        message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
+        const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+        Utils.displayGlobalErrorNotification('Failed to add tag. Error: ' + message);
       });
   };
 
@@ -173,9 +175,11 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const { model } = this.props;
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
-    return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex: any) => {
+    return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex: ErrorWrapper | Error) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
-      message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
+      const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+      Utils.displayGlobalErrorNotification('Failed to set tag. Error: ' + message);
     });
   };
 
@@ -183,9 +187,11 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const { model } = this.props;
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
-    return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex: any) => {
+    return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex: ErrorWrapper | Error) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
-      message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
+      const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+      Utils.displayGlobalErrorNotification('Failed to delete tag. Error: ' + message);
     });
   };
 
@@ -252,7 +258,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             })}
           >
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
-            {Utils.formatTimestamp(model.creation_timestamp)}
+            {Utils.formatTimestamp(model.creation_timestamp, this.props.intl)}
           </Descriptions.Item>
           <Descriptions.Item
             data-testid="model-view-metadata-item"
@@ -262,7 +268,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             })}
           >
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
-            {Utils.formatTimestamp(model.last_updated_timestamp)}
+            {Utils.formatTimestamp(model.last_updated_timestamp, this.props.intl)}
           </Descriptions.Item>
           {/* Reported during ESLint upgrade */}
           {/* eslint-disable-next-line react/prop-types */}
@@ -282,8 +288,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
         {/* Page Sections */}
         <CollapsibleSection
-          // @ts-expect-error TS(2322): Type '{ children: Element; css: any; title: Elemen... Remove this comment to see the full error message
-          css={(styles as any).collapsiblePanel}
+          css={styles.collapsiblePanel}
           title={
             <span>
               <FormattedMessage
@@ -309,6 +314,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         </CollapsibleSection>
         <div data-test-id="tags-section">
           <CollapsibleSection
+            css={styles.collapsiblePanel}
             title={
               <FormattedMessage
                 defaultMessage="Tags"
@@ -331,6 +337,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           </CollapsibleSection>
         </div>
         <CollapsibleSection
+          css={styles.collapsiblePanel}
           title={
             <>
               <div css={styles.versionsTabButtons}>
@@ -343,9 +350,11 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 </span>
                 {!this.props.usingNextModelsUI && (
                   <SegmentedControlGroup
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_600"
                     name="stage-filter"
                     value={this.state.stageFilter}
                     onChange={(e) => this.handleStageFilterChange(e)}
+                    css={{ fontWeight: 'normal' }}
                   >
                     <SegmentedControlButton value={StageFilters.ALL}>
                       <FormattedMessage
@@ -405,6 +414,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
         {/* Delete Model Dialog */}
         <DangerModal
+          componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_662"
           data-testid="mlflow-input-modal"
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',
@@ -479,11 +489,10 @@ const styles = {
     paddingLeft: theme.spacing.sm,
     paddingRight: theme.spacing.sm,
   }),
+  collapsiblePanel: (theme: any) => ({
+    marginBottom: theme.spacing.md,
+  }),
   wrapper: (theme: any) => ({
-    '.collapsible-panel': {
-      marginBottom: theme.spacing.md,
-    },
-
     /**
      * This seems to be a best and most stable method to catch
      * antd's collapsible section buttons without hacks

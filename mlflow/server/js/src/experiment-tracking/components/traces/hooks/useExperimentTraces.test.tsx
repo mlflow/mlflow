@@ -1,4 +1,4 @@
-import { renderHook, cleanup, waitFor, act } from '@testing-library/react-for-react-18';
+import { renderHook, cleanup, waitFor, act } from '@testing-library/react';
 import { useExperimentTraces } from './useExperimentTraces';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
@@ -33,7 +33,15 @@ describe('useExperimentTraces', () => {
       desc: boolean;
     }[] = [],
     runUuid?: string,
-  ) => renderHook(() => useExperimentTraces(testExperimentIds, sorting, filter, runUuid));
+  ) =>
+    renderHook(() =>
+      useExperimentTraces({
+        experimentIds: testExperimentIds,
+        filter,
+        sorting,
+        runUuid,
+      }),
+    );
   test('fetches traces and navigates through pages', async () => {
     // Mocking the getExperimentTraces function to return 100 traces per page.
     // We will use simple {"page": 1} token to simulate pagination.

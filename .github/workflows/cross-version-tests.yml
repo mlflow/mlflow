@@ -39,9 +39,6 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -113,7 +110,7 @@ jobs:
             PR_NUMBER="${{ github.event.pull_request.number }}"
             BASE_REF="${{ github.base_ref }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
-            CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER)"
+            CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep -v '^mlflow/server/js')"
             ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
             ONLY_LATEST="${{ fromJson(steps.check-labels.outputs.result).only_latest }}"
@@ -128,8 +125,9 @@ jobs:
   test1:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
@@ -174,8 +172,9 @@ jobs:
   test2:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}

@@ -1,6 +1,7 @@
 import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../constants';
+
 /**
  * Returns the run view's active tab.
  * - Supports multi-slash artifact paths (hence '*' catch-all param)

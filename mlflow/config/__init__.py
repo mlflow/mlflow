@@ -18,11 +18,7 @@ from mlflow.tracking import (
 
 
 def enable_async_logging(enable=True):
-    """Enable or disable async logging globally for fluent API.
-
-    `enable_async_logging` only affects fluent logging APIs, such as `mlflow.log_metric`,
-    `mlflow.log_param`, etc. Client APIs, i.e., logging APIs in class
-    :py:func:`mlflow.client.MlflowClient` are not affected.
+    """Enable or disable async logging globally.
 
     Args:
         enable: bool, if True, enable async logging. If False, disable async logging.

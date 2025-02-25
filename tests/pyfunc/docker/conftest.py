@@ -53,7 +53,7 @@ def get_released_mlflow_version():
     return str(sorted(versions, reverse=True)[0])
 
 
-def save_model_with_latest_mlflow_version(flavor, **kwargs):
+def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, **kwargs):
     """
     Save a model with overriding MLflow version from dev version to the latest released version.
     By default a model is saved with the dev version of MLflow, which is not available on PyPI.
@@ -64,7 +64,23 @@ def save_model_with_latest_mlflow_version(flavor, **kwargs):
     latest_mlflow_version = get_released_mlflow_version()
     if flavor == "langchain":
         kwargs["pip_requirements"] = [f"mlflow[gateway]=={latest_mlflow_version}", "langchain"]
+    elif flavor == "fastai":
+        import fastai
+
+        # pip dependency resolution works badly with auto-inferred fastai model dependencies
+        # and it ends up with downloading many versions of toch package, and makes CI container
+        # runs out of disk space.
+        # So set `pip_requirements` explicitly as a workaround.
+        kwargs["pip_requirements"] = [
+            f"mlflow=={latest_mlflow_version}",
+            f"fastai=={fastai.__version__}",
+        ]
     else:
-        kwargs["extra_pip_requirements"] = [f"mlflow=={latest_mlflow_version}"]
+        extra_pip_requirements = extra_pip_requirements or []
+        extra_pip_requirements.append(f"mlflow=={latest_mlflow_version}")
+        if flavor == "lightgbm":
+            # Adding pyarrow < 18 to prevent pip installation resolution conflicts.
+            extra_pip_requirements.append("pyarrow<18")
+        kwargs["extra_pip_requirements"] = extra_pip_requirements
     flavor_module = getattr(mlflow, flavor)
     flavor_module.save_model(**kwargs)

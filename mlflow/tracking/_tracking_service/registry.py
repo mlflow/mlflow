@@ -1,6 +1,9 @@
+import threading
 from functools import lru_cache
 
 from mlflow.tracking.registry import StoreRegistry
+
+_building_store_lock = threading.Lock()
 
 
 class TrackingStoreRegistry(StoreRegistry):
@@ -48,5 +51,6 @@ class TrackingStoreRegistry(StoreRegistry):
         Caching is done on resolved URIs because the meaning of an unresolved (None) URI may change
         depending on external configuration, such as environment variables
         """
-        builder = self.get_store_builder(resolved_store_uri)
-        return builder(store_uri=resolved_store_uri, artifact_uri=artifact_uri)
+        with _building_store_lock:
+            builder = self.get_store_builder(resolved_store_uri)
+            return builder(store_uri=resolved_store_uri, artifact_uri=artifact_uri)

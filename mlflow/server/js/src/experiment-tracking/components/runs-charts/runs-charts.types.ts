@@ -51,6 +51,9 @@ export abstract class RunsChartsCardConfig {
   deleted = false;
   isGenerated = false;
 
+  // Custom title of the chart. If not provided, it's inferred from configuration (e.g. metric key).
+  displayName?: string;
+
   constructor(isGenerated: boolean, uuid?: string, metricSectionId?: string) {
     this.isGenerated = isGenerated;
     this.uuid = uuid;
@@ -329,7 +332,7 @@ export abstract class RunsChartsCardConfig {
           // If section has not been reordered, then insert alphabetically
           const insertIndex = resultChartSet.findIndex((chart) => {
             const chartImageKeys = (chart as RunsChartsImageCardConfig).imageKeys;
-            return chartImageKeys ? chartImageKeys[0].localeCompare(imageKey) >= 0 : false;
+            return chartImageKeys ? chartImageKeys[0]?.localeCompare(imageKey) >= 0 : false;
           });
           resultChartSet.splice(insertIndex, 0, newChartConfig);
         }
@@ -461,6 +464,15 @@ export enum RunsChartsLineChartYAxisType {
   EXPRESSION = 'expression',
 }
 
+export interface RunsChartsLineChartExpression {
+  // The expression parsed in Reverse Polish Notation
+  rpn: (string | number)[];
+  // The parsed variables in the expression
+  variables: string[];
+  // The original input expression
+  expression: string;
+}
+
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   type: RunsChartType.LINE = RunsChartType.LINE;
@@ -525,13 +537,23 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   /**
    * Custom expressions for Y axis
    */
-  yAxisExpressions?: string[] = [];
+  yAxisExpressions?: RunsChartsLineChartExpression[] = [];
 
   /**
    * Whether or not to ignore outliers. If true, the data will be clipped
    * to the 5th and 95th percentiles.
    */
   ignoreOutliers?: boolean = false;
+
+  /**
+   * Whether or not to use global X axis settings.
+   */
+  useGlobalXaxisKey?: boolean = true;
+
+  /**
+   * Whether or not to use global line smoothing setting.
+   */
+  useGlobalLineSmoothing?: boolean = true;
 }
 
 // TODO: add configuration fields relevant to bar chart
@@ -542,6 +564,16 @@ export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
    * A metric key used for chart's X axis
    */
   metricKey = '';
+
+  /**
+   * If the chart is configured to use a particular dataset, this field will contain the dataset identifier.
+   */
+  datasetName?: string;
+
+  /**
+   * Present if the chart is configured to use a particular key to get data.
+   */
+  dataAccessKey?: string;
 }
 
 // TODO: add configuration fields relevant to contour chart
@@ -596,4 +628,13 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   // image keys to show
   imageKeys: string[] = [];
   step = 0;
+}
+
+/**
+ * Defines a metric entry in the chart configuration, used to access dataset-specific metrics.
+ */
+export interface RunsChartsMetricByDatasetEntry {
+  dataAccessKey: string;
+  metricKey: string;
+  datasetName?: string;
 }

@@ -30,21 +30,52 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color="lemon">{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color="lime">{StageLabels[Stages.PRODUCTION]}</Tag>,
-  [Stages.ARCHIVED]: <Tag color="charcoal">{StageLabels[Stages.ARCHIVED]}</Tag>,
+  [Stages.NONE]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_37">{StageLabels[Stages.NONE]}</Tag>
+  ),
+  [Stages.STAGING]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_38" color="lemon">
+      {StageLabels[Stages.STAGING]}
+    </Tag>
+  ),
+  [Stages.PRODUCTION]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_39" color="lime">
+      {StageLabels[Stages.PRODUCTION]}
+    </Tag>
+  ),
+  [Stages.ARCHIVED]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_40" color="charcoal">
+      {StageLabels[Stages.ARCHIVED]}
+    </Tag>
+  ),
 };
 
-export const ActivityTypes = {
-  APPLIED_TRANSITION: 'APPLIED_TRANSITION',
-  REQUESTED_TRANSITION: 'REQUESTED_TRANSITION',
-  SYSTEM_TRANSITION: 'SYSTEM_TRANSITION',
-  CANCELLED_REQUEST: 'CANCELLED_REQUEST',
-  APPROVED_REQUEST: 'APPROVED_REQUEST',
-  REJECTED_REQUEST: 'REJECTED_REQUEST',
-  NEW_COMMENT: 'NEW_COMMENT',
-};
+export interface ModelVersionActivity {
+  creation_timestamp?: number;
+  user_id?: string;
+  activity_type: ActivityTypes;
+  comment?: string;
+  last_updated_timestamp?: number;
+  from_stage?: string;
+  to_stage?: string;
+  system_comment?: string;
+  id?: string;
+}
+
+export enum ActivityTypes {
+  APPLIED_TRANSITION = 'APPLIED_TRANSITION',
+  REQUESTED_TRANSITION = 'REQUESTED_TRANSITION',
+  SYSTEM_TRANSITION = 'SYSTEM_TRANSITION',
+  CANCELLED_REQUEST = 'CANCELLED_REQUEST',
+  APPROVED_REQUEST = 'APPROVED_REQUEST',
+  REJECTED_REQUEST = 'REJECTED_REQUEST',
+  NEW_COMMENT = 'NEW_COMMENT',
+}
+
+export interface PendingModelVersionActivity {
+  type: ActivityTypes;
+  to_stage: string;
+}
 
 export const EMPTY_CELL_PLACEHOLDER = <div style={{ marginTop: -12 }}>_</div>;
 
@@ -74,7 +105,7 @@ export const ModelVersionStatusIcons = {
 export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;
 
 // Number of registered models initially shown on the model registry list page
-export const REGISTERED_MODELS_PER_PAGE = 10;
+const REGISTERED_MODELS_PER_PAGE = 10;
 
 // Variant for compact tables (unified list pattern), this is
 // going to become a default soon
@@ -86,19 +117,10 @@ export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
 export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
 
-export const MODEL_SCHEMA_TENSOR_TYPE = 'tensor';
-
 export const AntdTableSortOrder = {
   ASC: 'ascend',
   DESC: 'descend',
 };
-
-export const MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a model
-version in an active stage. To delete this model version, transition it to the 'Archived' stage.`;
-
-export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a
-registered model with versions in active stages ('Staging' or 'Production'). To delete this
-registered model, transition versions in active stages to the 'Archived' stage.`;
 
 export const archiveExistingVersionToolTipText = (currentStage: any) => (
   <FormattedMessage

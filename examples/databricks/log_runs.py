@@ -7,6 +7,7 @@ $ python examples/databricks/log_runs.py --host <host> --token <token> --user <u
 See also:
 https://docs.databricks.com/dev-tools/api/latest/authentication.html#generate-a-personal-access-token
 """
+
 import argparse
 import os
 import uuid

@@ -2,14 +2,12 @@ import json
 import time
 from typing import AsyncIterable
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import AnthropicConfig, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
@@ -19,16 +17,17 @@ class AnthropicAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
         key_mapping = {"stop": "stop_sequences"}
+        payload["model"] = config.model.name
         payload = rename_payload_keys(payload, key_mapping)
 
         if "top_p" in payload and "temperature" in payload:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422, detail="Cannot set both 'temperature' and 'top_p' parameters."
             )
 
         max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
         if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Invalid value for max_tokens: cannot exceed "
                 f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
@@ -36,7 +35,7 @@ class AnthropicAdapter(ProviderAdapter):
         payload["max_tokens"] = max_tokens
 
         if payload.pop("n", 1) != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
@@ -59,14 +58,23 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        # Example response:
+        # API reference: https://docs.anthropic.com/en/api/messages#body-messages
         #
+        # Example response:
         # ```
         # {
         #   "content": [
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "source": {
+        #       "type": "base64",
+        #       "media_type": "image/jpeg",
+        #       "data": "/9j/4AAQSkZJRg...",
+        #       "type": "image",
+        #       }
         #     }
         #   ],
         #   "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
@@ -81,6 +89,8 @@ class AnthropicAdapter(ProviderAdapter):
         #   }
         # }
         # ```
+        from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
 
         return chat.ResponsePayload(
@@ -91,13 +101,13 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
+                    # TODO: Remove this casting once
+                    # https://github.com/mlflow/mlflow/pull/14160 is merged
                     message=chat.ResponseMessage(
-                        role="assistant",
-                        content=c["text"],
+                        **convert_message_to_mlflow_chat(resp).model_dump_compat()
                     ),
                     finish_reason=stop_reason,
                 )
-                for c in resp["content"]
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=resp["usage"]["input_tokens"],
@@ -157,8 +167,10 @@ class AnthropicAdapter(ProviderAdapter):
     def completions_to_model(cls, payload, config):
         key_mapping = {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
 
+        payload["model"] = config.model.name
+
         if "top_p" in payload:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
@@ -166,7 +178,7 @@ class AnthropicAdapter(ProviderAdapter):
         max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
 
         if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Invalid value for max_tokens: cannot exceed "
                 f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
@@ -175,14 +187,14 @@ class AnthropicAdapter(ProviderAdapter):
         payload["max_tokens"] = max_tokens
 
         if payload.get("stream", False):
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
@@ -215,31 +227,49 @@ class AnthropicAdapter(ProviderAdapter):
 
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
+    CONFIG_TYPE = AnthropicConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
-        self.headers = {
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
             "x-api-key": self.anthropic_config.anthropic_api_key,
             "anthropic-version": self.anthropic_config.anthropic_version,
         }
-        self.base_url = "https://api.anthropic.com/v1/"
+
+    @property
+    def base_url(self) -> str:
+        return "https://api.anthropic.com/v1"
+
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return AnthropicAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/messages"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}/complete"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
 
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
             path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_streaming_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.chat_streaming_to_model(payload, self.config),
         )
 
         indices = []
@@ -285,20 +315,21 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
             path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.chat_to_model(payload, self.config),
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
@@ -306,10 +337,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             headers=self.headers,
             base_url=self.base_url,
             path="complete",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.completions_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.completions_to_model(payload, self.config),
         )
 
         # Example response:

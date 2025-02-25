@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import Parcoords from 'parcoord-es';
 import 'parcoord-es/dist/parcoords.css';
 import { scaleSequential } from 'd3-scale';
@@ -7,6 +7,7 @@ import { useDynamicPlotSize } from '../RunsCharts.common';
 import './ParallelCoordinatesPlot.css';
 import { truncateChartMetricString } from '../../../../utils/MetricsUtils';
 import { useRunsChartTraceHighlight } from '../../hooks/useRunsChartTraceHighlight';
+import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 
 /**
  * Attaches custom tooltip to the axis label inside SVG
@@ -303,7 +304,7 @@ const ParallelCoordinatesPlotImpl = (props: {
         .data(data)
         .dimensions(getAxesTypes())
         .alpha(0.8)
-        .alphaOnBrushed(0.2)
+        .alphaOnBrushed(0.1)
         .hideAxis(['uuid'])
         .lineWidth(1)
         .color((d: any) => {
@@ -423,7 +424,7 @@ const ParallelCoordinatesPlotImpl = (props: {
   return <div ref={chartRef} id="wrapper" style={{ width: props.width, height: props.height }} className="parcoords" />;
 };
 
-export const ParallelCoordinatesPlot = (props: any) => {
+const ParallelCoordinatesPlot = (props: any) => {
   const wrapper = useRef<HTMLDivElement>(null);
   const { theme } = useDesignSystemTheme();
 
@@ -455,7 +456,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
         paddingTop: '20px',
         fontSize: 0,
         '.parcoords': {
-          backgroundColor: 'transparent',
+          backgroundColor: theme.colors.backgroundPrimary,
         },
         '.parcoords text.label': {
           fill: theme.colors.textPrimary,
@@ -463,7 +464,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
       }}
     >
       {isResizing ? (
-        <LegacySkeleton />
+        <RunsChartCardLoadingPlaceholder />
       ) : (
         <ParallelCoordinatesPlotImpl {...props} width={layoutWidth} height={layoutHeight} />
       )}

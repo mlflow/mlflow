@@ -1,6 +1,7 @@
 """
 CLI for runs
 """
+
 import json
 
 import click

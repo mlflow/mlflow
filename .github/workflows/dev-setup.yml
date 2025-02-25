@@ -29,9 +29,6 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -44,6 +41,7 @@ jobs:
   linux-env-setup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
       - uses: actions/checkout@v4

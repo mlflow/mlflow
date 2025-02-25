@@ -9,6 +9,7 @@ import types
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -24,7 +25,8 @@ from mlflow.server.handlers import (
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import get_entry_points, is_windows
+from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
@@ -235,7 +237,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _run_server(
+def _run_server(  # noqa: D417
     file_store_path,
     registry_store_uri,
     default_artifact_root,
@@ -279,6 +281,10 @@ def _run_server(
 
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
+
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if secret_key:
+        env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     if app_name is None:
         app = f"{__name__}:app"

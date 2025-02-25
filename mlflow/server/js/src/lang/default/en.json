@@ -31,6 +31,14 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+iY2p8": {
+    "defaultMessage": "Custom",
+    "description": "Header for custom tracing tab in the MLflow Tracing quickstart guide"
+  },
+  "+w9a+1": {
+    "defaultMessage": "Open runs in this group in the new tab",
+    "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
+  },
   "/2MZix": {
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
@@ -51,6 +59,10 @@
     "defaultMessage": "Learn more",
     "description": "Model registry > OSS Promo modal for model version aliases > learn more link"
   },
+  "/QYbzP": {
+    "defaultMessage": "Time (wall)",
+    "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
@@ -58,6 +70,10 @@
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
+  },
+  "/v6KuF": {
+    "defaultMessage": "Automatically log traces for LlamaIndex queries by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the LlamaIndex package using MLflow autologging. This message is followed by a code example."
   },
   "08WP3h": {
     "defaultMessage": "Staging",
@@ -74,10 +90,6 @@
   "0HqSXX": {
     "defaultMessage": "Request ID",
     "description": "Experiment page > traces table > request id column header"
-  },
-  "0IQod2": {
-    "defaultMessage": "Add",
-    "description": "Run page > Overview > Tags cell > 'Add' button label"
   },
   "0XZ2zu": {
     "defaultMessage": "No image logged at this step",
@@ -159,17 +171,21 @@
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
   },
+  "25VTYi": {
+    "defaultMessage": "Cancel",
+    "description": "Cancellation button text on the model version stage transition request/approval modal"
+  },
   "27oNFE": {
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
+  "28Dnzz": {
+    "defaultMessage": "Parameters",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading"
+  },
   "2DNVN4": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>",
     "description": "Explanation of registered model aliases"
-  },
-  "2Exf7S": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
@@ -227,9 +243,9 @@
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
   },
-  "31EKoz": {
-    "defaultMessage": "No model metrics recorded",
-    "description": "Run page > Charts tab > Model charts section > empty label"
+  "2zy+D5": {
+    "defaultMessage": "Add new tag",
+    "description": "Experiment tracking > experiment page > runs > add new tag button"
   },
   "36g3aR": {
     "defaultMessage": "Edit",
@@ -307,9 +323,17 @@
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "53b+wP": {
+    "defaultMessage": "Step",
+    "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
+  },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
+  },
+  "5B5dhT": {
+    "defaultMessage": "Validate the model before deployment",
+    "description": "Heading text for validating the model before deploying it for serving"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -391,6 +415,10 @@
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load the model"
   },
+  "6d5JTO": {
+    "defaultMessage": "No traces recorded",
+    "description": "Message displayed when there are no traces logged to the experiment"
+  },
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
@@ -406,6 +434,10 @@
   "6y36Fr": {
     "defaultMessage": "Add new chart",
     "description": "Title of the modal when adding a new runs comparison chart"
+  },
+  "7/urtn": {
+    "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
   },
   "71dHIO": {
     "defaultMessage": "Classical ML",
@@ -451,9 +483,21 @@
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
   },
+  "7PCvDy": {
+    "defaultMessage": "OK",
+    "description": "Confirmation button text on the model version stage transition request/approval modal"
+  },
+  "7UncLb": {
+    "defaultMessage": "LlamaIndex",
+    "description": "Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
+  },
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
+  },
+  "7Y0hIS": {
+    "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
+    "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
   },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
@@ -466,6 +510,10 @@
   "7m2B5x": {
     "defaultMessage": "There are no evaluable rows within this column",
     "description": "Experiment page > artifact compare view > run column header > Disabled \"Evaluate all\" button tooltip when no rows are evaluable"
+  },
+  "7mgmG6": {
+    "defaultMessage": "Tags",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > tags heading"
   },
   "7nAMnb": {
     "defaultMessage": "Please input a name for the new model.",
@@ -607,10 +655,6 @@
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
   },
-  "A70NdI": {
-    "defaultMessage": "No run differences to display",
-    "description": "Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > title"
-  },
   "A7R0ii": {
     "defaultMessage": "Copy path",
     "description": "Copy tooltip to copy experiment path from experiment runs table header"
@@ -631,10 +675,6 @@
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
   },
-  "AW2rVK": {
-    "defaultMessage": "Max. no of runs shown",
-    "description": "Label for the control allowing selection of number of runs displayed in a compare runs chart"
-  },
   "Aqq08o": {
     "defaultMessage": "HTTP",
     "description": "Experiment dataset drawer > source type > HTTP source type label"
@@ -646,6 +686,10 @@
   "AupQl+": {
     "defaultMessage": "Killed",
     "description": "Run page > Overview > Run status cell > Value for killed state"
+  },
+  "AxyQXa": {
+    "defaultMessage": "Table view",
+    "description": "Experiment page > control bar > table view toggle button tooltip"
   },
   "Ay+ZP/": {
     "defaultMessage": "Failed to delete tag. Error: {userVisibleError}",
@@ -695,9 +739,17 @@
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
   },
+  "CDOfWP": {
+    "defaultMessage": "System Metrics",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
+  },
   "CTEh+b": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
+  },
+  "Ccc4/4": {
+    "defaultMessage": "Artifacts",
+    "description": "Row group title for artifacts of runs on the experiment compare runs page"
   },
   "CevPsF": {
     "defaultMessage": "Add section above",
@@ -706,6 +758,10 @@
   "Cj2i02": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > error state title"
+  },
+  "CjBv5h": {
+    "defaultMessage": "Approve pending request",
+    "description": "Title for a model version stage transition modal when approving a pending request"
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -747,9 +803,9 @@
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Message shown when displaying runs from multiple experiments"
   },
-  "Dxwvus": {
-    "defaultMessage": "Stage Transition",
-    "description": "Title text for model version stage transitions in confirm modal"
+  "E5Ruk+": {
+    "defaultMessage": "No logged images found in the currently visible runs",
+    "description": "Description for the empty state when no images are found in the currently visible runs"
   },
   "E5gbt5": {
     "defaultMessage": "More options",
@@ -787,9 +843,9 @@
     "defaultMessage": "Not a number ({metricKey})",
     "description": "Label indicating \"not-a-number\" used as a hover text in a plot UI element"
   },
-  "Eh/e0j": {
-    "defaultMessage": "Move up",
-    "description": "Run page > Charts tab > Chart box header > Move up dropdown option"
+  "ESmLOR": {
+    "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
+    "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -802,10 +858,6 @@
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
-  },
-  "F/EzKI": {
-    "defaultMessage": "Transition existing {currentStage} model versions to {archivedStage}",
-    "description": "Description text for checkbox for archiving existing model versions\n                    in the toStage for model version stage transition"
   },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
@@ -830,6 +882,10 @@
   "FPMrvd": {
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
+  },
+  "FYxQgz": {
+    "defaultMessage": "Key",
+    "description": "Add new key-value tag modal > Key input label"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -907,6 +963,14 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
+  "HV1iaK": {
+    "defaultMessage": "Monitoring",
+    "description": "A button enabling evaluation results monitoring mode on the experiment page"
+  },
+  "Hboqen": {
+    "defaultMessage": "Failed to load chart",
+    "description": "Title for the error message when the MLflow chart fails to load"
+  },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
@@ -946,6 +1010,10 @@
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
     "description": "Code comment which states on how we can predict using pandas DataFrame"
+  },
+  "IUAmWX": {
+    "defaultMessage": "No common artifacts to display.",
+    "description": "Text shown when there are no common artifacts between the runs"
   },
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
@@ -1007,6 +1075,10 @@
     "defaultMessage": "Add row",
     "description": "Experiment page > artifact compare view > \"add new row\" modal title"
   },
+  "Jp79WH": {
+    "defaultMessage": "X-axis",
+    "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis section label"
+  },
   "Jrri/Y": {
     "defaultMessage": "Temperature",
     "description": "Experiment page > prompt lab > temperature parameter label"
@@ -1042,6 +1114,10 @@
   "Ka1jM2": {
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
+  },
+  "Kkr/RI": {
+    "defaultMessage": "Configure charts",
+    "description": "Experiment page > view controls > global settings for line chart view > dropdown button label"
   },
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
@@ -1079,10 +1155,6 @@
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
   },
-  "Lxx51V": {
-    "defaultMessage": "Select other runs, toggle 'Show differences only', or re-configure the chart to compare model metrics, system metrics, parameters, tag, or attributes.",
-    "description": "Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > text"
-  },
   "M/c4l0": {
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
@@ -1095,6 +1167,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
   },
+  "MBNIRk": {
+    "defaultMessage": "Attributes",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
+  },
   "MatV9u": {
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
@@ -1106,10 +1182,6 @@
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
-  },
-  "Mm7PVx": {
-    "defaultMessage": "baseline",
-    "description": "Runs charts > components > charts > DifferenceViewPlot > baseline tag"
   },
   "Mn7Kss": {
     "defaultMessage": "OK",
@@ -1138,10 +1210,6 @@
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
     "description": "Breadcrumb title for compare runs page with single experiment"
-  },
-  "NeTLp/": {
-    "defaultMessage": "Add new",
-    "description": "Experiment tracking > runs charts > line chart configuration > add new expression button"
   },
   "NiSPrL": {
     "defaultMessage": "Model metrics",
@@ -1199,6 +1267,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
+  "OQsEJv": {
+    "defaultMessage": "Value",
+    "description": "Add new key-value tag modal > Value input label"
+  },
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
@@ -1210,6 +1282,10 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
+  },
+  "OmxT3D": {
+    "defaultMessage": "An error occurred while attemptying to fetch the trace data. Please wait a moment and try again.",
+    "description": "Experiment page > traces data drawer > error state description"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -1262,6 +1338,10 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
+  },
+  "Q6oN2U": {
+    "defaultMessage": "Chart view",
+    "description": "Experiment page > control bar > chart view toggle button tooltip"
   },
   "Q73eXs": {
     "defaultMessage": "No params",
@@ -1331,10 +1411,6 @@
     "defaultMessage": "Visualizations",
     "description": "Tabs title for plots on the compare runs page"
   },
-  "SAD2Mj": {
-    "defaultMessage": "OK",
-    "description": "Text for OK button on the confirmation page for stage transition\n                 on the model versions page"
-  },
   "SCYMXw": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
@@ -1355,13 +1431,13 @@
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
+  "Sb0Z4Z": {
+    "defaultMessage": ", . : / - = and blank spaces are not allowed",
+    "description": "Add new key-value tag modal > Invalid characters error"
+  },
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
-  },
-  "Sp+Iw0": {
-    "defaultMessage": "Move down",
-    "description": "Run page > Charts tab > Chart box header > Move down dropdown option"
   },
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
@@ -1386,10 +1462,6 @@
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
     "description": "Key-value tag editor modal > Title of the update tags modal"
-  },
-  "TMJfZv": {
-    "defaultMessage": "Comparing first {count} groups",
-    "description": "Experiment page > compare runs > chart header > compared groups count label"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -1427,10 +1499,6 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
   },
-  "U7eJfk": {
-    "defaultMessage": "Error while fetching chart data",
-    "description": "Run page > Charts tab > Metric chart box > fetch error"
-  },
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
@@ -1438,10 +1506,6 @@
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
     "description": "Helpful tooltip message to explain the automatic metrics plot update"
-  },
-  "UEESlL": {
-    "defaultMessage": "Hide all runs",
-    "description": "Menu option for hiding all runs in the experiment view runs compare mode"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
@@ -1479,6 +1543,10 @@
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
   },
+  "VGJhVI": {
+    "defaultMessage": "Add New Tag",
+    "description": "Add new key-value tag modal > Modal title"
+  },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
     "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
@@ -1511,6 +1579,10 @@
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
+  "VzuUre": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
+  },
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
@@ -1522,6 +1594,10 @@
   "WJF+wY": {
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
+  },
+  "WNz02j": {
+    "defaultMessage": "For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing.",
+    "description": "Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
   },
   "WP1pyQ": {
     "defaultMessage": "Created by",
@@ -1563,6 +1639,10 @@
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
   },
+  "XaC3qF": {
+    "defaultMessage": "Can't load run details",
+    "description": "Run page > error loading page title"
+  },
   "XaD7FM": {
     "defaultMessage": "Select parameters/metrics to plot.",
     "description": "Text to show when x or y axis is not selected on box plot"
@@ -1571,9 +1651,9 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
-  "XzoBvA": {
-    "defaultMessage": "Cancel",
-    "description": "Text for cancel button on the confirmation page for stage\n                transitions on the model versions page"
+  "XvzXs3": {
+    "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
+    "description": "Experiment page > charts > parallel coordinates chart > tooltip explaining what data is expected to be rendered"
   },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
@@ -1659,6 +1739,10 @@
     "defaultMessage": "Duration",
     "description": "Run page > Overview > Run duration section label"
   },
+  "Zpi7wv": {
+    "defaultMessage": "Please use controls on the left to select images to be compared",
+    "description": "Description for the empty state when user did not configure any images for preview yet"
+  },
   "ZqGzZd": {
     "defaultMessage": "Compare",
     "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
@@ -1731,6 +1815,10 @@
     "defaultMessage": "Refresh",
     "description": "refresh button text to refresh the experiment runs"
   },
+  "aseJdC": {
+    "defaultMessage": "LangChain / LangGraph",
+    "description": "Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
+  },
   "au61Yy": {
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
@@ -1754,6 +1842,10 @@
   "bQZDSv": {
     "defaultMessage": "Enter aliases (champion, challenger, etc)",
     "description": "Model registry > model version alias select > Alias input placeholder"
+  },
+  "bS/iHC": {
+    "defaultMessage": "Cancel pending request",
+    "description": "Title for a model version stage transition modal when cancelling a pending request"
   },
   "bSx/er": {
     "defaultMessage": "Parameters",
@@ -1851,13 +1943,13 @@
     "defaultMessage": "Show only visible",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "d8OeBh": {
+    "defaultMessage": "Model Metrics",
+    "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > model metrics heading"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
-  },
-  "dQY7H0": {
-    "defaultMessage": "No system metrics recorded",
-    "description": "Run page > Charts tab > System charts section > empty label"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -1867,13 +1959,13 @@
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
   },
-  "db+oaM": {
-    "defaultMessage": "Unable to parse JSON file",
-    "description": "Run page > artifact view > logged table view > unable to parse JSON file error"
-  },
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "dl0TeT": {
+    "defaultMessage": "Save",
+    "description": "Experiment tracking > experiment page > runs > save tags button"
   },
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
@@ -1883,9 +1975,17 @@
     "defaultMessage": "Contour Plot",
     "description": "Tab text for contour plot on the model comparison page"
   },
+  "dt3hj5": {
+    "defaultMessage": "Add tags",
+    "description": "Run page > Overview > Tags cell > 'Add' button label"
+  },
   "dwTTNK": {
     "defaultMessage": "Are you sure you want to navigate away? Your pending text changes will be lost.",
     "description": "Prompt text for navigating away before saving changes in editable note in MLflow"
+  },
+  "dzoxyA": {
+    "defaultMessage": "Reject pending request",
+    "description": "Title for a model version stage transition modal when rejecting a pending request"
   },
   "e7GTKi": {
     "defaultMessage": "Show differences only",
@@ -1927,6 +2027,10 @@
     "defaultMessage": "Last 7 days",
     "description": "Option for the start select dropdown to filter runs from the last 7 days"
   },
+  "eUUNCv": {
+    "defaultMessage": "Error during metric page load: invalid URL",
+    "description": "Error message when loading metric page fails"
+  },
   "eZOxx1": {
     "defaultMessage": "Toggle the preview sidepane",
     "description": "Experiment page > control bar > expanded view toggle button tooltip"
@@ -1934,6 +2038,10 @@
   "ea5zBl": {
     "defaultMessage": "Run page loading",
     "description": "Run page > Loading state"
+  },
+  "eavoW/": {
+    "defaultMessage": "Error",
+    "description": "Experiment page > traces data drawer > error state title"
   },
   "eeLqSn": {
     "defaultMessage": "Submit",
@@ -1946,6 +2054,10 @@
   "eyGoqW": {
     "defaultMessage": "Experiment Name",
     "description": "Label for create experiment modal to enter a valid experiment name"
+  },
+  "ez06Dt": {
+    "defaultMessage": "No images found",
+    "description": "Title for the empty state when no images are found in the currently visible runs"
   },
   "f/An1W": {
     "defaultMessage": "Ready.",
@@ -1978,6 +2090,10 @@
   "ffema5": {
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
+  },
+  "fhaHvd": {
+    "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
+    "description": "Description for the error message when the MLflow chart fails to load"
   },
   "fjM/KK": {
     "defaultMessage": "Group by",
@@ -2023,10 +2139,6 @@
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
     "description": "Experiment page > new run modal > prompt template input hint"
   },
-  "gDNspC": {
-    "defaultMessage": "Refresh",
-    "description": "Run page > Charts tab > Refresh all charts button label"
-  },
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
@@ -2067,10 +2179,6 @@
     "defaultMessage": "Bar chart",
     "description": "Experiment tracking > runs charts > add chart menu > bar chart"
   },
-  "gdjniH": {
-    "defaultMessage": "Comparing first {count} runs",
-    "description": "Experiment page > compare runs > chart header > compared runs count label"
-  },
   "geizp1": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Unsaved tag message > cancel button"
@@ -2095,6 +2203,10 @@
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
   },
+  "hm9IM7": {
+    "defaultMessage": "Requested resource does not exist",
+    "description": "Error message displayed when a requested run does not exist while fetching sampled metric data"
+  },
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
@@ -2102,6 +2214,10 @@
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
     "description": "Model registry > OSS Promote model modal > copy explanatory text"
+  },
+  "i/pJvo": {
+    "defaultMessage": "Automatically log traces for AutoGen conversations by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the AutoGen package using MLflow autologging. This message is followed by a code example."
   },
   "i9OADf": {
     "defaultMessage": "Params",
@@ -2174,6 +2290,10 @@
   "jI22Qu": {
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
+  },
+  "jLvmck": {
+    "defaultMessage": "This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
+    "description": "Message that explains the function of the 'Traces' tab in the MLflow UI.This message is followed by a tutorial explaining how to get started with MLflow Tracing."
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
@@ -2267,6 +2387,10 @@
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > artifact compare view > preview sidebar > nothing selected"
   },
+  "lTrmPI": {
+    "defaultMessage": "No matching data found for the available runs.",
+    "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
+  },
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
@@ -2274,10 +2398,6 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
-  },
-  "llrWuc": {
-    "defaultMessage": "Sort",
-    "description": "Sort by default option for sort by select dropdown for experiment runs"
   },
   "m4159e": {
     "defaultMessage": "Metrics ({length})",
@@ -2311,6 +2431,10 @@
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
   },
+  "mqDCNl": {
+    "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
+    "description": "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
+  },
   "mqTFL+": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > cancel button label"
@@ -2327,9 +2451,9 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
-  "n31miD": {
-    "defaultMessage": "No traces recorded",
-    "description": "Experiment page > traces table > no traces recorded"
+  "n4m7x9": {
+    "defaultMessage": "OpenAI",
+    "description": "Header for OpenAI tab in the MLflow Tracing quickstart guide"
   },
   "nC54Nf": {
     "defaultMessage": "Tags",
@@ -2342,6 +2466,10 @@
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
+  },
+  "nPqKse": {
+    "defaultMessage": "AutoGen",
+    "description": "Header for AutoGen tab in the MLflow Tracing quickstart guide"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -2406,6 +2534,10 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "oU/SPm": {
+    "defaultMessage": "Add",
+    "description": "Add new key-value tag modal > Add button text"
   },
   "oWPgX7": {
     "defaultMessage": "Rename",
@@ -2511,6 +2643,10 @@
     "defaultMessage": "Registered Models",
     "description": "Header for displaying models in the model registry"
   },
+  "qN1Uqj": {
+    "defaultMessage": "No images configured for preview",
+    "description": "Title for the empty state when user did not configure any images for preview yet"
+  },
   "qR3llD": {
     "defaultMessage": "Max tokens",
     "description": "Experiment page > prompt lab > max tokens parameter label"
@@ -2522,6 +2658,10 @@
   "qTjYVU": {
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
+  },
+  "qkRBUr": {
+    "defaultMessage": "Line smoothing",
+    "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
   },
   "qpFaad": {
     "defaultMessage": "Runs",
@@ -2539,6 +2679,10 @@
     "defaultMessage": "Please select metrics",
     "description": "Placeholder text for metrics in parallel coordinates plot in MLflow"
   },
+  "rAJDzz": {
+    "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
+    "description": "Description text for checkbox for archiving existing model versions\n                  in the toStage for model version stage transition request"
+  },
   "rCMgRJ": {
     "defaultMessage": "Name",
     "description": "Header for \"name\" column in the experiment run dataset schema"
@@ -2555,13 +2699,13 @@
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
   },
+  "rxMHgr": {
+    "defaultMessage": "Stage transition",
+    "description": "Title for a model version stage transition modal"
+  },
   "rytnce": {
     "defaultMessage": "Copy experiment id",
     "description": "Copy tooltip to copy experiment id from experiment runs table header"
-  },
-  "s0233x": {
-    "defaultMessage": "Set as baseline",
-    "description": "Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
   },
   "s2L+xL": {
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",
@@ -2587,6 +2731,10 @@
     "defaultMessage": "The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook.",
     "description": "Notification when the dataset is an array data source in the experiment run dataset schema"
   },
+  "sIC5K3": {
+    "defaultMessage": "Time (relative)",
+    "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use relative time axis in all charts"
+  },
   "sKaamx": {
     "defaultMessage": "Sort",
     "description": "Experiment page > sort selector > label for the dropdown button"
@@ -2610,6 +2758,14 @@
   "sguNEF": {
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
+  },
+  "smtq2M": {
+    "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
+    "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
+  },
+  "srbhok": {
+    "defaultMessage": "Use workspace settings",
+    "description": "Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
   },
   "ss//L4": {
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
@@ -2663,6 +2819,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "ua6IVs": {
+    "defaultMessage": "Error while loading compare runs page",
+    "description": "Title of the error state on the run compare page"
+  },
   "ubGTUL": {
     "defaultMessage": "Name is required.",
     "description": "Error message for name requirement in editable tags table view in MLflow"
@@ -2691,6 +2851,10 @@
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
   },
+  "urvfNd": {
+    "defaultMessage": "Cancel",
+    "description": "Add new key-value tag modal > Cancel button text"
+  },
   "v+0HXI": {
     "defaultMessage": "Artifact loading",
     "description": "Run page > artifact view > loading skeleton label"
@@ -2702,6 +2866,10 @@
   "vBKFgp": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
+  },
+  "vHNP+J": {
+    "defaultMessage": "Add tags",
+    "description": "Button text to add tags to a trace in the experiment traces table"
   },
   "vK1v9d": {
     "defaultMessage": "datasets used",
@@ -2763,6 +2931,10 @@
     "defaultMessage": "Are you sure you want to save and close without adding \"{tag}\"",
     "description": "Key-value tag editor modal > Unsaved tag message"
   },
+  "wxq/qM": {
+    "defaultMessage": "Set as baseline",
+    "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
+  },
   "x0K27S": {
     "defaultMessage": "Nothing to compare!",
     "description": "Header displayed in the metrics and params compare plot when no values are selected"
@@ -2770,6 +2942,10 @@
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"
+  },
+  "xBoybr": {
+    "defaultMessage": "Tag key already exists on one or more of the selected runs. Please choose a different key.",
+    "description": "Add new key-value tag modal > Duplicate tag key error"
   },
   "xPkIEE": {
     "defaultMessage": "Active",
@@ -2791,10 +2967,6 @@
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
   },
-  "xr/C5c": {
-    "defaultMessage": "Comparing first {count} groups and runs",
-    "description": "Experiment page > compare runs > chart header > compared groups and runs count label"
-  },
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
@@ -2802,6 +2974,10 @@
   "yAuDRt": {
     "defaultMessage": "Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the \"group by\" settings or use \"Add row\" button to define new parameter set.",
     "description": "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
+  },
+  "yCncIr": {
+    "defaultMessage": "Metric",
+    "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use metric axis in all charts"
   },
   "yJpGwW": {
     "defaultMessage": "Deleted",
@@ -2818,6 +2994,10 @@
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
+  },
+  "yTwAJ4": {
+    "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For example:",
+    "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example."
   },
   "ydoHrJ": {
     "defaultMessage": "Output",
@@ -2870,10 +3050,6 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
-  },
-  "zMmWhy": {
-    "defaultMessage": "Chart data is refreshing",
-    "description": "Run page > Charts tab > Chart box header > Refreshing chart accessible label"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",

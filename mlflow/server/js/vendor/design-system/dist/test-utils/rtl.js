@@ -1,7 +1,7 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { queryHelpers, within, waitFor, screen, fireEvent } from '@testing-library/react';
 import { computeAccessibleName } from 'dom-accessibility-api';
-import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
+import { s as selectClasses, c as createMarkdownTable } from '../common-B8UocGP5.js';
 
 function normalizeText(text) {
   return text.replace(/\s+/g, ' ').trim();
@@ -242,7 +242,7 @@ async function clearAll(select) {
  * Opens the dropdown menu, finds all of the options in the dropdown, closes
  * the menu, and returns a list of the text of each option in order.
  */
-async function getAllOptions(select) {
+async function getAllOptions$1(select) {
   select = getRootElement(select);
   await openMenu(select);
   const optionsList = getOptionsList(select);
@@ -276,7 +276,7 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   clearAll: clearAll,
   closeMenu: closeMenu,
   createNewOption: createNewOption,
-  getAllOptions: getAllOptions,
+  getAllOptions: getAllOptions$1,
   getLabelText: getLabelText,
   multiSelect: multiSelect,
   openMenu: openMenu,
@@ -324,6 +324,9 @@ const expectSelectToBeClosed = () => {
 const getOptionsLength = () => {
   return screen.getAllByRole('option').length;
 };
+const getAllOptions = () => {
+  return screen.getAllByRole('option').flatMap(option => option.textContent);
+};
 const expectOptionsLengthToBe = length => {
   expect(getOptionsLength()).toBe(length);
 };
@@ -363,6 +366,7 @@ const simpleSelectTestUtils = {
   expectSelectToBeOpen,
   expectSelectToBeClosed,
   getOptionsLength,
+  getAllOptions,
   expectOptionsLengthToBe,
   getUnselectedOption,
   getSelectedOption,

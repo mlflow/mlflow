@@ -1,12 +1,11 @@
 import logging
 
-import entrypoints
-
 from mlflow.projects.backend.local import LocalBackend
+from mlflow.utils.plugins import get_entry_points
 
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 
-__logger__ = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 # Statically register backend defined in mlflow
@@ -21,17 +20,16 @@ def load_backend(backend_name):
         return MLFLOW_BACKENDS[backend_name]()
 
     # backends from plugin
-    try:
-        backend_builder = entrypoints.get_single(ENTRYPOINT_GROUP_NAME, backend_name).load()
-        return backend_builder()
-    except entrypoints.NoSuchEntryPoint:
-        # TODO Should be a error when all backends are migrated here
-        available_entrypoints = entrypoints.get_group_all(ENTRYPOINT_GROUP_NAME)
-        available_plugins = [entrypoint.name for entrypoint in available_entrypoints]
-        __logger__.warning(
-            "Backend '%s' is not available. Available plugins are %s",
-            backend_name,
-            available_plugins + list(MLFLOW_BACKENDS.keys()),
-        )
+    entrypoints = get_entry_points(ENTRYPOINT_GROUP_NAME)
+    if entrypoint := next((e for e in entrypoints if e.name == backend_name), None):
+        builder = entrypoint.load()
+        return builder()
+
+    # TODO Should be a error when all backends are migrated here
+    _logger.warning(
+        "Backend '%s' is not available. Available plugins are %s",
+        backend_name,
+        [*entrypoints, *MLFLOW_BACKENDS.keys()],
+    )
 
     return None

@@ -33,6 +33,27 @@ export interface WizardProps {
      */
     verticalCompactButtonContent?: (currentStepIndex: number, totalSteps: number) => string;
     /**
+     * Configuration to render a DocumentationSidebar to the right of the vertical wizard's step content
+     *
+     * content: will be used as the `DocumentationSidebar.Content`. The Content child component takes in a `contentId: string` property; this is the contentId passed along from the
+  Trigger. This allows the client to display different help based on the contentId trigger clicked.
+      *
+      * title: is title displayed atop of the `DocumentationSidebar.Content`
+      *
+      * modalTitleWhenCompact: is the modal title for the compact version of the DocumentationSidebar
+      *
+      * closeLabel: is the aria label used for the sidebar close button
+      *
+      * initialContentId:  Initial content id to be displayed
+     */
+    verticalDocumentationSidebarConfig?: {
+        content: React.ReactNode;
+        title: string;
+        modalTitleWhenCompact?: string;
+        closeLabel: string;
+        initialContentId?: string | undefined;
+    };
+    /**
      * Called when user clicks on cancel button in Wizard footer
      */
     onCancel: () => void;
@@ -62,24 +83,24 @@ export interface WizardProps {
     /**
      * Content of the wizard's footer next button
      *
-     * Can be overriden for a specific step by setting `nextButtonContentOverride` on the step
+     * Can be overridden for a specific step by setting `nextButtonContentOverride` on the step
      */
     nextButtonContent: React.ReactNode;
     /**
      * Content of the wizard's footer previous button
      *
-     * Can be overriden for a specific step by setting `previousButtonContentOverride` on the step
+     * Can be overridden for a specific step by setting `previousButtonContentOverride` on the step
      */
     previousButtonContent: React.ReactNode;
     /**
      * Content of the wizard's footer done (last step's next) button
      *
-     * Can be overriden for a specific step by setting `nextButtonContentOverride` on the last step
+     * Can be overridden for a specific step by setting `nextButtonContentOverride` on the last step
      */
     doneButtonContent: React.ReactNode;
     /**
      * Extra set of ordered buttons to be displayed in the footer to the left of the next button
-     * The only button property that will be overriden is type to default; keeping the far right button as the only primary button.
+     * The only button property that will be overridden is type to default; keeping the far right button as the only primary button.
      */
     extraFooterButtonsLeft?: ButtonProps[];
     /**
@@ -90,9 +111,10 @@ export interface WizardProps {
     /**
      * Layout of the stepper.
      * A vertical wizard will have a vertical stepper on the left side of the step content
-     * A horizontal wizard will have a horizontal stepper atop of the step content
+     * A horizontal wizard will have a horizontal stepper atop of the step content.
+     * Note this is here for historical reasons; vertical layouts are highly recommended
      *
-     * @default 'horizontal'
+     * @default 'vertical'
      */
     layout?: 'horizontal' | 'vertical';
     /**
@@ -108,11 +130,22 @@ export interface WizardProps {
     /**
      * If true user will be able to click to steps that have been completed, in error or warning states, or are less than current step,
      * or every step before a step is completed.
-     * This default behavior can be overriden by setting `clickEnabled` on each `WizardStep`
+     * This default behavior can be overridden by setting `clickEnabled` on each `WizardStep`
      *
      * @default false
      */
     enableClickingToSteps?: boolean;
+    /**
+     * If true, the step description will be hidden for steps not reached yet.
+     * @default false
+     */
+    hideDescriptionForFutureSteps?: boolean;
+    /**
+     * Max width of the content component of the wizard
+     *
+     * If set it will override the default max width of the content component
+     */
+    contentMaxWidth?: string | number;
 }
 export type WizardControlledProps = WizardProps & WizardCurrentStepResult & {
     currentStepIndex: number;

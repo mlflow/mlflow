@@ -1,11 +1,14 @@
+import json
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateRun,
     DeleteExperiment,
@@ -19,6 +22,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetTraceInfo,
+    GetTraceInfoV3,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -47,8 +51,10 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
+    get_create_assessment_endpoint,
     get_set_trace_tag_endpoint,
     get_single_trace_endpoint,
+    get_trace_assessment_endpoint,
     get_trace_info_endpoint,
 )
 
@@ -111,6 +117,9 @@ class RestStore(AbstractStore):
 
         Args:
             name: Desired name for an experiment.
+            artifact_location: Location to store run artifacts.
+            tags: A list of :py:class:`mlflow.entities.ExperimentTag` instances to set for the
+                experiment.
 
         Returns:
             experiment_id for the newly created experiment if successful, else None
@@ -189,7 +198,7 @@ class RestStore(AbstractStore):
             user_id: ID of the user launching this run.
             start_time: timestamp of the initialization of the run.
             tags: tags to apply to this run at initialization.
-            name: Name of this run.
+            run_name: Name of this run.
 
         Returns:
             The created Run object.
@@ -212,8 +221,8 @@ class RestStore(AbstractStore):
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -257,8 +266,8 @@ class RestStore(AbstractStore):
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -309,7 +318,7 @@ class RestStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         req_body = message_to_json(
             DeleteTraces(
@@ -322,12 +331,14 @@ class RestStore(AbstractStore):
         res = self._call_endpoint(DeleteTraces, req_body)
         return res.traces_deleted
 
-    def get_trace_info(self, request_id):
+    def get_trace_info(self, request_id, should_query_v3: bool = False):
         """
         Get the trace matching the `request_id`.
 
         Args:
             request_id: String id of the trace to fetch.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
@@ -335,14 +346,29 @@ class RestStore(AbstractStore):
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        assessments = None
+        if should_query_v3:
+            try:
+                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
+                tracev3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
+                )
+                assessments = [
+                    Assessment.from_proto(a)
+                    for a in tracev3_response_proto.trace.trace_info.assessments
+                ]
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                pass
+        return TraceInfo.from_proto(response_proto.trace_info, assessments=assessments)
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ):
         st = SearchTraces(
@@ -382,7 +408,25 @@ class RestStore(AbstractStore):
             DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
         )
 
-    def log_metric(self, run_id, metric):
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Create an assessment entity in the backend store.
+
+        Args:
+            assessment: The assessment to log (without an assessment_id).
+
+        Returns:
+            The created Assessment object.
+        """
+        req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
+        response_proto = self._call_endpoint(
+            CreateAssessment,
+            req_body,
+            endpoint=get_create_assessment_endpoint(assessment.trace_id),
+        )
+        return Assessment.from_proto(response_proto.assessment)
+
+    def log_metric(self, run_id: str, metric: Metric):
         """
         Log a metric for the specified run
 
@@ -535,10 +579,12 @@ class RestStore(AbstractStore):
         self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
-        req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
+        req_body = message_to_json(
+            LogModel(run_id=run_id, model_json=json.dumps(mlflow_model.get_tags_dict()))
+        )
         self._call_endpoint(LogModel, req_body)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

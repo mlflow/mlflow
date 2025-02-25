@@ -33,7 +33,7 @@ class AIModel(pyfunc.PythonModel):
         from openai import OpenAI
 
         return OpenAI().chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",

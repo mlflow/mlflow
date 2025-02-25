@@ -2,7 +2,7 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
 import { Table, TableCell, TableRow } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../sdk/MlflowService';
 
 const shortValue = '{"test":"short"}';
@@ -70,5 +70,16 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
     await userEvent.click(screen.getByRole('button'));
 
     expect(screen.queryByText(formattedLongValue, { collapseWhitespace: false })).not.toBeInTheDocument();
+  });
+
+  test('it should unescape non-ascii characters', async () => {
+    jest
+      .spyOn(MlflowService, 'getExperimentTraceData')
+      .mockImplementation(() => Promise.resolve({ response: longValue }));
+
+    const escapedJson = '{"model_input":"\\uD83D\\uDE42"}';
+    const unescapedJson = '{"model_input":"🙂"}';
+    renderTable(escapedJson);
+    expect(screen.getByText(unescapedJson, { collapseWhitespace: false })).toBeInTheDocument();
   });
 });

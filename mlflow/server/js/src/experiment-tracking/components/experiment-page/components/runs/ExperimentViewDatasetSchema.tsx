@@ -68,6 +68,7 @@ export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRen
             }}
           >
             <TableFilterInput
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschema.tsx_92"
               value={filter}
               placeholder="Search fields"
               onChange={(e) => setFilter(e.target.value)}

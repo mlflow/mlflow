@@ -66,7 +66,7 @@ docker run \
    -w /mlflow \
    -v $(pwd)/requirements:/mlflow/requirements:ro \
    -v $(pwd)/.devcontainer/pip-compile.sh:/mlflow/pip-compile.sh \
-   python:3.8.19 ./pip-compile.sh
+   python:3.9.18 ./pip-compile.sh
 docker cp $NAME:/tmp/requirements.txt .devcontainer/requirements.txt
 docker rm -f -v $NAME
 ```

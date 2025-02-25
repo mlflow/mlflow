@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState } from 'react';
 
-import { Alert, Button, Form, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, LegacyForm, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
 import { ModelEntity } from '../../experiment-tracking/types';
 import { ModelVersionAliasSelect } from '../components/aliases/ModelVersionAliasSelect';
@@ -25,7 +25,7 @@ export const useEditRegisteredModelAliasesModal = ({
   onSuccess?: () => void;
 }) => {
   const [showModal, setShowModal] = useState(false);
-  const [form] = Form.useForm();
+  const [form] = LegacyForm.useForm();
 
   const [errorMessage, setErrorMessage] = useState<string>('');
   const { theme } = useDesignSystemTheme();
@@ -122,6 +122,7 @@ export const useEditRegisteredModelAliasesModal = ({
 
   const EditAliasesModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_127"
       visible={showModal}
       footer={
         <div>
@@ -172,8 +173,8 @@ export const useEditRegisteredModelAliasesModal = ({
           }}
         />
       </Typography.Paragraph>
-      <Form form={form} layout="vertical">
-        <Form.Item>
+      <LegacyForm form={form} layout="vertical">
+        <LegacyForm.Item>
           <ModelVersionAliasSelect
             disabled={false}
             renderKey={conflictedAliases} // todo
@@ -183,10 +184,11 @@ export const useEditRegisteredModelAliasesModal = ({
             existingAliases={existingAliases}
             setDraftAliases={setDraftAliases}
           />
-        </Form.Item>
+        </LegacyForm.Item>
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           {isExceedingLimit && (
             <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_192"
               role="alert"
               message={
                 <FormattedMessage
@@ -201,6 +203,7 @@ export const useEditRegisteredModelAliasesModal = ({
           )}
           {conflictedAliases.map(({ alias, otherVersion }) => (
             <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_206"
               role="alert"
               key={alias}
               message={
@@ -214,9 +217,17 @@ export const useEditRegisteredModelAliasesModal = ({
               closable={false}
             />
           ))}
-          {errorMessage && <Alert role="alert" message={errorMessage} type="error" closable={false} />}
+          {errorMessage && (
+            <Alert
+              componentId="codegen_mlflow_app_src_model-registry_hooks_useeditregisteredmodelaliasesmodal.tsx_220"
+              role="alert"
+              message={errorMessage}
+              type="error"
+              closable={false}
+            />
+          )}
         </div>
-      </Form>
+      </LegacyForm>
     </Modal>
   );
 

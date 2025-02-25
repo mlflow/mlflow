@@ -16,7 +16,6 @@ const PlotlyLikeFormattedTime = ({ value }: { value: string | number }) => (
     <FormattedDate value={value} month="2-digit" />-
     <FormattedDate value={value} day="2-digit" /> <FormattedTime value={value} hour="numeric" hourCycle="h24" />:
     <FormattedTime value={value} minute="2-digit" />:
-    {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
     <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
   </>
 );
@@ -27,7 +26,6 @@ const PlotlyLikeFormattedTimestamp = ({ value }: { value: string | number }) => 
   <>
     <FormattedTime value={value} hour="2-digit" hourCycle="h23" />:
     <FormattedTime value={value} minute="2-digit" />:
-    {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
     <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
   </>
 );

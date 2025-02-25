@@ -1,12 +1,10 @@
 import time
-from typing import Any, Dict
-
-from fastapi.encoders import jsonable_encoder
+from typing import Any
 
 from mlflow.gateway.config import MistralConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class MistralAdapter(ProviderAdapter):
@@ -57,6 +55,36 @@ class MistralAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def model_to_chat(cls, resp, config):
+        # Response example (https://docs.mistral.ai/api/#operation/createChatCompletion)
+        return chat.ResponsePayload(
+            id=resp["id"],
+            object=resp["object"],
+            created=resp["created"],
+            model=resp["model"],
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"],
+                        content=c["message"].get("content"),
+                        tool_calls=(
+                            (calls := c["message"].get("tool_calls"))
+                            and [chat.ToolCall(**c) for c in calls]
+                        ),
+                    ),
+                    finish_reason=c.get("finish_reason"),
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
+        )
+
+    @classmethod
     def model_to_embeddings(cls, resp, config):
         # Response example (https://docs.mistral.ai/api/#operation/createEmbedding):
         # ```
@@ -99,6 +127,7 @@ class MistralAdapter(ProviderAdapter):
 
     @classmethod
     def completions_to_model(cls, payload, config):
+        payload["model"] = config.model.name
         payload.pop("stop", None)
         payload.pop("n", None)
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
@@ -110,12 +139,17 @@ class MistralAdapter(ProviderAdapter):
         return payload
 
     @classmethod
+    def chat_to_model(cls, payload, config):
+        return {"model": config.model.name, **payload}
+
+    @classmethod
     def embeddings_to_model(cls, payload, config):
-        return payload
+        return {"model": config.model.name, **payload}
 
 
 class MistralProvider(BaseProvider):
     NAME = "Mistral"
+    CONFIG_TYPE = MistralConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
@@ -124,41 +158,49 @@ class MistralProvider(BaseProvider):
         self.mistral_config: MistralConfig = config.model.config
 
     @property
-    def auth_headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.mistral_config.mistral_api_key}"}
 
     @property
     def base_url(self) -> str:
-        return "https://api.mistral.ai/v1/"
+        return "https://api.mistral.ai/v1"
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return MistralAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/chat/completions"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
+
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
-            headers=self.auth_headers,
+            headers=self.headers,
             base_url=self.base_url,
             path=path,
             payload=payload,
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
             "chat/completions",
-            {
-                "model": self.config.model.name,
-                **MistralAdapter.completions_to_model(payload, self.config),
-            },
+            MistralAdapter.completions_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_completions(resp, self.config)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await self._request(
             "embeddings",
-            {
-                "model": self.config.model.name,
-                **MistralAdapter.embeddings_to_model(payload, self.config),
-            },
+            MistralAdapter.embeddings_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_embeddings(resp, self.config)

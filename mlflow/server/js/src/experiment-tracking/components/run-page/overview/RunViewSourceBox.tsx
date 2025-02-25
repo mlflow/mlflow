@@ -45,7 +45,10 @@ export const RunViewSourceBox = ({
       {runSource}{' '}
       {branchName && (
         <LegacyTooltip title={branchName}>
-          <Tag css={{ marginRight: 0 }}>
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewsourcebox.tsx_48"
+            css={{ marginRight: 0 }}
+          >
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <BranchIcon /> {branchName}
             </div>
@@ -69,7 +72,10 @@ export const RunViewSourceBox = ({
             </div>
           }
         >
-          <Tag css={{ marginRight: 0 }}>
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewsourcebox.tsx_72"
+            css={{ marginRight: 0 }}
+          >
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <GitCommitIcon /> {commitHash.slice(0, 7)}
             </div>

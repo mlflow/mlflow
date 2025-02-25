@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-for-react-18';
+import { renderHook, act } from '@testing-library/react';
 import { useActiveExperimentTrace } from './useActiveExperimentTrace';
 import { useSearchParams } from '../../../../common/utils/RoutingUtils';
 

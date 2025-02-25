@@ -1,7 +1,9 @@
 # This module is copied from legacy databricks CLI python library
 # module `databricks_cli.configure.provider`,
 # but with some modification to make `EnvironmentVariableConfigProvider` supporting
-# 'DATABRICKS_CLIENT_ID' and 'DATABRICKS_CLIENT_SECRET' environmental variables.
+# 'DATABRICKS_CLIENT_ID' and 'DATABRICKS_CLIENT_SECRET' environmental variables,
+# and make ProfileConfigProvider supporting 'databricks-cli' authentication way,
+# 'databricks-cli' authentication way is for supporting U2M authentication.
 #
 # This is the original legacy databricks CLI python library provider module code:
 # https://github.com/databricks/databricks-cli/blob/0.18.0/databricks_cli/configure/provider.py
@@ -31,6 +33,7 @@ JOBS_API_VERSION = "jobs-api-version"
 DEFAULT_SECTION = "DEFAULT"
 CLIENT_ID = "client_id"
 CLIENT_SECRET = "client_secret"
+AUTH_TYPE = "auth_type"
 
 # User-provided override for the DatabricksConfigProvider
 _config_provider = None
@@ -106,6 +109,7 @@ def update_and_persist_config(profile, databricks_config):
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
@@ -129,13 +133,12 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
         config = _config_provider.get_config()
         if config:
             return config
         raise InvalidConfigurationError(
-            "Custom provider returned no DatabricksConfig: %s" % _config_provider
+            f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
     config = DefaultConfigProvider().get_config()
@@ -179,7 +182,7 @@ def set_config_provider(provider):
     """
     global _config_provider
     if provider and not isinstance(provider, DatabricksConfigProvider):
-        raise Exception("Must be instance of DatabricksConfigProvider: %s" % _config_provider)
+        raise Exception(f"Must be instance of DatabricksConfigProvider: {_config_provider}")
     _config_provider = provider
 
 
@@ -188,7 +191,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 
@@ -308,6 +310,7 @@ class ProfileConfigProvider(DatabricksConfigProvider):
         jobs_api_version = _get_option_if_exists(raw_config, self.profile, JOBS_API_VERSION)
         client_id = _get_option_if_exists(raw_config, self.profile, CLIENT_ID)
         client_secret = _get_option_if_exists(raw_config, self.profile, CLIENT_SECRET)
+        auth_type = _get_option_if_exists(raw_config, self.profile, AUTH_TYPE)
         config = DatabricksConfig(
             host,
             username,
@@ -318,6 +321,7 @@ class ProfileConfigProvider(DatabricksConfigProvider):
             jobs_api_version,
             client_id=client_id,
             client_secret=client_secret,
+            auth_type=auth_type,
         )
         if config.is_valid:
             return config
@@ -398,6 +402,7 @@ class DatabricksConfig:
         jobs_api_version=None,
         client_id=None,
         client_secret=None,
+        auth_type=None,
     ):
         self.host = host
         self.username = username
@@ -408,6 +413,7 @@ class DatabricksConfig:
         self.jobs_api_version = jobs_api_version
         self.client_id = client_id
         self.client_secret = client_secret
+        self.auth_type = auth_type
 
     @classmethod
     def from_token(cls, host, token, refresh_token=None, insecure=None, jobs_api_version=None):
@@ -458,9 +464,19 @@ class DatabricksConfig:
         return self.host and self.client_id and self.client_secret
 
     @property
+    def is_databricks_cli_auth_type(self):
+        return self.auth_type == "databricks-cli"
+
+    @property
+    def is_azure_cli_auth_type(self):
+        return self.auth_type == "azure-cli"
+
+    @property
     def is_valid(self):
         return (
             self.is_valid_with_token
             or self.is_valid_with_password
             or self.is_valid_with_client_id_secret
+            or self.is_databricks_cli_auth_type
+            or self.is_azure_cli_auth_type
         )

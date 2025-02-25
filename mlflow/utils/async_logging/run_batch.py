@@ -1,5 +1,5 @@
 import threading
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -10,9 +10,9 @@ class RunBatch:
     def __init__(
         self,
         run_id: str,
-        params: Optional[List["Param"]] = None,
-        tags: Optional[List["RunTag"]] = None,
-        metrics: Optional[List["Metric"]] = None,
+        params: Optional[list["Param"]] = None,
+        tags: Optional[list["RunTag"]] = None,
+        metrics: Optional[list["Metric"]] = None,
         completion_event: Optional[threading.Event] = None,
     ):
         """Initializes an instance of `RunBatch`.
@@ -48,3 +48,11 @@ class RunBatch:
         that we can properly notify the system when child batches have been processed.
         """
         self.child_batches.append(child_batch)
+
+    def complete(self):
+        """Mark the batch as completed."""
+        if self.completion_event:
+            self.completion_event.set()
+
+        for child_batch in self.child_batches:
+            child_batch.complete()

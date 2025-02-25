@@ -14,6 +14,10 @@ def parse_args():
         choices=["skinny", "release", "dev"],
         default="dev",
     )
+    parser.add_argument(
+        "--sha",
+        help="If specified, include the SHA in the wheel name as a build tag.",
+    )
     return parser.parse_args()
 
 
@@ -22,7 +26,14 @@ def restore_changes():
     try:
         yield
     finally:
-        subprocess.check_call(["git", "restore", ":^dev/build.py"])
+        subprocess.check_call(
+            [
+                "git",
+                "restore",
+                "README.md",
+                "pyproject.toml",
+            ]
+        )
 
 
 def main():
@@ -39,8 +50,8 @@ def main():
     with restore_changes():
         pyproject = Path("pyproject.toml")
         if args.package_type == "skinny":
-            readme = Path("README.rst")
-            readme_skinny = Path("README_SKINNY.rst")
+            readme = Path("README.md")
+            readme_skinny = Path("README_SKINNY.md")
             readme.write_text(readme_skinny.read_text() + "\n" + readme.read_text())
 
             pyproject.write_text(Path("pyproject.skinny.toml").read_text())
@@ -49,6 +60,13 @@ def main():
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
         subprocess.check_call([sys.executable, "-m", "build"])
+
+    if args.sha:
+        # If build succeeds, there should be one wheel in the dist directory
+        wheel = next(Path("dist").glob("mlflow*.whl"))
+        name, version, rest = wheel.name.split("-", 2)
+        build_tag = f"0.sha.{args.sha}"  # build tag must start with a digit
+        wheel.rename(wheel.with_name(f"{name}-{version}-{build_tag}-{rest}"))
 
 
 if __name__ == "__main__":

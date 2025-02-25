@@ -1,32 +1,9 @@
-import json
 import os
 import time
-from contextlib import contextmanager
 from enum import Enum
 from typing import NamedTuple, Optional
-from unittest import mock
-from unittest.mock import AsyncMock
 
 import mlflow
-
-TEST_CONTENT = "test"
-
-TEST_SOURCE_DOCUMENTS = [
-    {
-        "page_content": "We see the unity among leaders ...",
-        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
-    },
-]
-TEST_INTERMEDIATE_STEPS = (
-    [
-        {
-            "tool": "Search",
-            "tool_input": "High temperature in SF yesterday",
-            "log": " I need to find the temperature first...",
-            "result": "San Francisco...",
-        },
-    ],
-)
 
 REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
@@ -75,67 +52,6 @@ REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
 REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
 
 
-class _MockResponse:
-    def __init__(self, status_code, json_data):
-        self.status_code = status_code
-        self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
-        self.text = mlflow.__version__
-        self.json_data = json_data
-
-    def json(self):
-        return self.json_data
-
-
-def _chat_completion_json_sample(content):
-    # https://platform.openai.com/docs/api-reference/chat/create
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-                "text": content,
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-
-
-def _mock_chat_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _chat_completion_json_sample(content))
-
-
-@contextmanager
-def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
-        yield m
-
-
-@contextmanager
-def _mock_openai_arequest():
-    with mock.patch(
-        "aiohttp.ClientSession.request", side_effect=_mock_async_chat_completion_response
-    ) as mock_request:
-        yield mock_request
-
-
-async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
-    resp = AsyncMock()
-    json_data = _chat_completion_json_sample(content)
-    resp.status = 200
-    resp.content = json.dumps(json_data).encode()
-    resp.headers = {"Content-Type": "application/json"}
-    resp.text = mlflow.__version__
-    resp.json_data = json_data
-    resp.json.return_value = json_data
-    resp.read.return_value = resp.content
-    return resp
-
-
 def _validate_model_params(task, model, params):
     if not params:
         return
@@ -173,14 +89,6 @@ class _OAITokenHolder:
     @property
     def token(self):
         return self._api_token_env or self._azure_ad_token.token
-
-    def auth_headers(self):
-        if self._api_type == "azure":
-            # For Azure OpenAI API keys, the `api-key` header must be used:
-            # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
-            return {"api-key": self.token}
-        else:
-            return {"Authorization": f"Bearer {self.token}"}
 
     def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
@@ -222,14 +130,17 @@ class _OpenAIApiConfig(NamedTuple):
     max_tokens_per_minute: int
     api_version: Optional[str]
     api_base: str
-    engine: Optional[str]
     deployment_id: Optional[str]
+    organization: Optional[str] = None
+    max_retries: int = 5
+    timeout: float = 60.0
 
 
 # See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
 # for the list of environment variables that openai-python uses
 class _OpenAIEnvVar(str, Enum):
     OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_BASE_URL = "OPENAI_BASE_URL"
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"

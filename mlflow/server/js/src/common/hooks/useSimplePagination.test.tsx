@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-for-react-18';
+import { act, renderHook } from '@testing-library/react';
 import { useSimplePagination } from './useSimplePagination';
 
 describe('useSimplePagination', () => {

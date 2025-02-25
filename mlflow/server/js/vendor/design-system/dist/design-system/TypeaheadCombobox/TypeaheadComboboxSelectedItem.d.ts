@@ -6,7 +6,8 @@ export interface TypeaheadComboboxSelectedItemProps<T> {
     item: any;
     getSelectedItemProps: (options: UseMultipleSelectionGetSelectedItemPropsOptions<T>) => any;
     removeSelectedItem: (item: T) => void;
+    disabled?: boolean;
 }
-export declare const getSelectedItemStyles: (theme: Theme) => SerializedStyles;
+export declare const getSelectedItemStyles: (theme: Theme, disabled?: boolean) => SerializedStyles;
 export declare const TypeaheadComboboxSelectedItem: React.FC<any>;
 //# sourceMappingURL=TypeaheadComboboxSelectedItem.d.ts.map

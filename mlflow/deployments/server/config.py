@@ -17,7 +17,7 @@ class Endpoint(ResponseModel):
                 "name": "openai-completions",
                 "endpoint_type": "llm/v1/completions",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                 },
                 "endpoint_url": "/endpoints/completions/invocations",

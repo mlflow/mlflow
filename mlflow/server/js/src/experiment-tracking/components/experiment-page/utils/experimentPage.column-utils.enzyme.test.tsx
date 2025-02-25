@@ -190,7 +190,7 @@ describe('ExperimentViewRuns column utils', () => {
       ['metrics.`metric_1`', 'metrics.`metric_2`'],
     );
 
-    // Finally, retract the first metric and leavy "metric_2" only
+    // Finally, retract the first metric and leave "metric_2" only
     wrapper.setProps({
       hookParams: { ...hookParams, metricKeyList: ['metric_2'] },
     });

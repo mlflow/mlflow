@@ -73,3 +73,19 @@ def test_config_setup_correctly_errors_with_no_config_path():
         FileNotFoundError, match="Config file is not provided which is needed to load the model."
     ):
         ModelConfig(development_config=VALID_CONFIG_PATH)
+
+
+def test_config_development_config_to_dict():
+    config = ModelConfig(development_config={"llm_parameters": {"temperature": 0.01}})
+    assert config.to_dict() == {"llm_parameters": {"temperature": 0.01}}
+
+    config = ModelConfig(development_config=VALID_CONFIG_PATH)
+    assert config.to_dict() == {
+        "embedding_model_query_instructions": "Represent this sentence for searching "
+        "relevant passages:",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant.",
+        "retriever_config": {"k": 5, "use_mmr": False},
+        "llm_parameters": {"temperature": 0.01, "max_tokens": 500},
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+    }

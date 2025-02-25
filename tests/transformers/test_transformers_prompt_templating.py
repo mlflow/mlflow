@@ -180,6 +180,12 @@ def test_prompt_formatting(saved_transformers_model_path):
 def test_prompt_used_in_predict(task, pipeline_fixture, output_key, request, tmp_path):
     pipeline = request.getfixturevalue(pipeline_fixture)
 
+    if task == "summarization" and Version(transformers.__version__) > Version("4.44.2"):
+        pytest.skip(
+            reason="Multi-task pipeline has a loading issue with Transformers 4.45.x. "
+            "See https://github.com/huggingface/transformers/issues/33398 for more details."
+        )
+
     model_path = tmp_path / "model"
     mlflow.transformers.save_model(
         transformers_model=pipeline,

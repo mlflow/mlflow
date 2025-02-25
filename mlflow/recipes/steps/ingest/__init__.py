@@ -2,7 +2,7 @@ import abc
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -129,11 +129,11 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             dataset_sql=getattr(self.dataset, "sql", None),
         )
 
-    def _build_step_card(
+    def _build_step_card(  # noqa: D417
         self,
         ingested_dataset_profile: str,
         ingested_rows: int,
-        schema: Dict,
+        schema: dict,
         data_preview: pd.DataFrame = None,
         dataset_src_location: Optional[str] = None,
         dataset_sql: Optional[str] = None,
@@ -207,12 +207,12 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 class IngestStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "dataset.parquet"
 
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         super().__init__(step_config, recipe_root)
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
     @classmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str):
+    def from_recipe_config(cls, recipe_config: dict[str, Any], recipe_root: str):
         ingest_config = recipe_config.get("steps", {}).get("ingest", {})
         target_config = {"target_col": recipe_config.get("target_col")}
         if "positive_class" in recipe_config:
@@ -244,12 +244,12 @@ class IngestStep(BaseIngestStep):
 class IngestScoringStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
 
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         super().__init__(step_config, recipe_root)
         self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
     @classmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str):
+    def from_recipe_config(cls, recipe_config: dict[str, Any], recipe_root: str):
         step_config = recipe_config.get("steps", {}).get("ingest_scoring", {})
         step_config["recipe"] = recipe_config.get("recipe")
         return cls(

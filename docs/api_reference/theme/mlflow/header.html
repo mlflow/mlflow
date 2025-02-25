@@ -1,0 +1,32 @@
+<div class="header-container">
+  <style scoped>
+    .header-container {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .logo-container {
+      display: flex;
+      gap: 12px;
+      flex-direction: row;
+      white-space: nowrap;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+  <div class="logo-container">
+    <i data-toggle="wy-nav-top" class="wy-nav-top-menu-button db-icon db-icon-menu pull-left"></i>
+    <a href="{{ pathto(master_doc) }}" class="wy-nav-top-logo">
+      <img src="{{ pathto('_static/MLflow-logo-final-black.png', 1) }}" alt="MLflow"/>
+    </a>
+    <b style="overflow: hidden; text-overflow: ellipsis;">API Documentation</b>
+    <a style="overflow: hidden; text-overflow: ellipsis;" href="/docs/latest">Main Docs</a>
+  </div>
+  <span class="version">{{version}}</span>
+</div>

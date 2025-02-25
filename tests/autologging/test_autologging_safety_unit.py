@@ -1,7 +1,6 @@
 import abc
 import copy
 import inspect
-import os
 from collections import namedtuple
 from contextlib import nullcontext as does_not_raise
 from unittest import mock
@@ -18,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
     PatchFunction,
     autologging_integration,
+    disable_autologging,
     is_testing,
     picklable_exception_safe_function,
     safe_patch,
@@ -155,21 +155,15 @@ def mock_event_logger():
         AutologgingEventLogger.set_logger(prev_logger)
 
 
-def test_is_testing_respects_environment_variable():
-    prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
-    try:
-        assert not is_testing()
+def test_is_testing_respects_environment_variable(monkeypatch):
+    monkeypatch.delenv("MLFLOW_AUTOLOGGING_TESTING", raising=False)
+    assert not is_testing()
 
-        os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "false"
-        assert not is_testing()
+    monkeypatch.setenv("MLFLOW_AUTOLOGGING_TESTING", "false")
+    assert not is_testing()
 
-        os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
-        assert is_testing()
-    finally:
-        if prev_env_var_value:
-            os.environ["MLFLOW_AUTOLOGGING_TESTING"] = prev_env_var_value
-        else:
-            del os.environ["MLFLOW_AUTOLOGGING_TESTING"]
+    monkeypatch.setenv("MLFLOW_AUTOLOGGING_TESTING", "true")
+    assert is_testing()
 
 
 def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implementation(
@@ -399,10 +393,13 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception, match="does not match expected input"), mock.patch(
-        "mlflow.utils.autologging_utils.safety._validate_args",
-        wraps=autologging_utils.safety._validate_args,
-    ) as validate_mock:
+    with (
+        pytest.raises(Exception, match="does not match expected input"),
+        mock.patch(
+            "mlflow.utils.autologging_utils.safety._validate_args",
+            wraps=autologging_utils.safety._validate_args,
+        ) as validate_mock,
+    ):
         patch_destination.fn("a", "b", "c")
 
     assert validate_mock.call_count == 1
@@ -1623,71 +1620,6 @@ def test_session_manager_terminates_session_when_appropriate():
     assert not _AutologgingSessionManager.active_session()
 
 
-def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):
-    patch_impl_call_count = 0
-
-    @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False, silent=False):
-        def patch_impl(original, *args, **kwargs):
-            nonlocal patch_impl_call_count
-            patch_impl_call_count += 1
-            return original(*args, **kwargs)
-
-        safe_patch("test_respects_exclusive", patch_destination, "fn", patch_impl)
-
-    autolog(exclusive=True)
-    with mlflow.start_run():
-        patch_destination.fn()
-    assert patch_impl_call_count == 0
-    assert patch_destination.fn_call_count == 1
-
-
-def test_patch_runs_if_patch_should_be_applied():
-    patch_impl_call_count = 0
-
-    class TestPatchWithNewFnObj:
-        def __init__(self):
-            self.fn_call_count = 0
-
-        def fn(self, *args, **kwargs):
-            self.fn_call_count += 1
-            return PATCH_DESTINATION_FN_DEFAULT_RESULT
-
-        def new_fn(self, *args, **kwargs):
-            with mlflow.start_run():
-                self.fn()
-
-    patch_obj = TestPatchWithNewFnObj()
-
-    @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False, silent=False):
-        def patch_impl(original, *args, **kwargs):
-            nonlocal patch_impl_call_count
-            patch_impl_call_count += 1
-
-        def new_fn_patch(original, *args, **kwargs):
-            pass
-
-        safe_patch("test_respects_exclusive", patch_obj, "fn", patch_impl)
-        safe_patch("test_respects_exclusive", patch_obj, "new_fn", new_fn_patch)
-
-    # Should patch if no active run
-    autolog()
-    patch_obj.fn()
-    assert patch_impl_call_count == 1
-
-    # Should patch if active run, but not exclusive
-    autolog(exclusive=False)
-    with mlflow.start_run():
-        patch_obj.fn()
-    assert patch_impl_call_count == 2
-
-    # Should patch if active run and exclusive, but active autologging session
-    autolog(exclusive=True)
-    patch_obj.new_fn()
-    assert patch_impl_call_count == 3
-
-
 def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(patch_destination):
     patch_impl_call_count = 0
 
@@ -1838,3 +1770,53 @@ def test_safe_patch_preserves_original_function_attributes():
     original_predict = Test1.predict
     autolog()
     assert get_func_attrs(Test1.predict) == get_func_attrs(original_predict)
+
+
+def test_should_skip_autolog(patch_destination):
+    patch_impl_call_count = 0
+
+    @autologging_integration("test-flavor")
+    def autolog(disable=False, exclusive=False, silent=False):
+        def patch_impl(original, *args, **kwargs):
+            nonlocal patch_impl_call_count
+            patch_impl_call_count += 1
+            return original(*args, **kwargs)
+
+        safe_patch("test-flavor", patch_destination, "fn", patch_impl)
+
+    # Autologging is enabled -> patch should be applied
+    autolog()
+    patch_destination.fn()
+    assert patch_impl_call_count == 1
+
+    # Autologging is enabled and user-created fluent run
+    with mlflow.start_run():
+        patch_destination.fn()
+    assert patch_impl_call_count == 2
+
+    # Autologging globally disabled via context manager -> patch should not be applied
+    with disable_autologging():
+        patch_destination.fn()
+    assert patch_impl_call_count == 2
+
+    # User-created fluent run exists and "exclusive" is set to True -> patch should not be applied
+    autolog(exclusive=True)
+    with mlflow.start_run():
+        patch_destination.fn()
+    assert patch_impl_call_count == 2
+
+    # Autologging session failed to start -> patch should not be applied
+    with (
+        mock.patch(
+            "mlflow.utils.autologging_utils.safety._AutologgingSessionManager.start_session",
+            side_effect=Exception("Session failed to start"),
+        ),
+        pytest.raises(Exception, match="Session failed to start"),
+    ):
+        patch_destination.fn()
+    assert patch_impl_call_count == 2
+
+    # Autologging is disabled for the flavor -> patch should not be applied
+    autolog(disable=True)
+    patch_destination.fn()
+    assert patch_impl_call_count == 2

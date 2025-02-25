@@ -1,4 +1,5 @@
 """Script that generates a dump of the MLflow tracking database schema"""
+
 import os
 import sys
 import tempfile

@@ -14,6 +14,7 @@ import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 const DatasetEntry = ({ dataset, onClick }: { dataset: RunDatasetWithTags; onClick: () => void }) => {
   return (
     <Typography.Link
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewdatasetbox.tsx_16"
       role="link"
       css={{
         textAlign: 'left',
@@ -78,7 +79,10 @@ export const RunViewDatasetBox = ({
           <DropdownMenu.Content>
             {remainingDatasets.map((datasetWithTags) => {
               return (
-                <DropdownMenu.Item key={datasetWithTags.dataset.digest}>
+                <DropdownMenu.Item
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewdatasetbox.tsx_81"
+                  key={datasetWithTags.dataset.digest}
+                >
                   <DatasetEntry dataset={datasetWithTags} onClick={() => datasetClicked(datasetWithTags)} />
                 </DropdownMenu.Item>
               );

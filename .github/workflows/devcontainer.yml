@@ -13,9 +13,6 @@ on:
     paths:
       - .devcontainer/**
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -32,10 +29,12 @@ jobs:
     permissions:
       packages: write # to push to ghcr.io
     strategy:
+      fail-fast: false
       matrix:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
       - name: Get image name
         id: image
         run: |
@@ -101,6 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: devcontainer
     if: github.event_name == 'push'
+    timeout-minutes: 60
     permissions:
       packages: write # to push to ghcr.io
     steps:

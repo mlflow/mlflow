@@ -218,6 +218,7 @@ export const RunsChartsSectionHeader = ({
           </div>
           {editSection === index && (
             <Input
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_sections_runschartssectionheader.tsx_220"
               autoFocus
               onClick={stopPropagation}
               onMouseDown={stopPropagation}
@@ -318,19 +319,28 @@ export const RunsChartsSectionHeader = ({
                   />
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content>
-                  <DropdownMenu.Item onClick={addSectionAbove}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_sections_runschartssectionheader.tsx_321"
+                    onClick={addSectionAbove}
+                  >
                     <FormattedMessage
                       defaultMessage="Add section above"
                       description="Experiment page > compare runs > chart section > add section above label"
                     />
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item onClick={addSectionBelow}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_sections_runschartssectionheader.tsx_327"
+                    onClick={addSectionBelow}
+                  >
                     <FormattedMessage
                       defaultMessage="Add section below"
                       description="Experiment page > compare runs > chart section > add section below label"
                     />
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item onClick={deleteSection}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_sections_runschartssectionheader.tsx_333"
+                    onClick={deleteSection}
+                  >
                     <FormattedMessage
                       defaultMessage="Delete section"
                       description="Experiment page > compare runs > chart section > delete section label"
@@ -339,6 +349,7 @@ export const RunsChartsSectionHeader = ({
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
               <DangerModal
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_sections_runschartssectionheader.tsx_351"
                 visible={isDeleteSectionModalOpen}
                 onOk={deleteModalConfirm}
                 onCancel={deleteModalCancel}

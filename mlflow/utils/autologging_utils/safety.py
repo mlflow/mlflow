@@ -6,6 +6,7 @@ import typing
 import uuid
 from abc import abstractmethod
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -16,8 +17,8 @@ from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
+    set_warning_behavior_during_autologging,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -201,6 +202,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
+    from mlflow.utils.autologging_utils import _has_active_training_session
 
     def create_managed_run():
         managed_run = mlflow.start_run(tags=tags)
@@ -221,7 +223,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 self.managed_run = None
 
             def _patch_implementation(self, original, *args, **kwargs):
-                if not mlflow.active_run():
+                # If there is an active training session but there is no active run
+                # in current thread, it means the thread is spawned by `estimator.fit`
+                # as a worker thread, we should disable autologging in
+                # these worker threads, so skip creating managed run.
+                if not mlflow.active_run() and not _has_active_training_session():
                     self.managed_run = create_managed_run()
 
                 result = super()._patch_implementation(original, *args, **kwargs)
@@ -242,7 +248,11 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
-            if not mlflow.active_run():
+            # If there is an active training session but there is no active run
+            # in current thread, it means the thread is spawned by `estimator.fit`
+            # as a worker thread, we should disable autologging in
+            # these worker threads, so skip creating managed run.
+            if not mlflow.active_run() and not _has_active_training_session():
                 managed_run = create_managed_run()
 
             try:
@@ -328,7 +338,6 @@ def safe_patch(
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
-    from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
@@ -352,7 +361,7 @@ def safe_patch(
         destination, function_name, bypass_descriptor_protocol=True
     )
     if original_fn != raw_original_obj:
-        raise RuntimeError(f"Unsupport patch on {destination}.{function_name}")
+        raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
         is_property_method = True
 
@@ -392,72 +401,12 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        # Reroute warnings encountered during the patch function implementation to an MLflow event
-        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
-        # integration was called with `silent=True`), hiding MLflow event logging statements and
-        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
-        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
-        # execution of the original / underlying ML function
-        #
-        # Note that we've opted *not* to apply this context manager as a decorator on
-        # `safe_patch_function` because the context-manager-as-decorator pattern uses
-        # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
-        # during model serialization by ML frameworks such as scikit-learn
-        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
-        with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not
-            # actionable and result from the autologging implementation invoking another MLflow
-            # API. Accordingly, we reroute these warnings to the MLflow event logger with level
-            # WARNING For reference, see recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_event_logs=is_silent_mode,
-            disable_warnings=is_silent_mode,
-        ), set_non_mlflow_warnings_behavior_for_current_thread(
-            # non-MLflow Warnings emitted during the autologging preamble (before the original /
-            # underlying ML function is called) and postamble (after the original / underlying ML
-            # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute
-            # these warnings to the MLflow event logger with level WARNING. For reference, see
-            # recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_warnings=is_silent_mode,
-        ):
+        if _should_skip_autolog(autologging_integration):
+            return original(*args, **kwargs)
+
+        with set_warning_behavior_during_autologging(autologging_integration):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
-
-            # Whether or not to exclude autologged content from user-created fluent runs
-            # (i.e. runs created manually via `mlflow.start_run()`)
-            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
-            user_created_fluent_run_is_active = (
-                mlflow.active_run() and not _AutologgingSessionManager.active_session()
-            )
-            active_session_failed = (
-                _AutologgingSessionManager.active_session() is not None
-                and _AutologgingSessionManager.active_session().state == "failed"
-            )
-
-            if (
-                active_session_failed
-                or autologging_is_disabled(autologging_integration)
-                or (user_created_fluent_run_is_active and exclusive)
-                or (
-                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
-                    and autologging_integration
-                    not in mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
-                )
-            ):
-                # If the autologging integration associated with this patch is disabled,
-                # or if the current autologging integration is in exclusive mode and a user-created
-                # fluent run is active, call the original function and return. Restore the original
-                # warning behavior during original function execution, since autologging is being
-                # skipped
-                with set_non_mlflow_warnings_behavior_for_current_thread(
-                    disable_warnings=False,
-                    reroute_warnings=False,
-                ):
-                    return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
             # execution of patched code
@@ -601,9 +550,9 @@ def safe_patch(
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
-                    assert (
-                        not mlflow.active_run()
-                    ), f"Autologging integration {autologging_integration} leaked an active run"
+                    assert not mlflow.active_run(), (
+                        f"Autologging integration {autologging_integration} leaked an active run"
+                    )
                     if patch_function_run_for_testing:
                         _validate_autologging_run(
                             autologging_integration, patch_function_run_for_testing.info.run_id
@@ -689,6 +638,40 @@ def revert_patches(autologging_integration):
         gorilla.revert(patch)
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
+
+
+def _should_skip_autolog(autologging_integration: str) -> bool:
+    from mlflow.utils.autologging_utils import (
+        _AUTOLOGGING_GLOBALLY_DISABLED,
+        autologging_is_disabled,
+        get_autologging_config,
+    )
+
+    # Autologging is disabled for the specified flavor
+    if autologging_is_disabled(autologging_integration):
+        return True
+
+    # Autologging is globally disabled
+    if _AUTOLOGGING_GLOBALLY_DISABLED and autologging_integration:
+        return True
+
+    # Whether or not to exclude autologged content from user-created fluent runs
+    # (i.e. runs created manually via `mlflow.start_run()`)
+    exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+    user_created_fluent_run_is_active = (
+        mlflow.active_run() and not _AutologgingSessionManager.active_session()
+    )
+    if user_created_fluent_run_is_active and exclusive:
+        return True
+
+    # Failed to start an autologging session
+    if (
+        _AutologgingSessionManager.active_session() is not None
+        and _AutologgingSessionManager.active_session().state == "failed"
+    ):
+        return True
+
+    return False
 
 
 # Represents an active autologging session using two fields:
@@ -800,9 +783,9 @@ def _validate_autologging_run(autologging_integration, run_id):
         f"Autologging run with id {run_id} failed to set autologging tag with expected value. "
         f"Expected: '{autologging_integration}', Actual: '{autologging_tag_value}'"
     )
-    assert RunStatus.is_terminated(
-        RunStatus.from_string(run.info.status)
-    ), f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
+    assert RunStatus.is_terminated(RunStatus.from_string(run.info.status)), (
+        f"Autologging run with id {run_id} has a non-terminal status '{run.info.status}'"
+    )
 
 
 class ValidationExemptArgument(typing.NamedTuple):
@@ -820,8 +803,8 @@ class ValidationExemptArgument(typing.NamedTuple):
     autologging_integration: str
     function_name: str
     type_function: typing.Callable
-    positional_argument_index: int = None
-    keyword_argument_name: str = None
+    positional_argument_index: Optional[int] = None
+    keyword_argument_name: Optional[str] = None
 
     def matches(
         self,
@@ -966,9 +949,9 @@ def _validate_args(
         autologging_call_input, user_call_input
     ):
         length_diff = len(autologging_call_input) - len(user_call_input)
-        assert (
-            length_diff >= 0
-        ), f"{length_diff} expected inputs are missing from the call to the original function."
+        assert length_diff >= 0, (
+            f"{length_diff} expected inputs are missing from the call to the original function."
+        )
 
     def _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input):
         assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
@@ -1001,10 +984,10 @@ def _validate_args(
             _validate_new_input(autologging_call_input)
             return
 
-        assert type(autologging_call_input) == type(
-            user_call_input
-        ), "Type of input to original function '{}' does not match expected type '{}'".format(
-            type(autologging_call_input), type(user_call_input)
+        assert type(autologging_call_input) == type(user_call_input), (
+            "Type of input to original function '{}' does not match expected type '{}'".format(
+                type(autologging_call_input), type(user_call_input)
+            )
         )
 
         if type(autologging_call_input) in [list, tuple]:
@@ -1020,6 +1003,7 @@ def _validate_args(
             _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input)
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
+
         else:
             assert (
                 autologging_call_input is user_call_input

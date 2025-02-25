@@ -39,6 +39,7 @@ export class SimplePagination extends React.Component<Props> {
       <div
         className="pagination-section"
         css={[classNames.wrapper, classNames.paginationOverride, removeBottomSpacing && classNames.removeBottomSpacing]}
+        data-testid="pagination-section"
       >
         {/* @ts-expect-error TS(2741): Property 'pageSize' is missing in type '{ currentP... Remove this comment to see the full error message */}
         <Pagination

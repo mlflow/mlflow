@@ -1,4 +1,4 @@
-import { ErrorView } from '../../common/components/ErrorView';
+import { ErrorView } from './ErrorView';
 
 export const PageNotFoundView = () => {
   return <ErrorView statusCode={404} fallbackHomePageReactRoute="/" />;

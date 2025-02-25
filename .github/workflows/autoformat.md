@@ -19,6 +19,6 @@
    ```
 
 1. Create a PR from the branch containing the dummy changes in your fork.
-1. Comment `@mlflow-automation autoformat` on the PR and ensure the workflow runs successfully.
+1. Comment `/autoformat` on the PR and ensure the workflow runs successfully.
    The workflow status can be checked at https://github.com/{your_username}/mlflow/actions/workflows/autoformat.yml.
 1. Delete the GitHub token and reset the default branch.

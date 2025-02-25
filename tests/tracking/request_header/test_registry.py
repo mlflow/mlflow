@@ -34,7 +34,7 @@ def test_request_header_provider_registry_register_entrypoints():
     mock_entrypoint.load.return_value = provider_class
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         registry = RequestHeaderProviderRegistry()
         registry.register_entrypoints()
@@ -52,7 +52,7 @@ def test_request_header_provider_registry_register_entrypoints_handles_exception
     mock_entrypoint.load.side_effect = exception
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         registry = RequestHeaderProviderRegistry()
         # Check that the raised warning contains the message from the original exception
@@ -83,7 +83,7 @@ def test_registry_instance_loads_entrypoints():
     mock_entrypoint.load.return_value = MockRequestHeaderProvider
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register the
         # entrypoint given by the mocked entrypoints.get_group_all

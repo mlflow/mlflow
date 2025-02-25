@@ -6,11 +6,12 @@ The built-in flavors are:
 
 - :py:mod:`mlflow.catboost`
 - :py:mod:`mlflow.diviner`
+- :py:mod:`mlflow.dspy`
 - :py:mod:`mlflow.fastai`
-- :py:mod:`mlflow.gluon`
 - :py:mod:`mlflow.h2o`
 - :py:mod:`mlflow.langchain`
 - :py:mod:`mlflow.lightgbm`
+- :py:mod:`mlflow.llama_index`
 - :py:mod:`mlflow.mleap`
 - :py:mod:`mlflow.onnx`
 - :py:mod:`mlflow.openai`
@@ -30,6 +31,7 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
+
 from mlflow.models.dependencies_schemas import set_retriever_schema
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -41,7 +43,7 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.model import Model, get_model_info, set_model
+from mlflow.models.model import Model, get_model_info, set_model, update_model_requirements
 from mlflow.models.model_config import ModelConfig
 from mlflow.models.python_api import build_docker
 from mlflow.models.resources import Resource, ResourceType
@@ -65,6 +67,7 @@ __all__ = [
     "Resource",
     "ResourceType",
     "ModelConfig",
+    "update_model_requirements",
 ]
 
 
@@ -73,7 +76,13 @@ __all__ = [
 try:
     from mlflow.models.python_api import predict
     from mlflow.models.signature import ModelSignature, infer_signature, set_signature
-    from mlflow.models.utils import ModelInputExample, add_libraries_to_model, validate_schema
+    from mlflow.models.utils import (
+        ModelInputExample,
+        add_libraries_to_model,
+        convert_input_example_to_serving_input,
+        validate_schema,
+        validate_serving_input,
+    )
 
     __all__ += [
         "ModelSignature",
@@ -81,8 +90,10 @@ try:
         "infer_signature",
         "validate_schema",
         "add_libraries_to_model",
+        "convert_input_example_to_serving_input",
         "set_signature",
         "predict",
+        "validate_serving_input",
     ]
 except ImportError:
     pass

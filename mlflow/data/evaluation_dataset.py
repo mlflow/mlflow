@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import math
@@ -10,7 +11,6 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import insecure_hash
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
 try:
@@ -165,8 +165,13 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
-        head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
-        tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        if isinstance(data, pd.DataFrame):
+            # Access rows of pandas Df with iloc
+            head_rows = data.iloc[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+            tail_rows = data.iloc[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        else:
+            head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+            tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
         md5_gen.update(_hash_array_like_obj_as_bytes(head_rows))
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
@@ -175,9 +180,10 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
     supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
-        from pyspark.sql import DataFrame as SparkDataFrame
+        from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-        supported_dataframe_types.append(SparkDataFrame)
+        spark_df_type = get_spark_dataframe_type()
+        supported_dataframe_types.append(spark_df_type)
 
     if predictions is not None:
         _validate_dataset_type_supports_predictions(
@@ -196,7 +202,7 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
-    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+    elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
         return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
     else:
         # Cannot convert to mlflow dataset, return original data.
@@ -272,10 +278,11 @@ class EvaluationDataset:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
-                from pyspark.sql import DataFrame as SparkDataFrame
+                from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-                self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                self._spark_df_type = SparkDataFrame
+                spark_df_type = get_spark_dataframe_type()
+                self._supported_dataframe_types = (pd.DataFrame, spark_df_type)
+                self._spark_df_type = spark_df_type
         except ImportError:
             pass
 
@@ -401,7 +408,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = insecure_hash.md5()
+        md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)

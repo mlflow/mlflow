@@ -21,7 +21,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(databricks_managed_catalog_service.proto\x12\x15mlflow.managedcatalog\x1a\x10\x64\x61tabricks.proto\x1a)databricks_managed_catalog_messages.proto\x1a\x15scalapb/scalapb.proto2\xa8\x01\n\x13UnityCatalogService\x12\x90\x01\n\x08getTable\x12\x1f.mlflow.managedcatalog.GetTable\x1a\'.mlflow.managedcatalog.GetTableResponse\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/tables/{full_name_arg}\x1a\x04\x08\x02\x10\x00\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(databricks_managed_catalog_service.proto\x12\x15mlflow.managedcatalog\x1a\x10\x64\x61tabricks.proto\x1a)databricks_managed_catalog_messages.proto\x1a\x15scalapb/scalapb.proto2\xb2\x01\n\x1d\x44\x61tabricksUnityCatalogService\x12\x90\x01\n\x08getTable\x12\x1f.mlflow.managedcatalog.GetTable\x1a\'.mlflow.managedcatalog.GetTableResponse\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/tables/{full_name_arg}\x1a\x04\x08\x02\x10\x00\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -29,10 +29,10 @@ if Version(google.protobuf.__version__).major >= 5:
   if not _descriptor._USE_C_DESCRIPTORS:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\'com.databricks.api.proto.managedcatalog\220\001\001\240\001\001\342?\002\020\001'
-    _globals['_UNITYCATALOGSERVICE'].methods_by_name['getTable']._loaded_options = None
-    _globals['_UNITYCATALOGSERVICE'].methods_by_name['getTable']._serialized_options = b'\362\206\0316\n2\n\003GET\022%/unity-catalog/tables/{full_name_arg}\032\004\010\002\020\000\020\003'
-    _globals['_UNITYCATALOGSERVICE']._serialized_start=152
-    _globals['_UNITYCATALOGSERVICE']._serialized_end=320
+    _globals['_DATABRICKSUNITYCATALOGSERVICE'].methods_by_name['getTable']._loaded_options = None
+    _globals['_DATABRICKSUNITYCATALOGSERVICE'].methods_by_name['getTable']._serialized_options = b'\362\206\0316\n2\n\003GET\022%/unity-catalog/tables/{full_name_arg}\032\004\010\002\020\000\020\003'
+    _globals['_DATABRICKSUNITYCATALOGSERVICE']._serialized_start=152
+    _globals['_DATABRICKSUNITYCATALOGSERVICE']._serialized_end=330
   _builder.BuildServices(DESCRIPTOR, 'databricks_managed_catalog_service_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -58,26 +58,26 @@ else:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(databricks_managed_catalog_service.proto\x12\x15mlflow.managedcatalog\x1a\x10\x64\x61tabricks.proto\x1a)databricks_managed_catalog_messages.proto\x1a\x15scalapb/scalapb.proto2\xa8\x01\n\x13UnityCatalogService\x12\x90\x01\n\x08getTable\x12\x1f.mlflow.managedcatalog.GetTable\x1a\'.mlflow.managedcatalog.GetTableResponse\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/tables/{full_name_arg}\x1a\x04\x08\x02\x10\x00\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(databricks_managed_catalog_service.proto\x12\x15mlflow.managedcatalog\x1a\x10\x64\x61tabricks.proto\x1a)databricks_managed_catalog_messages.proto\x1a\x15scalapb/scalapb.proto2\xb2\x01\n\x1d\x44\x61tabricksUnityCatalogService\x12\x90\x01\n\x08getTable\x12\x1f.mlflow.managedcatalog.GetTable\x1a\'.mlflow.managedcatalog.GetTableResponse\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/tables/{full_name_arg}\x1a\x04\x08\x02\x10\x00\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
 
 
-  _UNITYCATALOGSERVICE = DESCRIPTOR.services_by_name['UnityCatalogService']
+  _DATABRICKSUNITYCATALOGSERVICE = DESCRIPTOR.services_by_name['DatabricksUnityCatalogService']
   if _descriptor._USE_C_DESCRIPTORS == False:
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\'com.databricks.api.proto.managedcatalog\220\001\001\240\001\001\342?\002\020\001'
-    _UNITYCATALOGSERVICE.methods_by_name['getTable']._options = None
-    _UNITYCATALOGSERVICE.methods_by_name['getTable']._serialized_options = b'\362\206\0316\n2\n\003GET\022%/unity-catalog/tables/{full_name_arg}\032\004\010\002\020\000\020\003'
-    _UNITYCATALOGSERVICE._serialized_start=152
-    _UNITYCATALOGSERVICE._serialized_end=320
-  UnityCatalogService = service_reflection.GeneratedServiceType('UnityCatalogService', (_service.Service,), dict(
-    DESCRIPTOR = _UNITYCATALOGSERVICE,
+    _DATABRICKSUNITYCATALOGSERVICE.methods_by_name['getTable']._options = None
+    _DATABRICKSUNITYCATALOGSERVICE.methods_by_name['getTable']._serialized_options = b'\362\206\0316\n2\n\003GET\022%/unity-catalog/tables/{full_name_arg}\032\004\010\002\020\000\020\003'
+    _DATABRICKSUNITYCATALOGSERVICE._serialized_start=152
+    _DATABRICKSUNITYCATALOGSERVICE._serialized_end=330
+  DatabricksUnityCatalogService = service_reflection.GeneratedServiceType('DatabricksUnityCatalogService', (_service.Service,), dict(
+    DESCRIPTOR = _DATABRICKSUNITYCATALOGSERVICE,
     __module__ = 'databricks_managed_catalog_service_pb2'
     ))
 
-  UnityCatalogService_Stub = service_reflection.GeneratedServiceStubType('UnityCatalogService_Stub', (UnityCatalogService,), dict(
-    DESCRIPTOR = _UNITYCATALOGSERVICE,
+  DatabricksUnityCatalogService_Stub = service_reflection.GeneratedServiceStubType('DatabricksUnityCatalogService_Stub', (DatabricksUnityCatalogService,), dict(
+    DESCRIPTOR = _DATABRICKSUNITYCATALOGSERVICE,
     __module__ = 'databricks_managed_catalog_service_pb2'
     ))
 

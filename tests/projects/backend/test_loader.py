@@ -1,25 +1,18 @@
+import importlib.metadata
 from unittest import mock
-
-import entrypoints
 
 from mlflow.projects.backend import loader
 
 
 def test_plugin_backend():
-    mock_entry_point = mock.MagicMock(spec=entrypoints.EntryPoint)
-    with mock.patch("entrypoints.get_single", return_value=mock_entry_point) as mock_get_single:
+    with mock.patch(
+        "mlflow.utils.plugins._get_entry_points",
+        return_value=[mock.MagicMock(spec=importlib.metadata.EntryPoint)],
+    ) as mock_get_single:
         loader.load_backend("my_plugin")
-        # Check calls to entrypoints
-        mock_get_single.assert_called_with(loader.ENTRYPOINT_GROUP_NAME, "my_plugin")
-        # Check backend has been built
-        mock_entry_point.load.assert_called_once()
+        mock_get_single.assert_called_once()
 
 
 def test_plugin_does_not_exist():
-    def raise_entrypoint_exception(group, name):
-        raise entrypoints.NoSuchEntryPoint(group, name)
-
-    with mock.patch("entrypoints.get_single") as mock_get_single:
-        mock_get_single.side_effect = raise_entrypoint_exception
-        backend = loader.load_backend("my_plugin")
-        assert backend is None
+    backend = loader.load_backend("my_plugin")
+    assert backend is None

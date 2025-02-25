@@ -180,6 +180,7 @@ export class CompareRunScatterImpl extends Component<CompareRunScatterImplProps,
   renderSelect(axis: any) {
     return (
       <SimpleSelect
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunscatter.tsx_182"
         css={styles.select}
         id={axis + '-axis-selector'}
         onChange={({ target }) => {

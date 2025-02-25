@@ -29,6 +29,8 @@ type EditableNoteImplProps = {
 
 type EditableNoteImplState = any;
 
+const getReactMdeIcon = (name: string) => <TooltipIcon name={name} />;
+
 export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableNoteImplState> {
   static defaultProps = {
     defaultMarkdown: '',
@@ -109,7 +111,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
-      <div className="editable-note-actions">
+      <div className="editable-note-actions" data-testid="editable-note-actions">
         <div>
           <Button
             componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"
@@ -153,7 +155,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     const { markdown, selectedTab, error } = this.state;
     const htmlContent = this.getSanitizedHtmlContent();
     return (
-      <div className="note-view-outer-container">
+      <div className="note-view-outer-container" data-testid="note-view-outer-container">
         {showEditor ? (
           <React.Fragment>
             <div className="note-view-text-area">
@@ -170,11 +172,12 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
                 onTabChange={this.handleTabChange}
                 // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
                 generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
-                getIcon={(name) => <TooltipIcon name={name} />}
+                getIcon={getReactMdeIcon}
               />
             </div>
             {error && (
               <Alert
+                componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_178"
                 type="error"
                 message={this.props.intl.formatMessage({
                   defaultMessage: 'There was an error submitting your note.',
@@ -226,7 +229,7 @@ type HTMLNoteContentProps = {
 function HTMLNoteContent(props: HTMLNoteContentProps) {
   const { content } = props;
   return content ? (
-    <div className="note-view-outer-container">
+    <div className="note-view-outer-container" data-testid="note-view-outer-container">
       <div className="note-view-text-area">
         <div className="note-view-preview note-editor-preview">
           <div

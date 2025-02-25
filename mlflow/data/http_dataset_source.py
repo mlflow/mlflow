@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import urlparse
 
 from mlflow.data.dataset_source import DatasetSource
@@ -101,7 +101,7 @@ class HTTPDatasetSource(DatasetSource):
             raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
 
         Returns:
-            True if this DatsetSource can resolve the raw source, False otherwise.
+            True if this DatasetSource can resolve the raw source, False otherwise.
         """
         if not isinstance(raw_source, str):
             return False
@@ -120,7 +120,7 @@ class HTTPDatasetSource(DatasetSource):
         """
         return HTTPDatasetSource(raw_source)
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         """
         Returns:
             A JSON-compatible dictionary representation of the HTTPDatasetSource.
@@ -130,7 +130,7 @@ class HTTPDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HTTPDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "HTTPDatasetSource":
         """
         Args:
             source_dict: A dictionary representation of the HTTPDatasetSource.

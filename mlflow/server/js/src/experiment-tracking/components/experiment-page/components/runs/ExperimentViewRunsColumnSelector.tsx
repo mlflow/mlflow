@@ -298,6 +298,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       >
         <div css={(theme) => ({ padding: theme.spacing.md })}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_300"
             value={filter}
             prefix={<SearchIcon />}
             placeholder="Search columns"

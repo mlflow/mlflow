@@ -3,6 +3,7 @@ Trains an Alternating Least Squares (ALS) model for user/movie ratings.
 The input is a Parquet ratings dataset (see etl_data.py), and we output
 an mlflow artifact called 'als-model'.
 """
+
 import click
 import pyspark
 from pyspark.ml import Pipeline

@@ -19,7 +19,11 @@ import {
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
-import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
+import {
+  ActivityTypes,
+  PendingModelVersionActivity,
+  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
+} from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
@@ -86,7 +90,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   loadData = (isInitialLoading: any) => {
     const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
-    return Promise.all([promises]);
+    return Promise.all(promises);
   };
 
   pollData = () => {
@@ -99,6 +103,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(e);
         }
       });
@@ -142,7 +147,11 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity: any, archiveExistingVersions: any) => {
+  // prettier-ignore
+  handleStageTransitionDropdownSelect = (
+    activity: PendingModelVersionActivity,
+    archiveExistingVersions?: boolean,
+  ) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
@@ -161,13 +170,17 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   handleEditDescription = (description: any) => {
     const { modelName, version } = this.props;
-    return this.props
-      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
-      .then(this.loadData)
-      .catch(console.error);
+    return (
+      this.props
+        .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+        .then(this.loadData)
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+        .catch(console.error)
+    );
   };
 
   componentDidMount() {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     this.loadData(true).catch(console.error);
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
@@ -181,6 +194,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       this.loadData(true).catch(console.error);
       this.getModelVersionMlModelFile();
     }

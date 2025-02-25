@@ -94,8 +94,9 @@ export const RunsChartsConfigureDifferenceChart = ({
           {Object.values(DifferenceCardConfigCompareGroup).map((group) => {
             const groupedCondition = groupBy ? DISABLED_GROUP_WHEN_GROUPBY.includes(group) : false;
             return (
-              <div css={{ display: 'inline-flex', alignItems: 'center' }}>
+              <div css={{ display: 'inline-flex', alignItems: 'center' }} key={group}>
                 <Checkbox
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfiguredifferencechart.tsx_98"
                   key={group}
                   value={group}
                   isChecked={state.compareGroups?.includes(group)}
@@ -127,6 +128,7 @@ export const RunsChartsConfigureDifferenceChart = ({
           }}
         >
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfiguredifferencechart.tsx_129"
             checked={state.showChangeFromBaseline}
             onChange={updateShowChangeFromBaseline}
             label={formatMessage({
@@ -136,6 +138,7 @@ export const RunsChartsConfigureDifferenceChart = ({
             })}
           />
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfiguredifferencechart.tsx_138"
             checked={state.showDifferencesOnly}
             onChange={updateShowDifferencesOnly}
             label={formatMessage({
@@ -154,7 +157,11 @@ export const RunsChartsConfigureDifferenceChart = ({
             'Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section',
         })}
       >
-        <Input value={state.chartName} onChange={updateChartName} />
+        <Input
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfiguredifferencechart.tsx_157"
+          value={state.chartName}
+          onChange={updateChartName}
+        />
       </RunsChartsConfigureField>
     </>
   );

@@ -2,16 +2,12 @@ import contextlib
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional
-
-from cachetools import TTLCache
+from typing import Generator, Optional
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
-    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
-)
+from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 
 _logger = logging.getLogger(__name__)
 
@@ -21,7 +17,7 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class _Trace:
     info: TraceInfo
-    span_dict: Dict[str, LiveSpan] = field(default_factory=dict)
+    span_dict: dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -33,6 +29,12 @@ class _Trace:
                 trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
                 trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
+
+    def get_root_span(self) -> Optional[LiveSpan]:
+        for span in self.span_dict.values():
+            if span.parent_id is None:
+                return span
+        return None
 
 
 class InMemoryTraceManager:
@@ -52,13 +54,11 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
-        # Storing request_id -> _Trace mapping
-        self._traces: Dict[str, _Trace] = TTLCache(
-            maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-            ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-        )
+        # In-memory cache to store request_id -> _Trace mapping.
+        self._traces = get_trace_cache_with_timeout()
+
         # Store mapping between OpenTelemetry trace ID and MLflow request ID
-        self._trace_id_to_request_id: Dict[int, str] = {}
+        self._trace_id_to_request_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
     def register_trace(self, trace_id: int, trace_info: TraceInfo):
@@ -69,6 +69,8 @@ class InMemoryTraceManager:
             trace_id: The trace ID for the new trace.
             trace_info: The trace info object to be stored.
         """
+        # Check for a new timeout setting whenever a new trace is created.
+        self._check_timeout_update()
         with self._lock:
             self._traces[trace_info.request_id] = _Trace(trace_info)
             self._trace_id_to_request_id[trace_id] = trace_info.request_id
@@ -140,6 +142,14 @@ class InMemoryTraceManager:
         """
         return self._trace_id_to_request_id.get(trace_id)
 
+    def set_request_metadata(self, request_id: str, key: str, value: str):
+        """
+        Set the request metadata for the given request ID.
+        """
+        with self.get_trace(request_id) as trace:
+            if trace:
+                trace.info.request_metadata[key] = value
+
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """
         Pop the trace data for the given id and return it as a ready-to-publish Trace object.
@@ -149,7 +159,29 @@ class InMemoryTraceManager:
             trace = self._traces.pop(request_id, None)
         return trace.to_mlflow_trace() if trace else None
 
-    def flush(self):
+    def _check_timeout_update(self):
+        """
+        TTL/Timeout may be updated by users after initial cache creation. This method checks
+        for the update and create a new cache instance with the updated timeout.
+        """
+        new_timeout = MLFLOW_TRACE_TIMEOUT_SECONDS.get()
+        if new_timeout != getattr(self._traces, "timeout", None):
+            if len(self._traces) > 0:
+                _logger.warning(
+                    f"The timeout of the trace buffer has been updated to {new_timeout} seconds. "
+                    "This operation discards all in-progress traces at the moment. Please make "
+                    "sure to update the timeout when there are no in-progress traces."
+                )
+
+            with self._lock:
+                # We need to check here again in case this method runs in parallel
+                if new_timeout != getattr(self._traces, "timeout", None):
+                    self._traces = get_trace_cache_with_timeout()
+
+    @classmethod
+    def reset(self):
         """Clear all the aggregated trace data. This should only be used for testing."""
-        with self._lock:
-            self._traces.clear()
+        if self._instance:
+            with self._instance._lock:
+                self._instance._traces.clear()
+            self._instance = None

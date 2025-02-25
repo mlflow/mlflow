@@ -2,13 +2,14 @@ import json
 import logging
 from dataclasses import asdict
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.trace import NonRecordingSpan
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
 
+import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -144,6 +145,11 @@ class Span:
         return self.get_attribute(SpanAttributeKey.OUTPUTS)
 
     @property
+    def span_type(self) -> str:
+        """The type of the span."""
+        return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    @property
     def _trace_id(self) -> str:
         """
         The OpenTelemetry trace ID of the span. Note that this should not be exposed to
@@ -152,7 +158,7 @@ class Span:
         return encode_trace_id(self._span.context.trace_id)
 
     @property
-    def attributes(self) -> Dict[str, Any]:
+    def attributes(self) -> dict[str, Any]:
         """
         Get all attributes of the span.
 
@@ -162,7 +168,7 @@ class Span:
         return self._attributes.get_all()
 
     @property
-    def events(self) -> List[SpanEvent]:
+    def events(self) -> list[SpanEvent]:
         """
         Get all events of the span.
 
@@ -218,7 +224,7 @@ class Span:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         """
         Create a Span object from the given dictionary.
         """
@@ -294,6 +300,10 @@ class LiveSpan(Span):
         self._attributes.set(SpanAttributeKey.REQUEST_ID, request_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
 
+    def set_span_type(self, span_type: str):
+        """Set the type of the span."""
+        self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
@@ -302,7 +312,7 @@ class LiveSpan(Span):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         """
         Set the attributes to the span. The attributes must be a dictionary of key-value pairs.
         This method is additive, i.e. it will add new attributes to the existing ones. If an
@@ -355,7 +365,7 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def end(self):
+    def end(self, end_time: Optional[int] = None):
         """
         End the span. This is a thin wrapper around the OpenTelemetry's end method but just
         to handle the status update.
@@ -372,9 +382,9 @@ class LiveSpan(Span):
         if self.status.status_code != SpanStatusCode.ERROR:
             self.set_status(SpanStatus(SpanStatusCode.OK))
 
-        self._span.end()
+        self._span.end(end_time=end_time)
 
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
     def to_immutable_span(self) -> "Span":
@@ -385,6 +395,77 @@ class LiveSpan(Span):
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
         return Span(self._span)
+
+    @classmethod
+    def from_immutable_span(
+        cls,
+        span: Span,
+        parent_span_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> "LiveSpan":
+        """
+        Create a new LiveSpan object from the given immutable span by
+        cloning the underlying OpenTelemetry span within current context.
+
+        This is particularly useful when we merging a remote trace into the current trace.
+        We cannot merge the remote trace directly, because it is already stored as an immutable
+        span, meaning that we cannot update metadata like request ID, trace ID, parent span ID,
+        which are necessary for merging the trace.
+
+        Args:
+            span: The immutable span object to clone.
+            parent_span_id: The parent span ID of the new span.
+                If it is None, the span will be created as a root span.
+            request_id: The request ID to be set on the new span. Specify this if you want to
+                create the new span with a different request ID from the original span.
+            trace_id: The trace ID of the new span in hex encoded format. Specify this if you
+                want to create the new span with a different trace ID from the original span
+
+        Returns:
+            The new LiveSpan object with the same state as the original span.
+
+        :meta private:
+        """
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        request_id = request_id or span.request_id
+        parent_span = trace_manager.get_span_from_id(request_id, parent_span_id)
+
+        # Create a new span with the same name, parent, and start time
+        otel_span = mlflow.tracing.provider.start_detached_span(
+            name=span.name,
+            parent=parent_span._span if parent_span else None,
+            start_time_ns=span.start_time_ns,
+        )
+        # otel_span._span_processor = span._span._span_processor
+        clone_span = LiveSpan(otel_span, request_id, span.span_type)
+
+        # Copy all the attributes, inputs, outputs, and events from the original span
+        clone_span.set_status(span.status)
+        clone_span.set_attributes(
+            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
+        )
+        clone_span.set_inputs(span.inputs)
+        clone_span.set_outputs(span.outputs)
+        for event in span.events:
+            clone_span.add_event(event)
+
+        # Update trace ID and span ID
+        context = span._span.get_span_context()
+        clone_span._span._context = SpanContext(
+            # Override trace_id if provided, otherwise use the original trace ID
+            trace_id=decode_id(trace_id) or context.trace_id,
+            span_id=context.span_id,
+            is_remote=context.is_remote,
+            # Override trace flag as if it is sampled within current context.
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+
+        # Mark the span completed with the original end time
+        clone_span.end(end_time=span.end_time_ns)
+        return clone_span
 
 
 NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_REQUEST_ID"
@@ -452,13 +533,13 @@ class NoOpSpan(Span):
     def _trace_id(self):
         return None
 
-    def set_inputs(self, inputs: Dict[str, Any]):
+    def set_inputs(self, inputs: dict[str, Any]):
         pass
 
-    def set_outputs(self, outputs: Dict[str, Any]):
+    def set_outputs(self, outputs: dict[str, Any]):
         pass
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         pass
 
     def set_attribute(self, key: str, value: Any):
@@ -488,7 +569,7 @@ class _SpanAttributesRegistry:
     def __init__(self, otel_span: OTelSpan):
         self._span = otel_span
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         return {key: self.get(key) for key in self._span.attributes.keys()}
 
     def get(self, key: str):
@@ -510,7 +591,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder))
+        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

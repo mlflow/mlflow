@@ -5959,6 +5959,8 @@ _:-ms-fullscreen .du-bois-light-picker-range-wrapper .du-bois-light-picker-year-
   font-size: 13px;
   line-height: 20px;
   transition: color 0.3s cubic-bezier(0.215, 0.61, 0.355, 1);
+  margin-top: -118px;
+  margin-bottom: -118px;
 }
 .du-bois-light-form-item .du-bois-light-input-textarea-show-count::after {
   margin-bottom: -22px;
@@ -16034,4 +16036,23 @@ span.du-bois-light-typography-ellipsis-single-line {
   margin-left: unset;
   font-size: 13px;
   margin-bottom: 0;
+}
+
+.du-bois-light-typography a {
+  color: #2272b4;
+}
+.du-bois-light-typography a:hover {
+  color: #0e538b;
+}
+.du-bois-light-typography a:focus {
+  color: #04355d;
+}
+.du-bois-dark-typography a {
+  color: #4299e0;
+}
+.du-bois-dark-typography a:hover {
+  color: #8acaff;
+}
+.du-bois-dark-typography a:focus {
+  color: #bae1fc;
 }

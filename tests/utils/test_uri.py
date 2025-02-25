@@ -725,6 +725,9 @@ def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
         "//dbfs////my_path",
         "///Volumes/",
         "dbfs://my///path",
+        "/volumes/path/to/file",
+        "/volumes/",
+        "DBFS:/my/path",
     ],
 )
 def test_correctly_detect_fuse_and_uc_uris(uri):
@@ -752,6 +755,7 @@ def test_negative_detection(uri):
         "path",
         "path/",
         "path/to/file",
+        "dog%step%100%timestamp%100",
     ],
 )
 def test_validate_path_is_safe_good(path):

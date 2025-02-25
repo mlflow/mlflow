@@ -3,24 +3,23 @@ import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsMetricsBarPlot } from '../RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
-import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableHidingChartsWithNoData,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
 import {
   RunsChartCardWrapper,
   type RunsChartCardReorderProps,
   RunsChartsChartsDragGroup,
-  ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
+  RunsChartCardVisibilityProps,
 } from './ChartCard.common';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
+import { Tag, Typography } from '@databricks/design-system';
 
-export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsBarChartCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps {
   config: RunsChartsBarCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -46,38 +45,34 @@ export const RunsChartsBarChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
+  const dataKey = config.dataAccessKey ?? config.metricKey;
+
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
       title: customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.metricKey,
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
   };
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      // If hiding empty charts is supported, we additionally filter out bars without recorded metric of interest
-      if (shouldEnableHidingChartsWithNoData()) {
-        return chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[config.metricKey]);
-      }
-      return chartRunData.filter(({ hidden }) => !hidden);
-    }
-    return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
-  }, [chartRunData, config]);
+  const slicedRuns = useMemo(
+    () => chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[dataKey]),
+    [chartRunData, dataKey],
+  );
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
-    return !metricsInRuns.includes(config.metricKey);
-  }, [config, slicedRuns]);
+    return !metricsInRuns.includes(dataKey);
+  }, [dataKey, slicedRuns]);
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const { elementRef, isInViewport } = useIsInViewport();
+  // If the chart is in fullscreen mode, we always render its body.
+  // Otherwise, we only render the chart if it is in the viewport.
+  const isInViewport = fullScreen || isInViewportProp;
 
   const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 
@@ -89,12 +84,11 @@ export const RunsChartsBarChartCard = ({
           height: fullScreen ? '100%' : undefined,
         },
       ]}
-      ref={elementRef}
     >
       {isInViewport ? (
         <RunsMetricsBarPlot
           runsData={slicedRuns}
-          metricKey={config.metricKey}
+          metricKey={dataKey}
           displayRunNames={false}
           displayMetricKey={false}
           useDefaultHoverBox={false}
@@ -117,12 +111,27 @@ export const RunsChartsBarChartCard = ({
     return null;
   }
 
+  const chartTitle = (() => {
+    if (config.datasetName) {
+      return (
+        <div css={{ flex: 1, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+          <Typography.Text title={config.metricKey} ellipsis bold>
+            <Tag componentId="mlflow.charts.bar_card_title.dataset_tag" css={{ marginRight: 0 }}>
+              {config.datasetName}
+            </Tag>{' '}
+            {config.metricKey}
+          </Typography.Text>
+        </div>
+      );
+    }
+    return customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.displayName ?? config.metricKey;
+  })();
+
   return (
     <RunsChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
-      title={customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.metricKey}
-      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
+      title={chartTitle}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       // Disable fullscreen button if the chart is empty

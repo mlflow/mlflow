@@ -31,6 +31,7 @@ import {
   runUuidsMatchingFilter,
   runDatasetsByUuid,
   datasetsByExperimentId,
+  runInfoOrderByUuid,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, Param, ExperimentTag } from '../sdk/MlflowMessages';
@@ -1337,6 +1338,39 @@ describe('test datasetsByExperimentId', () => {
       experiment01: [dataset1_exp1, dataset2_exp1],
       experiment02: [dataset2_exp2, dataset3_exp2],
     });
+  });
+});
+
+describe('test runInfoOrderByUuid', () => {
+  const run1 = { info: { runUuid: 'run_1', experimentId: 'experiment_id' } };
+  const run2 = { info: { runUuid: 'run_2', experimentId: 'experiment_id' } };
+  const run3 = { info: { runUuid: 'run_3', experimentId: 'experiment_id' } };
+  test('get run api', () => {
+    let state = runInfoOrderByUuid(undefined, {
+      type: fulfilled(SEARCH_RUNS_API),
+      payload: {
+        runs: [run1, run2],
+      },
+    });
+    expect(state).toEqual(['run_1', 'run_2']);
+
+    state = runInfoOrderByUuid(state, {
+      type: fulfilled(SEARCH_RUNS_API),
+      payload: {
+        runs: [run1, run1, run3],
+      },
+    });
+
+    expect(state).toEqual(['run_1', 'run_3']);
+
+    state = runInfoOrderByUuid(state, {
+      type: fulfilled(LOAD_MORE_RUNS_API),
+      payload: {
+        runs: [run2, run2],
+      },
+    });
+
+    expect(state).toEqual(['run_1', 'run_3', 'run_2']);
   });
 });
 

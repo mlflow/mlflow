@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ _MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 
 
 def get_merged_eval_metrics(
-    eval_metrics: Dict[str, Dict], ordered_metric_names: Optional[List[str]] = None
+    eval_metrics: dict[str, dict], ordered_metric_names: Optional[list[str]] = None
 ):
     """
     Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
@@ -130,7 +130,7 @@ def _get_pool_size():
     return 1 if "PYTEST_CURRENT_TEST" in os.environ and is_windows() else 0
 
 
-def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
+def get_pandas_data_profiles(inputs: Iterable[tuple[str, pd.DataFrame]]) -> str:
     """
     Returns a data profiling string over input data frame.
 
@@ -181,7 +181,7 @@ def truncate_pandas_data_profile(title: str, data_frame) -> str:
     return (title, truncated_df)
 
 
-def validate_classification_config(
+def validate_classification_config(  # noqa: D417
     task: str, positive_class: str, input_df: pd.DataFrame, target_col: str
 ):
     """

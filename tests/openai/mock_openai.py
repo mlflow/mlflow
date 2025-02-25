@@ -1,9 +1,14 @@
 import json
-from typing import List, Union
+from typing import Union
 
 import fastapi
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
+
+from mlflow.types.chat import ChatCompletionRequest
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+
+EMPTY_CHOICES = "EMPTY_CHOICES"
 
 app = fastapi.FastAPI()
 
@@ -13,30 +18,23 @@ def health():
     return {"status": "healthy"}
 
 
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class ChatPayload(BaseModel):
-    messages: List[Message]
-    temperature: float = 0
-    stream: bool = False
-
-
-def chat_response(payload: ChatPayload):
+def chat_response(payload: ChatCompletionRequest):
+    if IS_PYDANTIC_V2_OR_NEWER:
+        dumped_input = json.dumps([m.model_dump(exclude_unset=True) for m in payload.messages])
+    else:
+        dumped_input = json.dumps([m.dict(exclude_unset=True) for m in payload.messages])
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": json.dumps([m.dict() for m in payload.messages]),
+                    "content": dumped_input,
                 },
                 "logprobs": None,
                 "finish_reason": "stop",
@@ -55,7 +53,7 @@ def _make_chat_stream_chunk(content):
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
@@ -70,6 +68,23 @@ def _make_chat_stream_chunk(content):
                 "logprobs": None,
             }
         ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+        },
+    }
+
+
+def _make_chat_stream_chunk_empty_choices():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [],
+        "usage": None,
     }
 
 
@@ -78,17 +93,24 @@ async def chat_response_stream():
     yield _make_chat_stream_chunk(" world")
 
 
-@app.post("/chat/completions")
-async def chat(payload: ChatPayload):
-    if not 0.0 <= payload.temperature <= 2.0:
-        return fastapi.Response(
-            content="Temperature must be between 0.0 and 2.0",
-            status_code=400,
-        )
+async def chat_response_stream_empty_choices():
+    yield _make_chat_stream_chunk_empty_choices()
+    yield _make_chat_stream_chunk("Hello")
+
+
+@app.post("/chat/completions", response_model_exclude_unset=True)
+async def chat(payload: ChatCompletionRequest):
     if payload.stream:
         # SSE stream
+        if EMPTY_CHOICES == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
+            )
+        else:
+            content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
+
         return StreamingResponse(
-            (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream()),
+            content,
             media_type="text/event-stream",
         )
     else:
@@ -96,7 +118,7 @@ async def chat(payload: ChatPayload):
 
 
 class CompletionsPayload(BaseModel):
-    prompt: Union[str, List[str]]
+    prompt: Union[str, list[str]]
     stream: bool = False
 
 
@@ -105,7 +127,7 @@ def completions_response(payload: CompletionsPayload):
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
         "created": 1589478378,
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "text": text,
@@ -124,10 +146,22 @@ def _make_completions_stream_chunk(content):
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
         "created": 1589478378,
-        "model": "gpt-3.5-turbo-instruct",
+        "model": "gpt-4o-mini",
         "choices": [{"finish_reason": None, "index": 0, "logprobs": None, "text": content}],
         "system_fingerprint": None,
         "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
+def _make_completions_stream_chunk_empty_choices():
+    return {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4o-mini",
+        "choices": [],
+        "system_fingerprint": None,
+        "usage": None,
     }
 
 
@@ -136,12 +170,24 @@ async def completions_response_stream():
     yield _make_completions_stream_chunk(" world")
 
 
+async def completions_response_stream_empty_choices():
+    yield _make_completions_stream_chunk_empty_choices()
+    yield _make_completions_stream_chunk("Hello")
+
+
 @app.post("/completions")
 def completions(payload: CompletionsPayload):
     if payload.stream:
-        # SSE stream
+        if EMPTY_CHOICES == payload.prompt:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in completions_response_stream_empty_choices()
+            )
+        else:
+            content = (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream())
+
         return StreamingResponse(
-            (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream()),
+            content,
             media_type="text/event-stream",
         )
     else:
@@ -149,7 +195,7 @@ def completions(payload: CompletionsPayload):
 
 
 class EmbeddingsPayload(BaseModel):
-    input: Union[str, List[str]]
+    input: Union[str, list[str]]
 
 
 @app.post("/embeddings")

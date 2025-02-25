@@ -5,8 +5,8 @@ import type {
   RunsMetricsSingleTraceTooltipData,
 } from '../components/RunsMetricsLinePlot';
 import { RunsMetricsBarPlotHoverData } from '../components/RunsMetricsBarPlot';
-import { shouldEnableDeepLearningUIPhase3 } from '../../../../common/utils/FeatureUtils';
 import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
+import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
 export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, THoverData = any> {
   runUuid: string;
@@ -104,8 +104,6 @@ export const RunsChartsTooltipWrapper = <
 
   // Mutable value containing current mouse position
   const currentPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const usingImprovedClickMechanism = shouldEnableDeepLearningUIPhase3();
 
   // Mutable value containing current snapped mouse position, provided externally by the tooltip data providers
   // Used instead of `currentPos` when the tooltip is in the "multiple runs" mode
@@ -306,13 +304,6 @@ export const RunsChartsTooltipWrapper = <
       }
 
       const clickedInTheSamePlace = () => {
-        if (!usingImprovedClickMechanism) {
-          return (
-            focusedRunData.current?.runUuid &&
-            event.pageX === focusedRunData.current.x &&
-            event.pageY === focusedRunData.current.y
-          );
-        }
         const epsilonPixels = 5;
 
         return (
@@ -346,7 +337,7 @@ export const RunsChartsTooltipWrapper = <
       // Since the mouse button is up, reset the currently focused run
       focusedRunData.current = null;
     },
-    [applyPositioning, hoverOnly, getCoordinatesForTargetElement, usingImprovedClickMechanism],
+    [applyPositioning, hoverOnly, getCoordinatesForTargetElement],
   );
 
   // Exposed function used to hide the context menu
@@ -537,9 +528,10 @@ const styles = {
     height: '100%',
     position: 'fixed',
     pointerEvents: 'none',
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP_CONTAINER,
   } as Interpolation<Theme>,
   contextMenuWrapper: (theme: Theme) => ({
-    zIndex: 1,
+    zIndex: RUNS_CHARTS_UI_Z_INDEX.TOOLTIP,
     position: 'absolute' as const,
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.backgroundPrimary,

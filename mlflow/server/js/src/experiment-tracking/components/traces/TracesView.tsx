@@ -11,6 +11,7 @@ import { compact, isFunction, isNil, uniq } from 'lodash';
 import { useExperimentViewTracesUIState } from './hooks/useExperimentViewTracesUIState';
 import { ExperimentViewTracesTableColumns, getTraceInfoTotalTokens } from './TracesView.utils';
 import { useActiveExperimentTrace } from './hooks/useActiveExperimentTrace';
+import { useActiveExperimentSpan } from './hooks/useActiveExperimentSpan';
 import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_AUTO_REFRESH_INTERVAL = 30000;
@@ -20,10 +21,18 @@ const defaultSorting: SortingState = [{ id: ExperimentViewTracesTableColumns.tim
 export const TracesView = ({
   experimentIds,
   runUuid,
+  loggedModelId,
   disabledColumns,
 }: {
   experimentIds: string[];
+  /**
+   * If `runUuid` is provided, the traces will be filtered to only show traces from that run.
+   */
   runUuid?: string;
+  /**
+   * If `loggedModelId` is provided, the traces will be filtered to only show traces from that logged model.
+   */
+  loggedModelId?: string;
   /**
    * Columns that should be disabled in the table.
    * Disabled columns are hidden and are not available to be toggled at all.
@@ -36,9 +45,16 @@ export const TracesView = ({
   const [rowSelection, setRowSelection] = useState<{ [id: string]: boolean }>({});
 
   const [selectedTraceId, setSelectedTraceId] = useActiveExperimentTrace();
+  const [selectedSpanId, setSelectedSpanId] = useActiveExperimentSpan();
 
   const { traces, loading, error, hasNextPage, hasPreviousPage, fetchNextPage, fetchPrevPage, refreshCurrentPage } =
-    useExperimentTraces(experimentIds, sorting, filter, runUuid);
+    useExperimentTraces({
+      experimentIds,
+      sorting,
+      filter,
+      runUuid,
+      loggedModelId,
+    });
 
   const onTraceClicked = useCallback(
     ({ request_id }: ModelTraceInfo) => setSelectedTraceId(request_id),
@@ -58,6 +74,8 @@ export const TracesView = ({
     fetchPrevPage();
     setRowSelection({});
   }, [fetchPrevPage]);
+
+  const baseComponentId = runUuid ? `mlflow.run.traces` : `mlflow.experiment_page.traces`;
 
   // auto-refresh traces
   useEffect(() => {
@@ -144,8 +162,13 @@ export const TracesView = ({
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refreshTraces={refreshCurrentPage}
+        baseComponentId={baseComponentId}
+        runUuid={runUuid}
+        traces={traces}
       />
       <TracesViewTable
+        experimentIds={experimentIds}
+        runUuid={runUuid}
         traces={traces}
         loading={loading}
         error={error}
@@ -177,6 +200,7 @@ export const TracesView = ({
         sorting={sorting}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
+        baseComponentId={baseComponentId}
       />
       {selectedTraceId && (
         <TraceDataDrawer
@@ -184,6 +208,8 @@ export const TracesView = ({
           loadingTraceInfo={loading}
           requestId={selectedTraceId}
           onClose={() => setSelectedTraceId(undefined)}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={setSelectedSpanId}
         />
       )}
       {EditTagsModal}

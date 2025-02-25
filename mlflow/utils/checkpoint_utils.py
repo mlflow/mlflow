@@ -114,7 +114,6 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
             if not self._is_new_checkpoint_better(new_monitor_value):
                 # Current checkpoint is worse than last saved checkpoint,
                 # so skip checkpointing.
-                self.last_monitor_value = new_monitor_value
                 return
 
             self.last_monitor_value = new_monitor_value

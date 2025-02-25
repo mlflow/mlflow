@@ -5,9 +5,10 @@ import { Button, type ButtonProps, LegacyTooltip } from '@databricks/design-syst
 interface CopyButtonProps extends Partial<ButtonProps> {
   copyText: string;
   showLabel?: React.ReactNode;
+  componentId?: string;
 }
 
-export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyButtonProps) => {
+export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonProps }: CopyButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = () => {
@@ -32,7 +33,7 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
       }}
     >
       <Button
-        componentId="codegen_mlflow_app_src_shared_building_blocks_copybutton.tsx_35"
+        componentId={componentId ?? 'mlflow.shared.copy_button'}
         type="primary"
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload as ProtoCreateMultipartUpload,
@@ -35,7 +35,7 @@ class MultipartUploadPart:
 class MultipartUploadCredential:
     url: str
     part_number: int
-    headers: Dict[str, Any]
+    headers: dict[str, Any]
 
     def to_proto(self):
         credential = ProtoMultipartUploadCredential()
@@ -56,7 +56,7 @@ class MultipartUploadCredential:
 @dataclass
 class CreateMultipartUploadResponse:
     upload_id: Optional[str]
-    credentials: List[MultipartUploadCredential]
+    credentials: list[MultipartUploadCredential]
 
     def to_proto(self):
         response = ProtoCreateMultipartUpload.Response()

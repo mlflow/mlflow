@@ -4,7 +4,8 @@ import { isArray, isEqual } from 'lodash';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL, createSearchRunsParams } from '../utils/experimentPage.fetch-utils';
-import type { FetchRunsHookFunction } from './useExperimentRuns';
+import type { FetchRunsHookFunction, FetchRunsHookParams } from './useExperimentRuns';
+import type { SearchRunsApiResponse } from '../../../types';
 
 /**
  * Enables auto-refreshing runs on the experiment page.
@@ -53,7 +54,9 @@ export const useExperimentRunsAutoRefresh = ({
       const hasBeenInitialized = Boolean(lastFetchedTime.current);
       const timePassed = lastFetchedTime.current ? Date.now() - lastFetchedTime.current : 0;
       if (searchFacets && hasBeenInitialized && timePassed >= RUNS_AUTO_REFRESH_INTERVAL) {
-        const requestedPageCount = Math.ceil(currentResults.current.length / RUNS_SEARCH_MAX_RESULTS);
+        // We want no less results than the current amount of runs displayed, round up to the next page
+        const initialRunsCount = currentResults.current.length;
+        const requestedRunsCount = Math.ceil(initialRunsCount / RUNS_SEARCH_MAX_RESULTS) * RUNS_SEARCH_MAX_RESULTS;
 
         const requestParams = {
           ...createSearchRunsParams(
@@ -62,31 +65,53 @@ export const useExperimentRunsAutoRefresh = ({
             Date.now(),
           ),
           requestedFacets: searchFacets,
-          maxResults: requestedPageCount * RUNS_SEARCH_MAX_RESULTS,
+          maxResults: requestedRunsCount,
         };
 
-        await fetchRuns(requestParams, {
-          isAutoRefreshing: true,
-          discardResultsFn: (lastRequestedParams) => {
-            const existingPageCount = Math.ceil(currentResults.current.length / RUNS_SEARCH_MAX_RESULTS);
+        let autoRefreshFetchedPages = 0;
+        let autoRefreshResultsCount = 0;
+        let currentPageToken = undefined;
 
-            // At this moment, check if the results from auto-refresh should be considered. If the following
-            // conditions are met, the results from auto-refresh will be discarded.
-            if (
-              // Skip if auto-refresh has been disabled before the results response came back
-              !autoRefreshEnabledRef.current ||
-              // Skip if user has loaded more runs since the last request
-              existingPageCount !== requestedPageCount ||
-              // Skip if the requested facets have changed since the last request
-              !isEqual(lastRequestedParams.requestedFacets, requestParams.requestedFacets)
-            ) {
-              return true;
-            }
+        const discardResultsFn = (lastRequestedParams: FetchRunsHookParams, value?: SearchRunsApiResponse) => {
+          // If it's not the final page and we still didn't reach the requested amount of runs,
+          // flag results as not to be displayed yet
+          if (autoRefreshResultsCount + (value?.runs?.length ?? 0) < requestedRunsCount && value?.next_page_token) {
+            return true;
+          }
 
-            // Otherwise, return "false" and consider the results from auto-refresh as valid
-            return false;
-          },
-        });
+          // At this moment, check if the results from auto-refresh should be considered. If the following
+          // conditions are met, the results from auto-refresh will be discarded.
+          if (
+            // Skip if auto-refresh has been disabled before the results response came back
+            !autoRefreshEnabledRef.current ||
+            // Skip if user has loaded more runs since the last request
+            initialRunsCount > requestedRunsCount ||
+            // Skip if the requested facets have changed since the last request
+            !isEqual(lastRequestedParams.requestedFacets, requestParams.requestedFacets)
+          ) {
+            return true;
+          }
+
+          // Otherwise, return "false" and consider the results from auto-refresh as valid
+          return false;
+        };
+
+        while (autoRefreshFetchedPages === 0 || currentPageToken) {
+          // We have enough results, no need to fetch more
+          if (autoRefreshResultsCount >= requestedRunsCount) {
+            break;
+          }
+          autoRefreshFetchedPages++;
+          const result = await fetchRuns(
+            { ...requestParams, pageToken: currentPageToken },
+            {
+              isAutoRefreshing: true,
+              discardResultsFn,
+            },
+          );
+          autoRefreshResultsCount += isArray(result?.runs) ? result.runs.length : 0;
+          currentPageToken = result?.next_page_token;
+        }
       }
 
       // Clear the timeout before scheduling a new one

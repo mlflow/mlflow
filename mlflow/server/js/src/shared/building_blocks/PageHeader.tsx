@@ -15,6 +15,7 @@ import {
   Header,
   OverflowIcon,
   useDesignSystemTheme,
+  type HeaderProps,
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 
@@ -55,14 +56,15 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
   ) : null;
 }
 
-type PageHeaderProps = {
+type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   title: React.ReactNode;
   breadcrumbs?: React.ReactNode[];
   preview?: boolean;
-  feedbackForm?: string;
+  feedbackOrigin?: string;
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
   spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
+  hideSpacer?: boolean;
   titleAddOns?: React.ReactNode | React.ReactNode[];
 };
 
@@ -71,7 +73,7 @@ type PageHeaderProps = {
  *   - title,
  *   - optional breadcrumb content,
  *   - optional preview mark,
- *   - optional feedback link, and
+ *   - optional feedback origin: shows the "Send feedback" button when not empty, and
  *   - optional info popover, safe to have link inside.
  */
 export function PageHeader(props: PageHeaderProps) {
@@ -82,6 +84,8 @@ export function PageHeader(props: PageHeaderProps) {
     preview,
     children,
     spacerSize,
+    hideSpacer = false,
+    dangerouslyAppendEmotionCSS,
   } = props;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -107,12 +111,14 @@ export function PageHeader(props: PageHeaderProps) {
             {titleAddOns}
           </>
         }
+        dangerouslyAppendEmotionCSS={dangerouslyAppendEmotionCSS}
       />
       <Spacer
         // @ts-expect-error TS(2322): Type '{ css: { flexShrink: number; }; }' is not as... Remove this comment to see the full error message
         css={{
           // Ensure spacer's fixed height
           flexShrink: 0,
+          ...(hideSpacer ? { display: 'none' } : {}),
         }}
         size={spacerSize}
       />

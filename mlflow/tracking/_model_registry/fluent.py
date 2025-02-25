@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
@@ -19,7 +19,7 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -84,7 +84,7 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     local_model_path=None,
 ) -> ModelVersion:
     client = MlflowClient()
@@ -97,8 +97,7 @@ def _register_model(
             ErrorCode.Name(ALREADY_EXISTS),
         ):
             eprint(
-                "Registered model '%s' already exists. Creating a new version of this model..."
-                % name
+                f"Registered model {name!r} already exists. Creating a new version of this model..."
             )
         else:
             raise e
@@ -127,11 +126,13 @@ def _register_model(
 def search_registered_models(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[RegisteredModel]:
+    order_by: Optional[list[str]] = None,
+) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key = 'value1'"),
             defaults to searching for all registered models. The following identifiers, comparators,
             and logical operators are supported.
@@ -150,8 +151,6 @@ def search_registered_models(
             Logical operators
               - "AND": Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 
@@ -232,8 +231,8 @@ def search_registered_models(
 def search_model_versions(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[ModelVersion]:
+    order_by: Optional[list[str]] = None,
+) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
     .. warning:
@@ -241,6 +240,8 @@ def search_model_versions(
         The model version search results may not have aliases populated for performance reasons.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
@@ -263,8 +264,6 @@ def search_model_versions(
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 

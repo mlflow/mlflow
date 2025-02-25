@@ -46,7 +46,12 @@ const ModelLink = ({
       return (
         <LegacyTooltip title={displayFullName} placement="topLeft">
           <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
-          <Tag css={{ marginRight: 0, verticalAlign: 'middle' }}>v{registeredModelVersion}</Tag>
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
+            css={{ marginRight: 0, verticalAlign: 'middle' }}
+          >
+            v{registeredModelVersion}
+          </Tag>
         </LegacyTooltip>
       );
     }
@@ -102,7 +107,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels) as any[];
 
-  if (models && models.length) {
+  const containsModels = Boolean(models?.length);
+
+  if (containsModels) {
     return (
       // <Overflow /> component does not ideally fit within ag-grid cell so we need to override its styles a bit
       <div css={{ width: '100%', '&>div': { maxWidth: '100%', display: 'flex' } }}>

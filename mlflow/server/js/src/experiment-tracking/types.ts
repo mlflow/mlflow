@@ -4,7 +4,6 @@
  *
  * Note: this could be automatically generated in the future.
  */
-
 import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
@@ -61,10 +60,6 @@ export interface ModelVersionInfoEntity {
 /**
  * A run entity as seen in the API response
  */
-
-export interface RunInfoInputsEntity {
-  datasetInputs?: RunDatasetWithTags[];
-}
 export interface RunEntity {
   data: {
     params: KeyValueEntity[];
@@ -73,6 +68,10 @@ export interface RunEntity {
   };
   info: RunInfoEntity;
   inputs?: RunInfoInputsEntity;
+}
+
+export interface RunInfoInputsEntity {
+  datasetInputs?: RunDatasetWithTags[];
 }
 
 export interface RunInfoEntity {
@@ -102,7 +101,7 @@ export interface DatasetSummary {
   experiment_id: string;
   digest: string;
   name: string;
-  context: string;
+  context?: string;
 }
 
 export interface MetricEntity {
@@ -150,6 +149,16 @@ export interface ExperimentStoreEntities {
    * Dictionary with run UUID as key and run info object as a value
    */
   runInfosByUuid: Record<string, RunInfoEntity>;
+
+  /**
+   * Array to ensure order of returned values is maintained.
+   *
+   * Run Info is stored as an object in the order that the backend responds
+   * with, BUT order is not guaranteed to be preserved when reading
+   * Object.values(runInfosByUuid). This array is used to ensure that the order
+   * is respected.
+   */
+  runInfoOrderByUuid: string[];
 
   /**
    * Dictionary of recorded input datasets by run UUIDs
@@ -336,7 +345,17 @@ export type RunLoggedArtifactsDeclaration = {
   type: RunLoggedArtifactType;
 }[];
 
-export type ExperimentViewRunsCompareMode = 'TABLE' | 'ARTIFACT' | 'CHART' | 'TRACES';
+// "MODELS", "EVAL_RESULTS", "DATASETS", and "LABELING_SESSIONS" are the not real legacy view modes, they are used to navigate to the
+// corresponding tabs on the experiment page.
+export type ExperimentViewRunsCompareMode =
+  | 'TABLE'
+  | 'ARTIFACT'
+  | 'CHART'
+  | 'TRACES'
+  | 'MODELS'
+  | 'EVAL_RESULTS'
+  | 'DATASETS'
+  | 'LABELING_SESSIONS';
 
 /**
  * Describes a section of the compare runs view
@@ -346,6 +365,8 @@ export type ChartSectionConfig = {
   uuid: string; // Unique section ID of the section
   display: boolean; // Whether the section is displayed
   isReordered: boolean; // Whether the charts in the section has been reordered
+  columns?: number;
+  cardHeight?: number;
 };
 
 export type RunViewMetricConfig = {

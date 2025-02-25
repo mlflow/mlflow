@@ -8,11 +8,13 @@ from sklearn import datasets
 
 import mlflow.sklearn
 import mlflow.utils.model_utils as mlflow_model_utils
+from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import env_var_tracker
 
 
 @pytest.fixture(scope="module")
@@ -115,3 +117,33 @@ def test_add_code_to_system_path_not_copyable_file(sklearn_knn_model, model_path
             path=model_path,
             code_paths=["tests/utils/test_resources/dummy_module.py"],
         )
+
+
+def test_env_var_tracker(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "host")
+    assert "DATABRICKS_HOST" in os.environ
+    assert "TEST_API_KEY" not in os.environ
+
+    with env_var_tracker() as tracked_env_names:
+        assert os.environ["DATABRICKS_HOST"] == "host"
+        monkeypatch.setenv("TEST_API_KEY", "key")
+        # accessed env var is tracked
+        assert os.environ.get("TEST_API_KEY") == "key"
+        # test non-existing env vars fetched by `get` are not tracked
+        os.environ.get("INVALID_API_KEY", "abc")
+        # test non-existing env vars are not tracked
+        try:
+            os.environ["ANOTHER_API_KEY"]
+        except KeyError:
+            pass
+        assert all(x in tracked_env_names for x in ["DATABRICKS_HOST", "TEST_API_KEY"])
+        assert all(x not in tracked_env_names for x in ["INVALID_API_KEY", "ANOTHER_API_KEY"])
+
+    assert isinstance(os.environ, os._Environ)
+    assert all(x in os.environ for x in ["DATABRICKS_HOST", "TEST_API_KEY"])
+    assert all(x not in os.environ for x in ["INVALID_API_KEY", "ANOTHER_API_KEY"])
+
+    monkeypatch.setenv(MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name, "false")
+    with env_var_tracker() as env:
+        os.environ.get("API_KEY")
+        assert env == set()
