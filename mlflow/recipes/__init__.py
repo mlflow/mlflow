@@ -25,13 +25,6 @@ them to production. Compared to ad-hoc ML workflows, MLflow Recipes offers sever
 For more information, see the `MLflow Recipes overview <../../recipes/index.html>`_.
 """
 
-import warnings
-
 from mlflow.recipes.recipe import Recipe
-
-warnings.warn(
-    "MLflow Recipes is deprecated and will be removed in a future release.",
-    FutureWarning,
-)
 
 __all__ = ["Recipe"]

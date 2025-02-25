@@ -1,6 +1,7 @@
 import abc
 import logging
 import os
+import warnings
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
@@ -395,6 +396,10 @@ class Recipe:
             regression_recipe = Recipe(profile="local")
             regression_recipe.run(step="train")
         """
+        warnings.warn(
+            "MLflow Recipes is deprecated and will be removed in MLflow 3.0.",
+            FutureWarning,
+        )
         if not profile:
             raise MlflowException(
                 "A profile name must be provided to construct a valid Recipe object.",
