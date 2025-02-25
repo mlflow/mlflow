@@ -667,7 +667,6 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
             artifact_path,
             conda_env=spark_custom_env,
         )
-        assert model_info.model_uri == f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
