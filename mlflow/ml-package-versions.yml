@@ -323,7 +323,7 @@ spark:
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
       python examples/pyspark_ml_autologging/one_vs_rest.py
-      # pytest tests/spark/autologging/ml/test_pyspark_ml_autologging.py::test_meta_estimator_fit
+      pytest tests/spark/autologging/ml/test_pyspark_ml_autologging.py::test_meta_estimator_fit
       # SAGEMAKER_OUT=$(mktemp)
       # if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
       #   echo "Sagemaker container build succeeded.";
