@@ -99,7 +99,7 @@ Tracing provides a way to record the inputs, outputs, and metadata associated wi
             </a>
             <a href="#automatic-tracing">
                 <div class="logo-card">
-                    <img src="../../_static/images/logos/txtai-logo.svg" alt="Txtai Logo"/>
+                    <img src="../../_static/images/logos/txtai-logo.png" alt="Txtai Logo"/>
                 </div>
             </a>
     </section>
@@ -751,7 +751,7 @@ for model/API invocations to the active MLflow Experiment.
 
         To see the full example of tracing txtai, please refer to the `MLflow txtai extension documentation <https://github.com/neuml/mlflow-txtai/tree/master>`_
 
-        .. figure:: ../../_static/images/llms/mistral/txtai-rag-tracing.png
+        .. figure:: ../../_static/images/llms/tracing/txtai-rag-tracing.png
             :alt: Txtai Tracing
             :width: 100%
             :align: center
