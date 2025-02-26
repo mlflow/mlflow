@@ -7,8 +7,6 @@ from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 from mlflow.spark.autologging import clear_table_infos
 
-from tests.spark.autologging.utils import _get_or_create_spark_session
-
 
 # Session-scoped version of pytest monkeypatch fixture. Original monkeypatch in pytest
 # is function-scoped, thus we need a larger scoped one to use that in module/session
@@ -29,10 +27,10 @@ def disable_pyspark_pin_thread(monkeypatch_session):
     monkeypatch_session.setenv("PYSPARK_PIN_THREAD", "false")
 
 
-@pytest.fixture(scope="module")
-def spark_session():
-    with _get_or_create_spark_session() as session:
-        yield session
+# @pytest.fixture(scope="module")
+# def spark_session():
+#     with _get_or_create_spark_session() as session:
+#         yield session
 
 
 @pytest.fixture
