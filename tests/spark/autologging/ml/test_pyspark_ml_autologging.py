@@ -35,6 +35,7 @@ from pyspark.ml.functions import array_to_vector
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
 import mlflow
@@ -60,10 +61,14 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
 )
 
-from tests.utils.test_file_utils import spark_session  # noqa: F401
-
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")
