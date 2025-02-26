@@ -126,6 +126,7 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
             aligned to epochs, the monitored metric may potentially be less reliable (it
             could reflect as little as 1 batch, since the metrics get reset
             every epoch). Defaults to `"epoch"`.
+        checkpoint_file_suffix: checkpoint file suffix.
 
     .. code-block:: python
         :caption: Example
@@ -179,11 +180,12 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
         save_best_only=True,
         save_weights_only=False,
         save_freq="epoch",
+        checkpoint_file_suffix=".h5",
     ):
         Callback.__init__(self)
         MlflowModelCheckpointCallbackBase.__init__(
             self,
-            checkpoint_file_suffix=".h5",
+            checkpoint_file_suffix=checkpoint_file_suffix,
             monitor=monitor,
             mode=mode,
             save_best_only=save_best_only,
