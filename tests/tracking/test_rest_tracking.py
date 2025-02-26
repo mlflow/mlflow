@@ -58,6 +58,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
+from tests.tracking.conftest import _log_artifact_with_sync, _log_artifacts_with_sync
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
@@ -727,7 +728,7 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time <= get_current_time_millis()
 
 
-def test_artifacts(mlflow_client, tmp_path):
+def test_artifacts(mlflow_client, tmp_path, synchronous):
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(path_to_local_file_uri(str(tmp_path)))
@@ -742,8 +743,8 @@ def test_artifacts(mlflow_client, tmp_path):
     src_file = os.path.join(src_dir, "my.file")
     with open(src_file, "w") as f:
         f.write("Hello, World!")
-    mlflow_client.log_artifact(run_id, src_file, None)
-    mlflow_client.log_artifacts(run_id, src_dir, "dir")
+    _log_artifact_with_sync(mlflow_client, synchronous, run_id, src_file, None)
+    _log_artifacts_with_sync(mlflow_client, synchronous, run_id, src_dir, "dir")
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
     assert {a.path for a in root_artifacts_list} == {"my.file", "dir"}
@@ -2309,14 +2310,18 @@ def test_search_runs_graphql(mlflow_client):
     assert json["data"]["mlflowSearchRuns"]["runs"] == expected
 
 
-def test_list_artifacts_graphql(mlflow_client, tmp_path):
+def test_list_artifacts_graphql(mlflow_client, tmp_path, synchronous):
     name = "GraphqlTest"
     experiment_id = mlflow_client.create_experiment(name)
     created_run_id = mlflow_client.create_run(experiment_id).info.run_id
     file_path = tmp_path / "test.txt"
     file_path.write_text("hello world")
-    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix())
-    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix(), "testDir")
+    _log_artifact_with_sync(
+        mlflow_client, synchronous, created_run_id, file_path.absolute().as_posix()
+    )
+    _log_artifact_with_sync(
+        mlflow_client, synchronous, created_run_id, file_path.absolute().as_posix(), "testDir"
+    )
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
