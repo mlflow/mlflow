@@ -255,13 +255,13 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         y = pd.Series([1.33, 1.35, 0.93])
 
         params = {"n_estimators": 10, "reg_lambda": 1}
-        model = xgb.XGBRegressor(**params)
-        model.fit(X, y)
+        logged_model = xgb.XGBRegressor(**params)
+        logged_model.fit(X, y)
 
-        model = mlflow.last_logged_model()
-        model_conf = Model.load(model.model_uri)
+        logged_model = mlflow.last_logged_model()
+        model_conf = Model.load(logged_model.model_uri)
         input_example = pd.read_json(
-            os.path.join(model.artifact_location, "input_example.json"), orient="split"
+            os.path.join(logged_model.artifact_location, "input_example.json"), orient="split"
         )
         model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
         assert "XLarge Bags" in model_signature_input_names
@@ -505,13 +505,13 @@ def test_xgb_autolog_gets_input_example(bst_params):
 
     xgb.train(bst_params, dataset)
 
-    model = mlflow.last_logged_model()
-    model_conf = Model.load(model.model_uri)
-    input_example = _read_example(model_conf, model.model_uri)
+    logged_model = mlflow.last_logged_model()
+    model_conf = Model.load(logged_model.model_uri)
+    input_example = _read_example(model_conf, logged_model.model_uri)
 
     pd.testing.assert_frame_equal(input_example, X[:5])
 
-    pyfunc_model = mlflow.pyfunc.load_model(model.model_uri)
+    pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
 
     # make sure reloading the input_example and predicting on it does not error
     pyfunc_model.predict(input_example)
@@ -528,9 +528,9 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     dataset = xgb.DMatrix(X, y)
 
     xgb.train(bst_params, dataset)
-    model = mlflow.last_logged_model()
+    logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(model.artifact_location, "MLmodel")
+    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:
@@ -585,9 +585,9 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     dataset = xgb.DMatrix(f"{tmp_csv}?format=csv&label_column=0")
 
     xgb.train(bst_params, dataset)
-    model = mlflow.last_logged_model()
+    logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(model.artifact_location, "MLmodel")
+    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:
@@ -710,8 +710,9 @@ def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
     mlflow.xgboost.autolog(log_models=True, model_format=model_format)
     with mlflow.start_run():
         xgb.train(bst_params, dtrain)
-    model = mlflow.last_logged_model()
-    artifacts = [f.path for f in mlflow.artifacts.list_artifacts(model.model_uri)]
+    logged_model = mlflow.last_logged_model()
+    client = MlflowClient()
+    artifacts = [f.path for f in client.list_logged_model_artifacts(logged_model.model_id)]
     assert f"model.{model_format}" in artifacts
 
 
