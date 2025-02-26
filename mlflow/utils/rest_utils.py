@@ -371,6 +371,10 @@ def get_create_assessment_endpoint(trace_id: str):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
 
 
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:

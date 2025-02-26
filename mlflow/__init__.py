@@ -99,6 +99,8 @@ spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+# TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
+txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
@@ -125,7 +127,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
-from mlflow.tracing.assessment import log_expectation, log_feedback
+from mlflow.tracing.assessment import (
+    delete_expectation,
+    delete_feedback,
+    log_expectation,
+    log_feedback,
+    update_expectation,
+    update_feedback,
+)
 from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
@@ -269,8 +278,12 @@ __all__ = [
     "log_trace",
     "update_current_trace",
     # Assessment APIs
+    "delete_expectation",
+    "delete_feedback",
     "log_expectation",
     "log_feedback",
+    "update_expectation",
+    "update_feedback",
 ]
 
 

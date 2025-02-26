@@ -121,16 +121,13 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
             model_info = mlflow.statsmodels.log_model(model, artifact_path, conda_env=conda_env)
-            model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-            assert model_info.model_uri == model_uri
-
-            reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
+            reloaded_model = mlflow.statsmodels.load_model(model_uri=model_info.model_uri)
             if hasattr(model, "predict"):
                 np.testing.assert_array_almost_equal(
                     model.predict(*predict_args), reloaded_model.predict(*predict_args)
                 )
 
-            model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+            model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
             model_config = Model.load(os.path.join(model_path, "MLmodel"))
             assert pyfunc.FLAVOR_NAME in model_config.flavors
             assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]

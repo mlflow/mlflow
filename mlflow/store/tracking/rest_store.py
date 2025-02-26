@@ -17,7 +17,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
-from mlflow.entities.assessment import Assessment
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -26,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -61,13 +62,14 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     TraceRequestMetadata,
     TraceTag,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, set_pb_value
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
@@ -75,6 +77,7 @@ from mlflow.utils.rest_utils import (
     get_create_assessment_endpoint,
     get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
+    get_single_assessment_endpoint,
     get_single_trace_endpoint,
     get_trace_assessment_endpoint,
     get_trace_info_endpoint,
@@ -447,6 +450,82 @@ class RestStore(AbstractStore):
             endpoint=get_create_assessment_endpoint(assessment.trace_id),
         )
         return Assessment.from_proto(response_proto.assessment)
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        """
+        Update an existing assessment entity in the backend store.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to update.
+            name: The updated name of the assessment.
+            expectation: The updated expectation value of the assessment.
+            feedback: The updated feedback value of the assessment.
+            rationale: The updated rationale of the feedback. Not applicable for expectations.
+            metadata: Additional metadata for the assessment.
+        """
+        if expectation is not None and feedback is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Exactly one of `expectation` or `feedback` should be specified."
+            )
+
+        update = UpdateAssessment()
+
+        # The assessment object to be sent to the backend (only contains fields to update and IDs)
+        assessment = update.assessment
+        # Field mask specifies which fields to update.
+        mask = update.update_mask
+
+        assessment.assessment_id = assessment_id
+        assessment.trace_id = trace_id
+
+        if name is not None:
+            assessment.assessment_name = name
+            mask.paths.append("assessment_name")
+        if expectation is not None:
+            set_pb_value(assessment.expectation.value, expectation.value)
+            mask.paths.append("expectation")
+        if feedback is not None:
+            set_pb_value(assessment.feedback.value, feedback.value)
+            mask.paths.append("feedback")
+        if rationale is not None:
+            assessment.rationale = rationale
+            mask.paths.append("rationale")
+        if metadata is not None:
+            assessment.metadata.update(metadata)
+            mask.paths.append("metadata")
+
+        req_body = message_to_json(update)
+        response_proto = self._call_endpoint(
+            UpdateAssessment,
+            req_body,
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+        )
+        return Assessment.from_proto(response_proto.assessment)
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment associated with a trace.
+
+        Args:
+            trace_id: String ID of the trace.
+            assessment_id: String ID of the assessment to delete.
+        """
+        req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
+        self._call_endpoint(
+            DeleteAssessment,
+            req_body,
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+        )
 
     def log_metric(self, run_id: str, metric: Metric):
         """
