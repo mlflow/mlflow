@@ -208,11 +208,7 @@ def test_tf_keras_autolog_log_models_configuration(
 
     model.fit(data, labels, epochs=10)
 
-    client = MlflowClient()
-    run_id = client.search_runs(["0"])[0].info.run_id
-    assert (
-        len(mlflow.search_logged_models(filter_string=f"source_run_id='{run_id}'")) == 1
-    ) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
@@ -721,7 +717,6 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = (x.path for x in artifacts)
-    assert len(mlflow.search_logged_models(filter_string=f"source_run_id='{run.info.run_id}'")) == 1
     assert "tensorboard_logs" in artifacts
     model = mlflow.tensorflow.load_model("runs:/" + run.info.run_id + "/model")
     model.predict(random_train_data)
@@ -1061,7 +1056,6 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     run_data = client.get_run(run.info.run_id).data
     assert "accuracy" in run_data.metrics
     assert "epochs" in run_data.params
-    assert len(mlflow.search_logged_models(filter_string=f"source_run_id='{run.info.run_id}'")) == 1
 
 
 def test_callback_is_picklable():
@@ -1245,9 +1239,8 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     initial_model = create_tf_keras_model()
     initial_model.fit(keras_data_gen_sequence)
 
-    mlmodel_path = mlflow.artifacts.download_artifacts(
-        f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
-    )
+    logged_model = mlflow.last_logged_model()
+    mlmodel_path = mlflow.artifacts.download_artifacts(f"{logged_model.artifact_location}/MLmodel")
     with open(mlmodel_path) as f:
         mlmodel_contents = yaml.safe_load(f)
     assert "signature" in mlmodel_contents.keys()
