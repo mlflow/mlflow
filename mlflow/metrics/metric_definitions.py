@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
@@ -84,10 +85,21 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
 
 
 @functools.lru_cache(maxsize=8)
-def _cached_evaluate_load(path, module_type=None):
+def _cached_evaluate_load(path: str, module_type: str = "metric"):
     import evaluate
 
-    return evaluate.load(path, module_type=module_type)
+    try:
+        raise FileNotFoundError("test")
+        evaluate.load(path, module_type=module_type)
+    except FileNotFoundError:
+        # `evaluate.load` is highly unstable and often fails due to a network error or huggingface
+        # hub being down. As a workaround, we fallback to loading from this directory while testing
+        # if the remote loading fails.
+        if _MLFLOW_TESTING.get():
+            return evaluate.load(
+                os.path.join("tests", "cached_evaluate", "evaluate", f"{module_type}s", path)
+            )
+        raise
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
