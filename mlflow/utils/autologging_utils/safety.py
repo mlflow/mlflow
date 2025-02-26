@@ -4,20 +4,21 @@ import inspect
 import itertools
 import typing
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from typing import Optional
 
 import mlflow
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLoggerWrapper
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
-    set_non_mlflow_warnings_behavior_for_current_thread,
+    MlflowEventsAndWarningsBehaviorGlobally,
+    NonMlflowWarningsBehaviorForCurrentThread,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -28,6 +29,9 @@ _AUTOLOGGING_PATCHES = {}
 # has been wrapped with the `exception_safe_function_for_class` and
 # `picklable_exception_safe_function` decorators
 _ATTRIBUTE_EXCEPTION_SAFE = "exception_safe"
+
+
+_ERROR_MSG = "Encountered unexpected error during {} autologging: {}"
 
 
 def exception_safe_function_for_class(function):
@@ -257,7 +261,17 @@ def safe_patch(
     """
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
+    # NB: Checking the signature of the patch function rather than original, so that we don't
+    # accidentally change the behavior of existing patches that may use sync patch function
+    # for async original functions (e.g. LangChain).
+    is_async_function = inspect.iscoroutinefunction(patch_function)
+
     if manage_run:
+        if is_async_function:
+            raise MlflowException(
+                "The `manage_run` parameter is not supported for async functions."
+            )
+
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
         patch_function = with_managed_run(
             autologging_integration,
@@ -275,6 +289,9 @@ def safe_patch(
     if original_fn != raw_original_obj:
         raise RuntimeError(f"Unsupported patch on {destination}.{function_name}")
     elif isinstance(original_fn, property):
+        if is_async_function:
+            raise MlflowException("Patching async property methods is not supported.")
+
         is_property_method = True
 
         # For property decorated methods (a kind of method delegation), e.g.
@@ -326,7 +343,7 @@ def safe_patch(
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         with (
-            set_mlflow_events_and_warnings_behavior_globally(
+            MlflowEventsAndWarningsBehaviorGlobally(
                 # MLflow warnings emitted during autologging training sessions are likely not
                 # actionable and result from the autologging implementation invoking another MLflow
                 # API. Accordingly, we reroute these warnings to the MLflow event logger with level
@@ -336,7 +353,7 @@ def safe_patch(
                 disable_event_logs=is_silent_mode,
                 disable_warnings=is_silent_mode,
             ),
-            set_non_mlflow_warnings_behavior_for_current_thread(
+            NonMlflowWarningsBehaviorForCurrentThread(
                 # non-MLflow Warnings emitted during the autologging preamble (before the original /
                 # underlying ML function is called) and postamble (after the original / underlying
                 # ML function is called) are likely not actionable and result from the autologging
@@ -376,7 +393,7 @@ def safe_patch(
                 # fluent run is active, call the original function and return. Restore the original
                 # warning behavior during original function execution, since autologging is being
                 # skipped
-                with set_non_mlflow_warnings_behavior_for_current_thread(
+                with NonMlflowWarningsBehaviorForCurrentThread(
                     disable_warnings=False,
                     reroute_warnings=False,
                 ):
@@ -394,14 +411,10 @@ def safe_patch(
             # The active MLflow run (if any) associated with patch code execution
             patch_function_run_for_testing = None
             # The exception raised during executing patching function
-            patch_function_exception = None
+            patch_error = None
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
-                event_logger = AutologgingEventLoggerWrapper(
-                    session,
-                    destination,
-                    function_name,
-                )
+                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
 
                 def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
                     try:
@@ -449,7 +462,7 @@ def safe_patch(
                             # during original function execution, even if silent mode is enabled
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
-                            with set_non_mlflow_warnings_behavior_for_current_thread(
+                            with NonMlflowWarningsBehaviorForCurrentThread(
                                 disable_warnings=False,
                                 reroute_warnings=False,
                             ):
@@ -472,7 +485,7 @@ def safe_patch(
 
                 except Exception as e:
                     session.state = "failed"
-                    patch_function_exception = e
+                    patch_error = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
@@ -501,18 +514,146 @@ def safe_patch(
                     # If original function failed, we don't call `log_patch_function_error`
                     # even if `patch_function_exception` exists, because original function failure
                     # means there's some error in user code (e.g. user provide wrong arguments)
-                    if patch_function_exception is not None and not failed_during_original:
-                        event_logger.log_patch_function_error(
-                            args,
-                            kwargs,
-                            patch_function_exception,
+                    if patch_error is not None and not failed_during_original:
+                        event_logger.log_patch_function_error(args, kwargs, patch_error)
+                        _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
+
+    async def async_safe_patch_function(*args, **kwargs):
+        """
+        Async version of safe_patch_function.
+
+        This code brainlessly copies the synchronous version of the function, but with async
+        context managers and async functions. This is done to avoid the risk of introducing
+        any bugs or regressions in the async version of the function. Note that we need to
+        be really careful here, because autologging is enabled by-default in DBR/MLR, hence
+        any bug here can break users' workload without them taking any action.
+
+        That said, some long comments are omitted in this version to avoid redundancy. If
+        you want to understand the context of the code better, please refer to the
+        synchronous version as well.
+        """
+        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
+        async with (
+            MlflowEventsAndWarningsBehaviorGlobally(True, is_silent_mode, is_silent_mode),
+            NonMlflowWarningsBehaviorForCurrentThread(True, is_silent_mode),
+        ):
+            if is_testing():
+                preexisting_run_for_testing = mlflow.active_run()
+
+            # Whether or not to exclude autologged content from user-created fluent runs
+            # (i.e. runs created manually via `mlflow.start_run()`)
+            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+            user_created_fluent_run_is_active = (
+                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+            )
+            active_session_failed = (
+                _AutologgingSessionManager.active_session() is not None
+                and _AutologgingSessionManager.active_session().state == "failed"
+            )
+
+            if (
+                active_session_failed
+                or autologging_is_disabled(autologging_integration)
+                or (user_created_fluent_run_is_active and exclusive)
+                or (
+                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
+                    and autologging_integration
+                )
+            ):
+                async with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                    return await original(*args, **kwargs)
+
+            original_has_been_called = False
+            original_result = None
+            failed_during_original = False
+            patch_function_run_for_testing = None
+            patch_error = None
+
+            async with _AutologgingSessionManager.astart_session(
+                autologging_integration
+            ) as session:
+                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
+
+                async def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
+                    try:
+                        event_logger.log_original_function_start(og_args, og_kwargs)
+                        original_fn_result = await original_fn(*og_args, **og_kwargs)
+                        event_logger.log_original_function_success(og_args, og_kwargs)
+                        return original_fn_result
+                    except Exception as e:
+                        event_logger.log_original_function_error(og_args, og_kwargs, e)
+                        nonlocal failed_during_original
+                        failed_during_original = True
+                        raise
+
+                try:
+
+                    async def call_original(*og_args, **og_kwargs):
+                        async def _original_fn(*_og_args, **_og_kwargs):
+                            if is_testing():
+                                _validate_args(
+                                    autologging_integration,
+                                    function_name,
+                                    args,
+                                    kwargs,
+                                    og_args,
+                                    og_kwargs,
+                                )
+                                nonlocal patch_function_run_for_testing
+                                patch_function_run_for_testing = mlflow.active_run()
+
+                            nonlocal original_has_been_called
+                            original_has_been_called = True
+
+                            nonlocal original_result
+                            async with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                                original_result = await original(*_og_args, **_og_kwargs)
+                                return original_result
+
+                        return await call_original_fn_with_event_logging(
+                            _original_fn, og_args, og_kwargs
                         )
 
-                        _logger.warning(
-                            "Encountered unexpected error during %s autologging: %s",
-                            autologging_integration,
-                            patch_function_exception,
+                    # Apply the name, docstring, and signature of `original` to `call_original`.
+                    # This is important because several autologging patch implementations inspect
+                    # the signature of the `original` argument during execution
+                    call_original = update_wrapper_extended(call_original, original)
+
+                    event_logger.log_patch_function_start(args, kwargs)
+
+                    await patch_function(call_original, *args, **kwargs)
+
+                    session.state = "succeeded"
+                    event_logger.log_patch_function_success(args, kwargs)
+
+                except Exception as e:
+                    session.state = "failed"
+                    patch_error = e
+                    # Exceptions thrown during execution of the original function should be
+                    # propagated to the caller. Additionally, exceptions encountered during test
+                    # mode should be reraised to detect bugs in autologging implementations
+                    if failed_during_original or is_testing():
+                        raise
+
+                if is_testing() and not preexisting_run_for_testing:
+                    # If an MLflow run was created during the execution of patch code, verify that
+                    # it is no longer active and that it contains expected autologging tags
+                    assert not mlflow.active_run(), (
+                        f"Autologging integration {autologging_integration} leaked an active run"
+                    )
+                    if patch_function_run_for_testing:
+                        _validate_autologging_run(
+                            autologging_integration, patch_function_run_for_testing.info.run_id
                         )
+                try:
+                    if original_has_been_called:
+                        return original_result
+                    else:
+                        return await call_original_fn_with_event_logging(original, args, kwargs)
+                finally:
+                    if patch_error is not None and not failed_during_original:
+                        event_logger.log_patch_function_error(args, kwargs, patch_error)
+                        _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
 
     if is_property_method:
         # Create a patched function (also property decorated)
@@ -546,6 +687,8 @@ def safe_patch(
         # Make unbound method `class.target_method` keep the same doc and signature
         get_bound_safe_patch_fn = update_wrapper_extended(get_bound_safe_patch_fn, original_fn.fget)
         safe_patch_obj = property(get_bound_safe_patch_fn)
+    elif is_async_function:
+        safe_patch_obj = update_wrapper_extended(async_safe_patch_function, original)
     else:
         safe_patch_obj = update_wrapper_extended(safe_patch_function, original)
 
@@ -595,6 +738,19 @@ class _AutologgingSessionManager:
             # Only end the session upon termination of the context if we created
             # the session; otherwise, leave the session open for later termination
             # by its creator
+            if prev_session is None:
+                cls._end_session()
+
+    @classmethod
+    @asynccontextmanager
+    async def astart_session(cls, integration):
+        try:
+            prev_session = cls._session
+            if prev_session is None:
+                session_id = uuid.uuid4().hex
+                cls._session = AutologgingSession(integration, session_id)
+            yield cls._session
+        finally:
             if prev_session is None:
                 cls._end_session()
 
