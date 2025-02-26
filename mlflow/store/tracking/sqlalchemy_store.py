@@ -1719,7 +1719,7 @@ class SqlAlchemyStore(AbstractStore):
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
-            # TODO: Consider unserting tags in a single transaction for performance
+            # TODO: Consider upserting tags in a single transaction for performance
             for tag in tags:
                 session.merge(
                     SqlLoggedModelTag(
