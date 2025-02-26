@@ -1,6 +1,6 @@
 import mlflow
 
-mlflow.pyspark.autolog()
+mlflow.pyspark.ml.autolog()
 
 from pyspark.ml.classification import LogisticRegression, OneVsRest
 from pyspark.ml.feature import VectorAssembler
