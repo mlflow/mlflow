@@ -1,7 +1,7 @@
 import mlflow
 
 mlflow.pyspark.ml.autolog()
-
+mlflow.pyspark.ml.autolog(disable=True)
 from pyspark.ml.classification import LogisticRegression, OneVsRest
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
