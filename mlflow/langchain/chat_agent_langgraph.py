@@ -38,6 +38,10 @@ from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(left: list[dict], right: list[dict]):
+    if not isinstance(left, list):
+        left = [left]
+    if not isinstance(right, list):
+        right = [right]
     # assign missing ids
     for i, m in enumerate(left):
         if isinstance(m, BaseMessage):
