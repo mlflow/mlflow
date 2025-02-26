@@ -217,7 +217,10 @@ def build_image_from_context(context_dir: str, image_name: str):
     platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
     commands = [
         "docker",
+        "buildx",
         "build",
+        "--output=type=docker",
+        "--attest", "type=provenance,disabled=true",
         "-t",
         image_name,
         "-f",
