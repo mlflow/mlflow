@@ -34,7 +34,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -60,6 +60,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInputTag,
     SqlLatestMetric,
     SqlLoggedModel,
+    SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
@@ -740,6 +741,35 @@ class SqlAlchemyStore(AbstractStore):
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric], isSingleMetric=True)
+        self._log_model_metrics(run_id, [metric])
+
+    def _log_model_metrics(
+        self, run_id: str, metrics: list[Metric], path: str = "", is_single_metric: bool = False
+    ) -> None:
+        if not metrics:
+            return
+
+        metric_instances: list[SqlLoggedModelMetric] = []
+        for index, metric in enumerate(metrics):
+            path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
+            metric, value, _is_nan = self._get_metric_value_details(path, metric)
+            metric_instances.append(
+                SqlLoggedModelMetric(
+                    model_id=metric.model_id,
+                    metric_name=metric.key,
+                    metric_timestamp_ms=metric.timestamp,
+                    metric_step=metric.step,
+                    metric_value=value,
+                    experiment_id=metric.experiment_id,
+                    run_id=run_id,
+                    dataset_uuid=metric.dataset_uuid,
+                    dataset_name=metric.dataset_name,
+                    dataset_digest=metric.dataset_digest,
+                )
+            )
+
+        with self.ManagedSessionMaker() as session:
+            session.merge(*metric_instances)
 
     def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
         if not metrics:
@@ -763,6 +793,7 @@ class SqlAlchemyStore(AbstractStore):
                         is_nan=is_nan,
                     )
                 )
+
             seen.add(metric)
 
         with self.ManagedSessionMaker() as session:
