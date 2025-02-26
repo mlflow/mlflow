@@ -87,8 +87,10 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     run_id = run.info.run_id
     client = MlflowClient()
-    artifacts = [f.path for f in client.list_artifacts(run_id)]
-    assert ("model" in artifacts) == log_models
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"run_id='{run_id}'", output_format="list"
+    )
+    assert (len(logged_models) > 0) == log_models
 
 
 def test_pytorch_autolog_logs_default_params(pytorch_model):
@@ -291,11 +293,7 @@ def test_pytorch_early_stop_artifacts_logged(pytorch_model_with_callback):
 def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callback):
     _, run = pytorch_model_with_callback
     run_id = run.info.run_id
-    client = MlflowClient()
-    artifacts = client.list_artifacts(run_id)
-    artifacts = (x.path for x in artifacts)
-    assert "model" in artifacts
-    model = mlflow.pytorch.load_model("runs:/" + run_id + "/model")
+    model = mlflow.pytorch.load_model(f"runs:/{run_id}/model")
     result = model(torch.Tensor([1.5, 2, 2.5, 3.5]).unsqueeze(0))
     assert result is not None
 
@@ -438,8 +436,14 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = [x.path for x in artifacts]
-    assert "model" in artifacts
+    # assert "model" in artifacts
     assert "model_summary.txt" in artifacts
+
+    # Testing model is logged
+    model = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(model) == 1
 
 
 def test_autolog_registering_model():
