@@ -14,4 +14,5 @@ devtools::install_git("https://github.com/smurching/Rd2md", ref = "mlflow-patche
 devtools::install_version("roxygen2", "7.1.2")
 # The latest version of git2r (0.35.0) doesn't work with the rocker/r-ver:4.2.1 docker image
 devtools::install_version("git2r", "0.33.0")
+devtools::install_version("reticulate", "1.40.0")
 install.packages("rmarkdown", repos = "https://cloud.r-project.org")
