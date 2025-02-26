@@ -1,11 +1,13 @@
+import mlflow
+
+mlflow.pyspark.autolog()
+
 from pyspark.ml.classification import LogisticRegression, OneVsRest
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 
-import mlflow
-
-mlflow.pyspark.autolog()
+print(SparkSession)
 
 with SparkSession.builder.master("local[*]").getOrCreate() as spark:
     df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
