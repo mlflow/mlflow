@@ -31,7 +31,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     ExceptionSafeAbstractClass,
     ExceptionSafeClass,
-    PatchFunction,
     exception_safe_function_for_class,
     is_testing,
     picklable_exception_safe_function,

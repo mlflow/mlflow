@@ -4,7 +4,6 @@ import inspect
 import itertools
 import typing
 import uuid
-from abc import abstractmethod
 from contextlib import contextmanager
 from typing import Optional
 
@@ -17,8 +16,8 @@ from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLoggerWrapper
 from mlflow.utils.autologging_utils.logging_and_warnings import (
+    set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
-    set_warning_behavior_during_autologging,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -129,54 +128,6 @@ ExceptionSafeClass = _exception_safe_class_factory(type)
 ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
 
 
-class PatchFunction:
-    """
-    Base class representing a function patch implementation with a callback for error handling.
-    `PatchFunction` should be subclassed and used in conjunction with `safe_patch` to
-    safely modify the implementation of a function. Subclasses of `PatchFunction` should
-    use `_patch_implementation` to define modified ("patched") function implementations and
-    `_on_exception` to define cleanup logic when `_patch_implementation` terminates due
-    to an unhandled exception.
-    """
-
-    @abstractmethod
-    def _patch_implementation(self, original, *args, **kwargs):
-        """
-        Invokes the patch function code.
-
-        Args:
-            original: The original, underlying function over which the `PatchFunction`
-                is being applied.
-            *args: The positional arguments passed to the original function.
-            **kwargs: The keyword arguments passed to the original function.
-        """
-
-    @abstractmethod
-    def _on_exception(self, exception):
-        """Called when an unhandled standard Python exception (i.e. an exception inheriting from
-        `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
-        `_patch_implementation`.
-
-        Args:
-            exception: The unhandled exception thrown by `_patch_implementation`.
-        """
-
-    @classmethod
-    def call(cls, original, *args, **kwargs):
-        return cls().__call__(original, *args, **kwargs)
-
-    def __call__(self, original, *args, **kwargs):
-        try:
-            return self._patch_implementation(original, *args, **kwargs)
-        except (Exception, KeyboardInterrupt) as e:
-            try:
-                self._on_exception(e)
-            finally:
-                # Regardless of what happens during the `_on_exception` callback, reraise
-                # the original implementation exception once the callback completes
-                raise e
-
-
 def with_managed_run(autologging_integration, patch_function, tags=None):
     """Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -197,8 +148,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     Args:
         autologging_integration: The autologging integration associated
             with the `patch_function`.
-        patch_function: A `PatchFunction` class definition or a function object
-            compatible with `safe_patch`.
+        patch_function: A function object compatible with `safe_patch`.
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
@@ -215,61 +165,30 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         )
         return managed_run
 
-    if inspect.isclass(patch_function):
+    def patch_with_managed_run(original, *args, **kwargs):
+        managed_run = None
+        # If there is an active training session but there is no active run
+        # in current thread, it means the thread is spawned by `estimator.fit`
+        # as a worker thread, we should disable autologging in
+        # these worker threads, so skip creating managed run.
+        if not mlflow.active_run() and not _has_active_training_session():
+            managed_run = create_managed_run()
 
-        class PatchWithManagedRun(patch_function):
-            def __init__(self):
-                super().__init__()
-                self.managed_run = None
+        try:
+            result = patch_function(original, *args, **kwargs)
+        except (Exception, KeyboardInterrupt):
+            # In addition to standard Python exceptions, handle keyboard interrupts to ensure
+            # that runs are terminated if a user prematurely interrupts training execution
+            # (e.g. via sigint / ctrl-c)
+            if managed_run:
+                mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+            raise
+        else:
+            if managed_run:
+                mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
+            return result
 
-            def _patch_implementation(self, original, *args, **kwargs):
-                # If there is an active training session but there is no active run
-                # in current thread, it means the thread is spawned by `estimator.fit`
-                # as a worker thread, we should disable autologging in
-                # these worker threads, so skip creating managed run.
-                if not mlflow.active_run() and not _has_active_training_session():
-                    self.managed_run = create_managed_run()
-
-                result = super()._patch_implementation(original, *args, **kwargs)
-
-                if self.managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
-
-                return result
-
-            def _on_exception(self, e):
-                if self.managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-                super()._on_exception(e)
-
-        return PatchWithManagedRun
-
-    else:
-
-        def patch_with_managed_run(original, *args, **kwargs):
-            managed_run = None
-            # If there is an active training session but there is no active run
-            # in current thread, it means the thread is spawned by `estimator.fit`
-            # as a worker thread, we should disable autologging in
-            # these worker threads, so skip creating managed run.
-            if not mlflow.active_run() and not _has_active_training_session():
-                managed_run = create_managed_run()
-
-            try:
-                result = patch_function(original, *args, **kwargs)
-            except (Exception, KeyboardInterrupt):
-                # In addition to standard Python exceptions, handle keyboard interrupts to ensure
-                # that runs are terminated if a user prematurely interrupts training execution
-                # (e.g. via sigint / ctrl-c)
-                if managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-                raise
-            else:
-                if managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
-                return result
-
-        return patch_with_managed_run
+    return patch_with_managed_run
 
 
 def is_testing():
@@ -326,11 +245,9 @@ def safe_patch(
             patch.
         destination: The Python class on which the patch is being defined.
         function_name: The name of the function to patch on the specified `destination` class.
-        patch_function: The patched function code to apply. This is either a `PatchFunction`
-            class definition or a function object. If it is a function object, the
-            first argument should be reserved for an `original` method argument
-            representing the underlying / original function. Subsequent arguments
-            should be identical to those of the original function being patched.
+        patch_function: The patched function code to apply. The first argument should be reserved
+            for an `original` argument representing the underlying / original function. Subsequent
+            arguments should be identical to those of the original function being patched.
         manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
             `patch_function`, which automatically creates & terminates an MLflow
             active run during patch code execution if necessary. If `False`,
@@ -338,6 +255,7 @@ def safe_patch(
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
+    from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
@@ -346,12 +264,6 @@ def safe_patch(
             patch_function,
             tags=tags,
         )
-
-    patch_is_class = inspect.isclass(patch_function)
-    if patch_is_class:
-        assert issubclass(patch_function, PatchFunction)
-    else:
-        assert callable(patch_function)
 
     original_fn = gorilla.get_original_attribute(
         destination, function_name, bypass_descriptor_protocol=False
@@ -401,12 +313,74 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        if _should_skip_autolog(autologging_integration):
-            return original(*args, **kwargs)
-
-        with set_warning_behavior_during_autologging(autologging_integration):
+        # Reroute warnings encountered during the patch function implementation to an MLflow event
+        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
+        # integration was called with `silent=True`), hiding MLflow event logging statements and
+        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
+        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
+        # execution of the original / underlying ML function
+        #
+        # Note that we've opted *not* to apply this context manager as a decorator on
+        # `safe_patch_function` because the context-manager-as-decorator pattern uses
+        # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
+        # during model serialization by ML frameworks such as scikit-learn
+        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
+        with (
+            set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging training sessions are likely not
+                # actionable and result from the autologging implementation invoking another MLflow
+                # API. Accordingly, we reroute these warnings to the MLflow event logger with level
+                # WARNING For reference, see recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ),
+            set_non_mlflow_warnings_behavior_for_current_thread(
+                # non-MLflow Warnings emitted during the autologging preamble (before the original /
+                # underlying ML function is called) and postamble (after the original / underlying
+                # ML function is called) are likely not actionable and result from the autologging
+                # implementation invoking an API from a dependent library. Accordingly, we reroute
+                # these warnings to the MLflow event logger with level WARNING. For reference, see
+                # recommended warning and event logging behaviors from
+                # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ),
+        ):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
+
+            # Whether or not to exclude autologged content from user-created fluent runs
+            # (i.e. runs created manually via `mlflow.start_run()`)
+            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+            user_created_fluent_run_is_active = (
+                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+            )
+            active_session_failed = (
+                _AutologgingSessionManager.active_session() is not None
+                and _AutologgingSessionManager.active_session().state == "failed"
+            )
+
+            if (
+                active_session_failed
+                or autologging_is_disabled(autologging_integration)
+                or (user_created_fluent_run_is_active and exclusive)
+                or (
+                    mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
+                    and autologging_integration
+                )
+            ):
+                # If the autologging integration associated with this patch is disabled,
+                # or if the current autologging integration is in exclusive mode and a user-created
+                # fluent run is active, call the original function and return. Restore the original
+                # warning behavior during original function execution, since autologging is being
+                # skipped
+                with set_non_mlflow_warnings_behavior_for_current_thread(
+                    disable_warnings=False,
+                    reroute_warnings=False,
+                ):
+                    return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
             # execution of patched code
@@ -491,10 +465,7 @@ def safe_patch(
 
                     event_logger.log_patch_function_start(args, kwargs)
 
-                    if patch_is_class:
-                        patch_function.call(call_original, *args, **kwargs)
-                    else:
-                        patch_function(call_original, *args, **kwargs)
+                    patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
                     event_logger.log_patch_function_success(args, kwargs)
@@ -595,40 +566,6 @@ def revert_patches(autologging_integration):
         gorilla.revert(patch)
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
-
-
-def _should_skip_autolog(autologging_integration: str) -> bool:
-    from mlflow.utils.autologging_utils import (
-        _AUTOLOGGING_GLOBALLY_DISABLED,
-        autologging_is_disabled,
-        get_autologging_config,
-    )
-
-    # Autologging is disabled for the specified flavor
-    if autologging_is_disabled(autologging_integration):
-        return True
-
-    # Autologging is globally disabled
-    if _AUTOLOGGING_GLOBALLY_DISABLED and autologging_integration:
-        return True
-
-    # Whether or not to exclude autologged content from user-created fluent runs
-    # (i.e. runs created manually via `mlflow.start_run()`)
-    exclusive = get_autologging_config(autologging_integration, "exclusive", False)
-    user_created_fluent_run_is_active = (
-        mlflow.active_run() and not _AutologgingSessionManager.active_session()
-    )
-    if user_created_fluent_run_is_active and exclusive:
-        return True
-
-    # Failed to start an autologging session
-    if (
-        _AutologgingSessionManager.active_session() is not None
-        and _AutologgingSessionManager.active_session().state == "failed"
-    ):
-        return True
-
-    return False
 
 
 # Represents an active autologging session using two fields:
