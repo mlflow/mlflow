@@ -3721,7 +3721,7 @@ class MlflowClient:
                     + " `source` field of the created model version. ==="
                 )
             elif model_id is not None:
-                logged_model = mlflow.get_logged_model(model_id)
+                logged_model = self.get_logged_model(model_id)
                 # models:/<model_id> source is not supported by WSMR
                 new_source = logged_model.artifact_location
 
