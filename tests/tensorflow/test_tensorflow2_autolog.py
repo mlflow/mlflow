@@ -210,9 +210,9 @@ def test_tf_keras_autolog_log_models_configuration(
 
     client = MlflowClient()
     run_id = client.search_runs(["0"])[0].info.run_id
-    artifacts = client.list_artifacts(run_id)
-    artifacts = (x.path for x in artifacts)
-    assert ("model" in artifacts) == log_models
+    assert (
+        len(mlflow.search_logged_models(filter_string=f"source_run_id='{run_id}'")) == 1
+    ) == log_models
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
@@ -721,7 +721,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = (x.path for x in artifacts)
-    assert "model" in artifacts
+    assert len(mlflow.search_logged_models(filter_string=f"source_run_id='{run.info.run_id}'")) == 1
     assert "tensorboard_logs" in artifacts
     model = mlflow.tensorflow.load_model("runs:/" + run.info.run_id + "/model")
     model.predict(random_train_data)
@@ -1061,10 +1061,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     run_data = client.get_run(run.info.run_id).data
     assert "accuracy" in run_data.metrics
     assert "epochs" in run_data.params
-
-    artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = (x.path for x in artifacts)
-    assert "model" in artifacts
+    assert len(mlflow.search_logged_models(filter_string=f"source_run_id='{run.info.run_id}'")) == 1
 
 
 def test_callback_is_picklable():
@@ -1099,13 +1096,9 @@ def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
-    ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+def _assert_autolog_infers_model_signature_correctly(input_sig_spec, output_sig_spec):
+    logged_model = mlflow.last_logged_model()
+    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
     with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
         assert data is not None
@@ -1118,12 +1111,12 @@ def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output
         assert json.loads(signature["outputs"]) == output_sig_spec
 
 
-def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data):
-    model_path = os.path.join(run.info.artifact_uri, "model")
-    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-    input_example = _read_example(model_conf, model_path)
+def _assert_keras_autolog_input_example_load_and_predict_with_nparray(random_train_data):
+    logged_model = mlflow.last_logged_model()
+    model_conf = Model.load(logged_model.model_uri)
+    input_example = _read_example(model_conf, logged_model.model_uri)
     np.testing.assert_array_almost_equal(input_example, random_train_data[:5])
-    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+    pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     pyfunc_model.predict(input_example)
 
 
@@ -1132,9 +1125,9 @@ def test_keras_autolog_input_example_load_and_predict_with_nparray(
 ):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     initial_model = create_tf_keras_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         initial_model.fit(random_train_data, random_one_hot_labels)
-        _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data)
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(random_train_data)
 
 
 def test_keras_autolog_infers_model_signature_correctly_with_nparray(
@@ -1142,10 +1135,9 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 ):
     mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         initial_model.fit(random_train_data, random_one_hot_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
@@ -1158,12 +1150,12 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
-        model_path = os.path.join(run.info.artifact_uri, "model")
-        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-        input_example = _read_example(model_conf, model_path)
-        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        logged_model = mlflow.last_logged_model()
+        model_conf = Model.load(logged_model.model_uri)
+        input_example = _read_example(model_conf, logged_model.model_uri)
+        pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         pyfunc_model.predict(input_example)
 
 
@@ -1174,10 +1166,9 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog(log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
         _assert_autolog_infers_model_signature_correctly(
-            run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 28, 28]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 10]}}],
         )
@@ -1188,14 +1179,14 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
 ):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = _create_model_for_dict_mapping()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(random_train_dict_mapping, random_one_hot_labels)
-        model_path = os.path.join(run.info.artifact_uri, "model")
-        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-        input_example = _read_example(model_conf, model_path)
+        logged_model = mlflow.last_logged_model()
+        model_conf = Model.load(logged_model.model_uri)
+        input_example = _read_example(model_conf, logged_model.model_uri)
         for k, v in random_train_dict_mapping.items():
             np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
-        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
         pyfunc_model.predict(input_example)
 
 
@@ -1204,10 +1195,9 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
 ):
     mlflow.tensorflow.autolog(log_model_signatures=True)
     model = _create_model_for_dict_mapping()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(random_train_dict_mapping, random_one_hot_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run,
             [
                 {"name": "a", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
                 {"name": "b", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
@@ -1221,10 +1211,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = create_tf_keras_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(keras_data_gen_sequence)
         _assert_keras_autolog_input_example_load_and_predict_with_nparray(
-            run, keras_data_gen_sequence[:][0][:5]
+            keras_data_gen_sequence[:][0][:5]
         )
 
 
@@ -1233,10 +1223,9 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
 ):
     mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         initial_model.fit(keras_data_gen_sequence)
         _assert_autolog_infers_model_signature_correctly(
-            run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
@@ -1245,10 +1234,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
 def test_keras_autolog_load_saved_hdf5_model(keras_data_gen_sequence):
     mlflow.tensorflow.autolog(keras_model_kwargs={"save_format": "h5"})
     model = create_tf_keras_model()
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(keras_data_gen_sequence)
-        mlflow.tensorflow.load_model(f"runs:/{run.info.run_id}/model")
-        assert Path(run.info.artifact_uri, "model", "data", "model.h5").exists()
+        logged_model = mlflow.last_logged_model()
+        assert Path(logged_model.artifact_location, "data", "model.h5").exists()
 
 
 def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
