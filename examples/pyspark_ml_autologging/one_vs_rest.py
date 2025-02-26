@@ -3,7 +3,7 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 
-with SparkSession.builder.getOrCreate() as spark:
+with SparkSession.builder.master("local[*]").getOrCreate() as spark:
     df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
     df = spark.createDataFrame(df)
     df = VectorAssembler(inputCols=df.columns[:-1], outputCol="features").transform(df)
