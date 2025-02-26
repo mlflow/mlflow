@@ -39,7 +39,6 @@ def reset_autolog(reset_autolog_state):
 @pytest.fixture(autouse=True)
 def reset_loaded_model_tracker():
     _LOADED_MODEL_TRACKER.clear()
-    return
 
 
 # Define a special embedding for testing
