@@ -41,6 +41,8 @@ def test_creation_and_hydration():
         "latest_versions": [],
         "tags": {},
         "aliases": {},
+        "deployment_job_id": None,
+        "deployment_job_state": None,
     }
     assert dict(rmd_1) == as_dict
 
@@ -92,6 +94,8 @@ def test_with_latest_model_versions():
         "latest_versions": [mvd_1, mvd_2],
         "tags": [],
         "aliases": {},
+        "deployment_job_id": None,
+        "deployment_job_state": None,
     }
     rmd_1 = RegisteredModel.from_dictionary(as_dict)
     as_dict["tags"] = {}
@@ -121,6 +125,8 @@ def test_with_tags():
         "latest_versions": [],
         "tags": tags,
         "aliases": {},
+        "deployment_job_id": None,
+        "deployment_job_state": None,
     }
     rmd_1 = RegisteredModel.from_dictionary(as_dict)
     as_dict["tags"] = {tag.key: tag.value for tag in (tags or [])}
@@ -145,6 +151,8 @@ def test_with_aliases():
         "latest_versions": [],
         "tags": {},
         "aliases": aliases,
+        "deployment_job_id": None,
+        "deployment_job_state": None,
     }
     rmd_1 = RegisteredModel.from_dictionary(as_dict)
     as_dict["aliases"] = {alias.alias: alias.version for alias in (aliases or [])}
@@ -168,6 +176,7 @@ def test_string_repr():
     )
     assert (
         str(rmd) == "<RegisteredModel: aliases={}, creation_timestamp=1000, "
-        "description='something about a model', last_updated_timestamp=2002, "
+        "deployment_job_id=None, deployment_job_state=None, description='something about a model',"
+        " last_updated_timestamp=2002, "
         "latest_versions=['1', '2', '3'], name='myname', tags={}>"
     )

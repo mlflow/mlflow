@@ -18,6 +18,7 @@ import os
 import pathlib
 import sys
 import traceback
+from typing import Any, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -39,11 +40,17 @@ _logger = logging.getLogger(__name__)
 def log_model(
     spark_model,
     sample_input,
-    artifact_path,
-    registered_model_name=None,
+    artifact_path: Optional[str] = None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     metadata=None,
+    registered_model_name=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
@@ -60,10 +67,7 @@ def log_model(
             cannot contain any custom transformers.
         sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
             required by MLeap for data schema inference.
-        artifact_path: Run-relative artifact path.
-        registered_model_name: If given, create a model version under
-            ``registered_model_name``, also creating a registered model if one
-            with the given name does not exist.
+        artifact_path: Deprecated. Use `name` instead.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
             The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -80,6 +84,16 @@ def log_model(
                 signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
         metadata: {{ metadata }}
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -127,6 +141,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.mleap,
         spark_model=spark_model,
         sample_input=sample_input,
@@ -134,6 +149,11 @@ def log_model(
         signature=signature,
         input_example=input_example,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

@@ -1073,7 +1073,7 @@ def test_update_registered_model(mock_registry_store):
     )
     assert expected_return_value_2 == res
     mock_registry_store.update_registered_model.assert_called_once_with(
-        name="orig name", description="new description"
+        name="orig name", description="new description", deployment_job_id=None
     )
     mock_registry_store.rename_registered_model.assert_not_called()
 
@@ -1095,6 +1095,7 @@ def test_create_model_version(mock_registry_store):
         None,
         "desc",
         local_model_path=None,
+        model_id=None,
     )
 
 
@@ -1179,7 +1180,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     assert model_version.run_id == "runid"
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None, local_model_path=None
+        "name", "source", "runid", [], None, None, local_model_path=None, model_id=None
     )
 
 
@@ -1194,7 +1195,7 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
     assert model_version.run_id is None
     # verify that the store was not provided a run id
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", None, [], None, None, local_model_path=None
+        "name", "source", None, [], None, None, local_model_path=None, model_id=None
     )
 
 
@@ -1227,7 +1228,7 @@ def test_create_model_version_explicitly_set_run_link(
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], run_link, None, local_model_path=None
+            "name", "source", "runid", [], run_link, None, local_model_path=None, model_id=None
         )
 
 
@@ -1264,7 +1265,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None, local_model_path=None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 
@@ -1281,11 +1282,13 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     client.create_model_version("name", "source", "runid")
     # verify that registry store was called with tags=[] and run_link=None
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None, None, local_model_path=None
+        "name", "source", "runid", [], None, None, local_model_path=None, model_id=None
     )
     client.create_registered_model(name="name", description="description")
     # verify that registry store was called with tags=[]
-    mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description")
+    mock_registry_store.create_registered_model.assert_called_once_with(
+        "name", [], "description", None
+    )
 
 
 def test_await_model_version_creation(mock_registry_store):
@@ -1338,7 +1341,7 @@ def test_create_model_version_run_link_with_configured_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url, None, local_model_path=None
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 

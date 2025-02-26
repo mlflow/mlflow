@@ -154,7 +154,6 @@ def test_model_log():
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
         assert loaded_model.flavors == {
             "flavor1": {"a": 1, "b": 2},
             "flavor2": {"x": 1, "y": 2},
@@ -170,6 +169,24 @@ def test_model_log():
         assert loaded_example == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
+
+def test_model_log_without_run(tmp_path):
+    model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id is None
+
+
+def test_model_log_with_active_run(tmp_path):
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id == run.info.run_id
+
+
+def test_model_log_inactive_run_id(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)
+    model_info = Model.log("model", TestFlavor, run_id=run.info.run_id)
+    assert model_info.run_id == run.info.run_id
 
 
 def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
@@ -196,7 +213,7 @@ def test_model_info():
             model_info = Model.log(
                 "some/path", TestFlavor, signature=sig, input_example=input_example
             )
-        model_uri = f"runs:/{run.info.run_id}/some/path"
+        model_uri = f"models:/{model_info.model_id}"
 
         model_info_fetched = mlflow.models.get_model_info(model_uri)
         with pytest.warns(
@@ -209,8 +226,6 @@ def test_model_info():
 
         assert model_info.run_id == run.info.run_id
         assert model_info_fetched.run_id == run.info.run_id
-        assert model_info.artifact_path == "some/path"
-        assert model_info_fetched.artifact_path == "some/path"
         assert model_info.model_uri == model_uri
         assert model_info_fetched.model_uri == model_uri
 
