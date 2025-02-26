@@ -793,7 +793,6 @@ class SqlAlchemyStore(AbstractStore):
                         is_nan=is_nan,
                     )
                 )
-
             seen.add(metric)
 
         with self.ManagedSessionMaker() as session:
