@@ -26,7 +26,7 @@ _EXCLUDED_MESSAGE_SENDERS = ["chat_manager", "checking_agent"]
 _logger = logging.getLogger(__name__)
 
 
-FLAVOR_NAME = "autogen"
+FLAVOR_NAME = "ag2"
 
 
 @dataclass
