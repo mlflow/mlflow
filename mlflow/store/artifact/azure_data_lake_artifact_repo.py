@@ -92,19 +92,20 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self._credential_refresh_def = credential_refresh_def
 
     def _parse_credentials(self, credential):
-        self.credential = credential
         (filesystem, account_name, domain_suffix, path, sas_token) = _parse_abfss_uri(
             self.artifact_uri
         )
         account_url = f"https://{account_name}.{domain_suffix}"
         if sas_token:
             account_url += f"?{sas_token}"
-        elif self.credential is None:
-            raise MlflowException(
-                "You must specify a SAS token in the artifact uri to authenticate with "
-                "Azure Data Lake Storage."
-            )
-        data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
+        elif credential is None:
+            from azure.identity import DefaultAzureCredential
+
+            credential = DefaultAzureCredential()
+        self.credential = credential
+        data_lake_client = _get_data_lake_client(
+            account_url=account_url, credential=self.credential
+        )
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
@@ -269,7 +270,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Returns:
             a string presigned URL.
         """
-        sas_token = f"?{self.credential.signature}" if self.credential else ""
+        sas_token = f"?{self.credential.signature}" if hasattr(self.credential, "signature") else ""
         return (
             f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
             f"{self.base_data_lake_directory}/{artifact_file_path}{sas_token}"
