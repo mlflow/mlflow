@@ -630,6 +630,8 @@ def _deduplicate_requirements(requirements):
     for req in requirements:
         try:
             parsed_req = Requirement(req)
+            if parsed_req.name == "mlflow":
+                continue
             base_pkg = parsed_req.name
 
             existing_req = deduped_reqs.get(base_pkg)
