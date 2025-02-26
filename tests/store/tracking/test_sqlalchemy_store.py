@@ -4715,6 +4715,17 @@ def test_set_logged_model_tags(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found"):
         store.set_logged_model_tags("does-not-exist", [LoggedModelTag("tag1", "apple")])
 
+    # Multiple tags
+    store.set_logged_model_tags(
+        model.model_id, [LoggedModelTag("tag3", "val3"), LoggedModelTag("tag4", "val4")]
+    )
+    assert store.get_logged_model(model.model_id).tags == {
+        "tag1": "apple",
+        "tag2": "grape",
+        "tag3": "val3",
+        "tag4": "val4",
+    }
+
 
 def test_delete_logged_model_tag(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
