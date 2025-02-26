@@ -142,7 +142,6 @@ def test_pyfunc_without_model_config(model_path, model_config):
 def test_pyfunc_loader_without_model_config(model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
-        data_path=".",
         loader_module=__name__,
         code_paths=[__file__],
         mlflow_model=Model(run_id="test", artifact_path="testtest"),

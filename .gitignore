@@ -59,6 +59,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+.pytest_basetemp/
 
 # Sphinx documentation
 docs/_build/
