@@ -633,7 +633,9 @@ def _deduplicate_requirements(requirements):
             base_pkg = parsed_req.name
 
             existing_req = deduped_reqs.get(base_pkg)
-            if not existing_req or base_pkg == "mlflow":
+            if base_pkg == "mlflow":
+                deduped_reqs[req] = parsed_req
+            elif not existing_req:
                 deduped_reqs[base_pkg] = parsed_req
             else:
                 # Verify that there are not unresolvable constraints applied if set and combine
