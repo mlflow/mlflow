@@ -536,8 +536,15 @@ def safe_patch(
         """
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         async with (
-            MlflowEventsAndWarningsBehaviorGlobally(True, is_silent_mode, is_silent_mode),
-            NonMlflowWarningsBehaviorForCurrentThread(True, is_silent_mode),
+            MlflowEventsAndWarningsBehaviorGlobally(
+                reroute_warnings=True,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ),
+            NonMlflowWarningsBehaviorForCurrentThread(
+                disable_warnings=is_silent_mode,
+                reroute_warnings=True,
+            ),
         ):
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
