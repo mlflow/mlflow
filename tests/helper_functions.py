@@ -600,7 +600,7 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
-    return _generate_mlflow_version_pinning()
+    return _generate_mlflow_version_pinning()[0]
 
 
 @contextmanager

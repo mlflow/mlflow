@@ -512,7 +512,7 @@ def _is_mlflow_requirement(requirement_string):
             )
 
 
-def _generate_mlflow_version_pinning() -> str:
+def _generate_mlflow_version_pinning() -> list[str]:
     """Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
 
     Returns:
@@ -521,12 +521,20 @@ def _generate_mlflow_version_pinning() -> str:
     """
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
-        return f"mlflow=={VERSION}"
+        return [f"mlflow=={VERSION}"]
+
+    # TODO: Remove this before 3.0 RC release
+    return [
+        # Model serving doesn't recognize `mlflow @ ...` as mlflow yet and throws an error.
+        # To avoid this issue, include 'mlflow' as a separate requirement.
+        "mlflow",
+        "mlflow@git+https://github.com/mlflow/mlflow.git@mlflow-3",
+    ]
 
     version = Version(VERSION)
     if not version.is_devrelease:
         # mlflow is installed from PyPI.
-        return f"mlflow=={VERSION}"
+        return [f"mlflow=={VERSION}"]
 
     # We reach here when mlflow is installed from the source outside of the MLflow CI environment
     # (e.g., Databricks notebook).
@@ -535,7 +543,7 @@ def _generate_mlflow_version_pinning() -> str:
     # is always a micro-version ahead of the latest release (unless it's manually modified)
     # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
     # tests.
-    return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
+    return [f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"]
 
 
 def _contains_mlflow_requirement(requirements):
@@ -562,7 +570,7 @@ def _process_pip_requirements(
         pip_reqs = default_pip_requirements
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, _generate_mlflow_version_pinning())
+        pip_reqs = _generate_mlflow_version_pinning() + pip_reqs
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
 
@@ -625,8 +633,9 @@ def _deduplicate_requirements(requirements):
             base_pkg = parsed_req.name
 
             existing_req = deduped_reqs.get(base_pkg)
-
-            if not existing_req:
+            if base_pkg == "mlflow":
+                deduped_reqs[req] = parsed_req
+            elif not existing_req:
                 deduped_reqs[base_pkg] = parsed_req
             else:
                 # Verify that there are not unresolvable constraints applied if set and combine
@@ -725,7 +734,7 @@ def _process_conda_env(conda_env):
     pip_reqs = _get_pip_deps(conda_env)
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, _generate_mlflow_version_pinning())
+        pip_reqs = _generate_mlflow_version_pinning() + pip_reqs
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(pip_reqs)
