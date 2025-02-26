@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+import mlflow
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
@@ -264,6 +265,10 @@ class RestStore(BaseRestStore):
 
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
+        if model_id is not None:
+            logged_model = mlflow.get_logged_model(model_id)
+            # models:/<model_id> source is not supported by WSMR
+            source = logged_model.artifact_location
         req_body = message_to_json(
             CreateModelVersion(
                 name=name,
