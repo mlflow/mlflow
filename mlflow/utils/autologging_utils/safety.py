@@ -268,9 +268,7 @@ def safe_patch(
 
     if manage_run:
         if is_async_function:
-            raise MlflowException(
-                "The `manage_run` parameter is not supported for async functions."
-            )
+            raise MlflowException("manage_run parameter is not supported for async functions.")
 
         tags = _resolve_extra_tags(autologging_integration, extra_tags)
         patch_function = with_managed_run(
@@ -329,6 +327,10 @@ def safe_patch(
         Exceptions thrown from the underlying / original function are propagated to the caller,
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
+
+        NB: PLEASE BE SUPER CAREFUL WHEN MODIFYING THIS FUNCTION. IT IS USED IN A WIDE VARIETY
+        OF CONTEXTX AND CRITICAL PATH IN DBR/MLR BY DEFAULT. ANY BUG HERE CAN BREAK USERS'
+        WORKLOAD WITHOUT THEM TAKING ANY ACTION.
         """
         # Reroute warnings encountered during the patch function implementation to an MLflow event
         # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging

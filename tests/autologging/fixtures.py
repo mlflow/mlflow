@@ -24,6 +24,9 @@ def patch_destination(request):
                 self.fn_call_count += 1
                 return PATCH_DESTINATION_FN_DEFAULT_RESULT
 
+            def fn2(self, *args, **kwargs):
+                return "f2"
+
             def recursive_fn(self, level, max_depth):
                 self.recurse_fn_call_count += 1
                 if level == max_depth:
@@ -48,6 +51,9 @@ def patch_destination(request):
             async def fn(self, *args, **kwargs):
                 self.fn_call_count += 1
                 return PATCH_DESTINATION_FN_DEFAULT_RESULT
+
+            async def fn2(self, *args, **kwargs):
+                return "f2"
 
             async def recursive_fn(self, level, max_depth):
                 self.recurse_fn_call_count += 1
