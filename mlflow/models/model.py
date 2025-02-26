@@ -26,6 +26,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime_version, is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -903,6 +904,7 @@ class Model:
                             step=metric.step,
                             dataset_name=metric.dataset_name,
                             dataset_digest=metric.dataset_digest,
+                            experiment_id=_get_experiment_id(),
                             run_id=metric.run_id,
                             model_id=model_id,
                         )

@@ -751,6 +751,8 @@ class SqlAlchemyStore(AbstractStore):
 
         metric_instances: list[SqlLoggedModelMetric] = []
         for index, metric in enumerate(metrics):
+            if metric.model_id is None:
+                continue
             path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
             metric, value, _is_nan = self._get_metric_value_details(path, metric)
             metric_instances.append(
@@ -769,7 +771,7 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            session.merge(*metric_instances)
+            session.add_all(metric_instances)
 
     def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
         if not metrics:
@@ -1437,6 +1439,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics, path="metrics")
+                self._log_model_metrics(run_id, metrics, path="metrics")
                 self._set_tags(run_id, tags, path="tags")
             except MlflowException as e:
                 raise e
