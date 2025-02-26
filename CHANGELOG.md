@@ -2,18 +2,18 @@
 
 ## 2.20.3 (2025-02-26)
 
-MLflow 2.20.3 includes several major features and improvements
+MLflow 2.20.3 is a patch release includes several major features and improvements
 
 Features:
 
-- [] Implemented GPU metrics for AMD/HIP GPUs (#12694, @evenmn)
-- [Tracking] Add import and docs for txtai integration (#14712, @B-Step62)
-- [Tracking] Support new Google GenAI SDK (#14576, @TomeHirata)
+- Implemented GPU metrics for AMD/HIP GPUs (#12694, @evenmn)
+- Add txtai tracing integration (#14712, @B-Step62)
+- Support new Google GenAI SDK (#14576, @TomeHirata)
+- Support the new thinking content block in Anthropic Claude 3.7 models (#14733, @B-Step62)
 
 Bug fixes:
 
-- [Tracking] Support Anthropic thinking content block (#14733, @B-Step62)
-- [Tracking] Simplify LangChain tracing patching (#14598, @B-Step62)
+- Resolve LangGraph tracing bug with `astream_event` API (#14598, @B-Step62)
 
 Small bug fixes and documentation updates:
 
