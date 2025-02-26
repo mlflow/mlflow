@@ -5,6 +5,7 @@ package mlflow;
 import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -658,7 +659,7 @@ service MlflowService {
   }
 
   // Create an assessment associated with a trace.
-  rpc createAssessment(CreateAssessment) returns (Assessment) {
+  rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -673,6 +674,37 @@ service MlflowService {
       ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Create an assessment of a trace or a span within the trace",
+    };
+  }
+
+  // Update an assessment associated with a trace.
+  rpc updateAssessment(UpdateAssessment) returns (UpdateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update an existing assessment on a trace.",
+    };
+  }
+
+  // Delete an assessment.
+  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment",
     };
   }
 }
@@ -1594,6 +1626,34 @@ message CreateAssessment {
     // The created assessment.
     optional Assessment assessment = 1;
   }
+}
+
+// A request to update an existing assessment.
+message UpdateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The Assessment containing the fields which should be updated.
+  optional Assessment assessment = 1 [(validate_required) = true];
+
+  // The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`.
+  optional google.protobuf.FieldMask update_mask = 2 [(validate_required) = true];
+
+  message Response {
+    // The Assessment after the update.
+    optional Assessment assessment = 1;
+  }
+}
+
+// A request to delete an assessment identified by its trace_id and assessment_id.
+// The response is empty on successful deletion.
+message DeleteAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // The ID of the trace.
+  optional string trace_id = 1 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 2 [(validate_required) = true];
+
+  message Response {}
 }
 
 
