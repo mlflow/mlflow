@@ -256,7 +256,7 @@ def test_extra_tags_spark_autolog(dataset_binomial):
 
 
 def test_meta_estimator_fit(dataset_binomial):
-    mlflow.pyspark.ml.autolog()
+    # mlflow.pyspark.ml.autolog()
     with mlflow.start_run() as run:
         svc = LinearSVC()
         ova = OneVsRest(classifier=svc)

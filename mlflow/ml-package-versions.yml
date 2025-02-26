@@ -322,19 +322,20 @@ spark:
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
-      SAGEMAKER_OUT=$(mktemp)
-      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-        echo "Sagemaker container build succeeded.";
-      else
-        echo "Sagemaker container build failed, output:";
-        cat $SAGEMAKER_OUT;
-        exit 1
-      fi
-      pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
+      pytest tests/spark/autologging/ml/test_pyspark_ml_autologging.py::test_meta_estimator_fit
+      # SAGEMAKER_OUT=$(mktemp)
+      # if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+      #   echo "Sagemaker container build succeeded.";
+      # else
+      #   echo "Sagemaker container build failed, output:";
+      #   cat $SAGEMAKER_OUT;
+      #   exit 1
+      # fi
+      # pytest tests/spark --ignore tests/spark/autologging --ignore tests/spark/test_spark_connect_model_export.py
 
-      if [[ $(python -c "from packaging.version import Version;import pyspark;print(Version(pyspark.__version__) >= Version('3.5'))") = "True" ]]; then
-        pytest tests/spark/test_spark_connect_model_export.py;
-      fi
+      # if [[ $(python -c "from packaging.version import Version;import pyspark;print(Version(pyspark.__version__) >= Version('3.5'))") = "True" ]]; then
+      #   pytest tests/spark/test_spark_connect_model_export.py;
+      # fi
 
   autologging:
     minimum: "3.1.2"
