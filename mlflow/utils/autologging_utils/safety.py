@@ -4,7 +4,6 @@ import inspect
 import itertools
 import typing
 import uuid
-from abc import abstractmethod
 from contextlib import contextmanager
 from typing import Optional
 
@@ -129,54 +128,6 @@ ExceptionSafeClass = _exception_safe_class_factory(type)
 ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
 
 
-class PatchFunction:
-    """
-    Base class representing a function patch implementation with a callback for error handling.
-    `PatchFunction` should be subclassed and used in conjunction with `safe_patch` to
-    safely modify the implementation of a function. Subclasses of `PatchFunction` should
-    use `_patch_implementation` to define modified ("patched") function implementations and
-    `_on_exception` to define cleanup logic when `_patch_implementation` terminates due
-    to an unhandled exception.
-    """
-
-    @abstractmethod
-    def _patch_implementation(self, original, *args, **kwargs):
-        """
-        Invokes the patch function code.
-
-        Args:
-            original: The original, underlying function over which the `PatchFunction`
-                is being applied.
-            *args: The positional arguments passed to the original function.
-            **kwargs: The keyword arguments passed to the original function.
-        """
-
-    @abstractmethod
-    def _on_exception(self, exception):
-        """Called when an unhandled standard Python exception (i.e. an exception inheriting from
-        `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
-        `_patch_implementation`.
-
-        Args:
-            exception: The unhandled exception thrown by `_patch_implementation`.
-        """
-
-    @classmethod
-    def call(cls, original, *args, **kwargs):
-        return cls().__call__(original, *args, **kwargs)
-
-    def __call__(self, original, *args, **kwargs):
-        try:
-            return self._patch_implementation(original, *args, **kwargs)
-        except (Exception, KeyboardInterrupt) as e:
-            try:
-                self._on_exception(e)
-            finally:
-                # Regardless of what happens during the `_on_exception` callback, reraise
-                # the original implementation exception once the callback completes
-                raise e
-
-
 def with_managed_run(autologging_integration, patch_function, tags=None):
     """Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -197,8 +148,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     Args:
         autologging_integration: The autologging integration associated
             with the `patch_function`.
-        patch_function: A `PatchFunction` class definition or a function object
-            compatible with `safe_patch`.
+        patch_function: A function object compatible with `safe_patch`.
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
@@ -215,61 +165,30 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         )
         return managed_run
 
-    if inspect.isclass(patch_function):
+    def patch_with_managed_run(original, *args, **kwargs):
+        managed_run = None
+        # If there is an active training session but there is no active run
+        # in current thread, it means the thread is spawned by `estimator.fit`
+        # as a worker thread, we should disable autologging in
+        # these worker threads, so skip creating managed run.
+        if not mlflow.active_run() and not _has_active_training_session():
+            managed_run = create_managed_run()
 
-        class PatchWithManagedRun(patch_function):
-            def __init__(self):
-                super().__init__()
-                self.managed_run = None
+        try:
+            result = patch_function(original, *args, **kwargs)
+        except (Exception, KeyboardInterrupt):
+            # In addition to standard Python exceptions, handle keyboard interrupts to ensure
+            # that runs are terminated if a user prematurely interrupts training execution
+            # (e.g. via sigint / ctrl-c)
+            if managed_run:
+                mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+            raise
+        else:
+            if managed_run:
+                mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
+            return result
 
-            def _patch_implementation(self, original, *args, **kwargs):
-                # If there is an active training session but there is no active run
-                # in current thread, it means the thread is spawned by `estimator.fit`
-                # as a worker thread, we should disable autologging in
-                # these worker threads, so skip creating managed run.
-                if not mlflow.active_run() and not _has_active_training_session():
-                    self.managed_run = create_managed_run()
-
-                result = super()._patch_implementation(original, *args, **kwargs)
-
-                if self.managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
-
-                return result
-
-            def _on_exception(self, e):
-                if self.managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-                super()._on_exception(e)
-
-        return PatchWithManagedRun
-
-    else:
-
-        def patch_with_managed_run(original, *args, **kwargs):
-            managed_run = None
-            # If there is an active training session but there is no active run
-            # in current thread, it means the thread is spawned by `estimator.fit`
-            # as a worker thread, we should disable autologging in
-            # these worker threads, so skip creating managed run.
-            if not mlflow.active_run() and not _has_active_training_session():
-                managed_run = create_managed_run()
-
-            try:
-                result = patch_function(original, *args, **kwargs)
-            except (Exception, KeyboardInterrupt):
-                # In addition to standard Python exceptions, handle keyboard interrupts to ensure
-                # that runs are terminated if a user prematurely interrupts training execution
-                # (e.g. via sigint / ctrl-c)
-                if managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-                raise
-            else:
-                if managed_run:
-                    mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
-                return result
-
-        return patch_with_managed_run
+    return patch_with_managed_run
 
 
 def is_testing():
@@ -326,11 +245,9 @@ def safe_patch(
             patch.
         destination: The Python class on which the patch is being defined.
         function_name: The name of the function to patch on the specified `destination` class.
-        patch_function: The patched function code to apply. This is either a `PatchFunction`
-            class definition or a function object. If it is a function object, the
-            first argument should be reserved for an `original` method argument
-            representing the underlying / original function. Subsequent arguments
-            should be identical to those of the original function being patched.
+        patch_function: The patched function code to apply. The first argument should be reserved
+            for an `original` argument representing the underlying / original function. Subsequent
+            arguments should be identical to those of the original function being patched.
         manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
             `patch_function`, which automatically creates & terminates an MLflow
             active run during patch code execution if necessary. If `False`,
@@ -346,12 +263,6 @@ def safe_patch(
             patch_function,
             tags=tags,
         )
-
-    patch_is_class = inspect.isclass(patch_function)
-    if patch_is_class:
-        assert issubclass(patch_function, PatchFunction)
-    else:
-        assert callable(patch_function)
 
     original_fn = gorilla.get_original_attribute(
         destination, function_name, bypass_descriptor_protocol=False
@@ -491,10 +402,7 @@ def safe_patch(
 
                     event_logger.log_patch_function_start(args, kwargs)
 
-                    if patch_is_class:
-                        patch_function.call(call_original, *args, **kwargs)
-                    else:
-                        patch_function(call_original, *args, **kwargs)
+                    patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
                     event_logger.log_patch_function_success(args, kwargs)
