@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2.20.3 (2025-02-26)
+
+MLflow 2.20.3 includes several major features and improvements
+
+Features:
+
+- [] Implemented GPU metrics for AMD/HIP GPUs (#12694, @evenmn)
+- [Tracking] Add import and docs for txtai integration (#14712, @B-Step62)
+- [Tracking] Support new Google GenAI SDK (#14576, @TomeHirata)
+
+Bug fixes:
+
+- [Tracking] Support Anthropic thinking content block (#14733, @B-Step62)
+- [Tracking] Simplify LangChain tracing patching (#14598, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#14640, #14574, #14593, @serena-ruan; #14338, #14693, #14664, #14663, #14377, @B-Step62; #14680, @JulesLandrySimard; #14388, #14685, @harupy; #14704, @brilee; #14698, #14658, @bbqiu; #14660, #14659, #14632, #14616, #14594, @TomeHirata; #14535, @njbrake
+
 ## 2.20.2 (2025-02-13)
 
 MLflow 2.20.2 is a patch release includes several bug fixes and features
