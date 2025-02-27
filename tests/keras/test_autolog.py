@@ -1,14 +1,11 @@
 import json
 import math
-import os
 
 import keras
 import numpy as np
 import pytest
-import yaml
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
@@ -35,25 +32,6 @@ def _create_keras_model():
         metrics=[keras.metrics.SparseCategoricalAccuracy()],
     )
     return model
-
-
-def _check_logged_model_signature_is_expected(run, input_schema, output_schema):
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
-    ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
-    with open(ml_model_path) as f:
-        model_config = yaml.load(f, Loader=yaml.FullLoader)
-        assert model_config is not None
-        assert "signature" in model_config
-        signature = model_config["signature"]
-        assert signature is not None
-        assert "inputs" in signature
-        assert "outputs" in signature
-        assert signature["inputs"] == input_schema.to_json()
-        assert signature["outputs"] == output_schema.to_json()
 
 
 def test_default_autolog_behavior():
