@@ -14,7 +14,6 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
-from mlflow.artifacts import download_artifacts
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -716,28 +715,34 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
         # Check if the path is a local directory and not remote
-        path_scheme = urlparse(str(path)).scheme
+        path = str(path)
+        path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        path = download_artifacts(artifact_uri=path)
-        if os.path.isdir(path):
-            path = os.path.join(path, MLMODEL_FILE_NAME)
-            env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
-        elif os.path.isfile(path):
-            env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
-        else:
+        is_model_dir = path.endswith(MLMODEL_FILE_NAME)
+        mlmodel_file_path = path.rstrip("/") + f"/{MLMODEL_FILE_NAME}" if is_model_dir else path
+        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
+        with open(mlmodel_local_path) as f:
+            model_dict = yaml.safe_load(f.read())
+        env_var_path = (
+            path.rstrip("/") + f"/{ENV_VAR_FILE_NAME}"
+            if is_model_dir
+            else os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
+        )
+
+        try:
+            env_var_path = _download_artifact_from_uri(env_var_path)
+        except Exception:
             env_var_path = None
         env_vars = None
         if os.path.exists(env_var_path):
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()
             env_vars = [line for line in lines if line and not line.startswith("#")]
-        with open(path) as f:
-            model_dict = yaml.safe_load(f.read())
         model_dict["env_vars"] = env_vars
         return cls.from_dict(model_dict)
 
