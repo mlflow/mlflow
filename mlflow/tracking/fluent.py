@@ -1085,6 +1085,8 @@ def log_metrics(
             model_id=model_id,
             dataset_name=dataset_name,
             dataset_digest=dataset_digest,
+            experiment_id=_get_experiment_id(),
+            run_id=run_id,
         )
         for key, value in metrics.items()
         for model_id in model_ids
