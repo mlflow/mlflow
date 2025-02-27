@@ -38,7 +38,6 @@ from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
-    PatchFunction,
     autologging_integration,
     get_autologging_config,
     log_fn_args_as_params,
@@ -1260,11 +1259,9 @@ def autolog(
             keras_model_kwargs=keras_model_kwargs,
         )
 
-    class FitPatch(PatchFunction):
-        def __init__(self):
-            self.log_dir = None
-
-        def _patch_implementation(self, original, inst, *args, **kwargs):
+    def _patched_inference(original, inst, *args, **kwargs):
+        log_dir = None
+        try:
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
@@ -1316,7 +1313,7 @@ def autolog(
                 # modifying their contents for future training invocations. Introduce
                 # TensorBoard & tf.keras callbacks if necessary
                 callbacks = list(args[5])
-                callbacks, self.log_dir = _setup_callbacks(
+                callbacks, log_dir = _setup_callbacks(
                     callbacks,
                     log_every_epoch=log_every_epoch,
                     log_every_n_steps=log_every_n_steps,
@@ -1329,7 +1326,7 @@ def autolog(
                 # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                 # & tf.keras callbacks if necessary
                 callbacks = list(kwargs.get("callbacks") or [])
-                kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                kwargs["callbacks"], log_dir = _setup_callbacks(
                     callbacks,
                     log_every_epoch=log_every_epoch,
                     log_every_n_steps=log_every_n_steps,
@@ -1382,27 +1379,30 @@ def autolog(
             _shut_down_async_logging()
 
             mlflow.log_artifacts(
-                local_dir=self.log_dir.location,
+                local_dir=log_dir.location,
                 artifact_path="tensorboard_logs",
             )
-            if self.log_dir.is_temp:
-                shutil.rmtree(self.log_dir.location)
+            if log_dir.is_temp:
+                shutil.rmtree(log_dir.location)
             return history
 
-        def _on_exception(self, exception):
-            if (
-                self.log_dir is not None
-                and self.log_dir.is_temp
-                and os.path.exists(self.log_dir.location)
-            ):
-                shutil.rmtree(self.log_dir.location)
+        except (Exception, KeyboardInterrupt) as e:
+            try:
+                if log_dir is not None and log_dir.is_temp and os.path.exists(log_dir.location):
+                    shutil.rmtree(log_dir.location)
+            finally:
+                # Regardless of what happens during the `_on_exception` callback, reraise
+                # the original implementation exception once the callback completes
+                raise e
 
-    managed = [
-        (tf.keras.Model, "fit", FitPatch),
-    ]
-
-    for p in managed:
-        safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
+    safe_patch(
+        FLAVOR_NAME,
+        tf.keras.Model,
+        "fit",
+        _patched_inference,
+        manage_run=True,
+        extra_tags=extra_tags,
+    )
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
