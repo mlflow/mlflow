@@ -1,9 +1,13 @@
+import os
+
 from pyspark.ml.classification import LogisticRegression, OneVsRest
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 
 import mlflow
+
+os.environ["PYSPARK_PIN_THREAD"] = "false"
 
 with SparkSession.builder.getOrCreate() as spark:
     df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
