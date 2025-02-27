@@ -102,8 +102,8 @@ def test_default_autolog_behavior():
 
     # Test the loaded pyfunc model produces the same output for the same input as the model.
     test_input = np.random.uniform(size=[2, 28, 28, 3]).astype(np.float32)
-    logged_model = f"runs:/{run.info.run_id}/model"
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    logged_model = mlflow.last_logged_model()
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     np.testing.assert_allclose(
         keras.ops.convert_to_numpy(model(test_input)),
         loaded_pyfunc_model.predict(test_input),
@@ -112,7 +112,9 @@ def test_default_autolog_behavior():
     # Test the signature is logged.
     input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3))])
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 2))])
-    _check_logged_model_signature_is_expected(run, input_schema, output_schema)
+    model_info = mlflow.models.get_model_info(logged_model.model_uri)
+    assert model_info.signature.inputs == input_schema
+    assert model_info.signature.outputs == output_schema
 
 
 @pytest.mark.parametrize(

@@ -1134,6 +1134,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_id>``
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
             - ``mlflow-artifacts:/path/to/model``
