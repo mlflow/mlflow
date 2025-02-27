@@ -45,13 +45,13 @@ class GPUMonitor(BaseMetricsMonitor):
                 )
                 self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(memory.used / 1e6)
             except pynvml.NVMLError as e:
-                _logger.warning(f"Encountered error {e} when trying to collect GPU metrics.")
+                _logger.warning(f"Encountered error {e} when trying to collect GPU memory metrics.")
 
             try:
                 device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
             except pynvml.NVMLError as e:
-                _logger.warning(f"Encountered error {e} when trying to collect GPU metrics.")
+                _logger.warning(f"Encountered error {e} when trying to collect GPU utilization metrics.")
 
             try:
                 power_milliwatts = pynvml.nvmlDeviceGetPowerUsage(handle)
@@ -61,7 +61,7 @@ class GPUMonitor(BaseMetricsMonitor):
                     (power_milliwatts / power_capacity_milliwatts) * 100
                 )
             except pynvml.NVMLError as e:
-                _logger.warning(f"Encountered error {e} when trying to collect GPU metrics.")
+                _logger.warning(f"Encountered error {e} when trying to collect GPU power usage metrics.")
 
     def aggregate_metrics(self):
         return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}
