@@ -24,9 +24,9 @@ export const getExperimentNameValidator = (getExistingExperimentNames: any) => {
       MlflowService.getExperimentByName({ experiment_name: value })
         .then((res) =>
           callback(`Experiment "${value}" already exists in deleted state.
-                                 You can restore the experiment, or permanently delete the
-                                 experiment from the .trash folder (under tracking server's
-                                 root folder) in order to use this experiment name again.`),
+                                You can restore the experiment, or permanently delete it
+                                by \`$ mlflow gc --experiment-ids ...\` in order to use
+                                this experiment name again.`),
         )
         .catch((e) => callback(undefined)); // no experiment returned
     }
