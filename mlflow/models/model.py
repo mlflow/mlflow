@@ -14,7 +14,6 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
-from mlflow.artifacts import download_artifacts
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -716,28 +715,34 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
         # Check if the path is a local directory and not remote
-        path_scheme = urlparse(str(path)).scheme
+        path = str(path)
+        path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        path = download_artifacts(artifact_uri=path)
-        if os.path.isdir(path):
-            path = os.path.join(path, MLMODEL_FILE_NAME)
-            env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
-        elif os.path.isfile(path):
-            env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
-        else:
+        is_model_dir = path.endswith(MLMODEL_FILE_NAME)
+        mlmodel_file_path = path.rstrip("/") + f"/{MLMODEL_FILE_NAME}" if is_model_dir else path
+        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
+        with open(mlmodel_local_path) as f:
+            model_dict = yaml.safe_load(f.read())
+        env_var_path = (
+            path.rstrip("/") + f"/{ENV_VAR_FILE_NAME}"
+            if is_model_dir
+            else os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
+        )
+
+        try:
+            env_var_path = _download_artifact_from_uri(env_var_path)
+        except Exception:
             env_var_path = None
         env_vars = None
         if os.path.exists(env_var_path):
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()
             env_vars = [line for line in lines if line and not line.startswith("#")]
-        with open(path) as f:
-            model_dict = yaml.safe_load(f.read())
         model_dict["env_vars"] = env_vars
         return cls.from_dict(model_dict)
 
@@ -1036,24 +1041,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
         model_signature = model_info.signature
         assert model_signature == signature
     """
-    from mlflow.pyfunc import _download_artifact_from_uri
-
-    meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
-    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
-    model_meta = Model.load(meta_local_path)
-    return ModelInfo(
-        artifact_path=model_meta.artifact_path,
-        flavors=model_meta.flavors,
-        model_uri=model_uri,
-        model_uuid=model_meta.model_uuid,
-        run_id=model_meta.run_id,
-        saved_input_example_info=model_meta.saved_input_example_info,
-        signature_dict=model_meta.signature.to_dict() if model_meta.signature else None,
-        signature=model_meta.signature,
-        utc_time_created=model_meta.utc_time_created,
-        mlflow_version=model_meta.mlflow_version,
-        metadata=model_meta.metadata,
-    )
+    return Model.load(model_uri).get_model_info()
 
 
 class Files(NamedTuple):
