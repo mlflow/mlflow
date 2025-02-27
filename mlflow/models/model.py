@@ -1036,24 +1036,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
         model_signature = model_info.signature
         assert model_signature == signature
     """
-    from mlflow.pyfunc import _download_artifact_from_uri
-
-    meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
-    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
-    model_meta = Model.load(meta_local_path)
-    return ModelInfo(
-        artifact_path=model_meta.artifact_path,
-        flavors=model_meta.flavors,
-        model_uri=model_uri,
-        model_uuid=model_meta.model_uuid,
-        run_id=model_meta.run_id,
-        saved_input_example_info=model_meta.saved_input_example_info,
-        signature_dict=model_meta.signature.to_dict() if model_meta.signature else None,
-        signature=model_meta.signature,
-        utc_time_created=model_meta.utc_time_created,
-        mlflow_version=model_meta.mlflow_version,
-        metadata=model_meta.metadata,
-    )
+    return Model.load(model_uri).get_model_info()
 
 
 class Files(NamedTuple):
