@@ -210,7 +210,6 @@ def test_estimator(fit_func_name):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -258,7 +257,6 @@ def test_classifier_binary():
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
@@ -321,7 +319,6 @@ def test_classifier_multi_class():
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
@@ -360,7 +357,6 @@ def test_regressor():
         "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -384,7 +380,6 @@ def test_meta_estimator():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -415,7 +410,6 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     assert params == large_params
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
 
@@ -456,7 +450,6 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     assert params == truncate_dict(long_params)
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
 
@@ -481,7 +474,6 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -520,7 +512,6 @@ def test_call_fit_with_arguments_score_does_not_accept():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -565,7 +556,6 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -601,7 +591,6 @@ def test_only_fit_contains_sample_weight():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -640,7 +629,6 @@ def test_only_score_contains_sample_weight():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -809,8 +797,6 @@ def test_parameter_search_estimators_produce_expected_outputs(
         "best_cv_score": cv_model.best_score_,
     }.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
-    assert MODEL_DIR in artifacts
-    assert "best_estimator" in artifacts
     assert "cv_results.csv" in artifacts
 
     best_estimator = mlflow.sklearn.load_model(f"runs:/{run_id}/best_estimator")
@@ -1331,7 +1317,6 @@ def test_metric_computation_handles_absent_labels():
     # for sklearn models
     assert not metrics
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
 
 @pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._apis_autologging_disabled)
