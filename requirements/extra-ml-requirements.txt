@@ -75,8 +75,8 @@ sentence-transformers
 anthropic
 # Required by mlflow.autogen
 autogen
-# Required by mlflow.dspy
-dspy
+# Required by mlflow.dspy, 2.6.7 is broken: https://github.com/stanfordnlp/dspy/issues/7867
+dspy!=2.6.7
 # Required by mlflow.litellm
 litellm
 # Required by mlflow.gemini
