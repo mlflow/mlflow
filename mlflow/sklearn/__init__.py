@@ -1914,9 +1914,11 @@ def _autolog(  # noqa: D417
         elif issparse(X):
             arr_X = X.toarray()
             if y is not None:
-                arr_y = y.toarray()
                 dataset = from_numpy(
-                    features=arr_X, targets=arr_y, source=source, name=dataset_name
+                    features=arr_X,
+                    targets=y.toarray() if issparse(y) else y,
+                    source=source,
+                    name=dataset_name,
                 )
             else:
                 dataset = from_numpy(features=arr_X, source=source, name=dataset_name)
