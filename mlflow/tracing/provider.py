@@ -249,7 +249,10 @@ def _setup_tracer_provider(disabled=False):
             from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
 
             exporter = DatabricksAgentSpanExporter(_MLFLOW_TRACE_USER_DESTINATION)
-            processor = DatabricksAgentSpanProcessor(exporter)
+            processor = DatabricksAgentSpanProcessor(
+                span_exporter=exporter,
+                experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
+            )
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured

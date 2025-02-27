@@ -7,7 +7,9 @@ from datetime import datetime
 
 from opentelemetry.util.types import AttributeValue
 
+from mlflow.entities.assessment import set_pb_value
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.opentelemetry_pb2 import Span as ProtoSpan
 
 
 @dataclass
@@ -67,6 +69,16 @@ class SpanEvent(_MlflowObject):
             if self.attributes
             else None,
         }
+
+    def to_v3_proto(self):
+        proto = ProtoSpan.Event(
+            name=self.name,
+            time_unix_nano=self.timestamp,
+        )
+        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
+        for key, value in self.attributes.items():
+            set_pb_value(proto.attributes[key], value)
+        return proto
 
 
 class CustomEncoder(json.JSONEncoder):

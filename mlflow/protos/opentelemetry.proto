@@ -1,0 +1,126 @@
+// Description: This file contains the OpenTelemetry compatible Span data model that is used to send spans from/to MLflow.
+syntax = "proto2";
+
+package mlflow.otlp;
+
+import "databricks.proto";
+import "google/protobuf/struct.proto";
+
+// Open telemetry compatible Span data model
+// Shameless copied over from OTLP: https://github.com/open-telemetry/opentelemetry-proto to make sure that it is
+// OTLP compliant: https://opentelemetry.io/docs/specs/otel/
+message Span {
+    // A unique identifier for a trace.
+    // Note that bytes are used to be compliant with the OTLP spec even though the trace data model is using String.
+    optional bytes trace_id = 1 [(validate_required) = true];
+
+    // A unique identifier for a span within a trace.
+    optional bytes span_id = 2 [(validate_required) = true];
+
+    // Conveys information about request position in multiple distributed tracing graphs (W3C trace_state).
+    optional string trace_state = 3;
+
+    // The `span_id` of this span's parent span. If this is a root span, then this field must be empty.
+    optional bytes parent_span_id = 4;
+
+    // Flags, a bit field. Not used by MLflow right now but included for OTLP compatibility [Optional].
+    optional fixed32 flags = 16;
+
+    // A description of the span's operation.
+    optional string name = 5 [(validate_required) = true];
+
+    // SpanKind is the type of span.
+    enum SpanKind {
+        SPAN_KIND_UNSPECIFIED = 0;
+        SPAN_KIND_INTERNAL = 1;
+        SPAN_KIND_SERVER = 2;
+        SPAN_KIND_CLIENT = 3;
+        SPAN_KIND_PRODUCER = 4;
+        SPAN_KIND_CONSUMER = 5;
+    }
+    optional SpanKind kind = 6;
+
+    // Start time of the span.
+    optional fixed64 start_time_unix_nano = 7 [(validate_required) = true];
+
+    // End time of the span.
+    optional fixed64 end_time_unix_nano = 8 [(validate_required) = true];
+
+    // A collection of key/value attributes.
+    // Note: different from the KeyValue in OTLP but will be wire compatible
+    map<string, google.protobuf.Value> attributes = 9;
+
+    // The number of attributes that were discarded.
+    optional uint32 dropped_attributes_count = 10;
+
+    // Event is a time-stamped annotation of the span.
+    message Event {
+        // The time the event occurred.
+        optional fixed64 time_unix_nano = 1 [(validate_required) = true];
+
+        // The name of the event.
+        optional string name = 2 [(validate_required) = true];
+
+        // A collection of attribute key/value pairs on the event.
+        // Note: different from the KeyValue in OTLP but will be wire compatible
+        map<string, google.protobuf.Value> attributes = 3;
+
+        // The number of dropped attributes.
+        optional uint32 dropped_attributes_count = 4;
+    }
+    // A collection of Event items.
+    repeated Event events = 11;
+
+    // The number of dropped events.
+    optional uint32 dropped_events_count = 12;
+
+    // A pointer from the current span to another span in the same trace or in a different trace.
+    // Not used by MLflow right now but included for OTLP compatibility.
+    message Link {
+        // A unique identifier of a trace that this linked span is part of.
+        // Note that bytes are used to be compliant with the OTLP spec even though the trace data model is using String.
+        optional bytes trace_id = 1 [(validate_required) = true];
+
+        // A unique identifier for the linked span.
+        optional bytes span_id = 2 [(validate_required) = true];
+
+        // The trace_state associated with the link.
+        optional string trace_state = 3;
+
+        // A collection of attribute key/value pairs on the link.
+        // Note: different from the KeyValue in OTLP but will be wire compatible
+        map<string, google.protobuf.Value> attributes = 4;
+
+        // The number of dropped attributes.
+        optional uint32 dropped_attributes_count = 5;
+
+        // Flags, a bit field. [Optional].
+        optional fixed32 flags = 6;
+    }
+    // A collection of Links, references from this span to other spans.
+    repeated Link links = 13;
+
+    // The number of dropped links.
+    optional uint32 dropped_links_count = 14;
+
+    // The Status type defines a logical error model suitable for different environments.
+    message Status {
+        // Reserved field for future use.
+        reserved 1;
+
+        // A developer-facing human readable error message.
+        optional string message = 2;
+
+        // For the semantics of status codes see OTEL specification.
+        enum StatusCode {
+            STATUS_CODE_UNSET = 0;
+            STATUS_CODE_OK = 1;
+            STATUS_CODE_ERROR = 2;
+        }
+
+        // The status code.
+        optional StatusCode code = 3;
+    }
+    // An optional final status for this span.
+    optional Status status = 15;
+}

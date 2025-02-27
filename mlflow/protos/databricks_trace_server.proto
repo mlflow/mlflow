@@ -1,0 +1,52 @@
+syntax = "proto2";
+
+package mlflow.tracing;
+
+
+import "service.proto";
+import "opentelemetry.proto";
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option py_generic_services = true;
+
+service DatabricksTracingServerService {
+  // Create a new trace in the tracing server.
+  rpc createTrace(CreateTrace) returns (Trace) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/tracing/traces",
+      }],
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
+}
+
+message CreateTrace {
+    option (scalapb.message).extends = "com.databricks.rpc.RPC[Trace]";
+    optional Trace trace = 1 [(validate_required) = true];
+}
+
+
+// Top level message for a trace.
+// TODO: Move this to the MLflow proto definition once the MLflow service is updated to
+// the same V3 trace definition.
+message Trace {
+    // Re-use the TraceInfoV3 message from MLflow proto definition to avoid divergence between the two
+    // definitions. This message is used to store metadata about the trace.
+    optional mlflow.TraceInfoV3 info = 1;
+
+    optional TraceData data = 2;
+}
+
+// TraceData is a collection of spans that represent the operations performed in a trace.
+// This is not defined for MLflow service because spans are logged as an artifact file.
+// TODO: Move this to the MLflow proto definition once the MLflow service is updated to
+// the same V3 trace definition.
+message TraceData {
+    // A single trace consists of a list of spans detailing the operations performed
+    repeated mlflow.otlp.Span spans = 1;
+}
+

@@ -63,3 +63,14 @@ class TraceData:
         for span in self.spans:
             if span.parent_id is None:
                 return span
+
+
+    def to_proto_v3(self):
+        """
+        Convert the trace data to a protobuf representation accepted by the Databricks tracing server.
+        """
+        from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
+
+        proto = ProtoTraceData()
+        proto.spans.extend([span.to_proto_v3() for span in self.spans])
+        return proto

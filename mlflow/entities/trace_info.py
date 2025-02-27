@@ -1,10 +1,13 @@
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+from mlflow.protos.service_pb2 import TraceLocation as ProtoTraceLocation
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
@@ -101,3 +104,31 @@ class TraceInfo(_MlflowObject):
             raise ValueError("status is required in trace info dictionary.")
         trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
         return cls(**trace_info_dict)
+
+
+    def to_v3_proto(self, request: Optional[str], response: Optional[str]):
+        """
+        """
+
+        proto = ProtoTraceInfoV3()
+
+        proto.trace_id = self.request_id
+        proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto.trace_location.mlflow_experiment.experiment_id = self.experiment_id
+
+        proto.request = request or ""
+        proto.response = response or ""
+        proto.state = self.status.name
+
+        proto.request_time.FromDatetime(datetime.fromtimestamp(self.timestamp_ms / 1000.0))
+        if self.execution_time_ms is not None:
+            proto.execution_duration.FromTimedelta(timedelta(milliseconds=self.execution_time_ms))
+
+
+        if self.request_metadata:
+            proto.trace_metadata.update(self.request_metadata)
+
+        if self.tags:
+            proto.tags.update(self.tags)
+
+        return proto
