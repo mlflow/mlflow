@@ -301,6 +301,8 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets.numpy() if self._targets is not None else None,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 

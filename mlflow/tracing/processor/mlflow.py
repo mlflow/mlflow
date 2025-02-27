@@ -167,12 +167,14 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             return
 
         request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        # TODO: We should remove the model ID from the span attributes
+        model_id = get_otel_attribute(span, SpanAttributeKey.MODEL_ID)
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
-            self._update_trace_info(trace, span)
+            self._update_trace_info(trace, span, model_id)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
@@ -200,7 +202,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         return _get_experiment_id()
 
-    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
+    def _update_trace_info(
+        self, trace: _Trace, root_span: OTelReadableSpan, model_id: Optional[str]
+    ):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
@@ -218,6 +222,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+        if model_id is not None:
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
