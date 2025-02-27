@@ -1,7 +1,9 @@
 import os
 import tempfile
 
+import pyspark
 import pytest
+from packaging.version import Version
 from pyspark.sql import Row
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
@@ -26,7 +28,8 @@ def disable_pyspark_pin_thread(monkeypatch_session):
     # issues with Py4J callbacks, so we ask users to set it to false.
     # We have to set this before creating the SparkSession, hence setting it session
     # -scoped, which is applied before module-scoped spark_session fixture
-    monkeypatch_session.setenv("PYSPARK_PIN_THREAD", "false")
+    if Version(pyspark.__version__).major < 4:
+        monkeypatch_session.setenv("PYSPARK_PIN_THREAD", "false")
 
 
 @pytest.fixture(scope="module")
