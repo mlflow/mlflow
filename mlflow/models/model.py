@@ -484,7 +484,11 @@ class Model:
         from mlflow.models.utils import _read_example
 
         if path is None:
-            path = f"runs:/{self.run_id}/{self.artifact_path}"
+            path = (
+                f"runs:/{self.run_id}/{self.artifact_path}"
+                if self.model_id is None
+                else self.artifact_path
+            )
 
         return _read_example(self, str(path))
 
