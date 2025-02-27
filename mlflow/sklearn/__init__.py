@@ -1584,7 +1584,11 @@ def _autolog(  # noqa: D417
         # log common metrics and artifacts for estimators (classifier, regressor)
         context_tags = context_registry.resolve_tags()
         source = CodeDatasetSource(context_tags)
-        dataset = _create_dataset(X, source, y)
+        try:
+            dataset = _create_dataset(X, source, y)
+        except Exception:
+            _logger.debug("Failed to create dataset for logging.", exc_info=True)
+            dataset = None
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,
             estimator=estimator,
