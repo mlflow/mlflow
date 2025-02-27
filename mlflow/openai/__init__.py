@@ -53,6 +53,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import (
+    async_patched_call,
     patched_agent_get_chat_completion,
     patched_call,
     patched_swarm_run,
@@ -136,6 +137,9 @@ def _get_obj_to_task_mapping():
         r.FineTuning: "fine_tuning",
         r.Moderations: "moderations",
         r.Models: "models",
+        r.chat.AsyncCompletions: "chat.completions",
+        r.AsyncCompletions: "completions",
+        r.AsyncEmbeddings: "embeddings",
     }
 
 
@@ -887,29 +891,24 @@ def autolog(
     if Version(_get_openai_package_version()).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
+    from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
-    from openai.resources.completions import Completions
-    from openai.resources.embeddings import Embeddings
+    from openai.resources.completions import AsyncCompletions, Completions
+    from openai.resources.embeddings import AsyncEmbeddings, Embeddings
 
     for task in (ChatCompletions, Completions, Embeddings):
-        safe_patch(
-            FLAVOR_NAME,
-            task,
-            "create",
-            patched_call,
-        )
+        safe_patch(FLAVOR_NAME, task, "create", patched_call)
+
+    for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
+        safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
 
     try:
-        from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
+        from openai.resources.beta.chat.completions import AsyncCompletions, Completions
     except ImportError:
         pass
     else:
-        safe_patch(
-            FLAVOR_NAME,
-            BetaChatCompletions,
-            "parse",
-            patched_call,
-        )
+        safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
 
     # Patch Swarm agent to generate traces
     try:
