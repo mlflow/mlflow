@@ -116,10 +116,10 @@ def _cached_evaluate_load(path: str, module_type: str = "metric"):
         raise FileNotFoundError("test")
         evaluate.load(path, module_type=module_type)
     except FileNotFoundError:
-        # `evaluate.load` is highly unstable and often fails due to a network error or huggingface
-        # hub being down. If it fails, attempt to load the metric from the evaluate repository on
-        # GitHub.
         if _MLFLOW_TESTING.get():
+            # `evaluate.load` is highly unstable and often fails due to a network error or
+            # huggingface hub being down. In testing, we want to avoid this instability, so we
+            # load the metric from the evaluate repository on GitHub.
             return _load_from_github(path, module_type=module_type)
         raise
 
