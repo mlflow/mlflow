@@ -3725,23 +3725,29 @@ class MlflowClient:
             else:
                 run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
-        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
-            # Print out some info for user since the copy may take a while for large models.
-            eprint(
-                "=== Copying model files from the source location to the model"
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
-            # NOTE: we can't easily delete the target temp location due to the async nature
-            # of the model version creation - printing to let the user know.
-            eprint(
-                f"=== Source model files were copied to {new_source}"
-                + " in the model registry workspace. You may want to delete the files once the"
-                + " model version is in 'READY' status. You can also find this location in the"
-                + " `source` field of the created model version. ==="
-            )
+        if is_databricks_uri(self._registry_uri):
+            if tracking_uri != self._registry_uri:
+                # Print out some info for user since the copy may take a while for large models.
+                eprint(
+                    "=== Copying model files from the source location to the model"
+                    + " registry workspace ==="
+                )
+                new_source = _upload_artifacts_to_databricks(
+                    source, run_id, tracking_uri, self._registry_uri
+                )
+                # NOTE: we can't easily delete the target temp location due to the async nature
+                # of the model version creation - printing to let the user know.
+                eprint(
+                    f"=== Source model files were copied to {new_source}"
+                    + " in the model registry workspace. You may want to delete the files once the"
+                    + " model version is in 'READY' status. You can also find this location in the"
+                    + " `source` field of the created model version. ==="
+                )
+            elif model_id is not None:
+                logged_model = self.get_logged_model(model_id)
+                # models:/<model_id> source is not supported by WSMR
+                new_source = logged_model.artifact_location
+
         return self._get_registry_client().create_model_version(
             name=name,
             source=new_source,
