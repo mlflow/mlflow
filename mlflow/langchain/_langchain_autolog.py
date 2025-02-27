@@ -71,7 +71,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if mid := _LOADED_MODEL_TRACKER.last_model_id:
         model_id = mid
     elif config.log_models:
-        logged_model = mlflow.create_logged_model()
+        logged_model = mlflow.create_logged_model(name="model")
         model_id = logged_model.model_id
         _LOADED_MODEL_TRACKER.last_model_id = model_id
     else:
@@ -279,7 +279,7 @@ def _log_optional_artifacts(
                 with disable_patching():
                     mlflow.langchain.log_model(
                         self,
-                        "model",
+                        name="model",
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,

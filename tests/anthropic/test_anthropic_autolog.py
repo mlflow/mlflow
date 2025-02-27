@@ -2,6 +2,7 @@ import base64
 from unittest.mock import patch
 
 import anthropic
+import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
@@ -124,6 +125,33 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
         cache_read_input_tokens=None,
     ),
 )
+
+_is_thinking_supported = False
+try:
+    from anthropic.types import ThinkingBlock
+
+    _is_thinking_supported = True
+
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST = {
+        **DUMMY_CREATE_MESSAGE_REQUEST,
+        "thinking": {"type": "enabled", "budget_tokens": 512},
+    }
+
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE = DUMMY_CREATE_MESSAGE_RESPONSE.model_copy()
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.content = [
+        ThinkingBlock(
+            type="thinking",
+            thinking="I need to think about this for a while.",
+            signature="ABC",
+        ),
+        TextBlock(
+            text="test answer",
+            type="text",
+            citations=None,
+        ),
+    ]
+except ImportError:
+    pass
 
 
 @patch("anthropic._base_client.SyncAPIClient.post", return_value=DUMMY_CREATE_MESSAGE_RESPONSE)
@@ -347,5 +375,51 @@ def test_messages_autolog_tool_calling(mock_post):
                     "type": "object",
                 },
             },
+        },
+    ]
+
+
+@pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
+def test_messages_autolog_with_thinking():
+    mlflow.anthropic.autolog()
+
+    with patch(
+        "anthropic._base_client.SyncAPIClient.post",
+        return_value=DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE,
+    ):
+        client = anthropic.Anthropic(api_key="test_key")
+        client.messages.create(**DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Messages.create"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST
+    # Only keep input_tokens / output_tokens fields in usage dict.
+    span.outputs["usage"] = {
+        key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
+    }
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": "test message",
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "I need to think about this for a while.",
+                    "type": "text",
+                },
+                {
+                    "text": "test answer",
+                    "type": "text",
+                },
+            ],
         },
     ]

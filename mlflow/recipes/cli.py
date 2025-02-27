@@ -21,6 +21,8 @@ _CLI_ARG_RECIPE_PROFILE = click.option(
 @click.group("recipes")
 def commands():
     """
+    MLflow Recipes is deprecated and will be removed in MLflow 3.0.
+
     Run MLflow Recipes and inspect recipe results.
     """
 

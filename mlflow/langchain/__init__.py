@@ -924,6 +924,10 @@ class _LoadedModelTracker:
     def last_model_id(self, model_id: Optional[str]) -> None:
         self._last_model_id = model_id
 
+    def clear(self):
+        self.model_ids.clear()
+        self._last_model_id = None
+
 
 _LOADED_MODEL_TRACKER = _LoadedModelTracker()
 
@@ -953,6 +957,7 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A LangChain model instance.
     """
+    model_uri = str(model_uri)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model = _load_model_from_local_fs(local_model_path)
     if is_models_uri(model_uri):

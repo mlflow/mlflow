@@ -1719,17 +1719,16 @@ class SqlAlchemyStore(AbstractStore):
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
-            session.merge(
-                *(
+            # TODO: Consider upserting tags in a single transaction for performance
+            for tag in tags:
+                session.merge(
                     SqlLoggedModelTag(
                         model_id=model_id,
                         experiment_id=logged_model.experiment_id,
                         tag_key=tag.key,
                         tag_value=tag.value,
                     )
-                    for tag in tags
                 )
-            )
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker() as session:

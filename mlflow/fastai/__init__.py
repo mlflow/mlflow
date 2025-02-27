@@ -16,6 +16,7 @@ fastai (native) format
 import logging
 import os
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, Optional
 
@@ -63,6 +64,8 @@ FLAVOR_NAME = "fastai"
 _MODEL_DATA_SUBPATH = "model.fastai"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn("fastai flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):

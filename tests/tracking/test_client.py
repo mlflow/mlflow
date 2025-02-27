@@ -11,6 +11,7 @@ from mlflow import MlflowClient, flush_async_logging
 from mlflow.config import enable_async_logging
 from mlflow.entities import (
     ExperimentTag,
+    LoggedModel,
     Run,
     RunInfo,
     RunStatus,
@@ -1266,6 +1267,67 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
+        )
+
+
+def test_create_model_version_with_source(mock_registry_store, mock_databricks_tracking_store):
+    model_id = "model_id"
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="/path/to/source",
+        run_id=mock_databricks_tracking_store.run_id,
+        run_link=None,
+        model_id=model_id,
+    )
+    mock_logged_model = LoggedModel(
+        experiment_id="exp_id",
+        model_id="model_id",
+        name="name",
+        artifact_location="/path/to/source",
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+    )
+
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
+    ):
+        client = MlflowClient(tracking_uri="databricks")
+        model_version = client.create_model_version(
+            "name", f"models:/{model_id}", "runid", run_link=None, model_id=model_id
+        )
+        assert model_version.model_id == model_id
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name",
+            "/path/to/source",
+            "runid",
+            [],
+            None,
+            None,
+            local_model_path=None,
+            model_id="model_id",
+        )
+
+    mock_registry_store.create_model_version.reset_mock()
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
+    ):
+        client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
+        model_version = client.create_model_version(
+            "name", f"models:/{model_id}", "runid", run_link=None, model_id=model_id
+        )
+        assert model_version.model_id == model_id
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name",
+            f"models:/{model_id}",
+            "runid",
+            [],
+            None,
+            None,
+            local_model_path=None,
+            model_id="model_id",
         )
 
 
