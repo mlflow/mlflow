@@ -1299,10 +1299,29 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
             "name", f"models:/{model_id}", "runid", run_link=None, model_id=model_id
         )
         assert model_version.model_id == model_id
-        # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
             "name",
             "/path/to/source",
+            "runid",
+            [],
+            None,
+            None,
+            local_model_path=None,
+            model_id="model_id",
+        )
+
+    mock_registry_store.create_model_version.reset_mock()
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
+    ):
+        client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
+        model_version = client.create_model_version(
+            "name", f"models:/{model_id}", "runid", run_link=None, model_id=model_id
+        )
+        assert model_version.model_id == model_id
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name",
+            f"models:/{model_id}",
             "runid",
             [],
             None,
