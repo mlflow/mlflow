@@ -35,6 +35,19 @@ services:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
     command: tests/db/check_migration.sh
 
+  mlflow-psycopg3:
+    depends_on:
+      - postgresql
+    extends:
+      service: base
+    image: mlflow-psycopg3
+    build:
+      context: .
+      dockerfile: Dockerfile.psycopg3
+    environment:
+      MLFLOW_TRACKING_URI: postgresql+psycopg://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
+      INSTALL_MLFLOW_FROM_REPO: true
+
   mysql:
     image: mysql
     restart: always
