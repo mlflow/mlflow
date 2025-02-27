@@ -1240,7 +1240,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     initial_model.fit(keras_data_gen_sequence)
 
     logged_model = mlflow.last_logged_model()
-    mlmodel_path = mlflow.artifacts.download_artifacts(f"{logged_model.artifact_location}/MLmodel")
+    mlmodel_path = f"{logged_model.artifact_location}/MLmodel"
     with open(mlmodel_path) as f:
         mlmodel_contents = yaml.safe_load(f)
     assert "signature" in mlmodel_contents.keys()
