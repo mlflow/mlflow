@@ -672,11 +672,12 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
 
-    mlflow.lightgbm.autolog(
-        log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
-    )
-    dataset = lgb.Dataset(X, y)
-    lgb.train(bst_params, dataset)
+    with mlflow.start_run():
+        mlflow.lightgbm.autolog(
+            log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
+        )
+        dataset = lgb.Dataset(X, y)
+        lgb.train(bst_params, dataset)
     logged_model = mlflow.last_logged_model()
     mlflow_model = Model.load(logged_model.model_uri)
     assert (mlflow_model.load_input_example() is not None) == log_input_examples
@@ -689,9 +690,10 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
 
-    mlflow.lightgbm.autolog(log_models=log_models)
-    dataset = lgb.Dataset(X, y)
-    lgb.train(bst_params, dataset)
+    with mlflow.start_run():
+        mlflow.lightgbm.autolog(log_models=log_models)
+        dataset = lgb.Dataset(X, y)
+        lgb.train(bst_params, dataset)
 
     logged_model = mlflow.last_logged_model()
     assert (logged_model is not None) == log_models
