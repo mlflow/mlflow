@@ -1570,7 +1570,7 @@ def _autolog(  # noqa: D417
                     f"best_{param_name}": param_value
                     for param_name, param_value in estimator.best_params_.items()
                 }
-            logged_model = _log_model_with_except_handling(
+            if logged_model := _log_model_with_except_handling(
                 estimator,
                 "model",
                 signature=signature,
@@ -1578,8 +1578,8 @@ def _autolog(  # noqa: D417
                 serialization_format=serialization_format,
                 registered_model_name=registered_model_name,
                 params=params,
-            )
-            model_id = logged_model.model_id
+            ):
+                model_id = logged_model.model_id
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         context_tags = context_registry.resolve_tags()
