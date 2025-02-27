@@ -54,7 +54,7 @@ class GPUMonitor(BaseMetricsMonitor):
                 self._metrics[f"gpu_{i}_power_usage_percentage"].append(
                     (power_milliwatts / power_capacity_milliwatts) * 100
                 )
-            except pynvml.nvml.NVMLError as e:
+            except pynvml.NVMLError as e:
                 _logger.warning(f"Encountered error {e} when trying to collect GPU metrics.")
 
     def aggregate_metrics(self):
