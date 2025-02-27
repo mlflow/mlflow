@@ -3,8 +3,11 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import bz2
+import gzip
 import inspect
 import logging
+import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
@@ -74,10 +77,12 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+CONFIG_KEY_COMPRESSION = "python_model_compression"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
-
+_COMPRESSION_EXTENSION = {"lzma": ".xz", "bzip2": ".bz2", "gzip": ".gz"}
+_COMPRESSION_OPEN = {"lzma": lzma.open, "bzip2": bz2.open, "gzip": gzip.open}
 _logger = logging.getLogger(__name__)
 
 
@@ -770,6 +775,28 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
+def _maybe_compress_cloudpickle_dump(python_model, path, compression):
+    if compression and compression not in _COMPRESSION_OPEN:
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method specified: `{compression}` please use one of "
+            '"lzma", "bzip2", "gzip", falling back to dump to regular file'
+        )
+    file_open = _COMPRESSION_OPEN.get(compression, open)
+    with file_open(path, "wb") as out:
+        cloudpickle.dump(python_model, out)
+
+
+def _maybe_decompress_cloudpickle_load(path, compression):
+    if compression and compression not in _COMPRESSION_OPEN:
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method specified: `{compression}` please use one of "
+            '"lzma", "bzip2", "gzip", falling back to load from regular file'
+        )
+    file_open = _COMPRESSION_OPEN.get(compression, open)
+    with file_open(path, "rb") as f:
+        return cloudpickle.load(f)
+
+
 def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
@@ -784,6 +811,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
+    compression=None,
 ):
     """
     Args:
@@ -822,6 +850,10 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
+
+        compression: One of "lzma", "bzip2" or "gzip", the cloudpickple file will be compressed
+                     using the respective format before being written to disk.
+                     Default None ie. no compression.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -831,14 +863,20 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     }
     if callable(python_model):
         python_model = _FunctionPythonModel(func=python_model, signature=signature)
+
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
+
+    if compression and compression in _COMPRESSION_EXTENSION:
+        custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
+        saved_python_model_subpath += _COMPRESSION_EXTENSION[compression]
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
     # pickle/save the python_model since the module won't be able to be imported.
     if not model_code_path:
         try:
-            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-                cloudpickle.dump(python_model, out)
+            _maybe_compress_cloudpickle_dump(
+                python_model, os.path.join(path, saved_python_model_subpath), compression
+            )
         except Exception as e:
             raise MlflowException(
                 "Failed to serialize Python model. Please save the model into a python file "
@@ -1015,12 +1053,14 @@ def _load_context_model_and_signature(
                 python_model_cloudpickle_version,
                 cloudpickle.__version__,
             )
+        python_model_compression = pyfunc_config.get(CONFIG_KEY_COMPRESSION, None)
 
         python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
         if python_model_subpath is None:
             raise MlflowException("Python model path was not specified in the model configuration")
-        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-            python_model = cloudpickle.load(f)
+        python_model = _maybe_decompress_cloudpickle_load(
+            os.path.join(model_path, python_model_subpath), python_model_compression
+        )
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
