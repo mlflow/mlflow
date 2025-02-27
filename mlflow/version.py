@@ -1,7 +1,7 @@
 # Copyright 2018 Databricks, Inc.
 import re
 
-VERSION = "2.20.0"
+VERSION = "2.20.3"
 
 
 def is_release_version():
