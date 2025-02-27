@@ -1,6 +1,5 @@
 import os
 import warnings
-from contextlib import contextmanager
 from pathlib import Path
 from threading import RLock
 from threading import get_ident as get_current_thread_id
@@ -178,8 +177,7 @@ class _WarningsController:
 _WARNINGS_CONTROLLER = _WarningsController()
 
 
-@contextmanager
-def set_non_mlflow_warnings_behavior_for_current_thread(disable_warnings, reroute_warnings):
+class NonMlflowWarningsBehaviorForCurrentThread:
     """
     Context manager that modifies the behavior of non-MLflow warnings upon entry, according to the
     specified parameters.
@@ -190,32 +188,56 @@ def set_non_mlflow_warnings_behavior_for_current_thread(disable_warnings, rerout
         reroute_warnings: If `True`, reroute non-MLflow warnings to an MLflow event logger with
             level WARNING. If `False`, do not reroute non-MLflow warnings.
     """
-    prev_disablement_state = (
-        _WARNINGS_CONTROLLER.get_warnings_disablement_state_for_current_thread()
-    )
-    prev_rerouting_state = _WARNINGS_CONTROLLER.get_warnings_rerouting_state_for_current_thread()
-    try:
+
+    def __init__(self, disable_warnings, reroute_warnings):
+        self._disable_warnings = disable_warnings
+        self._reroute_warnings = reroute_warnings
+        self._prev_disablement_state = None
+        self._prev_rerouting_state = None
+
+    def __enter__(self):
+        self._enter_impl()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self):
+        self._enter_impl()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    def _enter_impl(self):
+        self._prev_disablement_state = (
+            _WARNINGS_CONTROLLER.get_warnings_disablement_state_for_current_thread()
+        )
+        self._prev_rerouting_state = (
+            _WARNINGS_CONTROLLER.get_warnings_rerouting_state_for_current_thread()
+        )
+        try:
+            _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
+                disabled=self._disable_warnings
+            )
+            _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(
+                rerouted=self._reroute_warnings
+            )
+        except Exception:
+            pass
+
+    def _exit_impl(self, *args, **kwargs):
         _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
-            disabled=disable_warnings
+            disabled=self._prev_disablement_state
         )
         _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(
-            rerouted=reroute_warnings
-        )
-        yield
-    finally:
-        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
-            disabled=prev_disablement_state
-        )
-        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(
-            rerouted=prev_rerouting_state
+            rerouted=self._prev_rerouting_state
         )
 
 
-@contextmanager
-def set_mlflow_events_and_warnings_behavior_globally(
-    disable_event_logs, disable_warnings, reroute_warnings
-):
-    """Threadsafe context manager that modifies the behavior of MLflow event logging statements
+class MlflowEventsAndWarningsBehaviorGlobally:
+    """
+    Threadsafe context manager that modifies the behavior of MLflow event logging statements
     and MLflow warnings upon entry, according to the specified parameters. Modifications are
     applied globally across all threads and are not reverted until all threads that have made
     a particular modification have exited the context.
@@ -230,13 +252,6 @@ def set_mlflow_events_and_warnings_behavior_globally(
 
     """
 
-    with _SetMlflowEventsAndWarningsBehaviorGlobally(
-        disable_event_logs, disable_warnings, reroute_warnings
-    ):
-        yield
-
-
-class _SetMlflowEventsAndWarningsBehaviorGlobally:
     _lock = RLock()
     _disable_event_logs_count = 0
     _disable_warnings_count = 0
@@ -248,46 +263,60 @@ class _SetMlflowEventsAndWarningsBehaviorGlobally:
         self._reroute_warnings = reroute_warnings
 
     def __enter__(self):
+        self._enter_impl()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self):
+        self._enter_impl()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    def _enter_impl(self):
         try:
-            with _SetMlflowEventsAndWarningsBehaviorGlobally._lock:
+            with MlflowEventsAndWarningsBehaviorGlobally._lock:
                 if self._disable_event_logs:
-                    if _SetMlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
+                    if MlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
                         logging_utils.disable_logging()
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count += 1
+                    MlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count += 1
 
                 if self._disable_warnings:
-                    if _SetMlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
+                    if MlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
                         _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(
                             disabled=True
                         )
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count += 1
+                    MlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count += 1
 
                 if self._reroute_warnings:
-                    if _SetMlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
+                    if MlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
                         _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(
                             rerouted=True
                         )
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count += 1
+                    MlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count += 1
         except Exception:
             pass
 
-    def __exit__(self, *args, **kwargs):
+    def _exit_impl(self, *args, **kwargs):
         try:
-            with _SetMlflowEventsAndWarningsBehaviorGlobally._lock:
+            with MlflowEventsAndWarningsBehaviorGlobally._lock:
                 if self._disable_event_logs:
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count -= 1
+                    MlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count -= 1
                 if self._disable_warnings:
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count -= 1
+                    MlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count -= 1
                 if self._reroute_warnings:
-                    _SetMlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count -= 1
+                    MlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count -= 1
 
-                if _SetMlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
+                if MlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
                     logging_utils.enable_logging()
-                if _SetMlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
+                if MlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
                     _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(
                         disabled=False
                     )
-                if _SetMlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
+                if MlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
                     _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(
                         rerouted=False
                     )
