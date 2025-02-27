@@ -352,6 +352,7 @@ spark:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
     run: |
+      pytest tests/spark/autologging/ml/test_pyspark_ml_autologging.py
       python examples/pyspark_ml_autologging/one_vs_rest.py
       # # Build Java package
       # # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
