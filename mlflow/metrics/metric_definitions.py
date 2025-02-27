@@ -113,7 +113,6 @@ def _cached_evaluate_load(path: str, module_type: str = "metric"):
     import evaluate
 
     try:
-        raise FileNotFoundError("test")
         evaluate.load(path, module_type=module_type)
     except FileNotFoundError:
         if _MLFLOW_TESTING.get():
