@@ -47,6 +47,32 @@ mlflow_log_model <- function(model, artifact_path, ...) {
   res
 }
 
+#' Write MLflow model spec
+#'
+#' Writes an `MLmodel` file into the directory specified by `path`. The `content` argument is a list
+#' containing the information to be written to the file.
+#'
+#' This function should not be needed in day-to-day use and will be of most interest if you're
+#' writing your own model flavor.
+#'
+#' @param path Directory in which to write
+#' @param content List containing content to be written
+#'
+#' @returns The function is called for its side-effect (writing a file) and does not return a value.
+#' @export
+#'
+#' @examples
+#' /dontrun{
+#' spec <- list(
+#'   flavors = list(
+#'     my_model_flavor = list(
+#'       version = "1.0",
+#'       foo = "bar"
+#'     )
+#'   )
+#' )
+#' }
+#' mlflow_write_model_spec("some/directory", spec)
 mlflow_write_model_spec <- function(path, content) {
   write_yaml(
     purrr::compact(content),
