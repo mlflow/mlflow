@@ -153,13 +153,7 @@ def _listen_for_spark_activity(spark_context):
                     "Failed to shut down Spark callback server for autologging: %s", str(e)
                 )
         _spark_table_info_listener = None
-        raise MlflowException(
-            "Exception while attempting to initialize JVM-side state for Spark datasource "
-            "autologging. Note that Spark datasource autologging only works with Spark 3.0 "
-            "and above. Please create a new Spark session with required Spark version and "
-            "ensure you have the mlflow-spark JAR attached to your Spark session as described "
-            f"in https://mlflow.org/docs/latest/tracking/autolog.html#spark Exception:\n{e}"
-        )
+        raise
 
     # Register context provider for Spark autologging
     from mlflow.tracking.context.registry import _run_context_provider_registry
