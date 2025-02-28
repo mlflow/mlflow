@@ -498,7 +498,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
-from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present, _parse_model_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -580,6 +580,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
+from mlflow.utils.uri import is_models_uri
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -1052,6 +1053,36 @@ def _get_pip_requirements_from_model_path(model_path: str):
 
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
+class _LoadedModelTracker:
+    """
+    Tracks models loaded by `load_model`.
+    """
+
+    def __init__(self):
+        self.model_ids: dict[int, str] = {}
+        # temporary solution to track model_id for autologging
+        # TODO: remove this and pass model_id to MlflowLangchainTracer
+        self._last_model_id = None
+
+    def get(self, model: Any) -> Optional[str]:
+        return self.model_ids.get(id(model))
+
+    def set(self, model: Any, model_id: str) -> None:
+        self.model_ids[id(model)] = model_id
+
+    @property
+    def last_model_id(self) -> Optional[str]:
+        return self._last_model_id
+
+    @last_model_id.setter
+    def last_model_id(self, model_id: Optional[str]) -> None:
+        self._last_model_id = model_id
+
+    def clear(self):
+        self.model_ids.clear()
+        self._last_model_id = None
+
+_LOADED_MODEL_TRACKER = _LoadedModelTracker()
 
 @trace_disabled  # Suppress traces while loading model
 def load_model(
@@ -1176,6 +1207,12 @@ def load_model(
         predict_stream_fn=predict_stream_fn,
         model_id=_parse_model_id_if_present(model_uri),
     )
+
+    if is_models_uri(model_uri):
+        parsed_model_uri = _parse_model_uri(model_uri)
+        if parsed_model_uri.model_id:
+            _LOADED_MODEL_TRACKER.set(pyfunc_model, parsed_model_uri.model_id)
+            _LOADED_MODEL_TRACKER.last_model_id = parsed_model_uri.model_id
 
     try:
         model_input_example = model_meta.load_input_example(path=local_path)

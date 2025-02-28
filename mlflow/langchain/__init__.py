@@ -28,6 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.pyfunc import _LOADED_MODEL_TRACKER
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -897,40 +898,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         return model
     else:
         return _load_model(local_model_path, flavor_conf)
-
-
-class _LoadedModelTracker:
-    """
-    Tracks models loaded by `load_model`.
-    """
-
-    def __init__(self):
-        self.model_ids: dict[int, str] = {}
-        # temporary solution to track model_id for autologging
-        # TODO: remove this and pass model_id to MlflowLangchainTracer
-        self._last_model_id = None
-
-    def get(self, model: Any) -> Optional[str]:
-        return self.model_ids.get(id(model))
-
-    def set(self, model: Any, model_id: str) -> None:
-        self.model_ids[id(model)] = model_id
-
-    @property
-    def last_model_id(self) -> Optional[str]:
-        return self._last_model_id
-
-    @last_model_id.setter
-    def last_model_id(self, model_id: Optional[str]) -> None:
-        self._last_model_id = model_id
-
-    def clear(self):
-        self.model_ids.clear()
-        self._last_model_id = None
-
-
-_LOADED_MODEL_TRACKER = _LoadedModelTracker()
-
 
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
