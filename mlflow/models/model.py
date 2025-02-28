@@ -716,7 +716,8 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
         # Check if the path is a local directory and not remote
-        path = str(path).rstrip("/")
+        sep = os.path.sep
+        path = str(path).rstrip(sep)
         path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
@@ -724,7 +725,7 @@ class Model:
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        is_model_dir = path.rsplit("/", maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
         mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
