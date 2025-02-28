@@ -29,15 +29,11 @@ class GPUMonitor(BaseMetricsMonitor):
             # `nvmlInit()` will fail if no GPU is found.
             pynvml.nvmlInit()
         except pynvml.NVMLError as e:
-            raise RuntimeError(
-                f"Failed to initialize NVML, skip logging GPU metrics: {e}"
-            )
+            raise RuntimeError(f"Failed to initialize NVML, skip logging GPU metrics: {e}")
 
         super().__init__()
         self.num_gpus = pynvml.nvmlDeviceGetCount()
-        self.gpu_handles = [
-            pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)
-        ]
+        self.gpu_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)]
 
     def collect_metrics(self):
         # Get GPU metrics.
@@ -47,19 +43,13 @@ class GPUMonitor(BaseMetricsMonitor):
                 self._metrics[f"gpu_{i}_memory_usage_percentage"].append(
                     round(memory.used / memory.total * 100, 1)
                 )
-                self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(
-                    memory.used / 1e6
-                )
+                self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(memory.used / 1e6)
             except pynvml.NVMLError as e:
-                _logger.warning(
-                    f"Encountered error {e} when trying to collect GPU memory metrics."
-                )
+                _logger.warning(f"Encountered error {e} when trying to collect GPU memory metrics.")
 
             try:
                 device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                self._metrics[f"gpu_{i}_utilization_percentage"].append(
-                    device_utilization.gpu
-                )
+                self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
             except pynvml.NVMLError as e:
                 _logger.warning(
                     f"Encountered error {e} when trying to collect GPU utilization metrics."
@@ -67,12 +57,8 @@ class GPUMonitor(BaseMetricsMonitor):
 
             try:
                 power_milliwatts = pynvml.nvmlDeviceGetPowerUsage(handle)
-                power_capacity_milliwatts = pynvml.nvmlDeviceGetEnforcedPowerLimit(
-                    handle
-                )
-                self._metrics[f"gpu_{i}_power_usage_watts"].append(
-                    power_milliwatts / 1000
-                )
+                power_capacity_milliwatts = pynvml.nvmlDeviceGetEnforcedPowerLimit(handle)
+                self._metrics[f"gpu_{i}_power_usage_watts"].append(power_milliwatts / 1000)
                 self._metrics[f"gpu_{i}_power_usage_percentage"].append(
                     (power_milliwatts / power_capacity_milliwatts) * 100
                 )
