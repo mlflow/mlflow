@@ -1032,41 +1032,43 @@ class Model:
             client.log_model_artifacts(model.model_id, local_path)
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
-            # # if the model_config kwarg is passed in, then log the model config as an params
-            # if model_config := kwargs.get("model_config"):
-            #     if isinstance(model_config, str):
-            #         try:
-            #             file_extension = os.path.splitext(model_config)[1].lower()
-            #             if file_extension == ".json":
-            #                 with open(model_config) as f:
-            #                     model_config = json.load(f)
-            #             elif file_extension in [".yaml", ".yml"]:
-            #                 model_config = _validate_and_get_model_config_from_file(model_config)
-            #             else:
-            #                 _logger.warning(
-            #                     "Unsupported file format for model config: %s. "
-            #                     "Failed to load model config.",
-            #                     model_config,
-            #                 )
-            #        except Exception as e:
-            #            _logger.warning(
-            #                "Failed to load model config from %s: %s", model_config, e
-            #            )
-            #
-            #     try:
-            #         from mlflow.models.utils import _flatten_nested_params
-            #
-            #         # We are using the `/` separator to flatten the nested params
-            #         # since we are using the same separator to log nested metrics.
-            #         params_to_log = _flatten_nested_params(model_config, sep="/")
-            #     except Exception as e:
-            #         _logger.warning("Failed to flatten nested params: %s", str(e))
-            #         params_to_log = model_config
-            #
-            #     try:
-            #         mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-            #     except Exception as e:
-            #         _logger.warning("Failed to log model config as params: %s", str(e))
+            # if the model_config kwarg is passed in, then log the model config as an params
+            if model_config := kwargs.get("model_config"):
+                if isinstance(model_config, str):
+                    try:
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            from mlflow.utils.model_utils import (
+                                _validate_and_get_model_config_from_file,
+                            )
+
+                            model_config = _validate_and_get_model_config_from_file(model_config)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
+                    except Exception as e:
+                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
+                try:
+                    from mlflow.models.utils import _flatten_nested_params
+
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+                except Exception as e:
+                    _logger.warning("Failed to log model config as params: %s", str(e))
             #
             # try:
             #     mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
