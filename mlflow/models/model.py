@@ -724,7 +724,7 @@ class Model:
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        is_model_dir = not path.endswith(MLMODEL_FILE_NAME)
+        is_model_dir = path.rsplit("/", maxsplit=1)[-1] != MLMODEL_FILE_NAME
         mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
