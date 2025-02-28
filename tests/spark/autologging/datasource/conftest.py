@@ -13,8 +13,8 @@ from tests.spark.autologging.utils import _get_or_create_spark_session
 # Module-scoped version of pytest monkeypatch fixture. Original monkeypatch in pytest
 # is function-scoped, thus we need a larger scoped one to use that in module/session
 # scoped fixtures.
-@pytest.fixture(scope="session")
-def monkeypatch_module(request):
+@pytest.fixture(scope="module")
+def monkeypatch_module():
     with pytest.MonkeyPatch() as m:
         yield m
 
