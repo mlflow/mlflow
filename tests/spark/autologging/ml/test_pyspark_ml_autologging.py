@@ -189,11 +189,6 @@ def validate_predict_with_input_example(model_uri):
     pyfunc_model.predict(input_example)
 
 
-def validate_signature(model_uri, signature):
-    mlflow_model = Model.load(model_uri)
-    assert mlflow_model.signature == signature
-
-
 def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
 
@@ -1050,12 +1045,10 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(
-                Schema([ColSpec(SparkMLVector(), "features")]),
-                Schema([ColSpec("double")]),
-            ),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec(SparkMLVector(), "features")]),
+            Schema([ColSpec("double")]),
         )
 
 
@@ -1070,12 +1063,10 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(
-                Schema([ColSpec("string", "text")]),
-                Schema([ColSpec("double")]),
-            ),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("string", "text")]),
+            Schema([ColSpec("double")]),
         )
 
 
@@ -1083,12 +1074,10 @@ def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(
-                Schema([ColSpec(SparkMLVector(), "features")]),
-                Schema([ColSpec("double")]),
-            ),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec(SparkMLVector(), "features")]),
+            Schema([ColSpec("double")]),
         )
 
 
@@ -1100,12 +1089,10 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
     )
     with mlflow.start_run() as run:
         pipe.fit(dataset_numeric)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(
-                Schema([ColSpec("double", "number")]),
-                Schema([ColSpec("double")]),
-            ),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("double", "number")]),
+            Schema([ColSpec("double")]),
         )
 
 
@@ -1148,9 +1135,9 @@ def test_signature_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(Schema([ColSpec("long", "id")]), Schema([ColSpec("string")])),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("long", "id")]), Schema([ColSpec("string")])
         )
 
 
@@ -1191,12 +1178,10 @@ def test_signature_with_non_feature_input_columns(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         pipeline_for_feature_cols.fit(input_df_with_non_features)
-        validate_signature(
-            f"runs:/{run.info.run_id}/model",
-            ModelSignature(
-                Schema([ColSpec("long", "id")]),
-                Schema([ColSpec("string")]),
-            ),
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("long", "id")]),
+            Schema([ColSpec("string")]),
         )
 
 
