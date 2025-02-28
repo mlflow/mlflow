@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Sequence
 
+from google.protobuf.json_format import MessageToDict
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -12,7 +13,6 @@ from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTra
 from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     extract_api_info_for_service,
@@ -84,15 +84,21 @@ class DatabricksAgentSpanExporter(SpanExporter):
 
     def _log_trace_v3(self, trace: Trace):
         """Create a new Trace record in the Databricks Agent Monitoring."""
-        request_json = message_to_json(CreateTrace(trace=trace.to_proto()))
+        request_body = MessageToDict(
+            CreateTrace(trace=trace.to_proto()),
+            preserving_proto_field_name=True,
+        )
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
 
-        http_request(
+        res = http_request(
             host_creds=get_databricks_host_creds(),
             endpoint=endpoint,
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
             # Not doing reties here because trace export is currently running synchronously
             # and we don't want to bottleneck the application by retrying.
-            json=request_json,
+            json=request_body,
         )
+
+        if res.status_code != 200:
+            _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
