@@ -41,7 +41,6 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import RunStatus
 from mlflow.models import Model
-from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
     _get_instance_param_map,
@@ -182,12 +181,25 @@ def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
     return mlflow.spark.load_model(f"runs:/{run_id}/{model_dir}")
 
 
+def test_logged_model_predict(model_uri):
+    mlflow_model = Model.load(model_uri)
+    input_example = mlflow_model.load_input_example()
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.predict(input_example)
+
+
+def validate_logged_model_signature(model_uri, input_schema, output_schema):
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature.inputs.to_dict() == input_schema
+    assert mlflow_model.signature.outputs.to_dict() == output_schema
+
+
 def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
 
     for estimator in [
-        LinearRegression(),
         MultilayerPerceptronClassifier(layers=[2, 2, 2], seed=123, blockSize=1),
+        LinearRegression(),
     ]:
         with mlflow.start_run() as run:
             model = estimator.fit(dataset_binomial)
@@ -1031,28 +1043,12 @@ def _read_schema(schema_str):
     return json.loads(schema_str)
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
-    data = _read_model_conf_as_dict(run)
-    assert data is not None
-    assert "signature" in data
-    signature = data["signature"]
-    assert signature is not None
-    assert "inputs" in signature
-    assert "outputs" in signature
-    assert _read_schema(signature["inputs"]) == input_sig_spec
-    assert _read_schema(signature["outputs"]) == output_sig_spec
-
-
 def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
@@ -1060,39 +1056,34 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_conf = _read_model_conf_as_dict(run)
-        assert "signature" in model_conf
-        assert _read_schema(model_conf["signature"]["inputs"]) == [
-            {
-                "type": "sparkml_vector",
-                "name": "features",
-                "required": True,
-            }
-        ]
-        assert _read_schema(model_conf["signature"]["outputs"]) == [
-            {"type": "double", "required": True}
-        ]
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
+            [
+                {
+                    "type": "sparkml_vector",
+                    "name": "features",
+                    "required": True,
+                }
+            ],
+            [{"type": "double", "required": True}],
+        )
 
 
 def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "text", "type": "string", "required": True}],
-            output_sig_spec=[{"required": True, "type": "double"}],
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
+            [{"name": "text", "type": "string", "required": True}],
+            [{"required": True, "type": "double"}],
         )
 
 
@@ -1100,18 +1091,17 @@ def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        assert model_conf.signature.inputs.to_dict() == (
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
             [
                 {
                     "type": "sparkml_vector",
                     "name": "features",
                     "required": True,
                 }
-            ]
+            ],
+            [{"type": "double", "required": True}],
         )
-        assert model_conf.signature.outputs.to_dict() == [{"type": "double", "required": True}]
 
 
 def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
@@ -1122,14 +1112,11 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
     )
     with mlflow.start_run() as run:
         pipe.fit(dataset_numeric)
-        ml_model_path = pathlib.Path(run.info.artifact_uri).joinpath("model", "MLmodel")
-        with open(ml_model_path) as f:
-            data = yaml.safe_load(f)
-            signature = data["signature"]
-            assert json.loads(signature["inputs"]) == [
-                {"name": "number", "type": "double", "required": True}
-            ]
-            assert json.loads(signature["outputs"]) == [{"type": "double", "required": True}]
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
+            [{"name": "number", "type": "double", "required": True}],
+            [{"type": "double", "required": True}],
+        )
 
 
 @pytest.fixture
@@ -1162,11 +1149,7 @@ def test_input_example_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_signature_with_index_to_string_stage(
@@ -1175,10 +1158,10 @@ def test_signature_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{"required": True, "type": "string"}],
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
+            [{"name": "id", "type": "long", "required": True}],
+            [{"required": True, "type": "string"}],
         )
 
 
@@ -1219,10 +1202,10 @@ def test_signature_with_non_feature_input_columns(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         pipeline_for_feature_cols.fit(input_df_with_non_features)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{"required": True, "type": "string"}],
+        validate_logged_model_signature(
+            f"runs:/{run.info.run_id}/model",
+            [{"name": "id", "type": "long", "required": True}],
+            [{"required": True, "type": "string"}],
         )
 
 
@@ -1301,11 +1284,11 @@ def test_model_with_vector_input(spark_session):
     model_uri = f"runs:/{run.info.run_id}/model"
 
     # check vector type is inferred correctly
-    model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()["features"].type
+    mlflow_model = Model.load(model_uri)
+    input_type = mlflow_model.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, SparkMLVector)
 
-    assert model_info.signature.outputs.inputs[0].type == DataType.double
+    assert mlflow_model.signature.outputs.inputs[0].type == DataType.double
 
     model = mlflow.pyfunc.load_model(model_uri)
 
@@ -1330,11 +1313,11 @@ def test_model_with_vector_input_vector_output(spark_session):
     model_uri = f"runs:/{run.info.run_id}/model"
 
     # check vector type is inferred correctly
-    model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()["features"].type
+    mlflow_model = Model.load(model_uri)
+    input_type = mlflow_model.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, SparkMLVector)
 
-    output_type = model_info.signature.outputs.inputs[0].type
+    output_type = mlflow_model.signature.outputs.inputs[0].type
     assert isinstance(output_type, SparkMLVector)
 
     model = mlflow.pyfunc.load_model(model_uri)
