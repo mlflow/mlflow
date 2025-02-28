@@ -59,16 +59,11 @@ def main():
 
     with restore_changes():
         pyproject = Path("pyproject.toml")
-        SKINNY_DIR = Path("skinny")
-        IS_SKINNY = args.package_type == "skinny"
-        if IS_SKINNY:
-            readme = Path("README.md")
-            readme_skinny = SKINNY_DIR / "README.md"
-            readme.write_text(readme_skinny.read_text() + "\n" + readme.read_text())
-
-        elif args.package_type == "release":
+        if args.package_type == "release":
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
+        SKINNY_DIR = Path("skinny")
+        IS_SKINNY = args.package_type == "skinny"
         subprocess.check_call(
             [
                 sys.executable,
