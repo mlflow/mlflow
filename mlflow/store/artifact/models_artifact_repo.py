@@ -108,6 +108,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
         """
+        uri = str(uri)
         return is_models_uri(uri) and _parse_model_uri(uri).model_id is not None
 
     @staticmethod
