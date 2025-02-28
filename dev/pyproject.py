@@ -227,7 +227,12 @@ def build(package_type: PackageType) -> None:
         },
     }
 
-    if package_type in [PackageType.SKINNY, PackageType.RELEASE]:
+    if package_type == PackageType.SKINNY:
+        out_path = "skinny/pyproject.toml"
+        with Path(out_path).open("w") as f:
+            f.write(package_type.description() + "\n")
+            f.write(toml.dumps(data))
+    elif package_type == PackageType.RELEASE:
         out_path = f"pyproject.{package_type.value}.toml"
         with Path(out_path).open("w") as f:
             f.write(package_type.description() + "\n")
