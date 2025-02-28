@@ -15,7 +15,6 @@ from mlflow.utils.autologging_utils import (
     AutologgingEventLogger,
     ExceptionSafeAbstractClass,
     ExceptionSafeClass,
-    PatchFunction,
     autologging_integration,
     is_testing,
     picklable_exception_safe_function,
@@ -183,32 +182,6 @@ def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implemen
     assert bar_val == 11
 
 
-def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
-    patch_destination, test_autologging_integration
-):
-    foo_val = None
-    bar_val = None
-
-    class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):
-            nonlocal foo_val
-            nonlocal bar_val
-            foo_val = foo
-            bar_val = bar
-
-        def _on_exception(self, exception):
-            pass
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
-    with mock.patch(
-        "mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call
-    ) as call_mock:
-        patch_destination.fn(foo=7, bar=11)
-        assert call_mock.call_count == 1
-        assert foo_val == 7
-        assert bar_val == 11
-
-
 def test_safe_patch_provides_expected_original_function(
     patch_destination, test_autologging_integration
 ):
@@ -225,32 +198,6 @@ def test_safe_patch_provides_expected_original_function(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
-
-
-def test_safe_patch_provides_expected_original_function_to_class_based_patch(
-    patch_destination, test_autologging_integration
-):
-    def original_fn(foo, bar=10):
-        return {
-            "foo": foo,
-            "bar": bar,
-        }
-
-    patch_destination.fn = original_fn
-
-    class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):
-            return original(foo + 1, bar + 2)
-
-        def _on_exception(self, exception):
-            pass
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
-    with mock.patch(
-        "mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call
-    ) as call_mock:
-        assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
-        assert call_mock.call_count == 1
 
 
 def test_safe_patch_propagates_exceptions_raised_from_original_function(
@@ -905,53 +852,6 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass,
     assert exc.value == exc_to_throw
 
 
-def test_patch_function_class_call_invokes_implementation_and_returns_result():
-    class TestPatchFunction(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            return 10
-
-        def _on_exception(self, exception):
-            pass
-
-    assert TestPatchFunction.call("foo", lambda: "foo") == 10
-
-
-@pytest.mark.parametrize("exception_class", [Exception, KeyboardInterrupt])
-def test_patch_function_class_call_handles_exceptions_properly(exception_class):
-    called_on_exception = False
-
-    class TestPatchFunction(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            raise exception_class("implementation exception")
-
-        def _on_exception(self, exception):
-            nonlocal called_on_exception
-            called_on_exception = True
-            raise Exception("on_exception exception")
-
-    # Even if an exception is thrown from `_on_exception`, we expect the original
-    # exception from the implementation to be surfaced to the caller
-    with pytest.raises(exception_class, match="implementation exception"):
-        TestPatchFunction.call("foo", lambda: "foo")
-
-    assert called_on_exception
-
-
-def test_with_managed_runs_yields_functions_and_classes_as_expected():
-    def patch_function(original, *args, **kwargs):
-        pass
-
-    class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            pass
-
-        def _on_exception(self, exception):
-            pass
-
-    assert callable(with_managed_run("test_integration", patch_function))
-    assert inspect.isclass(with_managed_run("test_integration", TestPatch))
-
-
 def test_with_managed_run_with_non_throwing_function_exhibits_expected_behavior():
     client = MlflowClient()
 
@@ -999,61 +899,6 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
     assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
-def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
-    client = MlflowClient()
-
-    class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            return mlflow.active_run()
-
-        def _on_exception(self, exception):
-            pass
-
-    TestPatch = with_managed_run("test_integration", TestPatch)
-
-    run1 = TestPatch.call(lambda: "foo")
-    run1_status = client.get_run(run1.info.run_id).info.status
-    assert RunStatus.from_string(run1_status) == RunStatus.FINISHED
-
-    with mlflow.start_run() as active_run:
-        run2 = TestPatch.call(lambda: "foo")
-
-    assert run2 == active_run
-    run2_status = client.get_run(run2.info.run_id).info.status
-    assert RunStatus.from_string(run2_status) == RunStatus.FINISHED
-
-
-def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
-    client = MlflowClient()
-    patch_function_active_run = None
-
-    class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            nonlocal patch_function_active_run
-            patch_function_active_run = mlflow.active_run()
-            raise Exception("bad implementation")
-
-        def _on_exception(self, exception):
-            pass
-
-    TestPatch = with_managed_run("test_integration", TestPatch)
-
-    with pytest.raises(Exception, match="bad implementation"):
-        TestPatch.call(lambda: "foo")
-
-    assert patch_function_active_run is not None
-    status1 = client.get_run(patch_function_active_run.info.run_id).info.status
-    assert RunStatus.from_string(status1) == RunStatus.FAILED
-
-    with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
-        TestPatch.call(lambda: "foo")
-    assert patch_function_active_run == active_run
-    # `with_managed_run` should not terminate a preexisting MLflow run,
-    # even if the patch function throws
-    status2 = client.get_run(active_run.info.run_id).info.status
-    assert RunStatus.from_string(status2) == RunStatus.FINISHED
-
-
 def test_with_managed_run_sets_specified_run_tags():
     client = MlflowClient()
     tags_to_set = {
@@ -1066,17 +911,6 @@ def test_with_managed_run_sets_specified_run_tags():
     )
     run1 = patch_function_1(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
-
-    class PatchFunction2(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            return mlflow.active_run()
-
-        def _on_exception(self, exception):
-            pass
-
-    patch_function_2 = with_managed_run("test_integration", PatchFunction2, tags=tags_to_set)
-    run2 = patch_function_2.call(lambda: "foo")
-    assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1099,22 +933,6 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
     assert not mlflow.active_run()
     run_status_1 = client.get_run(run.info.run_id).info.status
     assert RunStatus.from_string(run_status_1) == RunStatus.FAILED
-
-    class PatchFunction2(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            return original(*args, **kwargs)
-
-        def _on_exception(self, exception):
-            pass
-
-    patch_function_2 = with_managed_run("test_integration", PatchFunction2)
-
-    with pytest.raises(KeyboardInterrupt, match=r".*"):
-        patch_function_2.call(original)
-
-    assert not mlflow.active_run()
-    run_status_2 = client.get_run(run.info.run_id).info.status
-    assert RunStatus.from_string(run_status_2) == RunStatus.FAILED
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)

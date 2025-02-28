@@ -57,7 +57,7 @@ type ErrorViewImplProps = {
   designSystemThemeApi?: any;
 };
 
-export class ErrorViewImpl extends Component<ErrorViewImplProps> {
+class ErrorViewImpl extends Component<ErrorViewImplProps> {
   static centerMessages = {
     400: 'Bad Request',
     404: 'Page Not Found',

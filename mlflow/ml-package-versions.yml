@@ -260,12 +260,11 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.3.3"
+    minimum: "3.4.4"
     maximum: "3.8.3"
     python:
       ">= 3.8.4": "3.10"
     requirements:
-      "< 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
       "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
@@ -355,7 +354,7 @@ spark:
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
-      if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
+      if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
         python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
       pushd mlflow/java/spark
@@ -709,9 +708,7 @@ langchain:
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
-          # TODO: replace to package names once they are released to PyPI
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/core",
-          "git+https://github.com/unitycatalog/unitycatalog.git#subdirectory=ai/integrations/langchain",
+          "unitycatalog-langchain",
         ]
     run: |
       # Run all langchain tests except autologging and evaluation
@@ -828,15 +825,18 @@ autogen:
 
 gemini:
   package_info:
-    pip_release: "google-generativeai"
-    module_name: "google.generativeai"
+    pip_release: "google-genai"
+    module_name: "google.genai"
     install_dev: |
-      pip install git+https://github.com/google-gemini/generative-ai-python
+      pip install git+https://github.com/googleapis/python-genai
   autologging:
-    minimum: "0.8.0"
-    maximum: "0.8.3"
+    minimum: "1.0.0"
+    maximum: "1.0.0"
     requirements:
-    run: pytest tests/gemini
+    run: |
+      # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
+      pip install google-generativeai
+      pytest tests/gemini
 
 anthropic:
   package_info:
@@ -967,7 +967,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.15.0"
+    maximum: "0.18.0"
     requirements:
     run: pytest tests/groq
 

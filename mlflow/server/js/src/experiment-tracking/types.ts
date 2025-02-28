@@ -101,7 +101,7 @@ export interface DatasetSummary {
   experiment_id: string;
   digest: string;
   name: string;
-  context: string;
+  context?: string;
 }
 
 export interface MetricEntity {
@@ -345,7 +345,17 @@ export type RunLoggedArtifactsDeclaration = {
   type: RunLoggedArtifactType;
 }[];
 
-export type ExperimentViewRunsCompareMode = 'TABLE' | 'ARTIFACT' | 'CHART' | 'TRACES' | 'MODELS';
+// "MODELS", "EVAL_RESULTS", "DATASETS", and "LABELING_SESSIONS" are the not real legacy view modes, they are used to navigate to the
+// corresponding tabs on the experiment page.
+export type ExperimentViewRunsCompareMode =
+  | 'TABLE'
+  | 'ARTIFACT'
+  | 'CHART'
+  | 'TRACES'
+  | 'MODELS'
+  | 'EVAL_RESULTS'
+  | 'DATASETS'
+  | 'LABELING_SESSIONS';
 
 /**
  * Describes a section of the compare runs view

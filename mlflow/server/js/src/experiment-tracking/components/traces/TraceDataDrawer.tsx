@@ -5,6 +5,7 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
+  Typography,
   WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -24,11 +25,15 @@ export const TraceDataDrawer = ({
   traceInfo,
   loadingTraceInfo,
   onClose,
+  selectedSpanId,
+  onSelectSpan,
 }: {
   requestId: string;
   traceInfo?: ModelTraceInfo;
   loadingTraceInfo?: boolean;
   onClose: () => void;
+  selectedSpanId?: string;
+  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const {
     traceData,
@@ -58,10 +63,20 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
+      return (
+        <Typography.Title level={2} withoutMargins>
+          {getTraceDisplayName(traceInfoToUse as ModelTraceInfo)}
+        </Typography.Title>
+      );
     }
     return requestId;
-  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId]);
+  }, [
+    // Memo dependency list
+    loadingTraceInfo,
+    loadingInternalTracingInfo,
+    traceInfoToUse,
+    requestId,
+  ]);
 
   // Construct the model trace object with the trace info and trace data
   const combinedModelTrace = useMemo(
@@ -151,6 +166,7 @@ export const TraceDataDrawer = ({
       );
     }
     if (combinedModelTrace) {
+      // TODO: pass onSelectSpan or stop using iframe for OSS tracing page to enable spanId query params in the OSS tracing UI
       return (
         <div
           css={{

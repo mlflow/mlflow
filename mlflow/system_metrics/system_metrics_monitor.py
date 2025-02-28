@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from typing import Optional
 
 from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_NODE_ID,
@@ -9,10 +10,12 @@ from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonitor
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
 from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
+from mlflow.system_metrics.metrics.rocm_monitor import ROCMMonitor
 
 _logger = logging.getLogger(__name__)
 
@@ -60,13 +63,9 @@ class SystemMetricsMonitor:
 
         # Instantiate default monitors.
         self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
-        try:
-            gpu_monitor = GPUMonitor()
+
+        if gpu_monitor := self._initialize_gpu_monitor():
             self.monitors.append(gpu_monitor)
-        except Exception as e:
-            _logger.warning(
-                f"Skip logging GPU metrics because creating `GPUMonitor` failed with error: {e}."
-            )
 
         self.sampling_interval = MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.get() or sampling_interval
         self.samples_before_logging = (
@@ -181,3 +180,25 @@ class SystemMetricsMonitor:
         except Exception as e:
             _logger.error(f"Error terminating system metrics monitoring process: {e}.")
         self._process = None
+
+    def _initialize_gpu_monitor(self) -> Optional[BaseMetricsMonitor]:
+        err = None
+        try:
+            # NVIDIA GPU
+            return GPUMonitor()
+        except (ImportError, RuntimeError):
+            # ImportError raised if pynvml is not installed.
+            # RuntimeError raised if pynvml cannot be initialized
+            # (typically no NVIDIA GPU available).
+            # Falling back to pyrocml (AMD/HIP GPU)
+            try:
+                return ROCMMonitor()
+            except (ImportError, RuntimeError) as e:
+                err = e
+        except Exception as e:
+            err = e
+
+        _logger.warning(
+            f"Skip logging GPU metrics because initialization failed with error: {err}."
+        )
+        return None

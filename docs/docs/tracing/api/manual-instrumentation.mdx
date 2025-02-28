@@ -22,6 +22,15 @@ The <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator allows you to
 - Automatically logs the function’s **name, inputs, outputs, and execution time**.
 - Can be used alongside **auto-tracing** features, such as `mlflow.openai.autolog`.
 
+The @mlflow.trace decorator currently support the following types of functions:
+
+| Function Type | Supported        |
+|---------------|------------------|
+| Sync          | ✅               |
+| Async         | ✅  (>= 2.16.0)  |
+| Generator     | ✅  (>= 2.20.2)  |
+| Async Generator | ✅ (>= 2.20.2) |
+
 ### Example
 
 The following code is a minimum example of using the decorator for tracing Python functions.
@@ -147,6 +156,97 @@ run("What is MLflow?")
 Running this code generates the following single trace:
 
 ![](/images/llms/tracing/tracing-auto-manual-mix.png)
+
+
+### Streaming
+
+The `@mlflow.trace` decorator can be used to trace functions that return a generator or an iterator, since MLflow 2.20.2.
+
+```python
+@mlflow.trace
+def stream_data():
+    for i in range(5):
+        yield i
+```
+
+The above example will generate a trace with a single span for the `stream_data` function. By default, MLflow will capture the all elements yielded by the generator as a list in the span's output. In the example above, the output of the span will be `[0, 1, 2, 3, 4]`.
+
+:::note
+
+A span for a stream function will start when the returned iterator starts to be **consumed**, and will end when the iterator is exhausted, or an exception is raised during the iteration.
+
+:::
+
+If you want to aggregate the elements to be a single span output, you can use the `output_reducer` parameter to specify a custom function to aggregate the elements. The custom function should take a list of yielded elements as inputs.
+
+```python
+@mlflow.trace(output_reducer=lambda x: ",".join(x))
+def stream_data():
+    for c in "hello":
+        yield c
+```
+
+In the example above, the output of the span will be `"h,e,l,l,o"`. The raw chunks can still be found in the `Events` tab of the span.
+
+The following is an advanced example that uses the `output_reducer` to consolidate ChatCompletionChunk output from an OpenAI LLM into a single message object.
+
+:::tip
+
+Of course, we recommend using the [auto-tracing for OpenAI](../integrations/openai) for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
+
+:::
+
+```python
+import mlflow
+import openai
+from openai.types.chat import *
+from typing import Optional
+
+
+def aggregate_chunks(outputs: list[ChatCompletionChunk]) -> Optional[ChatCompletion]:
+    """Consolidate ChatCompletionChunks to a single ChatCompletion"""
+    if not outputs:
+        return None
+
+    first_chunk = outputs[0]
+    delta = first_chunk.choices[0].delta
+    message = ChatCompletionMessage(
+        role=delta.role, content=delta.content, tool_calls=delta.tool_calls or []
+    )
+    finish_reason = first_chunk.choices[0].finish_reason
+    for chunk in outputs[1:]:
+        delta = chunk.choices[0].delta
+        message.content += delta.content or ""
+        message.tool_calls += delta.tool_calls or []
+        finish_reason = finish_reason or chunk.choices[0].finish_reason
+
+    base = ChatCompletion(
+        id=first_chunk.id,
+        choices=[Choice(index=0, message=message, finish_reason=finish_reason)],
+        created=first_chunk.created,
+        model=first_chunk.model,
+        object="chat.completion",
+    )
+    return base
+
+
+@mlflow.trace(output_reducer=aggregate_chunks)
+def predict(messages: list[dict]):
+    stream = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        stream=True,
+    )
+    for chunk in stream:
+        yield chunk
+
+
+for chunk in predict([{"role": "user", "content": "Hello"}]):
+    print(chunk)
+```
+
+In the example above, the generated `predict` span will have a single chat completion message as the output, which is aggregated by the custom reducer function.
+
 
 ### Function Wrapping
 

@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {

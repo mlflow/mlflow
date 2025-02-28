@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import pydantic
 import pytest
 
 import mlflow
@@ -13,6 +14,7 @@ from mlflow.pyfunc.model import ChatAgent
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
+    CHAT_AGENT_INPUT_EXAMPLE,
     CHAT_AGENT_INPUT_SCHEMA,
     CHAT_AGENT_OUTPUT_SCHEMA,
     ChatAgentChunk,
@@ -59,6 +61,23 @@ class SimpleChatAgent(ChatAgent):
             mock_response = get_mock_response(messages, f"message {i}")
             mock_response["delta"] = mock_response["messages"][0]
             yield ChatAgentChunk(**mock_response)
+
+
+class SimpleBadChatAgent(ChatAgent):
+    @mlflow.trace
+    def predict(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
+        return ChatAgentResponse(messages=mock_response)
+
+    def predict_stream(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ):
+        for i in range(5):
+            mock_response = get_mock_response(messages, f"message {i}")
+            mock_response["delta"] = mock_response["messages"][0]
+            yield ChatAgentChunk(delta=mock_response)
 
 
 class SimpleDictChatAgent(ChatAgent):
@@ -137,10 +156,6 @@ def test_chat_agent_save_throws_with_signature(tmp_path):
                 inputs=Schema([ColSpec(name="test", type=DataType.string)]),
             ),
         )
-
-
-def mock_predict():
-    return "hello"
 
 
 @pytest.mark.parametrize(
@@ -355,6 +370,15 @@ def test_chat_agent_predict_wrapper():
         chat_agent_request.custom_inputs,
     )
     assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+    no_context_dict_input_example = {**dict_input_example, "context": None}
+    no_context_pydantic_input_example = (
+        chat_agent_request.messages,
+        None,
+        chat_agent_request.custom_inputs,
+    )
+    assert model.predict(no_context_dict_input_example) == model.predict(
+        *no_context_pydantic_input_example
+    )
 
     model = SimpleChatAgent()
     assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
@@ -366,3 +390,25 @@ def test_chat_agent_predict_wrapper():
         model.predict({"malformed dict": "bad"})
     with pytest.raises(MlflowException, match="Invalid dictionary input for a ChatAgent"):
         model.predict_stream({"malformed dict": "bad"})
+
+    model = SimpleBadChatAgent()
+    with pytest.raises(pydantic.ValidationError, match="validation error for ChatAgentResponse"):
+        model.predict(dict_input_example)
+    with pytest.raises(pydantic.ValidationError, match="validation error for ChatAgentChunk"):
+        list(model.predict_stream(dict_input_example))
+
+
+def test_chat_agent_predict_with_params(tmp_path):
+    # test to codify having params in the signature
+    # needed because `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
+    model = SimpleChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert isinstance(loaded_model._model_impl, _ChatAgentPyfuncWrapper)
+    response = loaded_model.predict(CHAT_AGENT_INPUT_EXAMPLE, params=None)
+    assert response["messages"][0]["content"] == "Hello!"
+
+    responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
+    for i, resp in enumerate(responses[:-1]):
+        assert resp["delta"]["content"] == f"message {i}"

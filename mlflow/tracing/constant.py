@@ -8,7 +8,6 @@ class TraceMetadataKey:
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "eval.requestId"
-    TRACE_SPANS = "mlflow.traceSpans"
 
 
 # A set of reserved attribute keys
@@ -46,3 +45,7 @@ TRACE_SCHEMA_VERSION = 2
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
+
+
+STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"
+STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"

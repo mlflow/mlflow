@@ -7,6 +7,7 @@ import signal
 import subprocess
 import uuid
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import numpy as np
@@ -55,6 +56,7 @@ from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
+from mlflow.utils.autologging_utils import get_autologging_config
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -239,9 +241,9 @@ def get_linear_regressor_model_uri():
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(reg, "reg_model")
-        return get_artifact_uri(run.info.run_id, "reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(reg, "reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -254,9 +256,9 @@ def get_spark_linear_regressor_model_uri():
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
 
-    with mlflow.start_run() as run:
-        mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        return get_artifact_uri(run.info.run_id, "spark_reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -269,9 +271,9 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -284,9 +286,9 @@ def get_binary_logistic_regressor_model_uri():
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "bin_clf_model")
-        return get_artifact_uri(run.info.run_id, "bin_clf_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "bin_clf_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -299,9 +301,9 @@ def get_svm_model_url():
     clf = sklearn.svm.LinearSVC()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "svm_model")
-        return get_artifact_uri(run.info.run_id, "svm_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "svm_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -386,6 +388,101 @@ def test_pyfunc_evaluate_logs_traces():
     assert len(get_traces()) == 1
     assert len(get_traces()[0].data.spans) == 2
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
+# Patching for counting calls but not actually mocking out the function
+@mock.patch(
+    "mlflow.models.evaluation.utils.trace._kwargs_safe_invoke",
+    wraps=mlflow.models.evaluation.utils.trace._kwargs_safe_invoke,
+)
+def test_evaluate_auto_enables_tracing(mock_autolog_invoke):
+    def _predict(inputs):
+        # OpenAI trace should NOT be enabled before importing OpenAI
+        assert not get_autologging_config("openai", "log_traces", False)
+        mock_autolog_invoke.assert_not_called()
+
+        # Importing OpenAI here to trigger auto-enabling of tracing
+        import openai  # noqa: F401
+
+        # OpenAI trace should be enabled here
+        assert get_autologging_config("openai", "log_traces")
+        mock_autolog_invoke.assert_called_once_with(mock.ANY, {"log_traces": True, "silent": True})
+        mock_autolog_invoke.reset_mock()
+
+        # Non-OpenAI trace should NOT be enabled here
+        assert not get_autologging_config("anthropic", "log_traces")
+
+        # Importing non-tracing flavor should be disabled
+        import sklearn  # noqa: F401
+
+        assert get_autologging_config("sklearn", "disable")
+        mock_autolog_invoke.assert_not_called()
+
+        return inputs
+
+    eval_data = pd.DataFrame({"inputs": [1], "ground_truth": [1]})
+
+    result = evaluate(
+        _predict,
+        eval_data,
+        targets="ground_truth",
+        extra_metrics=[mlflow.metrics.exact_match()],
+    )
+    assert result.metrics["exact_match/v1"] == 1.0
+
+    # OpenAI trace should be disabled after the evaluation
+    assert not get_autologging_config("openai", "log_traces")
+    # Disable should be reset to None
+    assert not get_autologging_config("sklearn", "disable")
+
+
+# Patching for counting calls but not actually mocking out the function
+@mock.patch(
+    "mlflow.models.evaluation.utils.trace._kwargs_safe_invoke",
+    wraps=mlflow.models.evaluation.utils.trace._kwargs_safe_invoke,
+)
+def test_evaluate_auto_enables_tracing_thread_safe(mock_autolog_invoke):
+    def _predict(inputs: pd.Series) -> pd.Series:
+        def _predict_single(x: int) -> int:
+            # Importing libraries within child thread
+            import openai  # noqa: F401
+            import sklearn  # noqa: F401
+
+            # OpenAI trace should be enabled
+            assert get_autologging_config("openai", "log_traces")
+            # Non-tracing flavor should be disabled
+            assert get_autologging_config("sklearn", "disable")
+
+            return x
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(_predict_single, x) for x in inputs["inputs"]]
+            predictions = [future.result() for future in futures]
+
+        return pd.Series(predictions)
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "ground_truth": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        }
+    )
+
+    result = evaluate(
+        _predict,
+        eval_data,
+        targets="ground_truth",
+        extra_metrics=[mlflow.metrics.exact_match()],
+    )
+    assert result.metrics["exact_match/v1"] == 1.0
+
+    # Autolog hook should only be called once (for OpenAI)
+    mock_autolog_invoke.assert_called_once_with(mock.ANY, {"log_traces": True, "silent": True})
+
+    # OpenAI trace should be disabled after the evaluation
+    assert not get_autologging_config("openai", "log_traces")
+    # Disable should be reset to None
+    assert not get_autologging_config("sklearn", "disable")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):

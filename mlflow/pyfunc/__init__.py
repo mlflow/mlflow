@@ -411,7 +411,6 @@ import tempfile
 import threading
 import uuid
 import warnings
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
@@ -435,6 +434,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
     _get_dependencies_schema_from_model,
@@ -535,9 +535,11 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, developer_stable, experimental
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     get_dbconnect_udf_sandbox_info,
     is_databricks_connect,
     is_in_databricks_runtime,
+    is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -793,17 +795,9 @@ class PyFuncModel:
     def input_example(self, value: Any) -> None:
         self._input_example = value
 
-    @contextmanager
-    def _try_get_or_generate_prediction_context(self):
-        # set context for prediction if it's not set
-        # NB: in model serving the prediction context must be set
-        # with a request_id
+    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
         context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
-            yield context
-
-    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
-        with self._try_get_or_generate_prediction_context() as context:
             if schema := _get_dependencies_schema_from_model(self._model_meta):
                 context.update(**schema)
             return self._predict(data, params)
@@ -864,10 +858,19 @@ class PyFuncModel:
     def predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
-        with self._try_get_or_generate_prediction_context() as context:
-            if schema := _get_dependencies_schema_from_model(self._model_meta):
-                context.update(**schema)
-            return self._predict_stream(data, params)
+        context = _try_get_prediction_context() or Context()
+
+        if schema := _get_dependencies_schema_from_model(self._model_meta):
+            context.update(**schema)
+
+        # NB: The prediction context must be applied during iterating over the stream,
+        # hence, simply wrapping the self._predict_stream call with the context manager
+        # is not sufficient.
+        def _gen_with_context(*args, **kwargs):
+            with set_prediction_context(context):
+                yield from self._predict_stream(*args, **kwargs)
+
+        return _gen_with_context(data, params)
 
     def _predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
@@ -1443,13 +1446,33 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _is_variant_type(spark_type):
+    try:
+        from pyspark.sql.types import VariantType
+
+        return isinstance(spark_type, VariantType)
+    except ImportError:
+        return False
+
+
 def _convert_spec_type_to_spark_type(spec_type):
     from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-    from mlflow.types.schema import Array, DataType, Map, Object
+    from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     if isinstance(spec_type, DataType):
         return spec_type.to_spark()
+
+    if isinstance(spec_type, AnyType):
+        try:
+            from pyspark.sql.types import VariantType
+
+            return VariantType()
+        except ImportError:
+            raise MlflowException.invalid_parameter_value(
+                "`AnyType` is not supported in PySpark versions older than 4.0.0. "
+                "Upgrade your PySpark version to use this feature.",
+            )
 
     if isinstance(spec_type, Array):
         return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
@@ -1573,6 +1596,8 @@ def _convert_array_values(values, result_type):
         return [_convert_array_values(v, result_type.elementType) for v in values]
     if isinstance(result_type.elementType, StructType):
         return [_convert_struct_values(v, result_type.elementType) for v in values]
+    if _is_variant_type(result_type.elementType):
+        return values
 
     raise MlflowException.invalid_parameter_value(
         "Unsupported array type field with element type "
@@ -1713,6 +1738,8 @@ def _convert_struct_values(
                     key: _convert_value_based_on_spark_type(value, field_type.valueType)
                     for key, value in field_values.items()
                 }
+        elif _is_variant_type(field_type):
+            return field_values
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported field type {field_type.simpleString()} in struct type.",
@@ -1745,6 +1772,8 @@ def _convert_value_based_on_spark_type(value, spark_type):
             key: _convert_value_based_on_spark_type(value[key], spark_type.valueType)
             for key in value
         }
+    if _is_variant_type(spark_type):
+        return value
     raise MlflowException.invalid_parameter_value(
         f"Unsupported type {spark_type} for value {value}"
     )
@@ -2158,9 +2187,10 @@ def spark_udf(
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     if prebuilt_env_uri:
-        if env_manager is not None:
+        if env_manager not in (None, _EnvManager.VIRTUALENV):
             raise MlflowException(
-                "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter can't be set."
+                "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter must "
+                "be either None or 'virtualenv'."
             )
         env_manager = _EnvManager.VIRTUALENV
     else:
@@ -2742,6 +2772,7 @@ def save_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
+    auth_policy: Optional[AuthPolicy] = None,
     **kwargs,
 ):
     """
@@ -2920,6 +2951,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -3218,6 +3250,9 @@ def save_model(
 
         mlflow_model.resources = serialized_resource
 
+    if auth_policy is not None:
+        mlflow_model.auth_policy = auth_policy
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path,
@@ -3286,6 +3321,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     prompts=None,
+    auth_policy: Optional[AuthPolicy] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3481,6 +3517,8 @@ def log_model(
                                     release without warning.
         prompts: {{ prompts }}
 
+        auth_policy: {{ auth_policy }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -3508,6 +3546,7 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        auth_policy=auth_policy,
     )
 
 
@@ -3581,12 +3620,18 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if is_in_databricks_serverless_runtime()
+                else None
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                extra_env_vars=extra_env_vars,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
