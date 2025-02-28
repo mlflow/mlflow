@@ -15,7 +15,7 @@ from tests.spark.autologging.utils import _get_or_create_spark_session
 # scoped fixtures.
 @pytest.fixture(scope="module")
 def monkeypatch_module():
-    with pytest.MonkeyPatch() as m:
+    with pytest.MonkeyPatch().context() as m:
         yield m
 
 
