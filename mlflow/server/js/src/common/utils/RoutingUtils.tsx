@@ -55,7 +55,6 @@ export {
   MemoryRouter,
   HashRouter,
   Link,
-  NavLink,
   useNavigate,
   useLocation,
   useParams,
@@ -68,11 +67,6 @@ export {
 
   // Unsafe navigation context, will be improved after full migration to react-router v6
   UNSAFE_NavigationContext,
-
-  // React Router V5 API exports
-  HashRouterV5,
-  LinkV5,
-  NavLinkV5,
 };
 
 export const createLazyRouteElement = (

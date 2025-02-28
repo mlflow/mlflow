@@ -127,7 +127,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "spacy"
         },
         "models": {
-            "minimum": "3.3.3",
+            "minimum": "3.4.4",
             "maximum": "3.8.3"
         }
     },
@@ -302,12 +302,12 @@ _ML_PACKAGE_VERSIONS = {
     },
     "gemini": {
         "package_info": {
-            "pip_release": "google-generativeai",
-            "module_name": "google.generativeai"
+            "pip_release": "google-genai",
+            "module_name": "google.genai"
         },
         "autologging": {
-            "minimum": "0.8.0",
-            "maximum": "0.8.3"
+            "minimum": "1.0.0",
+            "maximum": "1.0.0"
         }
     },
     "anthropic": {
@@ -381,7 +381,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.13.0",
-            "maximum": "0.15.0"
+            "maximum": "0.18.0"
         }
     },
     "bedrock": {
@@ -417,7 +417,7 @@ FLAVOR_TO_MODULE_NAME = {
     "langchain": "langchain",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
-    "gemini": "google.generativeai",
+    "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
     "mistral": "mistralai",

@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2.20.3 (2025-02-26)
+
+MLflow 2.20.3 is a patch release includes several major features and improvements
+
+Features:
+
+- Implemented GPU metrics for AMD/HIP GPUs (#12694, @evenmn)
+- Add txtai tracing integration (#14712, @B-Step62)
+- Support new Google GenAI SDK (#14576, @TomeHirata)
+- Support the new thinking content block in Anthropic Claude 3.7 models (#14733, @B-Step62)
+
+Bug fixes:
+
+- Resolve LangGraph tracing bug with `astream_event` API (#14598, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#14640, #14574, #14593, @serena-ruan; #14338, #14693, #14664, #14663, #14377, @B-Step62; #14680, @JulesLandrySimard; #14388, #14685, @harupy; #14704, @brilee; #14698, #14658, @bbqiu; #14660, #14659, #14632, #14616, #14594, @TomeHirata; #14535, @njbrake
+
+## 2.20.2 (2025-02-13)
+
+MLflow 2.20.2 is a patch release includes several bug fixes and features
+
+Features:
+
+- [Tracing] Support tracing sync/async generator function with @mlflow.trace (#14459, @B-Step62)
+- [Tracing] Support generating traces from DSPy built-in compilation and evaluation (#14400, @B-Step62)
+- [Models] ChatAgent interface enhancements and Langgraph connectors updates (#14368, #14567, @bbqiu)
+- [Models] VariantType support in spark_udf (#14317, @serena-ruan)
+
+Bug fixes:
+
+- [Models] DSPy thread issue fix (#14471, @chenmoneygithub)
+
+Documentation updates:
+
+- [Docs] ChatAgent documentation updates (#14367, @bbqiu)
+
+Small bug fixes and documentation updates:
+
+#14410, #14569, #14440, @harupy; #14510, #14544, #14491, #14488, @bbqiu; #14518, @serena-ruan; #14517, #14500, #14461, #14478, @TomeHirata; #14512, @shaikmoeed; #14496, #14473, #14475, @B-Step62; #14467, @seal07; #14022, #14453, #14539, @daniellok-db; #14450, @BenWilson2; #14449, @SaiMadhavanG
+
 ## 2.20.1 (2025-01-30)
 
 MLflow 2.20.1 is a patch release includes several bug fixes and features:
@@ -230,7 +272,7 @@ Bug fixes:
 
 Documentation updates:
 
-- [Docs] Fixed typo in docs: endpoing -> endpoint (#13478, @JAMNESIA)
+- [Docs] Fixed typo in docs (#13478, @JAMNESIA)
 - [Docs] Improve CLI docs - attention about setting MLFLOW_TRACKING_URI (#13465, @BartoszLitwiniuk)
 - [Docs] Add documentation for infer_signature usage with GenAI flavors (#13407, @serena-ruan)
 
@@ -256,7 +298,7 @@ initially with support for callable GenAI evaluation metrics.
   inclusion of the interface type to the response structure to allow for greater integration compatibility.
   (#13191, #13180, #13143, @daniellok-db, #13102, #13071, @BenWilson2)
 
-- **Callable GenAI Evaluation Metrics** - As the intial step in a much broader expansion of the functionalities of `mlflow.evaluate` for
+- **Callable GenAI Evaluation Metrics** - As the initial step in a much broader expansion of the functionalities of `mlflow.evaluate` for
   GenAI use cases, we've converted the GenAI evaluation metrics to be callable. This allows you to use them directly in packages that support
   callable GenAI evaluation metrics, as well as making it simpler to debug individual responses when prototyping solutions. (#13144, @serena-ruan)
 
@@ -752,7 +794,7 @@ Bug fixes:
 - [Model Registry] Fix a registry configuration error that occurs within Databricks serverless clusters (#11719, @WeichenXu123)
 - [Model Registry] Delete registered model permissions when deleting the underlying models (#11601, @B-Step62)
 - [Model Registry] Disallow `%` in model names to prevent URL mangling within the UI (#11474, @daniellok-db)
-- [Models] Fix an issue where crtically important environment configurations were not being captured as langchain dependencies during model logging (#11679, @serena-ruan)
+- [Models] Fix an issue where critically important environment configurations were not being captured as langchain dependencies during model logging (#11679, @serena-ruan)
 - [Models] Patch the `LangChain` loading functions to handle uncorrectable pickle-related exceptions that are thrown when loading a model in certain versions (#11582, @B-Step62)
 - [Models] Fix a regression in the `sklearn` flavor to reintroduce support for custom prediction methods (#11577, @B-Step62)
 - [Models] Fix an inconsistent and unreliable implementation for batch support within the `langchain` flavor (#11485, @WeichenXu123)
@@ -2715,7 +2757,7 @@ MLflow 1.6.0 includes several new features, including a better runs table interf
 Features:
 
 - Adds a new runs table column view based on `ag-grid` which adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
-- Adds contour plot to the run comparsion page to better support parameter tuning (#2225, @harupy)
+- Adds contour plot to the run comparison page to better support parameter tuning (#2225, @harupy)
 - If you use EarlyStopping with Keras autologging, MLflow now automatically captures the best model trained and the associated metrics (#2301, #2219, @juntai-zheng)
 - Adds autologging functionality for LightGBM and XGBoost flavors to log feature importance, metrics per iteration, the trained model, and more. (#2275, #2238, @harupy)
 - Adds an experimental mlflow.spark.autolog() API for automatic logging of Spark datasource information to the current active run. (#2220, @smurching)
@@ -3157,7 +3199,7 @@ Features:
 - [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
 - [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#765, #762, #745, @smurching)
 - [UI] Significant performance improvements for rendering run metrics, tags, and parameter information (#764, #747, @smurching)
-- [UI] Scatter plots, including run comparsion plots, are now interactive (#737, @mateiz)
+- [UI] Scatter plots, including run comparison plots, are now interactive (#737, @mateiz)
 - [UI] Extended CSRF support by allowing the MLflow UI server to specify a set of expected headers that clients should set when making AJAX requests (#733, @aarondav)
 
 Bug fixes and documentation updates:
@@ -3295,7 +3337,7 @@ Features:
 - [UI] Added icons to source names in MLflow Experiments UI (#381, @andrewmchen)
 - [UI] Added support to view `.log` and `.tsv` files from MLflow artifacts UI (#393, @Shenggan; #433, @whiletruelearn)
 - [UI] Run names can now be edited from within the MLflow UI (#382, @smurching)
-- [Serving] Added `--host` option to `mlflow serve` to allow listening on non-local addressess (#401, @hamroune)
+- [Serving] Added `--host` option to `mlflow serve` to allow listening on non-local addresses (#401, @hamroune)
 - [Serving/SageMaker] SageMaker serving takes an AWS region argument (#366, @dbczumar)
 - [Python] Added environment variables to support providing HTTP auth (username, password, token) when talking to a remote MLflow tracking server (#402, @aarondav)
 - [Python] Added support to override S3 endpoint for S3 artifactory (#451, @hamroune)
@@ -3374,7 +3416,7 @@ Bug fixes:
 - Fix numpy array serialization for int64 and other related types, allowing pyfunc to return such results (#240, @arinto)
 - Fix DBFS artifactory calling `log_artifacts` with binary data (#295, @aarondav)
 - Fix Run Command shown in UI to reproduce a run when the original run is targeted at a subdirectory of a Git repo (#294, @adrian555)
-- Filter out ubiquitious dtype/ufunc warning messages (#317, @aarondav)
+- Filter out ubiquitous dtype/ufunc warning messages (#317, @aarondav)
 - Minor bug fixes and documentation updates (#261, @stbof; #279, @dmatrix; #313, @rbang1, #320, @yassineAlouini; #321, @tomasatdatabricks; #266, #282, #289, @smurching; #267, #265, @aarondav; #256, #290, @ToonKBC; #273, #263, @mateiz; #272, #319, @adrian555; #277, @aadamson; #283, #296, @andrewmchen)
 
 ## 0.4.2 (2018-08-07)

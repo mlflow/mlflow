@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { useBrowserKeyShortcutListener } from './useBrowserKeyShortcutListener';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 describe('useBrowserKeyShortcutListener', () => {
   const callback = jest.fn();

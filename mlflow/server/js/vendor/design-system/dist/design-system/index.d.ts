@@ -48,6 +48,7 @@ export * from './SegmentedControl';
 export * from './Select';
 export * from './Sidebar';
 export * from './Skeleton';
+export * from './Slider';
 export * from './Space';
 export * from './Spacer';
 export * from './Spinner';

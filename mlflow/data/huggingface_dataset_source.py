@@ -24,7 +24,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         """Create a `HuggingFaceDatasetSource` instance.
 
         Arguments in `__init__` match arguments of the same name in
-        [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
+        `datasets.load_dataset() <https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset>`_.
         The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
         we need to differentiate from `mlflow.data.Dataset` `name` attribute.
 

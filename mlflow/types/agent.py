@@ -18,12 +18,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import model_validator
-else:
-    from pydantic import root_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ChatAgentMessage(BaseModel):
@@ -34,7 +29,7 @@ class ChatAgentMessage(BaseModel):
         role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``,
             ``"assistant"``, ``"tool"``).
         content (str): The content of the message.
-            **Optional** Can be ``None`` if refusal or tool_calls are provided.
+            **Optional** Can be ``None`` if tool_calls is provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
         id (str): The ID of the message. **Optional** defaults to a random UUID
         tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
@@ -53,28 +48,39 @@ class ChatAgentMessage(BaseModel):
     # TODO make this a pydantic class with subtypes once we have more details on usage
     attachments: Optional[dict[str, str]] = None
 
-    if IS_PYDANTIC_V2_OR_NEWER:
-
-        @model_validator(mode="after")
-        def check_content_and_tool_calls(cls, chat_agent_msg):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
-            if not chat_agent_msg.content and not chat_agent_msg.tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return chat_agent_msg
-    else:
-
-        @root_validator
-        def check_content_and_tool_calls(cls, values):
-            """
-            Ensure at least one of 'content' or 'tool_calls' is set.
-            """
+    @model_validator(mode="after")
+    def check_content_and_tool_calls(cls, values):
+        """
+        Ensure at least one of 'content' or 'tool_calls' is set.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            content = values.content
+            tool_calls = values.tool_calls
+        else:
             content = values.get("content")
             tool_calls = values.get("tool_calls")
-            if not content and not tool_calls:
-                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-            return values
+
+        if not content and not tool_calls:
+            raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+        return values
+
+    @model_validator(mode="after")
+    def check_tool_messages(cls, values):
+        """
+        Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            name = values.name
+            role = values.role
+            tool_call_id = values.tool_call_id
+        else:
+            name = values.get("name")
+            role = values.get("role")
+            tool_call_id = values.get("tool_call_id")
+
+        if role == "tool" and (not name or not tool_call_id):
+            raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
+        return values
 
 
 class ChatContext(BaseModel):
@@ -90,26 +96,7 @@ class ChatContext(BaseModel):
     user_id: Optional[str] = None
 
 
-class ChatAgentParams(BaseModel):
-    """
-    Common parameters used for the ChatAgent interface.
-
-    Args:
-        context (:py:class:`ChatContext`): The context to be used in the chat endpoint. Includes
-            conversation_id and user_id. **Optional** defaults to ``None``
-        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. The dictionary values must be JSON-serializable.
-            **Optional** defaults to ``None``
-        stream (bool): Whether to stream back responses as they are generated.
-            **Optional**, defaults to ``False``
-    """
-
-    context: Optional[ChatContext] = None
-    custom_inputs: Optional[dict[str, Any]] = None
-    stream: Optional[bool] = False
-
-
-class ChatAgentRequest(ChatAgentParams):
+class ChatAgentRequest(BaseModel):
     """
     Format of a ChatAgent interface request.
 
@@ -125,11 +112,14 @@ class ChatAgentRequest(ChatAgentParams):
     """
 
     messages: list[ChatAgentMessage]
+    context: Optional[ChatContext] = None
+    custom_inputs: Optional[dict[str, Any]] = None
+    stream: Optional[bool] = False
 
 
 class ChatAgentResponse(BaseModel):
     """
-    Format of a ChatAgent interface response
+    Represents the response of a ChatAgent.
 
     Args:
         messages: A list of :py:class:`ChatAgentMessage` that are returned from the model.
@@ -150,10 +140,14 @@ class ChatAgentResponse(BaseModel):
 
 class ChatAgentChunk(BaseModel):
     """
-    Format of a ChatAgent interface streaming chunk
+    Represents a single chunk within the streaming response of a ChatAgent.
 
     Args:
-        delta: A :py:class:`ChatAgentMessage` that is streamed from the model.
+        delta: A :py:class:`ChatAgentMessage` representing a single chunk within the list of
+            messages comprising agent output. In particular, clients should assume the `content`
+            field within this `ChatAgentMessage` contains only part of the message content, and
+            aggregate message content by ID across chunks. More info can be found in the docstring
+            of :py:func:`ChatAgent.predict_stream <mlflow.pyfunc.ChatAgent.predict_stream>`.
         finish_reason (str): The reason why generation stopped. **Optional** defaults to ``None``
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
@@ -219,6 +213,5 @@ CHAT_AGENT_OUTPUT_SCHEMA = Schema(
 CHAT_AGENT_INPUT_EXAMPLE = {
     "messages": [
         {"role": "user", "content": "Hello!"},
-    ],
-    "stream": False,
+    ]
 }

@@ -1,4 +1,9 @@
 """
+
+.. warning::
+
+    MLflow Recipes is deprecated and will be removed in a future release.
+
 MLflow Recipes is a framework that enables you to quickly develop high-quality models and deploy
 them to production. Compared to ad-hoc ML workflows, MLflow Recipes offers several major benefits:
 

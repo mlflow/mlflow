@@ -3,6 +3,9 @@ import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 import { postProcessSidebar } from "./postProcessSidebar";
 
+// ensure baseUrl always ends in `/`
+const baseUrl = (process.env.DOCS_BASE_URL ?? "/").replace(/\/?$/, "/");
+
 const config: Config = {
   title: "MLflow",
   tagline: "MLflow Documentation",
@@ -13,7 +16,7 @@ const config: Config = {
 
   // when building for production, check this environment
   // variable to determine the correct base URL
-  baseUrl: process.env.DOCS_BASE_URL ?? "/",
+  baseUrl: baseUrl,
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -35,10 +38,13 @@ const config: Config = {
     locales: ["en"],
   },
 
-  // runllm
+  // NB: docusaurus does not automatically prepend the
+  // baseURL to relative paths in script srcs. please
+  // make sure to append this yourself.
   scripts: [
     {
-      src: "js/runllm.js",
+      // runllm
+      src: baseUrl + "js/runllm.js",
       defer: true,
     },
   ],
@@ -65,7 +71,7 @@ const config: Config = {
           containerId: process.env.GTM_ID || "GTM-TEST",
         },
         gtag: {
-          trackingID: process.env.GTM_ID || "GTM-TEST",
+          trackingID: [process.env.GTM_ID || "GTM-TEST", "AW-16857946923"],
           anonymizeIP: true,
         },
       } satisfies Preset.Options,
@@ -137,7 +143,7 @@ const config: Config = {
             },
             {
               label: "Blog",
-              to: "https://mlflow.org/releases",
+              to: "https://mlflow.org/blog",
             },
           ],
         },

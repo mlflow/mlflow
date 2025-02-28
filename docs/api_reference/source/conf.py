@@ -272,7 +272,7 @@ latex_documents = [
 
 # Mock torch & fastai imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "fastai"]
+autodoc_mock_imports = ["torch", "fastai", "langchain_core", "langgraph"]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -377,6 +377,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "mlflow.models.resources.Resource"),
     ("py:class", "mlflow.models.resources.ResourceType"),
+    ("py:class", "mlflow.models.auth_policy.AuthPolicy"),
     ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
@@ -425,6 +426,8 @@ nitpick_ignore = [
     ("py:class", "wav"),
     ("py:class", "mp3"),
     ("py:class", "uc_function"),
+    ("py:class", "langchain_core.runnables.base.Runnable"),
+    ("py:class", "langgraph.graph.state.CompiledStateGraph"),
     # for docstring of mlflow.models.update_model_requirements
     ("py:class", "add"),
     ("py:class", "remove"),
@@ -433,9 +436,8 @@ nitpick_ignore = [
     ("py:class", "ChatMessage"),
     ("py:class", "ChatTool"),
     # sphinx can't resolve alias import e.g. from xyz import abc as xyz_abc in type annotations
-    ("py:class", "EvaluationEntity"),
-    ("py:class", "mlflow.evaluation.assessment.Assessment"),
-    ("py:class", "mlflow.entities.assessment_source.AssessmentSource"),
+    ("py:class", "mlflow.entities.assessment.Expectation"),
+    ("py:class", "mlflow.entities.assessment.Feedback"),
 ]
 
 
