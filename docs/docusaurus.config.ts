@@ -5,7 +5,6 @@ import { postProcessSidebar } from "./postProcessSidebar";
 
 // ensure baseUrl always ends in `/`
 const baseUrl = (process.env.DOCS_BASE_URL ?? "/").replace(/\/?$/, "/");
-const url = "https://mlflow.org";
 
 const config: Config = {
   title: "MLflow",
@@ -13,7 +12,7 @@ const config: Config = {
   favicon: "images/favicon.ico",
 
   // Set the production url of your site here
-  url: url,
+  url: "https://mlflow.org",
 
   // when building for production, check this environment
   // variable to determine the correct base URL
