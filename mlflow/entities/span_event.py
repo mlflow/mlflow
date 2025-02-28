@@ -7,9 +7,9 @@ from datetime import datetime
 
 from opentelemetry.util.types import AttributeValue
 
-from mlflow.entities.assessment import set_pb_value
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.opentelemetry_pb2 import Span as ProtoSpan
+from mlflow.entities.assessment import set_pb_value
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 
 
 @dataclass
@@ -70,7 +70,8 @@ class SpanEvent(_MlflowObject):
             else None,
         }
 
-    def to_v3_proto(self):
+    def to_proto(self):
+        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
         proto = ProtoSpan.Event(
             name=self.name,
             time_unix_nano=self.timestamp,

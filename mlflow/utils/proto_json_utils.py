@@ -196,8 +196,6 @@ def parse_pb_value(proto: Value) -> Optional[Any]:
     return None
 
 
-
-
 class NumpyEncoder(JSONEncoder):
     """Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,

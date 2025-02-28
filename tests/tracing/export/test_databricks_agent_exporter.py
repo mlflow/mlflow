@@ -5,9 +5,8 @@ from unittest import mock
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
-from mlflow.protos.databricks_trace_server_pb2 import CreateTrace
 from mlflow.tracing.destination import TraceDestination
-from mlflow.utils.rest_utils import MlflowHostCreds
+
 
 @dataclass
 class DatabricksAgentMonitoring(TraceDestination):
@@ -26,11 +25,10 @@ class DatabricksAgentMonitoring(TraceDestination):
 def _predict(x: str) -> str:
     with mlflow.start_span(name="child") as child_span:
         child_span.set_inputs("dummy")
-        child_span.add_event(
-            SpanEvent(name="child_event", attributes={"attr1": "val1"})
-        )
+        child_span.add_event(SpanEvent(name="child_event", attributes={"attr1": "val1"}))
     mlflow.update_current_trace(tags={"foo": "bar"})
     return x + "!"
+
 
 @mock.patch("mlflow.deployments.get_deploy_client")
 def test_export_legacy(mock_get_deploy_client):
@@ -61,7 +59,9 @@ def test_export_v3(monkeypatch):
     response.status_code = 200
     response.text = "{}"
 
-    with mock.patch("mlflow.tracing.export.databricks_agent.http_request", return_value=response) as mock_http:
+    with mock.patch(
+        "mlflow.tracing.export.databricks_agent.http_request", return_value=response
+    ) as mock_http:
         _predict("hello")
 
     mock_http.assert_called_once()
@@ -115,7 +115,7 @@ def test_export_v3(monkeypatch):
                         "status": {
                             "code": "STATUS_CODE_OK",
                             "message": "",
-                        }
+                        },
                     },
                     {
                         "trace_id": trace_id_b64,
@@ -140,7 +140,7 @@ def test_export_v3(monkeypatch):
                         "status": {
                             "code": "STATUS_CODE_OK",
                             "message": "",
-                        }
+                        },
                     },
                 ]
             },

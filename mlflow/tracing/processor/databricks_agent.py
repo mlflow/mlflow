@@ -1,6 +1,5 @@
 import json
 import logging
-import uuid
 from typing import Optional
 
 from opentelemetry.context import Context
@@ -31,8 +30,11 @@ class DatabricksAgentSpanProcessor(SimpleSpanProcessor):
     TODO: This class will be migrated under databricks-agents package.
     """
 
-    def __init__(self, span_exporter: SpanExporter, experiment_id: Optional[str] = None,
-):
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+        experiment_id: Optional[str] = None,
+    ):
         self.span_exporter = span_exporter
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._experiment_id = experiment_id

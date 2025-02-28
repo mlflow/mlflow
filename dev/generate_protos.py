@@ -61,7 +61,6 @@ uc_proto_files = [
     "unity_catalog_oss_service.proto",
 ]
 tracing_proto_files = [
-    "opentelemetry.proto",
     "databricks_trace_server.proto",
 ]
 facet_proto_files = ["facet_feature_statistics.proto"]
@@ -92,10 +91,6 @@ python_gencode_replacements = [
     (
         "import service_pb2 as service__pb2",
         "from . import service_pb2 as service__pb2",
-    ),
-    (
-        "import opentelemetry_pb2 as opentelemetry__pb2",
-        "from . import opentelemetry_pb2 as opentelemetry__pb2",
     ),
 ]
 

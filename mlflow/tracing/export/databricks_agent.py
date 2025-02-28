@@ -5,24 +5,27 @@ from typing import Sequence
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX, extract_api_info_for_service, http_request
-
 from mlflow.deployments import get_deploy_client
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
-
 from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    extract_api_info_for_service,
+    http_request,
+)
 
 _logger = logging.getLogger(__name__)
 
 
-_METHOD_TO_INFO = extract_api_info_for_service(DatabricksTracingServerService, _REST_API_PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(
+    DatabricksTracingServerService, _REST_API_PATH_PREFIX
+)
+
 
 class DatabricksAgentSpanExporter(SpanExporter):
     """
@@ -36,14 +39,15 @@ class DatabricksAgentSpanExporter(SpanExporter):
 
     def __init__(self, trace_destination: TraceDestination):
         # TODO: Remove this once the new trace server is fully rolled out.
-        self._v3_write = os.environ.get("AGENT_EVAL_TRACE_SERVER_ENABLED", "false").lower() == "true"
+        self._v3_write = (
+            os.environ.get("AGENT_EVAL_TRACE_SERVER_ENABLED", "false").lower() == "true"
+        )
 
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._databricks_monitor_id = trace_destination.databricks_monitor_id
 
         if not self._v3_write:
             self._deploy_client = get_deploy_client("databricks")
-
 
     def export(self, root_spans: Sequence[ReadableSpan]):
         """
@@ -68,7 +72,6 @@ class DatabricksAgentSpanExporter(SpanExporter):
             else:
                 self._log_trace_legacy(trace)
 
-
     def _log_trace_legacy(self, trace: Trace):
         """
         Export via a serving endpoint that accepts trace JSON as an input payload,
@@ -79,13 +82,9 @@ class DatabricksAgentSpanExporter(SpanExporter):
             inputs={"inputs": [trace.to_json()]},
         )
 
-
     def _log_trace_v3(self, trace: Trace):
-        """
-        Create a new Trace record in the Databricks Agent Monitoring.
-        :param trace: Dictionary containing the trace data according to the Trace proto schema
-        """
-        request_json = message_to_json(CreateTrace(trace=trace.to_v3_proto()))
+        """Create a new Trace record in the Databricks Agent Monitoring."""
+        request_json = message_to_json(CreateTrace(trace=trace.to_proto()))
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
 
         http_request(

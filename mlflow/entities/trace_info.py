@@ -5,8 +5,8 @@ from typing import Optional
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.protos.databricks_trace_server_pb2 import TraceInfo as ProtoTraceInfoV3
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
-from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 from mlflow.protos.service_pb2 import TraceLocation as ProtoTraceLocation
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
@@ -105,11 +105,8 @@ class TraceInfo(_MlflowObject):
         trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
         return cls(**trace_info_dict)
 
-
     def to_v3_proto(self, request: Optional[str], response: Optional[str]):
-        """
-        """
-
+        """Convert into the V3 TraceInfo proto object."""
         proto = ProtoTraceInfoV3()
 
         proto.trace_id = self.request_id
@@ -123,7 +120,6 @@ class TraceInfo(_MlflowObject):
         proto.request_time.FromDatetime(datetime.fromtimestamp(self.timestamp_ms / 1000.0))
         if self.execution_time_ms is not None:
             proto.execution_duration.FromTimedelta(timedelta(milliseconds=self.execution_time_ms))
-
 
         if self.request_metadata:
             proto.trace_metadata.update(self.request_metadata)

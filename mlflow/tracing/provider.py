@@ -250,8 +250,7 @@ def _setup_tracer_provider(disabled=False):
 
             exporter = DatabricksAgentSpanExporter(_MLFLOW_TRACE_USER_DESTINATION)
             processor = DatabricksAgentSpanProcessor(
-                span_exporter=exporter,
-                experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
+                span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
 
     elif should_use_otlp_exporter():
