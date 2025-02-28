@@ -181,7 +181,7 @@ def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
     return mlflow.spark.load_model(f"runs:/{run_id}/{model_dir}")
 
 
-def test_logged_model_predict(model_uri):
+def validate_logged_model_predict(model_uri):
     mlflow_model = Model.load(model_uri)
     input_example = mlflow_model.load_input_example()
     pyfunc_model = mlflow.pyfunc.load_model(model_uri)
@@ -1042,7 +1042,7 @@ def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
+        validate_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
@@ -1067,7 +1067,7 @@ def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
+        validate_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
@@ -1143,7 +1143,7 @@ def test_input_example_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        test_logged_model_predict(f"runs:/{run.info.run_id}/model")
+        validate_logged_model_predict(f"runs:/{run.info.run_id}/model")
 
 
 def test_signature_with_index_to_string_stage(
