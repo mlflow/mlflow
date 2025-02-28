@@ -19,9 +19,15 @@ def monkeypatch_module():
         yield m
 
 
+@pytest.fixture(autouse=True, scope="module")
+def disable_pyspark_pin_thread(monkeypatch_module: pytest.MonkeyPatch):
+    # PYSPARK_PIN_THREAD is set to true by default since Pyspark 3.2.0, which causes
+    # issues with Py4J callbacks, so we ask users to set it to false.
+    monkeypatch_module.setenv("PYSPARK_PIN_THREAD", "false")
+
+
 @pytest.fixture(scope="module")
 def spark_session(monkeypatch_module):
-    monkeypatch_module.setenv("PYSPARK_PIN_THREAD", "false")
     with _get_or_create_spark_session() as session:
         yield session
 
