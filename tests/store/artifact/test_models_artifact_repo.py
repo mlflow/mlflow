@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -27,6 +28,7 @@ from tests.store.artifact.constants import (
         ("models:/123", True),
         ("models:/name/1", False),
         ("/path/to/model", False),
+        (Path("path/to/model"), False),
         ("s3://bucket/path/to/model", False),
     ],
 )
