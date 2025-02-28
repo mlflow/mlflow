@@ -723,7 +723,7 @@ class Model:
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        is_model_dir = path.endswith(MLMODEL_FILE_NAME)
+        is_model_dir = not path.endswith(MLMODEL_FILE_NAME)
         mlmodel_file_path = path.rstrip("/") + f"/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
@@ -739,7 +739,7 @@ class Model:
         except Exception:
             env_var_path = None
         env_vars = None
-        if os.path.exists(env_var_path):
+        if env_var_path is not None:
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()
             env_vars = [line for line in lines if line and not line.startswith("#")]
