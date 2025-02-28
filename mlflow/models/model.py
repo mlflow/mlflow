@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import posixpath
 import shutil
 import uuid
 import warnings
@@ -715,7 +716,7 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
         # Check if the path is a local directory and not remote
-        path = str(path)
+        path = str(path).rstrip("/")
         path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
@@ -724,14 +725,14 @@ class Model:
             )
 
         is_model_dir = not path.endswith(MLMODEL_FILE_NAME)
-        mlmodel_file_path = path.rstrip("/") + f"/{MLMODEL_FILE_NAME}" if is_model_dir else path
+        mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
-            model_dict = yaml.safe_load(f.read())
+            model_dict = yaml.safe_load(f)
         env_var_path = (
-            path.rstrip("/") + f"/{ENV_VAR_FILE_NAME}"
+            f"{path}/{ENV_VAR_FILE_NAME}"
             if is_model_dir
-            else os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
+            else posixpath.join(posixpath.dirname(path), ENV_VAR_FILE_NAME)
         )
 
         try:
