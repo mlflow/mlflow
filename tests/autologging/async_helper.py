@@ -36,7 +36,7 @@ def asyncify(is_async):
     return decorator
 
 
-def run_sync_or_sync(fn, *args, **kwargs):
+def run_sync_or_async(fn, *args, **kwargs):
     """Convenience function that runs a function synchronously regardless of whether it is async."""
     if inspect.iscoroutinefunction(fn):
         return asyncio.run(fn(*args, **kwargs))

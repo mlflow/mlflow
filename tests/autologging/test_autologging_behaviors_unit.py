@@ -13,7 +13,7 @@ import mlflow
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.logging_utils import eprint
 
-from tests.autologging.async_helper import asyncify, run_sync_or_sync
+from tests.autologging.async_helper import asyncify, run_sync_or_async
 from tests.autologging.fixtures import (
     patch_destination,
     reset_stderr,  # noqa: F401
@@ -271,8 +271,8 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         autolog1(silent=True)
         autolog2(silent=False)
 
-        run_sync_or_sync(patch_destination.fn)
-        run_sync_or_sync(patch_destination.fn2)
+        run_sync_or_async(patch_destination.fn)
+        run_sync_or_async(patch_destination.fn2)
 
     warning_messages = [str(w.message) for w in warnings_record]
     assert warning_messages == ["warn_autolog2"]
