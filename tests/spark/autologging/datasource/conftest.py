@@ -10,27 +10,18 @@ from mlflow.spark.autologging import clear_table_infos
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 
-# Session-scoped version of pytest monkeypatch fixture. Original monkeypatch in pytest
+# Module-scoped version of pytest monkeypatch fixture. Original monkeypatch in pytest
 # is function-scoped, thus we need a larger scoped one to use that in module/session
 # scoped fixtures.
 @pytest.fixture(scope="session")
-def monkeypatch_session(request):
-    mpatch = pytest.MonkeyPatch()
-    yield mpatch
-    mpatch.undo()
-
-
-@pytest.fixture(autouse=True, scope="session")
-def disable_pyspark_pin_thread(monkeypatch_session):
-    # PYSPARK_PIN_THREAD is set to true by default since Pyspark 3.2.0, which causes
-    # issues with Py4J callbacks, so we ask users to set it to false.
-    # We have to set this before creating the SparkSession, hence setting it session
-    # -scoped, which is applied before module-scoped spark_session fixture
-    monkeypatch_session.setenv("PYSPARK_PIN_THREAD", "false")
+def monkeypatch_module(request):
+    with pytest.MonkeyPatch() as m:
+        yield m
 
 
 @pytest.fixture(scope="module")
-def spark_session():
+def spark_session(monkeypatch_module):
+    monkeypatch_module.setenv("PYSPARK_PIN_THREAD", "false")
     with _get_or_create_spark_session() as session:
         yield session
 
