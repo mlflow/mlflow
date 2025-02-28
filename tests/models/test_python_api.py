@@ -363,7 +363,7 @@ def test_predict_use_current_experiment():
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
-        env_manager="uv",
+        env_manager=VIRTUALENV,
     )
     traces = client.search_traces(experiment_ids=[exp_id])
     assert len(traces) == 1
