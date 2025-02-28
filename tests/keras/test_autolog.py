@@ -1,14 +1,12 @@
 import json
 import math
-import os
 
 import keras
 import numpy as np
 import pytest
-import yaml
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow.models import Model
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
@@ -35,25 +33,6 @@ def _create_keras_model():
         metrics=[keras.metrics.SparseCategoricalAccuracy()],
     )
     return model
-
-
-def _check_logged_model_signature_is_expected(run, input_schema, output_schema):
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
-    ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
-    with open(ml_model_path) as f:
-        model_config = yaml.load(f, Loader=yaml.FullLoader)
-        assert model_config is not None
-        assert "signature" in model_config
-        signature = model_config["signature"]
-        assert signature is not None
-        assert "inputs" in signature
-        assert "outputs" in signature
-        assert signature["inputs"] == input_schema.to_json()
-        assert signature["outputs"] == output_schema.to_json()
 
 
 def test_default_autolog_behavior():
@@ -102,8 +81,8 @@ def test_default_autolog_behavior():
 
     # Test the loaded pyfunc model produces the same output for the same input as the model.
     test_input = np.random.uniform(size=[2, 28, 28, 3]).astype(np.float32)
-    logged_model = f"runs:/{run.info.run_id}/model"
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    model_uri = f"runs:/{run.info.run_id}/model"
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri)
     np.testing.assert_allclose(
         keras.ops.convert_to_numpy(model(test_input)),
         loaded_pyfunc_model.predict(test_input),
@@ -112,7 +91,9 @@ def test_default_autolog_behavior():
     # Test the signature is logged.
     input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3))])
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 2))])
-    _check_logged_model_signature_is_expected(run, input_schema, output_schema)
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature.inputs == input_schema
+    assert mlflow_model.signature.outputs == output_schema
 
 
 @pytest.mark.parametrize(
