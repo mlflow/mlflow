@@ -55,7 +55,7 @@ _PYTHON_FILES = {
 }
 
 _PYPROJECT_TOML_FILES = {
-    "pyproject.skinny.toml": {
+    "skinny/pyproject.toml": {
         10: 'version = "{new_version}"',
     },
     "pyproject.toml": {
