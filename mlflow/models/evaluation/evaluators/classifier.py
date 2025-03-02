@@ -218,6 +218,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         log_roc_pr_curve = False
         if self.y_probs is not None:
+            with _suppress_class_imbalance_errors(TypeError, log_warning=False):
+                self._log_calibration_curve()
+
             max_classes_for_multiclass_roc_pr = self.evaluator_config.get(
                 "max_classes_for_multiclass_roc_pr", 10
             )
@@ -285,6 +288,22 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
         self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
+    def _log_calibration_curve(self):
+        from mlflow.models.evaluation.calibration_curve import plot_calibration_curve
+
+        def _plot_calibration_curve():
+            return plot_calibration_curve(
+                y_true=self.y_true,
+                y_probs=self.y_probs,
+                pos_label=self.pos_label,
+                calibration_config={
+                    k: v for k, v in self.evaluator_config.items() if k.startswith("calibration_")
+                },
+                label_list=self.label_list,
+            )
+
+        self._log_image_artifact(_plot_calibration_curve, "calibration_curve_plot")
+
     def _log_binary_classifier_artifacts(self):
         if self.y_probs is not None:
             with _suppress_class_imbalance_errors(log_warning=False):
@@ -293,6 +312,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self._log_precision_recall_curve()
             with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self._log_lift_curve()
+            with _suppress_class_imbalance_errors(TypeError, log_warning=False):
+                self._log_calibration_curve()
 
     def _log_confusion_matrix(self):
         """
