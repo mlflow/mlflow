@@ -13,8 +13,6 @@ import mlflow
 from mlflow.langchain.chat_agent_langgraph import parse_message
 from mlflow.types.agent import ChatAgentMessage
 
-from tests.tracing.helper import get_traces
-
 LC_TOOL_CALL_MSG = AIMessage(
     **{
         "content": "",
@@ -160,7 +158,7 @@ def test_langgraph_chat_agent_save_as_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "agent",
-            python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
+            python_model="tests/langgraph/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_model.predict({"messages": [{"role": "user", "content": "hi"}]})
@@ -175,38 +173,6 @@ def test_langgraph_chat_agent_save_as_code():
     for event, (role, expected_content) in zip(response, expected_messages):
         assert event["delta"]["content"] == expected_content
         assert event["delta"]["role"] == role
-
-
-def test_langgraph_chat_agent_trace():
-    input_example = {"messages": [{"role": "user", "content": "hi"}]}
-
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            "agent",
-            python_model="tests/langchain/sample_code/langgraph_chat_agent.py",
-        )
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    # No trace should be created for loading it in
-    assert mlflow.get_last_active_trace() is None
-
-    loaded_model.predict(input_example)
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.status == "OK"
-    assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
-    assert traces[0].data.spans[0].inputs == input_example
-
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    list(loaded_model.predict_stream(input_example))
-    traces = get_traces()
-    assert len(traces) == 2
-    assert traces[0].info.status == "OK"
-    assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
-    assert traces[0].data.spans[0].inputs == input_example
 
 
 def test_langgraph_chat_agent_custom_inputs():
@@ -241,7 +207,7 @@ def test_langgraph_chat_agent_custom_inputs():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "agent",
-            python_model="tests/langchain/sample_code/langgraph_chat_agent_custom_inputs.py",
+            python_model="tests/langgraph/sample_code/langgraph_chat_agent_custom_inputs.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_model.predict(

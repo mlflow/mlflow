@@ -277,6 +277,19 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.3.14"
         }
     },
+    "langgraph": {
+        "package_info": {
+            "pip_release": "langgraph"
+        },
+        "models": {
+            "minimum": "0.1.0",
+            "maximum": "0.3.2"
+        },
+        "autologging": {
+            "minimum": "0.1.0",
+            "maximum": "0.3.2"
+        }
+    },
     "llama_index": {
         "package_info": {
             "pip_release": "llama-index",
@@ -415,6 +428,7 @@ FLAVOR_TO_MODULE_NAME = {
     "openai": "openai",
     "dspy": "dspy",
     "langchain": "langchain",
+    "langgraph": "langgraph",
     "llama_index": "llama_index.core",
     "autogen": "autogen",
     "gemini": "google.genai",
