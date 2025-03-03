@@ -95,10 +95,30 @@ Failed to find a documentation preview for {args.commit_sha}.
         return
 
     # Get the artifact URL of the top level index.html
-    job = circle_session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
-    job_url = job["web_url"]
-    workflow_id = job["latest_workflow"]["id"]
-    workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+    for _ in range(5):
+        try:
+            # Despite using a valid CircleCI token, the request occasionally fails with a 403 error.
+            job = circle_session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
+            job_url = job["web_url"]
+            workflow_id = job["latest_workflow"]["id"]
+            workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+        except requests.HTTPError as e:
+            print(
+                f"Failed to get CircleCI job info: {e.response.status_code, e.response.text}, "
+                f"retrying..."
+            )
+            time.sleep(1)
+    else:
+        upsert_comment(
+            (
+                f"Failed to find a documentation preview for {args.commit_sha}. "
+                f"See {workflow_run_link} for what went wrong."
+            ),
+            repo,
+            args.pull_number,
+            comment_body,
+        )
+
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
     top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/index.html"
