@@ -771,7 +771,7 @@ langgraph:
       pip install git+https://github.com/langchain-ai/langgraph
 
   models:
-    minimum: "0.1.0"
+    minimum: "0.1.1"
     maximum: "0.3.2"
     requirements:
       ">= 0.3.0": ["langgraph-prebuilt"]
@@ -779,7 +779,7 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.1.0"
+    minimum: "0.1.1"
     maximum: "0.3.2"
     requirements:
       ">= 0.3.0": ["langgraph-prebuilt"]
