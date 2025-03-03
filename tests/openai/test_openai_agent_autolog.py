@@ -33,6 +33,7 @@ def mock_openai(oai_client, expected_responses):
         yield
 
 
+@pytest.fixture
 def client(monkeypatch, mock_openai):
     monkeypatch.setenvs(
         {
@@ -43,7 +44,7 @@ def client(monkeypatch, mock_openai):
     return openai.OpenAI(api_key="test", base_url=mock_openai)
 
 
-def test_autolog_swarm_agent():
+def test_autolog_swarm_agent(client):
     mlflow.openai.autolog()
 
     # NB: We have to mock the OpenAI SDK responses to make agent works
@@ -95,7 +96,7 @@ def test_autolog_swarm_agent():
     assert spans[5].parent_id == spans[4].span_id
 
 
-def test_autolog_swarm_agent_with_context_variables():
+def test_autolog_swarm_agent_with_context_variables(client):
     mlflow.openai.autolog()
 
     DUMMY_RESPONSES = [
@@ -160,7 +161,7 @@ def test_autolog_swarm_agent_with_context_variables():
     assert spans[5].parent_id == spans[4].span_id
 
 
-def test_autolog_swarm_agent_tool_exception():
+def test_autolog_swarm_agent_tool_exception(client):
     mlflow.openai.autolog()
 
     DUMMY_RESPONSES = [_get_chat_completion(tool_call="always_fail")]
@@ -189,7 +190,7 @@ def test_autolog_swarm_agent_tool_exception():
     assert spans[3].events[0].name == "exception"
 
 
-def test_autolog_swarm_agent_completion_exception():
+def test_autolog_swarm_agent_completion_exception(client):
     mlflow.openai.autolog()
 
     swarm = Swarm(client=client)

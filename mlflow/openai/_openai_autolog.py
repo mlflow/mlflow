@@ -154,7 +154,7 @@ def patched_call(original, self, *args, **kwargs):
     except Exception as e:
         if config.log_traces:
             _end_span_on_exception(mlflow_client, span, e)
-        raise e
+        raise
 
     if config.log_traces:
         _end_span_on_success(mlflow_client, span, kwargs, raw_result)
@@ -191,7 +191,7 @@ async def async_patched_call(original, self, *args, **kwargs):
     except Exception as e:
         if config.log_traces:
             _end_span_on_exception(mlflow_client, span, e)
-        raise e
+        raise
 
     if config.log_traces:
         _end_span_on_success(mlflow_client, span, kwargs, raw_result)
@@ -352,7 +352,8 @@ def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Excep
         _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
 
 
-def _process_chunk(span: LiveSpan, i: int, chunk: Any) -> str:
+def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
+    """Parse the chunk and log it as a span event in the trace."""
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
     from openai.types.completion import Completion
 
@@ -364,10 +365,9 @@ def _process_chunk(span: LiveSpan, i: int, chunk: Any) -> str:
     else:
         parsed = ""
 
-    # Record the raw chunks as events
     span.add_event(
         SpanEvent(
-            name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=i),
+            name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=index),
             # OpenTelemetry SpanEvent only support str-str key-value pairs for attributes
             attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
         )
