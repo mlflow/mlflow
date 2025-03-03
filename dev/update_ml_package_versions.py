@@ -185,7 +185,7 @@ def update_ml_package_versions_py(config_path):
         # We have "langgraph" entry in ml-package-versions.yml so that we can run test
         # against multiple versions of langgraph. However, we don't have a flavor for
         # langgraph and it is a part of the langchain flavor.
-        flavor_module_mapping.pop("langgraph")
+        flavor_module_mapping.pop("langgraph", None)
 
         this_file = Path(__file__).name
         dst = Path("mlflow", "ml_package_versions.py")
