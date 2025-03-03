@@ -1,16 +1,5 @@
 import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
-
-function apiReferencePrefix(): string {
-  let prefix = process.env.API_REFERENCE_PREFIX ||'https://mlflow.org/docs/latest/';
-  if (!prefix.startsWith('http')) {
-    throw new Error(`API reference prefix must start with http, got ${prefix}`);
-  }
-
-  if (!prefix.endsWith('/')) {
-    prefix += '/';
-  }
-  return prefix;
-}
+import { apiReferencePrefix } from "./docusaurusConfigUtils";
 
 /**
  * Creating a sidebar enables you to:
