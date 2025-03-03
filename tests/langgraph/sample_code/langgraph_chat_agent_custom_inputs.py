@@ -100,9 +100,10 @@ def create_tool_calling_agent(
         return {"messages": [response]}
 
     def add_custom_outputs(state: ChatAgentState):
+        custom_outputs = (state.get("custom_outputs") or {}) | (state.get("custom_inputs") or {})
         return {
             "messages": [{"role": "assistant", "content": "adding custom outputs"}],
-            "custom_outputs": state.get("custom_outputs", {}) | state.get("custom_inputs", {}),
+            "custom_outputs": custom_outputs,
         }
 
     workflow = StateGraph(ChatAgentState)

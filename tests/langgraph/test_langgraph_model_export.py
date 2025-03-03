@@ -1,6 +1,7 @@
 import json
 
 import mlflow
+from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
 
 
 def test_langgraph_save_as_code():
@@ -48,3 +49,31 @@ def test_langgraph_save_as_code():
     response = loaded_pyfunc.predict_stream(input_example)
     for chunk, (role, expected_content) in zip(response, expected_messages[1:]):
         assert chunk[role]["messages"][0]["content"] == expected_content
+
+
+def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
+    input_example = {"messages": [{"role": "user", "content": "What's the weather in nyc?"}]}
+    params = {"config": {"configurable": {"thread_id": "1"}}}
+
+    monkeypatch.setenv("MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", "false")
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            "tests/langgraph/sample_code/langgraph_prebuilt.py",
+            "model",
+            input_example=(input_example, params),
+        )
+    assert model_info.signature.params == ParamSchema(
+        [
+            ParamSpec(
+                "config",
+                Object([Property("configurable", Object([Property("thread_id", "string")]))]),
+                params["config"],
+            )
+        ]
+    )
+    langchain_model = mlflow.langchain.load_model(model_info.model_uri)
+    result = langchain_model.invoke(input_example, **params)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert len(pyfunc_model.predict(input_example, params)[0]["messages"]) == len(
+        result["messages"]
+    )
