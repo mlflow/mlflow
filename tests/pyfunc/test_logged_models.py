@@ -21,6 +21,7 @@ def test_model_id_tracking():
     model.predict([4, 5, 6])
 
     trace = mlflow.get_last_active_trace()
+    assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
 
 
@@ -30,4 +31,5 @@ def test_model_id_tracking_evaluate():
 
     mlflow.evaluate(model=info.model_uri, data=[[1, 2, 3]], model_type="regressor", targets=[1])
     trace = mlflow.get_last_active_trace()
+    assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
