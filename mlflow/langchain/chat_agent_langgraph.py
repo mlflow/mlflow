@@ -6,10 +6,11 @@ from typing import Annotated, Any, Optional, TypedDict
 from packaging.version import Version
 
 try:
-    import langgraph  # noqa: F401
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
     from langchain_core.runnables import RunnableConfig
     from langchain_core.runnables.utils import Input
+
+    LANGGRAPH_VERSION = Version(importlib.metadata.version("langgraph"))
 except ImportError as e:
     raise ImportError(
         "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use MLflow "
@@ -17,12 +18,13 @@ except ImportError as e:
     ) from e
 
 
-if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
+if LANGGRAPH_VERSION >= Version("0.3.0"):
     try:
         from langgraph.prebuilt import ToolNode
+
     except ImportError as e:
         raise ImportError(
-            "Please install `langgraph-prebuilt>=0.3.0` to use MLflow "
+            "Please install `langgraph-prebuilt>=0.1.1` to use MLflow "
             "ChatAgent helpers for LangGraph."
         ) from e
 else:
