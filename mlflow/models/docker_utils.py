@@ -44,7 +44,6 @@ WORKDIR /opt/mlflow
 
 ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
 ENV ENABLE_MLSERVER={enable_mlserver}
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints

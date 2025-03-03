@@ -184,7 +184,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
+    image_name, host_port, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -195,8 +195,6 @@ def pyfunc_serve_from_docker_image_with_env_override(
     scoring_cmd = [
         "docker",
         "run",
-        "-e",
-        f"GUNICORN_CMD_ARGS={gunicorn_opts}",
         "-p",
         f"{host_port}:8080",
         *(extra_docker_run_options or []),
