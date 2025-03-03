@@ -824,6 +824,9 @@ class PyFuncModel:
         with set_prediction_context(context):
             if schema := _get_dependencies_schema_from_model(self._model_meta):
                 context.update(**schema)
+
+            if self.model_id:
+                context.update(model_id=self.model_id)
             return self._predict(data, params)
 
     def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
@@ -886,6 +889,9 @@ class PyFuncModel:
 
         if schema := _get_dependencies_schema_from_model(self._model_meta):
             context.update(**schema)
+
+        if self.model_id:
+            context.update(model_id=self.model_id)
 
         # NB: The prediction context must be applied during iterating over the stream,
         # hence, simply wrapping the self._predict_stream call with the context manager
