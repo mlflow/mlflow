@@ -1,0 +1,354 @@
+---
+sidebar_position: 2
+sidebar_label: Prompt Registry
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# MLflow Prompt Registry
+
+
+TODO: Add a nice video
+
+**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
+
+- **Reusability** - Store and manage prompts in a centralized registry and reuse them across multiple applications.
+- **Version Control** - Track the evolution of your prompts with Git-inspired commit-based versioning and side-by-side comparison of prompt versions with diff highlighting.
+- **Aliasing** - Build robust yet flexible deployment pipelines for prompts using aliases, allowing you to isolate prompt versions from main application code and perform tasks such as A/B testing and roll-backs with ease.
+- **Lineage** - Seamlessly integrate with MLflow's existing features such as model tracking and evaluation for end-to-end GenAI lifecycle management.
+- **Collaboration** - Share prompts across your organization with a centralized registry, enabling teams to build upon each other's work.
+
+
+## Getting started
+
+### 1. Create a Prompt
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <img src="/images/llms/prompt-registry/create-prompt-ui.png" alt="Create Prompt UI" style={{ width: "70%", margin: "20px" }} />
+
+      1. Run `mlflow ui` in your terminal to start the MLflow UI.
+      2. Navigate to the **Prompts** tab in the MLflow UI.
+      3. Click on the **Create Prompt** button.
+      4. Fill in the prompt details such as name, prompt template text, and commit message (optional).
+      5. Click **Create** to register the prompt.
+
+    </div>
+  </TabItem>
+  <TabItem value="python" label="Python" default>
+    <div class="flex-column">
+      To create a new prompt using the Python API, use <APILink fn="mlflow.register_prompt" /> API:
+
+      ```python
+      import mlflow
+
+      initial_template = """\
+      Summarize content you are provided with in {{ num_sentences }} sentences.
+
+      Sentences: {{ sentences }}
+      """
+
+      # Register a new prompt
+      prompt = mlflow.register_prompt(
+          name="Summarization Prompt",
+          # Use double curly braces for variables in the template
+          template=initial_template,
+          commit_message="Initial commit",
+          tags={
+              "task": "summarization",
+              "author": "author@example.com",
+          },
+      )
+
+      # The prompt object contains information about the registered prompt
+      print(f"Created prompt '{prompt.name}' (version {prompt.version})")
+      ```
+    </div>
+  </TabItem>
+</Tabs>
+
+### 2. Update the Prompt with a New Version
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <img src="/images/llms/prompt-registry/update-prompt-ui.png" alt="Create Prompt UI" style={{ width: "70%", margin: "20px" }} />
+
+      1. The previous step leads to the created prompt page. (If you closed the page, navigate to the **Prompts** tab in the MLflow UI and click on the prompt name.)
+      2. Click on the **Create prompt Version** button.
+      3. The popup dialog is pre-filled with the existing prompt text. Modify the prompt as you wish.
+      4. Click **Create** to register the new version.
+
+    </div>
+  </TabItem>
+  <TabItem value="python" label="Python" default>
+    <div class="flex-column">
+      To update an existing prompt with a new version, use the <APILink fn="mlflow.register_prompt"/> API with the existing prompt name:
+
+      ```python
+      import mlflow
+
+      new_template = """\
+      You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
+
+      Sentences: {{ sentences }}
+
+      Your summary should:
+      - Contain exactly {{ num_sentences }} sentences
+      - Include only the most important information
+      - Be written in a neutral, objective tone
+      - Maintain the same level of formality as the original text
+      """
+
+      # Register a new version of an existing prompt
+      updated_prompt = mlflow.register_prompt(
+          name="summarization_prompt",  # Specify the existing prompt name
+          template=new_template,
+          commit_message="Improvement",
+          tags={
+              "task": "summarization",
+              "author": "author@example.com",
+          },
+      )
+      ```
+    </div>
+  </TabItem>
+</Tabs>
+
+
+### 3. Compare the Prompt Versions
+
+Once you have multiple versions of a prompt, you can compare them to understand the changes between versions. To compare prompt versions in the MLflow UI, click on the **Compare** tab in the prompt details page:
+
+<img src="/images/llms/prompt-registry/compare-prompt-versions.png" alt="Compare Prompt Versions" style={{ width: "90%", margin: "10px" }} />
+
+
+### 4. Load and Use the Prompt
+
+To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object:
+
+```python
+import mlflow
+import openai
+
+target_text = """
+MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
+It tackles four primary functions in the ML lifecycle: Tracking experiments, packaging ML
+code for reuse, managing and deploying models, and providing a central model registry.
+MLflow currently offers these functions as four components: MLflow Tracking,
+MLflow Projects, MLflow Models, and MLflow Registry.
+"""
+
+# Load the prompt
+prompt = mlflow.load_prompt("prompts:/Summarization Prompt/2")
+
+# Use the prompt with an LLM
+client = openai.OpenAI(api_key="<OPENAI_API_KEY>")
+response = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": prompt.format(num_sentences=1, sentences=target_text),
+        }
+    ],
+    model="gpt-4o-mini",
+)
+
+print(response.choices[0].message.content)
+```
+
+
+## Prompt Object
+
+The `Prompt` object is the core entity in MLflow Prompt Registry. It represents a versioned template text that can contain variables for dynamic content.
+
+Key attributes of a Prompt object:
+
+* `Name`: A unique identifier for the prompt.
+* `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
+* `Version`: A sequential number representing the revision of the prompt.
+* `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
+* `Tags`: Optional key-value pairs for categorization and filtering. For example, you may add tags for project name, author, or domain.
+* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system.
+
+
+
+## Change Management
+
+### Commit-based Versioning
+
+The design of the prompt registry is inspired by version control systems like Git.
+
+* **Immutable versions**: Once created, a prompt version cannot be modified. This ensures that the prompt's behavior remains consistent across different applications and experiments.
+* **Commit message**:  When creating a new prompt version, you can provide a commit message to document the changes made in the new version. This helps you and your team understand the context of the changes and track the evolution of the prompt over time.
+* **Difference view**: The MLflow UI provides a side-by-side comparison of prompt versions, highlighting the changes between versions. This makes it easy to understand the differences and track the evolution of the prompt.
+
+
+### Aliases
+
+Alias is a strong mechanism to managing prompt versions in production systems, without hardcoding version numbers in the application code. You can create an alias for a specific version of a prompt using either the MLflow UI or Python API:
+
+The common use case for aliases is to build a robust **deployment pipeline** for your GenAI applications. For example, you can
+set a stage name such as `beta`, `staging`, `production`, etc., to refer to the version used in that environment. By switching the alias to a different version, you can easily maintain multiple prompt versions for different environments and perform tasks such as
+roll-back A/B testing.
+
+
+#### Create an Alias
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <img src="/images/llms/prompt-registry/create-prompt-alias.png" alt="Create Prompt Alias" style={{ width: "70%", margin: "20px" }} />
+      1. Open the existing prompt version in the MLflow UI.
+      2. Click on the **Add** button next to the **Aliases** section.
+      3. Choose an existing alias or create a new one by entering the alias name.
+      4. Click **Save aliases** to apply the changes.
+
+    </div>
+  </TabItem>
+  <TabItem value="python" label="Python" default>
+    <div class="flex-column">
+      ```python
+      # Set a production alias for a specific version
+      mlflow.set_prompt_alias("qa_system_prompt", alias="production", version=4)
+      ```
+    </div>
+  </TabItem>
+</Tabs>
+
+Attached aliases can be viewed in the prompt list page. Click the pencil icon to edit or delete an alias:
+
+<img src="/images/llms/prompt-registry/prompt-aliases-list.png" alt="Aliases List" style={{ width: "70%", margin: "0px 20px" }} />
+
+
+#### Load a Prompt using an Alias
+
+To load a prompt using an alias, use the `prompts:/<prompt_name>@<alias>` format as the prompt URI:
+
+```python
+prompt = mlflow.load_prompt("prompts:/qa_system_prompt@production")
+```
+
+
+## Associate Prompt with Model and Run
+
+MLflow tracks relationships between prompts, models, and evaluations, creating a comprehensive view of your GenAI application's components. When logging a model with MLflow, you can associate it with a prompt by specifying the prompt URLs in the `prompts` parameter:
+
+```python
+import mlflow
+
+# Log a model with associated prompts
+with mlflow.start_run():
+    mlflow.langchain.log_model(
+        model, artifact_path="model", prompts=["prompts:/summarization_prompt/2"]
+    )
+```
+
+You can view the prompt associated with a model in the MLflow UI:
+
+Also, you can view the models (MLflow Runs) associated with a prompt in the prompt details page:
+
+
+## Evaluate Prompt
+
+When you evaluate prompt performance with [MLflow LLM Evaluation](/docs/llms/evaluation), the relationships between prompts, models, and evaluation results are automatically recorded:
+
+```python
+import mlflow
+import openai
+import pandas as pd
+from typing import List
+
+eval_data = pd.DataFrame(
+    {
+        "inputs": [
+            "What is MLflow?",
+            "What is Spark?",
+        ],
+        "ground_truth": [
+            "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+            "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+        ],
+    }
+)
+
+
+def predict(inputs: pd.DataFrame) -> List[str]:
+    predictions = []
+    system_prompt = mlflow.load_prompt("prompts:/qa_system_prompt/1")
+
+    for _, row in inputs.iterrows():
+        completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": row["inputs"]},
+            ],
+        )
+        predictions.append(completion.choices[0].message.content)
+
+    return predictions
+
+
+with mlflow.start_run():
+    results = mlflow.evaluate(
+        model=predict,
+        data=eval_data,
+        targets="ground_truth",
+        model_type="question-answering",
+    )
+```
+
+When you view the evaluation Run in the MLflow UI, you can see the associated prompt:
+
+
+## FAQ
+
+#### Q: How do I delete a prompt version?
+
+A: You can delete a prompt version using the MLflow UI or Python API:
+
+```python
+import mlflow
+
+# Delete a prompt version
+mlflow.delete_prompt("summarization_prompt", version=2)
+```
+
+To avoid accidental deletion, you can only delete one version at a time. If you delete the all versions of a prompt, the prompt itself will be deleted.
+
+
+#### Q: Can I update the prompt template of an existing prompt version?
+
+A: No, prompt versions are immutable once created. To update a prompt, create a new version with the desired changes.
+
+#### Q: Can I use prompt templates with frameworks like LangChain or LlamaIndex?
+
+A: Yes, you can load prompts from MLflow and use them with any framework:
+
+
+```python
+import mlflow
+from langchain.prompts import PromptTemplate
+from langchain.llms import OpenAI
+
+# Load prompt from MLflow
+mlflow_prompt = mlflow.load_prompt("question_answering")
+
+# Convert to LangChain format
+langchain_prompt = PromptTemplate.from_template(mlflow_prompt.template)
+
+# Use with LangChain
+llm = OpenAI()
+chain = langchain_prompt | llm
+result = chain.invoke({"context": "...", "question": "..."})
+```
+
+#### Q: Is Prompt Registry integrated with the Prompt Engineering UI?
+
+A. Direct integration between the Prompt Registry and the Prompt Engineering UI is coming soon. In the meantime, you can iterate on prompt template in the Prompt Engineering UI and register the final version in the Prompt Registry by manually copying the prompt template.

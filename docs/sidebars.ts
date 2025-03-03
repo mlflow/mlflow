@@ -216,9 +216,9 @@ const sidebars: SidebarsConfig = {
               ]
             },
             {
-              type: 'doc',
+              type: 'link',
               label: 'Prompt Engineering',
-              id: 'llms/prompt-engineering/index',
+              href: '/prompts',
             },
           ],
           link: {
@@ -341,6 +341,25 @@ const sidebars: SidebarsConfig = {
               dirName: 'model',
             },
           ],
+        },
+        {
+          type: 'category',
+          label: 'MLflow Prompts 🆕',
+          items: [
+            {
+              type: 'doc',
+              label: 'Overview',
+              id: 'prompts/index',
+            },
+            {
+              type: 'doc',
+              id: 'prompts/registry',
+            },
+            {
+              type: 'doc',
+              id: 'llms/prompt-engineering/index',
+            }
+          ]
         },
         {
           type: 'doc',
