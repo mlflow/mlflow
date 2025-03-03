@@ -1,7 +1,10 @@
 import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
-import { postProcessSidebar } from "./postProcessSidebar";
+import {
+  postProcessSidebar,
+  apiReferencePrefix,
+} from "./docusaurusConfigUtils";
 
 // ensure baseUrl always ends in `/`
 const baseUrl = (process.env.DOCS_BASE_URL ?? "/").replace(/\/?$/, "/");
@@ -103,6 +106,11 @@ const config: Config = {
           sidebarId: "docsSidebar",
           position: "left",
           label: "Docs",
+        },
+        {
+          to: `${apiReferencePrefix()}api_reference/`,
+          position: "left",
+          label: "API Reference",
         },
         {
           href: "https://github.com/mlflow/mlflow",
