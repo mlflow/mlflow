@@ -1069,14 +1069,6 @@ class Model:
                     mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
                 except Exception as e:
                     _logger.warning("Failed to log model config as params: %s", str(e))
-            #
-            # try:
-            #     mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
-            # except MlflowException:
-            #     # We need to swallow all mlflow exceptions to maintain backwards compatibility
-            #     # with older tracking servers. Only print out a warning for now.
-            #     _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
-            #     _logger.debug("", exc_info=True)
 
             if registered_model_name is not None:
                 registered_model = mlflow.tracking._model_registry.fluent._register_model(
