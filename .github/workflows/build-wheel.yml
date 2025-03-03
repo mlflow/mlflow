@@ -114,6 +114,17 @@ jobs:
           pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
           python -c "import mlflow; print(mlflow.__version__)"
 
+      - name: Test installation from GitHub
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "${{ matrix.type }}" == "skinny" ]; then
+            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=skinny"
+          else
+            URL="git+https://github.com/${REPO}.git@${REF}"
+          fi
+          docker run --rm python:3.10 bash -c "pip install $URL && mlflow --version"
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
         uses: actions/upload-artifact@v4
