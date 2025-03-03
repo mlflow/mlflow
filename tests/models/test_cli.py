@@ -60,7 +60,6 @@ no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
-gunicorn_options = "--timeout 60 -w 5"
 
 
 def env_with_tracking_uri():
@@ -695,9 +694,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
         env=env_with_tracking_uri(),
     )
     host_port = get_safe_port()
-    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
-        image_name, host_port, gunicorn_options
-    )
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
 
 
@@ -709,7 +706,6 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name,
         host_port,
-        gunicorn_options,
         extra_docker_run_options=["-v", f"{model_path}:/opt/ml/model"],
     )
     x = iris_data[0]

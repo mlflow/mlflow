@@ -240,7 +240,6 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 
