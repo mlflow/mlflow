@@ -356,6 +356,22 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     assert s3_artifact_repo.list_artifacts() == []
 
 
+def test_delete_artifacts_single_object(s3_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir))
+
+    # confirm that artifact is present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
+    assert "a.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts(artifact_path="a.txt")
+    assert s3_artifact_repo.list_artifacts() == []
+
+
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()

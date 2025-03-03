@@ -111,12 +111,6 @@ for chunk in stream:
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
-:::note
-OpenAI configurations that specify streaming responses are **not yet supported** for using the `predict_stream()` pyfunc invocation API in MLflow.
-However, you can still record streaming traces. When loading a the logged openai model as pyfunc via <APILink fn="mlflow.pyfunc.load_model" />, the only
-available interface for inference is the synchronous blocking `predict()` API.
-:::
-
 
 ## Async
 
