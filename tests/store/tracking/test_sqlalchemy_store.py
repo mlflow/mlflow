@@ -4763,7 +4763,7 @@ def test_search_logged_models(store: SqlAlchemyStore):
     assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
 
 
-def test_log_metrics(store: SqlAlchemyStore):
+def test_log_batch_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
         experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
@@ -4781,11 +4781,12 @@ def test_log_metrics(store: SqlAlchemyStore):
         experiment_id=exp_id,
         run_id=run.info.run_id,
     )
-    store.log_metric(run.info.run_id, metric)
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
     model = store.get_logged_model(model.model_id)
     assert model.metrics == [metric]
 
-    store.log_metric(run.info.run_id, metric)
+    # Log the same metric, should not throw
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
     assert model.metrics == [metric]
 
     another_metric = Metric(
@@ -4800,6 +4801,6 @@ def test_log_metrics(store: SqlAlchemyStore):
         experiment_id=exp_id,
         run_id=run.info.run_id,
     )
-    store.log_metric(run.info.run_id, another_metric)
+    store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
     model = store.get_logged_model(model.model_id)
     assert model.metrics == [metric, another_metric]

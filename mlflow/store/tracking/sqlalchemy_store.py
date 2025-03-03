@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Any, Optional
 
 import sqlalchemy
+import sqlalchemy.exc
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
@@ -771,7 +772,29 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            session.add_all(metric_instances)
+            try:
+                session.add_all(metric_instances)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                session.rollback()
+                metric_keys = [m.metric_name for m in metric_instances]
+                metric_key_batches = (
+                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
+                )
+                for batch in metric_key_batches:
+                    existing_metrics = (
+                        session.query(SqlLoggedModelMetric)
+                        .filter(
+                            SqlLoggedModelMetric.run_id == run_id,
+                            SqlLoggedModelMetric.metric_name.in_(batch),
+                        )
+                        .all()
+                    )
+                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    non_existing_metrics = [
+                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                    ]
+                    session.add_all(non_existing_metrics)
 
     def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
         if not metrics:
