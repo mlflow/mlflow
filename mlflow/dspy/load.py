@@ -27,7 +27,7 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
         return
 
     model = Model.load(model_path)
-    tracer._dependencies_schema = _get_dependencies_schema_from_model(model)
+    tracer.set_dependencies_schema(_get_dependencies_schema_from_model(model))
 
 
 def _load_model(model_uri, dst_path=None):
@@ -71,7 +71,18 @@ def load_model(model_uri, dst_path=None):
     Returns:
         An `dspy.module` instance, representing the dspy model.
     """
-    return _load_model(model_uri, dst_path).model
+    import dspy
+
+    wrapper = _load_model(model_uri, dst_path)
+
+    # Set the global dspy settings for reproducing the model's behavior when the model is
+    # loaded via `mlflow.dspy.load_model`. Note that for the model to be loaded as pyfunc,
+    # settings will be set in the wrapper's `predict` method via local context to avoid the
+    # "dspy.settings can only be changed by the thread that initially configured it" error
+    # in Databricks model serving.
+    dspy.settings.configure(**wrapper.dspy_settings)
+
+    return wrapper.model
 
 
 def _load_pyfunc(path):

@@ -7,6 +7,7 @@ from dspy.utils.callback import BaseCallback
 import mlflow
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
@@ -27,6 +28,14 @@ class MlflowCallback(BaseCallback):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
+
+    def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
+        if self._dependencies_schema:
+            raise MlflowException(
+                "Dependencies schema should be set only once to the callback.",
+                error_code=MlflowException.INVALID_PARAMETER_VALUE,
+            )
+        self._dependencies_schema = dependencies_schema
 
     def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)
