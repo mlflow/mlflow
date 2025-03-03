@@ -102,12 +102,14 @@ Failed to find a documentation preview for {args.commit_sha}.
             job_url = job["web_url"]
             workflow_id = job["latest_workflow"]["id"]
             workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+            break
         except requests.HTTPError as e:
             print(
                 f"Failed to get CircleCI job info: {e.response.status_code, e.response.text}, "
                 f"retrying..."
             )
             time.sleep(1)
+            continue
     else:
         upsert_comment(
             github_session,
@@ -118,6 +120,7 @@ Failed to find a documentation preview for {args.commit_sha}.
                 f"See {workflow_run_link} for what went wrong."
             ),
         )
+        return
 
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
