@@ -9,27 +9,24 @@ try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
     from langchain_core.runnables import RunnableConfig
     from langchain_core.runnables.utils import Input
-
-    try:
-        # LangGraph >= 0.3
-        from langgraph.prebuilt import ToolNode
-    except ImportError as e:
-        # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
-        # show a friendlier error message
-        if Version(langgraph.__version__) >= Version("0.3.0"):
-            raise ImportError(
-                "Please install `langgraph-prebuilt>=0.3.0` to use MLflow LangGraph ChatAgent "
-                "helpers with LangGraph 0.3.x."
-            ) from e
-
-        # LangGraph < 0.3
-        from langgraph.prebuilt.tool_node import ToolNode
-
 except ImportError as e:
     raise ImportError(
-        "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use LangGraph ChatAgent"
-        "helpers."
+        "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use MLflow "
+        "ChatAgent helpers for LangGraph."
     ) from e
+
+
+if Version(langgraph.__version__) >= Version("0.3.0"):
+    try:
+        from langgraph.prebuilt import ToolNode
+    except ImportError as e:
+        raise ImportError(
+            "Please install `langgraph-prebuilt>=0.3.0` to use MLflow "
+            "ChatAgent helpers for LangGraph."
+        ) from e
+else:
+    from langgraph.prebuilt.tool_node import ToolNode
+
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
