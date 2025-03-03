@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.graph import CompiledGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt.tool_executor import ToolExecutor
+from langgraph.prebuilt import ToolNode
 
 import mlflow
 from mlflow.langchain.chat_agent_langgraph import (
@@ -74,7 +74,7 @@ tools = [uc_tool_format, lc_tool_format]
 
 def create_tool_calling_agent(
     model: LanguageModelLike,
-    tools: Union[ToolExecutor, Sequence[BaseTool]],
+    tools: Union[ToolNode, Sequence[BaseTool]],
     agent_prompt: Optional[str] = None,
 ) -> CompiledGraph:
     model = model.bind_tools(tools)

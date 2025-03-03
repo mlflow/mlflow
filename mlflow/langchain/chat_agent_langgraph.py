@@ -1,17 +1,36 @@
+import importlib.metadata
 import json
 import uuid
 from typing import Annotated, Any, Optional, TypedDict
+
+from packaging.version import Version
 
 try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
     from langchain_core.runnables import RunnableConfig
     from langchain_core.runnables.utils import Input
-    from langgraph.prebuilt.tool_node import ToolNode
+
+    try:
+        # LangGraph >= 0.3
+        from langgraph.prebuilt import ToolNode
+    except ImportError as e:
+        # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
+        # show a friendlier error message
+        if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
+            raise ImportError(
+                "Please install `langgraph-prebuilt>=0.3.0` to use MLflow LangGraph ChatAgent "
+                "helpers with LangGraph 0.3.x."
+            ) from e
+
+        # LangGraph < 0.3
+        from langgraph.prebuilt.tool_node import ToolNode
+
 except ImportError as e:
     raise ImportError(
         "Please install `langchain>=0.2.17` and `langgraph>=0.2.0` to use LangGraph ChatAgent"
         "helpers."
     ) from e
+
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
@@ -79,13 +98,13 @@ class ChatAgentState(TypedDict):
         from langchain_core.tools import BaseTool
         from langgraph.graph import END, StateGraph
         from langgraph.graph.graph import CompiledGraph
-        from langgraph.prebuilt.tool_executor import ToolExecutor
+        from langgraph.prebuilt import ToolNode
         from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
 
 
         def create_tool_calling_agent(
             model: LanguageModelLike,
-            tools: Union[ToolExecutor, Sequence[BaseTool]],
+            tools: Union[ToolNode, Sequence[BaseTool]],
             agent_prompt: Optional[str] = None,
         ) -> CompiledGraph:
             model = model.bind_tools(tools)

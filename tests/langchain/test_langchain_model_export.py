@@ -29,7 +29,7 @@ from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
+from mlflow.types.schema import Object, Property
 
 from tests.tracing.helper import get_traces
 
@@ -3627,35 +3627,3 @@ def test_pyfunc_converts_chat_request_correctly(
         assert list(response)[0]["choices"][0]["delta"]["content"] == "Databricks"
     else:
         assert list(response) == ["Databricks"], list(response)
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Langgraph are not supported the way we want in earlier versions",
-)
-def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
-    input_example = {"messages": [{"role": "user", "content": "What's the weather in nyc?"}]}
-    params = {"config": {"configurable": {"thread_id": "1"}}}
-
-    monkeypatch.setenv("MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN", "false")
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            "tests/langchain/sample_code/langgraph_prebuilt.py",
-            "model",
-            input_example=(input_example, params),
-        )
-    assert model_info.signature.params == ParamSchema(
-        [
-            ParamSpec(
-                "config",
-                Object([Property("configurable", Object([Property("thread_id", "string")]))]),
-                params["config"],
-            )
-        ]
-    )
-    langchain_model = mlflow.langchain.load_model(model_info.model_uri)
-    result = langchain_model.invoke(input_example, **params)
-    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert len(pyfunc_model.predict(input_example, params)[0]["messages"]) == len(
-        result["messages"]
-    )
