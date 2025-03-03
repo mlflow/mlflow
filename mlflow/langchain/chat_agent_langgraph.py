@@ -1,4 +1,5 @@
 import json
+import importlib.metadata
 import uuid
 from typing import Annotated, Any, Optional, TypedDict
 
@@ -16,7 +17,7 @@ except ImportError as e:
     ) from e
 
 
-if Version(langgraph.__version__) >= Version("0.3.0"):
+if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
     try:
         from langgraph.prebuilt import ToolNode
     except ImportError as e:
