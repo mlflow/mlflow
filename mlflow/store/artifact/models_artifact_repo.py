@@ -48,7 +48,7 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         registry_uri = mlflow.get_registry_uri()
-        is_logged_models_uri = artifact_uri.rstrip("/").count("/") == 1  # e.g. 'models:/{model_id}'
+        is_logged_models_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not is_logged_models_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri

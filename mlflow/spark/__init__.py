@@ -297,6 +297,17 @@ def log_model(
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
 
+    if name is not None and artifact_path is not None:
+        raise MlflowException.invalid_parameter_value(
+            "Both `artifact_path` (deprecated) and `name` parameters were specified. "
+            "Please only specify `name`."
+        )
+    elif artifact_path is not None:
+        _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
+        name = artifact_path
+        # to avoid another warning in Model.log
+        artifact_path = None
+
     if _is_spark_connect_model(spark_model):
         return Model.log(
             artifact_path=artifact_path,
