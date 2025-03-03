@@ -28,7 +28,7 @@ def build_docs(package_manager, version):
     if build_path.exists():
         shutil.rmtree(build_path)
 
-    subprocess.check_call(package_manager + ["build"], env={**env, "DOCS_BASE_URL": versioned_url})
+    subprocess.check_call(package_manager + ["build"], env={**env, "DOCS_BASE_URL": str(versioned_url)})
     shutil.copytree(build_path, output_path)
 
 
