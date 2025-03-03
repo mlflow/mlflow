@@ -25,6 +25,8 @@ class Metric(_MlflowObject):
         experiment_id: Optional[str] = None,
         run_id: Optional[str] = None,
     ):
+        from mlflow.tracking.fluent import _get_experiment_id
+
         if (dataset_name, dataset_digest).count(None) == 1:
             raise MlflowException(
                 "Both dataset_name and dataset_digest must be provided if one is provided",
@@ -39,7 +41,7 @@ class Metric(_MlflowObject):
         self._dataset_name = dataset_name
         self._dataset_digest = dataset_digest
         self._dataset_uuid = dataset_uuid
-        self._experiment_id = experiment_id
+        self._experiment_id = experiment_id or _get_experiment_id()
         self._run_id = run_id
 
     @property

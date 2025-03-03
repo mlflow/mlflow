@@ -30,6 +30,7 @@ from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, Mo
 from mlflow.models.evaluation.utils.metric import MetricDefinition
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time import get_current_time_millis
@@ -313,6 +314,7 @@ class BuiltInEvaluator(ModelEvaluator):
                     model_id=self.model_id,
                     dataset_name=self.dataset.name,
                     dataset_digest=self.dataset.digest,
+                    experiment_id=_get_experiment_id(),
                     run_id=self.run_id,
                 )
                 for key, value in self.aggregate_metrics.items()
