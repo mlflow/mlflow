@@ -8,6 +8,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
+from mlflow.utils.warnings_utils import color_warning
 
 _logger = logging.getLogger(__name__)
 
@@ -156,10 +157,20 @@ class RunsArtifactRepository(ArtifactRepository):
                     # Return the first model that matches the run_id and artifact_path
                     if model.source_run_id == run_id and model.name == artifact_path:
                         repo = get_artifact_repository(model.artifact_location)
-                        return repo.download_artifacts(
-                            artifact_path=".",  # root directory
-                            dst_path=dst_path,
-                        )
+                        try:
+                            return repo.download_artifacts(
+                                artifact_path=".",  # root directory
+                                dst_path=dst_path,
+                            )
+                        finally:
+                            color_warning(
+                                "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
+                                "use `models:/<model_id>` instead. Alternatively, retrieve "
+                                "`model_info.model_uri` from the model_info returned by "
+                                "mlflow.xxx.log_model.",
+                                stacklevel=1,
+                                color="yellow",
+                            )
 
                 if not page.token:
                     break
