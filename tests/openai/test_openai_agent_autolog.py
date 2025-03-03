@@ -3,13 +3,13 @@ from contextlib import contextmanager
 from typing import Optional
 from unittest import mock
 
+import openai
 import pytest
 from openai.types.chat.chat_completion import ChatCompletion, Choice
 
 import mlflow
 from mlflow.entities import SpanType
 
-from tests.openai.test_openai_autolog import client  # noqa: F401
 from tests.tracing.helper import get_traces
 
 try:
@@ -31,6 +31,16 @@ def mock_openai(oai_client, expected_responses):
 
     with mock.patch.object(oai_client.chat.completions, "create", side_effect=_mocked_create):
         yield
+
+
+def client(monkeypatch, mock_openai):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
+    return openai.OpenAI(api_key="test", base_url=mock_openai)
 
 
 def test_autolog_swarm_agent(client):
