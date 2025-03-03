@@ -55,6 +55,7 @@ class Prompt(ModelVersion):
         description: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
+        aliases: Optional[list[str]] = None,
     ):
         # Store template text as a tag
         tags = tags or {}
@@ -67,6 +68,7 @@ class Prompt(ModelVersion):
             creation_timestamp=creation_timestamp,
             description=description,
             tags=[ModelVersionTag(key=key, value=value) for key, value in tags.items()],
+            aliases=aliases,
         )
 
         self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
@@ -164,4 +166,5 @@ class Prompt(ModelVersion):
             description=model_version.description,
             creation_timestamp=model_version.creation_timestamp,
             tags=model_version.tags,
+            aliases=model_version.aliases,
         )
