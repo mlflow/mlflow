@@ -254,6 +254,11 @@ def build(package_type: PackageType) -> None:
             f.write(toml.dumps(data))
 
         Path("skinny/README.md").write_text(SKINNY_README.lstrip() + Path("README.md").read_text())
+        for f in ["LICENSE.txt", "MANIFEST.in", "mlflow"]:
+            symlink = Path("skinny", f)
+            if symlink.exists():
+                symlink.unlink()
+            symlink.symlink_to(f"../{f}", target_is_directory=symlink.is_dir())
     elif package_type == PackageType.RELEASE:
         out_path = f"pyproject.{package_type.value}.toml"
         with Path(out_path).open("w") as f:
