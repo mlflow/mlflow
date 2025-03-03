@@ -16,6 +16,8 @@ def test_model_id_tracking():
 
     with mlflow.start_run():
         info = mlflow.pyfunc.log_model("my_model", python_model=model)
+        # Log another model to ensure that the model ID is correctly associated with the first model
+        mlflow.pyfunc.log_model("another_model", python_model=model)
 
     model = mlflow.pyfunc.load_model(info.model_uri)
     model.predict([4, 5, 6])
