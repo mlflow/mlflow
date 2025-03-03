@@ -12,11 +12,15 @@ mlflow_version = mlflow.version.VERSION
 
 def build_docs(package_manager, version):
     env = os.environ.copy()
+
+    # ensure it ends with a "/"
+    base_url = env.get("DOCS_BASE_URL", "/docs/").rstrip("/") + "/"
+
     output_path = Path(f"_build/{version}")
-    base_url = Path(f"/docs/{version}")
+    versioned_url = Path(f"{base_url}{version}")
     build_path = Path("build")
 
-    print(f"Building for `{base_url}`...")
+    print(f"Building for `{versioned_url}`...")
 
     if output_path.exists():
         shutil.rmtree(output_path)
@@ -24,7 +28,7 @@ def build_docs(package_manager, version):
     if build_path.exists():
         shutil.rmtree(build_path)
 
-    subprocess.check_call(package_manager + ["build"], env={**env, "DOCS_BASE_URL": base_url})
+    subprocess.check_call(package_manager + ["build"], env={**env, "DOCS_BASE_URL": versioned_url})
     shutil.copytree(build_path, output_path)
 
 
