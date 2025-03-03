@@ -110,13 +110,13 @@ Failed to find a documentation preview for {args.commit_sha}.
             time.sleep(1)
     else:
         upsert_comment(
+            github_session,
+            repo,
+            args.pull_number,
             (
                 f"Failed to find a documentation preview for {args.commit_sha}. "
                 f"See {workflow_run_link} for what went wrong."
             ),
-            repo,
-            args.pull_number,
-            comment_body,
         )
 
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
