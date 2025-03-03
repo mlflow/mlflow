@@ -775,12 +775,12 @@ langgraph:
     maximum: "0.3.2"
     requirements:
       ">= 0.0.0": [
-        "langchain",
-        "langchain_openai",
-        # Required to run tests/openai/mock_openai.py
-        "fastapi",
-        "uvicorn",
-      ]
+          "langchain",
+          "langchain_openai",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
       ">= 0.3.0": ["langgraph-prebuilt"]
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
@@ -790,12 +790,12 @@ langgraph:
     maximum: "0.3.2"
     requirements:
       ">= 0.0.0": [
-        "langchain",
-        "langchain_openai",
-        # Required to run tests/openai/mock_openai.py
-        "fastapi",
-        "uvicorn",
-      ]
+          "langchain",
+          "langchain_openai",
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
       ">= 0.3.0": ["langgraph-prebuilt"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
