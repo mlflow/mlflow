@@ -304,7 +304,7 @@ def log_model(
         )
     elif artifact_path is not None:
         _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
-        name = name or artifact_path
+        name = artifact_path
         # to avoid another warning in Model.log
         artifact_path = None
 
