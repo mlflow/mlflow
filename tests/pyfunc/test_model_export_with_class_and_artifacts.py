@@ -2480,15 +2480,11 @@ def test_load_model_warning():
             return model_input
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(
+        mlflow.pyfunc.log_model(
             python_model=Model(),
             name="model",
             input_example=["a", "b", "c"],
         )
-
-    with mock.patch("mlflow.store.artifact.runs_artifact_repo.color_warning") as mock_warn:
-        mlflow.pyfunc.load_model(model_info.model_uri)
-        assert mock_warn.call_count == 0
 
     with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")

@@ -157,20 +157,20 @@ class RunsArtifactRepository(ArtifactRepository):
                     # Return the first model that matches the run_id and artifact_path
                     if model.source_run_id == run_id and model.name == artifact_path:
                         repo = get_artifact_repository(model.artifact_location)
-                        try:
-                            return repo.download_artifacts(
-                                artifact_path=".",  # root directory
-                                dst_path=dst_path,
-                            )
-                        finally:
-                            color_warning(
-                                "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
-                                "use `models:/<model_id>` instead. Alternatively, retrieve "
-                                "`model_info.model_uri` from the model_info returned by "
-                                "mlflow.xxx.log_model.",
-                                stacklevel=1,
-                                color="yellow",
-                            )
+                        color_warning(
+                            "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
+                            "use `models:/<model_id>` instead. Alternatively, retrieve "
+                            "`model_info.model_uri` from the model_info returned by "
+                            "mlflow.<flavor>.log_model. For example:\n"
+                            "model_info = mlflow.<flavor>.log_model(...); "
+                            "model = mlflow.<flavor>.load_model(model_info.model_uri)",
+                            stacklevel=1,
+                            color="yellow",
+                        )
+                        return repo.download_artifacts(
+                            artifact_path=".",  # root directory
+                            dst_path=dst_path,
+                        )
 
                 if not page.token:
                     break
