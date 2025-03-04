@@ -638,3 +638,18 @@ def test_model_resources():
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.resources == expected_resources
+
+
+def test_save_load_model_with_run_uri(tmp_path):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str], params=None):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
+    mlflow_model = Model.load(f"runs:/{run.info.run_id}/test_model/MLmodel")
+    assert mlflow_model.load_input_example() == ["a", "b", "c"]
