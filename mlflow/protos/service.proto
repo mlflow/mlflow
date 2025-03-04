@@ -570,7 +570,6 @@ service MlflowService {
         visibility: PUBLIC_UNDOCUMENTED,
         rpc_doc_title: "Search Unified Traces",
       };
-    option (graphql) = {};
   }
 
   // Edge endpoint used to retrieve for online trace from an inference table.
