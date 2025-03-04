@@ -1114,8 +1114,7 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
-
-            model_info = mlflow_model.get_model_info()
+            model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
 
