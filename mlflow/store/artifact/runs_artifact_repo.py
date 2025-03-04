@@ -145,9 +145,8 @@ class RunsArtifactRepository(ArtifactRepository):
             run_id, artifact_path = RunsArtifactRepository.parse_runs_uri(full_path)
             client = mlflow.tracking.MlflowClient()
             run = client.get_run(run_id)
-            splits = artifact_path.split("/")
-            model_name = splits[0]
-            artifact_path = "/".join(splits[1:]) if len(splits) > 1 else "."
+            [model_name, *rest] = artifact_path.split("/", 1)
+            artifact_path = rest[0] if rest else "."
             page_token = None
             while True:
                 page = client.search_logged_models(

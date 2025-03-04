@@ -656,3 +656,6 @@ def test_save_load_model_with_run_uri():
 
     model = Model.load(f"runs:/{run.info.run_id}/test_model")
     assert model == mlflow_model
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model/")
+    assert model == mlflow_model
