@@ -641,7 +641,7 @@ class _DummyPythonModel(PythonModel):
         self,
         context: PythonModelContext,
         model_input: list[str],
-        params: Optional[dict[str, None]] = None,
+        params: Optional[dict[str, Any]] = None,
     ) -> list[str]:
         return model_input
 
