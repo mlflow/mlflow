@@ -1376,7 +1376,9 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
         # TODO: this is still significantly slower than direct np.asarray dtype conversion
         # pd.Series conversion can be removed once we support direct validation on the numpy array
         data_enforced = (
-            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy()
+            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
+                dtype=arr.dtype.to_numpy()
+            )
             if len(data) > 0
             else data
         )
