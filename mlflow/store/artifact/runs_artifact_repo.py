@@ -137,13 +137,16 @@ class RunsArtifactRepository(ArtifactRepository):
         except Exception:
             from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
+            full_path = f"{self.artifact_uri}/{artifact_path}"
             _logger.debug(
-                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}. "
+                f"Failed to download artifacts from {full_path}. "
                 "Searching for logged models associated with the run instead."
             )
-            run_id = RunsArtifactRepository.parse_runs_uri(self.artifact_uri)[0]
+            run_id, artifact_path = RunsArtifactRepository.parse_runs_uri(full_path)
             client = mlflow.tracking.MlflowClient()
             run = client.get_run(run_id)
+            [model_name, *rest] = artifact_path.split("/", 1)
+            artifact_path = rest[0] if rest else "."
             page_token = None
             while True:
                 page = client.search_logged_models(
@@ -154,16 +157,20 @@ class RunsArtifactRepository(ArtifactRepository):
                 )
                 for model in page:
                     # Return the first model that matches the run_id and artifact_path
-                    if model.source_run_id == run_id and model.name == artifact_path:
+                    if model.source_run_id == run_id and model.name == model_name:
                         repo = get_artifact_repository(model.artifact_location)
                         return repo.download_artifacts(
-                            artifact_path=".",  # root directory
+                            artifact_path=artifact_path,  # root directory
                             dst_path=dst_path,
                         )
 
                 if not page.token:
                     break
                 page_token = page.token
+            _logger.debug(
+                f"Failed to find any models with name {model_name} associated with the "
+                f"run {run_id}."
+            )
 
             raise  # raise the original exception if no matching model is found
 
