@@ -491,7 +491,7 @@ class MlflowClient:
             else:
                 raise MlflowException.invalid_parameter_value(
                     "Traces from inference tables can only be loaded using SQL or "
-                    "the search_traces() API"
+                    "the search_traces() API."
                 )
 
         trace = self._tracking_client.get_trace(request_id)
