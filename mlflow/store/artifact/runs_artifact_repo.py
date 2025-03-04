@@ -161,7 +161,7 @@ class RunsArtifactRepository(ArtifactRepository):
                             "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
                             "use `models:/<model_id>` instead. Alternatively, retrieve "
                             "`model_info.model_uri` from the model_info returned by "
-                            "mlflow.<flavor>.log_model. For example:\n"
+                            "mlflow.<flavor>.log_model. For example: "
                             "model_info = mlflow.<flavor>.log_model(...); "
                             "model = mlflow.<flavor>.load_model(model_info.model_uri)",
                             stacklevel=1,
