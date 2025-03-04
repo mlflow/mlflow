@@ -560,16 +560,17 @@ service MlflowService {
   }
 
   // Edge endpoint used to search for online traces from an inference table.
-  rpc searchOnlineTraceHandler(SearchOnlineTraces) returns (SearchOnlineTraces.Response) {
+  rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/online-traces"
+        path: "/mlflow/unified-traces"
         since {major: 2, minor: 0},
       }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Online Traces",
-    };
+        visibility: PUBLIC_UNDOCUMENTED,
+        rpc_doc_title: "Search Unified Traces",
+      };
+    option (graphql) = {};
   }
 
   // Edge endpoint used to retrieve for online trace from an inference table.
@@ -1830,26 +1831,39 @@ message SearchTraces {
   }
 }
 
-message SearchOnlineTraces {
-  // model id to search for
-  optional string model_id = 1 [(validate_required) = true];
+message SearchUnifiedTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message OnlineTraceSearch {
+    // model id to search for
+    optional string model_id = 1 [(validate_required) = true];
+
+    // SQL warehouse to use for query
+    optional string sql_warehouse_id = 2 [(validate_required) = true];
+  }
+
+  message OfflineTraceSearch {
+    // List of experiment IDs to search over for offline traces.
+    repeated string experiment_ids = 1;
+  }
+
+  optional OnlineTraceSearch online_trace_search = 1;
+
+  optional OfflineTraceSearch offline_trace_search = 2;
 
   // A filter expression over trace attributes and tags that allows returning a subset of
   // traces. The syntax is a subset of SQL that supports ANDing together binary operations
   // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
-  optional string filter = 2;
+  optional string filter = 3;
 
   // Maximum number of traces desired. Max threshold is 500.
-  optional int32 max_results = 3 [default = 100];
+  optional int32 max_results = 4 [default = 100];
 
   // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
-  repeated string order_by = 4;
+  repeated string order_by = 5;
 
   // Token indicating the page of traces to fetch.
-  optional string page_token = 5;
-
-  // SQL warehouse to use for query
-  optional string sql_warehouse_id = 6 [(validate_required) = true];
+  optional string page_token = 6;
 
   message Response {
     // Information about traces that match the search criteria.
