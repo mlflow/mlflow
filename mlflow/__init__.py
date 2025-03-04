@@ -82,7 +82,6 @@ paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
-promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -147,7 +146,10 @@ from mlflow.tracing.fluent import (
     update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
+    delete_prompt,
+    load_prompt,
     register_model,
+    register_prompt,
     search_model_versions,
     search_registered_models,
 )
@@ -274,6 +276,10 @@ __all__ = [
     "log_feedback",
     "update_expectation",
     "update_feedback",
+    # Prompt Registry APIs
+    "delete_prompt",
+    "load_prompt",
+    "register_prompt",
 ]
 
 
