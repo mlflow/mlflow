@@ -22,6 +22,7 @@ from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import LoggedModel, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
@@ -1163,12 +1164,28 @@ class SearchModelUtils(SearchUtils):
             lhs = getattr(model, key)
             value = int(value)
         elif cls.is_tag(key_type, comparator):
-            # if the filter doesn't apply, do we return False or?
-            lhs = model.tags.get(key, None)
+            # NB: We should use the private attribute `_tags` instead of the `tags` property
+            # to consider all tags including reserved ones.
+            lhs = model._tags.get(key, None)
         else:
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+
+        # NB: Handling the special `mlflow.prompt.is_prompt` tag. This tag is used for
+        #   distinguishing between prompt models and normal models. For example, we want to
+        #   search for models only by the following filter string:
+        #
+        #     tags.`mlflow.prompt.is_prompt` != 'true'
+        #     tags.`mlflow.prompt.is_prompt` = 'false'
+        #
+        #   However, models do not have this tag, so lhs is None in this case. Instead of returning
+        #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and lhs is None:
+            return (comparator == "=" and value == "false") or (
+                comparator == "!=" and value == "true"
+            )
+
         if lhs is None:
             return False
 
@@ -1348,6 +1365,21 @@ class SearchModelVersionUtils(SearchUtils):
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+
+        # NB: Handling the special `mlflow.prompt.is_prompt` tag. This tag is used for
+        #   distinguishing between prompt models and normal models. For example, we want to
+        #   search for models only by the following filter string:
+        #
+        #     tags.`mlflow.prompt.is_prompt` != 'true'
+        #     tags.`mlflow.prompt.is_prompt` = 'false'
+        #
+        #   However, models do not have this tag, so lhs is None in this case. Instead of returning
+        #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and lhs is None:
+            return (comparator == "=" and value == "false") or (
+                comparator == "!=" and value == "true"
+            )
+
         if lhs is None:
             return False
 

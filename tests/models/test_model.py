@@ -1,5 +1,6 @@
 import os
 import pathlib
+import time
 import uuid
 from datetime import date
 from unittest import mock
@@ -659,3 +660,35 @@ def test_save_load_model_with_run_uri():
 
     model = Model.load(f"runs:/{run.info.run_id}/test_model/")
     assert model == mlflow_model
+
+
+def test_save_model_with_prompts():
+    mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            prompts=[
+                "prompts:/prompt-1/1",
+                "prompts:/prompt-2/1",
+            ],
+        )
+
+    assert model_info.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Prompts should be recorded in the yaml file
+    model = Model.load(model_info.model_uri)
+    assert model.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Run ID should be recorded in the prompt registry
+    associated_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
+    assert len(associated_prompts) == 2
+    assert associated_prompts[0].name == "prompt-2"
+    assert associated_prompts[1].name == "prompt-1"

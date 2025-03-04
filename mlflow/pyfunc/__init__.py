@@ -3346,6 +3346,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
+    prompts=None,
     name=None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -3528,7 +3529,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-
         model_config: The model configuration to apply to the model. The configuration will
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
@@ -3546,8 +3546,8 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
         auth_policy: {{ auth_policy }}
+        prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -3577,6 +3577,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        prompts=prompts,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,
