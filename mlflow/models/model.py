@@ -1069,8 +1069,6 @@ class Model:
                             f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
                         )
 
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
-
             # if the model_config kwarg is passed in, then log the model config as an params
             if model_config := kwargs.get("model_config"):
                 if isinstance(model_config, str):
