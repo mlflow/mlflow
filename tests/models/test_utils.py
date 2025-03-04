@@ -396,15 +396,11 @@ def test_enforce_array_with_errors():
     with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array("abc", Array(DataType.string))
 
-    with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
-    ):
+    with pytest.raises(MlflowException, match=r"Incompatible input types"):
         _enforce_array([123, 456, 789], Array(DataType.string))
 
     # Nested array with mixed type elements
-    with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
-    ):
+    with pytest.raises(MlflowException, match=r"Incompatible input types"):
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
     # Nested array with different nest level
