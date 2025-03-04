@@ -273,6 +273,8 @@ def _get_installed_version(package: str, module: Optional[str] = None) -> str:
     `__import__(module or package).__version__`.
     """
     if package == "mlflow":
+        # `importlib_metadata.version` returns a wrong version for MLflow when it's installed
+        # in editable mode (e.g. `pip install -e .`).
         return mlflow.__version__
 
     try:
