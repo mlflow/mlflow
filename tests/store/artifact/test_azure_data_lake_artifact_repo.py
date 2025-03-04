@@ -74,7 +74,7 @@ def mock_file_client(mock_directory_client):
 
 
 @pytest.mark.parametrize(
-    ("uri", "filesystem", "account", "region_suffix", "path", "sas_token"),
+    ("uri", "filesystem", "account", "region_suffix", "path"),
     [
         (
             "abfss://filesystem@acct.dfs.core.windows.net/path",
@@ -82,14 +82,12 @@ def mock_file_client(mock_directory_client):
             "acct",
             "dfs.core.windows.net",
             "path",
-            "",
         ),
         (
             "abfss://filesystem@acct.dfs.core.windows.net",
             "filesystem",
             "acct",
             "dfs.core.windows.net",
-            "",
             "",
         ),
         (
@@ -98,7 +96,6 @@ def mock_file_client(mock_directory_client):
             "acct",
             "dfs.core.windows.net",
             "",
-            "",
         ),
         (
             "abfss://filesystem@acct.dfs.core.windows.net/a/b",
@@ -106,7 +103,6 @@ def mock_file_client(mock_directory_client):
             "acct",
             "dfs.core.windows.net",
             "a/b",
-            "",
         ),
         (
             "abfss://filesystem@acct.dfs.core.chinacloudapi.cn/a/b",
@@ -114,7 +110,6 @@ def mock_file_client(mock_directory_client):
             "acct",
             "dfs.core.chinacloudapi.cn",
             "a/b",
-            "",
         ),
         (
             "abfss://filesystem@acct.privatelink.dfs.core.windows.net/a/b",
@@ -122,7 +117,6 @@ def mock_file_client(mock_directory_client):
             "acct",
             "privatelink.dfs.core.windows.net",
             "a/b",
-            "",
         ),
         (
             "abfss://filesystem@acct.dfs.core.usgovcloudapi.net/a/b",
@@ -130,20 +124,11 @@ def mock_file_client(mock_directory_client):
             "acct",
             "dfs.core.usgovcloudapi.net",
             "a/b",
-            "",
-        ),
-        (
-            "abfss://filesystem@acct.dfs.core.usgovcloudapi.net/a/b?sas_token",
-            "filesystem",
-            "acct",
-            "dfs.core.usgovcloudapi.net",
-            "a/b",
-            "sas_token",
         ),
     ],
 )
-def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path, sas_token):
-    assert _parse_abfss_uri(uri) == (filesystem, account, region_suffix, path, sas_token)
+def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
+    assert _parse_abfss_uri(uri) == (filesystem, account, region_suffix, path)
 
 
 @pytest.mark.parametrize(
