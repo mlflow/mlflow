@@ -277,6 +277,19 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.3.14"
         }
     },
+    "langgraph": {
+        "package_info": {
+            "pip_release": "langgraph"
+        },
+        "models": {
+            "minimum": "0.2.0",
+            "maximum": "0.3.2"
+        },
+        "autologging": {
+            "minimum": "0.2.0",
+            "maximum": "0.3.2"
+        }
+    },
     "llama_index": {
         "package_info": {
             "pip_release": "llama-index",
