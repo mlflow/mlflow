@@ -111,7 +111,7 @@ jobs:
             BASE_REF="${{ github.base_ref }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
             
-            CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep -v ^mlflow/server/js' || true)
+            CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep -v '^mlflow/server/js' || true)
             CHANGED_FILES=${CHANGED_FILES:-""}
 
             if [ -z "$CHANGED_FILES" ]; then
