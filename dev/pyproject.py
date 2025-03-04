@@ -258,7 +258,8 @@ def build(package_type: PackageType) -> None:
             symlink = Path("skinny", f)
             if symlink.exists():
                 symlink.unlink()
-            symlink.symlink_to(f"../{f}", target_is_directory=symlink.is_dir())
+            target = Path("..", f)
+            symlink.symlink_to(target, target_is_directory=target.is_dir())
     elif package_type == PackageType.RELEASE:
         out_path = f"pyproject.{package_type.value}.toml"
         with Path(out_path).open("w") as f:
