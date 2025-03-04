@@ -483,7 +483,7 @@ class MlflowClient:
             request_id = "12345678"
             trace = client.get_trace(request_id)
         """
-        if is_databricks_uri(self.tracking_uri):
+        if is_databricks_uri(str(self.tracking_uri)):
             try:
                 uuid.UUID(request_id)
                 # If the request ID is a UUID, it's an online trace.
