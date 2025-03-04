@@ -1679,3 +1679,9 @@ def test_file_store_download_upload_trace_data(tmp_path):
         trace_data = client.get_trace(span.request_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
+
+
+def test_get_trace_throw_if_request_id_is_online_trace_id():
+    client = MlflowClient("databricks")
+    with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
+        client.get_trace("tr-123")
