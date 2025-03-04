@@ -77,8 +77,8 @@ def test_model_save_load():
     n.signature = None
     assert m != n
     with TempDir() as tmp:
-        m.save(tmp.path("model"))
-        o = Model.load(tmp.path("model"))
+        m.save(tmp.path("MLmodel"))
+        o = Model.load(tmp.path("MLmodel"))
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()
@@ -261,7 +261,7 @@ def test_model_metadata():
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
-        path = tmp.path("model")
+        path = tmp.path("MLmodel")
         with open(path, "w") as out:
             model.to_yaml(out)
         loaded_model = Model.load(path)

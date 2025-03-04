@@ -250,7 +250,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
-        prefix = dest_path + "/" if dest_path else ""
+        prefix = dest_path or ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=bucket, Prefix=prefix)
@@ -262,7 +262,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     listed_object_path=file_path, artifact_path=dest_path
                 )
                 keys.append({"Key": file_path})
-            s3_client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
+            if keys:
+                s3_client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)

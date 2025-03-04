@@ -154,7 +154,12 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
 
 def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Resource, None, None]:
     try:
-        from langgraph.prebuilt.tool_node import ToolNode
+        try:
+            # LangGraph >= 0.3
+            from langgraph.prebuilt import ToolNode
+        except ImportError:
+            # LangGraph < 0.3
+            from langgraph.prebuilt.tool_node import ToolNode
 
         if isinstance(tool_node, ToolNode):
             yield from _extract_databricks_dependencies_from_tools(
