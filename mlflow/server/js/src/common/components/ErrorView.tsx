@@ -4,7 +4,7 @@ import error404Img from '../static/404-overflow.svg';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from '../utils/RoutingUtils';
 import { FormattedMessage } from 'react-intl';
-import { DesignSystemThemeInterface, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
 
 const altMessages: Record<number, string> = {
   400: '400 Bad Request',
@@ -42,11 +42,10 @@ function ErrorImage(props: ErrorImageProps) {
   }
 }
 
-type ErrorViewImplProps = {
+type ErrorViewImplProps = DesignSystemHocProps & {
   statusCode: number;
   subMessage?: string;
   fallbackHomePageReactRoute?: string;
-  designSystemThemeApi?: DesignSystemThemeInterface;
 };
 
 class ErrorViewImpl extends Component<ErrorViewImplProps> {
@@ -97,7 +96,7 @@ class ErrorViewImpl extends Component<ErrorViewImplProps> {
       <div className="center">
         <ErrorImage statusCode={statusCode} />
         <h1 style={{ paddingTop: '10px' }}>{centerMessage}</h1>
-        <h2 style={{ color: designSystemThemeApi?.theme.colors.textSecondary }}>
+        <h2 style={{ color: designSystemThemeApi.theme.colors.textSecondary }}>
           {this.renderErrorMessage(subMessage, fallbackHomePageReactRoute)}
         </h2>
       </div>
@@ -105,5 +104,4 @@ class ErrorViewImpl extends Component<ErrorViewImplProps> {
   }
 }
 
-// @ts-expect-error TS(2345): Argument of type 'typeof ErrorViewImpl' is not ass... Remove this comment to see the full error message
 export const ErrorView = WithDesignSystemThemeHoc(ErrorViewImpl);
