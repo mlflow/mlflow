@@ -623,7 +623,7 @@ _logger = logging.getLogger(__name__)
 
 class _DummyPythonModel(PythonModel):
     """
-    A dummy model for testing purposes.
+    A dummy model for testing purposes. Do not use this in examples or tutorials.
 
     .. code-block:: python
 
