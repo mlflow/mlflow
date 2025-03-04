@@ -486,13 +486,13 @@ class MlflowClient:
         if is_databricks_uri(self.tracking_uri):
             try:
                 uuid.UUID(request_id)
-            except ValueError:
-                pass
-            else:
+                # If the request ID is a UUID, it's an online trace.
                 raise MlflowException.invalid_parameter_value(
                     "Traces from inference tables can only be loaded using SQL or "
                     "the search_traces() API."
                 )
+            except ValueError:
+                pass
 
         trace = self._tracking_client.get_trace(request_id)
         if display:
