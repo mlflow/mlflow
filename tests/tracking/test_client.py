@@ -1687,6 +1687,6 @@ def test_get_trace_throw_if_request_id_is_online_trace_id():
     with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
         client.get_trace(request_id)
 
-    another_client = MlflowClient("http://localhost:5000")
-    with pytest.raises(MlflowException, match=r" Trace with request ID '[\w-]+' not found"):
+    another_client = MlflowClient("mlruns")
+    with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
         another_client.get_trace(request_id)
