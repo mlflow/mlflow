@@ -89,6 +89,7 @@ class DatabricksAgentSpanExporter(SpanExporter):
             preserving_proto_field_name=True,
         )
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
+        _logger.info(request_body)
 
         res = http_request(
             host_creds=get_databricks_host_creds(),
@@ -99,6 +100,7 @@ class DatabricksAgentSpanExporter(SpanExporter):
             # and we don't want to bottleneck the application by retrying.
             json=request_body,
         )
+        _logger.info(f"Logged trace to the trace server. Response: {res.text}")
 
         if res.status_code != 200:
             _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")

@@ -110,7 +110,7 @@ class TraceInfo(_MlflowObject):
         proto = ProtoTraceInfoV3()
 
         proto.trace_id = self.request_id
-        proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto.trace_location.type = ProtoTraceLocation.MLFLOW_EXPERIMENT
         proto.trace_location.mlflow_experiment.experiment_id = self.experiment_id
 
         proto.request = request or ""
