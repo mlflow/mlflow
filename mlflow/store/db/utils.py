@@ -20,6 +20,9 @@ from sqlalchemy.pool import (
 )
 
 from mlflow.environment_variables import (
+    MLFLOW_MYSQL_SSL_CA,
+    MLFLOW_MYSQL_SSL_CERT,
+    MLFLOW_MYSQL_SSL_KEY,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
@@ -289,4 +292,32 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["poolclass"] = pool_class_map[poolclass]
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+
+    # Handle MySQL SSL certificates via connect_args
+    connect_args = {}
+    # Check if this is a MySQL connection
+    if db_uri.startswith("mysql"):
+        # Get SSL certificate paths from environment variables
+        ssl_ca = MLFLOW_MYSQL_SSL_CA.get()
+        ssl_cert = MLFLOW_MYSQL_SSL_CERT.get()
+        ssl_key = MLFLOW_MYSQL_SSL_KEY.get()
+
+        # If any SSL certificate paths are provided, set up the SSL connection
+        if ssl_ca or ssl_cert or ssl_key:
+            ssl_args = {}
+            if ssl_ca:
+                ssl_args["ssl_ca"] = ssl_ca
+            if ssl_cert:
+                ssl_args["ssl_cert"] = ssl_cert
+            if ssl_key:
+                ssl_args["ssl_key"] = ssl_key
+
+            connect_args = ssl_args
+            _logger.info("Using MySQL SSL certificates: %s", ssl_args)
+
+    if connect_args:
+        return sqlalchemy.create_engine(
+            db_uri, pool_pre_ping=True, connect_args=connect_args, **pool_kwargs
+        )
+    else:
+        return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
