@@ -621,6 +621,31 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
+class _DummyPythonModel(PythonModel):
+    """
+    A dummy model for testing purposes.
+
+    .. code-block:: python
+
+        import mlflow
+
+        with mlflow.start_run():
+            model_info = mlflow.pyfunc.log_model(
+                "model", python_model=mlflow.pyfunc._DummyPythonModel()
+            )
+
+        model = mlflow.pyfunc.load_model(model_info.model_uri)
+    """
+
+    def predict(
+        self,
+        context: PythonModelContext,
+        model_input: list[str],
+        params: Optional[dict[str, None]] = None,
+    ) -> list[str]:
+        return model_input
+
+
 def add_to_model(
     model,
     loader_module,
