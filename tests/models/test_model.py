@@ -640,7 +640,7 @@ def test_model_resources():
         assert loaded_model.resources == expected_resources
 
 
-def test_save_load_model_with_run_uri(tmp_path):
+def test_save_load_model_with_run_uri():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input: list[str], params=None):
             return model_input
@@ -653,3 +653,6 @@ def test_save_load_model_with_run_uri(tmp_path):
         )
     mlflow_model = Model.load(f"runs:/{run.info.run_id}/test_model/MLmodel")
     assert mlflow_model.load_input_example() == ["a", "b", "c"]
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model")
+    assert model == mlflow_model
