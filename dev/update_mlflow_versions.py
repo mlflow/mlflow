@@ -14,7 +14,7 @@ _PYTHON_VERSION_FILES = [
 
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
-    Path("pyproject.skinny.toml"),
+    Path("skinny/pyproject.toml"),
     Path("pyproject.release.toml"),
 ]
 
