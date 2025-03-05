@@ -1,24 +1,11 @@
 import base64
-import json
-from dataclasses import dataclass
 from unittest import mock
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
-from mlflow.tracing.destination import TraceDestination
+from mlflow.tracing.destination import Databricks
 
-
-@dataclass
-class DatabricksAgentMonitoring(TraceDestination):
-    databricks_monitor_id: str
-
-    @property
-    def type(self):
-        return "databricks_agent_monitoring"
-
-    def __init__(self, *, experiment_id: str):
-        self.experiment_id = experiment_id
-        self.databricks_monitor_id = "dummy-monitor-id"
+_EXPERIMENT_ID = "dummy-experiment-id"
 
 
 @mlflow.trace
@@ -30,37 +17,18 @@ def _predict(x: str) -> str:
     return x + "!"
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_export_legacy(mock_get_deploy_client):
-    mock_deploy_client = mock.MagicMock()
-    mock_get_deploy_client.return_value = mock_deploy_client
+def test_export(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
 
-    mlflow.tracing.set_destination(
-        destination=DatabricksAgentMonitoring(experiment_id="dummy-experiment-id")
-    )
-
-    _predict("hello")
-
-    mock_deploy_client.predict.assert_called_once()
-    call_args = mock_deploy_client.predict.call_args
-    assert call_args.kwargs["endpoint"] == "dummy-monitor-id"
-    trace = json.loads(call_args.kwargs["inputs"]["inputs"][0])
-    assert trace["info"]["request_id"] is not None
-
-
-def test_export_v3(monkeypatch):
-    monkeypatch.setenv("AGENT_EVAL_TRACE_SERVER_ENABLED", "true")
-
-    mlflow.tracing.set_destination(
-        destination=DatabricksAgentMonitoring(experiment_id="dummy-experiment-id")
-    )
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
     response = mock.MagicMock()
     response.status_code = 200
     response.text = "{}"
 
     with mock.patch(
-        "mlflow.tracing.export.databricks_agent.http_request", return_value=response
+        "mlflow.tracing.export.databricks.http_request", return_value=response
     ) as mock_http:
         _predict("hello")
 
@@ -70,7 +38,7 @@ def test_export_v3(monkeypatch):
     assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
     assert call_args.kwargs["method"] == "POST"
 
-    trace = call_args.kwargs["json"]["trace"]
+    trace = call_args.kwargs["json"]
     trace_id = trace["info"]["trace_id"]
     assert trace_id is not None
     trace_id_b64 = base64.b64encode(int(trace_id).to_bytes(16, "big", signed=False)).decode("utf-8")
@@ -79,7 +47,7 @@ def test_export_v3(monkeypatch):
             "trace_id": trace_id,
             "trace_location": {
                 "mlflow_experiment": {
-                    "experiment_id": "dummy-experiment-id",
+                    "experiment_id": _EXPERIMENT_ID,
                 },
                 "type": "MLFLOW_EXPERIMENT",
             },
@@ -147,12 +115,11 @@ def test_export_v3(monkeypatch):
     }
 
 
-def test_export_v3_catch_failure(monkeypatch):
-    monkeypatch.setenv("AGENT_EVAL_TRACE_SERVER_ENABLED", "true")
+def test_export_catch_failure(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
 
-    mlflow.tracing.set_destination(
-        destination=DatabricksAgentMonitoring(experiment_id="dummy-experiment-id")
-    )
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
     response = mock.MagicMock()
     response.status_code = 500
@@ -160,9 +127,9 @@ def test_export_v3_catch_failure(monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracing.export.databricks_agent.http_request", return_value=response
+            "mlflow.tracing.export.databricks.http_request", return_value=response
         ) as mock_http,
-        mock.patch("mlflow.tracing.export.databricks_agent._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks._logger") as mock_logger,
     ):
         _predict("hello")
 

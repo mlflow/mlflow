@@ -9,18 +9,19 @@ from pathlib import Path
 from packaging.version import Version
 
 cache_dir = ".cache/protobuf_cache"
+googleapis_cache_dir = ".cache/googleapis"
 
 mlflow_protos_dir = "mlflow/protos"
 test_protos_dir = "tests/protos"
 
 
-def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, out_dir):
+def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_paths, out_dir):
     assert lang in ["python", "java"]
 
     subprocess.check_call(
         [
             protoc_bin,
-            f"-I={protoc_include_path}",
+            *[f"-I={path}" for path in protoc_include_paths],
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
             *[f"{proto_dir}/{proto_file}" for proto_file in proto_files],
@@ -92,16 +93,20 @@ python_gencode_replacements = [
         "import service_pb2 as service__pb2",
         "from . import service_pb2 as service__pb2",
     ),
+    (
+        "import google.api.annotations_pb2 as google_dot_api_dot_annotations__pb2",
+        "from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2",
+    ),
 ]
 
 
-def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
+def gen_python_protos(protoc_bin, protoc_include_paths, out_dir):
     gen_protos(
-        mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_path, out_dir
+        mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_paths, out_dir
     )
 
     gen_protos(
-        test_protos_dir, test_proto_files, "python", protoc_bin, protoc_include_path, out_dir
+        test_protos_dir, test_proto_files, "python", protoc_bin, protoc_include_paths, out_dir
     )
 
     for file_name in python_proto_files:
@@ -153,7 +158,7 @@ def build_protoc_from_source(version):
 
     protoc_bin = src_dir / "src" / "protoc"
     protoc_include_path = src_dir / "src"
-    return str(protoc_bin), str(protoc_include_path)
+    return str(protoc_bin), [str(protoc_include_path)]
 
 
 def download_file(url, output_path):
@@ -231,7 +236,30 @@ def download_and_extract_protoc(version):
             ]
         )
         Path(cache_dir, protoc_zip_filename).unlink()
-    return downloaded_protoc_bin, downloaded_protoc_include_path
+    return downloaded_protoc_bin, [downloaded_protoc_include_path]
+
+
+def download_googleapis():
+    """
+    Download Google API proto files required for google.api.http annotation.
+    """
+    googleapis_dir = Path(googleapis_cache_dir)
+
+    if not googleapis_dir.exists():
+        googleapis_dir.mkdir(parents=True, exist_ok=True)
+
+        # Clone the googleapis repository
+        subprocess.check_call(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "https://github.com/googleapis/googleapis.git",
+                str(googleapis_dir),
+            ]
+        )
+
+    return str(googleapis_dir)
 
 
 def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
@@ -251,6 +279,10 @@ else:
 
 def main():
     os.makedirs(cache_dir, exist_ok=True)
+
+    # Download Google API proto files
+    googleapis_dir = download_googleapis()
+
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
@@ -260,6 +292,10 @@ def main():
 
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
+
+        # Add googleapis directory to include paths
+        protoc3194_include.append(googleapis_dir)
+        protoc5260_include.append(googleapis_dir)
 
         gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
         gen_python_protos(protoc5260, protoc5260_include, proto5260_out)

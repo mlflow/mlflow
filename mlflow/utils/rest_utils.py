@@ -3,6 +3,7 @@ import json
 from functools import lru_cache
 
 import requests
+from google.api import annotations_pb2
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
@@ -322,15 +323,37 @@ def _get_path(path_prefix, endpoint_path):
     return f"{path_prefix}{endpoint_path}"
 
 
+def _parse_google_api_http_rule(http_rule):
+    """Parse a google.api.HttpRule message into a tuple (path, method)"""
+    if http_rule.HasField("get"):
+        return http_rule.get, "GET"
+    if http_rule.HasField("put"):
+        return http_rule.put, "PUT"
+    if http_rule.HasField("post"):
+        return http_rule.post, "POST"
+    if http_rule.HasField("delete"):
+        return http_rule.delete, "DELETE"
+    if http_rule.HasField("patch"):
+        return http_rule.patch, "PATCH"
+    if http_rule.HasField("custom"):
+        return http_rule.custom.path, http_rule.custom.kind
+    raise ValueError("HttpRule must have one of the fields: get, put, post, delete, patch, custom")
+
+
 def extract_api_info_for_service(service, path_prefix):
     """Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
-        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
-        endpoint = endpoints[0]
-        endpoint_path = _get_path(path_prefix, endpoint.path)
-        res[service().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
+        # option (rpc) style endpoint
+        if endpoints := service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints:
+            endpoint = endpoints[0]
+            endpoint_path = _get_path(path_prefix, endpoint.path)
+            method = endpoint.method
+        elif http_rule := service_method.GetOptions().Extensions[annotations_pb2.http]:
+            endpoint, method = _parse_google_api_http_rule(http_rule)
+            endpoint_path = _get_path(path_prefix, http_rule.post)
+        res[service().GetRequestClass(service_method)] = (endpoint_path, method)
     return res
 
 

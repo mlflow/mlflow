@@ -4,6 +4,7 @@ syntax = "proto2";
 
 package mlflow.traceserver;
 
+import "google/api/annotations.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -16,11 +17,11 @@ service DatabricksTracingServerService {
   // Create a new trace in the tracing server.
   rpc createTrace(CreateTrace) returns (Trace) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/tracing/traces",
-      }],
       visibility: PUBLIC_UNDOCUMENTED
+    };
+    option (google.api.http) = {
+      post: "/tracing/traces",
+      body: "trace"
     };
   }
 }
