@@ -270,7 +270,7 @@ def test_enforce_property():
     assert _enforce_property(data, prop) == data
 
     prop = Property("a", Array(DataType.binary))
-    assert _enforce_property(data, prop) == data
+    assert _enforce_property(data, prop) == [b"some_sentence1", b"some_sentence2"]
 
     data = np.array([np.int32(1), np.int32(2)])
     prop = Property("a", Array(DataType.integer))
