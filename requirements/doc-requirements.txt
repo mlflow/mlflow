@@ -21,3 +21,5 @@ incremental<24.7.0
 # this is an extra dependency for the auth app which
 # is not included in the core mlflow requirements
 Flask-WTF<2
+# Required for importing proto classes with (google.api.http) annotation
+google-api-python-client
