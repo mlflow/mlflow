@@ -130,7 +130,9 @@ def test_mlflow_callback_exception():
             time.sleep(0.1)
             raise ValueError("Error")
 
-    dspy.settings.configure(
+    cot = dspy.ChainOfThought("question -> answer", n=3)
+
+    with dspy.context(
         lm=ErrorLM(
             model="invalid",
             prompt={"How are you?": {"answer": "test output", "reasoning": "No more responses"}},
@@ -138,12 +140,9 @@ def test_mlflow_callback_exception():
         # ChatAdapter falls back to JSONAdapter when LLM call fails,
         # so JSONAdapter is used here for simplicity
         adapter=JSONAdapter(),
-    )
-
-    cot = dspy.ChainOfThought("question -> answer", n=3)
-
-    with pytest.raises(ValueError, match="Error"):
-        cot(question="How are you?")
+    ):
+        with pytest.raises(ValueError, match="Error"):
+            cot(question="How are you?")
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
