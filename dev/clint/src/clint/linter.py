@@ -189,7 +189,7 @@ class Linter(ast.NodeVisitor):
         self.violations: list[Violation] = []
         self.in_type_annotation = False
         self.in_TYPE_CHECKING = False
-        self.is_mlflow_init_py = path == Path("mlflow/__init__.py")
+        self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
         self.lazy_modules: set[str] = set()
 
