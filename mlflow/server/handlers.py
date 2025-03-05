@@ -12,8 +12,12 @@ import time
 import urllib
 from functools import wraps
 
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
+
 import requests
 from flask import Response, current_app, jsonify, request, send_file
+# from flask_cors import CORS
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -191,6 +195,70 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
 _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
+
+
+# def _update_release():
+#     """
+#     Handler for updating the state of a model version and setting the serving_image tag.
+#     """
+#     try:
+#         # Parse the request body
+#         data = request.json
+#         model_name = data.get('model_name')
+#         version = data.get('version')
+#         new_state = data.get('new_state')
+#         serving_image = data.get('serving_image')
+
+#         logger.info(f"Received request to update model {model_name}, version {version} to state {new_state}")
+
+#         # Validate the input
+#         if not model_name or not version or not new_state:
+#             logger.error("Missing required fields")
+#             return jsonify({'error': 'Missing required fields'}), 400
+
+#         valid_states = {'New', 'Live', 'Retired'}
+#         if new_state not in valid_states:
+#             logger.error(f"Invalid state value: {new_state}")
+#             return jsonify({'error': 'Invalid state value'}), 400
+
+#         # Get the ModelRegistryStore
+#         store = registry_utils._get_store()
+
+#         # Fetch the current model version
+#         model_version = store.get_model_version(model_name, version)
+
+#         # Update the state
+#         # store.transition_model_version_stage(
+#         #     name=model_name,
+#         #     version=version,
+#         #     state=new_state,
+#         # )
+
+#         store.update_model_version(
+#             name=model_name,
+#             version=version,
+#             state=new_state,
+#         )
+
+#         # Update the serving_image tag if provided
+#         if serving_image:
+#             store.set_model_version_tag(
+#                 name=model_name,
+#                 version=version,
+#                 key='serving_image',
+#                 value=serving_image,
+#             )
+
+#         logger.info(f"Successfully updated model {model_name}, version {version} to state {new_state}")
+#         return jsonify({'message': 'State updated successfully'}), 200
+#     except Exception as e:
+#         logger.error(f"Error updating model version: {e}")
+#         if "Model Version not found" in str(e):
+#             return jsonify({'error': 'Model version not found'}), 404
+#         elif "Invalid stage" in str(e):
+#             return jsonify({'error': 'Invalid state value'}), 400
+#         else:
+#             return jsonify({'error': str(e)}), 500
 
 
 def _get_artifact_repo_mlflow_artifacts():
@@ -1938,6 +2006,27 @@ def _get_model_version():
     return _wrap_response(response_message)
 
 
+
+def trigger_gh_model_state_update_webhook(image_uri):
+    url = f'https://api.github.com/repos/{os.getenv("GH_ARGOCD_WEBOOK_REPO_NAME","akinwilson/kmlflow")}/dispatches'  # GitHub API URL for workflow dispatch
+    headers = {
+        'Authorization': f'Bearer {os.getenv("GITHUB_TOKEN", "Need a token for argoCD deployment")}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'event_type': 'mlflow-model-update',
+        'client_payload': {
+            'image_uri': image_uri
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    
+    if response.status_code == 204:
+        print("GitHub Action triggered successfully.")
+    else:
+        print(f"Failed to trigger GitHub Action: {response.status_code}")
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_model_version():
@@ -1947,16 +2036,81 @@ def _update_model_version():
             "name": [_assert_string, _assert_required],
             "version": [_assert_string, _assert_required],
             "description": [_assert_string],
+            "state": [_assert_string],
+            "serving_image": [_assert_string],
         },
     )
     new_description = None
+    new_state = None
+    serving_image = None 
     if request_message.HasField("description"):
         new_description = request_message.description
+    if request_message.HasField("state"):
+        new_state = request_message.state
+    if request_message.HasField("serving_image"):
+        serving_image = request_message.serving_image
+    
+    assert serving_image, f"Serving image URI required, received {serving_image}"
+    # Updating seldon server list #########################################################
+    try:
+        # Try to load the kubeconfig from the local machine
+        config.load_kube_config()
+        print("Loaded kubeconfig from local machine.")
+    except ApiException as e:
+        print("Failed to load kubeconfig. Trying in-cluster config...")
+        try:
+            config.load_incluster_config()
+            print("Loaded in-cluster config.")
+        except ApiException as e:
+            print(f"Failed to load in-cluster config: {e}")
+            raise Exception("Failed to load Kubernetes config: Neither local kubeconfig nor in-cluster config succeeded.")
+
+    
+    kclient = client.CoreV1Api()
+    cm_name = "seldon-config"
+    ns_name = "seldon-system"
+    
+    try:
+        cm = kclient.read_namespaced_config_map(cm_name, ns_name)
+    except ApiException as e:
+        print(f"Failed to fetch ConfigMap: {e}")
+        return    
+    predictor_servers = json.loads(cm.data["predictor_servers"])
+    img_name, tag = serving_image.split(":")
+    server_name = f"{tag.upper()}_SERVER"
+
+    if new_state == "Live" or new_state == "New":
+        new_entry = {
+                "protocols": {
+                    "v2": {
+                        "image": img_name,
+                        "defaultImageVersion": tag
+                    }
+                }
+            }
+        predictor_servers[server_name] = new_entry
+        print(f"Added entry for {server_name} to predictor_servers.")
+
+    if new_state == 'Retired':
+        if server_name in predictor_servers:
+            del predictor_servers[server_name]
+            print(f"Removed entry for {server_name} from predictor_servers.")
+
+    cm.data["predictor_servers"] = json.dumps(predictor_servers, indent=4)
+    try:
+        kclient.replace_namespaced_config_map(cm_name, ns_name, cm)
+        print("ConfigMap updated successfully.")
+    except ApiException as e:
+        print(f"Failed to update ConfigMap: {e}")   
+    ######################################################################################
+    
     model_version = _get_model_registry_store().update_model_version(
         name=request_message.name,
         version=request_message.version,
         description=new_description,
+        state=new_state,
     )
+    trigger_gh_model_state_update_webhook(image_uri=serving_image)
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
 

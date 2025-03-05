@@ -3886,7 +3886,7 @@ class MlflowClient:
         return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
-        self, name: str, version: str, description: Optional[str] = None
+        self, name: str, version: str, description: Optional[str] = None, state: str="Live"
     ) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
@@ -3955,7 +3955,7 @@ class MlflowClient:
             raise MlflowException("Attempting to update model version with no new field values.")
 
         return self._get_registry_client().update_model_version(
-            name=name, version=version, description=description
+            name=name, version=version, description=description, state=state
         )
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)

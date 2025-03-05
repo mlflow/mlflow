@@ -692,7 +692,7 @@ class FileStore(AbstractStore):
                         f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
                     )
 
-    def update_model_version(self, name, version, description) -> ModelVersion:
+    def update_model_version(self, name, version, description, state) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
 
@@ -709,7 +709,10 @@ class FileStore(AbstractStore):
         model_version = self._fetch_file_model_version_if_exists(name=name, version=version)
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
+        model_version.state = state
         self._save_model_version_as_meta_file(model_version)
+
+        # update_model_version()
         return model_version.to_mlflow_entity()
 
     def transition_model_version_stage(

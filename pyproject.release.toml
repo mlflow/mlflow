@@ -42,6 +42,7 @@ dependencies = [
   "pyarrow<20,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
+  "kubernetes>=31.0.0",
   "sqlalchemy<3,>=1.4.0",
   "waitress<4; platform_system == 'Windows'",
 ]

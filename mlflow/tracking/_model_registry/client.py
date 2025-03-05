@@ -252,7 +252,7 @@ class ModelRegistryClient:
         """
         return self.store.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
-    def update_model_version(self, name, version, description):
+    def update_model_version(self, name, version, description, state):
         """Update metadata associated with a model version in backend.
 
         Args:
@@ -260,7 +260,7 @@ class ModelRegistryClient:
             version: Version number of the model version.
             description: New description.
         """
-        return self.store.update_model_version(name=name, version=version, description=description)
+        return self.store.update_model_version(name=name, version=version, description=description, state=state)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """Update model version stage.

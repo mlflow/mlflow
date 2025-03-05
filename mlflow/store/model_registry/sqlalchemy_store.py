@@ -791,7 +791,7 @@ class SqlAlchemyStore(AbstractStore):
                 session, name, sql_model_version.to_mlflow_entity()
             )
 
-    def update_model_version(self, name, version, description=None):
+    def update_model_version(self, name, version, description=None, state="Live"):
         """
         Update metadata associated with a model version in backend.
 
@@ -809,6 +809,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
+            sql_model_version.state = state 
             session.add(sql_model_version)
             return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()

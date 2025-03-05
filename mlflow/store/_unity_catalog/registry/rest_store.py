@@ -854,7 +854,7 @@ class UcModelRegistryStore(BaseRestStore):
             "`mlflow.pyfunc.load_model('models:/your_model_name@your_alias')`.",
         )
 
-    def update_model_version(self, name, version, description):
+    def update_model_version(self, name, version, description, state="Live"):
         """
         Update metadata associated with a model version in backend.
 
@@ -869,7 +869,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            UpdateModelVersionRequest(name=full_name, version=str(version), description=description)
+            UpdateModelVersionRequest(name=full_name, version=str(version), description=description, state=state)
         )
         response_proto = self._call_endpoint(UpdateModelVersionRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)

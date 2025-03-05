@@ -115,6 +115,7 @@ class SqlModelVersion(Base):
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
             [],
+            state=self.state,
         )
 
 
