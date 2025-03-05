@@ -1,10 +1,3 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 /* prettier-ignore */
 export const mockRegisteredModelDetailed = (
   name: any,
@@ -23,10 +16,10 @@ export const mockRegisteredModelDetailed = (
 };
 
 export const mockModelVersionDetailed = (
-  name: any,
-  version: any,
-  stage: any,
-  status: any,
+  name: string,
+  version: number,
+  stage: string,
+  status: string,
   tags = [],
   run_link = undefined,
   run_id = 'b99a0fc567ae4d32994392c800c0b6ce',
@@ -51,7 +44,7 @@ export const mockModelVersionDetailed = (
   };
 };
 
-export const mockGetFieldValue = (comment: any, archive: any) => {
+export const mockGetFieldValue = (comment: string, archive: boolean | undefined) => {
   return (key: any) => {
     if (key === 'comment') {
       return comment;
