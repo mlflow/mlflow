@@ -237,8 +237,16 @@ NO_CONDA = click.option(
 
 INSTALL_JAVA = click.option(
     "--install-java",
-    is_flag=True,
-    help="Install Java in the image. Default is False in order to reduce both the "
-    "image size and the build time. Model flavors requiring Java will enable this "
-    "setting automatically, such as the Spark flavor.",
+    is_flag=False,
+    flag_value=True,
+    default=None,
+    type=bool,
+    help="Install Java in the image. Default is None. "
+    "In images where a model artifact is provided at build-time,"
+    "we can deduce whether Java is required or not. So, None is interpreted "
+    "in those flows as 'let MLflow decide if Java will be installed'. "
+    "Not installing Java saves on build time and image size. "
+    "In images where the model artifact is provided at run-time, such as "
+    " for sagemaker build-and-push-container, we cannot infer "
+    "whether Java will be needed or not. So, None means 'install Java' in that case.",
 )
