@@ -355,6 +355,9 @@ message ModelVersion {
 
   // Aliases pointing to this ``model_version``.
   repeated string aliases = 14;
+
+  // state of model 
+  optional string state = 15;  
 }
 
 message CreateRegisteredModel {
