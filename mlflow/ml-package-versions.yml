@@ -361,16 +361,18 @@ spark:
       mvn package -DskipTests -q
       popd
 
+      pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_order.py::test_enabling_autologging_before_spark_session_works
+
       # `test_spark_disable_autologging.py` is flaky if it runs with other tests
       # so run it individually
-      pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
+      # pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
 
       # NB: Running each .py file individually is important (instead of
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
       # `test_spark_datasource_autologging_crossframework.py` fails when run with other tests
-      pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
+      # pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
 
-      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
+      # find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
 
 mleap:
   package_info:
