@@ -382,7 +382,7 @@ export const ModelVersionTable = ({
             let runTags = null;
 
             try {
-              const runResponse = await fetch(`http://localhost:5000/api/2.0/mlflow/runs/get?run_id=${row.original.run_id}`, {
+              const runResponse = await fetch(`/api/2.0/mlflow/runs/get?run_id=${row.original.run_id}`, {
                 method: 'GET',
                 headers: {
                   'Content-Type': 'application/json',
@@ -416,7 +416,7 @@ export const ModelVersionTable = ({
             const servingImageTag = runTags.find(tag => tag.key === 'serving_container')?.value;
         
             // Send a POST request to update the model version state
-            const updateResponse = await fetch('http://localhost:5000/api/2.0/mlflow/model-versions/update', {
+            const updateResponse = await fetch('/api/2.0/mlflow/model-versions/update', {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
