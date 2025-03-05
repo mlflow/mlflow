@@ -504,7 +504,7 @@ class Linter(ast.NodeVisitor):
 
     def post_visit(self) -> None:
         if self.is_mlflow_init_py and (diff := self.lazy_modules - self.imported_modules):
-            self.violations.append(Violation(rules.LazyModule(diff), self.path, 0, 0))
+            self._check(Location(1, 1), rules.LazyModule(diff))
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
