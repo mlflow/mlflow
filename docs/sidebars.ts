@@ -463,12 +463,12 @@ const sidebars: SidebarsConfig = {
         {
           type: 'link',
           label: 'R API',
-          href: `${apiReferencePrefix()}api_reference/R-api/index.html`,
+          href: `${apiReferencePrefix()}api_reference/R-api.html`,
         },
         {
           type: 'link',
           label: 'REST API',
-          href: `${apiReferencePrefix()}api_reference/rest-api/index.html`,
+          href: `${apiReferencePrefix()}api_reference/rest-api.html`,
         },
         {
           type: 'link',
