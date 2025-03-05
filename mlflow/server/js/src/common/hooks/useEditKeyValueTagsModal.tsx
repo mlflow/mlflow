@@ -63,6 +63,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const showEditTagsModal = useCallback(
     (editedEntity: T) => {
       editedEntityRef.current = editedEntity;
+      setErrorMessage('');
       setInitialTags(getTagsMap(editedEntity.tags || []));
       setFinalTags(getTagsMap(editedEntity.tags || []));
       form.reset();

@@ -25,6 +25,7 @@ type ModelVersionAliasList = string[];
  */
 export interface ModelEntity {
   creation_timestamp: number;
+  last_updated_timestamp: number;
   current_stage: string;
   version: string;
   description: string;

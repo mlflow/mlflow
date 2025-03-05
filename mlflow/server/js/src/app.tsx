@@ -14,12 +14,14 @@ import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const intl = useI18nInit();
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const apolloClient = useMemo(() => createApolloClient(), []);
+  const queryClient = useMemo(() => new QueryClient(), []);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
@@ -34,15 +36,17 @@ export function MLFlowRoot() {
 
   return (
     <ApolloProvider client={apolloClient}>
-      <RawIntlProvider value={intl} key={intl.locale}>
-        <Provider store={store}>
-          <DesignSystemContainer isDarkTheme={isDarkTheme}>
-            <ApplyGlobalStyles />
-            <MlflowThemeGlobalStyles />
-            <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-          </DesignSystemContainer>
-        </Provider>
-      </RawIntlProvider>
+      <QueryClientProvider client={queryClient}>
+        <RawIntlProvider value={intl} key={intl.locale}>
+          <Provider store={store}>
+            <DesignSystemContainer isDarkTheme={isDarkTheme}>
+              <ApplyGlobalStyles />
+              <MlflowThemeGlobalStyles />
+              <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+            </DesignSystemContainer>
+          </Provider>
+        </RawIntlProvider>
+      </QueryClientProvider>
     </ApolloProvider>
   );
 }
