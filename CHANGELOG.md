@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2.21.0rc0 (2025-03-05)
+
+MLflow 2.21.0rc0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Support async API tracing for OpenAI (#14792, @B-Step62)
+- [Tracking] Add import and docs for txtai integration (#14712, @B-Step62)
+- [Models] Introduce User Auth Policy for Pyfunc Models (#14538, @aravind-segu)
+- [Tracking] Support new Google GenAI SDK (#14576, @TomeHirata)
+- [Tracking] Support tracing sync/async generator function with @mlflow.trace (#14459, @B-Step62)
+- [Tracking] Support generating traces from DSPy built-in compilation and evaluation (#14400, @B-Step62)
+- [Tracking] Add mlflow.log_trace API (#14418, @TomeHirata)
+- [Models] ChatAgent LangGraph and LangChain Connectors (#14215, @bbqiu)
+- [] Use Fastapi for mlflow inference server (#14307, @TomeHirata)
+
+Bug fixes:
+
+- [] Fix `mlflow.doctor` to fall back to `mlflow-skinny` when `mlflow` is not found (#14782, @harupy)
+- [Models] Handle LangGraph breaking change (#14794, @B-Step62)
+- [Tracking] Fix DSPy tracing in serving (#14743, @B-Step62)
+- [] Add limit to the length of experiment artifact locations (#14416, @daniellok-db)
+- [Build] Fix build.py to restore specific files #14444 (#14448, @arunkothari84)
+- [Models] Fix false alert for ChatModel type hint (#14343, @B-Step62)
+- [Model Registry] use aes256 to talk to s3 (#14354, @artjen)
+- [Tracking] Fix LiteLLM autologging (#14340, @B-Step62)
+- [Models] Fix ChatCompletionResponse for model serving Pydantic 1.x (#14332, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Add guide for tracing deepseek (#14826, @B-Step62)
+- [] Update llama Jupyter notebook source (#14754, @emmanuel-ferdman)
+- [] Replace Databricks Community Edition with Lighthouse [1] (#14642, @TomeHirata)
+- [Docs] Update models from code guide and chat model guide to always recommend models from code (#14370, @smurching)
+- [] Docusaurus migration initial commit (#13645, @daniellok-db)
+- [Artifacts] [DOC-FIX #14183] Improve documentation for 'artifact_uri' in 'download_artifacts' (#14225, @vinayakkgarg)
+
+Small bug fixes and documentation updates:
+
+#14824, #14830, #14767, #14772, #14770, #14766, #14651, #14629, #14636, #14572, #14498, #14328, #14265, @serena-ruan; #14788, @Gumichocopengin8; #14813, #14822, #14818, #14802, #14804, #14814, #14779, #14796, #14735, #14731, #14728, #14734, #14727, #14726, #14721, #14719, #14716, #14692, #14683, #14687, #14684, #14674, #14673, #14662, #14652, #14650, #14648, #14647, #14646, #14639, #14637, #14635, #14634, #14633, #14630, #14628, #14624, #14623, #14621, #14619, #14615, #14613, #14603, #14601, #14600, #14597, #14570, #14564, #14554, #14551, #14550, #14515, #14529, #14528, #14525, #14516, #14514, #14486, #14476, #14472, #14477, #14364, #14431, #14414, #14398, #14412, #14399, #14359, #14369, #14381, #14349, #14350, #14347, #14348, #14342, #14329, #14250, #14318, #14323, #14306, #14280, #14279, #14272, #14270, #14263, #14222, @harupy; #14833, #14795, #14748, #14744, #14666, #14668, #14664, #14667, #14580, #14475, #14439, #14397, #14363, #14361, #14377, #14378, #14337, #14324, #14339, #14259, @B-Step62; #14821, #14817, #14815, #14765, #14803, #14773, #14783, #14784, #14776, #14759, #14541, #14553, #14540, #14499, #14495, #14481, #14479, #14456, #14022, #14411, #14407, #14408, #14315, #14346, #14325, #14322, #14326, #14310, #14309, #14320, #14308, @daniellok-db; #14800, #14799, #14671, #14665, #14594, #14506, #14457, #14395, #14371, #14360, #14327, @TomeHirata; #14756, @jiewpeng; #14701, @jaceklaskowski; #14568, #14450, @BenWilson2; #14535, @njbrake; #14567, #14367, @bbqiu; #14507, @arunprd; #14489, @RuchitAgrawal; #14467, @seal07; #14460, @ManzoorAhmedShaikh; #14374, @wasup-yash; #14333, @singh-kristian; #14362, #14353, #14296, #13789, @dsuhinin; #14358, @apoxnen; #14335, @Fresnel-Fabian; #14178, @emmanuel-ferdman
+
 ## 2.20.3 (2025-02-26)
 
 MLflow 2.20.3 is a patch release includes several major features and improvements
