@@ -538,6 +538,11 @@ class MlflowClient:
             version: The version of the prompt. If not specified, the latest version will be loaded.
         """
         if name_or_uri.startswith("prompts:/"):
+            if version is not None:
+                raise MlflowException(
+                    "The `version` argument should not be specified when loading a prompt by URI.",
+                    INVALID_PARAMETER_VALUE,
+                )
             name, version = self.parse_prompt_uri(name_or_uri)
         else:
             name = name_or_uri
