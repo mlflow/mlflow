@@ -90,6 +90,7 @@ class SqlModelVersion(Base):
 
     status_message = Column(String(500), nullable=True, default=None)
 
+    state = Column(String(255), default="New")
     # linked entities
     registered_model = relationship(
         "SqlRegisteredModel", backref=backref("model_versions", cascade="all")

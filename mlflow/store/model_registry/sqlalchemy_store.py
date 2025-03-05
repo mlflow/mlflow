@@ -697,6 +697,7 @@ class SqlAlchemyStore(AbstractStore):
                         run_id=run_id,
                         run_link=run_link,
                         description=description,
+                        state="New",
                     )
                     tags_dict = {}
                     for tag in tags or []:
