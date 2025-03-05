@@ -2010,7 +2010,7 @@ def _get_model_version():
 def trigger_gh_model_state_update_webhook(image_uri):
     url = f'https://api.github.com/repos/{os.getenv("GH_ARGOCD_WEBOOK_REPO_NAME","akinwilson/kmlflow")}/dispatches'  # GitHub API URL for workflow dispatch
     headers = {
-        'Authorization': f'Bearer {os.getenv("GITHUB_TOKEN", "Need a token for argoCD deployment")}',
+        'Authorization': f'Bearer {os.getenv("GH_TOKEN", "Need a token for argoCD deployment")}',
         'Content-Type': 'application/json'
     }
     data = {

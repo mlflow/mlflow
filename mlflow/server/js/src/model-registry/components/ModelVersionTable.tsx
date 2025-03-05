@@ -330,7 +330,7 @@ export const ModelVersionTable = ({
             buttonColor = '#59c3dd';
             break;
           case 'Live':
-            buttonColor = '#45d439';
+            buttonColor = '#3b9c3f';
             break;
           case 'Retired':
             buttonColor = '#afafaf';
