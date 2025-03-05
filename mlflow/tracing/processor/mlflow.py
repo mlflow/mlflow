@@ -24,7 +24,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
-    maybe_get_model_id,
+    maybe_get_logged_model_id,
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
@@ -115,7 +115,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
-        if model_id := maybe_get_model_id():
+        if model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
         experiment_id = self._get_experiment_id_for_trace(span)

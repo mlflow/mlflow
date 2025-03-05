@@ -234,7 +234,10 @@ def maybe_get_dependencies_schemas() -> Optional[dict]:
         return context.dependencies_schemas
 
 
-def maybe_get_model_id() -> Optional[str]:
+def maybe_get_logged_model_id() -> Optional[str]:
+    """
+    Get the logged model ID associated with the current prediction context.
+    """
     if context := _try_get_prediction_context():
         return context.model_id
 

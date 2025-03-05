@@ -18,7 +18,7 @@ class Context:
     is_evaluate: bool = False
     # The schema of the dependencies to be added into the tag of trace info.
     dependencies_schemas: Optional[dict] = None
-    # The model ID associated with the current prediction request
+    # The logged model ID associated with the current prediction request
     model_id: Optional[str] = None
 
     def update(self, **kwargs):
