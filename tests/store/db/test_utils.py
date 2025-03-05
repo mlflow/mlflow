@@ -113,6 +113,7 @@ def test_mysql_ssl_params(monkeypatch):
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
 
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
         utils.create_sqlalchemy_engine("mysql+pymysql://user@host:port/db")
@@ -126,6 +127,7 @@ def test_mysql_ssl_params(monkeypatch):
                 "ssl_cert": "/path/to/cert.pem",
                 "ssl_key": "/path/to/key.pem",
             },
+            poolclass=NullPool,
         )
 
 
@@ -134,6 +136,7 @@ def test_mysql_ssl_params_partial(monkeypatch):
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.delenv("MLFLOW_MYSQL_SSL_CERT", raising=False)
     monkeypatch.delenv("MLFLOW_MYSQL_SSL_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
 
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
         utils.create_sqlalchemy_engine("mysql+pymysql://user@host:port/db")
@@ -145,6 +148,7 @@ def test_mysql_ssl_params_partial(monkeypatch):
             connect_args={
                 "ssl_ca": "/path/to/ca.pem",
             },
+            poolclass=NullPool,
         )
 
 
@@ -153,6 +157,7 @@ def test_non_mysql_no_ssl_params(monkeypatch):
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
     monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
 
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
         utils.create_sqlalchemy_engine("postgresql://user@host:port/db")
@@ -161,4 +166,5 @@ def test_non_mysql_no_ssl_params(monkeypatch):
         mock_create_engine.assert_called_once_with(
             "postgresql://user@host:port/db",
             pool_pre_ping=True,
+            poolclass=NullPool,
         )
