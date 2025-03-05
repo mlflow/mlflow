@@ -72,6 +72,7 @@ enum COLUMN_IDS {
   STAGE = 'STAGE',
   DESCRIPTION = 'DESCRIPTION',
   ALIASES = 'ALIASES',
+  STATE = 'STATE',
 }
 
 export const ModelVersionTable = ({
@@ -276,6 +277,80 @@ export const ModelVersionTable = ({
       meta: { styles: { flex: 2 } },
       accessorKey: 'description',
       cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+    },
+    {
+      id: COLUMN_IDS.STATE,
+      enableSorting: false,
+      header: intl.formatMessage({
+        defaultMessage: 'State',
+        description: 'Column title for current state of the model; New, Live or Retired',
+      }),
+      meta: { styles: { flex: 2 } },
+      accessorKey: 'state',
+      cell: ({ getValue }) => {
+        const state = getValue(); // Get the state value
+        let buttonColor = '';
+  
+        // Determine button color based on state
+        switch (state) {
+          case 'New':
+            buttonColor = '#59c3dd';
+            break;
+          case 'Live':
+            buttonColor = '#45d439';
+            break;
+          case 'Retired':
+            buttonColor = '#afafaf';
+            break;
+          default:
+            buttonColor = 'black'; // Default color
+        }
+  
+        return (
+          <button
+            style={{
+              backgroundColor: buttonColor,
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            {state}
+          </button>
+        );
+      }
+    },
+    {
+      id: "ACTION",
+      enableSorting: false,
+      header: intl.formatMessage({
+        defaultMessage: 'Action',
+        description: 'Column title for potential action with model; Release or Retract',
+      }),
+      meta: { styles: { flex: 2 } },
+      accessorKey: 'state',
+      cell: ({ getValue }) => {
+        const state = getValue(); // Get the state value
+        const actionText = state === 'Retired' || state === 'New' ? 'Release' : 'Retract';
+        const buttonColor = actionText === 'Release' ? '#088708' : '#a20a0a';
+  
+        return (
+          <button
+            style={{
+              backgroundColor: buttonColor,
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            <b>{actionText}</b>
+          </button>
+        );
+      }
     });
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);

@@ -1,10 +1,7 @@
 import React from 'react';
-
 import {
   type Location,
   type Params as RouterDOMParams,
-  type NavigateOptions,
-  type To,
   useLocation,
   useNavigate,
   useParams,
@@ -18,38 +15,23 @@ export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMP
 
 /**
  * This HoC serves as a retrofit for class components enabling them to use
- * react-router v6's location, navigate and params being injected via props.
+ * react-router v6's location, navigate, and params being injected via props.
  */
 export const withRouterNext =
-  <
-    T,
-    Props extends JSX.IntrinsicAttributes &
-      JSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
-    Params extends RouterDOMParams = RouterDOMParams,
-  >(
-    Component: React.ComponentType<T>,
+  <T, Props extends WithRouterNextProps>(
+    Component: React.ComponentType<T & WithRouterNextProps>,
   ) =>
-  (
-    props: Omit<
-      Props,
-      | 'location'
-      | 'navigate'
-      | 'params'
-      | 'navigationType'
-      /* prettier-ignore*/
-    >,
-  ) => {
+  (props: Omit<Props, keyof WithRouterNextProps>) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const params = useParams<Params>();
+    const params = useParams<RouterDOMParams>();
 
     return (
       <Component
-        /* prettier-ignore */
-        params={params as Params}
+        {...(props as Props)}
+        params={params as RouterDOMParams}
         location={location}
         navigate={navigate}
-        {...(props as Props)}
       />
     );
   };
