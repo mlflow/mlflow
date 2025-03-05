@@ -90,10 +90,6 @@ python_gencode_replacements = [
         "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
     ),
     (
-        "import service_pb2 as service__pb2",
-        "from . import service_pb2 as service__pb2",
-    ),
-    (
         "import google.api.annotations_pb2 as google_dot_api_dot_annotations__pb2",
         "from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2",
     ),
@@ -280,7 +276,6 @@ else:
 def main():
     os.makedirs(cache_dir, exist_ok=True)
 
-    # Download Google API proto files
     googleapis_dir = download_googleapis()
 
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
@@ -293,7 +288,6 @@ def main():
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        # Add googleapis directory to include paths
         protoc3194_include.append(googleapis_dir)
         protoc5260_include.append(googleapis_dir)
 

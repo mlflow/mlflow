@@ -27,9 +27,6 @@ _METHOD_TO_INFO = extract_api_info_for_service(
 class DatabricksSpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to Databricks Tracing Server.
-
-    Args:
-        trace_destination: The destination of the traces.
     """
 
     def export(self, root_spans: Sequence[ReadableSpan]):

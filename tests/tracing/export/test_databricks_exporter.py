@@ -1,6 +1,8 @@
 import base64
 from unittest import mock
 
+import pytest
+
 import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.destination import Databricks
@@ -17,11 +19,12 @@ def _predict(x: str) -> str:
     return x + "!"
 
 
-def test_export(monkeypatch):
+@pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
+def test_export(experiment_id, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
     response = mock.MagicMock()
     response.status_code = 200
@@ -47,7 +50,7 @@ def test_export(monkeypatch):
             "trace_id": trace_id,
             "trace_location": {
                 "mlflow_experiment": {
-                    "experiment_id": _EXPERIMENT_ID,
+                    "experiment_id": experiment_id or "0",
                 },
                 "type": "MLFLOW_EXPERIMENT",
             },

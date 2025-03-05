@@ -16,6 +16,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_dependencies_schemas,
 )
+from mlflow.tracking.fluent import _get_experiment_id
 
 _logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
         if span._parent is None:
             trace_info = TraceInfo(
                 request_id=request_id,
-                experiment_id=self._experiment_id,
+                experiment_id=self._experiment_id or _get_experiment_id(),
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
