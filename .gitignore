@@ -15,6 +15,7 @@ __pycache__
 
 # C extensions
 *.so
+*.env
 
 # Distribution / packaging
 .Python
@@ -78,6 +79,8 @@ env.bak/
 venv.bak/
 .python-version
 dev-env-setup-progress
+test/
+Pipfile
 
 # Editor files
 .*project
