@@ -341,6 +341,6 @@ class LazyModule(Rule):
 
     def _message(self) -> str:
         return (
-            "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING:` block: "
+            "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block: "
             f"{self.modules}"
         )
