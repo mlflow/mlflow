@@ -191,7 +191,7 @@ class Linter(ast.NodeVisitor):
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
-        self.lazy_modules: set[str] = set()
+        self.lazy_modules: dict[str, Location] = {}
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -437,7 +437,7 @@ class Linter(ast.NodeVisitor):
                 and isinstance(last_arg.value, str)
                 and last_arg.value.startswith("mlflow.")
             ):
-                self.lazy_modules.add(last_arg.value)
+                self.lazy_modules[last_arg.value] = Location.from_node(node)
 
         if (
             self.path.parts[0] in ["tests", "mlflow"]
@@ -503,8 +503,10 @@ class Linter(ast.NodeVisitor):
         self.in_TYPE_CHECKING = False
 
     def post_visit(self) -> None:
-        if self.is_mlflow_init_py and (diff := self.lazy_modules - self.imported_modules):
-            self._check(Location(1, 1), rules.LazyModule(diff))
+        if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):
+            for mod in diff:
+                if loc := self.lazy_modules.get(mod):
+                    self._check(loc, rules.LazyModule())
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:

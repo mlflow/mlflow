@@ -333,14 +333,8 @@ class MarkdownLink(Rule):
 
 
 class LazyModule(Rule):
-    def __init__(self, modules: set[str]) -> None:
-        self.modules = modules
-
     def _id(self) -> str:
         return "MLF0019"
 
     def _message(self) -> str:
-        return (
-            "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block: "
-            f"{self.modules}"
-        )
+        return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
