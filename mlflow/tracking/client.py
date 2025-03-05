@@ -55,7 +55,7 @@ from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import has_prompt_tag, parse_prompt_uri, require_prompt_registry
+from mlflow.prompt.registry_utils import has_prompt_tag, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -538,19 +538,19 @@ class MlflowClient:
             version: The version of the prompt. If not specified, the latest version will be loaded.
         """
         if name_or_uri.startswith("prompts:/"):
-            name, version = parse_prompt_uri(self, name_or_uri)
+            name, version = self.parse_prompt_uri(name_or_uri)
         else:
             name = name_or_uri
 
         registry_client = self._get_registry_client()
         if version is None:
             try:
-                version = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0].version
+                mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
             except MlflowException as e:
                 if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                     raise MlflowException(f"Prompt '{name}' not found", RESOURCE_DOES_NOT_EXIST)
-
-        mv = self._validate_prompt(name, version)
+        else:
+            mv = self._validate_prompt(name, version)
         return Prompt.from_model_version(mv)
 
     @experimental
@@ -590,7 +590,7 @@ class MlflowClient:
         else:
             run_ids = [run_id]
 
-        name, version = parse_prompt_uri(self, prompt_uri)
+        name, version = self.parse_prompt_uri(prompt_uri)
         self.set_model_version_tag(
             name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )
@@ -618,7 +618,7 @@ class MlflowClient:
 
         run_ids.remove(run_id)
 
-        name, version = parse_prompt_uri(self, prompt_uri)
+        name, version = self.parse_prompt_uri(prompt_uri)
         if run_ids:
             self.set_model_version_tag(
                 name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
@@ -694,6 +694,26 @@ class MlflowClient:
             )
 
         return mv
+
+    def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
+        """
+        Parse prompt URI into prompt name and prompt version.
+        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompt:/<name>' -> ('<name>', '<latest version>')
+        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        """
+        parsed = urllib.parse.urlparse(uri)
+
+        if parsed.scheme != "prompts":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+            )
+
+        # Replace schema to 'models:/' to reuse the model URI parsing logic
+        try:
+            return get_model_name_and_version(self, f"models:{parsed.path}")
+        except MlflowException:
+            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
 
     ##### Tracing #####
 

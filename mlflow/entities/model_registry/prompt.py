@@ -156,8 +156,15 @@ class Prompt(ModelVersion):
         """
         Create a Prompt object from a ModelVersion object.
         """
+        if IS_PROMPT_TAG_KEY not in model_version.tags:
+            raise MlflowException.invalid_parameter_value(
+                f"Name `{model_version.name}` is registered as a model, not a prompt",
+            )
+
         if PROMPT_TEXT_TAG_KEY not in model_version.tags:
-            raise ValueError("ModelVersion object does not contain prompt text.")
+            raise MlflowException.invalid_parameter_value(
+                f"Prompt `{model_version.name}` does not contain a prompt text"
+            )
 
         return cls(
             name=model_version.name,

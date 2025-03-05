@@ -1,13 +1,10 @@
 import functools
-import urllib.parse
 from textwrap import dedent
 from typing import Optional
 
 import mlflow
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact.utils.models import get_model_name_and_version
 
 
 def add_prompt_filter_string(
@@ -28,27 +25,6 @@ def add_prompt_filter_string(
         else:
             filter_string = prompt_filter_query
     return filter_string
-
-
-def parse_prompt_uri(mlflow_client, uri: str) -> tuple[str, str]:
-    """
-    Parse prompt URI into prompt name and prompt version.
-    - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-    - 'prompt:/<name>' -> ('<name>', '<latest version>')
-    - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
-    """
-    parsed = urllib.parse.urlparse(uri)
-
-    if parsed.scheme != "prompts":
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
-        )
-
-    # Replace schema to 'models:/' to reuse the model URI parsing logic
-    try:
-        return get_model_name_and_version(mlflow_client, f"models:{parsed.path}")
-    except MlflowException:
-        raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
 
 
 def has_prompt_tag(tags: Optional[dict]) -> bool:
