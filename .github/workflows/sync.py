@@ -138,7 +138,6 @@ def main():
         print("Failed to create PR", file=sys.stderr)
         sys.exit(1)
 
-    # Request a review from harupy
     requests.post(
         f"https://api.github.com/repos/{OWNER}/{REPO}/pulls/{pr_data['number']}/requested_reviewers",
         headers={"Authorization": f"token {GITHUB_TOKEN}"},
