@@ -5,7 +5,6 @@ from unittest import mock
 
 import dspy
 import pytest
-from dspy.adapters import JSONAdapter
 from dspy.evaluate import Evaluate
 from dspy.evaluate.metrics import answer_exact_match
 from dspy.predict import Predict
@@ -122,13 +121,16 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
+    from litellm import ContextWindowExceededError
+
     mlflow.dspy.autolog()
 
     class ErrorLM(dspy.LM):
         @with_callbacks
         def __call__(self, prompt=None, messages=None, **kwargs):
             time.sleep(0.1)
-            raise ValueError("Error")
+            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
+            raise ContextWindowExceededError("Error", "invalid model", "provider")
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
 
@@ -137,11 +139,8 @@ def test_mlflow_callback_exception():
             model="invalid",
             prompt={"How are you?": {"answer": "test output", "reasoning": "No more responses"}},
         ),
-        # ChatAdapter falls back to JSONAdapter when LLM call fails,
-        # so JSONAdapter is used here for simplicity
-        adapter=JSONAdapter(),
     ):
-        with pytest.raises(ValueError, match="Error"):
+        with pytest.raises(ContextWindowExceededError, match="Error"):
             cot(question="How are you?")
 
     trace = mlflow.get_last_active_trace()
@@ -157,7 +156,7 @@ def test_mlflow_callback_exception():
     assert spans[0].status.status_code == "ERROR"
     assert spans[1].name == "Predict.forward"
     assert spans[1].status.status_code == "ERROR"
-    assert spans[2].name == "JSONAdapter.format"
+    assert spans[2].name == "ChatAdapter.format"
     assert spans[2].status.status_code == "OK"
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
