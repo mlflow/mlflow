@@ -26,6 +26,7 @@ class ModelVersion(_ModelRegistryEntity):
         tags=None,
         run_link=None,
         aliases=None,
+        state="New",
     ):
         super().__init__()
         self._name = name
@@ -42,6 +43,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._aliases = aliases or []
+        self._state = state
 
     @property
     def name(self):
@@ -127,6 +129,15 @@ class ModelVersion(_ModelRegistryEntity):
         return self._tags
 
     @property
+    def state(self):
+        """State value of model; New, Live or Retired"""
+        return self._state
+
+    @state.setter
+    def state(self, new_state):
+        self._state = new_state
+
+    @property
     def aliases(self):
         """List of aliases (string) for the current model version."""
         return self._aliases
@@ -162,6 +173,7 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
+            state=proto.state if proto.HasField("state") else "New",
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
@@ -192,6 +204,8 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
+        if self.state:
+            model_version.state = self.state
         model_version.tags.extend(
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )
