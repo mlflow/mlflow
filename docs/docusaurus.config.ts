@@ -209,7 +209,7 @@ const config: Config = {
           },
           {
             to: "/model",
-            from: ["/models", "/models.html"],
+            from: ["/models"],
           },
         ],
       },
