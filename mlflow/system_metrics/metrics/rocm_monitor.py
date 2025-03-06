@@ -15,6 +15,7 @@ _logger = logging.getLogger(__name__)
 is_rocml_available = False
 try:
     from pyrsmi import rocml
+
     is_rocml_available = True
 except ImportError:
     # If `pyrsmi` is not installed, a warning will be logged at monitor instantiation.

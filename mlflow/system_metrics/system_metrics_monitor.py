@@ -185,14 +185,14 @@ class SystemMetricsMonitor:
         # NVIDIA GPU
         try:
             return GPUMonitor()
-        except Exception as e:
-            _logger.debug(f"Failed to initialize GPU monitor for NVIDIA GPU: {e}")
+        except Exception:
+            _logger.debug("Failed to initialize GPU monitor for NVIDIA GPU.", exc_info=True)
 
         # Falling back to pyrocml (AMD/HIP GPU)
         try:
             return ROCMMonitor()
-        except Exception as e:
-            _logger.debug(f"Failed to initialize GPU monitor for AMD/HIP GPU: {e}")
+        except Exception:
+            _logger.debug("Failed to initialize GPU monitor for AMD/HIP GPU.", exc_info=True)
 
         _logger.info("Skip logging GPU metrics. Set logger level to DEBUG for more details.")
         return None
