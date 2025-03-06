@@ -49,7 +49,7 @@ def get_simple_agent(llm_config):
 
 
 def test_enable_disable_autolog(llm_config):
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
     with mock_user_input(["Hi", "exit"]):
         assistant, user_proxy = get_simple_agent(llm_config)
         assistant.initiate_chat(user_proxy, message="foo")
@@ -57,7 +57,7 @@ def test_enable_disable_autolog(llm_config):
     traces = get_traces()
     assert len(traces) == 1
 
-    mlflow.autogen.autolog(disable=True)
+    mlflow.ag2.autolog(disable=True)
     with mock_user_input(["Hi", "exit"]):
         assistant, user_proxy = get_simple_agent(llm_config)
         assistant.initiate_chat(user_proxy, message="foo")
@@ -68,7 +68,7 @@ def test_enable_disable_autolog(llm_config):
 
 
 def test_tracing_agent(llm_config):
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     with mock_user_input(
         ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
@@ -120,7 +120,7 @@ def test_tracing_agent(llm_config):
 
 
 def test_tracing_agent_with_error():
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     invalid_llm_config = {
         "config_list": [
@@ -147,7 +147,7 @@ def test_tracing_agent_with_error():
 
 
 def test_tracing_agent_multiple_chat_sessions(llm_config):
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     with mock_user_input(["Hi", "exit", "Hello", "exit", "Hola", "exit"]):
         assistant, user_proxy = get_simple_agent(llm_config)
@@ -161,7 +161,7 @@ def test_tracing_agent_multiple_chat_sessions(llm_config):
 
 
 def test_tracing_agent_with_function_calling(llm_config):
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     # Define a simple tool and register it with the assistant agent
     def sum(a: int, b: int) -> int:
@@ -265,7 +265,7 @@ def tokyo_timezone(monkeypatch):
 
 def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     # Test if the duration calculation for LLM completion is robust to timezone changes.
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     with mock_user_input(
         ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
@@ -290,7 +290,7 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
 def test_tracing_composite_agent(llm_config):
     # Composite agent can call initiate_chat() or generate_reply() method of its sub-agents.
     # This test is to ensure that won't create a new trace for the sub-agent's method call.
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     agent_1 = ConversableAgent("agent_1", llm_config=llm_config)
     agent_2 = ConversableAgent("agent_2", llm_config=llm_config)
