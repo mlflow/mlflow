@@ -319,6 +319,75 @@ mlflow.openai.autolog()
 start_session()
 ```
 
+## Multi Threading
+
+MLflow Tracing is thread-safe, traces are isolated by default per thread. But you can also create a trace that spans multiple threads with a few additional steps.
+
+MLflow uses Python's built-in [ContextVar](https://docs.python.org/3/library/contextvars.html) mechanism to ensure thread safety, which is not propagated across threads by default.
+Therefore, you need to manually copy the context from the main thread to the worker thread, as shown in the example below.
+
+
+```python
+import contextvars
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import mlflow
+from mlflow.entities import SpanType
+import openai
+
+client = openai.OpenAI()
+
+# Enable MLflow Tracing for OpenAI
+mlflow.openai.autolog()
+
+
+@mlflow.trace
+def worker(question: str) -> str:
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": question},
+    ]
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.1,
+        max_tokens=100,
+    )
+    return response.choices[0].message.content
+
+
+@mlflow.trace
+def main(questions: list[str]) -> list[str]:
+    results = []
+    # Almost same as how you would use ThreadPoolExecutor, but two additional steps
+    #  1. Copy the context in the main thread using copy_context()
+    #  2. Use ctx.run() to run the worker in the copied context
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = []
+        for question in questions:
+            ctx = contextvars.copy_context()
+            futures.append(executor.submit(ctx.run, worker, question))
+        for future in as_completed(futures):
+            results.append(future.result())
+    return results
+
+
+questions = [
+    "What is the capital of France?",
+    "What is the capital of Germany?",
+]
+
+main(questions)
+```
+
+![](/images/llms/tracing/tracing-multi-thread.png)
+
+:::tip
+
+    In contrast, `ContextVar` is copied to **async** tasks by default. Therefore, you don't need to manually copy the context when using `asyncio`,
+    which might be easier way to handle concurrent I/O-bound tasks in Python with MLflow Tracing.
+:::
+
+
 ## (Advanced) Low-level Client APIs
 
 When the decorator or context manager does not meet your requirements, you can use the low-level client APIs. For example, you might need to start and end a span from different functions. The client API is designed as a thin wrapper over the MLflow REST APIs, giving you more control over the trace lifecycle. For more details, please refer to the [MLflow Tracing Client APIs](/tracing/api/client) guide.
