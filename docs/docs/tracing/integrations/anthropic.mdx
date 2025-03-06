@@ -40,7 +40,7 @@ Currently, MLflow Anthropic integration only support tracing for synchronous cal
 
 ## Supported APIs
 
-MLflow supports automatic tracing for the following OpenAI APIs:
+MLflow supports automatic tracing for the following Anthropic APIs:
 
 |Chat Completion|Function Calling|Streaming|Async|Image|Batch|
 |:--:|:--:|:--:|:--:|:--:|:--:|
@@ -83,7 +83,7 @@ message = client.messages.create(
 
 ## Async
 
-MLflow Tracing supports asynchronous API of the Anthropic SDK since MLflow 2.21.0. The usage is same as the synchronous API.
+MLflow Tracing has supported the asynchronous API of the Anthropic SDK since MLflow 2.21.0. Its usage is the same as the synchronous API.
 
 ```python
 import anthropic

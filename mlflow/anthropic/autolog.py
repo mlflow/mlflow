@@ -43,6 +43,7 @@ class TracingSession:
         self.instance = instance
         self.inputs = construct_full_inputs(original, instance, *args, **kwargs)
 
+        # These attributes are set outside the constructor.
         self.span = None
         self.output = None
 
