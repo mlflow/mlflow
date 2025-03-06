@@ -197,7 +197,7 @@ const config: Config = {
     [
       "@docusaurus/plugin-client-redirects",
       {
-        fromExtensions: "html",
+        fromExtensions: ["html"],
         redirects: [
           {
             to: "/tracing",
