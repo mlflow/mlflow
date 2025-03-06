@@ -128,6 +128,7 @@ if TYPE_CHECKING:
         llm,
         metrics,
         mistral,
+        mleap,
         onnx,
         openai,
         paddle,
