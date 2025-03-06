@@ -667,16 +667,17 @@ def _deduplicate_requirements(requirements):
     return [str(req) for req in deduped_reqs.values()]
 
 
-def _remove_incompatible_requirements(requirements: list[str]):
-    def fetch_requirement_name(req: str) -> str:
-        try:
-            return Requirement(req).name
-        except Exception:
-            return req
+def _fetch_requirement_name(req: str) -> str:
+    try:
+        return Requirement(req).name
+    except InvalidRequirement:
+        return req
 
-    req_name = {fetch_requirement_name(req) for req in requirements}
-    if "databricks-connect" in req_name and any(
-        x in req_name for x in ["pyspark", "pyspark-connect"]
+
+def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
+    req_names = {_fetch_requirement_name(req) for req in requirements}
+    if "databricks-connect" in req_names and any(
+        x in req_names for x in ["pyspark", "pyspark-connect"]
     ):
         _logger.debug(
             "Found incompatible requirements: 'databricks-connect' with 'pyspark' or "
