@@ -275,7 +275,7 @@ export const ModelVersionTable = ({
       }),
       meta: { styles: { flex: 2 } },
       accessorKey: 'description',
-      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue() as string, 32),
     });
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);

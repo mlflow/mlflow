@@ -4,9 +4,17 @@
  *
  * Note: this could be automatically generated in the future.
  */
+import { type CSSProperties } from 'react';
 import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
+
+export interface RunItem {
+  runId: string;
+  name: string;
+  color: CSSProperties['color'];
+  y: number;
+}
 
 /**
  * Simple key/value model enhanced with immutable.js
