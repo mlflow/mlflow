@@ -210,7 +210,33 @@ const config: Config = {
             to: "model",
             from: ["/models"],
           },
+          {
+            to: "/api_reference/auth/python-api.html",
+            from: ["/auth/python-api.html"],
+          },
+          {
+            to: "/api_reference/auth/rest-api.html",
+            from: ["/auth/rest-api.html"],
+          },
+          {
+            to: "/api_reference/R-api.html",
+            from: ["/R-api.html"],
+          },
+          {
+            to: "/api_reference/rest-api.html",
+            from: ["/rest-api.html"],
+          },
         ],
+        createRedirects(path: string) {
+          if (
+            path.startsWith("/python_api/") ||
+            path.startsWith("/java_api/")
+          ) {
+            return "/api_reference" + path;
+          }
+
+          return false;
+        },
       },
     ],
   ],
