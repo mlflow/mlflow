@@ -1,21 +1,14 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-export const getBasename = (path: any) => {
+export const getBasename = (path: string) => {
   const parts = path.split('/');
   return parts[parts.length - 1];
 };
 
-export const getExtension = (path: any) => {
+export const getExtension = (path: string) => {
   const parts = path.split(/[./]/);
   return parts[parts.length - 1];
 };
 
-export const getLanguage = (path: any) => {
+export const getLanguage = (path: string) => {
   const ext = getExtension(path).toLowerCase();
   if (ext in MLFLOW_FILE_LANGUAGES) {
     return MLFLOW_FILE_LANGUAGES[ext];
