@@ -42,7 +42,7 @@ const styles = {
                 transform: rotate(360deg);
             }
           `} 3s linear infinite`,
-      animationDelay: immediate ? '0' : '0.5s',
+      animationDelay: immediate ? '0s' : '0.5s',
     },
   }),
 };
