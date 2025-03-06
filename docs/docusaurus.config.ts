@@ -200,15 +200,15 @@ const config: Config = {
         fromExtensions: ["html"],
         redirects: [
           {
-            to: "/tracing",
+            to: "/tracing/",
             from: ["/llms/tracing"],
           },
           {
-            to: "/dataset",
+            to: "/dataset/",
             from: ["/tracking/data-api/index"],
           },
           {
-            to: "/model",
+            to: "/model/",
             from: ["/models"],
           },
         ],
