@@ -147,7 +147,28 @@ def test_crud_prompts(tmp_path):
 
     mlflow.delete_prompt("prompt_1", version=2)
 
-    with pytest.raises(MlflowException, match=r"Model Version (.*) not found"):
+    with pytest.raises(MlflowException, match=r"Prompt (.*) with version 2 not found"):
         mlflow.load_prompt("prompt_1", version=2)
 
     mlflow.delete_prompt("prompt_1", version=1)
+
+
+def test_prompt_alias(tmp_path):
+    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_registry_uri(registry_uri)
+
+    mlflow.register_prompt(name="p1", template="Hi, there!")
+    mlflow.register_prompt(name="p1", template="Hi, {{name}}!")
+
+    mlflow.set_prompt_alias("p1", alias="production", version=1)
+    prompt = mlflow.load_prompt("prompts:/p1@production")
+    assert prompt.template == "Hi, there!"
+    assert prompt.aliases == ["production"]
+
+    # Reassign alias to a different version
+    mlflow.set_prompt_alias("p1", alias="production", version=2)
+    assert mlflow.load_prompt("prompts:/p1@production").template == "Hi, {{name}}!"
+
+    mlflow.delete_prompt_alias("p1", alias="production")
+    with pytest.raises(MlflowException, match=r"Prompt (.*) does not exist."):
+        mlflow.load_prompt("prompts:/p1@production")
