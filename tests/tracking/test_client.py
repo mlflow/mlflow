@@ -1676,7 +1676,7 @@ def test_crud_prompts(tracking_uri):
 
     client.delete_prompt("prompt_1", version=2)
 
-    with pytest.raises(MlflowException, match=r"Model Version (.*) not found"):
+    with pytest.raises(MlflowException, match=r"Prompt (.*) with version 2 not found"):
         client.load_prompt("prompt_1", version=2)
 
     client.delete_prompt("prompt_1", version=1)
