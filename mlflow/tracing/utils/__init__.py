@@ -243,6 +243,21 @@ def generate_request_id() -> str:
     return uuid.uuid4().hex
 
 
+def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
+    """
+    Construct the full input arguments dictionary for the given function,
+    including positional and keyword arguments.
+    """
+    signature = inspect.signature(func)
+    # this does not create copy. So values should not be mutated directly
+    arguments = signature.bind_partial(*args, **kwargs).arguments
+
+    if "self" in arguments:
+        arguments.pop("self")
+
+    return arguments
+
+
 def set_span_chat_messages(
     span: LiveSpan,
     messages: Union[dict, ChatMessage],
