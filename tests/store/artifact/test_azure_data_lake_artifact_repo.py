@@ -27,6 +27,7 @@ from mlflow.store.artifact.azure_data_lake_artifact_repo import (
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"
 TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, TEST_ROOT_PATH)
+TEST_CREDENTIAL = mock.Mock()
 
 ADLS_REPOSITORY_PACKAGE = "mlflow.store.artifact.azure_data_lake_artifact_repo"
 ADLS_ARTIFACT_REPOSITORY = f"{ADLS_REPOSITORY_PACKAGE}.AzureDataLakeArtifactRepository"
@@ -149,13 +150,13 @@ def test_parse_invalid_abfss_uri_bad_scheme():
 
 
 def test_list_artifacts_empty(mock_data_lake_client):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
     mock_data_lake_client.get_file_system_client.get_paths.return_value = MockPathList([])
     assert repo.list_artifacts() == []
 
 
 def test_list_artifacts_single_file(mock_data_lake_client):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
 
     # Evaluate single file
     path_props = PathProperties(name=posixpath.join(TEST_DATA_LAKE_URI, "file"), content_length=42)
@@ -164,7 +165,7 @@ def test_list_artifacts_single_file(mock_data_lake_client):
 
 
 def test_list_artifacts(mock_filesystem_client):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
 
     # Create some files to return
     dir_prefix = PathProperties(is_directory=True, name=posixpath.join(TEST_ROOT_PATH, "dir"))
@@ -193,7 +194,7 @@ def test_list_artifacts(mock_filesystem_client):
 )
 def test_log_artifact(mock_filesystem_client, mock_directory_client, tmp_path, contents):
     file_name = "b.txt"
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
 
     parentd = tmp_path.joinpath("data")
     parentd.mkdir()
@@ -278,7 +279,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
     [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
     remote_file_path = "file_1.txt"
     list_artifacts_result = (
         [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
@@ -303,7 +304,7 @@ def test_download_file_in_parallel_when_necessary(file_size, is_parallel_downloa
 
 
 def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_path):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
 
     def create_file(file):
         local_path = os.path.basename(file.name)
@@ -317,7 +318,7 @@ def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_pat
 
 
 def test_download_directory_artifact(mock_filesystem_client, mock_file_client, tmp_path):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
 
     file_path_1 = "file_1"
     file_path_2 = "file_2"
@@ -404,7 +405,7 @@ def test_refresh_credentials():
 
 
 def test_trace_data(mock_data_lake_client, tmp_path):
-    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, TEST_CREDENTIAL)
     with pytest.raises(MlflowException, match=r"Trace data not found for path="):
         repo.download_trace_data()
     trace_data_path = tmp_path.joinpath("traces.json")
