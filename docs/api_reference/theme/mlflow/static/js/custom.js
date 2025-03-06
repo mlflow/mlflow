@@ -169,17 +169,40 @@ $(window).scroll(function() {
     }
 });
 
+function parseVersion(version) {
+    let match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+    return match ? { 
+        major: parseInt(match[1], 10), 
+        minor: parseInt(match[2], 10), 
+        micro: parseInt(match[3], 10) 
+    } : null;
+}
+
+function isNonDocusaurusVersion(version) {
+    let parsed = parseVersion(version);
+    return parsed && (parsed.major < 2 || (parsed.major === 2 && parsed.minor < 21));
+}
+
 fetch('/docs/versions.json')
   .then((response) => response.json())
   .then((data) => {
     var versions =  data.versions;
     var latestVersion = versions[0];
+
     var docRegex = /\/docs\/(?<version>[^/]+)\//;
+    // docusaurus was released in version 2.24.0 of the docs. this
+    // puts the API docs into a new `api_reference` subfolder, so
+    // when users select an old version, we need to remove an optional
+    // `api_reference` component of the URL
+    var docRegexNonDocusaurus = /\/docs\/(?<version>[^/]+)\/(api_reference\/)?/
+
     var currentVersion = docRegex.exec(window.location.pathname).groups.version;
     var dropDown = document.createElement('select');
     dropDown.style = "margin-left: 5px";
     dropDown.onchange = function () {
-      var newUrl = window.location.href.replace(docRegex, `/docs/${this.value}/`);
+      var selectedVersion = this.value;
+      var regexToUse = isNonDocusaurusVersion(selectedVersion) ? docRegexNonDocusaurus : docRegex;
+      var newUrl = window.location.href.replace(regexToUse, `/docs/${selectedVersion}/`);
       window.location.assign(newUrl);
     };
     versions.forEach(function (version) {
