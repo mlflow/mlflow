@@ -48,20 +48,20 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         registry_uri = mlflow.get_registry_uri()
-        is_logged_models_uri = self._is_logged_model_uri(artifact_uri)
-        if is_databricks_unity_catalog_uri(uri=registry_uri) and not is_logged_models_uri:
+        self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
+        if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_oss_unity_catalog_uri(uri=registry_uri):
+        elif is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogOSSModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_using_databricks_registry(artifact_uri) and not is_logged_models_uri:
+        elif is_using_databricks_registry(artifact_uri) and not self.is_logged_model_uri:
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
             self.model_name = self.repo.model_name
@@ -155,8 +155,11 @@ class ModelsArtifactRepository(ArtifactRepository):
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
         """
+        if self.is_logged_model_uri:
+            return self.repo.log_artifact(local_file, artifact_path)
         raise ValueError(
-            "log_artifact is not supported for models:/ URIs. Use register_model instead."
+            "log_artifact is not supported for models:/<model_name>/<model_version> URIs. "
+            "Use register_model instead."
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -169,8 +172,11 @@ class ModelsArtifactRepository(ArtifactRepository):
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifacts.
         """
+        if self.is_logged_model_uri:
+            return self.repo.log_artifacts(local_dir, artifact_path)
         raise ValueError(
-            "log_artifacts is not supported for models:/ URIs. Use register_model instead."
+            "log_artifacts is not supported for models:/<model_name>/<model_version> URIs. "
+            "Use register_model instead."
         )
 
     def list_artifacts(self, path):
