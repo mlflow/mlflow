@@ -190,7 +190,7 @@ fetch('/docs/versions.json')
     var latestVersion = versions[0];
 
     var docRegex = /\/docs\/(?<version>[^/]+)\//;
-    // docusaurus was released in version 2.24.0 of the docs. this
+    // docusaurus was released in version 2.21.0rc0 of the docs. this
     // puts the API docs into a new `api_reference` subfolder, so
     // when users select an old version, we need to remove an optional
     // `api_reference` component of the URL
