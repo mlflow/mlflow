@@ -1,21 +1,14 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
 import { Pagination } from '@databricks/design-system';
 
 type Props = {
   currentPage: number;
   isLastPage: boolean;
-  onClickNext: (...args: any[]) => any;
-  onClickPrev: (...args: any[]) => any;
-  maxResultOptions?: any[];
-  handleSetMaxResult?: (...args: any[]) => any;
-  getSelectedPerPageSelection: (...args: any[]) => any;
+  onClickNext: () => void;
+  onClickPrev: () => void;
+  maxResultOptions?: string[];
+  handleSetMaxResult?: ({ key }: { key: number }) => void;
+  getSelectedPerPageSelection: () => number;
   removeBottomSpacing?: boolean;
 };
 
@@ -41,7 +34,6 @@ export class SimplePagination extends React.Component<Props> {
         css={[classNames.wrapper, classNames.paginationOverride, removeBottomSpacing && classNames.removeBottomSpacing]}
         data-testid="pagination-section"
       >
-        {/* @ts-expect-error TS(2741): Property 'pageSize' is missing in type '{ currentP... Remove this comment to see the full error message */}
         <Pagination
           currentPageIndex={currentPage}
           numTotal={total}
@@ -56,9 +48,10 @@ export class SimplePagination extends React.Component<Props> {
             showSizeChanger: true,
             pageSize: numEntries,
             pageSizeOptions: maxResultOptions,
-            // @ts-expect-error TS(2722): Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-            onShowSizeChange: (current, size) => this.props.handleSetMaxResult({ key: size }),
+            onShowSizeChange: (current, size) => this.props.handleSetMaxResult?.({ key: size }),
           }}
+          pageSize={1}
+          componentId="codegen_mlflow_app_src_common_components_SimplePagination.tsx_54"
         />
       </div>
     );
