@@ -722,9 +722,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
-        self._log_metrics(run_id, [metric], isSingleMetric=True)
+        self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
+    def _log_metrics(self, run_id, metrics):
         if not metrics:
             return
 
@@ -732,10 +732,21 @@ class SqlAlchemyStore(AbstractStore):
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for index, metric in enumerate(metrics):
-            path = path if isSingleMetric else append_to_json_path(path, f"[{index}]")
-            metric, value, is_nan = self._get_metric_value_details(path, metric)
+        for metric in metrics:
+            is_nan = math.isnan(metric.value)
+            if is_nan:
+                value = 0
+            elif math.isinf(metric.value):
+                #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
+                # value
+                value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+            else:
+                value = metric.value
+
             if metric not in seen:
+                is_nan = math.isnan(metric.value)
+                if is_nan:
+                    value
                 metric_instances.append(
                     SqlMetric(
                         run_uuid=run_id,
@@ -1383,6 +1394,12 @@ class SqlAlchemyStore(AbstractStore):
         metrics, params, tags = _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
+
+        is_single_metric = len(metrics) == 1
+        path = "metrics" if is_single_metric else ""
+        for index, metric in enumerate(metrics):
+            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
+            path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
