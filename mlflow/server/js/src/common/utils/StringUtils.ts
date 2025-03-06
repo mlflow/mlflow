@@ -204,11 +204,16 @@ export const textDecompressDeflate = async (compressedText: string) => {
   const compressedTextWithoutPrefix = compressedText.slice(COMPRESSED_TEXT_DEFLATE_PREFIX.length);
 
   // Buffer-based implementation
+  // if (typeof Buffer !== 'undefined') {
+  //   const binaryString = Buffer.from(compressedTextWithoutPrefix, 'base64');
+  //   return pako.inflate(binaryString, { to: 'string' });
+  // }
+  // Buffer-based implementation
   if (typeof Buffer !== 'undefined') {
     const binaryString = Buffer.from(compressedTextWithoutPrefix, 'base64');
-    return pako.inflate(binaryString, { to: 'string' });
+    const uint8Array = new Uint8Array(binaryString.buffer, binaryString.byteOffset, binaryString.byteLength);
+    return pako.inflate(uint8Array, { to: 'string' });
   }
-
   // atob-based implementation
   const binaryString = atob(compressedTextWithoutPrefix);
   return pako.inflate(

@@ -205,7 +205,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def update_model_version(self, name, version, description):
+    def update_model_version(self, name, version, description, state):
         """
         Update metadata associated with a model version in backend.
 

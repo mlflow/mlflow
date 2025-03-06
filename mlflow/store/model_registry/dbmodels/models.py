@@ -90,6 +90,7 @@ class SqlModelVersion(Base):
 
     status_message = Column(String(500), nullable=True, default=None)
 
+    state = Column(String(255), default="New")
     # linked entities
     registered_model = relationship(
         "SqlRegisteredModel", backref=backref("model_versions", cascade="all")
@@ -114,6 +115,7 @@ class SqlModelVersion(Base):
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
             [],
+            state=self.state,
         )
 
 

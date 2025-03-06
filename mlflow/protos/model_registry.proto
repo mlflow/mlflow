@@ -355,6 +355,9 @@ message ModelVersion {
 
   // Aliases pointing to this ``model_version``.
   repeated string aliases = 14;
+
+  // state of model 
+  optional string state = 15;  
 }
 
 message CreateRegisteredModel {
@@ -507,6 +510,11 @@ message UpdateModelVersion {
 
   // If provided, updates the description for this ``registered_model``.
   optional string description = 3;
+
+  optional string state = 4;
+
+  // serving image uri 
+  optional string serving_image = 5;
 
   message Response {
     // Return new version number generated for this model in registry.

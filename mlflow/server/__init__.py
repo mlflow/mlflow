@@ -24,6 +24,7 @@ from mlflow.server.handlers import (
     get_trace_artifact_handler,
     search_datasets_handler,
     upload_artifact_handler,
+    _update_model_version,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
@@ -41,8 +42,10 @@ SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 
 REL_STATIC_DIR = "js/build"
+from flask_cors import CORS
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
+CORS(app)
 IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
 
@@ -80,6 +83,14 @@ def serve_artifacts():
 @app.route(_add_static_prefix("/model-versions/get-artifact"))
 def serve_model_version_artifact():
     return get_model_version_artifact_handler()
+
+
+# update model version state 
+# @app.route(_add_static_prefix("/model-versions/update"), methods=["PATCH"])
+# def update_model_version():
+#     return _update_model_version()
+
+
 
 
 # Serve the "metrics/get-history-bulk" route.

@@ -12,7 +12,7 @@ const NextModelsUIContext = React.createContext<{
 });
 
 /**
- * Get
+ * Get the current context value for the next models UI.
  */
 export const useNextModelsUIContext = () => useContext(NextModelsUIContext);
 
@@ -24,16 +24,10 @@ export const useNextModelsUIContext = () => useContext(NextModelsUIContext);
  * function components, use `useNextModelsUIContext()` hook.
  */
 export const withNextModelsUIContext =
-  <
-    BaseProps,
-    P extends JSX.IntrinsicAttributes &
-      JSX.LibraryManagedAttributes<React.ComponentType<BaseProps>, React.PropsWithChildren<BaseProps>> & {
-        usingNextModelsUI?: boolean;
-      },
-  >(
+  <BaseProps extends { usingNextModelsUI?: boolean }>(
     Component: React.ComponentType<BaseProps>,
   ) =>
-  (props: P) => {
+  (props: Omit<BaseProps, 'usingNextModelsUI'>) => {
     const [usingNextModelsUI, setUsingNextModelsUI] = useState(
       localStorage.getItem(useOldModelsUIStorageKey) !== 'true',
     );
@@ -45,12 +39,12 @@ export const withNextModelsUIContext =
     const contextValue = useMemo(() => ({ usingNextModelsUI, setUsingNextModelsUI }), [usingNextModelsUI]);
 
     if (!shouldShowModelsNextUI()) {
-      return <Component {...props} usingNextModelsUI={false} />;
+      return <Component {...(props as BaseProps)} usingNextModelsUI={false} />;
     }
 
     return (
       <NextModelsUIContext.Provider value={contextValue}>
-        <Component {...props} usingNextModelsUI={contextValue.usingNextModelsUI} />
+        <Component {...(props as BaseProps)} usingNextModelsUI={contextValue.usingNextModelsUI} />
       </NextModelsUIContext.Provider>
     );
   };

@@ -72,7 +72,41 @@ enum COLUMN_IDS {
   STAGE = 'STAGE',
   DESCRIPTION = 'DESCRIPTION',
   ALIASES = 'ALIASES',
+  STATE = 'STATE',
 }
+
+// const handleClick = async () => {
+//     try {
+//       const state = getValue(); // Get the current state
+//       const newState = state === 'Retired' ? 'Live' : state === 'New' ? 'Live' : 'Retired';
+
+//       // Get the serving_image tag from the row data
+//       const servingImageTag = row.original.tags?.find(tag => tag.key === 'serving_image')?.value;
+
+//       // Send a POST request to the backend
+//       const response = await fetch('/api/2.0/mlflow/update-release', {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/json',
+//         },
+//         body: JSON.stringify({
+//           model_name: row.original.name, // Pass the model name
+//           version: row.original.version, // Pass the model version
+//           new_state: newState, // Pass the new state
+//           serving_image: servingImageTag, // Pass the serving_image tag
+//         }),
+//       });
+
+//       if (!response.ok) {
+//         throw new Error('Failed to update state');
+//       }
+
+//       // Refresh the table or update the state locally
+//       window.location.reload(); // Simple refresh for now
+//     } catch (error) {
+//       console.error('Error updating state:', error);
+//     }
+//   };
 
 export const ModelVersionTable = ({
   modelName,
@@ -276,6 +310,159 @@ export const ModelVersionTable = ({
       meta: { styles: { flex: 2 } },
       accessorKey: 'description',
       cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+    },
+    {
+      id: COLUMN_IDS.STATE,
+      enableSorting: false,
+      header: intl.formatMessage({
+        defaultMessage: 'State',
+        description: 'Column title for current state of the model; New, Live or Retired',
+      }),
+      meta: { styles: { flex: 2 } },
+      accessorKey: 'state',
+      cell: ({ getValue }) => {
+        const state = getValue(); // Get the state value
+        let buttonColor = '';
+  
+        // Determine button color based on state
+        switch (state) {
+          case 'New':
+            buttonColor = '#59c3dd';
+            break;
+          case 'Live':
+            buttonColor = '#3b9c3f';
+            break;
+          case 'Retired':
+            buttonColor = '#afafaf';
+            break;
+          default:
+            buttonColor = 'black'; // Default color
+        }
+  
+        return (
+          <button
+            style={{
+              backgroundColor: buttonColor,
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'default',
+            }}
+            disabled
+          >
+            {state}
+          </button>
+        );
+      }
+    },
+    {
+      id: "ACTION",
+      enableSorting: false,
+      header: intl.formatMessage({
+        defaultMessage: 'Action',
+        description: 'Column title for potential action with model; Release or Retract',
+      }),
+      meta: { styles: { flex: 2 } },
+      accessorKey: 'state',
+      cell: ({ getValue, row }) => {
+        const state = getValue(); // Get the state value
+        const actionText = state === 'Retired' || state === 'New' ? 'Release' : 'Retract';
+        const buttonColor = actionText === 'Release' ? '#088708' : '#a20a0a';
+    
+        // Get the serving_image tag from the row data
+        // const servingImageTag = row.original.tags?.find(tag => tag.key === 'serving_container')?.value;
+        const handleClick = async () => {
+          try {
+            const state = getValue(); // Get the current state
+            const newState = state === 'Retired' ? 'Live' : state === 'New' ? 'Live' : 'Retired';
+        
+            // Fetch the run associated with the model version
+            let data = null; // Declare `data` outside the try block
+            let runTags = null;
+
+            try {
+              const runResponse = await fetch(`/api/2.0/mlflow/runs/get?run_id=${row.original.run_id}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              console.log("Response object:", runResponse);
+
+              // Read response as text before parsing
+              const text = await runResponse.text();
+              console.log("Raw response text:", text);
+
+              // Try parsing it as JSON
+              data = JSON.parse(text); // Assign the parsed JSON to `data`
+              console.log("Parsed JSON:", data);
+
+            } catch (error) {
+              console.error("Error:", error);
+            }
+
+            // Now `data` is accessible outside the try block
+            if (data) {
+              runTags = data.run.data.tags; // Get the tags from the run
+              console.log("Run Tags:", runTags);
+            } else {
+              console.log("No data available or an error occurred.");
+            }
+            // const runTags = data.run.data.tags; // Get the tags from the run
+        
+            // Find the serving_container tag from the run tags
+            const servingImageTag = runTags.find(tag => tag.key === 'serving_container')?.value;
+        
+            // Send a POST request to update the model version state
+            const updateResponse = await fetch('/api/2.0/mlflow/model-versions/update', {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: row.original.name, // Pass the model name
+                version: row.original.version, // Pass the model version
+                state: newState, // Pass the new state
+                serving_image: servingImageTag, // Pass the serving_image tag from the run
+              }),
+            });
+            
+            // Log the raw response
+            console.log('Update Response:', updateResponse);
+            
+            if (!updateResponse.ok) {
+              const errorText = await updateResponse.text(); // Log the error response
+              console.error('Update Error:', errorText);
+              throw new Error('Failed to update state');
+            }
+            
+            const updateData = await updateResponse.json();
+            console.log('Update Data:', updateData); // Log the parsed JSON data
+        
+            // Refresh the table or update the state locally
+            window.location.reload(); // Simple refresh for now
+            } catch (error) {
+              console.error('Error updating state:', error);
+            }
+        };
+        return (
+          <button
+            style={{
+              backgroundColor: buttonColor,
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            onClick={handleClick} // Add onClick handler
+          >
+            <b>{actionText}</b>
+          </button>
+        );
+      }
     });
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);

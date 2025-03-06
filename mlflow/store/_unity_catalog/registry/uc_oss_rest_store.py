@@ -295,7 +295,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
             return get_model_version_from_uc_oss_proto(registered_model_version)
 
-    def update_model_version(self, name, version, description):
+    def update_model_version(self, name, version, description, state):
         full_name = get_full_name_from_sc(name, None)
         version = int(version)
         req_body = message_to_json(
@@ -303,6 +303,7 @@ class UnityCatalogOssStore(BaseRestStore):
                 full_name=full_name,
                 version=version,
                 comment=description,
+                state=state,
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateModelVersion]
