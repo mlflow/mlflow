@@ -152,24 +152,42 @@ def test_log_feedback_with_error(store):
     assert assessment.error.error_message == "Rate limit for the judge exceeded."
 
 
-def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Exactly one of `expectation`, "):
-        mlflow.log_feedback(
-            trace_id="1234",
-            name="faithfulness",
-            source=AssessmentSourceType.LLM_JUDGE,
-        )
+def test_log_feedback_with_value_and_error(store):
+    mlflow.set_tracking_uri("databricks")
 
-    with pytest.raises(MlflowException, match=r"Exactly one of `expectation`, "):
+    mlflow.log_feedback(
+        trace_id="1234",
+        name="faithfulness",
+        source=AssessmentSourceType.LLM_JUDGE,
+        value=0.5,
+        error=AssessmentError(
+            error_code="RATE_LIMIT_EXCEEDED",
+            error_message="Rate limit for the judge exceeded.",
+        ),
+    )
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "1234"
+    assert assessment.span_id is None
+    assert assessment.source.source_type == "LLM_JUDGE"
+    assert assessment.source.source_id is None
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.expectation is None
+    assert assessment.feedback == Feedback(value=0.5)
+    assert assessment.rationale is None
+    assert assessment.error.error_code == "RATE_LIMIT_EXCEEDED"
+    assert assessment.error.error_message == "Rate limit for the judge exceeded."
+
+
+def test_log_feedback_invalid_parameters():
+    with pytest.raises(MlflowException, match=r"At least one of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             source=AssessmentSourceType.LLM_JUDGE,
-            value=1.0,
-            error=AssessmentError(
-                error_code="RATE_LIMIT_EXCEEDED",
-                error_message="Rate limit for the judge exceeded.",
-            ),
         )
 
     with pytest.raises(MlflowException, match=r"`source` must be provided."):

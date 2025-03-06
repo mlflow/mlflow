@@ -114,16 +114,22 @@ def test_assessment_value_validation():
     # Valid cases
     Assessment(expectation=Expectation("MLflow"), **common_args)
     Assessment(feedback=Feedback("This is correct."), **common_args)
+    Assessment(error=AssessmentError(error_code="E001"), **common_args)
+    Assessment(
+        feedback=Feedback("This is correct."),
+        error=AssessmentError(error_code="E001"),
+        **common_args,
+    )
 
     # Invalid case: no value specified
-    with pytest.raises(MlflowException, match=r"Exactly one of"):
+    with pytest.raises(MlflowException, match=r"At least one of"):
         Assessment(**common_args)
 
-    # Invalid case: both value and error specified
-    with pytest.raises(MlflowException, match=r"Exactly one of"):
+    # Invalid case: both feedback and expectation specified
+    with pytest.raises(MlflowException, match=r"Only one of"):
         Assessment(
             expectation=Expectation("MLflow"),
-            error=AssessmentError(error_code="E001", error_message="An error occurred."),
+            feedback=Feedback("This is correct."),
             **common_args,
         )
 
