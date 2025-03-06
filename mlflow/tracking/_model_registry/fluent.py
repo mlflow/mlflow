@@ -345,6 +345,18 @@ def register_prompt(
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
 
+
+    Args:
+        name: The name of the prompt.
+        template: The template text of the prompt. It can contain variables enclosed in
+            single curly braces, e.g. {variable}, which will be replaced with actual values
+            by the `format` method.
+        description: The description of the prompt. Optional.
+        tags: A dictionary of tags associated with the prompt. Optional.
+
+    Returns:
+        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+
     Example:
 
     .. code-block:: python
@@ -377,17 +389,6 @@ def register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {style} AI. {greeting}",
         )
-
-    Args:
-        name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            single curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
-        description: The description of the prompt. Optional.
-        tags: A dictionary of tags associated with the prompt. Optional.
-
-    Returns:
-        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
     """
     return MlflowClient().register_prompt(
         name=name, template=template, description=description, tags=tags
@@ -401,6 +402,10 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
     The prompt can be specified by name and version, or by URI.
+
+    Args:
+        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
+        version: The version of the prompt. If not specified, the latest version will be loaded.
 
     Example:
 
@@ -417,9 +422,9 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
         # Load a specific version of the prompt by URI
         prompt = mlflow.load_prompt(uri="prompts:/my_prompt/1")
 
-    Args:
-        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
-        version: The version of the prompt. If not specified, the latest version will be loaded.
+        # Load a prompt version with an alias "production"
+        prompt = mlflow.load_prompt("prompts:/my_prompt@production")
+
     """
     return MlflowClient().load_prompt(name_or_uri=name_or_uri, version=version)
 
@@ -435,3 +440,49 @@ def delete_prompt(name: str, version: int) -> Prompt:
         version: The version of the prompt to delete.
     """
     return MlflowClient().delete_prompt(name=name, version=version)
+
+
+@experimental
+@require_prompt_registry
+def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
+    """
+    Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        alias: The alias to set for the prompt.
+        version: The version of the prompt.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Set an alias for the prompt
+        mlflow.set_prompt_alias(name="my_prompt", version=1, alias="production")
+
+        # Load the prompt by alias (use "@" to specify the alias)
+        prompt = mlflow.load_prompt("prompts:/my_prompt@production")
+
+        # Switch the alias to a new version of the prompt
+        mlflow.set_prompt_alias(name="my_prompt", version=2, alias="production")
+
+        # Delete the alias
+        mlflow.delete_prompt_alias(name="my_prompt", alias="production")
+    """
+
+    return MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
+
+
+@experimental
+@require_prompt_registry
+def delete_prompt_alias(name: str, alias: str) -> Prompt:
+    """
+    Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        alias: The alias to delete for the prompt.
+    """
+    return MlflowClient().delete_prompt_alias(name=name, alias=alias)
