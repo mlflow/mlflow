@@ -4775,10 +4775,8 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
         timestamp=int(time.time() * 1000),
         step=3,
         model_id=model.model_id,
-        dataset_uuid="dataset_uuid",
         dataset_name="dataset_name",
         dataset_digest="dataset_digest",
-        experiment_id=exp_id,
         run_id=run.info.run_id,
     )
     store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
@@ -4799,10 +4797,8 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
         timestamp=int(time.time() * 1000),
         step=4,
         model_id=model.model_id,
-        dataset_uuid="dataset_uuid",
         dataset_name="dataset_name",
         dataset_digest="dataset_digest",
-        experiment_id=exp_id,
         run_id=run.info.run_id,
     )
     store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
@@ -4817,10 +4813,8 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
             timestamp=int(time.time() * 1000),
             step=5,
             model_id=model.model_id,
-            dataset_uuid="dataset_uuid",
             dataset_name="dataset_name",
             dataset_digest="dataset_digest",
-            experiment_id=exp_id,
             run_id=run.info.run_id,
         )
         for i in range(3)

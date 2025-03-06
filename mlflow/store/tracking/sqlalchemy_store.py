@@ -73,6 +73,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.utils import generate_request_id
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -745,7 +746,13 @@ class SqlAlchemyStore(AbstractStore):
         self._log_model_metrics(run_id, [metric])
 
     def _log_model_metrics(
-        self, run_id: str, metrics: list[Metric], path: str = "", is_single_metric: bool = False
+        self,
+        run_id: str,
+        metrics: list[Metric],
+        path: str = "",
+        is_single_metric: bool = False,
+        dataset_uuid: Optional[str] = None,
+        experiment_id: Optional[str] = None,
     ) -> None:
         if not metrics:
             return
@@ -763,9 +770,9 @@ class SqlAlchemyStore(AbstractStore):
                     metric_timestamp_ms=metric.timestamp,
                     metric_step=metric.step,
                     metric_value=value,
-                    experiment_id=metric.experiment_id,
+                    experiment_id=experiment_id or _get_experiment_id(),
                     run_id=run_id,
-                    dataset_uuid=metric.dataset_uuid,
+                    dataset_uuid=dataset_uuid,
                     dataset_name=metric.dataset_name,
                     dataset_digest=metric.dataset_digest,
                 )

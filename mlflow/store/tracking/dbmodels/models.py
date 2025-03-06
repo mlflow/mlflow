@@ -946,7 +946,6 @@ class SqlLoggedModelMetric(Base):
             step=self.metric_step,
             experiment_id=str(self.experiment_id),
             run_id=self.run_id,
-            dataset_uuid=self.dataset_uuid,
             dataset_name=self.dataset_name,
             dataset_digest=self.dataset_digest,
             model_id=self.model_id,

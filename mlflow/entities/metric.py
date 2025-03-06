@@ -19,14 +19,11 @@ class Metric(_MlflowObject):
         timestamp,
         step,
         model_id: Optional[str] = None,
-        dataset_uuid: Optional[str] = None,
         dataset_name: Optional[str] = None,
         dataset_digest: Optional[str] = None,
         experiment_id: Optional[str] = None,
         run_id: Optional[str] = None,
     ):
-        from mlflow.tracking.fluent import _get_experiment_id
-
         if (dataset_name, dataset_digest).count(None) == 1:
             raise MlflowException(
                 "Both dataset_name and dataset_digest must be provided if one is provided",
@@ -40,8 +37,6 @@ class Metric(_MlflowObject):
         self._model_id = model_id
         self._dataset_name = dataset_name
         self._dataset_digest = dataset_digest
-        self._dataset_uuid = dataset_uuid
-        self._experiment_id = experiment_id or _get_experiment_id()
         self._run_id = run_id
 
     @property
@@ -70,11 +65,6 @@ class Metric(_MlflowObject):
         return self._model_id
 
     @property
-    def dataset_uuid(self) -> Optional[str]:
-        """String. UUID of the dataset associated with the metric."""
-        return self._dataset_uuid
-
-    @property
     def dataset_name(self) -> Optional[str]:
         """String. Name of the dataset associated with the metric."""
         return self._dataset_name
@@ -83,11 +73,6 @@ class Metric(_MlflowObject):
     def dataset_digest(self) -> Optional[str]:
         """String. Digest of the dataset associated with the metric."""
         return self._dataset_digest
-
-    @property
-    def experiment_id(self) -> Optional[str]:
-        """String. Experiment ID associated with the metric."""
-        return self._experiment_id
 
     @property
     def run_id(self) -> Optional[str]:
