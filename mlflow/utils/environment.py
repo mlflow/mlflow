@@ -570,6 +570,7 @@ def _process_pip_requirements(
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+    sanitized_pip_reqs = _remove_incompatible_requirements(sanitized_pip_reqs)
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
@@ -667,6 +668,28 @@ def _deduplicate_requirements(requirements):
             if req not in deduped_reqs:
                 deduped_reqs[req] = req
     return [str(req) for req in deduped_reqs.values()]
+
+
+def _parse_requirement_name(req: str) -> str:
+    try:
+        return Requirement(req).name
+    except InvalidRequirement:
+        return req
+
+
+def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
+    req_names = {_parse_requirement_name(req) for req in requirements}
+    if "databricks-connect" in req_names and req_names.intersection({"pyspark", "pyspark-connect"}):
+        _logger.debug(
+            "Found incompatible requirements: 'databricks-connect' with 'pyspark' or "
+            "'pyspark-connect'. Removing 'pyspark' or 'pyspark-connect' from the requirements."
+        )
+        requirements = [
+            req
+            for req in requirements
+            if _parse_requirement_name(req) not in ["pyspark", "pyspark-connect"]
+        ]
+    return requirements
 
 
 def _validate_version_constraints(requirements):

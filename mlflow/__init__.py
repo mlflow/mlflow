@@ -28,6 +28,7 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 
 import contextlib
+from typing import TYPE_CHECKING
 
 from mlflow.version import VERSION
 
@@ -103,6 +104,53 @@ txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
+if TYPE_CHECKING:
+    # Do not move this block above the lazy-loaded modules above.
+    # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
+    from mlflow import (  # noqa: F401
+        anthropic,
+        autogen,
+        bedrock,
+        catboost,
+        crewai,
+        diviner,
+        dspy,
+        fastai,
+        gemini,
+        groq,
+        h2o,
+        johnsnowlabs,
+        keras,
+        langchain,
+        lightgbm,
+        litellm,
+        llama_index,
+        llm,
+        metrics,
+        mistral,
+        mleap,
+        onnx,
+        openai,
+        paddle,
+        pmdarima,
+        promptflow,
+        prophet,
+        pyfunc,
+        pyspark,
+        pytorch,
+        recipes,
+        rfunc,
+        sentence_transformers,
+        shap,
+        sklearn,
+        spacy,
+        spark,
+        statsmodels,
+        tensorflow,
+        transformers,
+        xgboost,
+    )
+
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -147,11 +195,13 @@ from mlflow.tracing.fluent import (
 )
 from mlflow.tracking._model_registry.fluent import (
     delete_prompt,
+    delete_prompt_alias,
     load_prompt,
     register_model,
     register_prompt,
     search_model_versions,
     search_registered_models,
+    set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
     ActiveRun,
@@ -290,6 +340,8 @@ __all__ = [
     "delete_prompt",
     "load_prompt",
     "register_prompt",
+    "set_prompt_alias",
+    "delete_prompt_alias",
 ]
 
 
