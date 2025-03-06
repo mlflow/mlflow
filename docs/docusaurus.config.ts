@@ -208,7 +208,39 @@ const config: Config = {
           },
           {
             to: "model",
-            from: ["/models"],
+            from: ["/models", "/models.html"],
+          },
+          {
+            to: "/tracking",
+            from: ["/tracking.html"],
+          },
+          {
+            to: "/projects",
+            from: ["/projects.html"],
+          },
+          {
+            to: "/model/signatures",
+            from: ["/model/signatures.html"],
+          },
+          {
+            to: "/model/signatures",
+            from: ["/model/dependencies.html"],
+          },
+          {
+            to: "/model/models-from-code",
+            from: ["/model/models-from-code.html"],
+          },
+          {
+            to: "/llms/deployments/uc_integration",
+            from: ["/llms/deployments/uc_integration.html"],
+          },
+          {
+            to: "/llms/prompt-engineering",
+            from: ["/llms/prompt-engineering.html"],
+          },
+          {
+            to: "/plugins",
+            from: ["/plugins.html"],
           },
         ],
       },
