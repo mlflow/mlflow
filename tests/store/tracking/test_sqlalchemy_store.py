@@ -4789,6 +4789,10 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
     assert model.metrics == [metric]
 
+    # Log an empty batch, should not throw
+    store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+    assert model.metrics == [metric]
+
     another_metric = Metric(
         key="metric2",
         value=2,
@@ -4804,3 +4808,24 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
     model = store.get_logged_model(model.model_id)
     assert model.metrics == [metric, another_metric]
+
+    # Log multiple metrics
+    metrics = [
+        Metric(
+            key=f"metric_{i}",
+            value=3,
+            timestamp=int(time.time() * 1000),
+            step=5,
+            model_id=model.model_id,
+            dataset_uuid="dataset_uuid",
+            dataset_name="dataset_name",
+            dataset_digest="dataset_digest",
+            experiment_id=exp_id,
+            run_id=run.info.run_id,
+        )
+        for i in range(3)
+    ]
+
+    store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    assert model.metrics == [metric, another_metric] + metrics
