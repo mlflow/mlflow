@@ -339,7 +339,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
-        prefix = dest_path + "/" if dest_path else ""
+        prefix = dest_path or ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
@@ -351,4 +351,5 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     listed_object_path=file_path, artifact_path=dest_path
                 )
                 keys.append({"Key": file_path})
-            s3_client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})
+            if keys:
+                s3_client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import posixpath
 import shutil
 import uuid
 import warnings
@@ -14,7 +15,6 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
-from mlflow.artifacts import download_artifacts
 from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
@@ -107,6 +107,7 @@ class ModelInfo:
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
         logged_model: Optional[LoggedModel] = None,
     ):
         self._artifact_path = artifact_path
@@ -120,6 +121,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
+        self._prompts = prompts
         self._registered_model_version = registered_model_version
         self._env_vars = env_vars
         self._logged_model = logged_model
@@ -317,6 +319,11 @@ class ModelInfo:
         return self._metadata
 
     @property
+    def prompts(self) -> Optional[list[str]]:
+        """A list of prompt URIs associated with the model."""
+        return self._prompts
+
+    @property
     def registered_model_version(self) -> Optional[int]:
         """
         The registered model version, if the model is registered.
@@ -406,6 +413,7 @@ class Model:
         env_vars: Optional[list[str]] = None,
         auth_policy: Optional[AuthPolicy] = None,
         model_id: Optional[str] = None,
+        prompts: Optional[list[str]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -418,6 +426,7 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
+        self.prompts = prompts
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
@@ -684,6 +693,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            prompts=self.prompts,
             env_vars=self.env_vars,
             logged_model=logged_model,
         )
@@ -724,6 +734,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.prompts is not None:
+            res["prompts"] = self.prompts
         if self.resources is not None:
             res["resources"] = self.resources
         if self.model_size_bytes is not None:
@@ -778,29 +790,40 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+
         # Check if the path is a local directory and not remote
-        path_scheme = urlparse(str(path)).scheme
+        sep = os.path.sep
+        path = str(path).rstrip(sep)
+        path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        path = download_artifacts(artifact_uri=path)
-        if os.path.isdir(path):
-            path = os.path.join(path, MLMODEL_FILE_NAME)
-            env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
-        elif os.path.isfile(path):
-            env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
-        else:
+        if ModelsArtifactRepository._is_logged_model_uri(path):
+            path = ModelsArtifactRepository.get_underlying_uri(path)
+
+        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
+        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
+        with open(mlmodel_local_path) as f:
+            model_dict = yaml.safe_load(f)
+        env_var_path = (
+            f"{path}/{ENV_VAR_FILE_NAME}"
+            if is_model_dir
+            else posixpath.join(posixpath.dirname(path), ENV_VAR_FILE_NAME)
+        )
+
+        try:
+            env_var_path = _download_artifact_from_uri(env_var_path)
+        except Exception:
             env_var_path = None
         env_vars = None
-        if os.path.exists(env_var_path):
+        if env_var_path is not None:
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()
             env_vars = [line for line in lines if line and not line.startswith("#")]
-        with open(path) as f:
-            model_dict = yaml.safe_load(f.read())
         model_dict["env_vars"] = env_vars
         return cls.from_dict(model_dict)
 
@@ -840,6 +863,7 @@ class Model:
         run_id=None,
         resources=None,
         auth_policy=None,
+        prompts=None,
         name: Optional[str] = None,
         model_type: Optional[str] = None,
         params: Optional[dict[str, Any]] = None,
@@ -868,6 +892,7 @@ class Model:
             run_id: The run ID to associate with this model.
             resources: {{ resources }}
             auth_policy: {{ auth_policy }}
+            prompts: {{ prompts }}
             name: The name of the model.
             model_type: {{ model_type }}
             params: {{ params }}
@@ -960,6 +985,7 @@ class Model:
                 metadata=metadata,
                 resources=resources,
                 auth_policy=auth_policy,
+                prompts=prompts,
                 model_id=model.model_id,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
@@ -1034,49 +1060,54 @@ class Model:
             client.log_model_artifacts(model.model_id, local_path)
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
-            # # if the model_config kwarg is passed in, then log the model config as an params
-            # if model_config := kwargs.get("model_config"):
-            #     if isinstance(model_config, str):
-            #         try:
-            #             file_extension = os.path.splitext(model_config)[1].lower()
-            #             if file_extension == ".json":
-            #                 with open(model_config) as f:
-            #                     model_config = json.load(f)
-            #             elif file_extension in [".yaml", ".yml"]:
-            #                 model_config = _validate_and_get_model_config_from_file(model_config)
-            #             else:
-            #                 _logger.warning(
-            #                     "Unsupported file format for model config: %s. "
-            #                     "Failed to load model config.",
-            #                     model_config,
-            #                 )
-            #        except Exception as e:
-            #            _logger.warning(
-            #                "Failed to load model config from %s: %s", model_config, e
-            #            )
-            #
-            #     try:
-            #         from mlflow.models.utils import _flatten_nested_params
-            #
-            #         # We are using the `/` separator to flatten the nested params
-            #         # since we are using the same separator to log nested metrics.
-            #         params_to_log = _flatten_nested_params(model_config, sep="/")
-            #     except Exception as e:
-            #         _logger.warning("Failed to flatten nested params: %s", str(e))
-            #         params_to_log = model_config
-            #
-            #     try:
-            #         mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-            #     except Exception as e:
-            #         _logger.warning("Failed to log model config as params: %s", str(e))
-            #
-            # try:
-            #     mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
-            # except MlflowException:
-            #     # We need to swallow all mlflow exceptions to maintain backwards compatibility
-            #     # with older tracking servers. Only print out a warning for now.
-            #     _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
-            #     _logger.debug("", exc_info=True)
+            # Associate prompts to the model Run
+            if prompts:
+                client = mlflow.MlflowClient()
+                for prompt_uri in prompts:
+                    try:
+                        client.log_prompt(run_id, prompt_uri)
+                    except MlflowException:
+                        _logger.warning(
+                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
+                        )
+
+            # if the model_config kwarg is passed in, then log the model config as an params
+            if model_config := kwargs.get("model_config"):
+                if isinstance(model_config, str):
+                    try:
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            from mlflow.utils.model_utils import (
+                                _validate_and_get_model_config_from_file,
+                            )
+
+                            model_config = _validate_and_get_model_config_from_file(model_config)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
+                    except Exception as e:
+                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
+                try:
+                    from mlflow.models.utils import _flatten_nested_params
+
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+                except Exception as e:
+                    _logger.warning("Failed to log model config as params: %s", str(e))
 
             if registered_model_name is not None:
                 registered_model = mlflow.tracking._model_registry.fluent._register_model(
@@ -1174,29 +1205,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
         model_signature = model_info.signature
         assert model_signature == signature
     """
-    from mlflow.pyfunc import _download_artifact_from_uri
-    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-
-    resolved_uri = model_uri
-    if ModelsArtifactRepository._is_logged_model_uri(model_uri):
-        resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-
-    meta_file_uri = resolved_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
-    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
-    model_meta = Model.load(meta_local_path)
-    return ModelInfo(
-        artifact_path=model_meta.artifact_path,
-        flavors=model_meta.flavors,
-        model_uri=model_uri,
-        model_uuid=model_meta.model_uuid,
-        run_id=model_meta.run_id,
-        saved_input_example_info=model_meta.saved_input_example_info,
-        signature_dict=model_meta.signature.to_dict() if model_meta.signature else None,
-        signature=model_meta.signature,
-        utc_time_created=model_meta.utc_time_created,
-        mlflow_version=model_meta.mlflow_version,
-        metadata=model_meta.metadata,
-    )
+    return Model.load(model_uri).get_model_info()
 
 
 class Files(NamedTuple):

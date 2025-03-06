@@ -456,7 +456,7 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
         s3_stubber.add_response(
             "list_objects_v2",
             {"Contents": [{"Key": fake_artifact_path}]},
-            {"Bucket": bucket, "Prefix": dest_path + "/"},
+            {"Bucket": bucket, "Prefix": dest_path},
         )
         s3_stubber.add_response(
             "delete_objects",

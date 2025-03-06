@@ -1,5 +1,6 @@
 import os
 import pathlib
+import time
 import uuid
 from datetime import date
 from unittest import mock
@@ -76,8 +77,8 @@ def test_model_save_load():
     n.signature = None
     assert m != n
     with TempDir() as tmp:
-        m.save(tmp.path("model"))
-        o = Model.load(tmp.path("model"))
+        m.save(tmp.path("MLmodel"))
+        o = Model.load(tmp.path("MLmodel"))
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()
@@ -275,7 +276,7 @@ def test_model_metadata():
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
-        path = tmp.path("model")
+        path = tmp.path("MLmodel")
         with open(path, "w") as out:
             model.to_yaml(out)
         loaded_model = Model.load(path)
@@ -638,3 +639,56 @@ def test_model_resources():
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.resources == expected_resources
+
+
+def test_save_load_model_with_run_uri():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str], params=None):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
+    mlflow_model = Model.load(f"runs:/{run.info.run_id}/test_model/MLmodel")
+    assert mlflow_model.load_input_example() == ["a", "b", "c"]
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model")
+    assert model == mlflow_model
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model/")
+    assert model == mlflow_model
+
+
+def test_save_model_with_prompts():
+    mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            prompts=[
+                "prompts:/prompt-1/1",
+                "prompts:/prompt-2/1",
+            ],
+        )
+
+    assert model_info.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Prompts should be recorded in the yaml file
+    model = Model.load(model_info.model_uri)
+    assert model.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Run ID should be recorded in the prompt registry
+    associated_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
+    assert len(associated_prompts) == 2
+    assert associated_prompts[0].name == "prompt-2"
+    assert associated_prompts[1].name == "prompt-1"

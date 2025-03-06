@@ -25,6 +25,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric
+from mlflow.entities.model_registry import Prompt
 from mlflow.entities.param import Param
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
@@ -47,6 +48,7 @@ __all__ = [
     "FileInfo",
     "Metric",
     "Param",
+    "Prompt",
     "Run",
     "RunData",
     "RunInfo",

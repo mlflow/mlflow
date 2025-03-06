@@ -1,4 +1,0 @@
-ui_checklist_module "design-system"
-file://eng-teams/eng-ui-infra/design-systems.OWNERS
-file://eng-teams/eng-data-sharing-ui/all.OWNERS
-file://eng-teams/eng-ingestion-team/frontend.OWNERS

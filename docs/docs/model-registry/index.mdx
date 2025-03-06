@@ -190,7 +190,7 @@ If a registered model with the name doesn’t exist, the method registers a new 
 If a registered model with the name exists, the method creates a new model version and returns the version object.
 
 And finally, you can use the <APILink fn="mlflow.client.MlflowClient.create_registered_model">`create_registered_model()`</APILink> to create a new registered model.
-If the model name exists, this method will throw an <Link to={"/api_reference/python_api/exceptions/mlflow.exceptions.html#mlflow.exceptions.ExecutionException"} target="\_blank">MLflowException</Link>
+If the model name exists, this method will throw an <APILink fn="mlflow.exceptions.MlflowException">MLflowException</APILink>
 because creating a new registered model requires a unique name.
 
 ```python

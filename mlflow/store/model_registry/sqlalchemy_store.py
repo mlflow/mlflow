@@ -1,6 +1,6 @@
 import logging
 import urllib
-from typing import Optional
+from typing import Any, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -14,6 +14,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -400,6 +401,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            rm_query = cls._update_query_to_exclude_prompts(
+                rm_query, tag_filters, dialect, SqlRegisteredModel, SqlRegisteredModelTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -486,6 +493,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            mv_query = cls._update_query_to_exclude_prompts(
+                mv_query, tag_filters, dialect, SqlModelVersion, SqlModelVersionTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -504,6 +517,59 @@ class SqlAlchemyStore(AbstractStore):
             )
         else:
             return mv_query
+
+    @classmethod
+    def _update_query_to_exclude_prompts(
+        cls,
+        query: Any,
+        tag_filters: dict[str, list[Any]],
+        dialect: str,
+        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
+        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+    ):
+        """
+        Update query to exclude all prompt rows and return only normal model or model versions.
+
+        Prompts and normal models are distinguished by the `mlflow.prompt.is_prompt` tag.
+        The search API should only return normal models by default. However, simply filtering
+        rows using the tag like this does not work because models do not have the prompt tag.
+
+            tags.`mlflow.prompt.is_prompt` != 'true'
+            tags.`mlflow.prompt.is_prompt` = 'false'
+
+        To workaround this, we need to use a subquery to get all prompt rows and then use an
+        anti-join for excluding prompts.
+        """
+        # If the tag filter contains the prompt tag, remove it
+        tag_filters.pop(IS_PROMPT_TAG_KEY, [])
+
+        # Filter to get all prompt rows
+        equal = SearchUtils.get_sql_comparison_func("=", dialect)
+        prompts_subquery = (
+            select(tag_db_model.name)
+            .filter(
+                equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
+                equal(tag_db_model.value, "true"),
+            )
+            .group_by(tag_db_model.name)
+            .subquery()
+        )
+        return query.join(
+            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+        ).filter(prompts_subquery.c.name.is_(None))
+
+    @classmethod
+    def _is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):

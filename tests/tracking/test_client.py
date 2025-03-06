@@ -26,6 +26,7 @@ from mlflow.entities import (
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -1679,3 +1680,152 @@ def test_file_store_download_upload_trace_data(tmp_path):
         trace_data = client.get_trace(span.request_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
+
+
+def test_get_trace_throw_if_request_id_is_online_trace_id():
+    client = MlflowClient("databricks")
+    request_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
+    with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
+        client.get_trace(request_id)
+
+    another_client = MlflowClient("mlruns")
+    with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
+        another_client.get_trace(request_id)
+
+
+@pytest.fixture(params=["file", "sqlalchemy"])
+def registry_uri(request, tmp_path):
+    """Set an MLflow Model Registry URI with different type of backend."""
+    if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    original_registry_uri = mlflow.get_registry_uri()
+
+    if request.param == "file":
+        tracking_uri = tmp_path.joinpath("file").as_uri()
+    elif request.param == "sqlalchemy":
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
+
+    yield tracking_uri
+
+    # Reset tracking URI
+    mlflow.set_tracking_uri(original_registry_uri)
+
+
+def test_crud_prompts(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{title}} {{name}}! How are you today?",
+        description="A friendly greeting",
+        tags={"model": "my-model"},
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.name == "prompt_1"
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
+    assert prompt.description == "A friendly greeting"
+    assert prompt.tags == {"model": "my-model"}
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{title}} {{name}}! What's up?",
+        description="New greeting",
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
+
+    prompt = client.load_prompt("prompt_1", version=1)
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
+
+    prompt = client.load_prompt("prompts:/prompt_1/2")
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
+
+    # Delete prompt must be called with a version
+    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+        client.delete_prompt("prompt_1")
+
+    client.delete_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Model Version (.*) not found"):
+        client.load_prompt("prompt_1", version=2)
+
+    client.delete_prompt("prompt_1", version=1)
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+def test_crud_prompt_on_unsupported_registry(registry_uri):
+    client = MlflowClient(registry_uri=registry_uri)
+
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+        client.register_prompt(
+            name="prompt_1",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            description="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+        client.load_prompt("prompt_1")
+
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+        client.delete_prompt("prompt_1")
+
+
+def test_block_create_model_with_prompt_tag(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_registered_model(
+            name="model",
+            tags={IS_PROMPT_TAG_KEY: "true"},
+        )
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_model_version(
+            name="model",
+            source="source",
+            tags={IS_PROMPT_TAG_KEY: "false"},
+        )
+
+
+def test_block_create_prompt_with_existing_model_name(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Model 'model' exists with"):
+        client.register_prompt(
+            name="model",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            description="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+
+def test_log_and_detach_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="p1", template="Hi, there!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    client.register_prompt(name="p2", template="Hi, {{name}}!")
+
+    run_id = client.create_run(experiment_id="0").info.run_id
+    assert client.list_logged_prompts(run_id) == []
+
+    client.log_prompt(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p1"]
+
+    client.log_prompt(run_id, "prompts:/p2/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2", "p1"]
+
+    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2"]
