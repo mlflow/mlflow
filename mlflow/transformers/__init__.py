@@ -49,6 +49,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
@@ -1188,6 +1189,8 @@ def persist_pretrained_model(model_uri: str) -> None:
     """
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+    if ModelsArtifactRepository._is_logged_model_uri(root_uri):
+        root_uri = ModelsArtifactRepository.get_underlying_uri(root_uri)
     artifact_repo = get_artifact_repository(root_uri)
 
     file_names = [os.path.basename(f.path) for f in artifact_repo.list_artifacts(artifact_path)]
