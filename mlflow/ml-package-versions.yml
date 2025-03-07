@@ -767,7 +767,7 @@ langgraph:
   package_info:
     pip_release: "langgraph"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langgraph
+      pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
 
   models:
     minimum: "0.2.0"
