@@ -1189,6 +1189,7 @@ class SqlAlchemyStore(AbstractStore):
             tag: RunTag instance to log.
         """
         with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if tag.key == MLFLOW_RUN_NAME:
