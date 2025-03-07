@@ -235,7 +235,7 @@ const config: Config = {
             from: ["/registry"],
           },
           {
-            to: "/dataset/",
+            to: "/dataset",
             from: ["/tracking/data-api/index", "/tracking/data-api"],
           },
           {
@@ -247,15 +247,11 @@ const config: Config = {
             from: ["/llms/gateway/guides/index", "/llms/gateway/guide"],
           },
           {
-            to: "/llms/deployments/guides/step1-create-gateway",
+            to: "/llms/deployments/guides/step1-create-deployments",
             from: ["/llms/gateway/guides/step1-create-gateway"],
           },
           {
-            to: "/llms/deployments/guides/step1-create-gateway",
-            from: ["/llms/gateway/guides/step1-create-gateway"],
-          },
-          {
-            to: "/llms/deployments/guides/step2-query-gateway",
+            to: "/llms/deployments/guides/step2-query-deployments",
             from: ["/llms/gateway/guides/step2-query-gateway"],
           },
         ],
