@@ -851,7 +851,7 @@ class SqlAlchemyStore(AbstractStore):
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            metric, value, _is_nan = self.sanitize_metric_value(metric.value)
+            is_nan, value = self.sanitize_metric_value(metric.value)
             metric_instances.append(
                 SqlLoggedModelMetric(
                     model_id=metric.model_id,
@@ -1493,7 +1493,7 @@ class SqlAlchemyStore(AbstractStore):
             except MlflowException as e:
                 raise e
             except Exception as e:
-                raise MlflowException(e, INTERNAL_ERROR)
+                raise MlflowException(e, INTERNAL_ERROR) from e
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model

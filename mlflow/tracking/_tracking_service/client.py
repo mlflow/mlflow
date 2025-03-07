@@ -851,7 +851,6 @@ class TrackingServiceClient:
                 dataset_name=metric.dataset_name,
                 dataset_digest=metric.dataset_digest,
                 model_id=metric.model_id,
-                experiment_id=metric.experiment_id,
                 run_id=metric.run_id,
             )
             for metric in metrics
