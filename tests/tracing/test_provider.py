@@ -279,9 +279,11 @@ def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlfl
             foo()
 
     if enable_mlflow_tracing:
-        assert sorted(TRACE_BUFFER) == request_ids
-    else:
-        assert len(TRACE_BUFFER) == 0
+        for request_id in reversed(request_ids):
+            assert TRACE_BUFFER.latest().info.request_id == request_id
+            TRACE_BUFFER.pop(request_id)
+
+    assert len(TRACE_BUFFER) == 0
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
