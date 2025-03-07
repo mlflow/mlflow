@@ -7,9 +7,14 @@ interface ModelVersionTableAliasesCellProps {
   modelName: string;
   version: string;
   onAddEdit: () => void;
+  className?: string;
 }
 
-export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelVersionTableAliasesCellProps) => {
+export const ModelVersionTableAliasesCell = ({
+  aliases = [],
+  onAddEdit,
+  className,
+}: ModelVersionTableAliasesCellProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
