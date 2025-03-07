@@ -228,7 +228,7 @@ const config: Config = {
           },
           {
             to: "/tracing/tracing-schema",
-            from: ["llms/tracing/tracing-schema"],
+            from: ["/llms/tracing/tracing-schema"],
           },
           {
             to: "/model-registry",

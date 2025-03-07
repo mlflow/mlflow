@@ -37,6 +37,7 @@ MANIFEST
 node_modules
 .docusaurus
 *-ipynb.mdx
+docs/src/api_modules.json
 docs/static/api_reference
 
 # PyInstaller
