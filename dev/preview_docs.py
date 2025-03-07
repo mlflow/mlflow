@@ -125,7 +125,7 @@ Failed to find a documentation preview for {args.commit_sha}.
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
     top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/index.html"
-    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/diff.html"
+    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/diff.html"
 
     # Post the artifact URL as a comment
     comment_body = f"""
