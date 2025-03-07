@@ -175,7 +175,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         if self.is_logged_model_uri:
             return self.repo.log_artifacts(local_dir, artifact_path)
         raise ValueError(
-            "log_artifacts is not supported for models:/<model_name>/<model_version> URIs. "
+            "log_artifacts is not supported for models:/<name>/<version> URIs. "
             "Use register_model instead."
         )
 
