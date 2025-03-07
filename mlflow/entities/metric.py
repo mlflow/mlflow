@@ -114,7 +114,18 @@ class Metric(_MlflowObject):
         return False
 
     def __hash__(self):
-        return hash((self._key, self._value, self._timestamp, self._step))
+        return hash(
+            (
+                self._key,
+                self._value,
+                self._timestamp,
+                self._step,
+                self._model_id,
+                self._dataset_name,
+                self._dataset_digest,
+                self._run_id,
+            )
+        )
 
     def to_dictionary(self):
         """
