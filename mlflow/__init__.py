@@ -257,7 +257,6 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
-    "log_trace",
     "update_current_trace",
     # Assessment APIs
     "delete_expectation",
