@@ -90,12 +90,13 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
+    _validate_metric,
     _validate_param,
     _validate_param_keys_unique,
     _validate_run_id,
+    _validate_tag,
     _validate_trace_tag,
 )
-from skinny.mlflow.utils.validation import _validate_tag
 
 _logger = logging.getLogger(__name__)
 
@@ -732,7 +733,15 @@ class SqlAlchemyStore(AbstractStore):
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for metric in metrics:
+        is_single_metric = len(metrics) == 1
+        for idx, metric in enumerate(metrics):
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
             if metric not in seen:
                 is_nan, value = self.sanitize_metric_value(metric.value)
                 metric_instances.append(
@@ -1162,6 +1171,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -1199,6 +1209,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         if not tags:
             return
+
+        tags = [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
