@@ -9,7 +9,6 @@ from functools import reduce
 from typing import Any, Optional
 
 import sqlalchemy
-import sqlalchemy.exc
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
@@ -1493,7 +1492,7 @@ class SqlAlchemyStore(AbstractStore):
             except MlflowException as e:
                 raise e
             except Exception as e:
-                raise MlflowException(e, INTERNAL_ERROR) from e
+                raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
