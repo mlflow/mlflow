@@ -7,13 +7,10 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
+from mlflow.tracing.buffer import TRACE_BUFFER
 from mlflow.tracing.destination import MlflowExperiment, TraceDestination
-from mlflow.tracing.export.inference_table import (
-    _TRACE_BUFFER,
-    InferenceTableSpanExporter,
-)
+from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -282,9 +279,9 @@ def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlfl
             foo()
 
     if enable_mlflow_tracing:
-        assert sorted(_TRACE_BUFFER) == request_ids
+        assert sorted(TRACE_BUFFER) == request_ids
     else:
-        assert len(_TRACE_BUFFER) == 0
+        assert len(TRACE_BUFFER) == 0
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
@@ -311,6 +308,8 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
             client.end_trace(request_id="123")
 
     if enable_mlflow_tracing:
-        assert sorted(_TRACE_BUFFER) == request_ids
-    else:
-        assert len(_TRACE_BUFFER) == 0
+        for request_id in request_ids:
+            assert TRACE_BUFFER.latest().info.request_id == request_id
+            TRACE_BUFFER.pop(request_id)
+
+    assert len(TRACE_BUFFER) == 0

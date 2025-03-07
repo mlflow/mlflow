@@ -53,4 +53,4 @@ class InferenceTableSpanExporter(SpanExporter):
                 continue
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            TRACE_BUFFER.add(trace)
+            TRACE_BUFFER.insert(trace.info.request_id, trace)

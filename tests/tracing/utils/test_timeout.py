@@ -8,7 +8,8 @@ import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.export.inference_table import _TRACE_BUFFER, pop_trace
+from mlflow.tracing.buffer import TRACE_BUFFER
+from mlflow.tracing.export.inference_table import TRACE_BUFFER, pop_trace
 from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils.timeout import MlflowTraceTimeoutCache
 
@@ -111,7 +112,7 @@ def test_trace_halted_after_timeout_in_model_serving(
         executor.map(_run_single, ["request-id-1", "request-id-2", "request-id-3"], [5, 6, 1])
 
     # All traces should be logged
-    assert len(_TRACE_BUFFER) == 3
+    assert len(TRACE_BUFFER) == 3
 
     # Long operation should be halted
     assert pop_trace(request_id="request-id-1")["info"]["status"] == SpanStatusCode.ERROR

@@ -10,7 +10,6 @@ from opentelemetry import trace as trace_api
 
 import mlflow
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
@@ -59,7 +58,6 @@ def reset_tracing():
 
     # Clear other global state and singletons
     TRACE_BUFFER.clear()
-    _TRACE_BUFFER.clear()
     InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
 

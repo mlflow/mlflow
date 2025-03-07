@@ -66,10 +66,10 @@ class MlflowSpanExporter(SpanExporter):
                 continue
 
             # Add the trace to the in-memory buffer
-            TRACE_BUFFER[trace.info.request_id] = trace
+            TRACE_BUFFER.insert(trace.info.request_id, trace)
             # Add evaluation trace to the in-memory buffer with eval_request_id key
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                TRACE_BUFFER[eval_request_id] = trace
+                TRACE_BUFFER.insert(eval_request_id, trace)
 
             if not maybe_get_request_id(is_evaluate=True):
                 # Display the trace in the UI if the trace is not generated from within
