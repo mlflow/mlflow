@@ -21,7 +21,6 @@ class Metric(_MlflowObject):
         model_id: Optional[str] = None,
         dataset_name: Optional[str] = None,
         dataset_digest: Optional[str] = None,
-        experiment_id: Optional[str] = None,
         run_id: Optional[str] = None,
     ):
         if (dataset_name, dataset_digest).count(None) == 1:
