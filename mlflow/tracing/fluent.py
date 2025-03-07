@@ -45,7 +45,6 @@ from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_d
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -675,10 +674,6 @@ def get_last_active_trace() -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
 
-    .. warning::
-
-        This function DOES NOT work in the model deployed in Databricks model serving.
-
     .. note::
 
         The last active trace is only stored in-memory for the time defined by the TTL
@@ -716,13 +711,6 @@ def get_last_active_trace() -> Optional[Trace]:
     Returns:
         The last active trace if exists, otherwise None.
     """
-    if is_in_databricks_model_serving_environment():
-        raise MlflowException(
-            "The function `mlflow.get_last_active_trace` is not supported in "
-            "Databricks model serving.",
-            error_code=BAD_REQUEST,
-        )
-
     return TRACE_BUFFER.latest()
 
 
