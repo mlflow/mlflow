@@ -198,17 +198,17 @@ def _is_numeric(value):
     return not isinstance(value, bool) and isinstance(value, numbers.Number)
 
 
-def _validate_metric(key, value, timestamp, step, json_path=""):
+def _validate_metric(key, value, timestamp, step, path=""):
     """
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(key, append_to_json_path(json_path, "name"))
+    _validate_metric_name(key, append_to_json_path(path, "name"))
 
     # If invocated via log_metric, no prior validation of the presence of the value was done.
     if value is None:
         raise MlflowException(
-            missing_value(append_to_json_path(json_path, "value")),
+            missing_value(append_to_json_path(path, "value")),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -217,7 +217,7 @@ def _validate_metric(key, value, timestamp, step, json_path=""):
     if not _is_numeric(value):
         raise MlflowException(
             invalid_value(
-                append_to_json_path(json_path, "value"),
+                append_to_json_path(path, "value"),
                 value,
                 f"(timestamp={timestamp}). "
                 f"Please specify value as a valid double (64-bit floating point)",
@@ -228,7 +228,7 @@ def _validate_metric(key, value, timestamp, step, json_path=""):
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
             invalid_value(
-                append_to_json_path(json_path, "timestamp"),
+                append_to_json_path(path, "timestamp"),
                 timestamp,
                 f"metric '{key}' (value={value}). "
                 f"Timestamp must be a nonnegative long (64-bit integer) ",
@@ -239,7 +239,7 @@ def _validate_metric(key, value, timestamp, step, json_path=""):
     if not isinstance(step, numbers.Number):
         raise MlflowException(
             invalid_value(
-                append_to_json_path(json_path, "step"),
+                append_to_json_path(path, "step"),
                 step,
                 f"metric '{key}' (value={value}). Step must be a valid long (64-bit integer).",
             ),
