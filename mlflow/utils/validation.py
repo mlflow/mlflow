@@ -9,7 +9,6 @@ import posixpath
 import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.entities.metric import Metric
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -249,14 +248,6 @@ def _validate_metric(key, value, timestamp, step, path=""):
     _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
 
 
-def _validate_metrics(metrics: list[Metric]) -> None:
-    is_single_metric = len(metrics) == 1
-    path = "metrics" if is_single_metric else ""
-    for index, metric in enumerate(metrics):
-        path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
-
-
 def _validate_param(key, value, path=""):
     """
     Check that a param with the specified key & value is valid and raise an exception if it
@@ -280,11 +271,6 @@ def _validate_tag(key, value, path=""):
             append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
         ),
     )
-
-
-def _validate_tags(tags: list[RunTag]):
-    for index, tag in enumerate(tags):
-        _validate_tag(tag.key, tag.value, path=f"tags[{index}]")
 
 
 def _validate_experiment_tag(key, value):

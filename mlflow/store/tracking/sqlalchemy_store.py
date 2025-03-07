@@ -90,11 +90,9 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
-    _validate_metrics,
     _validate_param,
     _validate_param_keys_unique,
     _validate_run_id,
-    _validate_tags,
     _validate_trace_tag,
 )
 from skinny.mlflow.utils.validation import _validate_tag
@@ -1378,8 +1376,6 @@ class SqlAlchemyStore(AbstractStore):
         metrics, params, tags = _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
-        _validate_metrics(metrics)
-        _validate_tags(tags)
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
