@@ -253,8 +253,8 @@ def _validate_metrics(metrics: list[Metric]) -> None:
     is_single_metric = len(metrics) == 1
     path = "metrics" if is_single_metric else ""
     for index, metric in enumerate(metrics):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
         path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
 
 
 def _validate_param(key, value, path=""):
