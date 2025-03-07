@@ -23,8 +23,9 @@ const convertTagToString = (tag: KeyValueEntity) => {
   return `${tag.key}: ${tag.value}`;
 };
 const convertStringToTag = (tagString: string) => {
-  const [key, value] = tagString.split(': ');
-  return { key, value };
+  const sep = ': ';
+  const [key, ...value] = tagString.split(sep);
+  return { key, value: value.join(sep) };
 };
 
 const getRunsTagsSelection = (
