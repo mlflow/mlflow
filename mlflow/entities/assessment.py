@@ -95,6 +95,10 @@ class Assessment(_MlflowObject):
             raise MlflowException.invalid_parameter_value(
                 "At least one of `expectation`, `feedback` or `error` should be specified.",
             )
+        if (self.expectation is not None) and self.error is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Expectations cannot have `error` specified.",
+            )
 
     def to_proto(self):
         assessment = ProtoAssessment()

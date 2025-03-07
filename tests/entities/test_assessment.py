@@ -133,6 +133,22 @@ def test_assessment_value_validation():
             **common_args,
         )
 
+    # Invalid case: Expectation with an error
+    with pytest.raises(MlflowException, match=r"Expectations cannot have"):
+        Assessment(
+            expectation=Expectation("MLflow"),
+            error=AssessmentError(error_code="E001"),
+            **common_args,
+        )
+
+    # Invalid case: All three are set
+    with pytest.raises(MlflowException, match=r"Only one of"):
+        Assessment(
+            expectation=Expectation("MLflow"),
+            feedback=Feedback("This is correct."),
+            error=AssessmentError(error_code="E001"),
+            **common_args,
+        )
 
 @pytest.mark.parametrize(
     ("expectation", "feedback", "error"),
