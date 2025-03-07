@@ -73,6 +73,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def base_lc_types():
+    import langchain.agents
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.schema

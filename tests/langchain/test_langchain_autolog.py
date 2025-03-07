@@ -29,6 +29,7 @@ from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrou
 from langchain_core.runnables.config import RunnableConfig
 
 from mlflow.entities.trace import Trace
+from mlflow.tracking.fluent import _get_experiment_id
 
 # NB: We run this test suite twice - once with langchain_community installed and once without.
 try:
@@ -83,14 +84,14 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
-def create_openai_runnable():
+def create_openai_runnable(temperature=0.9):
     from langchain_core.output_parsers import StrOutputParser
 
     prompt = PromptTemplate(
         input_variables=["product"],
         template="What is {product}?",
     )
-    return prompt | ChatOpenAI(temperature=0.9) | StrOutputParser()
+    return prompt | ChatOpenAI(temperature=temperature) | StrOutputParser()
 
 
 def create_retriever(tmp_path):
@@ -1232,3 +1233,73 @@ def test_langchain_auto_tracing_in_serving_agent():
         root_span.end_time_ns // 1_000_000
         - (trace.info.timestamp_ms + trace.info.execution_time_ms)
     ) <= 1
+
+
+def test_autolog_traces_linked_to_models():
+    # log two models + load model
+    mlflow.langchain.autolog(log_models=True)
+    messages = [{"role": "user", "content": "What is MLflow?"}]
+    model1 = create_openai_runnable(temperature=0.9)
+    model2 = create_openai_runnable(temperature=0.1)
+
+    model2.invoke(messages)
+    logged_model2 = mlflow.last_logged_model()
+
+    model1.invoke(messages)
+    logged_model1 = mlflow.last_logged_model()
+    assert logged_model1.model_id != logged_model2.model_id
+
+    model3 = mlflow.langchain.load_model(logged_model1.model_uri)
+    model3.invoke(messages)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    span0 = traces[0].data.spans[2]
+    assert span0.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    span1 = traces[1].data.spans[2]
+    assert span1.get_attribute("invocation_params")["temperature"] == 0.9
+    assert span1.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    span2 = traces[2].data.spans[2]
+    assert span2.get_attribute("invocation_params")["temperature"] == 0.1
+    assert span2.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model2.model_id
+
+    model2.invoke(messages)
+    traces = get_traces()
+    assert len(traces) == 4
+    span4 = traces[0].data.spans[2]
+    assert span4.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model2.model_id
+
+
+def test_autolog_traces_linked_to_models_multiprocessing():
+    mlflow.langchain.autolog(log_models=True)
+    messages = [{"role": "user", "content": "What is MLflow?"}]
+    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 5)]
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(models[i].invoke, messages) for i in range(4)]
+        for future in futures:
+            future.result()
+
+    logged_models = mlflow.search_logged_models(output_format="list")
+    assert len(logged_models) == 4
+    traces = get_traces()
+    assert len(traces) == 4
+    assert sorted(
+        trace.data.spans[2].get_attribute("invocation_params")["temperature"] for trace in traces
+    ) == [temperature / 10 for temperature in range(1, 5)]
+    assert (
+        len({trace.data.spans[2].get_attribute(SpanAttributeKey.MODEL_ID) for trace in traces}) == 4
+    )
+    client = MlflowClient()
+    for model in logged_models:
+        langchain_model = mlflow.langchain.load_model(model.model_uri)
+        traces = client.search_traces(
+            experiment_ids=[_get_experiment_id()], model_id=model.model_id
+        )
+        assert len(traces) == 1
+        span = traces[0].data.spans[2]
+        assert (
+            span.get_attribute("invocation_params")["temperature"]
+            == langchain_model.steps[1].temperature
+        )
+        assert span.get_attribute(SpanAttributeKey.MODEL_ID) == model.model_id
