@@ -9,6 +9,7 @@ import posixpath
 import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
+from mlflow.entities.metric import Metric
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -197,17 +198,17 @@ def _is_numeric(value):
     return not isinstance(value, bool) and isinstance(value, numbers.Number)
 
 
-def _validate_metric(key, value, timestamp, step, path=""):
+def _validate_metric(key, value, timestamp, step, json_path=""):
     """
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(key, append_to_json_path(path, "name"))
+    _validate_metric_name(key, append_to_json_path(json_path, "name"))
 
     # If invocated via log_metric, no prior validation of the presence of the value was done.
     if value is None:
         raise MlflowException(
-            missing_value(append_to_json_path(path, "value")),
+            missing_value(append_to_json_path(json_path, "value")),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -216,7 +217,7 @@ def _validate_metric(key, value, timestamp, step, path=""):
     if not _is_numeric(value):
         raise MlflowException(
             invalid_value(
-                append_to_json_path(path, "value"),
+                append_to_json_path(json_path, "value"),
                 value,
                 f"(timestamp={timestamp}). "
                 f"Please specify value as a valid double (64-bit floating point)",
@@ -227,7 +228,7 @@ def _validate_metric(key, value, timestamp, step, path=""):
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
             invalid_value(
-                append_to_json_path(path, "timestamp"),
+                append_to_json_path(json_path, "timestamp"),
                 timestamp,
                 f"metric '{key}' (value={value}). "
                 f"Timestamp must be a nonnegative long (64-bit integer) ",
@@ -238,7 +239,7 @@ def _validate_metric(key, value, timestamp, step, path=""):
     if not isinstance(step, numbers.Number):
         raise MlflowException(
             invalid_value(
-                append_to_json_path(path, "step"),
+                append_to_json_path(json_path, "step"),
                 step,
                 f"metric '{key}' (value={value}). Step must be a valid long (64-bit integer).",
             ),
@@ -246,6 +247,14 @@ def _validate_metric(key, value, timestamp, step, path=""):
         )
 
     _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
+
+
+def _validate_metrics(metrics: list[Metric]) -> None:
+    is_single_metric = len(metrics) == 1
+    path = "metrics" if is_single_metric else ""
+    for index, metric in enumerate(metrics):
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
+        path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
 
 
 def _validate_param(key, value, path=""):
@@ -271,6 +280,11 @@ def _validate_tag(key, value, path=""):
             append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
         ),
     )
+
+
+def _validate_tags(tags: list[RunTag]):
+    for index, tag in enumerate(tags):
+        _validate_tag(tag.key, tag.value, path=f"tags[{index}]")
 
 
 def _validate_experiment_tag(key, value):

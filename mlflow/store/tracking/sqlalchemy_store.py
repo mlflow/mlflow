@@ -90,14 +90,14 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
-    _validate_metric,
+    _validate_metrics,
     _validate_param,
     _validate_param_keys_unique,
     _validate_run_id,
-    _validate_tag,
+    _validate_tags,
     _validate_trace_tag,
-    append_to_json_path,
 )
+from skinny.mlflow.utils.validation import _validate_tag
 
 _logger = logging.getLogger(__name__)
 
@@ -708,18 +708,6 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def _get_metric_value_details(self, path, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
-        is_nan = math.isnan(metric.value)
-        if is_nan:
-            value = 0
-        elif math.isinf(metric.value):
-            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-        else:
-            value = metric.value
-        return metric, value, is_nan
-
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
@@ -1193,7 +1181,6 @@ class SqlAlchemyStore(AbstractStore):
             tag: RunTag instance to log.
         """
         with self.ManagedSessionMaker() as session:
-            tag = _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if tag.key == MLFLOW_RUN_NAME:
@@ -1203,7 +1190,7 @@ class SqlAlchemyStore(AbstractStore):
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, path=""):
+    def _set_tags(self, run_id, tags):
         """
         Set multiple tags on a run
 
@@ -1214,11 +1201,6 @@ class SqlAlchemyStore(AbstractStore):
         """
         if not tags:
             return
-
-        tags = [
-            _validate_tag(t.key, t.value, path=append_to_json_path(path, f"tags[{idx}]"))
-            for (idx, t) in enumerate(tags)
-        ]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1396,20 +1378,16 @@ class SqlAlchemyStore(AbstractStore):
         metrics, params, tags = _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
-
-        is_single_metric = len(metrics) == 1
-        path = "metrics" if is_single_metric else ""
-        for index, metric in enumerate(metrics):
-            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
-            path = path if is_single_metric else append_to_json_path(path, f"[{index}]")
+        _validate_metrics(metrics)
+        _validate_tags(tags)
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             try:
                 self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics, path="metrics")
-                self._set_tags(run_id, tags, path="tags")
+                self._log_metrics(run_id, metrics)
+                self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
             except Exception as e:
