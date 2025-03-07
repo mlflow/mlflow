@@ -91,7 +91,7 @@ class Location:
 
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
-        return cls(node.lineno, node.col_offset)
+        return cls(node.lineno, node.col_offset + 1)
 
 
 @dataclass
