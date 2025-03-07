@@ -52,3 +52,8 @@ long_running()
 :::note
 MLflow monitors the trace execution time and expiration in a background thread. By default, this check is performed every second and  resource consumption is negligible. If you want to adjust the interval, you can set the `MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS` environment variable.
 :::
+
+
+### Q: My trace is split into multiple traces when doing multi-threading. How can I combine them into a single trace?
+
+As MLflow Tracing depends on Python ContextVar, each thread has its own trace context by default, but it is possible to generate a single trace for multi-threaded applications with a few additional steps. Refer to the [Multi-threading](/tracing/api/manual-instrumentation#multi-threading) section for more information.
