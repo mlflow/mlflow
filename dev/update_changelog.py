@@ -168,7 +168,7 @@ def main(prev_version, release_version, remote):
     }
     assert len(unknown_labels) == 0, f"Unknown labels: {unknown_labels}"
 
-    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking_change", []))
+    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking-change", []))
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))

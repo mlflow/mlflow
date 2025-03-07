@@ -234,6 +234,14 @@ def maybe_get_dependencies_schemas() -> Optional[dict]:
         return context.dependencies_schemas
 
 
+def maybe_get_logged_model_id() -> Optional[str]:
+    """
+    Get the logged model ID associated with the current prediction context.
+    """
+    if context := _try_get_prediction_context():
+        return context.model_id
+
+
 def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
@@ -241,6 +249,21 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
 
 def generate_request_id() -> str:
     return uuid.uuid4().hex
+
+
+def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
+    """
+    Construct the full input arguments dictionary for the given function,
+    including positional and keyword arguments.
+    """
+    signature = inspect.signature(func)
+    # this does not create copy. So values should not be mutated directly
+    arguments = signature.bind_partial(*args, **kwargs).arguments
+
+    if "self" in arguments:
+        arguments.pop("self")
+
+    return arguments
 
 
 def set_span_chat_messages(
