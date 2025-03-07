@@ -26,6 +26,7 @@ class MockDatabase {
     const initialModel: ModelEntity = {
       name: 'test_model',
       creation_timestamp: 1234,
+      last_updated_timestamp: 2345,
       current_stage: '',
       email_subscription_status: 'active',
       permission_level: '',
