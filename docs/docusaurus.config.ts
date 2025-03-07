@@ -203,6 +203,14 @@ const config: Config = {
             from: ["/llms/tracing"],
           },
           {
+            to: "/dataset",
+            from: ["/tracking/data-api/index", "/tracking/data-api"],
+          },
+          {
+            to: "/model",
+            from: ["/models"],
+          },
+          {
             to: "/tracing/integrations/bedrock",
             from: ["/llms/bedrock/autologging"],
           },
@@ -233,10 +241,6 @@ const config: Config = {
           {
             to: "/model-registry",
             from: ["/registry"],
-          },
-          {
-            to: "/dataset",
-            from: ["/tracking/data-api/index", "/tracking/data-api"],
           },
           {
             to: "/llms/deployments",
