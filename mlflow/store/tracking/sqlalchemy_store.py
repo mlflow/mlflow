@@ -724,29 +724,31 @@ class SqlAlchemyStore(AbstractStore):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics):
-        if not metrics:
-            return
+    def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
+        """
+        Returns a tuple of two values:
+            - A boolean indicating whether the metric is NaN.
+            - The metric value, which is set to 0 if the metric is NaN.
+        """
+        is_nan = math.isnan(metric_value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric_value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
+            # value
+            value = 1.7976931348623157e308 if metric_value > 0 else -1.7976931348623157e308
+        else:
+            value = metric_value
+        return is_nan, value
 
+    def _log_metrics(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
         for metric in metrics:
-            is_nan = math.isnan(metric.value)
-            if is_nan:
-                value = 0
-            elif math.isinf(metric.value):
-                #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
-                # value
-                value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-            else:
-                value = metric.value
-
             if metric not in seen:
-                is_nan = math.isnan(metric.value)
-                if is_nan:
-                    value
+                is_nan, value = self.sanitize_metric_value(metric.value)
                 metric_instances.append(
                     SqlMetric(
                         run_uuid=run_id,
