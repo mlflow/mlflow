@@ -218,7 +218,7 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = [x.path for x in artifacts]
-    assert ("model" in artifacts) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 @pytest.mark.parametrize("fit_variant", ["fit_one_cycle", "fine_tune"])
@@ -243,7 +243,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = (x.path for x in artifacts)
-    assert "model" in artifacts
+    assert mlflow.last_logged_model() is not None
     model = mlflow.fastai.load_model("runs:/" + run_id + "/model")
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     model_wrapper.predict(iris_dataframe())

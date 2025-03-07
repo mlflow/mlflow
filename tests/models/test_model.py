@@ -155,7 +155,6 @@ def test_model_log():
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
         assert loaded_model.flavors == {
             "flavor1": {"a": 1, "b": 2},
             "flavor2": {"x": 1, "y": 2},
@@ -171,6 +170,24 @@ def test_model_log():
         assert loaded_example == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
+
+def test_model_log_without_run(tmp_path):
+    model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id is None
+
+
+def test_model_log_with_active_run(tmp_path):
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id == run.info.run_id
+
+
+def test_model_log_inactive_run_id(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)
+    model_info = Model.log("model", TestFlavor, run_id=run.info.run_id)
+    assert model_info.run_id == run.info.run_id
 
 
 def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
@@ -197,7 +214,7 @@ def test_model_info():
             model_info = Model.log(
                 "some/path", TestFlavor, signature=sig, input_example=input_example
             )
-        model_uri = f"runs:/{run.info.run_id}/some/path"
+        model_uri = f"models:/{model_info.model_id}"
 
         model_info_fetched = mlflow.models.get_model_info(model_uri)
         with pytest.warns(
@@ -210,8 +227,6 @@ def test_model_info():
 
         assert model_info.run_id == run.info.run_id
         assert model_info_fetched.run_id == run.info.run_id
-        assert model_info.artifact_path == "some/path"
-        assert model_info_fetched.artifact_path == "some/path"
         assert model_info.model_uri == model_uri
         assert model_info_fetched.model_uri == model_uri
 
@@ -624,6 +639,27 @@ def test_model_resources():
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.resources == expected_resources
+
+
+def test_save_load_model_with_run_uri():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str], params=None):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
+    mlflow_model = Model.load(f"runs:/{run.info.run_id}/test_model/MLmodel")
+    assert mlflow_model.load_input_example() == ["a", "b", "c"]
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model")
+    assert model == mlflow_model
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model/")
+    assert model == mlflow_model
 
 
 def test_save_model_with_prompts():

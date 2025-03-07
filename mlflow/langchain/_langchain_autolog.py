@@ -11,6 +11,7 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
@@ -66,10 +67,22 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+
+    if mid := _LOADED_MODEL_TRACKER.last_model_id:
+        model_id = mid
+    elif config.log_models:
+        logged_model = mlflow.create_logged_model(name="model")
+        model_id = logged_model.model_id
+        _LOADED_MODEL_TRACKER.last_model_id = model_id
+    else:
+        model_id = None
+
     if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
         with _setup_autolog_run(config, self) as run_id:
             result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+            _log_optional_artifacts(
+                config, run_id, result, self, func_name, model_id, *args, **kwargs
+            )
     else:
         result = _invoke(self, *args, **kwargs)
     return result
@@ -231,7 +244,16 @@ def _chain_with_retriever(model):
     return False
 
 
-def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs):
+def _log_optional_artifacts(
+    autolog_config,
+    run_id,
+    result,
+    self,
+    func_name,
+    model_id,
+    *args,
+    **kwargs,
+):
     input_example = None
     if autolog_config.log_models and not hasattr(self, "_mlflow_model_logged"):
         if _runnable_with_retriever(self) or _chain_with_retriever(self):
@@ -257,10 +279,11 @@ def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *ar
                 with disable_patching():
                     mlflow.langchain.log_model(
                         self,
-                        "model",
+                        name="model",
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,
+                        model_id=model_id,
                     )
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")
