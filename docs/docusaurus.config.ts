@@ -239,15 +239,26 @@ const config: Config = {
             from: ["/tracking/data-api/index", "/tracking/data-api"],
           },
           {
-            to: "model",
-            from: ["/models"],
+            to: "/llms/deployments",
+            from: ["/llms/gateway/index", "/llms/gateway"],
+          },
+          {
+            to: "/llms/deployments/guides",
+            from: ["/llms/gateway/guides/index", "/llms/gateway/guide"],
+          },
+          {
+            to: "/llms/deployments/guides/step1-create-gateway",
+            from: ["/llms/gateway/guides/step1-create-gateway"],
+          },
+          {
+            to: "/llms/deployments/guides/step1-create-gateway",
+            from: ["/llms/gateway/guides/step1-create-gateway"],
+          },
+          {
+            to: "/llms/deployments/guides/step2-query-gateway",
+            from: ["/llms/gateway/guides/step2-query-gateway"],
           },
         ],
-        createRedirects(existingPath: string) {
-          if (existingPath.startsWith("/llms/deployments")) {
-            return [existingPath.replace("/llms/deployments", "/llms/gateway")];
-          }
-        },
       },
     ],
   ],
