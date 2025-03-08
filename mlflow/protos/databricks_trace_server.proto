@@ -4,7 +4,6 @@ syntax = "proto2";
 
 package mlflow.traceserver;
 
-import "google/api/annotations.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -18,17 +17,26 @@ service DatabricksTracingServerService {
   rpc createTrace(CreateTrace) returns (Trace) {
     option (rpc) = {
       visibility: PUBLIC_UNDOCUMENTED
-    };
-    option (google.api.http) = {
-      post: "/tracing/traces",
-      body: "trace"
+      endpoints: [{
+        method: "POST",
+        path: "/tracing/traces",
+      }],
     };
   }
 }
 
+
+// NB: This is different from the proto definition of the Databricks Trace Server,
+// which has `Trace` message as the top level field. The field is actually unwrapped
+// in the actual JSON payload, because Databricks endpoint uses (google.api.http)
+// annotation and specify "trace" as the body field. When it is specified, the
+// endpoint except unwrapped message rather than having a top level "trace" field.
+// We did not use the google.api.http annotation because it requires adding the
+// google-api-python-client package as a core dependency, which is > 10MB in size.
 message CreateTrace {
     option (scalapb.message).extends = "com.databricks.rpc.RPC[Trace]";
-    optional Trace trace = 1 [(validate_required) = true];
+    optional TraceInfo info = 1;
+    optional TraceData data = 2;
 }
 
 

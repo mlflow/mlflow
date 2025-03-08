@@ -3,7 +3,6 @@ import json
 from functools import lru_cache
 
 import requests
-from google.api import annotations_pb2
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
@@ -345,15 +344,10 @@ def extract_api_info_for_service(service, path_prefix):
     service_methods = service.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
-        # option (rpc) style endpoint
-        if endpoints := service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints:
-            endpoint = endpoints[0]
-            endpoint_path = _get_path(path_prefix, endpoint.path)
-            method = endpoint.method
-        elif http_rule := service_method.GetOptions().Extensions[annotations_pb2.http]:
-            endpoint, method = _parse_google_api_http_rule(http_rule)
-            endpoint_path = _get_path(path_prefix, http_rule.post)
-        res[service().GetRequestClass(service_method)] = (endpoint_path, method)
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        endpoint = endpoints[0]
+        endpoint_path = _get_path(path_prefix, endpoint.path)
+        res[service().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
     return res
 
 
