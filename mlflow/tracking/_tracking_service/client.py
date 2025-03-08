@@ -312,6 +312,7 @@ class TrackingServiceClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ):
         if model_id is not None:
             if filter_string:
@@ -329,6 +330,8 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
     def search_traces(
@@ -340,6 +343,7 @@ class TrackingServiceClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -394,6 +398,7 @@ class TrackingServiceClient:
                     order_by=order_by,
                     page_token=next_token,
                     model_id=model_id,
+                    sql_warehouse_id=sql_warehouse_id,
                 )
                 traces.extend(
                     t for t in executor.map(download_trace_extra_fields, trace_infos) if t

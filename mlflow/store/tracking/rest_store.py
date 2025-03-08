@@ -55,6 +55,7 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchUnifiedTraces,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -395,16 +396,57 @@ class RestStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ):
-        st = SearchTraces(
-            experiment_ids=experiment_ids,
+        if sql_warehouse_id is None:
+            st = SearchTraces(
+                experiment_ids=experiment_ids,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+            req_body = message_to_json(st)
+            response_proto = self._call_endpoint(SearchTraces, req_body)
+        else:
+            response_proto = self._search_unified_traces(
+                model_id=model_id,
+                sql_warehouse_id=sql_warehouse_id,
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
+
+    def _search_unified_traces(
+        self,
+        model_id: str,
+        sql_warehouse_id: str,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> tuple[list[TraceInfo], Optional[str]]:
+        st = SearchUnifiedTraces(
+            online_trace_search=SearchUnifiedTraces.OnlineTraceSearch(
+                model_id=model_id,
+                sql_warehouse_id=sql_warehouse_id,
+            ),
+            offline_trace_search=SearchUnifiedTraces.OfflineTraceSearch(
+                experiment_ids=experiment_ids
+            ),
             filter=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
         )
         req_body = message_to_json(st)
-        response_proto = self._call_endpoint(SearchTraces, req_body)
+        response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
