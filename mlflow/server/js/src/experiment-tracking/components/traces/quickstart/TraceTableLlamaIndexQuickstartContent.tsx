@@ -51,6 +51,7 @@ ${runUuid ? `with mlflow.start_run():\n    ` : ''}query_engine.query("What is Ll
             marginTop: theme.spacing.md,
           }}
           language="python"
+          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
         >
           {code}
         </CodeSnippet>
