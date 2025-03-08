@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import math
 import os
 import random
@@ -554,7 +555,7 @@ def test_train_step_with_tuning_child_runs_and_early_stop(
     assert ordered_metrics == sorted(ordered_metrics)
 
 
-@pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
+@pytest.mark.skipif(importlib.util.find_spec("hyperopt") is None, reason="requires hyperopt")
 def test_search_space(tmp_recipe_root_path):
     tuning_params_yaml = tmp_recipe_root_path.joinpath("tuning_params.yaml")
     tuning_params_yaml.write_text(
@@ -569,6 +570,29 @@ def test_search_space(tmp_recipe_root_path):
     tuning_params = read_yaml(tmp_recipe_root_path, "tuning_params.yaml")
     search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
     assert "alpha" in search_space
+
+
+@pytest.mark.skipif(importlib.util.find_spec("hyperopt") is None, reason="requires hyperopt")
+def test_search_space_with_small_boundaries(tmp_recipe_root_path):
+    tuning_params_yaml = tmp_recipe_root_path.joinpath("tuning_params.yaml")
+    tuning_params_yaml.write_text(
+        """
+        parameters:
+            alpha:
+                distribution: "uniform"
+                low: 1e-9
+                high: 1e-6
+        """
+    )
+    tuning_params = read_yaml(tmp_recipe_root_path, "tuning_params.yaml")
+    search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
+    assert "alpha" in search_space
+    alpha, distribution = search_space["alpha"].inputs()[0].inputs()
+    for arg in distribution.named_args:
+        if arg[0] == "high":
+            assert arg[1].obj == 0.000001
+        if arg[0] == "low":
+            assert arg[1].obj == 0.000000001
 
 
 @pytest.mark.parametrize(("tuning_param", "logged_param"), [(1, "1"), (1.0, "1.0"), ("a", " a ")])
