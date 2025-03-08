@@ -27,6 +27,8 @@ export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
     if (isTagNonEmptyAndTagKeyValid) {
       addNewTag({ key: tagKey, value: tagValue });
       setIsOpen(false);
+      setTagKey('');
+      setTagValue('');
     }
   };
 
