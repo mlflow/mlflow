@@ -14,7 +14,7 @@ from mlflow.tracing.export.inference_table import (
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
+from mlflow.tracing.processor.databricks import DatabricksAgentSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import (

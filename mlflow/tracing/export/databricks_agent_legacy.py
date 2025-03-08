@@ -18,7 +18,8 @@ class DatabricksAgentSpanExporter(SpanExporter):
     Args:
         trace_destination: The destination of the traces.
 
-    TODO: This class will be migrated under databricks-agents package.
+    TODO: This class should be deprecated in favor of DatabricksSpanExporter, once
+        the Databricks Agent Monitoring is fully migrated to the new tracing server.
     """
 
     def __init__(self, trace_destination: TraceDestination):

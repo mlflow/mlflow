@@ -1,6 +1,5 @@
 import json
 import logging
-import uuid
 from typing import Optional
 
 from opentelemetry.context import Context
@@ -17,23 +16,27 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_dependencies_schemas,
 )
+from mlflow.tracking.fluent import _get_experiment_id
 
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksAgentSpanProcessor(SimpleSpanProcessor):
+class DatabricksSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
     This process implements simple responsibilities to generate MLflow-style trace
     object from OpenTelemetry spans and store them in memory.
-
-    TODO: This class will be migrated under databricks-agents package.
     """
 
-    def __init__(self, span_exporter: SpanExporter):
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+        experiment_id: Optional[str] = None,
+    ):
         self.span_exporter = span_exporter
         self._trace_manager = InMemoryTraceManager.get_instance()
+        self._experiment_id = experiment_id
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
@@ -57,7 +60,7 @@ class DatabricksAgentSpanProcessor(SimpleSpanProcessor):
         if span._parent is None:
             trace_info = TraceInfo(
                 request_id=request_id,
-                experiment_id=None,
+                experiment_id=self._experiment_id or _get_experiment_id(),
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
@@ -68,7 +71,7 @@ class DatabricksAgentSpanProcessor(SimpleSpanProcessor):
 
     def _create_or_get_request_id(self, span: OTelSpan) -> str:
         if span._parent is None:
-            return "tr-" + uuid.uuid4().hex
+            return str(span.context.trace_id)  # Use otel-generated trace_id as request_id
         else:
             return self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
 
