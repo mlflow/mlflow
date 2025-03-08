@@ -73,6 +73,7 @@ def generate_dockerfile(
     mlflow_home: Optional[str] = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
+    install_java: bool = True,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
@@ -97,15 +98,15 @@ def generate_dockerfile(
         setup_python_venv_steps += (
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
         )
+        if install_java:
+            jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
+            setup_java_steps = (
+                "# Setup Java\n"
+                f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+                f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
+            )
 
-        jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
-        setup_java_steps = (
-            "# Setup Java\n"
-            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
-            f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
-        )
-
-        install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
+            install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
 
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(

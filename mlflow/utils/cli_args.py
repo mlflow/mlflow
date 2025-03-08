@@ -242,3 +242,9 @@ INSTALL_JAVA = click.option(
     "image size and the build time. Model flavors requiring Java will enable this "
     "setting automatically, such as the Spark flavor.",
 )
+
+SKIP_JAVA = click.option(
+    "--skip-java",
+    is_flag=True,
+    help="Install Java in the sagemaker image. Default is True because this image is typically intended to serve arbitrary model flavors. Set this when you know the image will not be used for model flavors requiring Java, and want to reduce image size and build time ",
+)
