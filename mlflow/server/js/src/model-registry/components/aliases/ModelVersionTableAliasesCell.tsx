@@ -7,9 +7,14 @@ interface ModelVersionTableAliasesCellProps {
   modelName: string;
   version: string;
   onAddEdit: () => void;
+  className?: string;
 }
 
-export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelVersionTableAliasesCellProps) => {
+export const ModelVersionTableAliasesCell = ({
+  aliases = [],
+  onAddEdit,
+  className,
+}: ModelVersionTableAliasesCellProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -25,6 +30,7 @@ export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelV
         rowGap: theme.spacing.xs / 2,
         columnGap: theme.spacing.xs,
       }}
+      className={className}
     >
       {aliases.length < 1 ? (
         <Button
