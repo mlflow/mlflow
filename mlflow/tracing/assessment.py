@@ -203,6 +203,7 @@ def log_feedback(
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
+            source=source,
             value=0.9,
             rationale="The model is faithful to the input.",
             metadata={"model": "gpt-4o-mini"},
