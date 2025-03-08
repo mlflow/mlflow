@@ -3079,9 +3079,9 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     loaded_model.predict({"product": "shoe"})
 
     # Trace should be logged to the inference table
-    from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+    from mlflow.tracing.buffer import TRACE_BUFFER
 
-    assert _TRACE_BUFFER == {}
+    assert len(TRACE_BUFFER) == 0
 
 
 @pytest.mark.parametrize(

@@ -1,11 +1,9 @@
 from unittest import mock
 
-import mlflow
 from mlflow.entities import LiveSpan, Trace
+from mlflow.tracing.buffer import TRACE_BUFFER
 from mlflow.tracing.export.inference_table import (
-    _TRACE_BUFFER,
     InferenceTableSpanExporter,
-    _initialize_trace_buffer,
     pop_trace,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -49,7 +47,7 @@ def test_export():
     assert len(exporter._trace_manager._traces) == 0
 
     # Trace should be added to the in-memory buffer and can be extracted
-    assert len(_TRACE_BUFFER) == 1
+    assert len(TRACE_BUFFER) == 1
     trace_dict = pop_trace(_REQUEST_ID)
     trace_info = trace_dict["info"]
     assert trace_info["timestamp_ms"] == 0
@@ -99,9 +97,6 @@ def test_export_warn_invalid_attributes():
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
-    monkeypatch.setattr(
-        mlflow.tracing.export.inference_table, "_TRACE_BUFFER", _initialize_trace_buffer()
-    )
 
     exporter = InferenceTableSpanExporter()
 
