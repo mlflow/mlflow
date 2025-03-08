@@ -15,6 +15,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import LOCALHOST, get_safe_port
+from tests.tracking.conftest import _log_artifact_with_sync, _log_artifacts_with_sync
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -129,7 +130,7 @@ def test_mlflow_artifacts_rest_apis(artifacts_server, tmp_path):
     assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
 
 
-def test_log_artifact(artifacts_server, tmp_path):
+def test_log_artifact(artifacts_server, tmp_path, synchronous):
     url = artifacts_server.url
     artifacts_destination = artifacts_server.artifacts_destination
     mlflow.set_tracking_uri(url)
@@ -138,7 +139,7 @@ def test_log_artifact(artifacts_server, tmp_path):
     tmp_path.write_text("0")
 
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path)
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path)
 
     experiment_id = "0"
     run_artifact_root = os.path.join(
@@ -149,7 +150,7 @@ def test_log_artifact(artifacts_server, tmp_path):
     assert read_file(dest_path) == "0"
 
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path, artifact_path="artifact_path")
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path, artifact_path="artifact_path")
 
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
@@ -159,7 +160,7 @@ def test_log_artifact(artifacts_server, tmp_path):
     assert read_file(dest_path) == "0"
 
 
-def test_log_artifacts(artifacts_server, tmp_path):
+def test_log_artifacts(artifacts_server, tmp_path, synchronous):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
@@ -169,7 +170,7 @@ def test_log_artifacts(artifacts_server, tmp_path):
     d.joinpath("b.txt").write_text("1")
 
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmp_path)
+        _log_artifacts_with_sync(mlflow, synchronous, tmp_path)
 
     client = MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
@@ -179,7 +180,7 @@ def test_log_artifacts(artifacts_server, tmp_path):
 
     # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmp_path, artifact_path="artifact_path")
+        _log_artifacts_with_sync(mlflow, synchronous, tmp_path, artifact_path="artifact_path")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert artifacts == ["artifact_path"]
@@ -189,7 +190,7 @@ def test_log_artifacts(artifacts_server, tmp_path):
     assert artifacts == ["artifact_path/dir/b.txt"]
 
 
-def test_list_artifacts(artifacts_server, tmp_path):
+def test_list_artifacts(artifacts_server, tmp_path, synchronous):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
@@ -200,8 +201,8 @@ def test_list_artifacts(artifacts_server, tmp_path):
     client = MlflowClient()
     with mlflow.start_run() as run:
         assert client.list_artifacts(run.info.run_id) == []
-        mlflow.log_artifact(tmp_path_a)
-        mlflow.log_artifact(tmp_path_b, "dir")
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_a)
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_b, "dir")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert sorted(artifacts) == ["a.txt", "dir"]
@@ -209,7 +210,7 @@ def test_list_artifacts(artifacts_server, tmp_path):
     assert artifacts == ["dir/b.txt"]
 
 
-def test_download_artifacts(artifacts_server, tmp_path):
+def test_download_artifacts(artifacts_server, tmp_path, synchronous):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
@@ -218,8 +219,8 @@ def test_download_artifacts(artifacts_server, tmp_path):
     tmp_path_b = tmp_path.joinpath("b.txt")
     tmp_path_b.write_text("1")
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path_a)
-        mlflow.log_artifact(tmp_path_b, "dir")
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_a)
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_b, "dir")
 
     dest_path = download_artifacts(run_id=run.info.run_id, artifact_path="")
     assert sorted(os.listdir(dest_path)) == ["a.txt", "dir"]
@@ -256,7 +257,9 @@ test $err = 0
     )
 
 
-def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmp_path):
+def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(
+    artifacts_server, tmp_path, synchronous
+):
     def list_artifacts_via_rest_api(url, run_id, path=None):
         if path:
             resp = requests.get(url, params={"run_id": run_id, "path": path})
@@ -275,8 +278,8 @@ def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_serve
     tmp_path_b.write_text("1")
     mlflow.set_experiment("rest_list_api_test")
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path_a)
-        mlflow.log_artifact(tmp_path_b, "dir")
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_a)
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_b, "dir")
 
     list_artifacts_response = list_artifacts_via_rest_api(url=api, run_id=run.info.run_id)
     assert list_artifacts_response.get("files") == [
@@ -294,7 +297,7 @@ def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_serve
     assert list_artifacts_response.get("root_uri") == run.info.artifact_uri
 
 
-def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmp_path):
+def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmp_path, synchronous):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
     tmp_path_a = tmp_path.joinpath("a.txt")
@@ -302,7 +305,7 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmp_path
 
     mlflow.set_experiment("rest_get_artifact_api_test")
     with mlflow.start_run() as run:
-        mlflow.log_artifact(tmp_path_a)
+        _log_artifact_with_sync(mlflow, synchronous, tmp_path_a)
 
     get_artifact_response = requests.get(
         url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": "a.txt"}
@@ -343,7 +346,7 @@ def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_ser
     ],
 )
 def test_mime_type_for_download_artifacts_api(
-    artifacts_server, tmp_path, filename, expected_mime_type
+    artifacts_server, tmp_path, filename, expected_mime_type, synchronous
 ):
     default_artifact_root = artifacts_server.default_artifact_root
     url = artifacts_server.url
@@ -358,7 +361,7 @@ def test_mime_type_for_download_artifacts_api(
 
     mlflow.set_tracking_uri(url)
     with mlflow.start_run() as run:
-        mlflow.log_artifact(test_file)
+        _log_artifact_with_sync(mlflow, synchronous, test_file)
     artifact_response = requests.get(
         url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": filename}
     )
