@@ -40,16 +40,13 @@ export class GenericInputModal extends Component<Props, State> {
     try {
       const values = await (this as any).formRef.current.validateFields();
 
-      // call handleSubmit from parent component, pass form values
-      // handleSubmit is expected to return a promise
-      return await this.props
+      await this.props
         .handleSubmit(values)
         .then(this.resetAndClearModalForm)
         .catch(this.handleSubmitFailure)
         .finally(this.onRequestCloseHandler);
     } catch (e) {
       this.setState({ isSubmitting: false });
-      return Promise.reject(e);
     }
   };
 
