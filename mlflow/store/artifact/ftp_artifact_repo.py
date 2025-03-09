@@ -3,7 +3,7 @@ import os
 import posixpath
 import urllib.parse
 from contextlib import contextmanager
-from ftplib import FTP
+from ftplib import FTP, FTP_TLS
 from urllib.parse import unquote
 
 from mlflow.entities.file_info import FileInfo
@@ -19,6 +19,7 @@ class FTPArtifactRepository(ArtifactRepository):
         self.uri = artifact_uri
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
+            "scheme": parsed.scheme,
             "host": parsed.hostname,
             "port": 21 if parsed.port is None else parsed.port,
             "username": parsed.username,
@@ -37,11 +38,21 @@ class FTPArtifactRepository(ArtifactRepository):
 
     @contextmanager
     def get_ftp_client(self):
-        ftp = FTP()
-        ftp.connect(self.config["host"], self.config["port"])
-        ftp.login(self.config["username"], self.config["password"])
-        yield ftp
-        ftp.close()
+        if self.config["scheme"] == "ftps":
+            ftp = FTP_TLS()
+            ftp.connect(self.config["host"], self.config["port"])
+            ftp.login(self.config["username"], self.config["password"])
+            ftp.prot_p()
+            yield ftp
+            ftp.close()
+        elif self.config["scheme"] == "ftp":
+            ftp = FTP()
+            ftp.connect(self.config["host"], self.config["port"])
+            ftp.login(self.config["username"], self.config["password"])
+            yield ftp
+            ftp.close()
+        else:
+            raise ValueError("FTP URI must start with 'ftp' or 'ftps'")
 
     @staticmethod
     def _is_dir(ftp, full_file_path):
