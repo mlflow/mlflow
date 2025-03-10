@@ -353,6 +353,17 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support `get_online_trace_details`."
+        )
+
     def search_traces(
         self,
         experiment_ids: list[str],
