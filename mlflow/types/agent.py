@@ -130,11 +130,36 @@ class ChatAgentResponse(BaseModel):
             **Optional**, defaults to None
     """
 
+    if not IS_PYDANTIC_V2_OR_NEWER:
+        model_config = ConfigDict(validate_assignment=True)
+    else:
+
+        class Config:
+            validate_assignment = True
+
     messages: list[ChatAgentMessage]
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
+
+    @model_validator(mode="after")
+    def check_message_ids(cls, values):
+        """
+        Ensure that all messages have an ID and it is unique.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            message_ids = [msg.id for msg in values.messages]
+        else:
+            message_ids = [msg.get("id") for msg in values.get("messages")]
+
+        if any(msg_id is None for msg_id in message_ids):
+            raise ValueError("All ChatAgentMessage objects in field `messages` must have an ID.")
+        if len(message_ids) != len(set(message_ids)):
+            raise ValueError(
+                "All ChatAgentMessage objects in field `messages` must have unique IDs."
+            )
+        return values
 
 
 class ChatAgentChunk(BaseModel):
