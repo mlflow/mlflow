@@ -3,9 +3,9 @@ import { ModelVersionTableAliasesCell } from '../../../../model-registry/compone
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
-import { usePromptSourceRunInfo } from '../hooks/usePromptSourceRunInfo';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
+import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -23,7 +23,10 @@ export const PromptVersionMetadata = ({
   isBaseline?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { isLoading: isLoadingSourceRun, sourceRunInfo } = usePromptSourceRunInfo(registeredPromptVersion);
+  const {
+    isLoading: isLoadingSourceRun,
+    sourceRunInfos: [sourceRunInfo],
+  } = usePromptSourceRunsInfo(registeredPromptVersion ? [registeredPromptVersion] : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;

@@ -1031,6 +1031,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H7JwOl": {
+    "defaultMessage": "Delete version",
+    "description": "A label for a button to delete prompt version on the prompt details page"
+  },
   "HGBit9": {
     "defaultMessage": "Temperature: {temperature}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > temperature parameter"
@@ -1719,6 +1723,10 @@
     "defaultMessage": "Version",
     "description": "Header for the version column in the registered prompts table"
   },
+  "VpFZR/": {
+    "defaultMessage": "Cancel",
+    "description": "A label for the cancel button in the delete prompt version modal"
+  },
   "VrxfuC": {
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
@@ -1774,6 +1782,10 @@
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
     "description": "Experiment dataset drawer > digest > label and value"
+  },
+  "WfY+Gj": {
+    "defaultMessage": "Delete prompt version",
+    "description": "A header for the delete prompt version modal"
   },
   "WmDiY9": {
     "defaultMessage": "Source",
@@ -2791,6 +2803,10 @@
     "defaultMessage": "With the latest Model Registry UI, you can use <b>Model Aliases</b> for flexible references to specific model versions, streamlining deployment in a given environment. Use <b>Model Tags</b> to annotate model versions with metadata, like the status of pre-deployment checks.",
     "description": "Model registry > OSS Promo modal for model version aliases > description paragraph body"
   },
+  "orKoPo": {
+    "defaultMessage": "Delete",
+    "description": "A label for the confirm button in the delete prompt version modal"
+  },
   "owr9l2": {
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
@@ -2866,6 +2882,10 @@
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
+  },
+  "qKOmsJ": {
+    "defaultMessage": "Source runs",
+    "description": "Label for the related runs on the registered prompt details page"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
@@ -3194,6 +3214,10 @@
   "x0K27S": {
     "defaultMessage": "Nothing to compare!",
     "description": "Header displayed in the metrics and params compare plot when no values are selected"
+  },
+  "x2+7hZ": {
+    "defaultMessage": "Are you sure you want to delete the prompt version?",
+    "description": "A content for the delete prompt version confirmation modal"
   },
   "xBVMQz": {
     "defaultMessage": "LLM",

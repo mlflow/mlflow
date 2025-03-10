@@ -1,4 +1,12 @@
-import { Button, Modal, PlayIcon, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Modal,
+  PlayIcon,
+  Spacer,
+  TrashIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { getPromptContentTagValue } from '../utils';
@@ -6,23 +14,31 @@ import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { uniq } from 'lodash';
+import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
 export const PromptContentPreview = ({
   promptVersion,
   onUpdatedContent,
+  onDeletedVersion,
   aliasesByVersion,
   registeredPrompt,
   showEditAliasesModal,
 }: {
   promptVersion?: RegisteredPromptVersion;
   onUpdatedContent?: () => Promise<any>;
+  onDeletedVersion?: () => Promise<any>;
   aliasesByVersion: Record<string, string[]>;
   registeredPrompt?: RegisteredPrompt;
   showEditAliasesModal?: (versionNumber: string) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
+
+  const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptVersionModal({
+    promptVersion,
+    onSuccess: () => onDeletedVersion?.(),
+  });
 
   const [showUsageExample, setShowUsageExample] = useState(false);
 
@@ -57,16 +73,30 @@ export const PromptContentPreview = ({
     >
       <div css={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography.Title level={3}>Viewing version {promptVersion?.version}</Typography.Title>
-        <Button
-          componentId="mlflow.prompts.details.preview.use"
-          icon={<PlayIcon />}
-          onClick={() => setShowUsageExample(true)}
-        >
-          <FormattedMessage
-            defaultMessage="Use"
-            description="A label for a button to display the modal with the usage example of the prompt"
-          />
-        </Button>
+        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+          <Button
+            componentId="mlflow.prompts.details.delete_version"
+            icon={<TrashIcon />}
+            type="primary"
+            danger
+            onClick={openDeleteModal}
+          >
+            <FormattedMessage
+              defaultMessage="Delete version"
+              description="A label for a button to delete prompt version on the prompt details page"
+            />
+          </Button>
+          <Button
+            componentId="mlflow.prompts.details.preview.use"
+            icon={<PlayIcon />}
+            onClick={() => setShowUsageExample(true)}
+          >
+            <FormattedMessage
+              defaultMessage="Use"
+              description="A label for a button to display the modal with the usage example of the prompt"
+            />
+          </Button>
+        </div>
       </div>
       <Spacer shrinks={false} />
       <PromptVersionMetadata
@@ -128,6 +158,7 @@ print(response.choices[0].message.content)`}
         </CodeSnippet>
         {/* "content": prompt.format(question="<question>") */}
       </Modal>
+      {DeletePromptModal}
     </div>
   );
 };

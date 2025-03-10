@@ -36,6 +36,7 @@ import { NotFoundError, PredefinedError, UnauthorizedError } from '../../../shar
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
+import { isEmpty } from 'lodash';
 
 const PromptsDetailsPage = () => {
   const { promptName } = useParams<{ promptName: string }>();
@@ -159,7 +160,11 @@ const PromptsDetailsPage = () => {
         }
       />
       <Spacer shrinks={false} />
-      <PromptDetailsMetadata promptEntity={promptDetailsData?.prompt} onTagsUpdated={refetch} />
+      <PromptDetailsMetadata
+        promptEntity={promptDetailsData?.prompt}
+        promptVersions={promptDetailsData?.versions}
+        onTagsUpdated={refetch}
+      />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: showPreviewPane ? '0 0 320px' : 1, display: 'flex', flexDirection: 'column' }}>
           <Typography.Title level={3}>Prompt versions</Typography.Title>
@@ -224,6 +229,15 @@ const PromptsDetailsPage = () => {
                 <PromptContentPreview
                   promptVersion={selectedVersionEntity}
                   onUpdatedContent={refetch}
+                  onDeletedVersion={async () => {
+                    await refetch().then(({ data }) => {
+                      if (!isEmpty(data?.versions) && data?.versions[0].version) {
+                        setSelectedVersion(data?.versions[0].version);
+                      } else {
+                        setTableMode();
+                      }
+                    });
+                  }}
                   aliasesByVersion={aliasesByVersion}
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}

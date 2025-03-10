@@ -117,7 +117,7 @@ describe('PromptsPage', () => {
           tags: expect.arrayContaining([
             {
               key: 'mlflow.prompt.is_prompt',
-              value: 'True',
+              value: 'true',
             },
             {
               key: 'mlflow.prompt.text',

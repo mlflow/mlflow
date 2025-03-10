@@ -4,7 +4,7 @@ export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';
 export const REGISTERED_PROMPT_COMMIT_MESSAGE_TAG_KEY = 'mlflow.prompt.commit_message';
 export const REGISTERED_PROMPT_SOURCE_RUN_ID = 'mlflow.prompt.run_id';
 export const IS_PROMPT_TAG_NAME = 'mlflow.prompt.is_prompt';
-export const IS_PROMPT_TAG_VALUE = 'True';
+export const IS_PROMPT_TAG_VALUE = 'true';
 
 export type PromptsTableMetadata = { onEditTags: (editedEntity: RegisteredPrompt) => void };
 export type PromptsVersionsTableMetadata = {

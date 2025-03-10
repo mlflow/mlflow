@@ -101,10 +101,11 @@ describe('PromptsDetailsPage', () => {
     await userEvent.click(screen.getByRole('cell', { name: 'Version 1' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'test_run_name' })).toBeInTheDocument();
+      // Wait for both prompt and prompt version to have source run
+      expect(screen.getAllByRole('link', { name: 'test_run_name' }).length).toEqual(2);
     });
 
-    expect(screen.getByRole('link', { name: 'test_run_name' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'test_run_name' })[0]).toHaveAttribute(
       'href',
       expect.stringMatching('/experiments/test_experiment_id/runs/test_run_id'),
     );
