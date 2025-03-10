@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Annotated, Any, Optional, TypedDict
+from typing import Annotated, Any, Optional, TypedDict, Union
 
 try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
@@ -18,7 +18,7 @@ from mlflow.types.agent import ChatAgentMessage
 from mlflow.utils.annotations import experimental
 
 
-def _add_agent_messages(left: list[dict], right: list[dict]):
+def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[dict]]):
     if not isinstance(left, list):
         left = [left]
     if not isinstance(right, list):
