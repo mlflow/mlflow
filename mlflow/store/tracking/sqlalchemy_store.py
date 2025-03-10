@@ -34,7 +34,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -60,6 +60,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInputTag,
     SqlLatestMetric,
     SqlLoggedModel,
+    SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
@@ -71,6 +72,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.utils import generate_request_id
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -727,6 +729,7 @@ class SqlAlchemyStore(AbstractStore):
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
+        self._log_model_metrics(run_id, [metric])
 
     def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
         """
@@ -818,6 +821,77 @@ class SqlAlchemyStore(AbstractStore):
                     # if there exist metrics that were tried to be logged & rolled back even
                     # though they were not violating the PK, log them
                     _insert_metrics(non_existing_metrics)
+
+    def _log_model_metrics(
+        self,
+        run_id: str,
+        metrics: list[Metric],
+        dataset_uuid: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+    ) -> None:
+        if not metrics:
+            return
+
+        metric_instances: list[SqlLoggedModelMetric] = []
+        is_single_metric = len(metrics) == 1
+        seen: set[Metric] = set()
+        for idx, metric in enumerate(metrics):
+            if metric.model_id is None:
+                continue
+
+            if metric in seen:
+                continue
+            seen.add(metric)
+
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            metric_instances.append(
+                SqlLoggedModelMetric(
+                    model_id=metric.model_id,
+                    metric_name=metric.key,
+                    metric_timestamp_ms=metric.timestamp,
+                    metric_step=metric.step,
+                    metric_value=value,
+                    experiment_id=experiment_id or _get_experiment_id(),
+                    run_id=run_id,
+                    dataset_uuid=dataset_uuid,
+                    dataset_name=metric.dataset_name,
+                    dataset_digest=metric.dataset_digest,
+                )
+            )
+
+        with self.ManagedSessionMaker() as session:
+            try:
+                session.add_all(metric_instances)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # Primary key can be violated if it is tried to log a metric with same value,
+                # timestamp, step, and key within the same run.
+                session.rollback()
+                metric_keys = [m.metric_name for m in metric_instances]
+                metric_key_batches = (
+                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
+                )
+                for batch in metric_key_batches:
+                    existing_metrics = (
+                        session.query(SqlLoggedModelMetric)
+                        .filter(
+                            SqlLoggedModelMetric.run_id == run_id,
+                            SqlLoggedModelMetric.metric_name.in_(batch),
+                        )
+                        .all()
+                    )
+                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    non_existing_metrics = [
+                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                    ]
+                    session.add_all(non_existing_metrics)
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -1413,6 +1487,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
+                self._log_model_metrics(run_id, metrics)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e

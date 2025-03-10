@@ -4761,3 +4761,65 @@ def test_search_logged_models(store: SqlAlchemyStore):
 
     models = store.search_logged_models(experiment_ids=[exp_id_1, exp_id_2])
     assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
+
+
+def test_log_batch_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id)
+    metric = Metric(
+        key="metric1",
+        value=1,
+        timestamp=int(time.time() * 1000),
+        step=3,
+        model_id=model.model_id,
+        dataset_name="dataset_name",
+        dataset_digest="dataset_digest",
+        run_id=run.info.run_id,
+    )
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    assert model.metrics == [metric]
+
+    # Log the same metric, should not throw
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
+    assert model.metrics == [metric]
+
+    # Log an empty batch, should not throw
+    store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+    assert model.metrics == [metric]
+
+    another_metric = Metric(
+        key="metric2",
+        value=2,
+        timestamp=int(time.time() * 1000),
+        step=4,
+        model_id=model.model_id,
+        dataset_name="dataset_name",
+        dataset_digest="dataset_digest",
+        run_id=run.info.run_id,
+    )
+    store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    assert model.metrics == [metric, another_metric]
+
+    # Log multiple metrics
+    metrics = [
+        Metric(
+            key=f"metric_{i}",
+            value=3,
+            timestamp=int(time.time() * 1000),
+            step=5,
+            model_id=model.model_id,
+            dataset_name="dataset_name",
+            dataset_digest="dataset_digest",
+            run_id=run.info.run_id,
+        )
+        for i in range(3)
+    ]
+
+    store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    assert model.metrics == [metric, another_metric] + metrics
