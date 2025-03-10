@@ -4297,6 +4297,7 @@ __metadata:
     "@types/d3-array": "npm:^3.2.1"
     "@types/d3-scale": "npm:^2.1.0"
     "@types/d3-selection": "npm:^1.3.0"
+    "@types/diff": "npm:^5.1.0"
     "@types/file-saver": "npm:1.3"
     "@types/invariant": "npm:^2.2.35"
     "@types/jest": "npm:^29.2.4"
@@ -4328,6 +4329,7 @@ __metadata:
     d3-scale: "npm:^2.1.0"
     d3-selection: "npm:^1.3.0"
     dateformat: "npm:3.0.3"
+    diff: "npm:5.1.0"
     enzyme: "npm:^3.11.0"
     eslint: "npm:^8.25.0"
     eslint-config-prettier: "npm:^8.5.0"
@@ -7952,6 +7954,13 @@ __metadata:
   version: 3.5.46
   resolution: "@types/d3@npm:3.5.46"
   checksum: 10c0/2fc35829adb61897b3fed30df1f963caffe2f35d00ce1ac9bfa6ed40aab8ee1409aaaa1a58f6a2ef46a8798b6c5c92cd347cdd06849f05d2591e49ffba5cc10e
+  languageName: node
+  linkType: hard
+
+"@types/diff@npm:^5.1.0":
+  version: 5.2.3
+  resolution: "@types/diff@npm:5.2.3"
+  checksum: 10c0/dd2e99e272a7023f3e5c71099599553c7d6c9a6b9d67f202b593b8d59b0528361eba39a8674ab18eba76217b6bad8f1a09417a9a571daaf7c0f49d67d4f305e2
   languageName: node
   linkType: hard
 
@@ -14535,6 +14544,13 @@ __metadata:
   version: 29.6.3
   resolution: "diff-sequences@npm:29.6.3"
   checksum: 10c0/32e27ac7dbffdf2fb0eb5a84efd98a9ad084fbabd5ac9abb8757c6770d5320d2acd172830b28c4add29bb873d59420601dfc805ac4064330ce59b1adfd0593b2
+  languageName: node
+  linkType: hard
+
+"diff@npm:5.1.0":
+  version: 5.1.0
+  resolution: "diff@npm:5.1.0"
+  checksum: 10c0/77a0d9beb9ed54796154ac2511872288432124ac90a1cabb1878783c9b4d81f1847f3b746a0630b1e836181461d2c76e1e6b95559bef86ed16294d114862e364
   languageName: node
   linkType: hard
 
