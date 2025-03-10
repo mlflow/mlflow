@@ -689,7 +689,3 @@ export const rootReducer = combineReducers({
   evaluationData,
   modelGateway,
 });
-
-export const getEntities = (state: any) => {
-  return state.entities;
-};
