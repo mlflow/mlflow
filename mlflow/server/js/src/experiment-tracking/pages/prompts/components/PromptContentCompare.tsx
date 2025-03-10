@@ -1,10 +1,10 @@
 import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { diffWords } from 'diff';
 import { useMemo } from 'react';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { getPromptContentTagValue } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { diffWords } from '../diff';
 
 export const PromptContentCompare = ({
   baselineVersion,
