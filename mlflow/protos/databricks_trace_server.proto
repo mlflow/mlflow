@@ -30,7 +30,7 @@ service DatabricksTracingServerService {
 // which has `Trace` message as the top level field. The field is actually unwrapped
 // in the actual JSON payload, because Databricks endpoint uses (google.api.http)
 // annotation and specify "trace" as the body field. When it is specified, the
-// endpoint except unwrapped message rather than having a top level "trace" field.
+// endpoint expects the unwrapped message rather than having a top level "trace" field.
 // We did not use the google.api.http annotation because it requires adding the
 // google-api-python-client package as a core dependency, which is > 10MB in size.
 message CreateTrace {

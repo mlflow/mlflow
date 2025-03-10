@@ -8,8 +8,8 @@ from datetime import datetime
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.assessment import set_pb_value
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.utils.proto_json_utils import set_pb_value
 
 
 @dataclass

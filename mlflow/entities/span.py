@@ -10,7 +10,6 @@ from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
 
 import mlflow
-from mlflow.entities.assessment import set_pb_value
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -24,6 +23,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.utils.proto_json_utils import set_pb_value
 
 _logger = logging.getLogger(__name__)
 
@@ -268,7 +268,7 @@ class Span:
 
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
-        otel_status = self.status.to_otel_status()
+        otel_status = self._span.status
         status = ProtoSpan.Status(
             code=otel_status.status_code.value,
             message=otel_status.description,
@@ -295,12 +295,12 @@ class Span:
 
 
 def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
-    # https://github.com/open-telemetry/opentelemetry-python/blob/main/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L129
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
     return span_id.to_bytes(length=8, byteorder="big", signed=False)
 
 
 def _encode_trace_id_to_byte(trace_id: int) -> bytes:
-    # https://github.com/open-telemetry/opentelemetry-python/blob/main/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L133
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
     return trace_id.to_bytes(length=16, byteorder="big", signed=False)
 
 

@@ -237,7 +237,7 @@ class Trace(_MlflowObject):
         ]
 
     def to_proto(self):
-        """ "Convert into a proto object to sent to the Databricks Trace Server."""
+        """Convert into a proto object to sent to the Databricks Trace Server."""
         return ProtoTrace(
             # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
             info=self.info.to_v3_proto(self.data.request, self.data.response),
