@@ -5267,6 +5267,16 @@ class MlflowClient:
         return self._tracking_client.get_logged_model(model_id)
 
     @experimental
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        return self._tracking_client.delete_logged_model(model_id)
+
+    @experimental
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags on the specified logged model.
