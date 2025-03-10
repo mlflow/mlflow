@@ -8,6 +8,7 @@ import shlex
 from typing import Any, Optional
 
 import sqlparse
+from datataclasses import asdict, dataclass
 from packaging.version import Version
 from sqlparse.sql import (
     Comparison,
@@ -1943,3 +1944,60 @@ class SearchLoggedModelsUtils(SearchUtils):
     @classmethod
     def sort(cls, models, order_by_list):
         return sorted(models, key=cls._get_sort_key(order_by_list))
+
+
+@dataclass
+class SearchLoggedModelsOrderBy:
+    field_name: str
+    ascending: bool = True
+    dataset_name: Optional[str] = None
+    dataset_digest: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "SearchLoggedModelsOrderBy":
+        return cls(**d)
+
+
+@dataclass
+class SearchLoggedModelsQuery:
+    offset: int = 0
+    experiment_ids: list[str]
+    filter_string: Optional[str] = None
+    order_by: Optional[list[SearchLoggedModelsOrderBy]] = None
+
+    def __init__(
+        self,
+        *,
+        offset: int = 0,
+        filter_string: Optional[str] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+    ):
+        self.offset = offset
+        self.filter_string = filter_string
+        self.order_by = order_by and [SearchLoggedModelsOrderBy.from_dict(o) for o in order_by]
+
+    def with_offset(self, offset: int) -> "SearchLoggedModelsQuery":
+        return SearchLoggedModelsQuery(
+            offset=offset,
+            filter_string=self.filter_string,
+            order_by=self.order_by,
+        )
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    def token(self) -> str:
+        return base64.b64encode(self.to_json().encode("utf-8")).decode("utf-8")
+
+    @staticmethod
+    def from_token(token: str) -> "SearchLoggedModelsQuery":
+        try:
+            token = json.loads(base64.b64decode(token.encode("utf-8")).decode("utf-8"))
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid page token: {token}. {e}")
+
+        return SearchLoggedModelsQuery(
+            offset=token.get("offset") or 0,
+            filter_string=token.get("filter_string") or None,
+            order_by=token.get("order_by") or None,
+        )

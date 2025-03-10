@@ -84,6 +84,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
+    SearchLoggedModelsQuery,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -1830,15 +1831,31 @@ class SqlAlchemyStore(AbstractStore):
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
-        # TODO: Support filtering, ordering, and pagination
+        # TODO: Support filtering and order_by
+        if page_token:
+            query = SearchLoggedModelsQuery.from_token(page_token)
+            # TODO: Validate the query hasn't changed from the previous search
+        else:
+            query = SearchLoggedModelsQuery(
+                experiment_ids=experiment_ids, filter_string=filter_string, order_by=order_by
+            )
+
         with self.ManagedSessionMaker() as session:
             models = (
                 session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
+                .filter(SqlLoggedModel.experiment_id.in_(query.experiment_ids))
                 .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
+                .offset(query.offset)
+                .limit(max_results + 1)
                 .all()
             )
-            return PagedList([lm.to_mlflow_entity() for lm in models], token=None)
+
+        if len(models) > max_results:
+            token = query.with_offset(query.offset + max_results).token()
+        else:
+            token = None
+
+        return PagedList([lm.to_mlflow_entity() for lm in models[:max_results]], token=token)
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
