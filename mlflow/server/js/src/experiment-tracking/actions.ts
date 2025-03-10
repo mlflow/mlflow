@@ -84,7 +84,7 @@ export const updateExperimentApi = (experimentId: any, newExperimentName: any, i
 };
 
 const UPDATE_RUN_API = 'UPDATE_RUN_API';
-export const updateRunApi = (runId: any, newName: any, id = getUUID()) => {
+export const updateRunApi = (runId: string, newName: string, id: string = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const updateResponse = dispatch({
       type: UPDATE_RUN_API,
