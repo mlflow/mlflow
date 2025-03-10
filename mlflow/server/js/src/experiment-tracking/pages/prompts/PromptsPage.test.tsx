@@ -104,9 +104,9 @@ describe('PromptsPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-    await userEvent.type(screen.getByPlaceholderText('Provide an unique prompt name'), 'prompt7');
-    await userEvent.type(screen.getByPlaceholderText('Type prompt content here'), 'lorem ipsum');
-    await userEvent.type(screen.getByLabelText('Commit message:'), 'commit message');
+    await userEvent.type(screen.getByLabelText('Name (required):'), 'prompt7');
+    await userEvent.type(screen.getByLabelText('Prompt (required):'), 'lorem ipsum');
+    await userEvent.type(screen.getByLabelText('Commit message (optional):'), 'commit message');
     await userEvent.click(screen.getByText('Create'));
 
     await waitFor(() => {

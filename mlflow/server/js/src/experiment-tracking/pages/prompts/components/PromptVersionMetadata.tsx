@@ -51,25 +51,25 @@ export const PromptVersionMetadata = ({
         columnGap: theme.spacing.sm,
       }}
     >
-      <Typography.Text bold>Version:</Typography.Text>
-      <Typography.Text>
-        {onEditVersion ? (
-          <Typography.Link
-            componentId="mlflow.prompts.details.version.goto"
-            onClick={() => onEditVersion(registeredPromptVersion)}
-          >
-            {versionElement}
-          </Typography.Link>
-        ) : (
-          <Typography.Text>{versionElement}</Typography.Text>
-        )}{' '}
-        {isBaseline && (
-          <FormattedMessage
-            defaultMessage="(baseline)"
-            description="A label displayed next to baseline version in the prompt versions comparison view"
-          />
-        )}
-      </Typography.Text>
+      {onEditVersion && (
+        <>
+          <Typography.Text bold>Version:</Typography.Text>
+          <Typography.Text>
+            <Typography.Link
+              componentId="mlflow.prompts.details.version.goto"
+              onClick={() => onEditVersion(registeredPromptVersion)}
+            >
+              {versionElement}
+            </Typography.Link>{' '}
+            {isBaseline && (
+              <FormattedMessage
+                defaultMessage="(baseline)"
+                description="A label displayed next to baseline version in the prompt versions comparison view"
+              />
+            )}
+          </Typography.Text>
+        </>
+      )}
       <Typography.Text bold>
         <FormattedMessage
           defaultMessage="Registered at:"

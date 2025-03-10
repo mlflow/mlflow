@@ -1,4 +1,5 @@
 import { TableFilterInput, TableFilterLayout } from '@databricks/design-system';
+import { ModelSearchInputHelpTooltip } from '../../../../model-registry/components/model-list/ModelListFilters';
 
 export const PromptsListFilters = ({
   searchFilter,
@@ -14,6 +15,7 @@ export const PromptsListFilters = ({
         componentId="mlflow.prompts.list.search"
         value={searchFilter}
         onChange={(e) => onSearchFilterChange(e.target.value)}
+        suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
       />
     </TableFilterLayout>
   );

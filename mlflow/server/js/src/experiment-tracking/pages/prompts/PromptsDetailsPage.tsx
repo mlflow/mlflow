@@ -36,7 +36,7 @@ import { NotFoundError, PredefinedError, UnauthorizedError } from '../../../shar
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
-import { isEmpty } from 'lodash';
+import { first, isEmpty } from 'lodash';
 
 const PromptsDetailsPage = () => {
   const { promptName } = useParams<{ promptName: string }>();
@@ -50,6 +50,7 @@ const PromptsDetailsPage = () => {
   const { CreatePromptModal, openModal: openCreateVersionModal } = useCreatePromptModal({
     mode: CreatePromptModalMode.CreatePromptVersion,
     registeredPrompt: promptDetailsData?.prompt,
+    latestVersion: first(promptDetailsData?.versions),
     onSuccess: async ({ promptVersion }) => {
       await refetch();
       if (promptVersion) {

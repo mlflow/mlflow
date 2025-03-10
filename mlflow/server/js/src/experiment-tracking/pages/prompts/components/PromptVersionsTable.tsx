@@ -69,6 +69,15 @@ export const PromptVersionsTable = ({
         }),
         accessorFn: ({ creation_timestamp }) => Utils.formatTimestamp(creation_timestamp, intl),
       });
+
+      resultColumns.push({
+        id: 'commit_message',
+        header: intl.formatMessage({
+          defaultMessage: 'Commit message',
+          description: 'Header for the commit message column in the registered prompts table',
+        }),
+        accessorKey: 'description',
+      });
       resultColumns.push({
         id: 'aliases',
         header: intl.formatMessage({

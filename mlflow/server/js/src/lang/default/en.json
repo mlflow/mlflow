@@ -219,6 +219,10 @@
     "defaultMessage": "(empty)",
     "description": "Models table > tags column > no value"
   },
+  "2JfWh3": {
+    "defaultMessage": "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
+    "description": "A placeholder for the prompt content in the prompt creation modal"
+  },
   "2K8tsp": {
     "defaultMessage": "10",
     "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
@@ -726,10 +730,6 @@
   "AOoWxS": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
-  },
-  "ApNS0Z": {
-    "defaultMessage": "Type prompt content here",
-    "description": "A placeholder for the prompt content in the prompt creation modal"
   },
   "Aqq08o": {
     "defaultMessage": "HTTP",
@@ -1898,6 +1898,10 @@
   "ZYBoeF": {
     "defaultMessage": "Transition to",
     "description": "Text for activity description under confirmation modal for model\n             version stage transition"
+  },
+  "ZaQ42C": {
+    "defaultMessage": "Commit message",
+    "description": "Header for the commit message column in the registered prompts table"
   },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
