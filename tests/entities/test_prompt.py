@@ -48,6 +48,11 @@ def test_prompt_format():
     assert result.template == "Hello, Ms. {{name}}!"
     assert result.variables == {"name"}
 
+    # Non-string values
+    result = prompt.format(title="Ms.", allow_partial=True)
+    result = prompt.format(title=1, name=True)
+    assert result == "Hello, 1 True!"
+
 
 def test_prompt_from_model_version():
     model_version = ModelVersion(

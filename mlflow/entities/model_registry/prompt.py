@@ -139,7 +139,7 @@ class Prompt(ModelVersion):
 
         template = self.template
         for key, value in kwargs.items():
-            template = re.sub(r"\{\{\s*" + key + r"\s*\}\}", value, template)
+            template = re.sub(r"\{\{\s*" + key + r"\s*\}\}", str(value), template)
 
         if missing_keys := self.variables - input_keys:
             if not allow_partial:
