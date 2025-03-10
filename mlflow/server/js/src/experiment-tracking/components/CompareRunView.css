@@ -10,6 +10,10 @@
   width: 100%;
 }
 
+.compare-table-row {
+  display: inline-flex;
+}
+
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
@@ -18,6 +22,7 @@
 .compare-table .head-value {
   overflow: hidden;
   overflow-wrap: break-word;
+  z-index: 10;
 }
 
 .compare-table td.data-value,
@@ -38,6 +43,11 @@
 }
 
 .compare-table .diff-row .head-value {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
+
+.compare-table .diff-row .head-value > span {
   background-color: rgba(249, 237, 190, 1.0) ;
   color: #555;
 }
