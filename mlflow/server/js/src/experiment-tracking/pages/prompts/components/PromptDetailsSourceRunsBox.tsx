@@ -2,10 +2,9 @@ import { ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
-import { RegisteredPromptVersion } from '../types';
 
-export const PromptDetailsSourceRunsBox = ({ promptVersions }: { promptVersions?: RegisteredPromptVersion[] }) => {
-  const { isLoading, sourceRunInfos } = usePromptSourceRunsInfo(promptVersions);
+export const PromptDetailsSourceRunsBox = ({ sourceRunIds }: { sourceRunIds?: string[] }) => {
+  const { isLoading, sourceRunInfos } = usePromptSourceRunsInfo(sourceRunIds);
   const { theme } = useDesignSystemTheme();
   return (
     <div css={{ display: 'inline-flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>

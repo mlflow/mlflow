@@ -16,7 +16,7 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { REGISTERED_PROMPT_COMMIT_MESSAGE_TAG_KEY, REGISTERED_PROMPT_SOURCE_RUN_ID } from './utils';
+import { REGISTERED_PROMPT_SOURCE_RUN_ID, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
@@ -101,14 +101,37 @@ describe('PromptsDetailsPage', () => {
     await userEvent.click(screen.getByRole('cell', { name: 'Version 1' }));
 
     await waitFor(() => {
-      // Wait for both prompt and prompt version to have source run
-      expect(screen.getAllByRole('link', { name: 'test_run_name' }).length).toEqual(2);
+      // Wait for prompt version to have source run
+      expect(screen.getByRole('link', { name: 'test_run_id_name' })).toBeInTheDocument();
     });
 
-    expect(screen.getAllByRole('link', { name: 'test_run_name' })[0]).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'test_run_id_name' })).toHaveAttribute(
       'href',
       expect.stringMatching('/experiments/test_experiment_id/runs/test_run_id'),
     );
+  });
+
+  it("should preview prompt's source runs", async () => {
+    server.use(
+      getMockedRegisteredPromptDetailsResponse('prompt1', [
+        { key: REGISTERED_PROMPT_SOURCE_RUN_IDS, value: 'run_id_1,run_id_2, run_id_9' },
+      ]),
+      getMockedRegisteredPromptVersionsResponse('prompt1', 2),
+      // Mock GetRun API
+      getMockedRegisteredPromptSourceRunResponse(),
+    );
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      // Wait for prompt to have source run names
+      expect(screen.getByRole('link', { name: 'run_id_1_name' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'run_id_2_name' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'run_id_9_name' })).toBeInTheDocument();
+    });
   });
 
   it("should compare prompt versions' contents", async () => {

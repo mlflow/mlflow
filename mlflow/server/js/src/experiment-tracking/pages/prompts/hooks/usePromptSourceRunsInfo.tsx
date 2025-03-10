@@ -1,27 +1,11 @@
 import { QueryFunctionContext, useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { compact, uniq } from 'lodash';
-import { useMemo } from 'react';
 import { transformGetRunResponse } from '../../../sdk/FieldNameTransformers';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { GetRunApiResponse } from '../../../types';
-import { RegisteredPromptVersion } from '../types';
-import { REGISTERED_PROMPT_SOURCE_RUN_ID } from '../utils';
 
 type UseRegisteredModelRelatedRunNamesQueryKey = ['prompt_source_run', string];
 
-export const usePromptSourceRunsInfo = (registeredPromptVersions: RegisteredPromptVersion[] = []) => {
-  const runUuids = useMemo(
-    () =>
-      uniq(
-        compact(
-          registeredPromptVersions.map(
-            (version) => version?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_ID)?.value,
-          ),
-        ),
-      ),
-    [registeredPromptVersions],
-  );
-
+export const usePromptSourceRunsInfo = (runUuids: string[] = []) => {
   const queryResults = useQueries({
     queries: runUuids.map((runUuid) => ({
       queryKey: ['prompt_source_run', runUuid] as UseRegisteredModelRelatedRunNamesQueryKey,

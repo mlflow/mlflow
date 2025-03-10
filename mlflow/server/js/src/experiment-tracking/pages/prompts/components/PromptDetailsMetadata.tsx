@@ -6,21 +6,22 @@ import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptsListTableTagsBox } from './PromptDetailsTagsBox';
 import { PromptDetailsSourceRunsBox } from './PromptDetailsSourceRunsBox';
 import { useMemo } from 'react';
-import { REGISTERED_PROMPT_SOURCE_RUN_ID } from '../utils';
+import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
 
 export const PromptDetailsMetadata = ({
   promptEntity,
-  promptVersions = [],
   onTagsUpdated,
 }: {
   promptEntity?: RegisteredPrompt;
-  promptVersions?: RegisteredPromptVersion[];
   onTagsUpdated?: () => void;
 }) => {
-  const containsSourceIds = useMemo(
-    () => promptVersions.some((version) => version.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_ID)),
-    [promptVersions],
-  );
+  const sourceRunIds = useMemo(() => {
+    const tagValue = promptEntity?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_IDS)?.value;
+    if (!tagValue) {
+      return [];
+    }
+    return tagValue.split(',').map((runId) => runId.trim());
+  }, [promptEntity]);
 
   return (
     <DetailsOverviewMetadataTable>
@@ -51,7 +52,7 @@ export const PromptDetailsMetadata = ({
         }
         value={<PromptsListTableTagsBox onTagsUpdated={onTagsUpdated} promptEntity={promptEntity} />}
       />
-      {containsSourceIds && (
+      {sourceRunIds.length > 0 && (
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
@@ -59,7 +60,7 @@ export const PromptDetailsMetadata = ({
               description="Label for the related runs on the registered prompt details page"
             />
           }
-          value={<PromptDetailsSourceRunsBox promptVersions={promptVersions} />}
+          value={<PromptDetailsSourceRunsBox sourceRunIds={sourceRunIds} />}
         />
       )}
     </DetailsOverviewMetadataTable>

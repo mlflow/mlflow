@@ -6,6 +6,7 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
+import { REGISTERED_PROMPT_SOURCE_RUN_ID } from '../utils';
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -23,10 +24,13 @@ export const PromptVersionMetadata = ({
   isBaseline?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+
+  const sourceRunId = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_ID)?.value;
+
   const {
     isLoading: isLoadingSourceRun,
     sourceRunInfos: [sourceRunInfo],
-  } = usePromptSourceRunsInfo(registeredPromptVersion ? [registeredPromptVersion] : []);
+  } = usePromptSourceRunsInfo(sourceRunId ? [sourceRunId] : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
