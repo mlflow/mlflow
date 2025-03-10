@@ -50,7 +50,7 @@ def load_small_qa_tf_pipeline():
 @prefetch
 @flaky()
 def load_small_vision_model():
-    architecture = "timm/mobilenetv3_small_100.lamb_in1k"
+    architecture = "google/mobilenet_v1_0.75_192"
     feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
