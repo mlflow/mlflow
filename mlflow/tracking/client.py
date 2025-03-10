@@ -91,6 +91,7 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import is_uuid
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -806,16 +807,11 @@ class MlflowClient:
             request_id = "12345678"
             trace = client.get_trace(request_id)
         """
-        if is_databricks_uri(str(self.tracking_uri)):
-            try:
-                uuid.UUID(request_id)
-                # If the request ID is a UUID, it's an online trace.
-                raise MlflowException.invalid_parameter_value(
-                    "Traces from inference tables can only be loaded using SQL or "
-                    "the search_traces() API."
-                )
-            except ValueError:
-                pass
+        if is_databricks_uri(str(self.tracking_uri)) and is_uuid(request_id):
+            raise MlflowException.invalid_parameter_value(
+                "Traces from inference tables can only be loaded using SQL or "
+                "the search_traces() API."
+            )
 
         trace = self._tracking_client.get_trace(request_id)
         if display:

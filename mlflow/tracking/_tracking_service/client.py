@@ -55,7 +55,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list
+from mlflow.utils import chunk_list, is_uuid
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
@@ -373,9 +373,9 @@ class TrackingServiceClient:
                     trace_info.request_id, should_query_v3=True
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
+
             try:
-                if is_databricks and trace_info.request_id:
-                    # TODO
+                if is_databricks and is_uuid(trace_info.request_id):
                     trace_data = self.get_online_trace_details(
                         trace_info.request_id,
                         sql_warehouse_id=sql_warehouse_id,
