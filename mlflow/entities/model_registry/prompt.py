@@ -165,7 +165,8 @@ class Prompt(ModelVersion):
         """
         if IS_PROMPT_TAG_KEY not in model_version.tags:
             raise MlflowException.invalid_parameter_value(
-                f"Name `{model_version.name}` is registered as a model, not a prompt",
+                f"Name `{model_version.name}` is registered as a model, not a prompt. MLflow "
+                "does not allow registering a prompt with the same name as an existing model.",
             )
 
         if PROMPT_TEXT_TAG_KEY not in model_version.tags:

@@ -2223,7 +2223,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.1, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.4, @babel/runtime@npm:^7.11.1, @babel/runtime@npm:^7.11.2, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.13.10, @babel/runtime@npm:^7.14.8, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.16.3, @babel/runtime@npm:^7.17.8, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.26.0, @babel/runtime@npm:^7.3.1, @babel/runtime@npm:^7.5.0, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.6.3, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.8.7, @babel/runtime@npm:^7.9.2":
+"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.1, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.4, @babel/runtime@npm:^7.11.1, @babel/runtime@npm:^7.11.2, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.13.10, @babel/runtime@npm:^7.14.8, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.16.3, @babel/runtime@npm:^7.17.8, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.26.0, @babel/runtime@npm:^7.3.1, @babel/runtime@npm:^7.5.0, @babel/runtime@npm:^7.6.3, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.9.2":
   version: 7.26.0
   resolution: "@babel/runtime@npm:7.26.0"
   dependencies:
@@ -4297,6 +4297,7 @@ __metadata:
     "@types/d3-array": "npm:^3.2.1"
     "@types/d3-scale": "npm:^2.1.0"
     "@types/d3-selection": "npm:^1.3.0"
+    "@types/diff": "npm:^5.1.0"
     "@types/file-saver": "npm:1.3"
     "@types/invariant": "npm:^2.2.35"
     "@types/jest": "npm:^29.2.4"
@@ -4310,7 +4311,6 @@ __metadata:
     "@types/react-resizable": "npm:^3.0.3"
     "@types/react-router": "npm:^5.1.20"
     "@types/react-router-dom": "npm:^5.3.3"
-    "@types/react-transition-group": "npm:^4.4.4"
     "@types/react-virtualized": "npm:^9.21.9"
     "@types/use-sync-external-store": "npm:^0.0.3"
     "@typescript-eslint/eslint-plugin": "npm:^5.28.0"
@@ -4325,11 +4325,11 @@ __metadata:
     classnames: "npm:^2.2.6"
     confusing-browser-globals: "npm:^1.0.11"
     cookie: "npm:0.3.1"
-    cronstrue: "npm:^1.94.0"
     d3-array: "npm:^3.2.4"
     d3-scale: "npm:^2.1.0"
     d3-selection: "npm:^1.3.0"
     dateformat: "npm:3.0.3"
+    diff: "npm:5.1.0"
     enzyme: "npm:^3.11.0"
     eslint: "npm:^8.25.0"
     eslint-config-prettier: "npm:^8.5.0"
@@ -4402,7 +4402,6 @@ __metadata:
     react-scripts: "npm:5.0.0"
     react-syntax-highlighter: "npm:^12.2.1"
     react-test-renderer-17: "npm:react-test-renderer@^17.0.2"
-    react-transition-group: "npm:^4.4.1"
     react-treebeard: "npm:2.1.0"
     react-vega: "npm:^7.6.0"
     react-virtualized: "npm:^9.21.2"
@@ -7958,6 +7957,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/diff@npm:^5.1.0":
+  version: 5.2.3
+  resolution: "@types/diff@npm:5.2.3"
+  checksum: 10c0/dd2e99e272a7023f3e5c71099599553c7d6c9a6b9d67f202b593b8d59b0528361eba39a8674ab18eba76217b6bad8f1a09417a9a571daaf7c0f49d67d4f305e2
+  languageName: node
+  linkType: hard
+
 "@types/eslint-scope@npm:^3.7.3, @types/eslint-scope@npm:^3.7.7":
   version: 3.7.7
   resolution: "@types/eslint-scope@npm:3.7.7"
@@ -8465,15 +8471,6 @@ __metadata:
   dependencies:
     "@types/react": "npm:*"
   checksum: 10c0/f4aa5ae5d1e877946fd7667aa9fa27c1cbba23bbe2b4301933df70d7b5ee9c207c6ecdb19681916b57bf190e4c0f7803fce4e5359fa9a3548f7b100ee4508311
-  languageName: node
-  linkType: hard
-
-"@types/react-transition-group@npm:^4.4.4":
-  version: 4.4.5
-  resolution: "@types/react-transition-group@npm:4.4.5"
-  dependencies:
-    "@types/react": "npm:*"
-  checksum: 10c0/c0d81634ca5e1efac3ca6f6f006245976d584833ab9e933edf08b66551c1c7b9f0bc7878897f57ba44b137d3754583d623c932fe4b7721840ae5218ec2414942
   languageName: node
   linkType: hard
 
@@ -13272,13 +13269,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cronstrue@npm:^1.94.0":
-  version: 1.94.0
-  resolution: "cronstrue@npm:1.94.0"
-  checksum: 10c0/ddd1fc33c64b6200523d42100891b4c0807b929c6eaa0fecf86c64572f57de663570b3df28d45bfef7fe33e368a365edb6e8b970121f34f560290c419de14c96
-  languageName: node
-  linkType: hard
-
 "cross-fetch@npm:^3.1.5":
   version: 3.1.5
   resolution: "cross-fetch@npm:3.1.5"
@@ -14557,6 +14547,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"diff@npm:5.1.0":
+  version: 5.1.0
+  resolution: "diff@npm:5.1.0"
+  checksum: 10c0/77a0d9beb9ed54796154ac2511872288432124ac90a1cabb1878783c9b4d81f1847f3b746a0630b1e836181461d2c76e1e6b95559bef86ed16294d114862e364
+  languageName: node
+  linkType: hard
+
 "diff@npm:^4.0.1":
   version: 4.0.2
   resolution: "diff@npm:4.0.2"
@@ -14698,16 +14695,6 @@ __metadata:
     "@babel/runtime": "npm:^7.6.3"
     csstype: "npm:^2.6.7"
   checksum: 10c0/b49fbc4147b8e78bd6d704a6959d5e87361a27f2d2e3e53257b00908c02a925958b8c45946b1ff3188f1338ac014348c4c1b0679fc81e52a34950646d70eeabd
-  languageName: node
-  linkType: hard
-
-"dom-helpers@npm:^5.0.1":
-  version: 5.2.0
-  resolution: "dom-helpers@npm:5.2.0"
-  dependencies:
-    "@babel/runtime": "npm:^7.8.7"
-    csstype: "npm:^3.0.2"
-  checksum: 10c0/f81ef28fa145496dbed631de8332d3e3bcf10f1776dc7b0ae356852e85daf6a9be01efb593aa4776f688875b09823bc30d20ccb11d7085b59fbcad492e7ae93e
   languageName: node
   linkType: hard
 
@@ -28259,21 +28246,6 @@ __metadata:
     react: ">=15.0.0"
     react-dom: ">=15.0.0"
   checksum: 10c0/df40608e9defb6873290b9f2165921f17139b8edbb2019e2de38f77477f9cbd8fdb739b20e1e04cb16a513137c80e85cf5f0fff96049a94b740d389313394476
-  languageName: node
-  linkType: hard
-
-"react-transition-group@npm:^4.4.1":
-  version: 4.4.2
-  resolution: "react-transition-group@npm:4.4.2"
-  dependencies:
-    "@babel/runtime": "npm:^7.5.5"
-    dom-helpers: "npm:^5.0.1"
-    loose-envify: "npm:^1.4.0"
-    prop-types: "npm:^15.6.2"
-  peerDependencies:
-    react: ">=16.6.0"
-    react-dom: ">=16.6.0"
-  checksum: 10c0/afaf835854526065d246532714a3833a7c5fbcf21303e1479008ff6f1ec1ae44ecd151f74f357c60511a1e49de65cb9b81bf4d7858b9ee19e636b9a62a6daaa4
   languageName: node
   linkType: hard
 

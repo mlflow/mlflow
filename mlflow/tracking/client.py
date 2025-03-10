@@ -55,7 +55,11 @@ from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import has_prompt_tag, require_prompt_registry
+from mlflow.prompt.registry_utils import (
+    has_prompt_tag,
+    require_prompt_registry,
+    translate_prompt_exception,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -410,6 +414,7 @@ class MlflowClient:
 
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def register_prompt(
         self,
         name: str,
@@ -478,6 +483,7 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
 
+        is_new_prompt = False
         try:
             rm = registry_client.get_registered_model(name)
 
@@ -496,22 +502,32 @@ class MlflowClient:
                 registry_client.create_registered_model(
                     name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
                 )
+                is_new_prompt = True
             else:
                 raise
 
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
 
-        mv: ModelVersion = registry_client.create_model_version(
-            name=name,
-            description=commit_message,
-            source="dummy-source",  # Required field, but not used for prompts
-            tags=tags,
-        )
+        try:
+            mv: ModelVersion = registry_client.create_model_version(
+                name=name,
+                description=commit_message,
+                source="dummy-source",  # Required field, but not used for prompts
+                tags=tags,
+            )
+        except Exception:
+            if is_new_prompt:
+                # When a model version creation fails for the first version of a prompt,
+                # delete the registered model to avoid leaving a prompt with no versions
+                registry_client.delete_registered_model(name)
+            raise
+
         return Prompt.from_model_version(mv)
 
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def load_prompt(self, name_or_uri: str, version: Optional[int] = None) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -551,17 +567,14 @@ class MlflowClient:
 
         registry_client = self._get_registry_client()
         if version is None:
-            try:
-                mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
-            except MlflowException as e:
-                if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                    raise MlflowException(f"Prompt '{name}' not found", RESOURCE_DOES_NOT_EXIST)
+            mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
         else:
-            mv = self._validate_prompt(name, version)
+            mv = self.get_model_version(name, version)
         return Prompt.from_model_version(mv)
 
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def delete_prompt(self, name: str, version: int):
         """
         Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -582,6 +595,7 @@ class MlflowClient:
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def log_prompt(self, run_id: str, prompt_uri: str) -> None:
         """
         Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
@@ -605,6 +619,7 @@ class MlflowClient:
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def detach_prompt_from_run(self, run_id: str, prompt_uri: str) -> None:
         """
         Detach a prompt registered within the MLflow Prompt Registry from an MLflow Run.
@@ -636,6 +651,7 @@ class MlflowClient:
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def list_logged_prompts(self, run_id: str) -> list[Prompt]:
         """
         List all prompts associated with an MLflow Run.
@@ -658,6 +674,7 @@ class MlflowClient:
 
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
         """
         Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>`.
@@ -672,6 +689,7 @@ class MlflowClient:
 
     @experimental
     @require_prompt_registry
+    @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
         """
         Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>`.
@@ -682,25 +700,12 @@ class MlflowClient:
         """
         self.delete_registered_model_alias(name, alias)
 
-    def _validate_prompt(self, name: str, version: int) -> ModelVersion:
+    def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
-
-        try:
-            mv = registry_client.get_model_version(name, version)
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                raise MlflowException(
-                    f"Prompt '{name}' with version {version} not found", RESOURCE_DOES_NOT_EXIST
-                )
+        mv = registry_client.get_model_version(name, version)
 
         if IS_PROMPT_TAG_KEY not in mv.tags:
-            raise MlflowException(
-                f"Name `{name}` is used for a model, not a prompt. MLflow does not allow "
-                "registering a prompt with the same name as an existing model.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        return mv
+            raise MlflowException(f"Prompt '{name}' does not exist.", RESOURCE_DOES_NOT_EXIST)
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
