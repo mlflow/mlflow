@@ -4792,17 +4792,17 @@ def test_search_logged_models_pagination(store: SqlAlchemyStore):
 
     # Chanigng search criteria is not allowed
     exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
-    with pytest.raises(MlflowException, match="Invalid pagination token"):
+    with pytest.raises(MlflowException, match="Experiment IDs in the page token do not match"):
         store.search_logged_models(experiment_ids=[exp_id_2], page_token=page_1.token)
 
-    with pytest.raises(MlflowException, match="Invalid pagination token"):
+    with pytest.raises(MlflowException, match="Order by in the page token does not match"):
         store.search_logged_models(
             experiment_ids=[exp_id_1],
             order_by=[{"field_name": "creation_time"}],
             page_token=page_1.token,
         )
 
-    with pytest.raises(MlflowException, match="Invalid pagination token"):
+    with pytest.raises(MlflowException, match="Filter string in the page token does not match"):
         store.search_logged_models(
             experiment_ids=[exp_id_1],
             filter_string=f"name = '{model_1.name}'",

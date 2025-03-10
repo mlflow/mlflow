@@ -1947,61 +1947,52 @@ class SearchLoggedModelsUtils(SearchUtils):
 
 
 @dataclass
-class SearchLoggedModelsOrderBy:
-    field_name: str
-    ascending: bool = True
-    dataset_name: Optional[str] = None
-    dataset_digest: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "SearchLoggedModelsOrderBy":
-        return cls(**d)
-
-
-@dataclass
-class SearchLoggedModelsQuery:
+class SearchLoggedModelsPaginationToken:
     experiment_ids: list[str]
     filter_string: Optional[str] = None
-    order_by: Optional[list[SearchLoggedModelsOrderBy]] = None
+    order_by: Optional[list[dict[str, Any]]] = None
     offset: int = 0
-
-    def __init__(
-        self,
-        *,
-        experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        offset: int = 0,
-    ):
-        self.experiment_ids = experiment_ids
-        self.filter_string = filter_string
-        self.order_by = order_by and [SearchLoggedModelsOrderBy.from_dict(o) for o in order_by]
-        self.offset = offset
-
-    def with_offset(self, offset: int) -> "SearchLoggedModelsQuery":
-        return SearchLoggedModelsQuery(
-            experiment_ids=self.experiment_ids,
-            filter_string=self.filter_string,
-            order_by=self.order_by,
-            offset=offset,
-        )
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
-    def token(self) -> str:
+    def encode(self) -> str:
         return base64.b64encode(self.to_json().encode("utf-8")).decode("utf-8")
 
-    @staticmethod
-    def from_token(token: str) -> "SearchLoggedModelsQuery":
+    @classmethod
+    def decode(cls, token: str) -> "SearchLoggedModelsPaginationToken":
         try:
             token = json.loads(base64.b64decode(token.encode("utf-8")).decode("utf-8"))
         except json.JSONDecodeError as e:
             raise MlflowException.invalid_parameter_value(f"Invalid page token: {token}. {e}")
 
-        return SearchLoggedModelsQuery(
+        return cls(
             experiment_ids=token.get("experiment_ids"),
             filter_string=token.get("filter_string") or None,
             order_by=token.get("order_by") or None,
             offset=token.get("offset") or 0,
         )
+
+    def validate(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+        order_by: Optional[list[dict[str, Any]]],
+    ) -> None:
+        if self.experiment_ids != experiment_ids:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment IDs in the page token do not match the requested experiment IDs. "
+                f"Expected: {experiment_ids}. Found: {self.experiment_ids}"
+            )
+
+        if self.filter_string != filter_string:
+            raise MlflowException.invalid_parameter_value(
+                f"Filter string in the page token does not match the requested filter string. "
+                f"Expected: {filter_string}. Found: {self.filter_string}"
+            )
+
+        if self.order_by != order_by:
+            raise MlflowException.invalid_parameter_value(
+                f"Order by in the page token does not match the requested order by. "
+                f"Expected: {order_by}. Found: {self.order_by}"
+            )

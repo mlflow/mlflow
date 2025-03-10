@@ -84,8 +84,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
-    SearchLoggedModelsOrderBy,
-    SearchLoggedModelsQuery,
+    SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -1834,35 +1833,29 @@ class SqlAlchemyStore(AbstractStore):
     ) -> PagedList[LoggedModel]:
         # TODO: Support filtering and order_by
         if page_token:
-            query = SearchLoggedModelsQuery.from_token(page_token)
-            if (
-                query.experiment_ids != experiment_ids
-                or query.filter_string != filter_string
-                or query.order_by
-                != (order_by and [SearchLoggedModelsOrderBy.from_dict(o) for o in order_by])
-            ):
-                raise MlflowException(
-                    "Invalid pagination token. Search parameters do not match the token.",
-                    INVALID_PARAMETER_VALUE,
-                )
-
+            token = SearchLoggedModelsPaginationToken.decode(page_token)
+            token.validate(experiment_ids, filter_string, order_by)
+            offset = token.offset
         else:
-            query = SearchLoggedModelsQuery(
-                experiment_ids=experiment_ids, filter_string=filter_string, order_by=order_by
-            )
+            offset = 0
 
         with self.ManagedSessionMaker() as session:
             models = (
                 session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.experiment_id.in_(query.experiment_ids))
+                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
                 .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
-                .offset(query.offset)
+                .offset(offset)
                 .limit(max_results + 1)
                 .all()
             )
 
             if len(models) > max_results:
-                token = query.with_offset(query.offset + max_results).token()
+                token = SearchLoggedModelsPaginationToken(
+                    offset=offset + max_results,
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    order_by=order_by,
+                ).encode()
             else:
                 token = None
 
