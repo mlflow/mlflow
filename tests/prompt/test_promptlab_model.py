@@ -4,7 +4,7 @@ import pandas as pd
 
 from mlflow.entities.param import Param
 from mlflow.gateway import set_gateway_uri
-from mlflow.promptlab import _PromptlabModel
+from mlflow.prompt.promptlab_model import _PromptlabModel
 
 set_gateway_uri("http://localhost:5000")
 

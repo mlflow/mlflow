@@ -182,23 +182,17 @@ class SystemMetricsMonitor:
         self._process = None
 
     def _initialize_gpu_monitor(self) -> Optional[BaseMetricsMonitor]:
-        err = None
+        # NVIDIA GPU
         try:
-            # NVIDIA GPU
             return GPUMonitor()
-        except (ImportError, RuntimeError):
-            # ImportError raised if pynvml is not installed.
-            # RuntimeError raised if pynvml cannot be initialized
-            # (typically no NVIDIA GPU available).
-            # Falling back to pyrocml (AMD/HIP GPU)
-            try:
-                return ROCMMonitor()
-            except (ImportError, RuntimeError) as e:
-                err = e
-        except Exception as e:
-            err = e
+        except Exception:
+            _logger.debug("Failed to initialize GPU monitor for NVIDIA GPU.", exc_info=True)
 
-        _logger.warning(
-            f"Skip logging GPU metrics because initialization failed with error: {err}."
-        )
+        # Falling back to pyrocml (AMD/HIP GPU)
+        try:
+            return ROCMMonitor()
+        except Exception:
+            _logger.debug("Failed to initialize GPU monitor for AMD/HIP GPU.", exc_info=True)
+
+        _logger.info("Skip logging GPU metrics. Set logger level to DEBUG for more details.")
         return None

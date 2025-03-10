@@ -2472,3 +2472,19 @@ def test_both_resources_and_auth_policy():
                     DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
                 ],
             )
+
+
+def test_load_model_warning():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=Model(),
+            name="model",
+            input_example=["a", "b", "c"],
+        )
+
+    with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
+        mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")

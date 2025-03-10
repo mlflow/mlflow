@@ -1,4 +1,4 @@
-from mlflow.anthropic.autolog import patched_class_call
+from mlflow.anthropic.autolog import async_patched_class_call, patched_class_call
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -23,11 +23,18 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during Anthropic
             autologging. If ``False``, show all events and warnings.
     """
-    from anthropic.resources import Messages
+    from anthropic.resources import AsyncMessages, Messages
 
     safe_patch(
         FLAVOR_NAME,
         Messages,
         "create",
         patched_class_call,
+    )
+
+    safe_patch(
+        FLAVOR_NAME,
+        AsyncMessages,
+        "create",
+        async_patched_class_call,
     )

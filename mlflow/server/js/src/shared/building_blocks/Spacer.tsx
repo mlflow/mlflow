@@ -1,15 +1,8 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
 
 const spacingSizes = [4, 8, 16, 24, 32, 40];
 
-const getMarginSize = (size: any) => {
+const getMarginSize = (size: SpacerProps['size']): number => {
   switch (size) {
     case 'small':
       return 4;
@@ -24,13 +17,13 @@ const getMarginSize = (size: any) => {
 };
 
 type SpacerProps = {
-  size?: any; // TODO: PropTypes.oneOf([undefined, 'small', 'medium', 'large', 0, 1, 2, 3, 4, 5])
-  direction?: string;
+  size?: 'small' | 'medium' | 'large' | 0 | 1 | 2 | 3 | 4 | 5;
+  direction?: 'horizontal' | 'vertical';
 };
 
 /**
  * Spaces its children according to the direction and size specified.
- * @param props size: One of "small", "medium" or "large". Default small.
+ * @param props size: One of "small", "medium", "large", 0, 1, 2, 3, 4, or 5. Default small.
  * @param props direction: One of "horizontal" or "vertical". Default vertical.
  */
 export class Spacer extends React.Component<SpacerProps> {
@@ -42,7 +35,7 @@ export class Spacer extends React.Component<SpacerProps> {
   }
 }
 
-const styles = (marginSize: any, direction: any) =>
+const styles = (marginSize: number, direction: Exclude<SpacerProps['direction'], undefined>) =>
   direction === 'horizontal'
     ? {
         display: 'flex',

@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
+    construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
@@ -165,3 +166,30 @@ def test_set_chat_tools_validation():
 
     with pytest.raises(ValidationError, match="validation error for ChatTool"):
         dummy_call(tools)
+
+
+def test_construct_full_inputs_simple_function():
+    def func(a, b, c=3, d=4, **kwargs):
+        pass
+
+    result = construct_full_inputs(func, 1, 2)
+    assert result == {"a": 1, "b": 2}
+
+    result = construct_full_inputs(func, 1, 2, c=30)
+    assert result == {"a": 1, "b": 2, "c": 30}
+
+    result = construct_full_inputs(func, 1, 2, c=30, d=40, e=50)
+    assert result == {"a": 1, "b": 2, "c": 30, "d": 40, "kwargs": {"e": 50}}
+
+    def no_args_func():
+        pass
+
+    result = construct_full_inputs(no_args_func)
+    assert result == {}
+
+    class TestClass:
+        def func(self, a, b, c=3, d=4, **kwargs):
+            pass
+
+    result = construct_full_inputs(TestClass().func, 1, 2)
+    assert result == {"a": 1, "b": 2}

@@ -1,26 +1,11 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React from 'react';
 import {
   CircleIcon as DuboisCircleIcon,
   CheckCircleIcon,
   useDesignSystemTheme,
   WarningFillIcon,
 } from '@databricks/design-system';
-/**
- * Get a unique key for a model version object.
- * @param modelName
- * @param version
- * @returns {string}
- */
-export const getModelVersionKey = (modelName: any, version: any) => `${modelName}_${version}`;
 
-export const getProtoField = (fieldName: any) => `${fieldName}`;
+export const getProtoField = (fieldName: string) => `${fieldName}`;
 
 export function ReadyIcon() {
   const { theme } = useDesignSystemTheme();

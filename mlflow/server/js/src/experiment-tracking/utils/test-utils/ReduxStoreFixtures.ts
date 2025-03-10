@@ -1,18 +1,9 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import { RunTag, Metric } from '../../sdk/MlflowMessages';
-
-export const mockExperiment = (eid: any, name: any) => {
+export const mockExperiment = (eid: string, name: string) => {
   return { experimentId: eid, name: name, allowedActions: [] };
 };
 
 export const mockRunInfo = (
-  run_id: any,
+  run_id: string,
   experiment_id = undefined,
   artifact_uri = undefined,
   lifecycle_stage = undefined,

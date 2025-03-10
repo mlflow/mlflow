@@ -285,7 +285,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests

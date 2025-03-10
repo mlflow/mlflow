@@ -619,7 +619,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   handleLineSmoothChange = (lineSmoothness: any) => this.updateUrlState({ lineSmoothness });
 
-  handleKeyDownOnPopover = ({ key }: any) => {
+  handleKeyDownOnPopover = ({ key }: { key: string }) => {
     if (key === 'Escape') {
       this.setState({ popoverVisible: false });
     }

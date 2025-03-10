@@ -722,3 +722,18 @@ MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRE
 MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH", int, 2048
 )
+
+#: Path to SSL CA certificate file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_CA = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CA", str, None)
+
+#: Path to SSL certificate file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
+
+#: Path to SSL key file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)

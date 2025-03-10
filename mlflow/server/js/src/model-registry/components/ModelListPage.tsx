@@ -51,7 +51,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       pageTokens: {},
       loading: true,
       error: undefined,
-      searchInput: constructSearchInputFromURLState(this.getUrlState()),
+      searchInput: constructSearchInputFromURLState(this.getUrlState() as Record<string, string>),
     };
   }
   modelListPageStoreKey = 'ModelListPageStore';

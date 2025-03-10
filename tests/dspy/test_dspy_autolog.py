@@ -121,25 +121,27 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
+    from litellm import ContextWindowExceededError
+
     mlflow.dspy.autolog()
 
     class ErrorLM(dspy.LM):
         @with_callbacks
         def __call__(self, prompt=None, messages=None, **kwargs):
             time.sleep(0.1)
-            raise ValueError("Error")
+            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
+            raise ContextWindowExceededError("Error", "invalid model", "provider")
 
-    dspy.settings.configure(
+    cot = dspy.ChainOfThought("question -> answer", n=3)
+
+    with dspy.context(
         lm=ErrorLM(
             model="invalid",
             prompt={"How are you?": {"answer": "test output", "reasoning": "No more responses"}},
         ),
-    )
-
-    cot = dspy.ChainOfThought("question -> answer", n=3)
-
-    with pytest.raises(ValueError, match="Error"):
-        cot(question="How are you?")
+    ):
+        with pytest.raises(ContextWindowExceededError, match="Error"):
+            cot(question="How are you?")
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None

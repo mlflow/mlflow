@@ -95,6 +95,29 @@ You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalch
   </tbody>
 </table>
 
+## MySQL SSL Options
+
+When connecting to a MySQL database that requires SSL certificates, you can set the following environment variables:
+
+```bash
+# Path to SSL CA certificate file
+export MLFLOW_MYSQL_SSL_CA=/path/to/ca.pem
+
+# Path to SSL client certificate file (if needed)
+export MLFLOW_MYSQL_SSL_CERT=/path/to/client-cert.pem
+
+# Path to SSL client key file (if needed)
+export MLFLOW_MYSQL_SSL_KEY=/path/to/client-key.pem
+```
+
+Then start the MLflow server with your MySQL URI:
+
+```bash
+mlflow server --backend-store-uri="mysql+pymysql://username@hostname:port/database" --default-artifact-root=s3://your-bucket --host=0.0.0.0 --port=5000
+```
+
+These environment variables will be used to configure the SSL connection to the MySQL server.
+
 ## File Store Performance
 
 MLflow will automatically try to use [LibYAML](https://pyyaml.org/wiki/LibYAML) bindings if they are already installed.

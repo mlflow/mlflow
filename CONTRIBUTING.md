@@ -829,6 +829,20 @@ python -m build
 
 We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. You can install it by following the instructions [here](https://taplo.tamasfe.dev/cli/introduction.html).
 
+### Excluding Symlinks from IDE Searches
+
+The `mlflow/skinny` symlink points to `../mlflow` and may cause duplicate entries in search results. To exclude it from searches, follow these steps:
+
+**VSCode:**
+
+1. Open `Settings`.
+2. Search for `search.followSymlinks` and set it to `false`.
+
+**PyCharm:**
+
+1. Right-click `skinny/mlflow`.
+2. Select `Mark Directory as` -> `Excluded`.
+
 ### Writing Docs
 
 There are two separate build systems for the MLflow documentation:

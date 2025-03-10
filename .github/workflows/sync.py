@@ -138,6 +138,13 @@ def main():
         print("Failed to create PR", file=sys.stderr)
         sys.exit(1)
 
+    resp = requests.post(
+        f"https://api.github.com/repos/{OWNER}/{REPO}/pulls/{pr_data['number']}/requested_reviewers",
+        headers={"Authorization": f"token {GITHUB_TOKEN}"},
+        json={"reviewers": ["harupy"]},
+    )
+    resp.raise_for_status()
+
 
 if __name__ == "__main__":
     main()

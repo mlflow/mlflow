@@ -12,8 +12,11 @@ from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonito
 
 _logger = logging.getLogger(__name__)
 
+is_rocml_available = False
 try:
     from pyrsmi import rocml
+
+    is_rocml_available = True
 except ImportError:
     # If `pyrsmi` is not installed, a warning will be logged at monitor instantiation.
     # We don't log a warning here to avoid spamming warning at every import.
@@ -116,4 +119,5 @@ class ROCMMonitor(BaseMetricsMonitor):
         return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}
 
     def __del__(self):
-        rocml.smi_shutdown()
+        if is_rocml_available:
+            rocml.smi_shutdown()

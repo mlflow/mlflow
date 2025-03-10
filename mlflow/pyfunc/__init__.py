@@ -824,6 +824,9 @@ class PyFuncModel:
         with set_prediction_context(context):
             if schema := _get_dependencies_schema_from_model(self._model_meta):
                 context.update(**schema)
+
+            if self.model_id:
+                context.update(model_id=self.model_id)
             return self._predict(data, params)
 
     def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
@@ -886,6 +889,9 @@ class PyFuncModel:
 
         if schema := _get_dependencies_schema_from_model(self._model_meta):
             context.update(**schema)
+
+        if self.model_id:
+            context.update(model_id=self.model_id)
 
         # NB: The prediction context must be applied during iterating over the stream,
         # hence, simply wrapping the self._predict_stream call with the context manager
@@ -3346,6 +3352,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
+    prompts=None,
     name=None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -3528,7 +3535,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-
         model_config: The model configuration to apply to the model. The configuration will
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
@@ -3546,8 +3552,8 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
         auth_policy: {{ auth_policy }}
+        prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -3577,6 +3583,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        prompts=prompts,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,

@@ -1,10 +1,3 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
 import { Dropdown, Menu, ChevronDownIcon, ArrowRightIcon } from '@databricks/design-system';
 import {
@@ -68,7 +61,7 @@ export class ModelStageTransitionDropdown extends React.Component<
     this.setState({ confirmModalVisible: false });
   };
 
-  getNoneCurrentStages = (currentStage: any) => {
+  getNoneCurrentStages = (currentStage?: string) => {
     const stages = Object.values(Stages);
     _.remove(stages, (s) => s === currentStage);
     return stages;

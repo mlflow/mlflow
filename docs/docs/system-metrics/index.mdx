@@ -20,10 +20,16 @@ To install `psutil`, run the following command:
 pip install psutil
 ```
 
-If you want to catch GPU metrics, you also need to install `pynvml`:
+If you want to catch Nvidia GPU metrics, you also need to install `pynvml`:
 
 ```bash
 pip install pynvml
+```
+
+If you are using AMD/HIP GPUs, install [pyrsmi](https://github.com/ROCm/pyrsmi) instead of `pynvml`:
+
+```bash
+pip install pyrsmi
 ```
 
 ## Turn on/off System Metrics Logging
