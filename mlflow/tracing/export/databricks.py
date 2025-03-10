@@ -53,7 +53,6 @@ class DatabricksSpanExporter(SpanExporter):
         """Create a new Trace record in the Databricks Tracing Server."""
         request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
-        _logger.info(request_body)
 
         res = http_request(
             host_creds=get_databricks_host_creds(),
