@@ -7,14 +7,16 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.destination import MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.export.databricks import DatabricksSpanExporter
+from mlflow.tracing.export.databricks_agent_legacy import DatabricksAgentSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
+from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import (
@@ -103,7 +105,18 @@ def test_set_destination_mlflow_experiment():
     assert processors[0]._client.tracking_uri == "http://localhost"
 
 
-def test_set_destination_databricks_agent():
+def test_set_destination_databricks():
+    mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksSpanProcessor)
+    assert processors[0]._experiment_id == "123"
+    assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
+
+
+def test_set_destination_legacy_databricks_agent():
     @dataclass
     class DatabricksAgentMonitoring(TraceDestination):
         databricks_monitor_id: str
@@ -119,7 +132,8 @@ def test_set_destination_databricks_agent():
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], DatabricksAgentSpanProcessor)
+    assert isinstance(processors[0], DatabricksSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksAgentSpanExporter)
     assert processors[0].span_exporter._databricks_monitor_id == "foo"
 
 

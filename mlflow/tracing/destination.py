@@ -37,3 +37,24 @@ class MlflowExperiment(TraceDestination):
     @property
     def type(self) -> str:
         return "experiment"
+
+
+@experimental
+@dataclass
+class Databricks(TraceDestination):
+    """
+    A destination representing a Databricks tracing server.
+
+    By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
+    MLflow will log traces to the specified experiment.
+
+    Attributes:
+        experiment_id: The ID of the experiment to log traces to. If not specified,
+            the current active experiment will be used.
+    """
+
+    experiment_id: Optional[str] = None
+
+    @property
+    def type(self) -> str:
+        return "databricks"
