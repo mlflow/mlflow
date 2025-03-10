@@ -1195,6 +1195,9 @@ class TrackingServiceClient:
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
+    def delete_logged_model(self, model_id: str) -> None:
+        return self.store.delete_logged_model(model_id)
+
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         self.store.set_logged_model_tags(
             model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]

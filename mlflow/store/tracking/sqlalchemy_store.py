@@ -1769,13 +1769,26 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             logged_model = (
                 session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.model_id == model_id)
-                .one_or_none()
+                .filter(
+                    SqlLoggedModel.model_id == model_id,
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .first()
             )
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
             return logged_model.to_mlflow_entity()
+
+    def delete_logged_model(self, model_id):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            logged_model.lifecycle_stage = LifecycleStage.DELETED
+            logged_model.last_updated_timestamp_ms = get_current_time_millis()
+            session.commit()
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         if status != LoggedModelStatus.READY:
@@ -1834,7 +1847,10 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             models = (
                 session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
+                .filter(
+                    SqlLoggedModel.experiment_id.in_(experiment_ids),
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
                 .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
                 .all()
             )

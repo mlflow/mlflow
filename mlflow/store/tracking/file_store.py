@@ -2073,6 +2073,14 @@ class FileStore(AbstractStore):
         """
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
+    def delete_logged_model(self, model_id: str) -> None:
+        model = self.get_logged_model(model_id)
+        model_dir = self._get_model_dir(model.experiment_id, model_id)
+        if not exists(model_dir):
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
             self.get_experiment(experiment_id).artifact_location,

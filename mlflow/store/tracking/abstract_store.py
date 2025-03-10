@@ -802,3 +802,12 @@ class AbstractStore:
             The fetched model.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
