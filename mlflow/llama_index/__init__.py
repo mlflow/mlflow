@@ -312,7 +312,7 @@ def save_model(
 @trace_disabled  # Suppress traces while loading model
 def log_model(
     llama_index_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     engine_type: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -324,6 +324,12 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -353,7 +359,7 @@ def log_model(
             4. A string representing the path to a script contains LlamaIndex model definition
                 of the one of the above types.
 
-        artifact_path: Local path where the serialized model (as YAML) is to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         engine_type: Required when saving an Index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
             saving other LlamaIndex objects. The supported values are as follows:
@@ -434,11 +440,17 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         engine_type=engine_type,
         model_config=model_config,
         flavor=mlflow.llama_index,
@@ -452,6 +464,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 

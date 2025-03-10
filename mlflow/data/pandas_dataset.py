@@ -158,6 +158,8 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             path=path,
             feature_names=feature_names,
             predictions=self._predictions,
+            name=self.name,
+            digest=self.digest,
         )
 
 

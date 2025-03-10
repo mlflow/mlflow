@@ -45,7 +45,7 @@ def main():
         # Default (both `pip_requirements` and `extra_pip_requirements` are unspecified)
         artifact_path = "default"
         model_info = mlflow.xgboost.log_model(model, artifact_path, signature=signature)
-        pip_reqs = get_pip_requirements(model_info.model_uri)
+        pip_reqs = get_pip_requirements(model_info.artifact_path)
         assert xgb_req in pip_reqs, pip_reqs
 
         # Overwrite the default set of pip requirements using `pip_requirements`
@@ -53,7 +53,7 @@ def main():
         model_info = mlflow.xgboost.log_model(
             model, artifact_path, pip_requirements=[sklearn_req], signature=signature
         )
-        pip_reqs = get_pip_requirements(model_info.model_uri)
+        pip_reqs = get_pip_requirements(model_info.artifact_path)
         assert sklearn_req in pip_reqs, pip_reqs
 
         # Add extra pip requirements on top of the default set of pip requirements
@@ -62,7 +62,7 @@ def main():
         model_info = mlflow.xgboost.log_model(
             model, artifact_path, extra_pip_requirements=[sklearn_req], signature=signature
         )
-        pip_reqs = get_pip_requirements(model_info.model_uri)
+        pip_reqs = get_pip_requirements(model_info.artifact_path)
         assert pip_reqs.issuperset({xgb_req, sklearn_req}), pip_reqs
 
         # Specify pip requirements using a requirements file
@@ -75,7 +75,7 @@ def main():
             model_info = mlflow.xgboost.log_model(
                 model, artifact_path, pip_requirements=f.name, signature=signature
             )
-            pip_reqs = get_pip_requirements(model_info.model_uri)
+            pip_reqs = get_pip_requirements(model_info.artifact_path)
             assert sklearn_req in pip_reqs, pip_reqs
 
             # List of pip requirement strings
@@ -86,7 +86,7 @@ def main():
                 pip_requirements=[xgb_req, f"-r {f.name}"],
                 signature=signature,
             )
-            pip_reqs = get_pip_requirements(model_info.model_uri)
+            pip_reqs = get_pip_requirements(model_info.artifact_path)
             assert pip_reqs.issuperset({xgb_req, sklearn_req}), pip_reqs
 
         # Using a constraints file
@@ -101,7 +101,9 @@ def main():
                 pip_requirements=[xgb_req, f"-c {f.name}"],
                 signature=signature,
             )
-            pip_reqs, pip_cons = get_pip_requirements(model_info.model_uri, return_constraints=True)
+            pip_reqs, pip_cons = get_pip_requirements(
+                model_info.artifact_path, return_constraints=True
+            )
             assert pip_reqs.issuperset({xgb_req, "-c constraints.txt"}), pip_reqs
             assert pip_cons == {sklearn_req}, pip_cons
 
