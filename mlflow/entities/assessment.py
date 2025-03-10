@@ -87,13 +87,9 @@ class Assessment(_MlflowObject):
         return self._assessment_id
 
     def __post_init__(self):
-        if (self.expectation is not None) + (self.feedback is not None) > 1:
+        if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
-                "Only one of `expectation` or `feedback` should be specified.",
-            )
-        if (self.expectation is None) and (self.feedback is None) and (self.error is None):
-            raise MlflowException.invalid_parameter_value(
-                "At least one of `expectation`, `feedback` or `error` should be specified.",
+                "Exactly one of `expectation` or `feedback` should be specified.",
             )
         if (self.expectation is not None) and self.error is not None:
             raise MlflowException.invalid_parameter_value(

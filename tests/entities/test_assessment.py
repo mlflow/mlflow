@@ -36,7 +36,7 @@ def test_assessment_creation():
     assessment_with_error = Assessment(
         **{
             **default_params,
-            "feedback": None,
+            "feedback": Feedback(None),
             "error": AssessmentError(error_code="E001", error_message="An error occurred."),
         }
     )
@@ -79,6 +79,7 @@ def test_assessment_equality():
     )
     assessment_5 = Assessment(
         source=source_1,
+        feedback=Feedback(None),
         error=AssessmentError(
             error_code="E002",
             error_message="A different error occurred.",
@@ -87,6 +88,7 @@ def test_assessment_equality():
     )
     assessment_6 = Assessment(
         source=source_1,
+        feedback=Feedback(None),
         error=AssessmentError(
             error_code="E001",
             error_message="Another error message.",
@@ -114,7 +116,7 @@ def test_assessment_value_validation():
     # Valid cases
     Assessment(expectation=Expectation("MLflow"), **common_args)
     Assessment(feedback=Feedback("This is correct."), **common_args)
-    Assessment(error=AssessmentError(error_code="E001"), **common_args)
+    Assessment(feedback=Feedback(None), error=AssessmentError(error_code="E001"), **common_args)
     Assessment(
         feedback=Feedback("This is correct."),
         error=AssessmentError(error_code="E001"),
@@ -122,11 +124,11 @@ def test_assessment_value_validation():
     )
 
     # Invalid case: no value specified
-    with pytest.raises(MlflowException, match=r"At least one of"):
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(**common_args)
 
     # Invalid case: both feedback and expectation specified
-    with pytest.raises(MlflowException, match=r"Only one of"):
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
             expectation=Expectation("MLflow"),
             feedback=Feedback("This is correct."),
@@ -142,7 +144,7 @@ def test_assessment_value_validation():
         )
 
     # Invalid case: All three are set
-    with pytest.raises(MlflowException, match=r"Only one of"):
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
             expectation=Expectation("MLflow"),
             feedback=Feedback("This is correct."),
@@ -150,13 +152,18 @@ def test_assessment_value_validation():
             **common_args,
         )
 
+
 @pytest.mark.parametrize(
     ("expectation", "feedback", "error"),
     [
         (Expectation("MLflow"), None, None),
         (None, Feedback("This is correct."), None),
-        (None, None, AssessmentError(error_code="E001")),
-        (None, None, AssessmentError(error_code="E001", error_message="An error occurred.")),
+        (None, Feedback(None), AssessmentError(error_code="E001")),
+        (
+            None,
+            Feedback(None),
+            AssessmentError(error_code="E001", error_message="An error occurred."),
+        ),
     ],
 )
 @pytest.mark.parametrize(

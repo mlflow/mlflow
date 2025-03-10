@@ -146,7 +146,7 @@ def test_log_feedback_with_error(store):
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation is None
-    assert assessment.feedback is None
+    assert assessment.feedback.value is None
     assert assessment.rationale is None
     assert assessment.error.error_code == "RATE_LIMIT_EXCEEDED"
     assert assessment.error.error_message == "Rate limit for the judge exceeded."
@@ -183,7 +183,7 @@ def test_log_feedback_with_value_and_error(store):
 
 
 def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"At least one of"):
+    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
