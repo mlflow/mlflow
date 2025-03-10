@@ -8,7 +8,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
 
-from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
@@ -17,14 +16,11 @@ from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
-    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
+from mlflow.tracing.buffer import TRACE_BUFFER
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -49,21 +45,11 @@ from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_d
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import pandas
-
-
-# Traces are stored in memory after completion so they can be retrieved conveniently.
-# For example, Databricks model serving fetches the trace data from the buffer after
-# making the prediction request, and logging them into the Inference Table.
-TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-    ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-)
 
 
 def trace(
@@ -688,10 +674,6 @@ def get_last_active_trace() -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
 
-    .. warning::
-
-        This function DOES NOT work in the model deployed in Databricks model serving.
-
     .. note::
 
         The last active trace is only stored in-memory for the time defined by the TTL
@@ -729,18 +711,7 @@ def get_last_active_trace() -> Optional[Trace]:
     Returns:
         The last active trace if exists, otherwise None.
     """
-    if is_in_databricks_model_serving_environment():
-        raise MlflowException(
-            "The function `mlflow.get_last_active_trace` is not supported in "
-            "Databricks model serving.",
-            error_code=BAD_REQUEST,
-        )
-
-    if len(TRACE_BUFFER) > 0:
-        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
-        return TRACE_BUFFER.get(last_active_request_id)
-    else:
-        return None
+    return TRACE_BUFFER.latest()
 
 
 def update_current_trace(
