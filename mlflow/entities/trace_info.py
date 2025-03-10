@@ -115,7 +115,7 @@ class TraceInfo(_MlflowObject):
 
         proto.request = request or ""
         proto.response = response or ""
-        proto.state = self.status.name
+        proto.state = ProtoTraceInfoV3.State.Value(self.status.name)
 
         proto.request_time.FromDatetime(datetime.fromtimestamp(self.timestamp_ms / 1000.0))
         if self.execution_time_ms is not None:

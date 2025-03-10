@@ -6,7 +6,7 @@ import mlflow
 from mlflow.tracing.destination import TraceDestination
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
+@mock.patch("mlflow.tracing.export.databricks_agent_legacy.get_deploy_client")
 def test_export(mock_get_deploy_client):
     @dataclass
     class DatabricksAgentMonitoring(TraceDestination):
