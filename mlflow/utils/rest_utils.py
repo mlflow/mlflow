@@ -322,23 +322,6 @@ def _get_path(path_prefix, endpoint_path):
     return f"{path_prefix}{endpoint_path}"
 
 
-def _parse_google_api_http_rule(http_rule):
-    """Parse a google.api.HttpRule message into a tuple (path, method)"""
-    if http_rule.HasField("get"):
-        return http_rule.get, "GET"
-    if http_rule.HasField("put"):
-        return http_rule.put, "PUT"
-    if http_rule.HasField("post"):
-        return http_rule.post, "POST"
-    if http_rule.HasField("delete"):
-        return http_rule.delete, "DELETE"
-    if http_rule.HasField("patch"):
-        return http_rule.patch, "PATCH"
-    if http_rule.HasField("custom"):
-        return http_rule.custom.path, http_rule.custom.kind
-    raise ValueError("HttpRule must have one of the fields: get, put, post, delete, patch, custom")
-
-
 def extract_api_info_for_service(service, path_prefix):
     """Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = service.DESCRIPTOR.methods
