@@ -1,4 +1,5 @@
 import functools
+import re
 from textwrap import dedent
 from typing import Optional
 
@@ -69,4 +70,30 @@ def require_prompt_registry(func):
             This API is supported only when using the OSS MLflow Model Registry. Prompts are not
             supported in Databricks or the OSS Unity Catalog model registry.
     """)
+    return wrapper
+
+
+def translate_prompt_exception(func):
+    """
+    Translate MlflowException message related to RegisteredModel / ModelVersion into
+    prompt-specific message.
+    """
+    MODEL_PATTERN = re.compile(r"(registered model|model version)", re.IGNORECASE)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MlflowException as e:
+            original_message = e.message
+            # Preserve the case of the first letter
+            new_message = MODEL_PATTERN.sub(
+                lambda m: "Prompt" if m.group(0)[0].isupper() else "prompt", e.message
+            )
+
+            if new_message != original_message:
+                raise MlflowException(new_message) from e
+            else:
+                raise e
+
     return wrapper
