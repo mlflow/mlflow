@@ -19,6 +19,12 @@ from mlflow.types.schema import (
 )
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
+if not IS_PYDANTIC_V2_OR_NEWER:
+    raise ImportError(
+        "mlflow.types.agent is only supported with Pydantic v2 or newer. "
+        "Please upgrade Pydantic to use this feature."
+    )
+
 
 class ChatAgentMessage(BaseModel):
     """
@@ -52,12 +58,8 @@ class ChatAgentMessage(BaseModel):
         """
         Ensure at least one of 'content' or 'tool_calls' is set.
         """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            content = values.content
-            tool_calls = values.tool_calls
-        else:
-            content = values.get("content")
-            tool_calls = values.get("tool_calls")
+        content = values.content
+        tool_calls = values.tool_calls
 
         if not content and not tool_calls:
             raise ValueError("Either 'content' or 'tool_calls' must be provided.")
@@ -68,14 +70,9 @@ class ChatAgentMessage(BaseModel):
         """
         Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
         """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            name = values.name
-            role = values.role
-            tool_call_id = values.tool_call_id
-        else:
-            name = values.get("name")
-            role = values.get("role")
-            tool_call_id = values.get("tool_call_id")
+        name = values.name
+        role = values.role
+        tool_call_id = values.tool_call_id
 
         if role == "tool" and (not name or not tool_call_id):
             raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
@@ -130,12 +127,7 @@ class ChatAgentResponse(BaseModel):
             **Optional**, defaults to None
     """
 
-    if not IS_PYDANTIC_V2_OR_NEWER:
-        model_config = ConfigDict(validate_assignment=True)
-    else:
-
-        class Config:
-            validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
     messages: list[ChatAgentMessage]
     finish_reason: Optional[str] = None
@@ -148,10 +140,7 @@ class ChatAgentResponse(BaseModel):
         """
         Ensure that all messages have an ID and it is unique.
         """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            message_ids = [msg.id for msg in values.messages]
-        else:
-            message_ids = [msg.get("id") for msg in values.get("messages")]
+        message_ids = [msg.id for msg in values.messages]
 
         if any(msg_id is None for msg_id in message_ids):
             raise ValueError("All ChatAgentMessage objects in field `messages` must have an ID.")
@@ -180,12 +169,7 @@ class ChatAgentChunk(BaseModel):
             **Optional**, defaults to None
     """
 
-    if not IS_PYDANTIC_V2_OR_NEWER:
-        model_config = ConfigDict(validate_assignment=True)
-    else:
-
-        class Config:
-            validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
     delta: ChatAgentMessage
     finish_reason: Optional[str] = None
@@ -198,7 +182,7 @@ class ChatAgentChunk(BaseModel):
         """
         Ensure that the message ID is unique.
         """
-        message_id = values.delta.id if IS_PYDANTIC_V2_OR_NEWER else values.get("delta").get("id")
+        message_id = values.delta.id
 
         if message_id is None:
             raise ValueError(
