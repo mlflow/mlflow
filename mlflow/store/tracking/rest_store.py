@@ -400,14 +400,14 @@ class RestStore(AbstractStore):
         sql_warehouse_id: Optional[str] = None,
     ):
         if sql_warehouse_id is None:
-            st = SearchTraces(
+            request = SearchTraces(
                 experiment_ids=experiment_ids,
                 filter=filter_string,
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
             )
-            req_body = message_to_json(st)
+            req_body = message_to_json(request)
             response_proto = self._call_endpoint(SearchTraces, req_body)
         else:
             response_proto = self._search_unified_traces(
@@ -432,20 +432,16 @@ class RestStore(AbstractStore):
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> tuple[list[TraceInfo], Optional[str]]:
-        st = SearchUnifiedTraces(
-            online_trace_search=SearchUnifiedTraces.OnlineTraceSearch(
-                model_id=model_id,
-                sql_warehouse_id=sql_warehouse_id,
-            ),
-            offline_trace_search=SearchUnifiedTraces.OfflineTraceSearch(
-                experiment_ids=experiment_ids
-            ),
+        request = SearchUnifiedTraces(
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
+            experiment_ids=experiment_ids,
             filter=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
         )
-        req_body = message_to_json(st)
+        req_body = message_to_json(request)
         response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
