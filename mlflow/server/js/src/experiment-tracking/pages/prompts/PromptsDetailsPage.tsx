@@ -179,7 +179,7 @@ const PromptsDetailsPage = () => {
                   />
                 </div>
               </SegmentedControlButton>
-              <SegmentedControlButton value={PromptVersionsTableMode.TABLE} onClick={() => setTableMode()}>
+              <SegmentedControlButton value={PromptVersionsTableMode.TABLE} onClick={setTableMode}>
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <TableIcon />{' '}
                   <FormattedMessage
@@ -191,7 +191,7 @@ const PromptsDetailsPage = () => {
               <SegmentedControlButton
                 disabled={Boolean(!promptDetailsData?.versions.length || promptDetailsData?.versions.length < 2)}
                 value={PromptVersionsTableMode.COMPARE}
-                onClick={() => setCompareMode()}
+                onClick={setCompareMode}
               >
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <ColumnsIcon />{' '}

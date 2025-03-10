@@ -36,8 +36,8 @@ describe('usePromptDetailsPageViewState', () => {
       result.current.setCompareMode();
     });
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.COMPARE);
-    expect(result.current.viewState.selectedVersion).toBe('1');
-    expect(result.current.viewState.comparedVersion).toBe('2');
+    expect(result.current.viewState.selectedVersion).toBe('2');
+    expect(result.current.viewState.comparedVersion).toBe('1');
   });
 
   it('should switch sides', () => {
@@ -48,8 +48,8 @@ describe('usePromptDetailsPageViewState', () => {
     act(() => {
       result.current.switchSides();
     });
-    expect(result.current.viewState.selectedVersion).toBe('2');
-    expect(result.current.viewState.comparedVersion).toBe('1');
+    expect(result.current.viewState.selectedVersion).toBe('1');
+    expect(result.current.viewState.comparedVersion).toBe('2');
   });
 
   it('should set selected version', () => {

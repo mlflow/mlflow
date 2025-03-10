@@ -65,9 +65,11 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
     dispatchViewMode({ type: 'setComparedVersion', comparedVersion });
   }, []);
   const setCompareMode = useCallback(() => {
-    const firstVersion = first(promptDetailsData?.versions)?.version;
-    const secondVersion = promptDetailsData?.versions[1]?.version;
-    dispatchViewMode({ type: 'setCompareMode', selectedVersion: firstVersion, comparedVersion: secondVersion });
+    // Last (highest) version will be the compared version
+    const comparedVersion = first(promptDetailsData?.versions)?.version;
+    // The one immediately before the last version will be the baseline version
+    const baselineVersion = promptDetailsData?.versions[1]?.version;
+    dispatchViewMode({ type: 'setCompareMode', selectedVersion: baselineVersion, comparedVersion });
   }, [promptDetailsData]);
 
   const switchSides = useCallback(() => dispatchViewMode({ type: 'switchSides' }), []);
