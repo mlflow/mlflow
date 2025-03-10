@@ -7,7 +7,7 @@ import { FormattedMessage } from 'react-intl';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { uniq } from 'lodash';
 
-const PROMPT_VARIABLE_REGEX = /{([^}]+)}/g;
+const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
 export const PromptContentPreview = ({
   promptVersion,
@@ -112,6 +112,10 @@ export const PromptContentPreview = ({
           {`import openai
 import mlflow
 client = OpenAI(api_key="<YOUR_API_KEY">)
+
+# Set MLflow tracking URI
+mlflow.set_tracking_uri("<YOUR_TRACKING_URI>")
+
 # Example of loading and using the prompt
 prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
 response = client.chat.completions.create(
@@ -120,7 +124,7 @@ response = client.chat.completions.create(
         "content": prompt.format(${variableNames.map((name) => `${name}="<${name}>"`).join(', ')})
     }]
 )
-print(response.choices[0].content)`}
+print(response.choices[0].message.content)`}
         </CodeSnippet>
         {/* "content": prompt.format(question="<question>") */}
       </Modal>
