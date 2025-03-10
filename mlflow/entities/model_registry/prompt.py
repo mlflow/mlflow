@@ -42,7 +42,7 @@ class Prompt(ModelVersion):
             double curly braces, e.g. {{variable}}, which will be replaced with actual values
             by the `format` method. MLflow use the same variable naming rules same as Jinja2
             https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
-        description: Text description of the prompt. Optional.
+        commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
         tags: A dictionary of tags associated with the prompt. Optional.
     """
@@ -52,7 +52,7 @@ class Prompt(ModelVersion):
         name: str,
         version: int,
         template: str,
-        description: Optional[str] = None,
+        commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
@@ -66,7 +66,7 @@ class Prompt(ModelVersion):
             name=name,
             version=version,
             creation_timestamp=creation_timestamp,
-            description=description,
+            description=commit_message,
             tags=[ModelVersionTag(key=key, value=value) for key, value in tags.items()],
             aliases=aliases,
         )
@@ -95,6 +95,13 @@ class Prompt(ModelVersion):
         The value must be enclosed in double curly braces, e.g. {{variable}}.
         """
         return self._variables
+
+    @property
+    def commit_message(self) -> Optional[str]:
+        """
+        Return the commit message of the prompt version.
+        """
+        return self.description  # inherited from ModelVersion
 
     @property
     def tags(self) -> dict[str, str]:
@@ -145,7 +152,7 @@ class Prompt(ModelVersion):
                     name=self.name,
                     version=self.version,
                     template=template,
-                    description=self.description,
+                    commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
                     tags=self.tags,
                 )
@@ -170,7 +177,7 @@ class Prompt(ModelVersion):
             name=model_version.name,
             version=model_version.version,
             template=model_version.tags[PROMPT_TEXT_TAG_KEY],
-            description=model_version.description,
+            commit_message=model_version.description,
             creation_timestamp=model_version.creation_timestamp,
             tags=model_version.tags,
             aliases=model_version.aliases,

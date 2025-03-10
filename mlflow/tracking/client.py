@@ -414,7 +414,7 @@ class MlflowClient:
         self,
         name: str,
         template: str,
-        description: Optional[str] = None,
+        commit_message: Optional[str] = None,
         tags: Optional[dict[str, Any]] = None,
     ) -> Prompt:
         """
@@ -439,7 +439,7 @@ class MlflowClient:
             # Register a new prompt
             client.register_prompt(
                 name="my_prompt",
-                template="Respond to the user's message as a {style} AI.",
+                template="Respond to the user's message as a {{style}} AI.",
             )
 
             # Load the prompt from the registry
@@ -460,7 +460,8 @@ class MlflowClient:
             # Update the prompt with a new version
             prompt = client.register_prompt(
                 name="my_prompt",
-                template="Respond to the user's message as a {style} AI. {greeting}",
+                template="Respond to the user's message as a {{style}} AI. {{greeting}}",
+                commit_message="Add a greeting to the prompt.",
             )
 
         Args:
@@ -468,7 +469,8 @@ class MlflowClient:
             template: The template text of the prompt. It can contain variables enclosed in
                 single curly braces, e.g. {variable}, which will be replaced with actual values
                 by the `format` method.
-            description: The description of the prompt. Optional.
+            commit_message: A message describing the changes made to the prompt, similar to a
+                Git commit message. Optional.
             tags: A dictionary of tags associated with the prompt. Optional.
 
         Returns:
@@ -492,7 +494,7 @@ class MlflowClient:
             # Create a new prompt (model) entry
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 registry_client.create_registered_model(
-                    name, description=description, tags={IS_PROMPT_TAG_KEY: "true"}
+                    name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
                 )
             else:
                 raise
@@ -502,7 +504,7 @@ class MlflowClient:
 
         mv: ModelVersion = registry_client.create_model_version(
             name=name,
-            description=description,
+            description=commit_message,
             source="dummy-source",  # Required field, but not used for prompts
             tags=tags,
         )
