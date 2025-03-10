@@ -4763,6 +4763,53 @@ def test_search_logged_models(store: SqlAlchemyStore):
     assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
 
 
+def test_search_logged_models_pagination(store: SqlAlchemyStore):
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(experiment_id=exp_id_1)
+
+    page = store.search_logged_models(experiment_ids=[exp_id_1], max_results=3)
+    assert [m.name for m in page] == [model_2.name, model_1.name]
+    assert page.token is None
+
+    page_1 = store.search_logged_models(experiment_ids=[exp_id_1], max_results=1)
+    assert [m.name for m in page_1] == [model_2.name]
+    assert page_1.token is not None
+
+    page_2 = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=1, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    page_2 = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=100, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    # Chanigng search criteria is not allowed
+    exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid pagination token"):
+        store.search_logged_models(experiment_ids=[exp_id_2], page_token=page_1.token)
+
+    with pytest.raises(MlflowException, match="Invalid pagination token"):
+        store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            order_by=[{"field_name": "creation_time"}],
+            page_token=page_1.token,
+        )
+
+    with pytest.raises(MlflowException, match="Invalid pagination token"):
+        store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name = '{model_1.name}'",
+            page_token=page_1.token,
+        )
+
+
 def test_log_batch_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(

@@ -84,6 +84,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
+    SearchLoggedModelsOrderBy,
     SearchLoggedModelsQuery,
     SearchTraceUtils,
     SearchUtils,
@@ -1834,6 +1835,17 @@ class SqlAlchemyStore(AbstractStore):
         # TODO: Support filtering and order_by
         if page_token:
             query = SearchLoggedModelsQuery.from_token(page_token)
+            if (
+                query.experiment_ids != experiment_ids
+                or query.filter_string != filter_string
+                or query.order_by
+                != (order_by and [SearchLoggedModelsOrderBy.from_dict(o) for o in order_by])
+            ):
+                raise MlflowException(
+                    "Invalid pagination token. Search parameters do not match the token.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
         else:
             query = SearchLoggedModelsQuery(
                 experiment_ids=experiment_ids, filter_string=filter_string, order_by=order_by
@@ -1849,12 +1861,12 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-        if len(models) > max_results:
-            token = query.with_offset(query.offset + max_results).token()
-        else:
-            token = None
+            if len(models) > max_results:
+                token = query.with_offset(query.offset + max_results).token()
+            else:
+                token = None
 
-        return PagedList([lm.to_mlflow_entity() for lm in models[:max_results]], token=token)
+            return PagedList([lm.to_mlflow_entity() for lm in models[:max_results]], token=token)
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.

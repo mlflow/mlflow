@@ -5,10 +5,10 @@ import math
 import operator
 import re
 import shlex
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 import sqlparse
-from datataclasses import asdict, dataclass
 from packaging.version import Version
 from sqlparse.sql import (
     Comparison,
@@ -1960,27 +1960,30 @@ class SearchLoggedModelsOrderBy:
 
 @dataclass
 class SearchLoggedModelsQuery:
-    offset: int = 0
     experiment_ids: list[str]
     filter_string: Optional[str] = None
     order_by: Optional[list[SearchLoggedModelsOrderBy]] = None
+    offset: int = 0
 
     def __init__(
         self,
         *,
-        offset: int = 0,
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
+        offset: int = 0,
     ):
-        self.offset = offset
+        self.experiment_ids = experiment_ids
         self.filter_string = filter_string
         self.order_by = order_by and [SearchLoggedModelsOrderBy.from_dict(o) for o in order_by]
+        self.offset = offset
 
     def with_offset(self, offset: int) -> "SearchLoggedModelsQuery":
         return SearchLoggedModelsQuery(
-            offset=offset,
+            experiment_ids=self.experiment_ids,
             filter_string=self.filter_string,
             order_by=self.order_by,
+            offset=offset,
         )
 
     def to_json(self) -> str:
@@ -1997,7 +2000,8 @@ class SearchLoggedModelsQuery:
             raise MlflowException.invalid_parameter_value(f"Invalid page token: {token}. {e}")
 
         return SearchLoggedModelsQuery(
-            offset=token.get("offset") or 0,
+            experiment_ids=token.get("experiment_ids"),
             filter_string=token.get("filter_string") or None,
             order_by=token.get("order_by") or None,
+            offset=token.get("offset") or 0,
         )
