@@ -4790,7 +4790,7 @@ def test_search_logged_models_pagination(store: SqlAlchemyStore):
     assert [m.name for m in page_2] == [model_1.name]
     assert page_2.token is None
 
-    # Chanigng search criteria is not allowed
+    # Search params must match the page token
     exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match="Experiment IDs in the page token do not match"):
         store.search_logged_models(experiment_ids=[exp_id_2], page_token=page_1.token)
