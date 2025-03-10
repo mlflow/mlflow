@@ -1834,7 +1834,6 @@ class SqlAlchemyStore(AbstractStore):
         # TODO: Support filtering and order_by
         if page_token:
             query = SearchLoggedModelsQuery.from_token(page_token)
-            # TODO: Validate the query hasn't changed from the previous search
         else:
             query = SearchLoggedModelsQuery(
                 experiment_ids=experiment_ids, filter_string=filter_string, order_by=order_by
