@@ -88,6 +88,8 @@ def test_chat_agent_output_parser_parse_response():
     message = "The weather today is"
 
     parsed_response = parser.parse(message)
+    assert parsed_response["messages"][0]["id"] is not None
+    del parsed_response["messages"][0]["id"]
     assert parsed_response == {
         "messages": [{"content": "The weather today is", "role": "assistant"}],
     }

@@ -30,7 +30,8 @@ class ChatAgentMessage(BaseModel):
         content (str): The content of the message.
             **Optional** Can be ``None`` if tool_calls is provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
-        id (str): The ID of the message. **Optional** defaults to a random UUID
+        id (str): The ID of the message. Required when it is either part of a
+            :py:class:`ChatAgentResponse` or :py:class:`ChatAgentChunk`.
         tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
             model. **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
