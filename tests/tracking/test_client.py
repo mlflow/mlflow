@@ -1645,20 +1645,20 @@ def test_crud_prompts(tracking_uri):
     client.register_prompt(
         name="prompt_1",
         template="Hi, {{title}} {{name}}! How are you today?",
-        description="A friendly greeting",
+        commit_message="A friendly greeting",
         tags={"model": "my-model"},
     )
 
     prompt = client.load_prompt("prompt_1")
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
-    assert prompt.description == "A friendly greeting"
+    assert prompt.commit_message == "A friendly greeting"
     assert prompt.tags == {"model": "my-model"}
 
     client.register_prompt(
         name="prompt_1",
         template="Hi, {{title}} {{name}}! What's up?",
-        description="New greeting",
+        commit_message="New greeting",
     )
 
     prompt = client.load_prompt("prompt_1")
@@ -1779,7 +1779,7 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
-            description="A friendly greeting",
+            commit_message="A friendly greeting",
             tags={"model": "my-model"},
         )
 
@@ -1816,7 +1816,7 @@ def test_block_create_prompt_with_existing_model_name(tracking_uri):
         client.register_prompt(
             name="model",
             template="Hi, {{title}} {{name}}! How are you today?",
-            description="A friendly greeting",
+            commit_message="A friendly greeting",
             tags={"model": "my-model"},
         )
 
