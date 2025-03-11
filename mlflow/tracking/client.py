@@ -427,7 +427,8 @@ class MlflowClient:
         name: str,
         template: str,
         commit_message: Optional[str] = None,
-        tags: Optional[dict[str, Any]] = None,
+        version_metadata: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -452,6 +453,7 @@ class MlflowClient:
             client.register_prompt(
                 name="my_prompt",
                 template="Respond to the user's message as a {{style}} AI.",
+                version_metadata={"author": "Alice"},
             )
 
             # Load the prompt from the registry
@@ -474,6 +476,7 @@ class MlflowClient:
                 name="my_prompt",
                 template="Respond to the user's message as a {{style}} AI. {{greeting}}",
                 commit_message="Add a greeting to the prompt.",
+                version_metadata={"author": "Bob"},
             )
 
         Args:
@@ -483,7 +486,15 @@ class MlflowClient:
                 by the `format` method.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the prompt. Optional.
+            version_metadata: A dictionary of metadata associated with the **prompt version**.
+                This is useful for storing version-specific information, such as the author of
+                the changes. Optional.
+            tags: A dictionary of tags associated with the entire prompt. This is different from
+                the `version_metadata` as it is not tied to a specific version of the prompt,
+                but to the prompt as a whole. For example, you can use tags to add an application
+                name for which the prompt is created. Since the application uses the prompt in
+                multiple versions, it makes sense to use tags instead of version-specific metadata.
+                Optional.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -494,12 +505,13 @@ class MlflowClient:
 
         is_new_prompt = False
         rm = None
+        tags = tags or {}
         try:
             rm = registry_client.get_registered_model(name)
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
             )
             is_new_prompt = True
 
@@ -512,15 +524,21 @@ class MlflowClient:
                 INVALID_PARAMETER_VALUE,
             )
 
-        tags = tags or {}
-        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        # Update the prompt tags
+        if not is_new_prompt:
+            for key, value in tags.items():
+                registry_client.set_registered_model_tag(name, key, value)
+
+        # Version metadata is represented as ModelVersion tags in the registry
+        version_metadata = version_metadata or {}
+        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
                 source="dummy-source",  # Required field, but not used for prompts
-                tags=tags,
+                tags=version_metadata,
             )
         except Exception:
             if is_new_prompt:
@@ -529,7 +547,10 @@ class MlflowClient:
                 registry_client.delete_registered_model(name)
             raise
 
-        return Prompt.from_model_version(mv)
+        # Fetch the prompt-level tags from the registered model
+        prompt_tags = registry_client.get_registered_model(name)._tags
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
     @experimental
     @require_prompt_registry
@@ -576,7 +597,11 @@ class MlflowClient:
             mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
         else:
             mv = registry_client.get_model_version(name, version)
-        return Prompt.from_model_version(mv)
+
+        # Fetch the prompt-level tags from the registered model
+        prompt_tags = registry_client.get_registered_model(name)._tags
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
     @experimental
     @require_prompt_registry

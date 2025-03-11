@@ -5,6 +5,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
 import { getPromptContentTagValue } from '../utils';
+import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
+import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 
 export enum CreatePromptModalMode {
   CreatePrompt = 'CreatePrompt',
@@ -30,6 +32,7 @@ export const useCreatePromptModal = ({
       draftName: '',
       draftValue: '',
       commitMessage: '',
+      tags: [] as { key: string; value: string }[],
     },
   });
 
@@ -72,6 +75,7 @@ export const useCreatePromptModal = ({
             content: values.draftValue,
             commitMessage: values.commitMessage,
             promptName,
+            tags: values.tags,
           },
           {
             onSuccess: (data) => {
@@ -175,6 +179,7 @@ export const useCreatePromptModal = ({
         commitMessage: '',
         draftName: '',
         draftValue: getPromptContentTagValue(latestVersion) ?? '',
+        tags: [],
       });
     }
     setOpen(true);
