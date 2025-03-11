@@ -5,7 +5,10 @@ import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
+import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
+import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
+import { useMemo } from 'react';
+import { PromptVersionRuns } from './PromptVersionRuns';
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -23,10 +26,16 @@ export const PromptVersionMetadata = ({
   isBaseline?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    isLoading: isLoadingSourceRun,
-    sourceRunInfos: [sourceRunInfo],
-  } = usePromptSourceRunsInfo(registeredPromptVersion ? [registeredPromptVersion] : []);
+
+  const runIds = useMemo(() => {
+    const tagValue = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_IDS)?.value;
+    if (!tagValue) {
+      return [];
+    }
+    return tagValue.split(',').map((runId) => runId.trim());
+  }, [registeredPromptVersion]);
+
+  const { isLoading: isLoadingRuns, runInfoMap } = usePromptRunsInfo(runIds ? runIds : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
@@ -94,27 +103,6 @@ export const PromptVersionMetadata = ({
           }}
         />
       </div>
-      {(isLoadingSourceRun || sourceRunInfo) && (
-        <>
-          <Typography.Text bold>
-            <FormattedMessage
-              defaultMessage="Source run:"
-              description="A label for the source run in the prompt details page"
-            />
-          </Typography.Text>
-          <Typography.Text>
-            {isLoadingSourceRun ? (
-              <ParagraphSkeleton css={{ width: 100 }} />
-            ) : sourceRunInfo?.experimentId && sourceRunInfo?.runUuid && sourceRunInfo?.runName ? (
-              <Link to={Routes.getRunPageRoute(sourceRunInfo.experimentId, sourceRunInfo.runUuid)}>
-                {sourceRunInfo.runName}
-              </Link>
-            ) : (
-              <>{sourceRunInfo?.runName || sourceRunInfo?.runUuid}</>
-            )}
-          </Typography.Text>
-        </>
-      )}
       {registeredPromptVersion.description && (
         <>
           <Typography.Text bold>
@@ -125,6 +113,9 @@ export const PromptVersionMetadata = ({
           </Typography.Text>
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
+      )}
+      {(isLoadingRuns || runIds) && (
+        <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
     </div>
   );
