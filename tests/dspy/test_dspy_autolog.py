@@ -16,10 +16,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, score_in_model_serving
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
@@ -120,25 +121,27 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
+    from litellm import ContextWindowExceededError
+
     mlflow.dspy.autolog()
 
     class ErrorLM(dspy.LM):
         @with_callbacks
         def __call__(self, prompt=None, messages=None, **kwargs):
             time.sleep(0.1)
-            raise ValueError("Error")
+            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
+            raise ContextWindowExceededError("Error", "invalid model", "provider")
 
-    dspy.settings.configure(
+    cot = dspy.ChainOfThought("question -> answer", n=3)
+
+    with dspy.context(
         lm=ErrorLM(
             model="invalid",
             prompt={"How are you?": {"answer": "test output", "reasoning": "No more responses"}},
         ),
-    )
-
-    cot = dspy.ChainOfThought("question -> answer", n=3)
-
-    with pytest.raises(ValueError, match="Error"):
-        cot(question="How are you?")
+    ):
+        with pytest.raises(ContextWindowExceededError, match="Error"):
+            cot(question="How are you?")
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
@@ -282,7 +285,6 @@ class RAG(dspy.Module):
 
     def forward(self, question):
         # Create a custom span inside the module using fluent API
-        assert mlflow.get_current_active_span() is not None
         with mlflow.start_span(name="retrieve_context", span_type=SpanType.RETRIEVER) as span:
             span.set_inputs(question)
             docs = self.retrieve(question)
@@ -485,3 +487,65 @@ def test_autolog_set_retriever_schema():
             "other_columns": [],
         }
     ]
+
+
+@pytest.mark.parametrize("with_dependencies_schema", [True, False])
+def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema):
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                },
+            ]
+        )
+    )
+
+    if with_dependencies_schema:
+        mlflow.models.set_retriever_schema(
+            primary_key="primary-key",
+            text_column="text-column",
+            doc_uri="doc-uri",
+            other_columns=["column1", "column2"],
+        )
+
+    input_example = "What castle did David Gregory inherit?"
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(RAG(), "model", input_example=input_example)
+
+    request_id, response, trace_dict = score_in_model_serving(
+        model_info.model_uri,
+        input_example,
+    )
+
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.request_id == request_id
+    assert trace.info.status == "OK"
+
+    spans = trace.data.spans
+    assert len(spans) == 8
+    assert [span.name for span in spans] == [
+        "RAG.forward",
+        "retrieve_context",
+        "DummyRetriever.forward",
+        "ChainOfThought.forward",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLM.__call__",
+        "ChatAdapter.parse",
+    ]
+
+    if with_dependencies_schema:
+        assert json.loads(trace.info.tags[DependenciesSchemasType.RETRIEVERS.value]) == [
+            {
+                "name": "retriever",
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+                "doc_uri": "doc-uri",
+                "other_columns": ["column1", "column2"],
+            }
+        ]

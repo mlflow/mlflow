@@ -154,7 +154,12 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
 
 def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Resource, None, None]:
     try:
-        from langgraph.prebuilt.tool_node import ToolNode
+        try:
+            # LangGraph >= 0.3
+            from langgraph.prebuilt import ToolNode
+        except ImportError:
+            # LangGraph < 0.3
+            from langgraph.prebuilt.tool_node import ToolNode
 
         if isinstance(tool_node, ToolNode):
             yield from _extract_databricks_dependencies_from_tools(
@@ -388,9 +393,9 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> li
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
-    lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
-    /docs/modules/chains#lcel-chains), which is a langchain_core.runnables.RunnableSerializable.
-    [Legacy chains](https://python.langchain.com/docs/modules/chains#legacy-chains) have limited
+    lc_model can be an arbitrary `chain that is built with LCEL <https://python.langchain.com/docs/modules/chains#lcel-chains>`_,
+    which is a langchain_core.runnables.RunnableSerializable.
+    `Legacy chains <https://python.langchain.com/docs/modules/chains#legacy-chains>`_ have limited
     support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
     MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
     supported. If you need to support a custom chain, you need to monkey patch

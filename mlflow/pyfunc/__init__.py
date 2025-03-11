@@ -3326,6 +3326,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
+    prompts=None,
     compression: Optional[str] = None,
 ):
     """
@@ -3503,7 +3504,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-
         model_config: The model configuration to apply to the model. The configuration will
             be available as the ``model_config`` property of the ``context`` parameter
             in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
@@ -3521,8 +3521,8 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
         auth_policy: {{ auth_policy }}
+        prompts: {{ prompts }}
 
         compression: One of "lzma", "bzip2" or "gzip", the cloudpickle file will be compressed
                      using the respective format before being written to disk.
@@ -3549,6 +3549,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        prompts=prompts,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
         streamable=streamable,

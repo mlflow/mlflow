@@ -96,7 +96,6 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_tag,
-    append_to_json_path,
 )
 
 _logger = logging.getLogger(__name__)
@@ -708,34 +707,43 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def _get_metric_value_details(self, path, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
-        is_nan = math.isnan(metric.value)
-        if is_nan:
-            value = 0
-        elif math.isinf(metric.value):
-            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-        else:
-            value = metric.value
-        return metric, value, is_nan
-
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
-        self._log_metrics(run_id, [metric], isSingleMetric=True)
+        self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
-        if not metrics:
-            return
+    def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
+        """
+        Returns a tuple of two values:
+            - A boolean indicating whether the metric is NaN.
+            - The metric value, which is set to 0 if the metric is NaN.
+        """
+        is_nan = math.isnan(metric_value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric_value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
+            # value
+            value = 1.7976931348623157e308 if metric_value > 0 else -1.7976931348623157e308
+        else:
+            value = metric_value
+        return is_nan, value
 
+    def _log_metrics(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for index, metric in enumerate(metrics):
-            path = path if isSingleMetric else append_to_json_path(path, f"[{index}]")
-            metric, value, is_nan = self._get_metric_value_details(path, metric)
+        is_single_metric = len(metrics) == 1
+        for idx, metric in enumerate(metrics):
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
             if metric not in seen:
+                is_nan, value = self.sanitize_metric_value(metric.value)
                 metric_instances.append(
                     SqlMetric(
                         run_uuid=run_id,
@@ -1163,6 +1171,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -1190,7 +1199,7 @@ class SqlAlchemyStore(AbstractStore):
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, path=""):
+    def _set_tags(self, run_id, tags):
         """
         Set multiple tags on a run
 
@@ -1202,10 +1211,7 @@ class SqlAlchemyStore(AbstractStore):
         if not tags:
             return
 
-        tags = [
-            _validate_tag(t.key, t.value, path=append_to_json_path(path, f"tags[{idx}]"))
-            for (idx, t) in enumerate(tags)
-        ]
+        tags = [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1389,8 +1395,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             try:
                 self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics, path="metrics")
-                self._set_tags(run_id, tags, path="tags")
+                self._log_metrics(run_id, metrics)
+                self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
             except Exception as e:
@@ -1653,16 +1659,23 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, request_id) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Fetch the trace info for the given request id.
 
         Args:
             request_id: Unique string identifier of the trace.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             The TraceInfo object.
         """
+        if should_query_v3:
+            raise MlflowException.invalid_parameter_value(
+                "GetTraceInfoV3 API is not supported in the FileStore backend.",
+            )
+
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             return sql_trace_info.to_mlflow_entity()

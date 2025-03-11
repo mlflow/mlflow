@@ -179,6 +179,8 @@ class PythonModel:
             predict_stream_attr = cls.__dict__.get("predict_stream")
             if predict_stream_attr is not None and callable(predict_stream_attr):
                 _check_func_signature(predict_stream_attr, "predict_stream")
+        else:
+            cls.predict._is_pyfunc = True
 
     @abstractmethod
     def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):

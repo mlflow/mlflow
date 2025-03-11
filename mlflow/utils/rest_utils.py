@@ -354,8 +354,21 @@ def get_trace_info_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/info"
 
 
+def get_trace_assessment_endpoint(request_id):
+    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
+    return f"{get_single_trace_endpoint(request_id)}"
+
+
 def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
+
+
+def get_create_assessment_endpoint(trace_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+
+
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
@@ -379,6 +392,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
     js_dict = json.loads(response_to_parse)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 

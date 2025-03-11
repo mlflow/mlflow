@@ -17,6 +17,7 @@ from clint.config import Config
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
 DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
+MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 
 def ignore_map(code: str) -> dict[str, set[int]]:
@@ -90,7 +91,7 @@ class Location:
 
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
-        return cls(node.lineno, node.col_offset)
+        return cls(node.lineno, node.col_offset + 1)
 
 
 @dataclass
@@ -187,6 +188,10 @@ class Linter(ast.NodeVisitor):
         self.cell = cell
         self.violations: list[Violation] = []
         self.in_type_annotation = False
+        self.in_TYPE_CHECKING = False
+        self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
+        self.imported_modules: set[str] = set()
+        self.lazy_modules: dict[str, Location] = {}
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -326,10 +331,16 @@ class Linter(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if docstring := self._docstring(node):
+            if MARKDOWN_LINK_RE.search(docstring.s):
+                self._check(docstring, rules.MarkdownLink())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._markdown_link(node)
         self._invalid_abstract_method(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
@@ -348,6 +359,7 @@ class Linter(ast.NodeVisitor):
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
+        self._markdown_link(node)
         self._invalid_abstract_method(node)
         self.stack.append(node)
         self._no_rst(node)
@@ -382,6 +394,10 @@ class Linter(ast.NodeVisitor):
         if self._is_in_function() and root_module in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
 
+        if self.in_TYPE_CHECKING and self.is_mlflow_init_py:
+            for alias in node.names:
+                self.imported_modules.add(f"{node.module}.{alias.name}")
+
         if root_module == "typing_extensions":
             for alias in node.names:
                 full_name = f"{node.module}.{alias.name}"
@@ -410,6 +426,19 @@ class Linter(ast.NodeVisitor):
                 )
 
     def visit_Call(self, node: ast.Call) -> None:
+        if (
+            self.is_mlflow_init_py
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "LazyLoader"
+        ):
+            last_arg = node.args[-1]
+            if (
+                isinstance(last_arg, ast.Constant)
+                and isinstance(last_arg.value, str)
+                and last_arg.value.startswith("mlflow.")
+            ):
+                self.lazy_modules[last_arg.value] = Location.from_node(node)
+
         if (
             self.path.parts[0] in ["tests", "mlflow"]
             and _is_log_model(node.func)
@@ -467,6 +496,18 @@ class Linter(ast.NodeVisitor):
         self.visit(node)
         self.in_type_annotation = False
 
+    def visit_If(self, node: ast.If) -> None:
+        if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
+            self.in_TYPE_CHECKING = True
+        self.generic_visit(node)
+        self.in_TYPE_CHECKING = False
+
+    def post_visit(self) -> None:
+        if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):
+            for mod in diff:
+                if loc := self.lazy_modules.get(mod):
+                    self._check(loc, rules.LazyModule())
+
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
     type_ = cell.get("cell_type")
@@ -500,4 +541,5 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
+        linter.post_visit()
         return linter.violations

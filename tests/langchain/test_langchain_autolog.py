@@ -89,14 +89,14 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
-def create_openai_runnable():
+def create_openai_runnable(temperature=0.9):
     from langchain_core.output_parsers import StrOutputParser
 
     prompt = PromptTemplate(
         input_variables=["product"],
         template="What is {product}?",
     )
-    return prompt | ChatOpenAI(temperature=0.9) | StrOutputParser()
+    return prompt | ChatOpenAI(temperature=temperature) | StrOutputParser()
 
 
 def create_retriever(tmp_path):
@@ -1238,3 +1238,25 @@ def test_langchain_auto_tracing_in_serving_agent():
         root_span.end_time_ns // 1_000_000
         - (trace.info.timestamp_ms + trace.info.execution_time_ms)
     ) <= 1
+
+
+def test_langchain_tracing_multi_threads():
+    mlflow.langchain.autolog()
+
+    temperatures = [(t + 1) / 10 for t in range(4)]
+    models = [create_openai_runnable(temperature=t) for t in temperatures]
+
+    with ThreadPoolExecutor(max_workers=len(temperatures)) as executor:
+        futures = [executor.submit(models[i].invoke, {"product": "MLflow"}) for i in range(4)]
+        for f in futures:
+            f.result()
+
+    traces = get_traces()
+    assert len(traces) == 4
+    assert (
+        sorted(
+            trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+            for trace in traces
+        )
+        == temperatures
+    )

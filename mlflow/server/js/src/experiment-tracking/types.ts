@@ -4,9 +4,17 @@
  *
  * Note: this could be automatically generated in the future.
  */
+import { type CSSProperties } from 'react';
 import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
+
+export interface RunItem {
+  runId: string;
+  name: string;
+  color: CSSProperties['color'];
+  y: number;
+}
 
 /**
  * Simple key/value model enhanced with immutable.js
@@ -25,6 +33,7 @@ type ModelVersionAliasList = string[];
  */
 export interface ModelEntity {
   creation_timestamp: number;
+  last_updated_timestamp: number;
   current_stage: string;
   version: string;
   description: string;
@@ -53,6 +62,7 @@ export interface ModelVersionInfoEntity {
   run_id: string;
   status: string;
   status_message?: string;
+  description?: string;
   aliases?: ModelVersionAliasList;
   tags?: KeyValueEntity[];
 }

@@ -7,14 +7,6 @@ import mlflow.spark
 from mlflow.exceptions import MlflowException
 from mlflow.spark.autologging import PythonSubscriber, _get_current_listener
 
-from tests.spark.autologging.utils import _get_or_create_spark_session
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with _get_or_create_spark_session() as session:
-        yield session
-
 
 @pytest.fixture
 def mock_get_current_listener():

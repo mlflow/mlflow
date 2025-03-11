@@ -1372,10 +1372,22 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
+    if isinstance(arr.dtype, DataType):
+        # TODO: this is still significantly slower than direct np.asarray dtype conversion
+        # pd.Series conversion can be removed once we support direct validation on the numpy array
+        data_enforced = (
+            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
+                dtype=arr.dtype.to_numpy()
+            )
+            if len(data) > 0
+            else data
+        )
+    else:
+        data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
-    # Keep input data type
-    if isinstance(data, np.ndarray):
+    if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
+        data_enforced = data_enforced.tolist()
+    elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 
     return data_enforced

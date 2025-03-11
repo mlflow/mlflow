@@ -25,6 +25,7 @@ from mlflow.entities import (
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -202,7 +203,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         ],
     }
     trace = MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
     mock_artifact_repo.download_trace_data.assert_called_once()
 
     assert trace.info.request_id == "tr-1234567"
@@ -1614,3 +1615,230 @@ def test_file_store_download_upload_trace_data(tmp_path):
         trace_data = client.get_trace(span.request_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
+
+
+@pytest.fixture(params=["file", "sqlalchemy"])
+def registry_uri(request, tmp_path):
+    """Set an MLflow Model Registry URI with different type of backend."""
+    if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    original_registry_uri = mlflow.get_registry_uri()
+
+    if request.param == "file":
+        tracking_uri = tmp_path.joinpath("file").as_uri()
+    elif request.param == "sqlalchemy":
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
+
+    yield tracking_uri
+
+    # Reset tracking URI
+    mlflow.set_tracking_uri(original_registry_uri)
+
+
+def test_crud_prompts(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{title}} {{name}}! How are you today?",
+        commit_message="A friendly greeting",
+        tags={"model": "my-model"},
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.name == "prompt_1"
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
+    assert prompt.commit_message == "A friendly greeting"
+    assert prompt.tags == {"model": "my-model"}
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{title}} {{name}}! What's up?",
+        commit_message="New greeting",
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
+
+    prompt = client.load_prompt("prompt_1", version=1)
+    assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
+
+    prompt = client.load_prompt("prompts:/prompt_1/2")
+    assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
+
+    # Delete prompt must be called with a version
+    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+        client.delete_prompt("prompt_1")
+
+    client.delete_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
+        client.load_prompt("prompt_1", version=2)
+
+    client.delete_prompt("prompt_1", version=1)
+
+
+def test_create_prompt_error_handling(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Exceeds the max length
+    with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
+        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+
+    # When the first version creation fails, RegisteredModel should not be created
+    with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
+        client.load_prompt("prompt_1")
+
+    client.register_prompt("prompt_1", template="Hi, {{title}} {{name}}!")
+    assert client.load_prompt("prompt_1") is not None
+
+    # When the subsequent version creation fails, RegisteredModel should remain
+    with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
+        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+
+    assert client.load_prompt("prompt_1") is not None
+
+
+def test_create_prompt_with_invalid_name(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'."):
+        client.register_prompt(name="", template="Hi, {{name}}!")
+
+    if tracking_uri.startswith("file"):
+        with pytest.raises(MlflowException, match=r"Prompt name cannot contain path separator"):
+            client.register_prompt(name="prompt_1/2", template="Hi, {{name}}!")
+
+        with pytest.raises(MlflowException, match=r"Prompt name cannot contain '%' character"):
+            client.register_prompt(name="m%6fdel", template="Hi, {{name}}!")
+
+    # Name conflicts with a model
+    client.create_registered_model("model")
+    with pytest.raises(MlflowException, match=r"Model 'model' exists with the same name."):
+        client.register_prompt(name="model", template="Hi, {{name}}!")
+
+
+def test_load_prompt_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Prompt with name=test not found"):
+        client.load_prompt("test")
+
+    if tracking_uri.startswith("file"):
+        error_msg = r"Prompt with name=test not found"
+    else:
+        error_msg = r"Prompt \(name=test, version=2\) not found"
+
+    with pytest.raises(MlflowException, match=error_msg):
+        client.load_prompt("test", version=2)
+
+    # Load prompt with a model name
+    client.create_registered_model("model")
+    client.create_model_version("model", "source")
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model")
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", version=1)
+
+
+def test_delete_prompt_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    if tracking_uri.startswith("file"):
+        error_msg = r"Prompt with name=test not found"
+    else:
+        error_msg = r"Prompt \(name=test, version=1\) not found"
+
+    with pytest.raises(MlflowException, match=error_msg):
+        client.delete_prompt("test", version=1)
+
+    # Delete prompt with a model name
+    client.create_registered_model("test")
+    client.create_model_version("test", "source")
+
+    with pytest.raises(MlflowException, match=r"Prompt 'test' does not exist."):
+        client.delete_prompt("test", version=1)
+
+    client.register_prompt(name="prompt", template="Hi, {{name}}!")
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
+        client.delete_prompt("prompt", version=2)
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+def test_crud_prompt_on_unsupported_registry(registry_uri):
+    client = MlflowClient(registry_uri=registry_uri)
+
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+        client.register_prompt(
+            name="prompt_1",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            commit_message="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+        client.load_prompt("prompt_1")
+
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+        client.delete_prompt("prompt_1")
+
+
+def test_block_create_model_with_prompt_tag(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_registered_model(
+            name="model",
+            tags={IS_PROMPT_TAG_KEY: "true"},
+        )
+
+    with pytest.raises(MlflowException, match=r"Prompts cannot be registered"):
+        client.create_model_version(
+            name="model",
+            source="source",
+            tags={IS_PROMPT_TAG_KEY: "false"},
+        )
+
+
+def test_block_create_prompt_with_existing_model_name(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Model 'model' exists with"):
+        client.register_prompt(
+            name="model",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            commit_message="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+
+def test_log_and_detach_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="p1", template="Hi, there!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    client.register_prompt(name="p2", template="Hi, {{name}}!")
+
+    run_id = client.create_run(experiment_id="0").info.run_id
+    assert client.list_logged_prompts(run_id) == []
+
+    client.log_prompt(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p1"]
+
+    client.log_prompt(run_id, "prompts:/p2/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2", "p1"]
+
+    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
+    prompts = client.list_logged_prompts(run_id)
+    assert [p.name for p in prompts] == ["p2"]

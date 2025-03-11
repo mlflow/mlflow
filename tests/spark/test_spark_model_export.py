@@ -452,16 +452,10 @@ def test_load_spark_model_from_models_uri(
             if artifact_repo_class is UnityCatalogModelsArtifactRepository
             else {}
         )
-        assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None, **kwargs),
-            mock.call("", None, **kwargs),
-        ]
+        mock_download_artifacts.assert_called_once_with("", None, **kwargs)
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
-        assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None, **kwargs),
-            mock.call("", None, **kwargs),
-        ]
+        mock_download_artifacts.assert_called_once_with("", None, **kwargs)
         assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
 
@@ -667,7 +661,6 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
             artifact_path,
             conda_env=spark_custom_env,
         )
-        assert model_info.model_uri == f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
     model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
