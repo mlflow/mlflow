@@ -23,6 +23,8 @@ const SNIPPET_LINE_HEIGHT = 18;
 export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Props): JSX.Element => {
   const { theme } = useDesignSystemTheme();
 
+  const codeSnippetTheme = theme.isDarkMode ? 'duotoneDark' : 'light';
+
   const classical_ml_text = `
 import mlflow
 from sklearn.model_selection import train_test_split
@@ -144,6 +146,7 @@ mlflow.end_run()
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{
@@ -165,6 +168,7 @@ mlflow.end_run()
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{
