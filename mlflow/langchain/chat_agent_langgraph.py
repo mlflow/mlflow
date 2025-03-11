@@ -1,7 +1,7 @@
 import importlib.metadata
 import json
-import uuid
 from typing import Annotated, Any, Optional, TypedDict, Union
+from uuid import uuid4
 
 from packaging.version import Version
 
@@ -18,7 +18,7 @@ try:
         # show a friendlier error message
         if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
             raise ImportError(
-                "Please install `langgraph-prebuilt>=0.3.0` to use MLflow LangGraph ChatAgent "
+                "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x."
             ) from e
 
@@ -47,13 +47,13 @@ def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[d
         if isinstance(m, BaseMessage):
             left[i] = parse_message(m)
         if left[i].get("id") is None:
-            left[i]["id"] = str(uuid.uuid4())
+            left[i]["id"] = str(uuid4())
 
     for i, m in enumerate(right):
         if isinstance(m, BaseMessage):
             right[i] = parse_message(m)
         if right[i].get("id") is None:
-            right[i]["id"] = str(uuid.uuid4())
+            right[i]["id"] = str(uuid4())
 
     # merge
     left_idx_by_id = {m.get("id"): i for i, m in enumerate(left)}
@@ -326,6 +326,8 @@ class ChatAgentToolNode(ToolNode):
                         pass
                 if "custom_outputs" in return_obj:
                     custom_outputs = return_obj["custom_outputs"]
+                if m.id is None:
+                    m.id = str(uuid4())
                 messages.append(parse_message(m, attachments=return_obj.get("attachments")))
             except Exception:
                 messages.append(parse_message(m))

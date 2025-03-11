@@ -157,12 +157,12 @@ class ChatAgentResponse(BaseModel):
         if any(msg_id is None for msg_id in message_ids):
             raise ValueError(
                 "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
-                "`uuid.uuid4()` to generate a unique ID."
+                "`str(uuid.uuid4())` to generate a unique ID."
             )
         if len(message_ids) != len(set(message_ids)):
             raise ValueError(
                 "All ChatAgentMessage objects in field `messages` must have unique IDs. "
-                "You can use `uuid.uuid4()` to generate a unique ID."
+                "You can use `str(uuid.uuid4())` to generate a unique ID."
             )
         return values
 
@@ -211,7 +211,7 @@ class ChatAgentChunk(BaseModel):
                 " ID. If this chunk contains partial content, it should have the same ID as other "
                 " chunks in the same message. See "
                 "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
-                " for more details. You can use `uuid.uuid4()` to generate a unique ID."
+                " for more details. You can use `str(uuid.uuid4())` to generate a unique ID."
             )
         return values
 

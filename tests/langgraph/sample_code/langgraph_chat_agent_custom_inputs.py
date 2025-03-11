@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Any, Generator, Optional, Sequence, Union
+from uuid import uuid4
 
 from langchain_core.language_models import LanguageModelLike
 from langchain_core.messages import AIMessage, ToolCall
@@ -102,7 +103,9 @@ def create_tool_calling_agent(
     def add_custom_outputs(state: ChatAgentState):
         custom_outputs = (state.get("custom_outputs") or {}) | (state.get("custom_inputs") or {})
         return {
-            "messages": [{"role": "assistant", "content": "adding custom outputs"}],
+            "messages": [
+                {"role": "assistant", "content": "adding custom outputs", "id": str(uuid4())}
+            ],
             "custom_outputs": custom_outputs,
         }
 
