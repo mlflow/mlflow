@@ -9,6 +9,7 @@ import posixpath
 import re
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
+from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -298,6 +299,13 @@ def _validate_model_version_tag(key, value):
     _validate_tag_name(key)
     _validate_tag_value(value)
     _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+
+    # Check prompt text tag particularly for showing friendly error message
+    if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
+        )
+
     _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 

@@ -17,7 +17,11 @@ export interface ModelListFiltersProps {
   isFiltered: boolean;
 }
 
-const ModelSearchInputHelpTooltip = () => {
+export const ModelSearchInputHelpTooltip = ({
+  exampleEntityName = 'my_model_name',
+}: {
+  exampleEntityName?: string;
+}) => {
   const { formatMessage } = useIntl();
   const tooltipIntroMessage = defineMessage({
     defaultMessage:
@@ -59,7 +63,7 @@ const ModelSearchInputHelpTooltip = () => {
           <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
           <br />
           • tags.my_key = "my_value"
-          <br />• name ilike "%my_model_name%" and tags.my_key = "my_value"
+          <br />• name ilike "%{exampleEntityName}%" and tags.my_key = "my_value"
         </div>
         <Popover.Arrow />
       </Popover.Content>

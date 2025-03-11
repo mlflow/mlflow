@@ -149,7 +149,7 @@ def test_crud_prompts(tmp_path):
 
     mlflow.delete_prompt("prompt_1", version=2)
 
-    with pytest.raises(MlflowException, match=r"Prompt (.*) with version 2 not found"):
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
         mlflow.load_prompt("prompt_1", version=2)
 
     mlflow.delete_prompt("prompt_1", version=1)

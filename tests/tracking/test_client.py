@@ -1752,10 +1752,99 @@ def test_crud_prompts(tracking_uri):
 
     client.delete_prompt("prompt_1", version=2)
 
-    with pytest.raises(MlflowException, match=r"Prompt (.*) with version 2 not found"):
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
         client.load_prompt("prompt_1", version=2)
 
     client.delete_prompt("prompt_1", version=1)
+
+
+def test_create_prompt_error_handling(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Exceeds the max length
+    with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
+        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+
+    # When the first version creation fails, RegisteredModel should not be created
+    with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
+        client.load_prompt("prompt_1")
+
+    client.register_prompt("prompt_1", template="Hi, {{title}} {{name}}!")
+    assert client.load_prompt("prompt_1") is not None
+
+    # When the subsequent version creation fails, RegisteredModel should remain
+    with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
+        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+
+    assert client.load_prompt("prompt_1") is not None
+
+
+def test_create_prompt_with_invalid_name(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'."):
+        client.register_prompt(name="", template="Hi, {{name}}!")
+
+    if tracking_uri.startswith("file"):
+        with pytest.raises(MlflowException, match=r"Prompt name cannot contain path separator"):
+            client.register_prompt(name="prompt_1/2", template="Hi, {{name}}!")
+
+        with pytest.raises(MlflowException, match=r"Prompt name cannot contain '%' character"):
+            client.register_prompt(name="m%6fdel", template="Hi, {{name}}!")
+
+    # Name conflicts with a model
+    client.create_registered_model("model")
+    with pytest.raises(MlflowException, match=r"Model 'model' exists with the same name."):
+        client.register_prompt(name="model", template="Hi, {{name}}!")
+
+
+def test_load_prompt_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match=r"Prompt with name=test not found"):
+        client.load_prompt("test")
+
+    if tracking_uri.startswith("file"):
+        error_msg = r"Prompt with name=test not found"
+    else:
+        error_msg = r"Prompt \(name=test, version=2\) not found"
+
+    with pytest.raises(MlflowException, match=error_msg):
+        client.load_prompt("test", version=2)
+
+    # Load prompt with a model name
+    client.create_registered_model("model")
+    client.create_model_version("model", "source")
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model")
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", version=1)
+
+
+def test_delete_prompt_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    if tracking_uri.startswith("file"):
+        error_msg = r"Prompt with name=test not found"
+    else:
+        error_msg = r"Prompt \(name=test, version=1\) not found"
+
+    with pytest.raises(MlflowException, match=error_msg):
+        client.delete_prompt("test", version=1)
+
+    # Delete prompt with a model name
+    client.create_registered_model("test")
+    client.create_model_version("test", "source")
+
+    with pytest.raises(MlflowException, match=r"Prompt 'test' does not exist."):
+        client.delete_prompt("test", version=1)
+
+    client.register_prompt(name="prompt", template="Hi, {{name}}!")
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
+        client.delete_prompt("prompt", version=2)
 
 
 @pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])

@@ -976,7 +976,7 @@ class Schema:
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
-                "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+                f"Please choose one of {ColSpec.__name__} or {TensorSpec.__name__}"
             )
         if (
             all(isinstance(x, TensorSpec) for x in inputs)

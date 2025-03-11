@@ -33,6 +33,7 @@ type ModelVersionAliasList = string[];
  */
 export interface ModelEntity {
   creation_timestamp: number;
+  last_updated_timestamp: number;
   current_stage: string;
   version: string;
   description: string;
@@ -61,6 +62,7 @@ export interface ModelVersionInfoEntity {
   run_id: string;
   status: string;
   status_message?: string;
+  description?: string;
   aliases?: ModelVersionAliasList;
   tags?: KeyValueEntity[];
 }
