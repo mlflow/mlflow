@@ -1,5 +1,6 @@
 import {
   Button,
+  CopyIcon,
   Modal,
   PlayIcon,
   Spacer,
@@ -15,6 +16,8 @@ import { FormattedMessage } from 'react-intl';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { uniq } from 'lodash';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
+import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
+import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
@@ -55,8 +58,15 @@ export const PromptContentPreview = ({
       variables.push(match[1]);
     }
 
+    // Sanity check for tricky cases like nested brackets. If the variable name contains
+    // a bracket, we consider it as a parsing error and render a placeholder instead.
+    if (variables.some((variable) => variable.includes('{') || variable.includes('}'))) {
+      return null;
+    }
+
     return uniq(variables);
   }, [value]);
+  const codeSnippetContent = buildCodeSnippetContent(promptVersion, variableNames);
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -138,27 +148,52 @@ export const PromptContentPreview = ({
           />
         }
       >
-        <CodeSnippet language="python">
-          {`import openai
+        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)} />
+      </Modal>
+      {DeletePromptModal}
+    </div>
+  );
+};
+
+const buildCodeSnippetContent = (promptVersion: RegisteredPromptVersion | undefined, variables: string[] | null) => {
+  let codeSnippetContent = `from openai import OpenAI
 import mlflow
-client = OpenAI(api_key="<YOUR_API_KEY">)
+client = OpenAI(api_key="<YOUR_API_KEY>")
 
 # Set MLflow tracking URI
 mlflow.set_tracking_uri("<YOUR_TRACKING_URI>")
 
 # Example of loading and using the prompt
-prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
+prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`;
+
+  // Null variables mean that there was a parsing error
+  if (variables === null) {
+    codeSnippetContent += `
+
+# Replace the variables with the actual values
+variables = {
+   "key": "value",
+   ...
+}
+
 response = client.chat.completions.create(
     messages=[{
         "role": "user",
-        "content": prompt.format(${variableNames.map((name) => `${name}="<${name}>"`).join(', ')})
-    }]
-)
-print(response.choices[0].message.content)`}
-        </CodeSnippet>
-        {/* "content": prompt.format(question="<question>") */}
-      </Modal>
-      {DeletePromptModal}
-    </div>
-  );
+        "content": prompt.format(**variables),
+    }],
+    model="gpt-4o-mini",
+)`;
+  } else {
+    codeSnippetContent += `
+response = client.chat.completions.create(
+    messages=[{
+        "role": "user",
+        "content": prompt.format(${variables.map((name) => `${name}="<${name}>"`).join(', ')}),
+    }],
+    model="gpt-4o-mini",
+)`;
+  }
+
+  codeSnippetContent += `\n\nprint(response.choices[0].message.content)`;
+  return codeSnippetContent;
 };
