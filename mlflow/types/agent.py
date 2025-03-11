@@ -131,7 +131,7 @@ class ChatAgentResponse(BaseModel):
             **Optional**, defaults to None
     """
 
-    if not IS_PYDANTIC_V2_OR_NEWER:
+    if IS_PYDANTIC_V2_OR_NEWER:
         model_config = ConfigDict(validate_assignment=True)
     else:
 
@@ -181,7 +181,7 @@ class ChatAgentChunk(BaseModel):
             **Optional**, defaults to None
     """
 
-    if not IS_PYDANTIC_V2_OR_NEWER:
+    if IS_PYDANTIC_V2_OR_NEWER:
         model_config = ConfigDict(validate_assignment=True)
     else:
 
