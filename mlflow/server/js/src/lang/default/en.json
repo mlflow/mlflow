@@ -319,6 +319,10 @@
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
   },
+  "4GPLHq": {
+    "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
+    "description": "Description for the edit aliases modal on the registered prompt details page"
+  },
   "4HbEVz": {
     "defaultMessage": "You need to select a served model endpoint using dropdown first",
     "description": "Experiment page > new run modal > invalid state - no model endpoint selected"
@@ -2022,6 +2026,10 @@
   "axF2gD": {
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
+  },
+  "b0KTgh": {
+    "defaultMessage": "Add/edit alias for prompt version {version}",
+    "description": "Title for the edit aliases modal on the registered prompt details page"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
