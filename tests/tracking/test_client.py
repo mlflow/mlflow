@@ -1778,7 +1778,7 @@ def test_delete_prompt_error(tracking_uri):
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
@@ -1786,10 +1786,10 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
             tags={"model": "my-model"},
         )
 
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
         client.load_prompt("prompt_1")
 
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
         client.delete_prompt("prompt_1")
 
 
