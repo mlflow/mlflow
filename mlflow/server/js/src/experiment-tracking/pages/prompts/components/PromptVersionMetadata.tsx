@@ -5,8 +5,9 @@ import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
-import { REGISTERED_PROMPT_SOURCE_RUN_ID } from '../utils';
+import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
+import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
+import { Fragment, useMemo } from 'react';
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -25,12 +26,20 @@ export const PromptVersionMetadata = ({
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const sourceRunId = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_ID)?.value;
+
+  const runIds = useMemo(() => {
+    const tagValue = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_IDS)?.value;
+    if (!tagValue) {
+      return [];
+    }
+    return tagValue.split(',').map((runId) => runId.trim());
+  }, [registeredPromptVersion]);
+
 
   const {
-    isLoading: isLoadingSourceRun,
-    sourceRunInfos: [sourceRunInfo],
-  } = usePromptSourceRunsInfo(sourceRunId ? [sourceRunId] : []);
+    isLoading: isLoadingRuns,
+    runInfoMap: runInfoMap,
+  } = usePromptRunsInfo(runIds ? runIds : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
@@ -98,24 +107,34 @@ export const PromptVersionMetadata = ({
           }}
         />
       </div>
-      {(isLoadingSourceRun || sourceRunInfo) && (
+      {(isLoadingRuns || runIds) && (
         <>
           <Typography.Text bold>
             <FormattedMessage
-              defaultMessage="Source run:"
-              description="A label for the source run in the prompt details page"
+              defaultMessage="MLflow runs:"
+              description="A label for the associated MLflow runs in the prompt details page"
             />
           </Typography.Text>
           <Typography.Text>
-            {isLoadingSourceRun ? (
+            {isLoadingRuns ? (
               <ParagraphSkeleton css={{ width: 100 }} />
-            ) : sourceRunInfo?.experimentId && sourceRunInfo?.runUuid && sourceRunInfo?.runName ? (
-              <Link to={Routes.getRunPageRoute(sourceRunInfo.experimentId, sourceRunInfo.runUuid)}>
-                {sourceRunInfo.runName}
-              </Link>
-            ) : (
-              <>{sourceRunInfo?.runName || sourceRunInfo?.runUuid}</>
-            )}
+            ) : runIds.map((runId, index) => {
+              const runInfo = runInfoMap[runId];
+              const element = runInfo?.experimentId && runInfo?.runUuid && runInfo?.runName ? (
+                <Link key={runId} to={Routes.getRunPageRoute(runInfo.experimentId, runInfo.runUuid)}>
+                  {runInfo.runName}
+                </Link>
+              ) : (
+                <span key={runId}>{runInfo?.runName || runInfo?.runUuid}</span>
+              );
+
+              // Add comma and space after each element except the last one
+              return index < runIds.length - 1 ? (
+                <Fragment key={`${runId}-fragment`}>
+                  {element},{' '}
+                </Fragment>
+              ) : element;
+            })}
           </Typography.Text>
         </>
       )}

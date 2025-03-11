@@ -3,12 +3,12 @@ import { transformGetRunResponse } from '../../../sdk/FieldNameTransformers';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { GetRunApiResponse } from '../../../types';
 
-type UseRegisteredModelRelatedRunNamesQueryKey = ['prompt_source_run', string];
+type UseRegisteredModelRelatedRunNamesQueryKey = ['prompt_associated_runs', string];
 
-export const usePromptSourceRunsInfo = (runUuids: string[] = []) => {
+export const usePromptRunsInfo = (runUuids: string[] = []) => {
   const queryResults = useQueries({
     queries: runUuids.map((runUuid) => ({
-      queryKey: ['prompt_source_run', runUuid] as UseRegisteredModelRelatedRunNamesQueryKey,
+      queryKey: ['prompt_associated_runs', runUuid] as UseRegisteredModelRelatedRunNamesQueryKey,
       queryFn: async ({
         queryKey: [, runUuid],
       }: QueryFunctionContext<UseRegisteredModelRelatedRunNamesQueryKey>): Promise<GetRunApiResponse | null> => {
@@ -22,8 +22,16 @@ export const usePromptSourceRunsInfo = (runUuids: string[] = []) => {
     })),
   });
 
+  // Create a map of run_id to run info
+  const runInfoMap: Record<string, any | undefined> = {};
+
+  queryResults.forEach((queryResult, index) => {
+    const runUuid = runUuids[index];
+    runInfoMap[runUuid] = queryResult.data?.run?.info;
+  });
+
   return {
     isLoading: runUuids.length > 0 && queryResults.some((queryResult) => queryResult.isLoading),
-    sourceRunInfos: queryResults.map((queryResult) => queryResult.data?.run?.info),
+    runInfoMap,
   };
 };
