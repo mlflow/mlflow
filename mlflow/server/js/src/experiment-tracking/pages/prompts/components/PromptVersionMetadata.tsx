@@ -7,7 +7,8 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
 import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
-import { Fragment, useMemo } from 'react';
+import { useMemo } from 'react';
+import { PromptVersionRuns } from './PromptVersionRuns';
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -102,36 +103,6 @@ export const PromptVersionMetadata = ({
           }}
         />
       </div>
-      {(isLoadingRuns || runIds) && (
-        <>
-          <Typography.Text bold>
-            <FormattedMessage
-              defaultMessage="MLflow runs:"
-              description="A label for the associated MLflow runs in the prompt details page"
-            />
-          </Typography.Text>
-          <Typography.Text>
-            {isLoadingRuns ? (
-              <ParagraphSkeleton css={{ width: 100 }} />
-            ) : (
-              runIds.map((runId, index) => {
-                const runInfo = runInfoMap[runId];
-                const element =
-                  runInfo?.experimentId && runInfo?.runUuid && runInfo?.runName ? (
-                    <Link key={runId} to={Routes.getRunPageRoute(runInfo.experimentId, runInfo.runUuid)}>
-                      {runInfo.runName}
-                    </Link>
-                  ) : (
-                    <span key={runId}>{runInfo?.runName || runInfo?.runUuid}</span>
-                  );
-
-                // Add comma and space after each element except the last one
-                return index < runIds.length - 1 ? <Fragment key={`${runId}-fragment`}>{element}, </Fragment> : element;
-              })
-            )}
-          </Typography.Text>
-        </>
-      )}
       {registeredPromptVersion.description && (
         <>
           <Typography.Text bold>
@@ -142,6 +113,13 @@ export const PromptVersionMetadata = ({
           </Typography.Text>
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
+      )}
+      {(isLoadingRuns || runIds) && (
+        <PromptVersionRuns
+          isLoadingRuns={isLoadingRuns}
+          runIds={runIds}
+          runInfoMap={runInfoMap}
+        />
       )}
     </div>
   );
