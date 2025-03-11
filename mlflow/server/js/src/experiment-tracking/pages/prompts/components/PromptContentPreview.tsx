@@ -149,7 +149,6 @@ export const PromptContentPreview = ({
         }
       >
         <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)} />
-        {/* "content": prompt.format(question="<question>") */}
       </Modal>
       {DeletePromptModal}
     </div>
@@ -195,6 +194,6 @@ response = client.chat.completions.create(
 )`;
   }
 
-  codeSnippetContent += `\nprint(response.choices[0].message.content)`;
+  codeSnippetContent += `\n\nprint(response.choices[0].message.content)`;
   return codeSnippetContent;
 };
