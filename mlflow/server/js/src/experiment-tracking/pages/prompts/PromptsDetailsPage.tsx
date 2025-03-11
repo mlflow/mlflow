@@ -161,11 +161,7 @@ const PromptsDetailsPage = () => {
         }
       />
       <Spacer shrinks={false} />
-      <PromptDetailsMetadata
-        promptEntity={promptDetailsData?.prompt}
-        promptVersions={promptDetailsData?.versions}
-        onTagsUpdated={refetch}
-      />
+      <PromptDetailsMetadata promptEntity={promptDetailsData?.prompt} onTagsUpdated={refetch} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: showPreviewPane ? '0 0 320px' : 1, display: 'flex', flexDirection: 'column' }}>
           <Typography.Title level={3}>Prompt versions</Typography.Title>
