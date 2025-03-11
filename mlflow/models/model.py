@@ -15,6 +15,7 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -846,7 +847,8 @@ class Model:
                 metadata=metadata,
                 resources=resources,
                 auth_policy=auth_policy,
-                prompts=prompts,
+                # Convert to URIs for serialization
+                prompts=[pr.uri if isinstance(pr, Prompt) else pr for pr in prompts],
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -922,13 +924,8 @@ class Model:
             # Associate prompts to the model Run
             if prompts:
                 client = mlflow.MlflowClient()
-                for prompt_uri in prompts:
-                    try:
-                        client.log_prompt(run_id, prompt_uri)
-                    except MlflowException:
-                        _logger.warning(
-                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
-                        )
+                for prompt in prompts:
+                    client.log_prompt(run_id, prompt)
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 

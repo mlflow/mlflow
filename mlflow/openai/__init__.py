@@ -39,13 +39,14 @@ import os
 import warnings
 from functools import partial
 from string import Formatter
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import yaml
 from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -455,6 +456,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     **kwargs,
 ):
     """
@@ -494,6 +496,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -545,6 +548,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
         **kwargs,
     )
 

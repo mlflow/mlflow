@@ -602,22 +602,24 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def log_prompt(self, run_id: str, prompt_uri: str) -> None:
+    def log_prompt(self, run_id: str, prompt: Union[str, Prompt]) -> None:
         """
         Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
 
         Args:
             run_id: The ID of the run to log the prompt to.
-            prompt_uri: The prompt URI in the format "prompts:/name/version".
+            prompt: A Prompt object or the prompt URI in the format "prompts:/name/version".
         """
-        prompt = self.load_prompt(prompt_uri)
+        if isinstance(prompt, str):
+            prompt = self.load_prompt(prompt)
+
         if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
             run_ids = run_id_tags.split(",")
             run_ids.append(run_id)
         else:
             run_ids = [run_id]
 
-        name, version = self.parse_prompt_uri(prompt_uri)
+        name, version = self.parse_prompt_uri(prompt.uri)
         self._get_registry_client().set_model_version_tag(
             name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )

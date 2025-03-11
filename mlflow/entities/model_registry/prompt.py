@@ -102,6 +102,16 @@ class Prompt(ModelVersion):
         # Remove the prompt text tag as it should not be user-facing
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
+    @property
+    def run_ids(self) -> list[str]:
+        """Get the run IDs associated with the prompt."""
+        return self.tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, "").split(",")
+
+    @property
+    def uri(self) -> str:
+        """Return the URI of the prompt."""
+        return f"prompts:/{self.name}/{self.version}"
+
     def format(self, allow_partial: bool = False, **kwargs) -> Union[Prompt, str]:
         """
         Format the template text with the given keyword arguments.
