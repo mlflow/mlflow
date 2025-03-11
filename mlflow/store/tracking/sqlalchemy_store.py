@@ -47,6 +47,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
+    SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -1839,6 +1840,7 @@ class SqlAlchemyStore(AbstractStore):
         else:
             offset = 0
 
+        max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         with self.ManagedSessionMaker() as session:
             models = (
                 session.query(SqlLoggedModel)
