@@ -9,7 +9,7 @@ _logger = logging.getLogger(__name__)
 
 def save_dspy_module_state(program, file_name: str = "model.json"):
     """
-    Save the state of states of dspy `Module` to a temporary directory and log it as an artifact.
+    Save states of dspy `Module` to a temporary directory and log it as an artifact.
 
     Args:
         program: The dspy `Module` to be saved.

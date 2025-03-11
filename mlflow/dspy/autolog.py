@@ -1,3 +1,5 @@
+import logging
+
 from mlflow.dspy.save import FLAVOR_NAME, log_model
 from mlflow.dspy.util import save_dspy_module_state
 from mlflow.tracing.provider import trace_disabled
@@ -7,6 +9,8 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     safe_patch,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -57,6 +61,12 @@ def autolog(
         disable=disable,
         silent=silent,
     )
+
+    if log_model and (not log_compiles):
+        _logger.warning(
+            "`log_model=True` is not effective without `log_compiles=True`. "
+            "Consider setting `log_compiles=True` to log models."
+        )
 
     import dspy
 
