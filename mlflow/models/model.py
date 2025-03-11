@@ -841,14 +841,16 @@ class Model:
             local_path = tmp.path("model")
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+            if prompts is not None:
+                # Convert to URIs for serialization
+                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
             mlflow_model = cls(
                 artifact_path=artifact_path,
                 run_id=run_id,
                 metadata=metadata,
                 resources=resources,
                 auth_policy=auth_policy,
-                # Convert to URIs for serialization
-                prompts=[pr.uri if isinstance(pr, Prompt) else pr for pr in prompts],
+                prompts=prompts,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
