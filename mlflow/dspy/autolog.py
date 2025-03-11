@@ -62,7 +62,7 @@ def autolog(
         silent=silent,
     )
 
-    if log_model and (not log_compiles):
+    if log_models and (not log_compiles):
         _logger.warning(
             "`log_model=True` is not effective without `log_compiles=True`. "
             "Consider setting `log_compiles=True` to log models."
