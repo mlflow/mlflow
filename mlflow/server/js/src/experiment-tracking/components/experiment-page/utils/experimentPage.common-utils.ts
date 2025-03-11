@@ -20,7 +20,7 @@ const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
 /**
  * Function that gets the experiment type for a given experiment object
  */
-export const getExperimentType = (experiment: ExperimentEntity) => {
+const getExperimentType = (experiment: ExperimentEntity) => {
   const experimentType = experiment.tags.find((tag) => tag.key === EXPERIMENT_TYPE_TAG);
   if (experimentType) {
     return experimentType.value;

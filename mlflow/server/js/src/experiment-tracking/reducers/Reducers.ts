@@ -677,7 +677,7 @@ const errorModal = (state = errorModalDefault, action: any) => {
   }
 };
 
-export const views = combineReducers({
+const views = combineReducers({
   errorModal,
 });
 

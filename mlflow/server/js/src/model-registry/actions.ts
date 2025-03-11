@@ -101,7 +101,7 @@ export const createModelVersionApi = (name, source, runId, tags: any[] = [], id 
   meta: { id, name, runId },
 });
 
-export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
+const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
 export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
@@ -191,7 +191,7 @@ export const updateModelVersionApi = (modelName, version, description, id = getU
   meta: { id },
 });
 
-export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
+const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
 export const transitionModelVersionStageApi = (
   // @ts-expect-error TS(7006): Parameter 'modelName' implicitly has an 'any' type... Remove this comment to see the full error message
   modelName,

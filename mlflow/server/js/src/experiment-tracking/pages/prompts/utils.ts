@@ -1,7 +1,6 @@
 import type { RegisteredPrompt, RegisteredPromptVersion } from './types';
 
 export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';
-export const REGISTERED_PROMPT_COMMIT_MESSAGE_TAG_KEY = 'mlflow.prompt.commit_message';
 // Tag key used to store the run ID associated with a single prompt version
 export const REGISTERED_PROMPT_SOURCE_RUN_ID = 'mlflow.prompt.run_id';
 // Tak key used to store comma-separated run IDs associated with a prompt
