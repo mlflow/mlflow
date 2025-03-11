@@ -26,7 +26,6 @@ export const PromptVersionMetadata = ({
 }) => {
   const { theme } = useDesignSystemTheme();
 
-
   const runIds = useMemo(() => {
     const tagValue = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_IDS)?.value;
     if (!tagValue) {
@@ -35,11 +34,7 @@ export const PromptVersionMetadata = ({
     return tagValue.split(',').map((runId) => runId.trim());
   }, [registeredPromptVersion]);
 
-
-  const {
-    isLoading: isLoadingRuns,
-    runInfoMap: runInfoMap,
-  } = usePromptRunsInfo(runIds ? runIds : []);
+  const { isLoading: isLoadingRuns, runInfoMap } = usePromptRunsInfo(runIds ? runIds : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
@@ -118,23 +113,22 @@ export const PromptVersionMetadata = ({
           <Typography.Text>
             {isLoadingRuns ? (
               <ParagraphSkeleton css={{ width: 100 }} />
-            ) : runIds.map((runId, index) => {
-              const runInfo = runInfoMap[runId];
-              const element = runInfo?.experimentId && runInfo?.runUuid && runInfo?.runName ? (
-                <Link key={runId} to={Routes.getRunPageRoute(runInfo.experimentId, runInfo.runUuid)}>
-                  {runInfo.runName}
-                </Link>
-              ) : (
-                <span key={runId}>{runInfo?.runName || runInfo?.runUuid}</span>
-              );
+            ) : (
+              runIds.map((runId, index) => {
+                const runInfo = runInfoMap[runId];
+                const element =
+                  runInfo?.experimentId && runInfo?.runUuid && runInfo?.runName ? (
+                    <Link key={runId} to={Routes.getRunPageRoute(runInfo.experimentId, runInfo.runUuid)}>
+                      {runInfo.runName}
+                    </Link>
+                  ) : (
+                    <span key={runId}>{runInfo?.runName || runInfo?.runUuid}</span>
+                  );
 
-              // Add comma and space after each element except the last one
-              return index < runIds.length - 1 ? (
-                <Fragment key={`${runId}-fragment`}>
-                  {element},{' '}
-                </Fragment>
-              ) : element;
-            })}
+                // Add comma and space after each element except the last one
+                return index < runIds.length - 1 ? <Fragment key={`${runId}-fragment`}>{element}, </Fragment> : element;
+              })
+            )}
           </Typography.Text>
         </>
       )}

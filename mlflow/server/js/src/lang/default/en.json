@@ -671,6 +671,10 @@
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
   },
+  "9ZHB3D": {
+    "defaultMessage": "MLflow runs:",
+    "description": "A label for the associated MLflow runs in the prompt details page"
+  },
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
@@ -2439,10 +2443,6 @@
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
   },
-  "iBQaZu": {
-    "defaultMessage": "Source run:",
-    "description": "A label for the source run in the prompt details page"
-  },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > stop sequences parameter"
@@ -2886,10 +2886,6 @@
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
-  },
-  "qKOmsJ": {
-    "defaultMessage": "Source runs",
-    "description": "Label for the related runs on the registered prompt details page"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
