@@ -1,10 +1,16 @@
 import dspy
+import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.dspy.util import save_dspy_module_state
 from mlflow.tracking import MlflowClient
 
 
+@pytest.mark.skipif(
+    Version(dspy.__version__) < Version("2.5.43"),
+    reason="dump_state works differently in older versions",
+)
 def test_save_dspy_module_state(tmp_path):
     program = dspy.ChainOfThought("question -> answer")
 
