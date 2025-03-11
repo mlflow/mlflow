@@ -1,7 +1,11 @@
+from pathlib import Path
 from threading import Thread
+
+import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric
+from mlflow.utils.autologging_utils.logging_and_warnings import _WarningsController
 from mlflow.utils.autologging_utils.metrics_queue import (
     _metrics_queue,
     _metrics_queue_lock,
@@ -38,3 +42,33 @@ def test_flush_metrics_queue_is_thread_safe():
     flush_thread2.start()
     flush_thread2.join()
     assert len(_metrics_queue) == 0
+
+
+def test_no_recursion_error_after_fix(monkeypatch):
+    """
+    This test verifies that _patched_showwarning does not trigger a RecursionError even if
+    Path.__str__ is monkey-patched to recursively call itself.
+    """
+    controller = _WarningsController()
+
+    def recursive_str(self):
+        return recursive_str(self)
+
+    monkeypatch.setattr(Path, "__str__", recursive_str)
+
+    called = False
+
+    def dummy_showwarning(message, category, filename, lineno, *args, **kwargs):
+        nonlocal called
+        called = True
+
+    controller._original_showwarning = dummy_showwarning
+
+    try:
+        controller._patched_showwarning(
+            message="Test warning", category=UserWarning, filename="dummy", lineno=1
+        )
+    except RecursionError:
+        pytest.fail("RecursionError was raised despite the fix being applied.")
+
+    assert called, "The dummy original showwarning was not called as expected."

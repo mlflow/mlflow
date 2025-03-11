@@ -50,8 +50,14 @@ class _WarningsController:
 
         # If the warning's source file is contained within the MLflow package's base
         # directory, it is an MLflow warning and should be emitted via `logger.warning`
-        warning_source_path = Path(filename).resolve()
-        is_mlflow_warning = self._mlflow_root_path in warning_source_path.parents
+        # NB: converting the filename to a string to avoid a potential recursion issue
+        # if the filename being passed is a Path type object.
+        try:
+            warning_source_path = Path(str(filename)).resolve()
+            is_mlflow_warning = self._mlflow_root_path in warning_source_path.parents
+        except Exception:
+            is_mlflow_warning = False
+
         curr_thread = get_current_thread_id()
 
         if (curr_thread in self._disabled_threads) or (
