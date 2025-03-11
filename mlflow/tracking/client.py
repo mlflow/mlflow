@@ -483,6 +483,11 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
 
+        if not isinstance(name, str) or not name:
+            raise MlflowException.invalid_parameter_value(
+                "Prompt name must be a non-empty string.",
+            )
+
         is_new_prompt = False
         try:
             rm = registry_client.get_registered_model(name)

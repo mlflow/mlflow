@@ -1706,8 +1706,11 @@ def test_create_prompt_error_handling(tracking_uri):
 def test_create_prompt_with_invalid_name(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'."):
+    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
         client.register_prompt(name="", template="Hi, {{name}}!")
+
+    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
+        client.register_prompt(name=123, template="Hi, {{name}}!")
 
     if tracking_uri.startswith("file"):
         with pytest.raises(MlflowException, match=r"Prompt name cannot contain path separator"):
