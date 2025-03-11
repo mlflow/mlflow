@@ -115,11 +115,7 @@ export const PromptVersionMetadata = ({
         </>
       )}
       {(isLoadingRuns || runIds) && (
-        <PromptVersionRuns
-          isLoadingRuns={isLoadingRuns}
-          runIds={runIds}
-          runInfoMap={runInfoMap}
-        />
+        <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
     </div>
   );

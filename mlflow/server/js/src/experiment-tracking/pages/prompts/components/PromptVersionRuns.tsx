@@ -1,21 +1,21 @@
 import { useState } from 'react';
-import { Button, ParagraphSkeleton, Typography } from '@databricks/design-system';
+import { Button, ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link } from 'react-router-dom';
+import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-
-
+import { isNil } from 'lodash';
 
 export const PromptVersionRuns = ({
   isLoadingRuns,
   runIds,
-  runInfoMap
+  runInfoMap,
 }: {
   isLoadingRuns: boolean;
   runIds: string[];
   runInfoMap: Record<string, any>;
 }) => {
   const [showAll, setShowAll] = useState(false);
+  const { theme } = useDesignSystemTheme();
 
   const displayThreshold = 3;
   const visibleCount = showAll ? runIds.length : Math.min(displayThreshold, runIds.length || 0);
@@ -30,19 +30,19 @@ export const PromptVersionRuns = ({
         />
       </Typography.Text>
 
-      <div >
+      <div>
         {isLoadingRuns ? (
           <ParagraphSkeleton css={{ width: 100 }} />
         ) : (
           <>
-            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
               {runIds.slice(0, visibleCount).map((runId) => {
                 const runInfo = runInfoMap[runId];
 
-                if (runInfo?.experimentId && runInfo?.runUuid && runInfo?.runName) {
-                  return <PromptVersionRunCell runInfo={runInfo}/>
+                if (!isNil(runInfo?.experimentId) && runInfo?.runUuid && runInfo?.runName) {
+                  return <PromptVersionRunCell runInfo={runInfo} />;
                 } else {
-                  return <span>{runInfo?.runName || runInfo?.runUuid}</span>
+                  return <span>{runInfo?.runName || runInfo?.runUuid}</span>;
                 }
               })}
               {hasMore && (
@@ -52,7 +52,18 @@ export const PromptVersionRuns = ({
                   type="link"
                   onClick={() => setShowAll(!showAll)}
                 >
-                  {showAll ? 'Show less' : `${runIds.length - visibleCount} more...`}
+                  {showAll ? (
+                    <FormattedMessage
+                      defaultMessage="Show less"
+                      description="Label for a link that shows less tags when clicked"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage={'{count} more...'}
+                      description="Label for a link that renders the remaining tags when clicked"
+                      values={{ count: runIds.length - visibleCount }}
+                    />
+                  )}
                 </Button>
               )}
             </div>
@@ -63,29 +74,22 @@ export const PromptVersionRuns = ({
   );
 };
 
-const PromptVersionRunCell = ({
-  runInfo,
-} : {
-  runInfo: any;
-}) => {
-  const style = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '0px 8px',
-    borderRadius: '12px',
-    marginRight: '6px',
-    marginLeft: '-2px',
-    margin: '0px 8px 4px -4px',
-    fontSize: '13px',
-    border: '1px solid #D1D9E1',
-  };
-
+const PromptVersionRunCell = ({ runInfo }: { runInfo: any }) => {
+  const { theme } = useDesignSystemTheme();
   const { runName, runUuid, experimentId } = runInfo;
   const to = Routes.getRunPageRoute(experimentId, runUuid);
   return (
-    <Link to={to} style={style}>
+    <Link
+      to={to}
+      css={{
+        padding: `0px ${theme.spacing.sm}px`,
+        border: `1px solid ${theme.colors.border}`,
+        color: theme.colors.actionLinkDefault,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeBase,
+      }}
+    >
       {runName}
     </Link>
   );
-}
+};

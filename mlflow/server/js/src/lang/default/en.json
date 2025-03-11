@@ -2295,6 +2295,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
+  "fh6RWb": {
+    "defaultMessage": "{count} more...",
+    "description": "Label for a link that renders the remaining tags when clicked"
+  },
   "fhaHvd": {
     "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
     "description": "Description for the error message when the MLflow chart fails to load"
@@ -2846,6 +2850,10 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
+  },
+  "pVF+2s": {
+    "defaultMessage": "Show less",
+    "description": "Label for a link that shows less tags when clicked"
   },
   "paQ2Wc": {
     "defaultMessage": "Stage (deprecated)",
