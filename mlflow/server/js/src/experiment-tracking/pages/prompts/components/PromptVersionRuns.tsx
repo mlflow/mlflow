@@ -36,11 +36,17 @@ export const PromptVersionRuns = ({
         ) : (
           <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-              {runIds.slice(0, visibleCount).map((runId) => {
+              {runIds.slice(0, visibleCount).map((runId, index) => {
                 const runInfo = runInfoMap[runId];
 
                 if (!isNil(runInfo?.experimentId) && runInfo?.runUuid && runInfo?.runName) {
-                  return <PromptVersionRunCell runInfo={runInfo} />;
+                  const { experimentId, runUuid, runName } = runInfo;
+                  return (
+                    <Typography.Text>
+                      <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>
+                      {index < visibleCount - 1 && ','}
+                    </Typography.Text>
+                  );
                 } else {
                   return <span>{runInfo?.runName || runInfo?.runUuid}</span>;
                 }
@@ -71,25 +77,5 @@ export const PromptVersionRuns = ({
         )}
       </div>
     </>
-  );
-};
-
-const PromptVersionRunCell = ({ runInfo }: { runInfo: any }) => {
-  const { theme } = useDesignSystemTheme();
-  const { runName, runUuid, experimentId } = runInfo;
-  const to = Routes.getRunPageRoute(experimentId, runUuid);
-  return (
-    <Link
-      to={to}
-      css={{
-        padding: `0px ${theme.spacing.sm}px`,
-        border: `1px solid ${theme.colors.border}`,
-        color: theme.colors.actionLinkDefault,
-        borderRadius: theme.borders.borderRadiusMd,
-        fontSize: theme.typography.fontSizeBase,
-      }}
-    >
-      {runName}
-    </Link>
   );
 };
