@@ -20,7 +20,7 @@ from opentelemetry.sdk.trace import TracerProvider
 
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -244,12 +244,22 @@ def _setup_tracer_provider(disabled=False):
                 exporter, client, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
 
+        elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, Databricks):
+            from mlflow.tracing.export.databricks import DatabricksSpanExporter
+            from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
+
+            exporter = DatabricksSpanExporter()
+            processor = DatabricksSpanProcessor(
+                span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
+            )
+
+        # TODO: Remove this branch once we fully migrate to the new tracing server
         else:
-            from mlflow.tracing.export.databricks_agent import DatabricksAgentSpanExporter
-            from mlflow.tracing.processor.databricks_agent import DatabricksAgentSpanProcessor
+            from mlflow.tracing.export.databricks_agent_legacy import DatabricksAgentSpanExporter
+            from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 
             exporter = DatabricksAgentSpanExporter(_MLFLOW_TRACE_USER_DESTINATION)
-            processor = DatabricksAgentSpanProcessor(exporter)
+            processor = DatabricksSpanProcessor(span_exporter=exporter, experiment_id=None)
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
