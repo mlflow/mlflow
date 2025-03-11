@@ -4,6 +4,7 @@ from textwrap import dedent
 from typing import Optional
 
 import mlflow
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 
@@ -97,3 +98,12 @@ def translate_prompt_exception(func):
                 raise e
 
     return wrapper
+
+
+def validate_model_version_not_prompt(mv: ModelVersion):
+    """Validate that the given model version is not a prompt."""
+    if has_prompt_tag(mv.tags):
+        raise MlflowException(
+            f"The name `{mv.name}` is registered as a prompt. "
+            "Please use the prompt APIs to interact with it."
+        )

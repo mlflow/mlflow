@@ -1824,6 +1824,34 @@ def test_block_create_prompt_with_existing_model_name(tracking_uri):
         )
 
 
+def test_block_handling_prompt_with_model_apis(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("prompt", template="Hi, {{name}}!")
+    client.set_prompt_alias("prompt", alias="alias", version=1)
+    # Validate the prompt is registered
+    prompt = client.load_prompt("prompt", version=1)
+    assert prompt.name == "prompt"
+    assert prompt.aliases == ["alias"]
+
+    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
+        client.get_registered_model("prompt")
+
+    with pytest.raises(
+        MlflowException, match=r"Model Version \(name=prompt, version=1\) not found"
+    ):
+        client.get_model_version("prompt", 1)
+
+    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
+        client.get_latest_versions("prompt")
+
+    client.set_prompt_alias("prompt", "alias", 1)
+    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
+        client.get_model_version_by_alias("prompt", "alias")
+
+    with pytest.raises(MlflowException, match=r"Model with uri 'models:/prompt/1' not found"):
+        client.copy_model_version("models:/prompt/1", "new_model")
+
+
 def test_log_and_detach_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 

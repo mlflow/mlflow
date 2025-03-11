@@ -89,5 +89,7 @@ def get_model_name_and_version(client, models_uri):
     if model_version is not None:
         return model_name, model_version
     if model_alias is not None:
-        return model_name, client.get_model_version_by_alias(model_name, model_alias).version
+        # NB: Call get_model_version_by_alias of registry client directly to bypass prompt check
+        mv = client._get_registry_client().get_model_version_by_alias(model_name, model_alias)
+        return model_name, mv.version
     return model_name, str(_get_latest_model_version(client, model_name, model_stage))

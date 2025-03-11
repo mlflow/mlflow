@@ -574,7 +574,7 @@ class MlflowClient:
         if version is None:
             mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
         else:
-            mv = self.get_model_version(name, version)
+            mv = registry_client.get_model_version(name, version)
         return Prompt.from_model_version(mv)
 
     @experimental
@@ -3822,7 +3822,16 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
-        return self._get_registry_client().get_registered_model(name)
+        rm = self._get_registry_client().get_registered_model(name)
+
+        # Prompt should not be returned as a registered model
+        if has_prompt_tag(rm._tags):
+            raise MlflowException(
+                f"Registered Model with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        return rm
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_latest_versions(
@@ -3897,7 +3906,13 @@ class MlflowClient:
             run_id: 31165664be034dc698c52a4bdeb71663
             current_stage: None
         """
-        return self._get_registry_client().get_latest_versions(name, stages)
+        mvs = self._get_registry_client().get_latest_versions(name, stages)
+        if mvs and has_prompt_tag(mvs[0]._tags):
+            raise MlflowException(
+                f"Registered Model with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return mvs
 
     def set_registered_model_tag(self, name, key, value) -> None:
         """Set a tag for the registered model.
@@ -4224,6 +4239,14 @@ class MlflowClient:
                 f"Failed to fetch model version from source model URI: '{src_model_uri}'. "
                 f"Error: {e}"
             ) from e
+
+        if has_prompt_tag(src_mv._tags):
+            # Prompt should not be used as a model version
+            raise MlflowException(
+                f"Model with uri '{src_model_uri}' not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
@@ -4529,7 +4552,16 @@ class MlflowClient:
             Version: 2
 
         """
-        return self._get_registry_client().get_model_version(name, version)
+        mv = self._get_registry_client().get_model_version(name, version)
+
+        if has_prompt_tag(mv._tags):
+            # Prompt should not be used as a model version
+            raise MlflowException(
+                f"Model Version (name={name}, version={version}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        return mv
 
     def get_model_version_download_uri(self, name: str, version: str) -> str:
         """
@@ -5160,4 +5192,13 @@ class MlflowClient:
             Aliases: ["test-alias"]
         """
         _validate_model_name(name)
-        return self._get_registry_client().get_model_version_by_alias(name, alias)
+        mv = self._get_registry_client().get_model_version_by_alias(name, alias)
+
+        if has_prompt_tag(mv._tags):
+            # Prompt should not be used as a model version
+            raise MlflowException(
+                f"Registered Model with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        return mv
