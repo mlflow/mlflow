@@ -148,7 +148,7 @@ export const PromptContentPreview = ({
           />
         }
       >
-        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)}/>
+        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)} />
         {/* "content": prompt.format(question="<question>") */}
       </Modal>
       {DeletePromptModal}
@@ -156,11 +156,7 @@ export const PromptContentPreview = ({
   );
 };
 
-
-const buildCodeSnippetContent = (
-  promptVersion: RegisteredPromptVersion | undefined,
-  variables: string[] | null
-) => {
+const buildCodeSnippetContent = (promptVersion: RegisteredPromptVersion | undefined, variables: string[] | null) => {
   let codeSnippetContent = `from openai import OpenAI
 import mlflow
 client = OpenAI(api_key="<YOUR_API_KEY>")
@@ -169,7 +165,7 @@ client = OpenAI(api_key="<YOUR_API_KEY>")
 mlflow.set_tracking_uri("<YOUR_TRACKING_URI>")
 
 # Example of loading and using the prompt
-prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`
+prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`;
 
   // Null variables mean that there was a parsing error
   if (variables === null) {
@@ -189,7 +185,7 @@ response = client.chat.completions.create(
     model="gpt-4o-mini",
 )`;
   } else {
-   codeSnippetContent += `
+    codeSnippetContent += `
 response = client.chat.completions.create(
     messages=[{
         "role": "user",
@@ -201,5 +197,4 @@ response = client.chat.completions.create(
 
   codeSnippetContent += `\nprint(response.choices[0].message.content)`;
   return codeSnippetContent;
-}
-
+};
