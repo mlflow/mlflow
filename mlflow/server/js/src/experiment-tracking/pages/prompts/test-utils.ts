@@ -34,15 +34,16 @@ export const getMockedRegisteredPromptCreateVersionResponse = (spyFn = jest.fn()
 
 export const getMockedRegisteredPromptSourceRunResponse = (spyFn = jest.fn()) =>
   rest.get('/ajax-api/2.0/mlflow/runs/get', (req, res, ctx) => {
+    const run_id = req.url.searchParams.get('run_id');
     return res(
       ctx.json({
         run: {
           data: {},
           info: {
-            run_uuid: 'test_run_id',
-            run_id: 'test_run_id',
+            run_uuid: run_id,
+            run_id: run_id,
             experiment_id: 'test_experiment_id',
-            run_name: 'test_run_name',
+            run_name: `${run_id}_name`,
           },
         },
       }),
@@ -80,7 +81,7 @@ export const getMockedRegisteredPromptsResponse = (n = 3) =>
 export const getFailedRegisteredPromptDetailsResponse = (status = 404) =>
   rest.get('/ajax-api/2.0/mlflow/registered-models/get', (req, res, ctx) => res(ctx.status(status)));
 
-export const getMockedRegisteredPromptDetailsResponse = (name = 'prompt1') =>
+export const getMockedRegisteredPromptDetailsResponse = (name = 'prompt1', tags: KeyValueEntity[] = []) =>
   rest.get('/ajax-api/2.0/mlflow/registered-models/get', (req, res, ctx) => {
     const aliases: ModelAliasMap = [
       {
@@ -103,7 +104,7 @@ export const getMockedRegisteredPromptDetailsResponse = (name = 'prompt1') =>
           name: 'prompt1',
           creation_timestamp: 1620000000000,
           last_updated_timestamp: 1620000000000,
-          tags: [{ key: 'some_tag', value: 'abc' }],
+          tags: [{ key: 'some_tag', value: 'abc' }, ...tags],
           aliases,
         },
       }),

@@ -671,6 +671,10 @@
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
   },
+  "9ZHB3D": {
+    "defaultMessage": "MLflow runs:",
+    "description": "A label for the associated MLflow runs in the prompt details page"
+  },
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
@@ -2291,6 +2295,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
+  "fh6RWb": {
+    "defaultMessage": "{count} more...",
+    "description": "Label for a link that renders the remaining tags when clicked"
+  },
   "fhaHvd": {
     "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
     "description": "Description for the error message when the MLflow chart fails to load"
@@ -2438,10 +2446,6 @@
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
-  },
-  "iBQaZu": {
-    "defaultMessage": "Source run:",
-    "description": "A label for the source run in the prompt details page"
   },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
@@ -2847,6 +2851,10 @@
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
   },
+  "pVF+2s": {
+    "defaultMessage": "Show less",
+    "description": "Label for a link that shows less tags when clicked"
+  },
   "paQ2Wc": {
     "defaultMessage": "Stage (deprecated)",
     "description": "Label name for the deprecated stage metadata in model version page"
@@ -2886,10 +2894,6 @@
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
-  },
-  "qKOmsJ": {
-    "defaultMessage": "Source runs",
-    "description": "Label for the related runs on the registered prompt details page"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
