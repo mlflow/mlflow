@@ -23,7 +23,7 @@ import {
 import { PromptDetailsMetadata } from './components/PromptDetailsMetadata';
 import { FormattedMessage } from 'react-intl';
 import { PromptVersionsTableMode } from './utils';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Routes from '../../routes';
 import { CreatePromptModalMode, useCreatePromptModal } from './hooks/useCreatePromptModal';
 import { useDeletePromptModal } from './hooks/useDeletePromptModal';
@@ -32,11 +32,18 @@ import { useEditRegisteredModelAliasesModal } from '../../../model-registry/hook
 import { usePromptDetailsPageViewState } from './hooks/usePromptDetailsPageViewState';
 import { PromptContentPreview } from './components/PromptContentPreview';
 import { PromptContentCompare } from './components/PromptContentCompare';
-import { NotFoundError, PredefinedError, UnauthorizedError } from '../../../shared/web-shared/errors';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { first, isEmpty } from 'lodash';
+
+const getAliasesModalTitle = (version: string) => (
+  <FormattedMessage
+    defaultMessage="Add/edit alias for prompt version {version}"
+    description="Title for the edit aliases modal on the registered prompt details page"
+    values={{ version }}
+  />
+);
 
 const PromptsDetailsPage = () => {
   const { promptName } = useParams<{ promptName: string }>();
@@ -103,6 +110,14 @@ const PromptsDetailsPage = () => {
   const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
     model: promptDetailsData?.prompt || null,
     onSuccess: refetch,
+    modalTitle: getAliasesModalTitle,
+    modalDescription: (
+      <FormattedMessage
+        // TODO: add a documentation link ("Learn more")
+        defaultMessage="Aliases allow you to assign a mutable, named reference to a particular prompt version."
+        description="Description for the edit aliases modal on the registered prompt details page"
+      />
+    ),
   });
 
   // If the load error occurs, throw the error into the error boundary
