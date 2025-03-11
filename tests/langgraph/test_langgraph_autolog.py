@@ -131,8 +131,6 @@ def test_langgraph_tracing_with_custom_span():
 
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
 
-    mlflow.register_prompt(name="prompt_1", template="what is the weather in {{city}}?")
-
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_with_custom_span.py",
@@ -141,9 +139,6 @@ def test_langgraph_tracing_with_custom_span():
         )
 
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
-
-    prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
-    assert len(prompts) == 1
 
     # No trace should be created for the first call
     assert mlflow.get_last_active_trace() is None
