@@ -111,7 +111,7 @@ TODO: Add a nice video
 
       # Register a new version of an existing prompt
       updated_prompt = mlflow.register_prompt(
-          name="summarization_prompt",  # Specify the existing prompt name
+          name="Summarization Prompt",  # Specify the existing prompt name
           template=new_template,
           commit_message="Improvement",
           tags={
@@ -223,7 +223,7 @@ roll-back A/B testing.
     <div class="flex-column">
       ```python
       # Set a production alias for a specific version
-      mlflow.set_prompt_alias("qa_system_prompt", alias="production", version=4)
+      mlflow.set_prompt_alias("Summarization Prompt", alias="production", version=4)
       ```
     </div>
   </TabItem>
