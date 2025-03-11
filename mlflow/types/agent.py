@@ -155,10 +155,14 @@ class ChatAgentResponse(BaseModel):
             message_ids = [msg.get("id") for msg in values.get("messages")]
 
         if any(msg_id is None for msg_id in message_ids):
-            raise ValueError("All ChatAgentMessage objects in field `messages` must have an ID.")
+            raise ValueError(
+                "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
+                "`uuid.uuid4()` to generate a unique ID."
+            )
         if len(message_ids) != len(set(message_ids)):
             raise ValueError(
-                "All ChatAgentMessage objects in field `messages` must have unique IDs."
+                "All ChatAgentMessage objects in field `messages` must have unique IDs. "
+                "You can use `uuid.uuid4()` to generate a unique ID."
             )
         return values
 
