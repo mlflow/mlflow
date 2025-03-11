@@ -211,7 +211,7 @@ class ChatAgentChunk(BaseModel):
                 " ID. If this chunk contains partial content, it should have the same ID as other "
                 " chunks in the same message. See "
                 "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
-                " for more details."
+                " for more details. You can use `uuid.uuid4()` to generate a unique ID."
             )
         return values
 
