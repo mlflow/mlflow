@@ -5,6 +5,7 @@ import math
 import operator
 import re
 import shlex
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 import sqlparse
@@ -1943,3 +1944,55 @@ class SearchLoggedModelsUtils(SearchUtils):
     @classmethod
     def sort(cls, models, order_by_list):
         return sorted(models, key=cls._get_sort_key(order_by_list))
+
+
+@dataclass
+class SearchLoggedModelsPaginationToken:
+    experiment_ids: list[str]
+    filter_string: Optional[str] = None
+    order_by: Optional[list[dict[str, Any]]] = None
+    offset: int = 0
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    def encode(self) -> str:
+        return base64.b64encode(self.to_json().encode("utf-8")).decode("utf-8")
+
+    @classmethod
+    def decode(cls, token: str) -> "SearchLoggedModelsPaginationToken":
+        try:
+            token = json.loads(base64.b64decode(token.encode("utf-8")).decode("utf-8"))
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid page token: {token}. {e}")
+
+        return cls(
+            experiment_ids=token.get("experiment_ids"),
+            filter_string=token.get("filter_string") or None,
+            order_by=token.get("order_by") or None,
+            offset=token.get("offset") or 0,
+        )
+
+    def validate(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+        order_by: Optional[list[dict[str, Any]]],
+    ) -> None:
+        if self.experiment_ids != experiment_ids:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment IDs in the page token do not match the requested experiment IDs. "
+                f"Expected: {experiment_ids}. Found: {self.experiment_ids}"
+            )
+
+        if self.filter_string != filter_string:
+            raise MlflowException.invalid_parameter_value(
+                f"Filter string in the page token does not match the requested filter string. "
+                f"Expected: {filter_string}. Found: {self.filter_string}"
+            )
+
+        if self.order_by != order_by:
+            raise MlflowException.invalid_parameter_value(
+                f"Order by in the page token does not match the requested order by. "
+                f"Expected: {order_by}. Found: {self.order_by}"
+            )

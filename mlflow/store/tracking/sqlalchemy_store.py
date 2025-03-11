@@ -47,6 +47,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
+    SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -84,6 +85,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -1830,15 +1832,36 @@ class SqlAlchemyStore(AbstractStore):
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
-        # TODO: Support filtering, ordering, and pagination
+        # TODO: Support filtering and order_by
+        if page_token:
+            token = SearchLoggedModelsPaginationToken.decode(page_token)
+            token.validate(experiment_ids, filter_string, order_by)
+            offset = token.offset
+        else:
+            offset = 0
+
+        max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         with self.ManagedSessionMaker() as session:
             models = (
                 session.query(SqlLoggedModel)
                 .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
                 .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
+                .offset(offset)
+                .limit(max_results + 1)
                 .all()
             )
-            return PagedList([lm.to_mlflow_entity() for lm in models], token=None)
+
+            if len(models) > max_results:
+                token = SearchLoggedModelsPaginationToken(
+                    offset=offset + max_results,
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    order_by=order_by,
+                ).encode()
+            else:
+                token = None
+
+            return PagedList([lm.to_mlflow_entity() for lm in models[:max_results]], token=token)
 
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
