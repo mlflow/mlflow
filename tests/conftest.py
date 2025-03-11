@@ -14,6 +14,7 @@ from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.tracking.fluent import _last_active_run_id
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -169,6 +170,11 @@ def clean_up_mlruns_directory(request):
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+
+
+@pytest.fixture(autouse=True)
+def clean_up_last_active_run():
+    _last_active_run_id.set(None)
 
 
 @pytest.fixture
