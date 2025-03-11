@@ -4763,6 +4763,96 @@ def test_search_logged_models(store: SqlAlchemyStore):
     assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
 
 
+def test_search_logged_models_order_by(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="metric_2",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=2,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            )
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Should be sorted by creation time in descending order by default
+    models = store.search_logged_models(experiment_ids=[exp_id])
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # Should be sorted by creation time in descending order by default
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": True}]
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "metrics.metric", "ascending": False}],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # model 2 doesn't have metric_2, should be sorted last
+    for ascending in (True, False):
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            order_by=[{"field_name": "metrics.metric_2", "ascending": ascending}],
+        )
+        assert [m.name for m in models] == [model_1.name, model_2.name]
+
+
 def test_search_logged_models_pagination(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
