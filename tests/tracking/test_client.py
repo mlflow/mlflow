@@ -1833,20 +1833,29 @@ def test_block_handling_prompt_with_model_apis(tracking_uri):
     assert prompt.name == "prompt"
     assert prompt.aliases == ["alias"]
 
-    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
-        client.get_registered_model("prompt")
+    apis_to_args = [
+        (client.rename_registered_model, ["prompt", "new_name"]),
+        (client.update_registered_model, ["prompt", "new_description"]),
+        (client.delete_registered_model, ["prompt"]),
+        (client.get_registered_model, ["prompt"]),
+        (client.get_latest_versions, ["prompt"]),
+        (client.set_registered_model_tag, ["prompt", "tag", "value"]),
+        (client.delete_registered_model_tag, ["prompt", "tag"]),
+        (client.update_model_version, ["prompt", 1, "new_description"]),
+        (client.transition_model_version_stage, ["prompt", 1, "Production"]),
+        (client.delete_model_version, ["prompt", 1]),
+        (client.get_model_version, ["prompt", 1]),
+        (client.get_model_version_download_uri, ["prompt", 1]),
+        (client.set_model_version_tag, ["prompt", 1, "tag", "value"]),
+        (client.delete_model_version_tag, ["prompt", 1, "tag"]),
+        (client.set_registered_model_alias, ["prompt", "alias", 1]),
+        (client.delete_registered_model_alias, ["prompt", "alias"]),
+        (client.get_model_version_by_alias, ["prompt", "alias"]),
+    ]
 
-    with pytest.raises(
-        MlflowException, match=r"Model Version \(name=prompt, version=1\) not found"
-    ):
-        client.get_model_version("prompt", 1)
-
-    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
-        client.get_latest_versions("prompt")
-
-    client.set_prompt_alias("prompt", "alias", 1)
-    with pytest.raises(MlflowException, match=r"Registered Model with name=prompt not found"):
-        client.get_model_version_by_alias("prompt", "alias")
+    for api, args in apis_to_args:
+        with pytest.raises(MlflowException, match=r"Registered Model with name='prompt' not found"):
+            api(*args)
 
     with pytest.raises(MlflowException, match=r"Model with uri 'models:/prompt/1' not found"):
         client.copy_model_version("models:/prompt/1", "new_model")

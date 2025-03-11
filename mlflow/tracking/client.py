@@ -128,6 +128,13 @@ _STAGES_DEPRECATION_WARNING = (
 )
 
 
+def _model_not_found(name: str) -> MlflowException:
+    return MlflowException(
+        f"Registered Model with name={name!r} not found.",
+        RESOURCE_DOES_NOT_EXIST,
+    )
+
+
 class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
@@ -617,7 +624,7 @@ class MlflowClient:
             run_ids = [run_id]
 
         name, version = self.parse_prompt_uri(prompt_uri)
-        self.set_model_version_tag(
+        self._get_registry_client().set_model_version_tag(
             name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )
 
@@ -647,11 +654,13 @@ class MlflowClient:
 
         name, version = self.parse_prompt_uri(prompt_uri)
         if run_ids:
-            self.set_model_version_tag(
+            self._get_registry_client().set_model_version_tag(
                 name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
             )
         else:
-            self.delete_model_version_tag(name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+            self._get_registry_client().delete_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+            )
 
     # TODO: Use model_id in MLflow 3.0
     @experimental
@@ -690,7 +699,7 @@ class MlflowClient:
             version: The version of the prompt.
         """
         self._validate_prompt(name, version)
-        self.set_registered_model_alias(name, alias, version)
+        self._get_registry_client().set_registered_model_alias(name, alias, version)
 
     @experimental
     @require_prompt_registry
@@ -703,7 +712,7 @@ class MlflowClient:
             name: The name of the prompt.
             alias: The alias to delete for the prompt.
         """
-        self.delete_registered_model_alias(name, alias)
+        self._get_registry_client().delete_registered_model_alias(name, alias)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -3571,6 +3580,7 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
@@ -3625,6 +3635,7 @@ class MlflowClient:
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
+        self._raise_if_prompt(name)
         return self._get_registry_client().update_registered_model(
             name=name, description=description
         )
@@ -3684,6 +3695,7 @@ class MlflowClient:
             tags: {'t2': 't2'}
             description: description2
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model(name)
 
     def search_registered_models(
@@ -3826,10 +3838,7 @@ class MlflowClient:
 
         # Prompt should not be returned as a registered model
         if has_prompt_tag(rm._tags):
-            raise MlflowException(
-                f"Registered Model with name={name} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+            raise _model_not_found(name)
 
         return rm
 
@@ -3906,13 +3915,8 @@ class MlflowClient:
             run_id: 31165664be034dc698c52a4bdeb71663
             current_stage: None
         """
-        mvs = self._get_registry_client().get_latest_versions(name, stages)
-        if mvs and has_prompt_tag(mvs[0]._tags):
-            raise MlflowException(
-                f"Registered Model with name={name} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        return mvs
+        self._raise_if_prompt(name)
+        return self._get_registry_client().get_latest_versions(name, stages)
 
     def set_registered_model_tag(self, name, key, value) -> None:
         """Set a tag for the registered model.
@@ -3959,6 +3963,7 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -4009,6 +4014,7 @@ class MlflowClient:
             name: name2
             tags: {}
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -4318,6 +4324,7 @@ class MlflowClient:
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
 
+        self._raise_if_prompt(name)
         return self._get_registry_client().update_model_version(
             name=name, version=version, description=description
         )
@@ -4397,6 +4404,7 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
             Stage: Staging
         """
+        self._raise_if_prompt(name)
         return self._get_registry_client().transition_model_version_stage(
             name, version, stage, archive_existing_versions
         )
@@ -4486,6 +4494,7 @@ class MlflowClient:
             run_id: 9165d4f8aa0a4d069550824bdc55caaf
             current_stage: None
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_model_version(name, version)
 
     def get_model_version(self, name: str, version: str) -> ModelVersion:
@@ -4553,14 +4562,8 @@ class MlflowClient:
 
         """
         mv = self._get_registry_client().get_model_version(name, version)
-
         if has_prompt_tag(mv._tags):
-            # Prompt should not be used as a model version
-            raise MlflowException(
-                f"Model Version (name={name}, version={version}) not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-
+            raise _model_not_found(name)
         return mv
 
     def get_model_version_download_uri(self, name: str, version: str) -> str:
@@ -4608,6 +4611,7 @@ class MlflowClient:
 
             Download URI: runs:/027d7bbe81924c5a82b3e4ce979fcab7/sklearn-model
         """
+        self._raise_if_prompt(name)
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
     def search_model_versions(
@@ -4820,6 +4824,7 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -4910,6 +4915,7 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "
@@ -5009,6 +5015,7 @@ class MlflowClient:
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         _validate_model_version(version)
+        self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_alias(name, alias, version)
 
     def delete_registered_model_alias(self, name: str, alias: str) -> None:
@@ -5105,6 +5112,7 @@ class MlflowClient:
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_alias(name, alias)
 
     def get_model_version_by_alias(self, name: str, alias: str) -> ModelVersion:
@@ -5195,10 +5203,14 @@ class MlflowClient:
         mv = self._get_registry_client().get_model_version_by_alias(name, alias)
 
         if has_prompt_tag(mv._tags):
-            # Prompt should not be used as a model version
-            raise MlflowException(
-                f"Registered Model with name={name} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+            raise _model_not_found(name)
 
         return mv
+
+    def _raise_if_prompt(self, name: str) -> None:
+        """
+        Validate if the given name is registered as a Prompt rather than a Registered Model.
+        """
+        rm = self.get_registered_model(name)
+        if has_prompt_tag(rm._tags):
+            raise _model_not_found(name)
