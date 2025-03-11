@@ -78,20 +78,25 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
     GetTraceInfo,
     ListArtifacts,
+    ListLoggedModelArtifacts,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -102,9 +107,11 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchDatasets,
     SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
@@ -2571,6 +2578,62 @@ def get_trace_artifact_handler():
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_logged_model():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_logged_model():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_logged_models():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _finalize_logged_model():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_logged_model_tags():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_logged_model_tag():
+    """
+    TODO
+    """
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_logged_model_artifacts(request_message):
+    """
+    TODO
+    """
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2704,4 +2767,12 @@ HANDLERS = {
     DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
+    # Logged Models APIs
+    CreateLoggedModel: _create_logged_model,
+    GetLoggedModel: _get_logged_model,
+    FinalizeLoggedModel: _finalize_logged_model,
+    SearchLoggedModels: _search_logged_models,
+    SetLoggedModelTags: _set_logged_model_tags,
+    DeleteLoggedModelTag: _delete_logged_model_tag,
+    ListLoggedModelArtifacts: _list_logged_model_artifacts,
 }
