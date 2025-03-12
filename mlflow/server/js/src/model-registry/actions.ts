@@ -101,7 +101,7 @@ export const createModelVersionApi = (name, source, runId, tags: any[] = [], id 
   meta: { id, name, runId },
 });
 
-export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
+const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
 export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
@@ -143,21 +143,6 @@ export const parseMlModelFile = (modelName: any, version: any, mlModelFile: any,
     };
   }
 };
-
-export const GET_MODEL_VERSION_ACTIVITIES = 'GET_MODEL_VERSION_ACTIVITIES';
-// @ts-expect-error TS(7006): Parameter 'modelName' implicitly has an 'any' type... Remove this comment to see the full error message
-export const getModelVersionActivitiesApi = (modelName, version, id = getUUID()) => ({
-  type: GET_MODEL_VERSION_ACTIVITIES,
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - OSS specific ignore
-  payload: Services.getModelVersionActivities({
-    name: modelName,
-    version: version,
-  }),
-
-  meta: { id, modelName, version },
-});
 
 export const resolveFilterValue = (value: any, includeWildCard = false) => {
   const wrapper = includeWildCard ? '%' : '';
@@ -206,7 +191,7 @@ export const updateModelVersionApi = (modelName, version, description, id = getU
   meta: { id },
 });
 
-export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
+const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
 export const transitionModelVersionStageApi = (
   // @ts-expect-error TS(7006): Parameter 'modelName' implicitly has an 'any' type... Remove this comment to see the full error message
   modelName,
