@@ -12,15 +12,12 @@ import {
   OverflowIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
-  Space,
   Spacer,
   TableIcon,
   TableSkeleton,
-  Typography,
   useDesignSystemTheme,
   ZoomMarqueeSelection,
 } from '@databricks/design-system';
-import { PromptDetailsMetadata } from './components/PromptDetailsMetadata';
 import { FormattedMessage } from 'react-intl';
 import { PromptVersionsTableMode } from './utils';
 import { useMemo } from 'react';
@@ -36,6 +33,7 @@ import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { first, isEmpty } from 'lodash';
+import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -175,11 +173,10 @@ const PromptsDetailsPage = () => {
           </>
         }
       />
+      <PromptsListTableTagsBox onTagsUpdated={refetch} promptEntity={promptDetailsData?.prompt} />
       <Spacer shrinks={false} />
-      <PromptDetailsMetadata promptEntity={promptDetailsData?.prompt} onTagsUpdated={refetch} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: showPreviewPane ? '0 0 320px' : 1, display: 'flex', flexDirection: 'column' }}>
-          <Typography.Title level={3}>Prompt versions</Typography.Title>
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="mlflow.prompts.details.mode"
