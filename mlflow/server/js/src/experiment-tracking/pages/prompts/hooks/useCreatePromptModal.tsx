@@ -113,7 +113,7 @@ export const useCreatePromptModal = ({
                 }),
               },
               pattern: {
-                value: /^[a-zA-Z0-9_\-\.]+$/,
+                value: /^[a-zA-Z0-9_\-.]+$/,
                 message: intl.formatMessage({
                   defaultMessage: 'Only alphanumeric characters, underscores, hyphens, and dots are allowed',
                   description: 'A validation state for the prompt name format in the prompt creation modal',
