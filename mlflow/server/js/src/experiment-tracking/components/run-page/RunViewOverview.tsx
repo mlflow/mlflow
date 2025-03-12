@@ -19,6 +19,7 @@ import { RunViewTagsBox } from './overview/RunViewTagsBox';
 import { RunViewDescriptionBox } from './overview/RunViewDescriptionBox';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
 import { RunViewRegisteredModelsBox } from './overview/RunViewRegisteredModelsBox';
+import { RunViewRegisteredPromptsBox } from './overview/RunViewRegisteredPromptsBox';
 import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
@@ -172,6 +173,15 @@ export const RunViewOverview = ({
               <EmptyValue />
             )
           }
+        />
+        <DetailsOverviewMetadataRow
+          title={
+            <FormattedMessage
+              defaultMessage="Registered prompts"
+              description="Run page > Overview > Run prompts section label"
+            />
+          }
+          value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
         />
       </DetailsOverviewMetadataTable>
     );
