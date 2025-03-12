@@ -50,9 +50,12 @@ class Databricks(TraceDestination):
     By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
     MLflow will log traces to the specified experiment.
 
+    Either experiment_id or experiment_name must be specified. If both are specified,
+    they must refer to the same experiment.
+
     Attributes:
-        experiment_id: The ID of the experiment to log traces to. If not specified,
-            the current active experiment will be used.
+        experiment_id: The ID of the experiment to log traces to.
+        experiment_name: The name of the experiment to log traces to.
     """
 
     experiment_id: Optional[str] = None
