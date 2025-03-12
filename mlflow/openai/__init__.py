@@ -918,6 +918,15 @@ def autolog(
     try:
         from swarm import Swarm
 
+        warnings.warn(
+            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
+            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
+            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
+            "(https://github.com/openai/openai-agents-python) for more details.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
+
         safe_patch(
             FLAVOR_NAME,
             Swarm,
@@ -931,5 +940,15 @@ def autolog(
             "run",
             patched_swarm_run,
         )
+    except ImportError:
+        pass
+
+    # Tracing OpenAI Agent SDK
+    try:
+        from agents import add_trace_processor
+
+        from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
+
+        add_trace_processor(MlflowOpenAgentTracingProcessor())
     except ImportError:
         pass

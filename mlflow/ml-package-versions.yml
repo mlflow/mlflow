@@ -640,11 +640,8 @@ openai:
           "fastapi",
           "uvicorn",
         ]
-      ">= 1.33.0": [
-          # Install OpenAI Swarm from the main branch as it's not available on pip
-          "git+https://github.com/openai/swarm.git",
-        ]
       "< 1.55.3": ["httpx<0.28.0"]
+      ">= 1.66.2": ["openai-agents"]
     run: |
       pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
     test_every_n_versions: 10
