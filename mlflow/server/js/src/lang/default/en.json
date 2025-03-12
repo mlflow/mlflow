@@ -1063,10 +1063,6 @@
     "defaultMessage": "Monitoring",
     "description": "A button enabling evaluation results monitoring mode on the experiment page"
   },
-  "Hboqen": {
-    "defaultMessage": "Failed to load chart",
-    "description": "Title for the error message when the MLflow chart fails to load"
-  },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
@@ -2306,10 +2302,6 @@
   "fh6RWb": {
     "defaultMessage": "{count} more...",
     "description": "Label for a link that renders the remaining tags when clicked"
-  },
-  "fhaHvd": {
-    "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
-    "description": "Description for the error message when the MLflow chart fails to load"
   },
   "fjM/KK": {
     "defaultMessage": "Group by",
