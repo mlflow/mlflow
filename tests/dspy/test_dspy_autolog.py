@@ -556,14 +556,13 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
 class DummyOptimizer(dspy.teleprompt.Teleprompter):
     def compile(self, program):
         callback = dspy.settings.callbacks[0]
-        assert callback._within_compile
+        assert callback.within_compile
         return program
 
 
 @pytest.mark.parametrize("log_compiles", [True, False])
-@pytest.mark.parametrize("log_models", [True, False])
-def test_autolog_log_compile(log_compiles, log_models):
-    mlflow.dspy.autolog(log_compiles=log_compiles, log_models=log_models)
+def test_autolog_log_compile(log_compiles):
+    mlflow.dspy.autolog(log_compiles=log_compiles)
     dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
@@ -571,21 +570,12 @@ def test_autolog_log_compile(log_compiles, log_models):
 
     optimizer.compile(program)
 
-    assert not dspy.settings.callbacks[0]._within_compile
+    assert not dspy.settings.callbacks[0].within_compile
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
-        if log_models:
-            assert "model" in artifacts
-            loaded_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-            assert loaded_model.predict({"question": "What is 2 + 2?"}) == {
-                "answer": "4",
-                "reasoning": "reason",
-            }
-        else:
-            assert "model" not in artifacts
     else:
         assert mlflow.last_active_run() is None

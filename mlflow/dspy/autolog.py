@@ -1,6 +1,4 @@
-import logging
-
-from mlflow.dspy.save import FLAVOR_NAME, log_model
+from mlflow.dspy.save import FLAVOR_NAME
 from mlflow.dspy.util import save_dspy_module_state
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
@@ -10,8 +8,6 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 
-_logger = logging.getLogger(__name__)
-
 
 @experimental
 def autolog(
@@ -19,7 +15,6 @@ def autolog(
     log_traces_from_compile: bool = False,
     log_traces_from_eval: bool = True,
     log_compiles: bool = False,
-    log_models: bool = False,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -39,8 +34,6 @@ def autolog(
             running the evaluator. Default to ``True``.
         log_compiles: If ``True``, information about the optimization process is logged when
             `Teleprompter.compile()` is called.
-        log_models: If ``True``, optimized models are logged as MLflow model artifacts.
-            If ``False``, optimized models are not logged.
         disable: If ``True``, disables the DSPy autologging integration. If ``False``,
             enables the DSPy autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during DSPy
@@ -57,16 +50,9 @@ def autolog(
         log_traces_from_compile=log_traces_from_compile,
         log_traces_from_eval=log_traces_from_eval,
         log_compiles=log_compiles,
-        log_models=log_models,
         disable=disable,
         silent=silent,
     )
-
-    if log_models and (not log_compiles):
-        _logger.warning(
-            "`log_model=True` is not effective without `log_compiles=True`. "
-            "Consider setting `log_compiles=True` to log models."
-        )
 
     import dspy
 
@@ -82,25 +68,25 @@ def autolog(
         )
 
     # Patch teleprompter/evaluator not to generate traces by default
-    def trace_disabled_fn(original, self, *args, **kwargs):
+    def patch_fn(original, self, *args, **kwargs):
         # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
         # check this flag at runtime to determine if we should generate traces.
         @trace_disabled
-        def _fn(self, *args, **kwargs):
+        def _trace_disabled_fn(self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
         def _compile_fn(self, *args, **kwargs):
             if callback := _active_callback():
-                callback._within_compile = True
+                callback.within_compile = True
             try:
                 if get_autologging_config(FLAVOR_NAME, "log_traces_from_compile"):
                     result = original(self, *args, **kwargs)
                 else:
-                    result = _fn(self, *args, **kwargs)
+                    result = _trace_disabled_fn(self, *args, **kwargs)
                 return result
             finally:
                 if callback:
-                    callback._within_compile = False
+                    callback.within_compile = False
 
         if isinstance(self, Teleprompter):
             if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
@@ -111,8 +97,6 @@ def autolog(
             # Save the state of the best model in json format
             # so that users can see the demonstrations and instructions.
             save_dspy_module_state(program, "best_model.json")
-            if get_autologging_config(FLAVOR_NAME, "log_models"):
-                log_model(program, "model")
 
             return program
 
@@ -126,7 +110,7 @@ def autolog(
         ):
             return original(self, *args, **kwargs)
 
-        return _fn(self, *args, **kwargs)
+        return _trace_disabled_fn(self, *args, **kwargs)
 
     from dspy.evaluate import Evaluate
     from dspy.teleprompt import Teleprompter
@@ -141,7 +125,7 @@ def autolog(
                 FLAVOR_NAME,
                 cls,
                 compile_patch,
-                trace_disabled_fn,
+                patch_fn,
                 manage_run=get_autologging_config(FLAVOR_NAME, "log_compiles"),
             )
 
@@ -151,7 +135,7 @@ def autolog(
             FLAVOR_NAME,
             Evaluate,
             call_patch,
-            trace_disabled_fn,
+            patch_fn,
         )
 
 
@@ -165,7 +149,6 @@ def _autolog(
     log_traces_from_compile: bool,
     log_traces_from_eval: bool,
     log_compiles: bool,
-    log_models: bool,
     disable: bool = False,
     silent: bool = False,
 ):

@@ -43,7 +43,7 @@ class MlflowCallback(BaseCallback):
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
         # used to determine the behavior of the evaluation callback
-        self._within_compile = False
+        self.within_compile = False
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
