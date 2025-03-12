@@ -34,6 +34,8 @@ def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]
     """Check if the given tags contain the prompt tag."""
     if isinstance(tags, dict):
         return IS_PROMPT_TAG_KEY in tags if tags else False
+    if not tags:
+        return
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in tags)
 
 
