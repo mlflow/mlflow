@@ -56,8 +56,7 @@ def require_prompt_registry(func):
 
         if not is_prompt_supported_registry(registry_uri):
             raise MlflowException(
-                f"The '{func.__name__}' API is not supported in the current model registry "
-                "type. Prompts are supported only in the OSS MLflow Tracking Server."
+                f"The '{func.__name__}' API is only available with the OSS MLflow Tracking Server."
             )
         return func(*args, **kwargs)
 
