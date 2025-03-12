@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from functools import wraps
 from typing import Any, Optional, Union
 
@@ -7,6 +8,7 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
+from mlflow.dspy.util import save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
@@ -42,8 +44,17 @@ class MlflowCallback(BaseCallback):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
-        # used to determine the behavior of the evaluation callback
-        self.within_compile = False
+        
+        ###### state management for optimization process ######
+        # TODO: support running multiple optimization processes in parallel
+        # optimizer_stack_level is used to determine if the callback is called within compile
+        # we cannot use boolean flag because the callback can be nested
+        self.optimizer_stack_level = 0
+        # call_id: (is_minibatch, step)
+        self._call_id_to_eval_state: dict[str, tuple[bool, int]] = {}
+        self._call_id_to_run_id: dict[str, str] = {}
+        self._evaluation_counter = defaultdict(int)
+        self._best_score = 0
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
@@ -203,6 +214,80 @@ class MlflowCallback(BaseCallback):
     ):
         if call_id in self._call_id_to_span:
             self._end_span(call_id, outputs, exception)
+
+    def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
+        """
+        Callback handler at the beginning of evaluation call. Available with DSPy>=2.6.9.
+        This callback starts a nested run for each evaluation call within optimization,
+        and created a new run when Evaluate is called outside of compile and there is no active run.
+        """
+        if not get_autologging_config(FLAVOR_NAME, "log_evals"):
+            return
+        if devset := inputs.get("devset"):
+            is_minibatch = len(devset) < len(instance.devset)
+        else:
+            is_minibatch = False
+
+        if self.optimizer_stack_level > 0:
+            key = "minibatch" if is_minibatch else "full"
+            step = self._evaluation_counter[key]
+            run = mlflow.start_run(run_name=f"eval_{key}_{step}", nested=True)
+            self._evaluation_counter[key] += 1
+            self._call_id_to_eval_state[call_id] = (is_minibatch, step)
+            self._call_id_to_run_id[call_id] = run.info.run_id
+        else:
+            if mlflow.active_run() is None:
+                run = mlflow.start_run()
+                self._call_id_to_run_id[call_id] = run.info.run_id
+        if program := inputs.get("program"):
+            save_dspy_module_state(program, "model.json")
+
+    def on_evaluate_end(
+        self,
+        call_id: str,
+        outputs: Any,
+        exception: Optional[Exception] = None,
+    ):
+        """
+        Callback handler at the end of evaluation call. Available with DSPy>=2.6.9.
+        This callback logs the evaluation score to the individual run
+        and add eval metric to the parent run if called within optimization.
+        """
+        if not get_autologging_config(FLAVOR_NAME, "log_evals"):
+            return
+        score = outputs if isinstance(outputs, float) else outputs[0]
+        mlflow.log_metric("eval", score)
+
+        if self._call_id_to_run_id.pop(call_id, None):
+            mlflow.end_run()
+        if self.optimizer_stack_level > 0 and mlflow.active_run() is not None:
+            if call_id not in self._call_id_to_eval_state:
+                return
+            is_minibatch, step = self._call_id_to_eval_state.pop(call_id)
+            if is_minibatch:
+                mlflow.log_metric(
+                    "eval_minibatch",
+                    score,
+                    step=step,
+                )
+            else:
+                mlflow.log_metric(
+                    "eval_full",
+                    score,
+                    step=step,
+                )
+                self._best_score = max(self._best_score, score)
+                mlflow.log_metric(
+                    "eval_full_best_score",
+                    self._best_score,
+                    step=step,
+                )
+
+    def reset(self):
+        self._call_id_to_eval_state: dict[str, tuple[bool, int]] = {}
+        self._call_id_to_run_id: dict[str, str] = {}
+        self._evaluation_counter = defaultdict(int)
+        self._best_score = 0
 
     def _start_span(
         self,
