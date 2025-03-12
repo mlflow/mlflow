@@ -638,7 +638,14 @@ class SqlAlchemyStore(AbstractStore):
                 expected_stages = {get_canonical_stage(stage) for stage in ALL_STAGES}
             else:
                 expected_stages = {get_canonical_stage(stage) for stage in stages}
-            return [mv for mv in latest_versions if mv.current_stage in expected_stages]
+            mvs = [mv for mv in latest_versions if mv.current_stage in expected_stages]
+
+            # Populate aliases for each model version
+            for mv in mvs:
+                model_aliases = sql_registered_model.registered_model_aliases
+                mv.aliases = [alias.alias for alias in model_aliases if alias.version == mv.version]
+
+            return mvs
 
     @classmethod
     def _get_registered_model_tag(cls, session, name, key):

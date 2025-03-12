@@ -12,6 +12,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.utils.os import is_windows
 
 from tests.store.artifact.constants import (
@@ -125,7 +126,7 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         "run12345",
     )
     get_latest_versions_patch = mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
+        ModelRegistryClient, "get_latest_versions", return_value=[model_version_detailed]
     )
     get_model_version_download_uri_patch = mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
