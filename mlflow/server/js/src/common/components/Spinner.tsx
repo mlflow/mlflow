@@ -1,4 +1,3 @@
-import { Component } from 'react';
 import spinner from '../static/mlflow-spinner.png';
 import { Interpolation, keyframes, Theme } from '@emotion/react';
 
@@ -6,14 +5,12 @@ type Props = {
   showImmediately?: boolean;
 };
 
-export class Spinner extends Component<Props> {
-  render() {
-    return (
-      <div css={(theme) => styles.spinner(theme, this.props.showImmediately)}>
-        <img alt="Page loading..." src={spinner} />
-      </div>
-    );
-  }
+export function Spinner({ showImmediately }: Props) {
+  return (
+    <div css={(theme) => styles.spinner(theme, showImmediately)}>
+      <img alt="Page loading..." src={spinner} />
+    </div>
+  );
 }
 
 const styles = {
