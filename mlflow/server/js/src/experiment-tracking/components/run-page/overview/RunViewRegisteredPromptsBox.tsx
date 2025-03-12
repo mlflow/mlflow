@@ -5,14 +5,14 @@ import Routes from '../../../routes';
 
 export const RunViewRegisteredPromptsBox = ({ runUuid }: { runUuid: string }) => {
   const { theme } = useDesignSystemTheme();
-  const { data, isLoading } = usePromptVersionsForRunQuery({ runUuid });
+  const { data, error, isLoading } = usePromptVersionsForRunQuery({ runUuid });
   const promptVersions = data?.model_versions;
 
   if (isLoading) {
     return <ParagraphSkeleton />;
   }
 
-  if (!promptVersions || promptVersions.length === 0) {
+  if (error || !promptVersions || promptVersions.length === 0) {
     return <Typography.Hint>—</Typography.Hint>;
   }
 
