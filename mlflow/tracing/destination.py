@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
@@ -54,6 +56,24 @@ class Databricks(TraceDestination):
     """
 
     experiment_id: Optional[str] = None
+    experiment_name: Optional[str] = None
+
+    def __post_init__(self):
+        if self.experiment_id is None and self.experiment_name is None:
+            raise MlflowException.invalid_parameter_value(
+                "Either experiment_id or experiment_name must be specified"
+            )
+
+        if self.experiment_id is not None:
+            self.experiment_id = str(self.experiment_id)
+
+        if self.experiment_name is not None:
+            experiment_id = mlflow.get_experiment_by_name(self.experiment_name).experiment_id
+            if self.experiment_id is not None and self.experiment_id != experiment_id:
+                raise MlflowException.invalid_parameter_value(
+                    "experiment_id and experiment_name must refer to the same experiment"
+                )
+            self.experiment_id = experiment_id
 
     @property
     def type(self) -> str:
