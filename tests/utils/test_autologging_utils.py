@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from threading import Thread
 
@@ -49,6 +50,8 @@ def test_no_recursion_error_after_fix(monkeypatch):
     This test verifies that _patched_showwarning does not trigger a RecursionError even if
     Path.__str__ is monkey-patched to recursively call itself.
     """
+    if sys.platform == "win32":
+        pytest.skip("This test validation will cause a stackoverflow on Windows Kernel")
     controller = _WarningsController()
 
     def recursive_str(self):
