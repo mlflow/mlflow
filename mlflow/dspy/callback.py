@@ -44,7 +44,7 @@ class MlflowCallback(BaseCallback):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
-        
+
         ###### state management for optimization process ######
         # TODO: support running multiple optimization processes in parallel
         # optimizer_stack_level is used to determine if the callback is called within compile
@@ -218,8 +218,8 @@ class MlflowCallback(BaseCallback):
     def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         """
         Callback handler at the beginning of evaluation call. Available with DSPy>=2.6.9.
-        This callback starts a nested run for each evaluation call within optimization,
-        and created a new run when Evaluate is called outside of compile and there is no active run.
+        This callback starts a nested run for each evaluation call if called within optimization,
+        and created a new run when called outside of optimization and there is no active run.
         """
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
