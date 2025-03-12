@@ -62,6 +62,18 @@ export const RunViewOverview = ({
   const registeredModelVersionSummaries = registeredModelVersionSummariesForRun;
   const shouldDisplayLoggedModelsBox = loggedModels?.length > 0;
 
+  const renderPromptMetadataRow = () => (
+    <DetailsOverviewMetadataRow
+      title={
+        <FormattedMessage
+          defaultMessage="Registered prompts"
+          description="Run page > Overview > Run prompts section label"
+        />
+      }
+      value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
+    />
+  );
+
   const renderDetails = () => {
     return (
       <DetailsOverviewMetadataTable>
@@ -174,15 +186,7 @@ export const RunViewOverview = ({
             )
           }
         />
-        <DetailsOverviewMetadataRow
-          title={
-            <FormattedMessage
-              defaultMessage="Registered prompts"
-              description="Run page > Overview > Run prompts section label"
-            />
-          }
-          value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
-        />
+        {renderPromptMetadataRow()}
       </DetailsOverviewMetadataTable>
     );
   };
