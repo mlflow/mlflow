@@ -6,19 +6,12 @@ from typing import Optional, Union
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
-
-# A special tag in RegisteredModel to indicate that it is a prompt
-IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
-# A special tag in ModelVersion to store the prompt text
-PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
-# TODO: Replace this with model_ids in MLflow 3
-PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.run_ids"
-
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
-    r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_TEMPLATE_VARIABLE_PATTERN,
+    PROMPT_TEXT_DISPLAY_LIMIT,
+    PROMPT_TEXT_TAG_KEY,
 )
-
-_PROMPT_TEXT_DISPLAY_LIMIT = 30
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -71,12 +64,12 @@ class Prompt(ModelVersion):
             aliases=aliases,
         )
 
-        self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
+        self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
 
     def __repr__(self) -> str:
         text = (
-            self.template[:_PROMPT_TEXT_DISPLAY_LIMIT] + "..."
-            if len(self.template) > _PROMPT_TEXT_DISPLAY_LIMIT
+            self.template[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self.template) > PROMPT_TEXT_DISPLAY_LIMIT
             else self.template
         )
         return f"Prompt(name={self.name}, version={self.version}, template={text})"
