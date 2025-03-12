@@ -216,6 +216,11 @@ class MlflowCallback(BaseCallback):
         if prediction_context and self._dependencies_schema:
             prediction_context.update(**self._dependencies_schema)
 
+        attributes = {
+            k: v for k, v in attributes.items()
+            if not any(substr in k.lower() for substr in ("key", "url", "endpoint", "api_base", "secret"))
+        }
+        
         with maybe_set_prediction_context(prediction_context):
             span = start_client_span_or_trace(
                 self._client,
