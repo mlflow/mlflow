@@ -353,7 +353,15 @@ const sidebars: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'prompts/registry',
+              id: 'prompts/cm',
+            },
+            {
+              type: 'doc',
+              id: 'prompts/evaluate',
+            },
+            {
+              type: 'doc',
+              id: 'prompts/run-and-model',
             },
             {
               type: 'doc',

@@ -1,0 +1,193 @@
+---
+sidebar_position: 4
+sidebar_label: Log Prompts with Models
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Log Prompts with Models
+
+Prompts are often used as a part of GenAI applications.
+
+MLflow Prompt Registry is integrated with MLflow's model tracking capability, allowing you to track which prompts (and versions) are used by your models and applications.
+
+## Usage
+
+```python
+
+import mlflow
+
+
+with mlflow.start_run():
+    mlflow.langchain.log_model(
+        model,
+        artifact_path="model",
+        # Specify a list of prompt URLs or prompt objects.
+        prompts=["prompts:/summarization_prompt/2"]
+    )
+```
+
+Once the model is logged, you can view the associated prompts in the MLflow UI:
+
+TODO: Add picture
+
+Moreover, you can view the list of models (runs) that use a specific prompt in the prompt details page:
+
+TODO: Add picture
+
+## End-to-end example: LangGraph Code Assistant
+
+
+In this guide, you will learn how to log prompts with models in MLflow, taking [LangGraph Code Assistant](https://langchain-ai.github.io/langgraph/tutorials/code_assistant/langgraph_code_assistant) application as an example.
+
+### 1. Set up
+
+First, install the required packages:
+
+```python
+%pip install -U langchain_community langchain-openai langgraph bs4
+```
+
+Then, set environment variable for your LLM. In this example, we use OpenAI API:
+
+```python
+import getpass
+import os
+
+os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter your OpenAI API")
+```
+
+### 2. Load Source Documents
+
+Load LCEL documents from the LangChain website as references for the code assistant:
+
+```python
+from bs4 import BeautifulSoup as Soup
+from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
+
+# LCEL docs
+url = "https://python.langchain.com/docs/concepts/lcel/"
+loader = RecursiveUrlLoader(
+    url=url, max_depth=20, extractor=lambda x: Soup(x, "html.parser").text
+)
+docs = loader.load()
+
+# Sort the list based on the URLs and get the text
+d_sorted = sorted(docs, key=lambda x: x.metadata["source"])
+d_reversed = list(reversed(d_sorted))
+concatenated_content = "\n\n\n --- \n\n\n".join(
+    [doc.page_content for doc in d_reversed]
+)
+```
+
+### 3. Register a Prompt in MLflow
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <div style={{ width: "70%", margin: "20px" }}>
+        ![Create Prompt UI](/images/llms/prompt-registry/create-prompt-ui.png)
+      </div>
+
+      1. Run `mlflow ui` in your terminal to start the MLflow UI.
+      2. Navigate to the **Prompts** tab in the MLflow UI.
+      3. Click on the **Create Prompt** button.
+      4. Fill in the prompt details such as name (`code-assistant`), prompt template text below, and commit message (optional).
+      5. Click **Create** to register the prompt.
+
+      ```
+      You are a coding assistant with expertise in LCEL, LangChain expression language. \n
+      Here is a full set of LCEL documentation:  \n ------- \n  {{context}} \n ------- \n Answer the user
+      question based on the above provided documentation. Ensure any code you provide can be executed \n
+      with all required imports and variables defined. Structure your answer with a description of the code solution. \n
+      Then list the imports. And finally list the functioning code block. Here is the user question:
+      ```
+
+    </div>
+  </TabItem>
+  <TabItem value="python" label="Python" default>
+    <div class="flex-column">
+      To create a new prompt using the Python API, use <APILink fn="mlflow.register_prompt" /> API:
+
+      ```python
+      import mlflow
+
+      template = """\
+      You are a coding assistant with expertise in LCEL, LangChain expression language.
+      Here is a full set of LCEL documentation:  \n ------- \n  {{context}} \n ------- \n Answer the user
+      question based on the above provided documentation. Ensure any code you provide can be executed \n
+      with all required imports and variables defined. Structure your answer with a description of the code solution. \n
+      Then list the imports. And finally list the functioning code block. Here is the user question:
+      """
+
+      prompt = mlflow.register_prompt(
+          name="code-assistant",
+          template=template,
+          commit_message="Initial commit",
+      )
+      ```
+    </div>
+  </TabItem>
+</Tabs>
+
+
+### 4. Define a Graph using the registered Prompts
+
+```python
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+### OpenAI
+
+# Grader prompt
+code_gen_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            # Load the system prompt from MLflow
+            # IMPORTANT: Call `to_single_brace_format` to convert the prompt to use single curly
+            # braces for variables, instead of MLflow's double curly braces format.
+            "system", mlflow.load_prompt("prompts:/code-assistant/1").to_single_brace_format()
+        ),
+        ("placeholder", "{messages}"),
+    ]
+)
+
+# Data model
+class code(BaseModel):
+    """Schema for code solutions to questions about LCEL."""
+
+    prefix: str = Field(description="Description of the problem and approach")
+    imports: str = Field(description="Code block import statements")
+    code: str = Field(description="Code block not including import statements")
+
+
+expt_llm = "gpt-4o-mini"
+llm = ChatOpenAI(temperature=0, model=expt_llm)
+code_gen_chain_oai = code_gen_prompt | llm.with_structured_output(code)
+question = "How do I build a RAG chain in LCEL?"
+solution = code_gen_chain_oai.invoke(
+    {"context": concatenated_content, "messages": [("user", question)]}
+)
+solution
+```
+
+
+### 5. Log the Model with the Prompt
+
+```python
+
+import mlflow
+
+with mlflow.start_run():
+    mlflow.langchain.log_model(
+        model=code_gen_chain_oai,
+        artifact_path="code-assistant",
+        prompts=["prompts:/code-assistant/1"]
+    )
+```
