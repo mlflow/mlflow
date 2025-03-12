@@ -194,6 +194,7 @@ class FileStore(AbstractStore):
         """
 
         self._check_root_dir()
+
         _validate_model_name(name)
         self._validate_registered_model_does_not_exist(name)
         for tag in tags or []:

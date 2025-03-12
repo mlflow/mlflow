@@ -1712,12 +1712,14 @@ def test_create_prompt_with_invalid_name(tracking_uri):
     with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
         client.register_prompt(name=123, template="Hi, {{name}}!")
 
-    if tracking_uri.startswith("file"):
-        with pytest.raises(MlflowException, match=r"Prompt name cannot contain path separator"):
-            client.register_prompt(name="prompt_1/2", template="Hi, {{name}}!")
-
-        with pytest.raises(MlflowException, match=r"Prompt name cannot contain '%' character"):
-            client.register_prompt(name="m%6fdel", template="Hi, {{name}}!")
+    for invalid_pattern in [
+        "prompt_1/2",
+        "m%6fdel",
+        "prompt?!?",
+        "prompt with space",
+    ]:
+        with pytest.raises(MlflowException, match=r"Prompt name can only contain alphanumeric"):
+            client.register_prompt(name=invalid_pattern, template="Hi, {{name}}!")
 
     # Name conflicts with a model
     client.create_registered_model("model")

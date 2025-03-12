@@ -46,19 +46,20 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.model_registry.prompt import (
-    IS_PROMPT_TAG_KEY,
-    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
-    PROMPT_TEXT_TAG_KEY,
-)
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
     require_prompt_registry,
     translate_prompt_exception,
+    validate_prompt_name,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -490,33 +491,28 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
 
-        if not isinstance(name, str) or not name:
-            raise MlflowException.invalid_parameter_value(
-                "Prompt name must be a non-empty string.",
-            )
+        validate_prompt_name(name)
 
         is_new_prompt = False
+        rm = None
         try:
             rm = registry_client.get_registered_model(name)
-
-            # Check if the registered model is a prompt
-            if not has_prompt_tag(rm._tags):
-                raise MlflowException(
-                    f"Model '{name}' exists with the same name. MLflow does not allow registering "
-                    "a prompt with the same name as an existing model. Please choose a different "
-                    "name for the prompt.",
-                    INVALID_PARAMETER_VALUE,
-                )
-
         except MlflowException as e:
             # Create a new prompt (model) entry
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                registry_client.create_registered_model(
-                    name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
-                )
-                is_new_prompt = True
-            else:
-                raise
+            registry_client.create_registered_model(
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
+            )
+            is_new_prompt = True
+
+        # Check if the registered model is a prompt
+        if rm and not has_prompt_tag(rm._tags):
+            raise MlflowException(
+                f"Model '{name}' exists with the same name. MLflow does not allow registering "
+                "a prompt with the same name as an existing model. Please choose a different "
+                "name for the prompt.",
+                INVALID_PARAMETER_VALUE,
+            )
+
 
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})

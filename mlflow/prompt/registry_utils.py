@@ -1,12 +1,13 @@
 import functools
 import re
 from textwrap import dedent
-from typing import Optional
+from typing import Any, Optional
 
 import mlflow
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
-
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.validation import _validate_model_name
 
 def add_prompt_filter_string(
     filter_string: Optional[str], is_prompt: bool = False
@@ -96,3 +97,16 @@ def translate_prompt_exception(func):
                 raise e
 
     return wrapper
+
+
+def validate_prompt_name(name: Any):
+    """Validate the prompt name against the prompt specific rule"""
+    if not isinstance(name, str) or not name:
+        raise MlflowException.invalid_parameter_value(
+            "Prompt name must be a non-empty string.",
+        )
+
+    if PROMPT_NAME_RULE.match(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt name can only contain alphanumeric characters, hyphens, underscores, and dots.",
+        )
