@@ -31,6 +31,7 @@ from mlflow.utils.async_logging.async_artifacts_logging_queue import (
 )
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
+from mlflow.utils.async_logging.run_artifact import RunArtifact
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -85,18 +86,9 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(filename, artifact_path=None, artifact=None):
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_path = os.path.join(tmp_dir, filename)
-                if artifact is not None:
-                    # User should already have installed PIL to log a PIL image
-                    from PIL import Image
-
-                    if isinstance(artifact, Image.Image):
-                        artifact.save(tmp_path)
-                self.log_artifact(tmp_path, artifact_path)
-
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(
+            self._async_artifact_logging_function
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(artifact_uri={self.artifact_uri!r})"
@@ -127,19 +119,12 @@ class ArtifactRepository:
                 artifact.
         """
 
-    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, artifact: RunArtifact):
         """
-        Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
-        place it within the run's artifacts. Run artifacts can be organized into directory, so you
-        can place the artifact in the directory this way. Cleanup tells the function whether to
-        cleanup the local_file after running log_artifact, since it could be a Temporary
-        Directory.
+        Asynchronously log a local file as an artifact.
 
         Args:
-            filename: Filename of the artifact to be logged.
-            artifact_path: Directory within the run's artifact directory in which to log the
-                artifact.
-            artifact: The artifact to be logged.
+            artifact: A RunArtifact with references to the artifact file and target location.
 
         Returns:
             An :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
@@ -149,9 +134,20 @@ class ArtifactRepository:
         if not self._async_logging_queue.is_active():
             self._async_logging_queue.activate()
 
-        return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, artifact=artifact
-        )
+        return self._async_logging_queue.log_artifacts_async(artifact=artifact)
+
+    def _async_artifact_logging_function(self, local_dir, artifact_path=None):
+        """
+        Used within the async logging queue to route artifact logging to the correct method.
+
+        Args:
+            local_dir: Directory or filepath of local artifact(s) to log.
+            artifact_path: Directory within the run's artifact directory in which to log the artifact
+        """
+        if os.path.isdir(local_dir):
+            self.log_artifacts(local_dir, artifact_path)
+        else:
+            self.log_artifact(local_dir, artifact_path)
 
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
