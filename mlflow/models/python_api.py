@@ -8,9 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_connect,
-)
+from mlflow.utils.databricks_utils import is_databricks_connect, is_in_databricks_runtime
 from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
@@ -235,19 +233,26 @@ def predict(
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
 
     def _predict(_input_path: str):
-        return get_flavor_backend(
-            model_uri,
-            env_manager=env_manager,
-            install_mlflow=install_mlflow,
-            **pyfunc_backend_env_root_config,
-        ).predict(
-            model_uri=model_uri,
-            input_path=_input_path,
-            output_path=output_path,
-            content_type=content_type,
-            pip_requirements_override=pip_requirements_override,
-            extra_envs=extra_envs,
-        )
+        try:
+            return get_flavor_backend(
+                model_uri,
+                env_manager=env_manager,
+                install_mlflow=install_mlflow,
+                **pyfunc_backend_env_root_config,
+            ).predict(
+                model_uri=model_uri,
+                input_path=_input_path,
+                output_path=output_path,
+                content_type=content_type,
+                pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
+            )
+        except Exception as e:
+            if is_in_databricks_runtime() and "Permission denied" in str(e):
+                raise MlflowException(
+                    "Try reattach or restart the cluster to resolve the permission issue."
+                ) from e
+            raise
 
     if input_data is not None and input_path is not None:
         raise MlflowException.invalid_parameter_value(
