@@ -32,9 +32,9 @@ def add_prompt_filter_string(
 
 def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]]) -> bool:
     """Check if the given tags contain the prompt tag."""
-    if isinstance(tags, list):
-        return any(tag.key == IS_PROMPT_TAG_KEY for tag in tags)
-    return IS_PROMPT_TAG_KEY in tags if tags else False
+    if isinstance(tags, dict):
+        return IS_PROMPT_TAG_KEY in tags if tags else False
+    return any(tag.key == IS_PROMPT_TAG_KEY for tag in tags)
 
 
 def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:

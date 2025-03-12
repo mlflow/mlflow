@@ -1,7 +1,6 @@
 # A special tag in RegisteredModel to indicate that it is a prompt
 import re
 
-
 IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
