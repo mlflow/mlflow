@@ -3,10 +3,6 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
-  "+8r+vG": {
-    "defaultMessage": "Tags",
-    "description": "Label for the tags on the registered prompt details page"
-  },
   "+Dnww0": {
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
@@ -70,10 +66,6 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
-  },
-  "/WoeqX": {
-    "defaultMessage": "Created at",
-    "description": "Label for the creation time on the registered prompt details page"
   },
   "/XlqZA": {
     "defaultMessage": "Service unavailable error",
@@ -1478,10 +1470,6 @@
   "QD6iZA": {
     "defaultMessage": "No parameters match the search filter",
     "description": "Run page > Overview > Parameters table > No results after filtering"
-  },
-  "QGvFrd": {
-    "defaultMessage": "Updated at",
-    "description": "Label for the last update time on the registered prompt details page"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
