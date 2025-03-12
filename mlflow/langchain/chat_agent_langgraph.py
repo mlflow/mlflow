@@ -19,7 +19,10 @@ try:
         if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
-                "helpers with LangGraph 0.3.x."
+                "helpers with LangGraph 0.3.x.\n"
+                "If you already have the proper versions installed, please try running "
+                "`pip install --force-reinstall langgraph`. This is a known issue. See: "
+                "https://github.com/langchain-ai/langgraph/issues/3662"
             ) from e
 
         # LangGraph < 0.3
