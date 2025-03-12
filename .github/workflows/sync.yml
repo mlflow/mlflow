@@ -1,0 +1,39 @@
+name: Sync
+
+on:
+  # Uncomment to test this workflow
+  # pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 1-5"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions: {}
+    if: github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 300
+      - uses: ./.github/actions/setup-python
+      - name:
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          uv run .github/workflows/sync.py

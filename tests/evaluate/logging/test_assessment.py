@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.evaluation import Assessment
+from mlflow.evaluation.assessment import AssessmentSource
 from mlflow.exceptions import MlflowException
 
 

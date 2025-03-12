@@ -10,8 +10,7 @@ import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
-import { LegacyTooltip } from '@databricks/design-system';
-import { InfoIcon } from '@databricks/design-system';
+import { InfoIcon, InfoPopover } from '@databricks/design-system';
 import { Popover } from '@databricks/design-system';
 import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
@@ -81,55 +80,42 @@ export const ExperimentViewHeader = React.memo(
     const getInfoTooltip = () => {
       return (
         <div style={{ display: 'flex' }}>
-          <LegacyTooltip
-            placement="bottomLeft"
-            dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
-            arrowPointAtCenter
-            title={
-              <div
-                css={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  flexWrap: 'nowrap',
-                }}
-                data-testid="experiment-view-header-info-tooltip-content"
-              >
-                <div style={{ whiteSpace: 'nowrap' }}>
-                  <FormattedMessage
-                    defaultMessage="Path"
-                    description="Label for displaying the current experiment path"
-                  />
-                  : {experiment.name + ' '}
-                  <ExperimentViewCopyTitle experiment={experiment} size="md" />
-                </div>
-                <div style={{ whiteSpace: 'nowrap' }}>
-                  <FormattedMessage
-                    defaultMessage="Experiment ID"
-                    description="Label for displaying the current experiment in view"
-                  />
-                  : {experiment.experimentId + ' '}
-                  <ExperimentViewCopyExperimentId experiment={experiment} />
-                </div>
-                <div style={{ whiteSpace: 'nowrap' }}>
-                  <FormattedMessage
-                    defaultMessage="Artifact Location"
-                    description="Label for displaying the experiment artifact location"
-                  />
-                  : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
-                  <ExperimentViewCopyArtifactLocation experiment={experiment} />
-                </div>
+          <InfoPopover iconTitle="Info">
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.xs,
+                flexWrap: 'nowrap',
+              }}
+              data-testid="experiment-view-header-info-tooltip-content"
+            >
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <FormattedMessage
+                  defaultMessage="Path"
+                  description="Label for displaying the current experiment path"
+                />
+                : {experiment.name + ' '}
+                <ExperimentViewCopyTitle experiment={experiment} size="md" />
               </div>
-            }
-          >
-            <Button
-              size="small"
-              type="link"
-              componentId="mlflow.experiment_page.header.info_tooltip"
-              icon={<InfoIcon css={{ color: theme.colors.textSecondary }} />}
-              data-testid="experiment-view-header-info-tooltip"
-              aria-label="Info"
-            />
-          </LegacyTooltip>
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <FormattedMessage
+                  defaultMessage="Experiment ID"
+                  description="Label for displaying the current experiment in view"
+                />
+                : {experiment.experimentId + ' '}
+                <ExperimentViewCopyExperimentId experiment={experiment} />
+              </div>
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <FormattedMessage
+                  defaultMessage="Artifact Location"
+                  description="Label for displaying the experiment artifact location"
+                />
+                : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
+                <ExperimentViewCopyArtifactLocation experiment={experiment} />
+              </div>
+            </div>
+          </InfoPopover>
         </div>
       );
     };

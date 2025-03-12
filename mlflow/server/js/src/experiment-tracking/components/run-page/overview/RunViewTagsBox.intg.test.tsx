@@ -1,10 +1,11 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
-import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { setRunTagsBulkApi } from '../../../actions';
 import { KeyValueEntity } from '../../../types';
 import { RunViewTagsBox } from './RunViewTagsBox';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 const testRunUuid = 'test-run-uuid';
 
@@ -17,9 +18,11 @@ describe('RunViewTagsBox integration', () => {
 
   function renderTestComponent(existingTags: Record<string, KeyValueEntity> = {}) {
     renderWithIntl(
-      <MockedReduxStoreProvider>
-        <RunViewTagsBox onTagsUpdated={onTagsUpdated} runUuid={testRunUuid} tags={existingTags} />,
-      </MockedReduxStoreProvider>,
+      <DesignSystemProvider>
+        <MockedReduxStoreProvider>
+          <RunViewTagsBox onTagsUpdated={onTagsUpdated} runUuid={testRunUuid} tags={existingTags} />,
+        </MockedReduxStoreProvider>
+      </DesignSystemProvider>,
     );
   }
 
@@ -34,9 +37,9 @@ describe('RunViewTagsBox integration', () => {
       renderTestComponent();
     });
 
-    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tags' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tags' }));
 
     await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
 
@@ -109,9 +112,9 @@ describe('RunViewTagsBox integration', () => {
       renderTestComponent();
     });
 
-    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tags' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tags' }));
 
     await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'new_tag_with_value');
 

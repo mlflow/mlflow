@@ -5,9 +5,10 @@ import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type { RadioChangeEvent } from 'antd';
-export declare const getRadioStyles: ({ theme, clsPrefix }: {
+export declare const getRadioStyles: ({ theme, clsPrefix, useNewShadows, }: {
     theme: Theme;
     clsPrefix: string;
+    useNewShadows: boolean;
 }) => SerializedStyles;
 export interface RadioProps extends Omit<AntDRadioProps, 'prefixCls' | 'type' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes {
 }

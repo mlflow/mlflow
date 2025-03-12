@@ -13,7 +13,7 @@ import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlot
 import { CHART_TYPE_BAR, convertMetricsToCsv } from './MetricsPlotPanel';
 import { LazyPlot } from './LazyPlot';
 import { generateInfinityAnnotations } from '../utils/MetricsUtils';
-import { injectIntl } from 'react-intl';
+import { injectIntl, IntlShape } from 'react-intl';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 const EMA_THRESHOLD = 1;
@@ -83,7 +83,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
     return legend;
   };
 
-  static getXValuesForLineChart(history: any, xAxisType: any) {
+  static getXValuesForLineChart(history: any, xAxisType: any, intl?: IntlShape) {
     if (history.length === 0) {
       return [];
     }
@@ -96,7 +96,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
         return history.map(({ timestamp }: any) => (timestamp - minTimestamp) / 1000);
       }
       default: // X_AXIS_WALL
-        return history.map(({ timestamp }: any) => Utils.formatTimestamp(timestamp));
+        return history.map(({ timestamp }: any) => timestamp);
     }
   }
 
@@ -113,7 +113,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
       const { metricKey, history } = metric;
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       annotationData[metricKey] = generateInfinityAnnotations({
-        xValues: (MetricsPlotView as any).getXValuesForLineChart(history, xAxis),
+        xValues: (MetricsPlotView as any).getXValuesForLineChart(history, xAxis, this.props.intl),
         yValues: history.map((entry: any) => (typeof entry.value === 'number' ? entry.value : Number(entry.value))),
         isLogScale: isYAxisLog,
         stringFormatter: (value) => this.props.intl.formatMessage(value, { metricKey }),

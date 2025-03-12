@@ -53,7 +53,7 @@ export declare const HintRow: React.ForwardRefExoticComponent<Pick<Pick<React.De
 export declare const IconWrapper: React.ForwardRefExoticComponent<Pick<Pick<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & {
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;
-export declare const dropdownContentStyles: (theme: Theme) => CSSObject;
+export declare const dropdownContentStyles: (theme: Theme, useNewShadows: boolean) => CSSObject;
 export declare const dropdownItemStyles: (theme: Theme) => Interpolation<Theme>;
 export declare const dropdownSeparatorStyles: (theme: Theme) => {
     height: number;

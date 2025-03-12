@@ -108,6 +108,11 @@ def _parse_content(content: Union[str, dict]) -> Union[TextContentPart, ImageCon
             ),
             type="image_url",
         )
+    # Claude 3.7 added new "thinking" content block, which is essentially a text block as of now.
+    # TODO: We should consider adding a new ContentPart type if more providers support this.
+    # https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+    elif content_type == "thinking":
+        return TextContentPart(text=content["thinking"], type="text")
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unknown content type: {content_type['type']}. Please make sure the message "

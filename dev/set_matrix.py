@@ -215,15 +215,15 @@ def filter_versions(
     """
     unsupported = unsupported or []
     # Prevent specifying non-existent versions
-    assert (
-        min_ver in versions
-    ), f"Minimum version {min_ver} is not in the list of versions for {flavor}"
-    assert (
-        max_ver in versions or allow_unreleased_max_version
-    ), f"Minimum version {max_ver} is not in the list of versions for {flavor}"
-    assert all(
-        v in versions for v in unsupported
-    ), f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
+    assert min_ver in versions, (
+        f"Minimum version {min_ver} is not in the list of versions for {flavor}"
+    )
+    assert max_ver in versions or allow_unreleased_max_version, (
+        f"Minimum version {max_ver} is not in the list of versions for {flavor}"
+    )
+    assert all(v in versions for v in unsupported), (
+        f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
+    )
 
     def _is_not_unsupported(v):
         return v not in unsupported

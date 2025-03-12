@@ -1,0 +1,188 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --card-border-radius: 4px;
+  --card-shadow1: rgba(50, 50, 93, 0.05);
+  --card-shadow2: rgba(50, 50, 93, 0.08);
+  --card-shadow3: rgba(0, 0, 0, 0.05);
+  --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
+    0 0 14px 5px var(--card-shadow2), 0 0 10px 3px var(--card-shadow3);
+
+  --ifm-color-primary: #0194e2;
+  --ifm-color-primary-dark: #0086cf;
+  --ifm-color-primary-darker: #0072b0;
+  --ifm-color-primary-darkest: #02659c;
+  --ifm-color-primary-light: #43c9ed;
+  --ifm-color-primary-lighter: #4accf0;
+  --ifm-color-primary-lightest: #54cef0;
+
+  /* Temporary secondary styles */
+  --ifm-color-secondary: #85552e;
+  --ifm-color-secondary-dark: #784c29;
+  --ifm-color-secondary-darker: #714827;
+  --ifm-color-secondary-darkest: #5d3b20;
+  --ifm-color-secondary-light: #925d33;
+  --ifm-color-secondary-lighter: #996235;
+  --ifm-color-secondary-lightest: #ad6e3c;
+
+  /* Temporary danger styles */
+  --ifm-color-danger: #852e5e;
+  --ifm-color-danger-dark: #782955;
+  --ifm-color-danger-darker: #712750;
+  --ifm-color-danger-darkest: #5d2042;
+  --ifm-color-danger-light: #923368;
+  --ifm-color-danger-lighter: #99356c;
+  --ifm-color-danger-lightest: #ad3c7b;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --padding-xs: 4px;
+  --padding-sm: 8px;
+  --padding-md: 16px;
+  --padding-lg: 24px;
+
+  /* Temporary info styles */
+  --ifm-color-info: #2e8581;
+  --ifm-color-info-dark: #297873;
+  --ifm-color-info-darker: #27716d;
+  --ifm-color-info-darkest: #205d5a;
+  --ifm-color-info-light: #33928c;
+  --ifm-color-info-lighter: #359994;
+  --ifm-color-info-lightest: #3cada7;
+
+  /* Increase h4 font-size to differentiate from regular bold text */
+  --ifm-h4-font-size: 1.125rem;
+
+  --ifm-footer-background-color: #303846;
+  --ifm-footer-color: #ebedf0;
+  --ifm-footer-link-color: #ebedf0;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme="dark"] {
+  --ifm-color-primary: #0194e2;
+  --ifm-color-primary-dark: #0086cf;
+  --ifm-color-primary-darker: #0072b0;
+  --ifm-color-primary-darkest: #02659c;
+  --ifm-color-primary-light: #43c9ed;
+  --ifm-color-primary-lighter: #4accf0;
+  --ifm-color-primary-lightest: #54cef0;
+
+  /* Inverted shadows */
+  --card-shadow1: rgba(162, 162, 162, 0.5);
+  --card-shadow2: rgba(162, 162, 162, 0.5);
+  --card-shadow3: rgba(255, 255, 255, 0.3);
+
+  /* Temporary secondary styles */
+  --ifm-color-secondary: #c2a025;
+  --ifm-color-secondary-dark: #af9021;
+  --ifm-color-secondary-darker: #a5881f;
+  --ifm-color-secondary-darkest: #88701a;
+  --ifm-color-secondary-light: #d5b029;
+  --ifm-color-secondary-lighter: #d8b432;
+  --ifm-color-secondary-lightest: #ddbf4f;
+
+  /* Temporary danger styles */
+  --ifm-color-danger: #c22547;
+  --ifm-color-danger-dark: #af2140;
+  --ifm-color-danger-darker: #a51f3c;
+  --ifm-color-danger-darkest: #881a32;
+  --ifm-color-danger-light: #d5294e;
+  --ifm-color-danger-lighter: #d83256;
+  --ifm-color-danger-lightest: #dd4f6d;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  /* Temporary info styles */
+  --ifm-color-info: #2595c2;
+  --ifm-color-info-dark: #2187af;
+  --ifm-color-info-dark: #2187af;
+  --ifm-color-info-darker: #1f7fa5;
+  --ifm-color-info-darkest: #1a6988;
+  --ifm-color-info-light: #29a4d5;
+  --ifm-color-info-lighter: #32a9d8;
+  --ifm-color-info-lightest: #4fb4dd;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-item {
+  box-sizing: border-box;
+  flex: 1;
+}
+
+.padding-md {
+  padding: var(--padding-md);
+}
+
+/* Most of our images are PNGs with transparent
+backgrounds so they look bad in dark mode */
+main img {
+  background-color: white;
+}
+
+.center-div {
+  margin-inline: auto;
+}
+
+/* We need to this class to limit image size using max-height. The class
+must be applied to the wrapping div along with the desired max-height */
+.max-height-img-container {
+  display: flex;
+
+  & > * {
+    display: flex;
+    justify-content: center;
+  }
+
+  img {
+    max-height: 100%;
+    width: auto;
+  }
+}
+
+/* This class is to be used in non-heading elements that contain a hash link reference.
+In headlines Ducousaurus adds this for us. */
+.anchor-with-sticky-navbar {
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
+}
+
+.sidebar-top-level-category > .menu__link {
+  font-weight: bold;
+}
+
+.sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-weight: bold;
+}
+
+.menu__list-item:not(.sidebar-top-level-category) > .menu__link {
+  font-size: 0.9rem;
+}
+
+.menu__list-item:not(.sidebar-top-level-category)
+  > .menu__list-item-collapsible
+  > .menu__link {
+  font-size: 0.9rem;
+}
+
+/* Make the collapse button smaller */
+.menu__caret:before {
+  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
+}
+
+.menu__link--sublist-caret:after {
+  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
+}

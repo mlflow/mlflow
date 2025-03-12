@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrimmedText } from './TrimmedText';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 const trimmedTextDataTestId = 'trimmed-text';
 const trimmedTextButtonDataTestId = 'trimmed-text-button';

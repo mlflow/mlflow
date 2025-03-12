@@ -154,7 +154,7 @@ def test_create_experiment_validation(mlflow_client):
         },
         "Invalid value 123 for parameter 'name'",
     )
-    assert_bad_request({}, "Missing value for required parameter 'name'")
+    assert_bad_request({}, "Missing value for required parameter 'name'.")
     assert_bad_request(
         {
             "name": "experiment name",

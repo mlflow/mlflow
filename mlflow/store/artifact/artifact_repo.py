@@ -98,6 +98,9 @@ class ArtifactRepository:
 
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(artifact_uri={self.artifact_uri!r})"
+
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
             max_workers=self.max_workers, thread_name_prefix=f"Mlflow{self.__class__.__name__}"

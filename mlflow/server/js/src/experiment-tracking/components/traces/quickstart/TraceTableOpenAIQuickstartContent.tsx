@@ -57,6 +57,7 @@ ${
             marginTop: theme.spacing.md,
           }}
           language="python"
+          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
         >
           {code}
         </CodeSnippet>

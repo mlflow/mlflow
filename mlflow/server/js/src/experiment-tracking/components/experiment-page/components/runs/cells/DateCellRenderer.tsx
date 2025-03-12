@@ -3,6 +3,7 @@ import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
 import { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
 import { RunStatusIcon } from '../../../../RunStatusIcon';
+import { useIntl } from 'react-intl';
 
 export interface DateCellRendererProps {
   value: RunRowDateAndNestInfo;
@@ -10,11 +11,13 @@ export interface DateCellRendererProps {
 
 export const DateCellRenderer = React.memo(({ value }: DateCellRendererProps) => {
   const { startTime, referenceTime, runStatus } = value || {};
+  const intl = useIntl();
   if (!startTime) {
     return <>-</>;
   }
+
   return (
-    <span css={styles.cellWrapper} title={Utils.formatTimestamp(startTime)}>
+    <span css={styles.cellWrapper} title={Utils.formatTimestamp(startTime, intl)}>
       <RunStatusIcon status={runStatus} />
       {Utils.timeSinceStr(startTime, referenceTime)}
     </span>

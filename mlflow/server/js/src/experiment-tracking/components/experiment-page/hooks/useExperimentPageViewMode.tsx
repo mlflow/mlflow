@@ -1,5 +1,6 @@
 import { shouldUseExperimentPageChartViewAsDefault } from '../../../../common/utils/FeatureUtils';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
+import { ExperimentPageTabName } from '../../../constants';
 import Routes from '../../../routes';
 import { type ExperimentViewRunsCompareMode } from '../../../types';
 
@@ -10,6 +11,8 @@ export const getExperimentPageDefaultViewMode = (): ExperimentViewRunsCompareMod
 
 /**
  * Hook using search params to retrieve and update the current experiment page runs view mode.
+ * Handles legacy part of the mode switching, based on "compareRunsMode" query parameter.
+ * Modern part of the mode switching is handled by <ExperimentViewRunsModeSwitchV2> which works using route params.
  */
 export const useExperimentPageViewMode = (): [
   ExperimentViewRunsCompareMode,

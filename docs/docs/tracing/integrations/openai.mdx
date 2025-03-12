@@ -1,0 +1,228 @@
+---
+sidebar_position: 1
+sidebar_label: OpenAI
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing OpenAI
+
+![OpenAI Tracing via autolog](/images/llms/tracing/openai-tracing.gif)
+
+
+[MLflow Tracing](../) provides automatic tracing capability for OpenAI. By enabling auto tracing
+for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment.
+
+```python
+import mlflow
+
+mlflow.openai.autolog()
+```
+
+MLflow trace automatically captures the following information about OpenAI calls:
+
+* Prompts and completion responses
+* Latencies
+* Model name
+* Additional metadata such as `temperature`, `max_tokens`, if specified.
+* Function calling if returned in the response
+* Any exception if raised
+
+:::tip
+
+MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/llms/openai)** to learn more!
+
+:::
+
+## Supported APIs
+
+MLflow supports automatic tracing for the following OpenAI APIs:
+
+|Chat Completion|Embeddings|Function Calling|Structured Outputs|Streaming|Async|Image|Audio|
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+|✅|✅|✅|✅ (*1)|✅ (*2)|✅ (*1)|-|-|
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+  (*1) Streaming support was added in MLflow 2.15.0.
+
+  (*2) Async and structured output supported were added in MLflow 2.21.0.
+
+</div>
+
+To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
+
+## Basic Example
+
+
+```python
+import openai
+import mlflow
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("OpenAI")
+
+openai_client = openai.OpenAI()
+
+messages = [
+    {
+        "role": "user",
+        "content": "What is the capital of France?",
+    }
+]
+
+response = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=messages,
+    temperature=0.1,
+    max_tokens=100,
+)
+```
+
+## Streaming
+
+MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of auto tracing, MLflow automatically traces the streaming response and render the concatenated output in the span UI. The actual chunks in the response stream can be found in the `Event` tab as well.
+
+```python
+import openai
+import mlflow
+
+# Enable trace logging
+mlflow.openai.autolog()
+
+client = openai.OpenAI()
+
+stream = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
+    ],
+    stream=True,  # Enable streaming response
+)
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+
+## Async
+
+MLflow Tracing supports asynchronous API of the OpenAI SDK since MLflow 2.21.0. The usage is same as the synchronous API.
+
+```python
+import openai
+
+# Enable trace logging
+mlflow.openai.autolog()
+
+client = openai.AsyncOpenAI()
+
+response = await client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
+    ],
+    # Async streaming is also supported
+    # stream=True
+)
+```
+
+## Function Calling
+
+MLflow Tracing automatically captures function calling response from OpenAI models. The function instruction in the response will be highlighted in the trace UI. Moreover, you can annotate the tool function with the `@mlflow.trace` decorator to create a span for the tool execution.
+
+![OpenAI Function Calling Trace](/images/llms/tracing/openai-function-calling.png)
+
+The following example implements a simple function calling agent using OpenAI Function Calling and MLflow Tracing for OpenAI.
+
+```python
+import json
+from openai import OpenAI
+import mlflow
+from mlflow.entities import SpanType
+
+client = OpenAI()
+
+
+# Define the tool function. Decorate it with `@mlflow.trace` to create a span for its execution.
+@mlflow.trace(span_type=SpanType.TOOL)
+def get_weather(city: str) -> str:
+    if city == "Tokyo":
+        return "sunny"
+    elif city == "Paris":
+        return "rainy"
+    return "unknown"
+
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+            },
+        },
+    }
+]
+
+_tool_functions = {"get_weather": get_weather}
+
+
+# Define a simple tool calling agent
+@mlflow.trace(span_type=SpanType.AGENT)
+def run_tool_agent(question: str):
+    messages = [{"role": "user", "content": question}]
+
+    # Invoke the model with the given question and available tools
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=tools,
+    )
+    ai_msg = response.choices[0].message
+    messages.append(ai_msg)
+
+    # If the model request tool call(s), invoke the function with the specified arguments
+    if tool_calls := ai_msg.tool_calls:
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            if tool_func := _tool_functions.get(function_name):
+                args = json.loads(tool_call.function.arguments)
+                tool_result = tool_func(**args)
+            else:
+                raise RuntimeError("An invalid tool is returned from the assistant!")
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": tool_result,
+                }
+            )
+
+        # Sent the tool results to the model and get a new response
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", messages=messages
+        )
+
+    return response.choices[0].message.content
+
+
+# Run the tool calling agent
+question = "What's the weather like in Paris today?"
+answer = run_tool_agent(question)
+```
+
+
+## Disable auto-tracing
+
+Auto tracing for OpenAI can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

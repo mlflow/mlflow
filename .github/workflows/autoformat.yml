@@ -73,9 +73,11 @@ jobs:
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
+          db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
+          echo "db=$db" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
@@ -110,6 +112,12 @@ jobs:
       - if: steps.diff.outputs.protos == 'true'
         run: |
           python ./dev/generate_protos.py
+      # ************************************************************************
+      # DB
+      # ************************************************************************
+      - if: steps.diff.outputs.db == 'true'
+        run: |
+          tests/db/update_schemas.sh
       # ************************************************************************
       # js
       # ************************************************************************

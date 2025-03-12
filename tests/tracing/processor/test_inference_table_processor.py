@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.inference_table import (
     _HEADER_REQUEST_ID_KEY,
@@ -18,17 +19,8 @@ _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
 
 
-@pytest.fixture
-def flask_request():
-    with mock.patch(
-        "mlflow.tracing.processor.inference_table._get_flask_request"
-    ) as mock_get_flask_request:
-        request = mock_get_flask_request.return_value
-        request.headers = {_HEADER_REQUEST_ID_KEY: _REQUEST_ID}
-        yield request
-
-
-def test_on_start(flask_request):
+@pytest.mark.parametrize("context_type", ["mlflow", "flask"])
+def test_on_start(context_type):
     # Root span should create a new trace on start
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -36,7 +28,17 @@ def test_on_start(flask_request):
     trace_manager = InMemoryTraceManager.get_instance()
     processor = InferenceTableSpanProcessor(span_exporter=mock.MagicMock())
 
-    processor.on_start(span)
+    if context_type == "mlflow":
+        with set_prediction_context(Context(request_id=_REQUEST_ID)):
+            processor.on_start(span)
+    else:
+        with mock.patch(
+            "mlflow.tracing.processor.inference_table._get_flask_request"
+        ) as mock_get_flask_request:
+            request = mock_get_flask_request.return_value
+            request.headers = {_HEADER_REQUEST_ID_KEY: _REQUEST_ID}
+
+            processor.on_start(span)
 
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -52,7 +54,9 @@ def test_on_start(flask_request):
     child_span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=2, parent_id=1, start_time=8_000_000
     )
-    processor.on_start(child_span)
+
+    with set_prediction_context(Context(request_id=_REQUEST_ID)):
+        processor.on_start(child_span)
 
     assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 

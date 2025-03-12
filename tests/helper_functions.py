@@ -184,7 +184,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
+    image_name, host_port, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -195,8 +195,6 @@ def pyfunc_serve_from_docker_image_with_env_override(
     scoring_cmd = [
         "docker",
         "run",
-        "-e",
-        f"GUNICORN_CMD_ARGS={gunicorn_opts}",
         "-p",
         f"{host_port}:8080",
         *(extra_docker_run_options or []),
@@ -417,10 +415,10 @@ def _read_lines(path):
         return f.read().splitlines()
 
 
-def _compare_logged_code_paths(code_path, model_path, flavor_name):
-    import mlflow.pyfunc
+def _compare_logged_code_paths(code_path: str, model_uri: str, flavor_name: str) -> None:
     from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
+    model_path = _download_artifact_from_uri(model_uri)
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -660,6 +658,8 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+    except Exception as e:
+        _logger.warning(f"Failed to clear cache: {e}", exc_info=True)
 
 
 def flaky(max_tries=3):
@@ -681,7 +681,7 @@ def flaky(max_tries=3):
                 try:
                     return test_func(*args, **kwargs)
                 except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    _logger.warning(f"Attempt {i + 1} failed with error: {e}")
                     if i == max_tries - 1:
                         raise
                     time.sleep(3)

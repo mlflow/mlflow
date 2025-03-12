@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
 from mlflow.entities import Metric
-from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.evaluation_tag import EvaluationTag
 from mlflow.evaluation import Assessment, Evaluation
+from mlflow.evaluation.assessment import AssessmentSource
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 
 
 def test_evaluation_equality():

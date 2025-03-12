@@ -180,6 +180,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/keras_core",
             "tests/llama_index",
             "tests/langchain",
+            "tests/langgraph",
             "tests/lightgbm",
             "tests/litellm",
             "tests/mistral",

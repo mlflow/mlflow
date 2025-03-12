@@ -1,21 +1,5 @@
 # MLflow: A Machine Learning Lifecycle Platform
 
-### 📢 Announcements 📢
-
----
-
-### MLflow Office Hours
-
-Join us for the upcoming [MLflow Office Hours](https://lu.ma/xj16g8ih) (January 22, 2025, 8:00 AM PST / 11:00 AM EST)!
-
----
-
-### MLflow Community Survey
-
-Help us improve MLflow by taking our [survey](https://surveys.training.databricks.com/jfe/form/SV_cA2jrfBjs6vi6SG)!
-
----
-
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
 [![Total Downloads](https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi&logoColor=white)](https://pepy.tech/project/mlflow)
@@ -45,7 +29,7 @@ To install the MLflow Python package, run the following command:
 pip install mlflow
 ```
 
-Alternatively, you can install MLflow from on differnet package hosting platforms:
+Alternatively, you can install MLflow from on different package hosting platforms:
 
 |               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -57,6 +41,10 @@ Alternatively, you can install MLflow from on differnet package hosting platform
 ## Documentation 📘
 
 Official documentation for MLflow can be found at [here](https://mlflow.org/docs/latest/index.html).
+
+## Running Anywhere 🌐
+
+You can run MLflow on many different environments, including local development, Amazon SageMaker, AzureML, and Databricks. Please refer to [this guidance](https://mlflow.org/docs/latest/index.html#running-mlflow-anywhere) for how to setup MLflow on your environment.
 
 ## Usage
 

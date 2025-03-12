@@ -39,9 +39,9 @@ def parse_args(args):
 
 
 def validate_requirements_yaml(requirements_yaml):
-    assert isinstance(
-        requirements_yaml, dict
-    ), "requirements.yaml contents must be a YAML dictionary"
+    assert isinstance(requirements_yaml, dict), (
+        "requirements.yaml contents must be a YAML dictionary"
+    )
     for package_entry in requirements_yaml.values():
         assert isinstance(package_entry, dict), (
             "Entry in requirements.yaml does not have required dictionary"

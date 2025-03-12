@@ -1,0 +1,207 @@
+---
+sidebar_position: 3
+sidebar_label: How-to Guide
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing SDK How-to Guides
+
+
+## Render Trace inside Jupyter Notebook
+
+:::note
+Jupyter integration is available in **MLflow 2.20 and above**
+:::
+
+![MLflow Trace UI in Jupyter Notebook](/images/llms/tracing/jupyter-trace-ui.png)
+
+
+The trace UI is also available within Jupyter notebooks! 
+This feature requires using an [MLflow Tracking Server](/tracking/server), as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via  [automatic tracing](/tracing/#automatic-tracing), or by running a manually traced function)
+2. When <APILink fn="mlflow.search_traces" /> is called
+3. When a <APILink fn="mlflow.entities.Trace" /> object is displayed (e.g. via IPython's `display` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell
+containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.
+
+For a more complete example, try running this [demo notebook](/tracing/tutorials/jupyter-trace-demo)!
+
+
+## Manually Creating a Trace and a Span
+
+Please refer to the [Manual Tracing](/tracing/api/manual-instrumentation) guide for how to create a trace and span manually.
+
+## Setting Trace Tags
+
+Tags can be added to traces to provide additional metadata at the trace level. For example, you can attach a session ID to a trace to group traces by a conversation session. MLflow provides APIs to set and delete tags on traces. Select the right API based on whether you want to set tags on an active trace or on an already finished trace.
+
+<table>
+  <thead>
+    <tr>
+      <th>API / Method</th>
+      <th>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <APILink fn="mlflow.update_current_trace" /> API.
+      </td>
+      <td>Setting tags on an **active** trace during the code execution.</td>
+    </tr>
+    <tr>
+      <td>
+        <APILink fn="mlflow.client.MlflowClient.set_trace_tag">`MlflowClient.set_trace_tag`</APILink> API.
+      </td>
+      <td>Programmatically setting tags on a finished trace.</td>
+    </tr>
+    <tr>
+      <td>MLflow UI</td>
+      <td>Setting tags on a finished trace conveniently.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Setting Tags on an Active Trace
+
+If you are using automatic tracing or fluent APIs to create traces and want to add tags to the trace during its execution, you can use the <APILink fn="mlflow.update_current_trace" /> function.
+
+For example, the following code example adds the `"fruit": "apple"` tag to the trace created for the `my_func` function:
+
+```python
+@mlflow.trace
+def my_func(x):
+    mlflow.update_current_trace(tags={"fruit": "apple"})
+    return x + 1
+```
+
+:::note
+
+The <APILink fn="mlflow.update_current_trace" /> function adds the specified tag(s) to the current trace when the key is not already present. If the key is already present, it updates the key with the new value.
+
+:::
+
+### Setting Tags on a Finished Trace
+
+To set tags on a trace that has already been completed and logged in the backend store, use the <APILink fn="mlflow.client.MlflowClient.set_trace_tag">`MlflowClient.set_trace_tag`</APILink> method to set a tag on a trace,
+and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag">`MlflowClient.delete_trace_tag`</APILink> method to remove a tag from a trace.
+
+```python
+# Set a tag on a trace
+client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
+
+# Delete a tag from a trace
+client.delete_trace_tag(request_id=request_id, key="tag_key")
+```
+
+### Setting Tags via the MLflow UI
+
+Alternatively, you can update or delete tags on a trace from the MLflow UI. To do this, navigate to the trace tab, then click on the pencil icon next to the tag you want to update.
+
+![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+
+## Delete Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces">`MlflowClient.delete_traces`</APILink> method. This method allows you to delete traces by **experiment ID**,
+**maximum timestamp**, or **request IDs**.
+
+:::tip
+Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.
+:::
+
+```python
+import time
+
+# Get the current timestamp in milliseconds
+current_time = int(time.time() * 1000)
+
+# Delete traces older than a specific timestamp
+deleted_count = client.delete_traces(
+    experiment_id="1", max_timestamp_millis=current_time, max_traces=10
+)
+```
+
+## Disabling Traces
+
+To **disable** tracing, the <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log
+any data to the MLflow Tracking service regarding traces.
+
+To **enable** tracing (if it had been temporarily disabled), the <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models
+that are invoked.
+
+## Associating Traces to MLflow Run
+
+If a trace is generated within a run context, the recorded traces to an active Experiment will be associated with the active Run.
+
+For example, in the following code, the traces are generated within the `start_run` context.
+
+```python
+import mlflow
+
+# Create and activate an Experiment
+mlflow.set_experiment("Run Associated Tracing")
+
+# Start a new MLflow Run
+with mlflow.start_run() as run:
+    # Initiate a trace by starting a Span context from within the Run context
+    with mlflow.start_span(name="Run Span") as parent_span:
+        parent_span.set_inputs({"input": "a"})
+        parent_span.set_outputs({"response": "b"})
+        parent_span.set_attribute("a", "b")
+        # Initiate a child span from within the parent Span's context
+        with mlflow.start_span(name="Child Span") as child_span:
+            child_span.set_inputs({"input": "b"})
+            child_span.set_outputs({"response": "c"})
+            child_span.set_attributes({"b": "c", "c": "d"})
+```
+
+When navigating to the MLflow UI and selecting the active Experiment, the trace display view will show the run that is associated with the trace, as
+well as providing a link to navigate to the run within the MLflow UI. See the below video for an example of this in action.
+
+![Tracing within a Run Context](/images/llms/tracing/run-trace.gif)
+
+You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Retrieve traces associated with a specific Run
+traces = client.search_traces(run_id=run.info.run_id)
+
+print(traces)
+```
+
+## Logging Traces Asynchronously
+
+By default, MLflow Traces are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
+
+To enable async logging for tracing, call <APILink fn="mlflow.config.enable_async_logging" /> in your code. This will make the trace logging operation non-blocking and reduce the performance overhead.
+
+```python
+import mlflow
+
+mlflow.config.enable_async_logging()
+
+# Traces will be logged asynchronously
+with mlflow.start_span(name="foo") as span:
+    span.set_inputs({"a": 1})
+    span.set_outputs({"b": 2})
+
+# If you don't see the traces in the UI after waiting for a while, you can manually flush the traces
+# mlflow.flush_trace_async_logging()
+```
+
+Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.

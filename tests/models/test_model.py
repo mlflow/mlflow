@@ -1,5 +1,6 @@
 import os
 import pathlib
+import time
 import uuid
 from datetime import date
 from unittest import mock
@@ -76,8 +77,8 @@ def test_model_save_load():
     n.signature = None
     assert m != n
     with TempDir() as tmp:
-        m.save(tmp.path("model"))
-        o = Model.load(tmp.path("model"))
+        m.save(tmp.path("MLmodel"))
+        o = Model.load(tmp.path("MLmodel"))
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()
@@ -127,7 +128,7 @@ def _log_model_with_signature_and_example(
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
-        Model.log(
+        model = Model.log(
             "some/path",
             TestFlavor,
             signature=sig,
@@ -139,10 +140,7 @@ def _log_model_with_signature_and_example(
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
     # with tmp_path fixture
     output_path = tmp_path if isinstance(tmp_path, pathlib.PosixPath) else tmp_path.path("")
-    local_path = _download_artifact_from_uri(
-        f"runs:/{run.info.run_id}/some/path", output_path=output_path
-    )
-
+    local_path = _download_artifact_from_uri(model.model_uri, output_path=output_path)
     return local_path, run
 
 
@@ -263,7 +261,7 @@ def test_model_metadata():
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
-        path = tmp.path("model")
+        path = tmp.path("MLmodel")
         with open(path, "w") as out:
             model.to_yaml(out)
         loaded_model = Model.load(path)
@@ -273,30 +271,15 @@ def test_load_model_without_mlflow_version():
 
 def test_model_log_with_databricks_runtime():
     dbr_version = "8.3.x"
-    with (
-        TempDir(chdr=True) as tmp,
-        mock.patch("mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version),
-    ):
-        sig = ModelSignature(
-            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-            outputs=Schema([ColSpec(name=None, type="double")]),
-        )
-        input_example = {"x": 1, "y": 2}
-        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
+        ) as mock_get_dbr_version:
+            model = Model.log("path", TestFlavor, signature=None, input_example=None)
+            mock_get_dbr_version.assert_called()
 
-        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
-        assert loaded_model.flavors == {
-            "flavor1": {"a": 1, "b": 2},
-            "flavor2": {"x": 1, "y": 2},
-        }
-        assert loaded_model.signature == sig
-        x = _read_example(
-            Model(saved_input_example_info=loaded_model.saved_input_example_info), local_path
-        )
-        assert x == input_example
-        assert loaded_model.databricks_runtime == dbr_version
+    loaded_model = Model.load(model.model_uri)
+    assert loaded_model.databricks_runtime == dbr_version
 
 
 def test_model_log_with_input_example_succeeds():
@@ -641,3 +624,35 @@ def test_model_resources():
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.resources == expected_resources
+
+
+def test_save_model_with_prompts():
+    mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
+    time.sleep(0.001)  # To avoid timestamp precision issue in Windows
+    mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            prompts=[
+                "prompts:/prompt-1/1",
+                "prompts:/prompt-2/1",
+            ],
+        )
+
+    assert model_info.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Prompts should be recorded in the yaml file
+    model = Model.load(model_info.model_uri)
+    assert model.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+
+    # Run ID should be recorded in the prompt registry
+    associated_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
+    assert len(associated_prompts) == 2
+    assert associated_prompts[0].name == "prompt-2"
+    assert associated_prompts[1].name == "prompt-1"

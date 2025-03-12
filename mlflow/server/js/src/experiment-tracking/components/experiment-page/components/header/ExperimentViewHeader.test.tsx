@@ -1,7 +1,7 @@
 import { ExperimentViewHeader } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // mock breadcrumbs

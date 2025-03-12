@@ -11,7 +11,6 @@ import {
 } from '../../constants';
 import { isNil, uniq } from 'lodash';
 import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
-import { shouldEnableGlobalLineChartConfig } from '../../../common/utils/FeatureUtils';
 
 /**
  * Enum for all recognized chart types used in runs charts
@@ -51,6 +50,9 @@ export abstract class RunsChartsCardConfig {
   metricSectionId?: string = '';
   deleted = false;
   isGenerated = false;
+
+  // Custom title of the chart. If not provided, it's inferred from configuration (e.g. metric key).
+  displayName?: string;
 
   constructor(isGenerated: boolean, uuid?: string, metricSectionId?: string) {
     this.isGenerated = isGenerated;
@@ -330,7 +332,7 @@ export abstract class RunsChartsCardConfig {
           // If section has not been reordered, then insert alphabetically
           const insertIndex = resultChartSet.findIndex((chart) => {
             const chartImageKeys = (chart as RunsChartsImageCardConfig).imageKeys;
-            return chartImageKeys ? chartImageKeys[0].localeCompare(imageKey) >= 0 : false;
+            return chartImageKeys ? chartImageKeys[0]?.localeCompare(imageKey) >= 0 : false;
           });
           resultChartSet.splice(insertIndex, 0, newChartConfig);
         }
@@ -546,12 +548,12 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   /**
    * Whether or not to use global X axis settings.
    */
-  useGlobalXaxisKey?: boolean = shouldEnableGlobalLineChartConfig();
+  useGlobalXaxisKey?: boolean = true;
 
   /**
    * Whether or not to use global line smoothing setting.
    */
-  useGlobalLineSmoothing?: boolean = shouldEnableGlobalLineChartConfig();
+  useGlobalLineSmoothing?: boolean = true;
 }
 
 // TODO: add configuration fields relevant to bar chart
@@ -562,6 +564,16 @@ export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
    * A metric key used for chart's X axis
    */
   metricKey = '';
+
+  /**
+   * If the chart is configured to use a particular dataset, this field will contain the dataset identifier.
+   */
+  datasetName?: string;
+
+  /**
+   * Present if the chart is configured to use a particular key to get data.
+   */
+  dataAccessKey?: string;
 }
 
 // TODO: add configuration fields relevant to contour chart
@@ -616,4 +628,13 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   // image keys to show
   imageKeys: string[] = [];
   step = 0;
+}
+
+/**
+ * Defines a metric entry in the chart configuration, used to access dataset-specific metrics.
+ */
+export interface RunsChartsMetricByDatasetEntry {
+  dataAccessKey: string;
+  metricKey: string;
+  datasetName?: string;
 }

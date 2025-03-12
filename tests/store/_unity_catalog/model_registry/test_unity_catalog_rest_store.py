@@ -696,7 +696,32 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
-def test_create_model_version_with_sse_kms_client(store, langchain_local_model_dir):
+@pytest.mark.parametrize(
+    ("encryption_details", "extra_args"),
+    [
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+            ),
+            {
+                "ServerSideEncryption": "AES256",
+            },
+        ),
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        ),
+    ],
+)
+def test_create_model_version_with_sse_kms_client(
+    store, langchain_local_model_dir, encryption_details, extra_args
+):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -706,12 +731,7 @@ def test_create_model_version_with_sse_kms_client(store, langchain_local_model_d
             secret_access_key=secret_access_key,
             session_token=session_token,
         ),
-        encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            )
-        ),
+        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
     )
     storage_location = "s3://blah"
     source = str(langchain_local_model_dir)
@@ -757,17 +777,36 @@ def test_create_model_version_with_sse_kms_client(store, langchain_local_model_d
         store.create_model_version(name=model_name, source=source, tags=tags)
 
         mock_s3_client.upload_file.assert_called_once_with(
-            Filename=ANY,
-            Bucket=ANY,
-            Key=ANY,
-            ExtraArgs={
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
-            },
+            Filename=ANY, Bucket=ANY, Key=ANY, ExtraArgs=extra_args
         )
 
 
-def test_create_model_version_with_sse_kms_store(store, langchain_local_model_dir):
+@pytest.mark.parametrize(
+    ("encryption_details", "extra_args"),
+    [
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+            ),
+            {
+                "ServerSideEncryption": "AES256",
+            },
+        ),
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        ),
+    ],
+)
+def test_create_model_version_with_sse_kms_store(
+    store, langchain_local_model_dir, encryption_details, extra_args
+):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -777,12 +816,7 @@ def test_create_model_version_with_sse_kms_store(store, langchain_local_model_di
             secret_access_key=secret_access_key,
             session_token=session_token,
         ),
-        encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            )
-        ),
+        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
     )
     storage_location = "s3://blah"
     source = str(langchain_local_model_dir)
@@ -828,10 +862,7 @@ def test_create_model_version_with_sse_kms_store(store, langchain_local_model_di
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
-            s3_upload_extra_args={
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
-            },
+            s3_upload_extra_args=extra_args,
         )
 
 

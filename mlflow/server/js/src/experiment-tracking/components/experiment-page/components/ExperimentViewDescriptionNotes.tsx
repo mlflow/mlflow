@@ -12,7 +12,6 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import ReactMde, { SvgIcon } from 'react-mde';
@@ -79,7 +78,7 @@ export const ExperimentViewDescriptionNotes = ({
   const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
-    (updatedNote: any) => {
+    (updatedNote?: string) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
       const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
@@ -93,8 +92,8 @@ export const ExperimentViewDescriptionNotes = ({
       {(tmpNote ?? defaultValue) && (
         <div
           style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre',
-            lineHeight: theme.typography.lineHeightSm,
+            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
+            lineHeight: theme.typography.lineHeightLg,
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -109,6 +108,7 @@ export const ExperimentViewDescriptionNotes = ({
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              wordBreak: 'break-word',
             }}
           >
             <div

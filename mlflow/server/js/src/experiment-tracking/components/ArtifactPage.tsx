@@ -25,6 +25,7 @@ import { ArtifactViewBrowserSkeleton } from './artifact-view-components/Artifact
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type ArtifactPageImplProps = {
   runUuid?: string;
@@ -164,7 +165,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   renderArtifactView = (isLoading: any, shouldRenderError: any, requests: any) => {
-    if (isLoading) {
+    if (isLoading && !shouldRenderError) {
       return <ArtifactViewBrowserSkeleton />;
     }
     if (this.renderErrorCondition(shouldRenderError)) {
@@ -173,11 +174,19 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(failedReq.error);
       }
+      const errorDescription = (() => {
+        const error = failedReq?.error;
+        if (error instanceof ErrorWrapper) {
+          return error.getMessageField();
+        }
+
+        return this.getFailedtoListArtifactsMsg();
+      })();
       return (
         <ArtifactViewErrorState
           css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
           data-testid="artifact-view-error"
-          description={this.getFailedtoListArtifactsMsg()}
+          description={errorDescription}
         />
       );
     }

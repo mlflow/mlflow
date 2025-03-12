@@ -443,8 +443,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to update an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to update an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         if new_config_name not in self.endpoint_configs:
@@ -469,8 +468,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to delete an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to delete an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         del self.endpoints[endpoint_name]

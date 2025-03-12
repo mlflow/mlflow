@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { DeepPartial } from 'redux';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
@@ -10,7 +10,7 @@ import {
   within,
   fastFillInput,
   renderWithIntl,
-} from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';

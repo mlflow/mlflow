@@ -38,6 +38,7 @@ import { TracesViewTableTimestampCell } from './TracesViewTableTimestampCell';
 import { TracesViewTableHeaderCheckbox } from './TracesViewTableHeaderCheckbox';
 import { TracesViewTableCellCheckbox } from './TracesViewTableCellCheckbox';
 import { TracesViewTableNoTracesQuickstart } from './quickstart/TracesViewTableNoTracesQuickstart';
+import { isUnstableNestedComponentsMigrated } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export interface TracesViewTableProps {
   experimentIds: string[];
@@ -62,6 +63,91 @@ export interface TracesViewTableProps {
   disableTokenColumn?: boolean;
   baseComponentId: string;
 }
+
+type TracesViewTableMeta = {
+  baseComponentId: string;
+  onTraceClicked?: TracesViewTableProps['onTraceClicked'];
+  onTraceTagsEdit?: TracesViewTableProps['onTraceTagsEdit'];
+};
+
+const RequestIdCell: TracesColumnDef['cell'] = ({
+  row: { original },
+  table: {
+    options: { meta },
+  },
+}) => {
+  const { baseComponentId, onTraceClicked } = meta as TracesViewTableMeta;
+  return (
+    <Typography.Link
+      componentId={`${baseComponentId}.traces_table.request_id_link`}
+      ellipsis
+      css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+      onClick={() => {
+        onTraceClicked?.(original);
+      }}
+    >
+      {original.request_id}
+    </Typography.Link>
+  );
+};
+
+const TraceNameCell: TracesColumnDef['cell'] = ({
+  row: { original },
+  table: {
+    options: { meta },
+  },
+}) => {
+  const { baseComponentId, onTraceClicked } = meta as TracesViewTableMeta;
+  return (
+    <Typography.Link
+      componentId={`${baseComponentId}.traces_table.trace_name_link`}
+      ellipsis
+      css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+      onClick={() => {
+        onTraceClicked?.(original);
+      }}
+    >
+      {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
+    </Typography.Link>
+  );
+};
+
+const RunNameCell: TracesColumnDef['cell'] = ({ row: { original } }) => {
+  const runId = getTraceInfoRunId(original);
+  if (!runId || !original.experiment_id) {
+    return null;
+  }
+  const label = original.runName || runId;
+  return (
+    <Link
+      css={{
+        maxWidth: '100%',
+        textOverflow: 'ellipsis',
+        display: 'inline-block',
+        overflow: 'hidden',
+      }}
+      to={Routes.getRunPageRoute(original.experiment_id, runId)}
+    >
+      {label}
+    </Link>
+  );
+};
+
+const TraceTagsCell: TracesColumnDef['cell'] = ({
+  row: { original },
+  table: {
+    options: { meta },
+  },
+}) => {
+  const { onTraceTagsEdit, baseComponentId } = meta as TracesViewTableMeta;
+  return (
+    <TracesViewTableTagCell
+      tags={original.tags || []}
+      onAddEditTags={() => onTraceTagsEdit?.(original)}
+      baseComponentId={baseComponentId}
+    />
+  );
+};
 
 export const TracesViewTable = React.memo(
   ({
@@ -88,6 +174,8 @@ export const TracesViewTable = React.memo(
   }: TracesViewTableProps) => {
     const intl = useIntl();
 
+    const useStaticColumnsCells = isUnstableNestedComponentsMigrated();
+
     const columns = useMemo<TracesColumnDef[]>(() => {
       const columns: TracesColumnDef[] = [
         {
@@ -103,20 +191,22 @@ export const TracesViewTable = React.memo(
           enableSorting: false,
           enableResizing: true,
           id: ExperimentViewTracesTableColumns.requestId,
-          cell({ row: { original } }) {
-            return (
-              <Typography.Link
-                componentId={`${baseComponentId}.traces_table.request_id_link`}
-                ellipsis
-                css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                onClick={() => {
-                  onTraceClicked?.(original);
-                }}
-              >
-                {original.request_id}
-              </Typography.Link>
-            );
-          },
+          cell: useStaticColumnsCells
+            ? RequestIdCell
+            : ({ row: { original } }) => {
+                return (
+                  <Typography.Link
+                    componentId={`${baseComponentId}.traces_table.request_id_link`}
+                    ellipsis
+                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                    onClick={() => {
+                      onTraceClicked?.(original);
+                    }}
+                  >
+                    {original.request_id}
+                  </Typography.Link>
+                );
+              },
           meta: { styles: { minWidth: 200 } },
         },
         {
@@ -124,20 +214,22 @@ export const TracesViewTable = React.memo(
           enableSorting: false,
           enableResizing: true,
           id: ExperimentViewTracesTableColumns.traceName,
-          cell({ row: { original } }) {
-            return (
-              <Typography.Link
-                componentId={`${baseComponentId}.traces_table.trace_name_link`}
-                ellipsis
-                css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                onClick={() => {
-                  onTraceClicked?.(original);
-                }}
-              >
-                {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
-              </Typography.Link>
-            );
-          },
+          cell: useStaticColumnsCells
+            ? TraceNameCell
+            : ({ row: { original } }) => {
+                return (
+                  <Typography.Link
+                    componentId={`${baseComponentId}.traces_table.trace_name_link`}
+                    ellipsis
+                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                    onClick={() => {
+                      onTraceClicked?.(original);
+                    }}
+                  >
+                    {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
+                  </Typography.Link>
+                );
+              },
           meta: { styles: { minWidth: 150 } },
         },
         {
@@ -180,26 +272,28 @@ export const TracesViewTable = React.memo(
           enableSorting: false,
           enableResizing: true,
           id: ExperimentViewTracesTableColumns.runName,
-          cell({ row: { original } }) {
-            const runId = getTraceInfoRunId(original);
-            if (!runId || !original.experiment_id) {
-              return null;
-            }
-            const label = original.runName || runId;
-            return (
-              <Link
-                css={{
-                  maxWidth: '100%',
-                  textOverflow: 'ellipsis',
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                }}
-                to={Routes.getRunPageRoute(original.experiment_id, runId)}
-              >
-                {label}
-              </Link>
-            );
-          },
+          cell: useStaticColumnsCells
+            ? RunNameCell
+            : ({ row: { original } }) => {
+                const runId = getTraceInfoRunId(original);
+                if (!runId || !original.experiment_id) {
+                  return null;
+                }
+                const label = original.runName || runId;
+                return (
+                  <Link
+                    css={{
+                      maxWidth: '100%',
+                      textOverflow: 'ellipsis',
+                      display: 'inline-block',
+                      overflow: 'hidden',
+                    }}
+                    to={Routes.getRunPageRoute(original.experiment_id, runId)}
+                  >
+                    {label}
+                  </Link>
+                );
+              },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.source]),
@@ -242,20 +336,30 @@ export const TracesViewTable = React.memo(
           enableSorting: false,
           enableResizing: true,
           id: ExperimentViewTracesTableColumns.tags,
-          cell({ row: { original } }) {
-            return (
-              <TracesViewTableTagCell
-                tags={original.tags || []}
-                onAddEditTags={() => onTraceTagsEdit?.(original)}
-                baseComponentId={baseComponentId}
-              />
-            );
-          },
+          cell: useStaticColumnsCells
+            ? TraceTagsCell
+            : ({ row: { original } }) => {
+                return (
+                  <TracesViewTableTagCell
+                    tags={original.tags || []}
+                    onAddEditTags={() => onTraceTagsEdit?.(original)}
+                    baseComponentId={baseComponentId}
+                  />
+                );
+              },
         },
       );
 
       return columns.filter((column) => column.id && !hiddenColumns.includes(column.id));
-    }, [intl, onTraceClicked, onTraceTagsEdit, disableTokenColumn, hiddenColumns, baseComponentId]);
+    }, [
+      intl,
+      onTraceClicked,
+      onTraceTagsEdit,
+      disableTokenColumn,
+      hiddenColumns,
+      baseComponentId,
+      useStaticColumnsCells,
+    ]);
 
     const table = useReactTable<ModelTraceInfoWithRunName>({
       columns,
@@ -269,6 +373,7 @@ export const TracesViewTable = React.memo(
       enableColumnResizing: true,
       enableRowSelection: true,
       columnResizeMode: 'onChange',
+      meta: { baseComponentId, onTraceClicked, onTraceTagsEdit } satisfies TracesViewTableMeta,
     });
 
     const getEmptyState = () => {

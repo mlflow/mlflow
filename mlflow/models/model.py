@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import posixpath
 import shutil
 import uuid
 import warnings
@@ -14,9 +15,9 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
-from mlflow.artifacts import download_artifacts
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -104,6 +105,7 @@ class ModelInfo:
         metadata: Optional[dict[str, Any]] = None,
         registered_model_version: Optional[int] = None,
         env_vars: Optional[list[str]] = None,
+        prompts: Optional[list[str]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -116,6 +118,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
+        self._prompts = prompts
         self._registered_model_version = registered_model_version
         self._env_vars = env_vars
 
@@ -312,6 +315,11 @@ class ModelInfo:
         return self._metadata
 
     @property
+    def prompts(self) -> Optional[list[str]]:
+        """A list of prompt URIs associated with the model."""
+        return self._prompts
+
+    @property
     def registered_model_version(self) -> Optional[int]:
         """
         The registered model version, if the model is registered.
@@ -347,6 +355,8 @@ class Model:
         model_size_bytes: Optional[int] = None,
         resources: Optional[Union[str, list[Resource]]] = None,
         env_vars: Optional[list[str]] = None,
+        auth_policy: Optional[AuthPolicy] = None,
+        prompts: Optional[list[str]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -359,9 +369,11 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
+        self.prompts = prompts
         self.model_size_bytes = model_size_bytes
         self.resources = resources
         self.env_vars = env_vars
+        self.auth_policy = auth_policy
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -569,6 +581,23 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
+    @experimental
+    @property
+    def auth_policy(self) -> dict[str, dict]:
+        """
+        An optional dictionary that contains the auth policy required to serve the model.
+
+        :getter: Retrieves the auth_policy required to serve the model
+        :setter: Sets the auth_policy required to serve the model
+        :type: Dict[str, dict]
+        """
+        return self._auth_policy
+
+    @experimental
+    @auth_policy.setter
+    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
+        self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
+
     @property
     def env_vars(self) -> Optional[list[str]]:
         return self._env_vars
@@ -602,6 +631,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            prompts=self.prompts,
             env_vars=self.env_vars,
         )
 
@@ -641,10 +671,14 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.prompts is not None:
+            res["prompts"] = self.prompts
         if self.resources is not None:
             res["resources"] = self.resources
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
+        if self.auth_policy is not None:
+            res["auth_policy"] = self.auth_policy
         # Exclude null fields in case MLmodel file consumers such as Model Serving may not
         # handle them correctly.
         if self.artifact_path is None:
@@ -694,28 +728,35 @@ class Model:
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
         # Check if the path is a local directory and not remote
-        path_scheme = urlparse(str(path)).scheme
+        sep = os.path.sep
+        path = str(path).rstrip(sep)
+        path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-        path = download_artifacts(artifact_uri=path)
-        if os.path.isdir(path):
-            path = os.path.join(path, MLMODEL_FILE_NAME)
-            env_var_path = os.path.join(path, ENV_VAR_FILE_NAME)
-        elif os.path.isfile(path):
-            env_var_path = os.path.join(os.path.dirname(path), ENV_VAR_FILE_NAME)
-        else:
+        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
+        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
+        with open(mlmodel_local_path) as f:
+            model_dict = yaml.safe_load(f)
+        env_var_path = (
+            f"{path}/{ENV_VAR_FILE_NAME}"
+            if is_model_dir
+            else posixpath.join(posixpath.dirname(path), ENV_VAR_FILE_NAME)
+        )
+
+        try:
+            env_var_path = _download_artifact_from_uri(env_var_path)
+        except Exception:
             env_var_path = None
         env_vars = None
-        if os.path.exists(env_var_path):
+        if env_var_path is not None:
             # comments start with `#` such as ENV_VAR_FILE_HEADER
             lines = Path(env_var_path).read_text().splitlines()
             env_vars = [line for line in lines if line and not line.startswith("#")]
-        with open(path) as f:
-            model_dict = yaml.safe_load(f.read())
         model_dict["env_vars"] = env_vars
         return cls.from_dict(model_dict)
 
@@ -741,7 +782,6 @@ class Model:
 
         if _MLFLOW_VERSION_KEY not in model_dict:
             model_dict[_MLFLOW_VERSION_KEY] = None
-
         return cls(**model_dict)
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
@@ -755,6 +795,8 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        auth_policy=None,
+        prompts=None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -777,12 +819,20 @@ class Model:
             run_id: The run ID to associate with this model. If not provided,
                 a new run will be started.
             resources: {{ resources }}
+            auth_policy: {{ auth_policy }}
+            prompts: {{ prompts }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+
+        # Only one of Auth policy and resources should be defined
+
+        if resources is not None and auth_policy is not None:
+            raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None
@@ -791,7 +841,12 @@ class Model:
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
-                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+                artifact_path=artifact_path,
+                run_id=run_id,
+                metadata=metadata,
+                resources=resources,
+                auth_policy=auth_policy,
+                prompts=prompts,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -863,6 +918,18 @@ class Model:
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
             mlflow_model.env_vars = env_vars
+
+            # Associate prompts to the model Run
+            if prompts:
+                client = mlflow.MlflowClient()
+                for prompt_uri in prompts:
+                    try:
+                        client.log_prompt(run_id, prompt_uri)
+                    except MlflowException:
+                        _logger.warning(
+                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
+                        )
+
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -914,6 +981,7 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
+
             model_info = mlflow_model.get_model_info()
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
@@ -1003,24 +1071,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
         model_signature = model_info.signature
         assert model_signature == signature
     """
-    from mlflow.pyfunc import _download_artifact_from_uri
-
-    meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
-    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
-    model_meta = Model.load(meta_local_path)
-    return ModelInfo(
-        artifact_path=model_meta.artifact_path,
-        flavors=model_meta.flavors,
-        model_uri=model_uri,
-        model_uuid=model_meta.model_uuid,
-        run_id=model_meta.run_id,
-        saved_input_example_info=model_meta.saved_input_example_info,
-        signature_dict=model_meta.signature.to_dict() if model_meta.signature else None,
-        signature=model_meta.signature,
-        utc_time_created=model_meta.utc_time_created,
-        mlflow_version=model_meta.mlflow_version,
-        metadata=model_meta.metadata,
-    )
+    return Model.load(model_uri).get_model_info()
 
 
 class Files(NamedTuple):

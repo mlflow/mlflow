@@ -6,6 +6,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
 @pytest.mark.parametrize(
@@ -121,7 +122,7 @@ def test_parse_models_uri_invalid_input(uri):
 
 def test_get_model_name_and_version_with_version():
     with mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[]
+        ModelRegistryClient, "get_latest_versions", return_value=[]
     ) as mlflow_client_mock:
         assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/123") == (
             "AdsModel1",
@@ -132,7 +133,7 @@ def test_get_model_name_and_version_with_version():
 
 def test_get_model_name_and_version_with_stage():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_latest_versions",
         return_value=[
             ModelVersion(
@@ -152,7 +153,7 @@ def test_get_model_name_and_version_with_stage():
 
 def test_get_model_name_and_version_with_latest():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_latest_versions",
         return_value=[
             ModelVersion(
@@ -176,7 +177,7 @@ def test_get_model_name_and_version_with_latest():
 
 def test_get_model_name_and_version_with_alias():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_model_version_by_alias",
         return_value=ModelVersion(
             name="mv1", version="10", creation_timestamp=123, aliases=["Champion"]

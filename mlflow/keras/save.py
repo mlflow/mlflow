@@ -301,7 +301,7 @@ def log_model(
         artifact_path: the run-relative path to which to log model artifacts.
         save_exported_model: defaults to False. If True, save Keras model in exported
             model format, otherwise save in `.keras` format. For more information, please
-            refer to [Keras doc](https://keras.io/guides/serialization_and_saving/).
+            refer to `Keras doc <https://keras.io/guides/serialization_and_saving/>`_.
         conda_env: {{ conda_env }}
         signature: {{ signature }}
         input_example: {{ input_example }}

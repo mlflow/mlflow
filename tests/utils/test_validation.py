@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.environment_variables import MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
@@ -13,6 +14,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_db_type_string,
     _validate_experiment_artifact_location,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_metric_name,
     _validate_model_alias_name,
@@ -333,3 +335,41 @@ def test_validate_db_type_string_bad(db_type):
     with pytest.raises(MlflowException, match="Invalid database engine") as e:
         _validate_db_type_string(db_type)
     assert "Invalid database engine" in e.value.message
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://test-bucket/",
+        "file:///path/to/artifacts",
+        "mlflow-artifacts:/path/to/artifacts",
+        "dbfs:/databricks/mlflow-tracking/some-id",
+    ],
+)
+def test_validate_experiment_artifact_location_length_good(artifact_location):
+    _validate_experiment_artifact_location_length(artifact_location)
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 1111],
+)
+def test_validate_experiment_artifact_location_length_bad(artifact_location):
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+
+def test_setting_experiment_artifact_location_env_var_works(monkeypatch):
+    artifact_location = "file://aaaa"  # length 11
+
+    # should not throw
+    _validate_experiment_artifact_location_length(artifact_location)
+
+    # reduce limit to 10
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "10")
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+    # increase limit to 11
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "11")
+    _validate_experiment_artifact_location_length(artifact_location)

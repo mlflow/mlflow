@@ -7,7 +7,8 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
   return (
     <div
       css={{
-        marginTop: theme.spacing.md,
+        minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
+        marginTop: theme.spacing.sm,
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.sm,

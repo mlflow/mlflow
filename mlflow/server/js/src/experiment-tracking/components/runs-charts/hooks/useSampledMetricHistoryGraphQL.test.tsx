@@ -6,7 +6,12 @@ import { GetMetricHistoryBulkInterval, GetRun, MlflowRunStatus } from '../../../
 import { useSampledMetricHistoryGraphQL } from './useSampledMetricHistoryGraphQL';
 import { IntlProvider } from 'react-intl';
 import Utils from '../../../../common/utils/Utils';
-import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache } from '@apollo/client';
+import {
+  ApolloClient,
+  ApolloProvider,
+  createHttpLink,
+  InMemoryCache,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 const createMetrics = (count: number) =>
   Array.from({ length: count }, (_, i) => ({

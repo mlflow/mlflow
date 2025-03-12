@@ -197,8 +197,7 @@ def execute_function(
         import pandas as pd
     except ImportError as e:
         raise ImportError(
-            "Could not import pandas python package. "
-            "Please install it with `pip install pandas`."
+            "Could not import pandas python package. Please install it with `pip install pandas`."
         ) from e
     from databricks.sdk.service.sql import StatementState
 
@@ -232,9 +231,9 @@ def execute_function(
         return FunctionExecutionResult(format="SCALAR", value=value, truncated=truncated)
     else:
         schema = manifest.schema
-        assert (
-            schema is not None and schema.columns is not None
-        ), "Statement execution succeeded but no schema was provided."
+        assert schema is not None and schema.columns is not None, (
+            "Statement execution succeeded but no schema was provided."
+        )
         columns = [c.name for c in schema.columns]
         if data_array is None:
             data_array = []

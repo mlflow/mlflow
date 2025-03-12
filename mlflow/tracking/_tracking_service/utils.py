@@ -11,7 +11,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -80,7 +80,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         # Tracer provider uses tracking URI to determine where to export traces.
         # Tracer provider stores the URI as its state so we need to reset
         # it explicitly when the global tracking URI changes.
-        reset_tracer_setup()
+        reset()
 
 
 @contextmanager

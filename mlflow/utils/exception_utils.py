@@ -9,6 +9,6 @@ def get_stacktrace(error):
             tb = traceback.format_exception(error.__class__, error, error.__traceback__)
         else:
             tb = traceback.format_exception(error)
-        return (msg + "\n\n".join(tb)).strip()
+        return (msg + "".join(tb)).strip()
     except Exception:
         return msg

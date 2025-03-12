@@ -60,7 +60,6 @@ def test_litellm_tracing_success(is_in_databricks):
     assert spans[0].inputs == {"messages": [{"role": "system", "content": "Hello"}]}
     assert spans[0].outputs == response.model_dump()
     assert spans[0].attributes["model"] == "gpt-4o-mini"
-    assert spans[0].attributes["api_base"].startswith("http://localhost")
     assert spans[0].attributes["call_type"] == "completion"
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0
@@ -132,9 +131,7 @@ async def test_litellm_tracing_async(is_in_databricks):
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
 
     # Await the logger task to ensure that the trace is logged.
-    logger_task = next(
-        t for t in asyncio.all_tasks() if "async_success_handler" in t.get_coro().__name__
-    )
+    logger_task = next(t for t in asyncio.all_tasks() if "async_" in t.get_coro().__name__)
     await logger_task
 
     trace = mlflow.get_last_active_trace()
@@ -147,7 +144,6 @@ async def test_litellm_tracing_async(is_in_databricks):
     assert spans[0].inputs == {"messages": [{"role": "system", "content": "Hello"}]}
     assert spans[0].outputs == response.model_dump()
     assert spans[0].attributes["model"] == "gpt-4o-mini"
-    assert spans[0].attributes["api_base"].startswith("http://localhost")
     assert spans[0].attributes["call_type"] == "acompletion"
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0

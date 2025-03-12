@@ -28,7 +28,7 @@ export type EntityNameGroup = {
   tagNames: string[];
 };
 
-export const ATTRIBUTE_OPTIONS = [
+const ATTRIBUTE_OPTIONS = [
   'run_id',
   'run_name',
   'status',

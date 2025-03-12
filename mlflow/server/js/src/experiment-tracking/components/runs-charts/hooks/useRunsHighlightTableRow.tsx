@@ -16,6 +16,14 @@ export const useRunsHighlightTableRow = (
    * Class name to be added to the highlighted row.
    */
   highlightedClassName = DEFAULT_HIGH_LIGHT_CLASS_NAME,
+  /**
+   * Additional selector prefix to be used to find the row element.
+   */
+  findInFlexColumns = false,
+  /**
+   * Optional function to extract the row UUID from the table data, used in row hover callback.
+   */
+  getRowUuid?: (data: any) => string | undefined,
 ) => {
   const { onHighlightChange, highlightDataTrace } = useRunsChartTraceHighlight();
   /**
@@ -26,8 +34,12 @@ export const useRunsHighlightTableRow = (
       // First, quickly remove the highlight class from the previous highlighted row
       const existingHighlightedRowElement = containerElementRef.current?.querySelector(`.${highlightedClassName}`);
 
+      const additionalSelectorPrefix = findInFlexColumns ? '.ag-center-cols-viewport' : '';
+
       // Find the new row element and add the highlight class to it
-      const rowElement = containerElementRef.current?.querySelector(`.ag-row[row-id="${rowUuid}"]`);
+      const rowElement = containerElementRef.current?.querySelector(
+        `${additionalSelectorPrefix} .ag-row[row-id="${rowUuid}"]`,
+      );
       if (existingHighlightedRowElement && existingHighlightedRowElement !== rowElement) {
         existingHighlightedRowElement.classList.remove(highlightedClassName);
       }
@@ -39,7 +51,7 @@ export const useRunsHighlightTableRow = (
 
       rowElement && rowElement.classList.add(highlightedClassName);
     },
-    [containerElementRef, highlightedClassName],
+    [containerElementRef, highlightedClassName, findInFlexColumns],
   );
 
   // Subscribe to the highlight change event
@@ -51,13 +63,13 @@ export const useRunsHighlightTableRow = (
       const isGroupRow = 'groupParentInfo' in data;
       // Extract the trace UUID from the data
       // Use runUuid for non-group rows and rowUuid for group rows
-      const dataTraceUuid = isGroupRow ? data.rowUuid : data.runUuid;
+      const dataTraceUuid = getRowUuid ? getRowUuid({ data }) : isGroupRow ? data.rowUuid : data.runUuid;
 
       highlightDataTrace(dataTraceUuid, {
         source: ChartsTraceHighlightSource.TABLE,
       });
     },
-    [highlightDataTrace],
+    [highlightDataTrace, getRowUuid],
   );
 
   const cellMouseOutHandler = useCallback(() => highlightDataTrace(null), [highlightDataTrace]);

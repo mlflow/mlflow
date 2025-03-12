@@ -20,9 +20,13 @@ const MAX_ALIASES_PER_MODEL_VERSION = 10;
 export const useEditRegisteredModelAliasesModal = ({
   model,
   onSuccess,
+  modalTitle,
+  modalDescription,
 }: {
   model: null | ModelEntity;
   onSuccess?: () => void;
+  modalTitle?: (version: string) => React.ReactNode;
+  modalDescription?: React.ReactNode;
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [form] = LegacyForm.useForm();
@@ -151,27 +155,33 @@ export const useEditRegisteredModelAliasesModal = ({
       }
       destroyOnClose
       title={
-        <FormattedMessage
-          defaultMessage="Add/Edit alias for model version {version}"
-          description="Model registry > model version alias editor > Title of the update alias modal"
-          values={{ version: currentlyEditedVersion }}
-        />
+        modalTitle ? (
+          modalTitle(currentlyEditedVersion)
+        ) : (
+          <FormattedMessage
+            defaultMessage="Add/Edit alias for model version {version}"
+            description="Model registry > model version alias editor > Title of the update alias modal"
+            values={{ version: currentlyEditedVersion }}
+          />
+        )
       }
       onCancel={() => setShowModal(false)}
       confirmLoading={false}
     >
       <Typography.Paragraph>
-        <FormattedMessage
-          defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
-          description="Explanation of registered model aliases"
-          values={{
-            link: (chunks) => (
-              <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
-                {chunks}
-              </a>
-            ),
-          }}
-        />
+        {modalDescription ?? (
+          <FormattedMessage
+            defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
+            description="Explanation of registered model aliases"
+            values={{
+              link: (chunks) => (
+                <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
+                  {chunks}
+                </a>
+              ),
+            }}
+          />
+        )}
       </Typography.Paragraph>
       <LegacyForm form={form} layout="vertical">
         <LegacyForm.Item>

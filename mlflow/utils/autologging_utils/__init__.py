@@ -21,8 +21,8 @@ from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NA
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
-    set_non_mlflow_warnings_behavior_for_current_thread,
+    MlflowEventsAndWarningsBehaviorGlobally,
+    NonMlflowWarningsBehaviorForCurrentThread,
 )
 
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
@@ -31,7 +31,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     ExceptionSafeAbstractClass,
     ExceptionSafeClass,
-    PatchFunction,
     exception_safe_function_for_class,
     is_testing,
     picklable_exception_safe_function,
@@ -449,7 +448,7 @@ def autologging_integration(name):
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
             with (
-                set_mlflow_events_and_warnings_behavior_globally(
+                MlflowEventsAndWarningsBehaviorGlobally(
                     # MLflow warnings emitted during autologging setup / enablement are likely
                     # actionable and relevant to the user, so they should be emitted as normal
                     # when `silent=False`. For reference, see recommended warning and event logging
@@ -458,7 +457,7 @@ def autologging_integration(name):
                     disable_event_logs=is_silent_mode,
                     disable_warnings=is_silent_mode,
                 ),
-                set_non_mlflow_warnings_behavior_for_current_thread(
+                NonMlflowWarningsBehaviorForCurrentThread(
                     # non-MLflow warnings emitted during autologging setup / enablement are not
                     # actionable for the user, as they are a byproduct of the autologging
                     # implementation. Accordingly, they should be rerouted to `logger.warning()`.

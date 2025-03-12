@@ -35,7 +35,8 @@ pytest \
   tests/projects/test_projects_cli.py \
   tests/utils/test_requirements_utils.py::test_infer_requirements_excludes_mlflow \
   tests/utils/test_search_utils.py \
-  tests/store/tracking/test_file_store.py
+  tests/store/tracking/test_file_store.py \
+  tests/utils/test_doctor.py
 
 python -m pip install pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py

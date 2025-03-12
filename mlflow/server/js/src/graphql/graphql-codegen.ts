@@ -22,10 +22,11 @@ const config: CodegenConfig = {
     onlyOperationTypes: true,
     // Explicitly list out mapping for custom scalars from GQL type to TS type
     scalars: {
-      GraphQLAnyValue: 'GraphQLGraphQLAnyValue',
-      Long: 'GraphQLLong',
-      LongString: 'GraphQLLongString',
-      StringMap: 'GraphQLStringMap',
+      GraphQLAnyValue: 'any',
+      Long: 'number',
+      LongString: 'string',
+      StringMap: 'Record<string, string>',
+      JSON: 'any',
       WellKnownFieldMask: 'any',
       WellKnownTimestamp: 'any',
       WellKnownDuration: 'any',

@@ -1,6 +1,22 @@
 import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 
 import { RoutePaths } from './routes';
+
+const getPromptPagesRouteDefs = () => {
+  return [
+    {
+      path: RoutePaths.promptsPage,
+      element: createLazyRouteElement(() => import('./pages/prompts/PromptsPage')),
+      pageId: 'mlflow.prompts',
+    },
+    {
+      path: RoutePaths.promptDetailsPage,
+      element: createLazyRouteElement(() => import('./pages/prompts/PromptsDetailsPage')),
+      pageId: 'mlflow.prompts.details',
+    },
+  ];
+};
+
 export const getRouteDefs = () => [
   {
     path: RoutePaths.experimentPage,
@@ -37,4 +53,5 @@ export const getRouteDefs = () => [
     element: createLazyRouteElement(() => import('./components/MetricPage')),
     pageId: 'mlflow.metric.details',
   },
+  ...getPromptPagesRouteDefs(),
 ];

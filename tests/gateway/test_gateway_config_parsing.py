@@ -96,6 +96,10 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
     assert _resolve_api_key_from_input(str(conf_path)) == file_key
 
 
+def test_api_key_input_exceeding_maximum_filename_length():
+    assert _resolve_api_key_from_input("a" * 256) == "a" * 256
+
+
 def test_api_key_parsing_file(tmp_path):
     key_path = tmp_path.joinpath("api.key")
     config = {

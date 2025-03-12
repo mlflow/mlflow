@@ -38,7 +38,8 @@ def _parse_abfss_uri(uri):
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, domain suffix, and path
+        A tuple containing the name of the filesystem, account name, domain suffix,
+        and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
@@ -80,7 +81,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def __init__(
         self,
         artifact_uri,
-        credential,
+        credential=None,
         credential_refresh_def=None,
     ):
         super().__init__(artifact_uri)
@@ -90,10 +91,21 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self._credential_refresh_def = credential_refresh_def
 
     def _parse_credentials(self, credential):
-        self.credential = credential
         (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
         account_url = f"https://{account_name}.{domain_suffix}"
-        data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
+        self.sas_token = ""
+        if credential is None:
+            if sas_token := os.environ.get("AZURE_STORAGE_SAS_TOKEN"):
+                self.sas_token = f"?{sas_token}"
+                account_url += self.sas_token
+            else:
+                from azure.identity import DefaultAzureCredential
+
+                credential = DefaultAzureCredential()
+        self.credential = credential
+        data_lake_client = _get_data_lake_client(
+            account_url=account_url, credential=self.credential
+        )
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
@@ -258,10 +270,14 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Returns:
             a string presigned URL.
         """
-        sas_token = self.credential.signature
+        sas_token = (
+            f"?{self.credential.signature}"
+            if hasattr(self.credential, "signature")
+            else self.sas_token
+        )
         return (
             f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
-            f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+            f"{self.base_data_lake_directory}/{artifact_file_path}{sas_token}"
         )
 
     def _get_write_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:

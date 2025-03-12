@@ -109,14 +109,15 @@ def start_container(port: int):
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
                     break
-            except requests.exceptions.ConnectionError:
-                time.sleep(5)
+            except requests.exceptions.ConnectionError as e:
+                sys.stdout.write(f"An exception occurred when calling the server: {e}\n")
 
             container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
+            time.sleep(5)
 
         else:
             raise TimeoutError("Failed to start server.")

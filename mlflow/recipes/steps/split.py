@@ -238,8 +238,7 @@ class SplitStep(BaseStep):
 
         if "split_method" not in self.step_config and self.step_config["using"] == "custom":
             raise MlflowException(
-                "Missing 'split_method' configuration in the split step, "
-                "which is using 'custom'.",
+                "Missing 'split_method' configuration in the split step, which is using 'custom'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

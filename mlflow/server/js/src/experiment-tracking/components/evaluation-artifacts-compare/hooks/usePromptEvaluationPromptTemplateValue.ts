@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 
-import type { TextAreaRef } from 'antd/lib/input/TextArea';
+import type { TextAreaRef } from '@databricks/design-system';
 import {
   DEFAULT_PROMPTLAB_NEW_TEMPLATE_VALUE,
   extractPromptInputVariables,

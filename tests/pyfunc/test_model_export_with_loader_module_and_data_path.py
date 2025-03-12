@@ -302,14 +302,13 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
+        model_info = mlflow.pyfunc.log_model(
             pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
         )
-        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.pyfunc.get_default_pip_requirements())
 
 
 def test_streamable_model_save_load(tmp_path, model_path):

@@ -1,6 +1,11 @@
+"""
+THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED SOON. PLEASE DO NOT USE THESE CLASSES
+IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES.
+"""
+
 import pandas as pd
 
-from mlflow.entities.evaluation import Evaluation as EvaluationEntity
+from mlflow.evaluation.evaluation import EvaluationEntity as EvaluationEntity
 from mlflow.utils.annotations import experimental
 
 

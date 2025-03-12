@@ -252,6 +252,6 @@ const mapStateToProps = (state: any, ownProps: any) => {
 };
 
 // @ts-expect-error TS(2769): No overload matches this call.
-export const MetricsSummaryTableWithIntl = injectIntl(MetricsSummaryTable);
+const MetricsSummaryTableWithIntl = injectIntl(MetricsSummaryTable);
 
 export default connect(mapStateToProps)(MetricsSummaryTableWithIntl);

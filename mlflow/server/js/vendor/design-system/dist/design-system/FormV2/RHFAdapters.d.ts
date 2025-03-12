@@ -66,7 +66,9 @@ interface RHFControlledDialogComboboxProps<TFieldValues extends FieldValues = Fi
         value: string | string[];
         isChecked: (value: string) => boolean;
     }) => React.ReactNode;
-    triggerProps?: Pick<DialogComboboxTriggerProps, 'minWidth' | 'maxWidth' | 'disabled' | 'style' | 'className' | 'formatDisplayedValue'>;
+    triggerProps?: Pick<DialogComboboxTriggerProps, 'minWidth' | 'maxWidth' | 'disabled' | 'style' | 'className' | 'renderDisplayedValue'> & {
+        'data-testid'?: string;
+    };
     contentProps?: Pick<DialogComboboxContentProps, 'maxHeight' | 'minHeight' | 'style' | 'className'>;
     optionListProps?: Pick<DialogComboboxOptionListProps, 'loading' | 'withProgressiveLoading' | 'style' | 'className'>;
 }

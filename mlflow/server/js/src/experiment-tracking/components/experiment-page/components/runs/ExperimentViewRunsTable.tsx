@@ -1,11 +1,4 @@
-import type {
-  CellClickedEvent,
-  ColumnApi,
-  GridApi,
-  GridReadyEvent,
-  RowSelectedEvent,
-  SelectionChangedEvent,
-} from '@ag-grid-community/core';
+import type { CellClickedEvent, ColumnApi, GridApi, GridReadyEvent } from '@ag-grid-community/core';
 import { type CSSObject, Interpolation, Theme } from '@emotion/react';
 import cx from 'classnames';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -30,23 +23,18 @@ import {
 } from '../../utils/experimentPage.column-utils';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../utils/experimentPage.common-utils';
-import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIState';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
-import {
-  shouldUseRunRowsVisibilityMap,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseRunRowsVisibilityMap } from '../../../../../common/utils/FeatureUtils';
 import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
@@ -57,14 +45,9 @@ import {
 import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTableSelectRowHandler';
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
-import {
-  ChartsTraceHighlightSource,
-  useRunsChartTraceHighlight,
-} from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
 import { isEmpty } from 'lodash';
 
-const ROW_HEIGHT = 32;
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 
 export interface ExperimentViewRunsTableProps {
@@ -161,43 +144,7 @@ export const ExperimentViewRunsTable = React.memo(
     );
 
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
-    const toggleRowVisibilityV2 = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
-
-    // This callback toggles visibility of runs: either all of them or a particular one
-    // TODO: remove after new run row visibility model is rolled out completely
-    const toggleRowVisibilityV1 = useCallback(
-      // `runUuidOrToggle` param can be a run ID or a keyword value indicating that all/none should be hidden
-      (runUuidOrToggle: string) => {
-        updateUIState((existingFacets: ExperimentPageUIState) => {
-          if (runUuidOrToggle === RUNS_VISIBILITY_MODE.SHOWALL) {
-            // Case #1: Showing all runs by clearing `runsHidden` array
-            return {
-              ...existingFacets,
-              runsHidden: [],
-            };
-          } else if (runUuidOrToggle === RUNS_VISIBILITY_MODE.HIDEALL) {
-            // Case #2: Hiding all runs by fully populating `runsHidden` array
-            return {
-              ...existingFacets,
-              runsHidden: runsData.runInfos.map(({ runUuid }) => runUuid),
-            };
-          }
-
-          // Case #3: toggling particular run
-          const uuid = runUuidOrToggle;
-          return {
-            ...existingFacets,
-            runsHidden: !existingFacets.runsHidden.includes(uuid)
-              ? [...existingFacets.runsHidden, uuid]
-              : existingFacets.runsHidden.filter((r) => r !== uuid),
-          };
-        });
-      },
-      [updateUIState, runsData],
-    );
-
-    // Determine toggle version to use based on the feature flag
-    const toggleRowVisibility = shouldUseNewRunRowsVisibilityModel() ? toggleRowVisibilityV2 : toggleRowVisibilityV1;
+    const toggleRowVisibility = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
 
     const gridReadyHandler = useCallback((params: GridReadyEvent) => {
       setGridApi(params.api);
@@ -371,7 +318,7 @@ export const ExperimentViewRunsTable = React.memo(
           gridTemplateColumns: displayPreviewSidebar ? '1fr auto' : '1fr',
           borderTop: `1px solid ${theme.colors.border}`,
         })}
-        className={isComparingRuns && shouldUseNewRunRowsVisibilityModel() ? 'is-table-comparing-runs-mode' : undefined}
+        className={isComparingRuns ? 'is-table-comparing-runs-mode' : undefined}
       >
         <div
           css={{
@@ -384,7 +331,7 @@ export const ExperimentViewRunsTable = React.memo(
             ref={containerElement}
             className={cx('ag-theme-balham ag-grid-sticky', {
               'ag-grid-expanders-visible': expandersVisible,
-              'is-table-comparing-runs-mode': isComparingRuns && shouldUseNewRunRowsVisibilityModel(),
+              'is-table-comparing-runs-mode': isComparingRuns,
             })}
             css={[gridStyles, { display: displayRunsTable ? 'block' : 'hidden', height: '100%' }]}
             aria-hidden={!displayRunsTable}

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { useCallback } from 'react';
 import sanitizeHtml from 'sanitize-html';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'show... Remove this comment to see the full error message
 import { Converter } from 'showdown';
@@ -98,3 +99,10 @@ export const sanitizeConvertedHtml = (dirtyHtml: any) => {
 export const forceAnchorTagNewTab = (html: any) => {
   return html.replace(new RegExp('<a', 'g'), '<a target="_blank"');
 };
+
+export const useMarkdownConverter = () =>
+  useCallback((markdown?: string) => {
+    const converter = getMarkdownConverter();
+    const html = converter.makeHtml(markdown);
+    return sanitizeConvertedHtml(html);
+  }, []);

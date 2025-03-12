@@ -244,11 +244,11 @@ def log_sentence_transformers_model():
     artifact_path = "gen_model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             model,
             artifact_path,
         )
-        return mlflow.get_artifact_uri(artifact_path)
+        return model_info.model_uri
 
 
 def log_completions_transformers_model():
@@ -269,12 +269,12 @@ def log_completions_transformers_model():
     artifact_path = "mask_model"
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             pipe,
             artifact_path,
             signature=signature,
         )
-        return mlflow.get_artifact_uri(artifact_path)
+        return model_info.model_uri
 
 
 def start_mlflow_server(port, model_uri):

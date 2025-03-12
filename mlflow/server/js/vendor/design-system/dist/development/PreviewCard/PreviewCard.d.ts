@@ -12,6 +12,8 @@ export interface PreviewCardProps extends DangerousGeneralProps, Omit<HTMLAttrib
     image?: React.ReactNode;
     size?: 'default' | 'large';
     onClick?: React.MouseEventHandler<HTMLDivElement>;
+    disabled?: boolean;
+    selected?: boolean;
 }
-export declare const PreviewCard: ({ icon, title, subtitle, titleActions, children, startActions, endActions, image, onClick, size, dangerouslyAppendEmotionCSS, componentId, analyticsEvents, ...props }: PreviewCardProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const PreviewCard: ({ icon, title, subtitle, titleActions, children, startActions, endActions, image, onClick, size, dangerouslyAppendEmotionCSS, componentId, analyticsEvents, disabled, selected, ...props }: PreviewCardProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=PreviewCard.d.ts.map

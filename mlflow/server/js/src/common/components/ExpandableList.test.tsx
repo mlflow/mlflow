@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import ExpandableList from './ExpandableList';
 
 const minimalProps = {

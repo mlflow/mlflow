@@ -66,7 +66,9 @@ describe('ModelStageTransitionDropdown', () => {
         },
       };
       instance.handleMenuItemClick(activity);
-      instance.state.handleConfirm();
+      instance.state.handleConfirm({
+        archiveExistingVersions: fieldValue,
+      });
       // eslint-disable-next-line jest/no-standalone-expect
       expect(mockOnSelect).toHaveBeenCalledWith(activity, expectArchiveFieldValue);
     });

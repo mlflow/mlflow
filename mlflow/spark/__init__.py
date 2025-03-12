@@ -68,7 +68,6 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -769,6 +768,14 @@ def save_model(
             spark = _get_active_spark_session()
             if spark is not None:
                 input_example_spark_df = spark.createDataFrame(input_ex)
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 signature = mlflow.pyspark.ml._infer_spark_model_signature(
                     spark_model, input_example_spark_df
                 )
@@ -893,10 +900,10 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
     )
+    flavor_conf = Model.load(local_mlflow_model_path).flavors[FLAVOR_NAME]
     _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
     model_class = flavor_conf.get("model_class")

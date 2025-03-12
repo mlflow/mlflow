@@ -107,7 +107,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels) as any[];
 
-  if (models && models.length) {
+  const containsModels = Boolean(models?.length);
+
+  if (containsModels) {
     return (
       // <Overflow /> component does not ideally fit within ag-grid cell so we need to override its styles a bit
       <div css={{ width: '100%', '&>div': { maxWidth: '100%', display: 'flex' } }}>

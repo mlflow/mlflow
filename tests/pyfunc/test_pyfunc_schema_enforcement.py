@@ -2139,8 +2139,10 @@ def test_invalid_input_example_warn_when_model_logging():
                 python_model=MyModel(),
                 input_example=["some string"],
             )
-        mock_warning.assert_called_once()
-        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 def assert_equal(a, b):

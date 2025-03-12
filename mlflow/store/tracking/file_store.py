@@ -93,6 +93,7 @@ from mlflow.utils.uri import (
 from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
     _validate_metric,
@@ -403,6 +404,10 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
         _validate_experiment_name(name)
+
+        if artifact_location:
+            _validate_experiment_artifact_location_length(artifact_location)
+
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
@@ -503,8 +508,8 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore experiment with ID %d. "
-                "An experiment with same ID already exists." % experiment_id,
+                f"Cannot restore experiment with ID {experiment_id}. "
+                "An experiment with same ID already exists.",
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
@@ -1515,16 +1520,23 @@ class FileStore(AbstractStore):
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return trace_info
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace_info(self, request_id: str, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace matching the `request_id`.
 
         Args:
             request_id: String id of the trace to fetch.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        if should_query_v3:
+            raise MlflowException.invalid_parameter_value(
+                "GetTraceInfoV3 API is not supported in the FileStore backend.",
+            )
+
         return self._get_trace_info_and_dir(request_id)[0]
 
     def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfo, str]:

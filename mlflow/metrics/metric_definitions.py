@@ -1,9 +1,13 @@
 import functools
 import logging
 import os
+import subprocess
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
@@ -83,11 +87,40 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
     )
 
 
-@functools.lru_cache(maxsize=8)
-def _cached_evaluate_load(path, module_type=None):
+def _load_from_github(path: str, module_type: str = "metric"):
     import evaluate
 
-    return evaluate.load(path, module_type=module_type)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        subprocess.check_call(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                "https://github.com/huggingface/evaluate.git",
+                tmpdir,
+            ]
+        )
+        path = f"{module_type}s/{path}"
+        subprocess.check_call(["git", "sparse-checkout", "set", path], cwd=tmpdir)
+        subprocess.check_call(["git", "checkout"], cwd=tmpdir)
+        return evaluate.load(str(tmpdir / path))
+
+
+@functools.lru_cache(maxsize=8)
+def _cached_evaluate_load(path: str, module_type: str = "metric"):
+    import evaluate
+
+    try:
+        return evaluate.load(path, module_type=module_type)
+    except FileNotFoundError:
+        if _MLFLOW_TESTING.get():
+            # `evaluate.load` is highly unstable and often fails due to a network error or
+            # huggingface hub being down. In testing, we want to avoid this instability, so we
+            # load the metric from the evaluate repository on GitHub.
+            return _load_from_github(path, module_type=module_type)
+        raise
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):

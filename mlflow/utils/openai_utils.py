@@ -93,7 +93,7 @@ class _OAITokenHolder:
     def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._api_token_env:
+        if self._api_token_env is not None:
             return
 
         if self._is_azure_ad:

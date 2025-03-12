@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
 import { DesignSystemProvider } from '@databricks/design-system';

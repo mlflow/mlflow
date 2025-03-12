@@ -3,7 +3,7 @@ import { renderWithIntl, fastFillInput, screen } from '@mlflow/mlflow/src/common
 import { KeyValueEntity } from '../types';
 import { DetailsOverviewParamsTable } from './DetailsOverviewParamsTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 const testRunUuid = 'test-run-uuid';
 

@@ -9,6 +9,7 @@ import types
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -280,6 +281,10 @@ def _run_server(  # noqa: D417
 
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
+
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if secret_key:
+        env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     if app_name is None:
         app = f"{__name__}:app"

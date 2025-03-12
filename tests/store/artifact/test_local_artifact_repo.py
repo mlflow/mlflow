@@ -93,9 +93,9 @@ def test_download_artifacts_does_not_copy(local_artifact_repo):
         dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
         with open(dst_path) as f:
             assert f.read() == artifact_text
-        assert dst_path.startswith(
-            local_artifact_repo.artifact_dir
-        ), "downloaded artifact is not in local_artifact_repo.artifact_dir root"
+        assert dst_path.startswith(local_artifact_repo.artifact_dir), (
+            "downloaded artifact is not in local_artifact_repo.artifact_dir root"
+        )
 
 
 def test_download_artifacts_returns_absolute_paths(local_artifact_repo):

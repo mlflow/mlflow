@@ -22,6 +22,7 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];
@@ -50,7 +51,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       pageTokens: {},
       loading: true,
       error: undefined,
-      searchInput: constructSearchInputFromURLState(this.getUrlState()),
+      searchInput: constructSearchInputFromURLState(this.getUrlState() as Record<string, string>),
     };
   }
   modelListPageStoreKey = 'ModelListPageStore';

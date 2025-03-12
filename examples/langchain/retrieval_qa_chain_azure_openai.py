@@ -13,12 +13,12 @@ import mlflow
 os.environ["OPENAI_API_TYPE"] = "azure"
 # The API version you want to use: set this to `2023-05-15` for the released version.
 os.environ["OPENAI_API_VERSION"] = "2023-05-15"
-assert (
-    "AZURE_OPENAI_ENDPOINT" in os.environ
-), "Please set the AZURE_OPENAI_ENDPOINT environment variable. It is the base URL for your Azure OpenAI resource. You can find this in the Azure portal under your Azure OpenAI resource."
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable. It is the API key for your Azure OpenAI resource. You can find this in the Azure portal under your Azure OpenAI resource."
+assert "AZURE_OPENAI_ENDPOINT" in os.environ, (
+    "Please set the AZURE_OPENAI_ENDPOINT environment variable. It is the base URL for your Azure OpenAI resource. You can find this in the Azure portal under your Azure OpenAI resource."
+)
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable. It is the API key for your Azure OpenAI resource. You can find this in the Azure portal under your Azure OpenAI resource."
+)
 
 
 with tempfile.TemporaryDirectory() as temp_dir:

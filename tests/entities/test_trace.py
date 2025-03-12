@@ -72,6 +72,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.source.type": "LOCAL",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
             },
+            "assessments": [],
         },
         "data": {
             "request": '{"x": 2, "y": 5}',

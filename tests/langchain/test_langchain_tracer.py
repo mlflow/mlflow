@@ -31,9 +31,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
 
 from tests.tracing.helper import get_traces
@@ -508,90 +506,8 @@ def test_multiple_components():
     _validate_trace_json_serialization(trace)
 
 
-def _predict_with_callbacks(lc_model, request_id, data):
-    model = _LangChainModelWrapper(lc_model)
-    tracer = MlflowLangchainTracer(prediction_context=Context(request_id=request_id))
-    response = model._predict_with_callbacks(
-        data, callback_handlers=[tracer], convert_chat_responses=True
-    )
-    trace_dict = pop_trace(request_id)
-    return response, trace_dict
-
-
-def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
-    monkeypatch.setenv("RAG_TRACE_V2_ENABLED", "true")
-
-    llm_chain = create_openai_llmchain()
-
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(llm_chain, request_id, ["MLflow"])
-
-    assert response == [{"text": TEST_CONTENT}]
-    trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
-    spans = trace.data.spans
-    assert len(spans) == 2
-
-    root_span = spans[0]
-    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
-    # there might be slight difference when we truncate nano seconds to milliseconds
-    assert (
-        root_span.end_time_ns // 1_000_000
-        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
-    ) <= 1
-    assert root_span.inputs == {"product": "MLflow"}
-    assert root_span.outputs == {"text": TEST_CONTENT}
-    assert root_span.span_type == "CHAIN"
-
-    root_span_id = root_span.span_id
-    child_span = spans[1]
-    assert child_span.parent_id == root_span_id
-    assert child_span.inputs == ["What is MLflow?"]
-    assert child_span.outputs["generations"][0][0]["text"] == TEST_CONTENT
-    assert child_span.span_type == "LLM"
-
-    _validate_trace_json_serialization(trace)
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
-def test_agent_success(mock_databricks_serving_with_tracing_env):
-    # Load the agent definition (with OpenAI mock) from the sample script
-    from tests.langchain.sample_code.openai_agent import create_openai_agent
-
-    agent = create_openai_agent()
-
-    langchain_input = {"input": "what is the value of magic_function(3)?"}
-    expected_output = {"output": "The result of 2 * 3 is 6."}
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
-
-    assert response == expected_output
-
-    trace = Trace.from_dict(trace_dict)
-    assert trace.info.status == "OK"
-
-    spans = trace.data.spans
-    assert len(spans) == 16
-
-    root_span = spans[0]
-    assert root_span.name == "AgentExecutor"
-    assert root_span.span_type == "CHAIN"
-    assert root_span.inputs == langchain_input
-    assert root_span.outputs == expected_output
-    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
-    assert (
-        root_span.end_time_ns // 1_000_000
-        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
-    ) <= 1
-
-    _validate_trace_json_serialization(trace)
-
-
-def test_tool_success(mock_databricks_serving_with_tracing_env):
+def test_tool_success():
+    callback = MlflowLangchainTracer()
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
@@ -599,12 +515,10 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     chain_tool = tool("chain_tool", chain)
 
     tool_input = {"question": "What up"}
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(chain_tool, request_id, tool_input)
+    response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
-    output = response["choices"][0]["message"]["content"]
-    trace = Trace.from_dict(trace_dict)
+    trace = mlflow.get_last_active_trace()
     spans = trace.data.spans
     assert len(spans) == 5
 
@@ -631,7 +545,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == output
+    assert output_parser_span.outputs == response
 
     _validate_trace_json_serialization(trace)
 

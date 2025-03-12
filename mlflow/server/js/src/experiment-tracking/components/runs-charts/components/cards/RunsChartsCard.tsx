@@ -11,12 +11,7 @@ import type {
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import {
-  shouldEnableDraggableChartsGridLayout,
-  shouldEnableDifferenceViewCharts,
-  shouldEnableImageGridCharts,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableDifferenceViewCharts } from '../../../../../common/utils/FeatureUtils';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
@@ -74,9 +69,6 @@ const RunsChartsCardRaw = ({
   isInViewport,
   isInViewportDeferred,
 }: RunsChartsCardProps) => {
-  const usingGridLayout = shouldEnableDraggableChartsGridLayout();
-  const chartElementKey = `${cardConfig.uuid}-${index}-${sectionIndex}`;
-
   const reorderProps = useMemo(
     () => ({
       onReorderWith,
@@ -100,7 +92,6 @@ const RunsChartsCardRaw = ({
   const commonChartProps = useMemo(
     () => ({
       fullScreen,
-      key: usingGridLayout ? undefined : chartElementKey,
       autoRefreshEnabled,
       groupBy,
       hideEmptyCharts,
@@ -112,8 +103,6 @@ const RunsChartsCardRaw = ({
     }),
     [
       fullScreen,
-      usingGridLayout,
-      chartElementKey,
       autoRefreshEnabled,
       groupBy,
       editProps,
@@ -125,12 +114,7 @@ const RunsChartsCardRaw = ({
     ],
   );
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, cardConfig.runsCountToCompare || 10).reverse();
-  }, [chartRunData, cardConfig.runsCountToCompare]);
+  const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
   if (cardConfig.type === RunsChartType.PARALLEL) {
     return (
@@ -152,7 +136,7 @@ const RunsChartsCardRaw = ({
     );
   }
 
-  if (shouldEnableImageGridCharts() && cardConfig.type === RunsChartType.IMAGE) {
+  if (cardConfig.type === RunsChartType.IMAGE) {
     return (
       <RunsChartsImageChartCard
         config={cardConfig as RunsChartsImageCardConfig}

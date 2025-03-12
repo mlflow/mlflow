@@ -2,7 +2,7 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
 import { Table, TableCell, TableRow } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../sdk/MlflowService';
 
 const shortValue = '{"test":"short"}';

@@ -5,13 +5,26 @@ Revises: 7ac759974ad8
 Create Date: 2019-08-20 11:53:28.178479
 
 """
-import time
+
 import logging
+import time
 
 from alembic import op
-from sqlalchemy import orm, func, distinct, and_
-from sqlalchemy import Column, String, ForeignKey, Float, BigInteger, PrimaryKeyConstraint, Boolean
-from mlflow.store.tracking.dbmodels.models import SqlMetric, SqlLatestMetric
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    PrimaryKeyConstraint,
+    String,
+    and_,
+    distinct,
+    func,
+    orm,
+)
+
+from mlflow.store.tracking.dbmodels.models import SqlLatestMetric, SqlMetric
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -91,7 +104,7 @@ def _get_latest_metrics_for_runs(session):
         .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.step)
         .subquery("metrics_with_max_timestamp")
     )
-    metrics_with_max_value = (
+    return (
         session.query(
             SqlMetric.run_uuid,
             SqlMetric.key,
@@ -114,7 +127,6 @@ def _get_latest_metrics_for_runs(session):
         )
         .all()
     )
-    return metrics_with_max_value
 
 
 def upgrade():

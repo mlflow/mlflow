@@ -198,7 +198,7 @@ def _deploy(
 
     This function creates a SageMaker endpoint. For more information about the input data
     formats accepted by this endpoint, see the
-    :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+    `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
     Args:
         app_name: Name of the deployed application.
@@ -2152,7 +2152,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         This function creates a SageMaker endpoint. For more information about the input data
         formats accepted by this endpoint, see the
-        :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+        `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
         Args:
             name: Name of the deployed application.

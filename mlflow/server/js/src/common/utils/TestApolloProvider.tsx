@@ -1,4 +1,4 @@
-import { ApolloProvider } from '@apollo/client';
+import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { createApolloClient } from '../../graphql/client';
 import { useMemo } from 'react';
 

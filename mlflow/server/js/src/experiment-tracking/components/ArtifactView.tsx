@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage } from 'react-intl';
+import { injectIntl, FormattedMessage, IntlShape, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -64,9 +64,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   handleActiveNodeChange: (...args: any[]) => any;
   runTags?: any;
   modelVersions?: any[];
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
 
   /**
@@ -107,8 +105,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  renderModelVersionInfoSection(existingModelVersions: any) {
-    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />;
+  renderModelVersionInfoSection(existingModelVersions: any, intl: IntlShape) {
+    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} intl={this.props.intl} />;
   }
 
   renderPathAndSizeInfo() {
@@ -264,7 +262,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     if (existingModelVersions && Utils.isModelRegistryEnabled()) {
       // note that this case won't trigger for files inside a registered model/model version folder
       // React searches for existing model versions under the path of the file, which won't exist.
-      toRender = this.renderModelVersionInfoSection(existingModelVersions);
+      toRender = this.renderModelVersionInfoSection(existingModelVersions, this.props.intl);
     } else if (this.activeNodeCanBeRegistered() && Utils.isModelRegistryEnabled()) {
       toRender = this.renderRegisterModelButton();
     } else if (this.activeNodeIsDirectory()) {
@@ -540,15 +538,15 @@ const mapDispatchToProps = {
 export const ArtifactView = connect(
   mapStateToProps,
   mapDispatchToProps,
-  // @ts-expect-error TS(2769): No overload matches this call.
 )(WithDesignSystemThemeHoc(injectIntl(ArtifactViewImpl)));
 
 type ModelVersionInfoSectionProps = {
   modelVersion: any;
+  intl: IntlShape;
 };
 
 function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
-  const { modelVersion } = props;
+  const { modelVersion, intl } = props;
   const { name, version, status, status_message } = modelVersion;
 
   // eslint-disable-next-line prefer-const
@@ -578,7 +576,7 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
               defaultMessage="Registered on {registeredDate}"
               description="Label to display at what date the model was registered"
               values={{
-                registeredDate: Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd'),
+                registeredDate: Utils.formatTimestamp(modelVersion.creation_timestamp, intl),
               }}
             />
           </React.Fragment>

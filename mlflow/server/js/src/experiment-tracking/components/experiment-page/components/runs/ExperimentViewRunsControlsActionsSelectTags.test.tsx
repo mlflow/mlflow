@@ -5,7 +5,7 @@ import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/actions', () => ({
   setRunTagsBulkApi: jest.fn(() => ({ type: 'setRunTagsBulkApi', payload: Promise.resolve() })),
