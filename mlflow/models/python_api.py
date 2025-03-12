@@ -250,7 +250,9 @@ def predict(
         except Exception as e:
             if is_in_databricks_runtime() and "Permission denied" in str(e):
                 raise MlflowException(
-                    "Try reattach or restart the cluster to resolve the permission issue."
+                    "The virtual environment cannot be retrieved. To resolve this issue, either "
+                    "detach your notebook from your running environment and reattach, or restart "
+                    "your compute resource to build a new environment."
                 ) from e
             raise
 
