@@ -1651,6 +1651,10 @@
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
   },
+  "UCQwvo": {
+    "defaultMessage": "Registered prompts",
+    "description": "Run page > Overview > Run prompts section label"
+  },
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
     "description": "Helpful tooltip message to explain the automatic metrics plot update"
