@@ -66,7 +66,6 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
-    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -497,7 +496,7 @@ class MlflowClient:
         rm = None
         try:
             rm = registry_client.get_registered_model(name)
-        except MlflowException as e:
+        except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
                 name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
@@ -512,7 +511,6 @@ class MlflowClient:
                 "name for the prompt.",
                 INVALID_PARAMETER_VALUE,
             )
-
 
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})

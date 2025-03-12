@@ -6,7 +6,12 @@ from typing import Optional, Union
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_TEMPLATE_VARIABLE_PATTERN,
+    PROMPT_TEXT_DISPLAY_LIMIT,
+    PROMPT_TEXT_TAG_KEY,
+)
 
 # Alias type
 PromptVersionTag = ModelVersionTag

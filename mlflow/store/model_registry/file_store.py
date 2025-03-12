@@ -23,11 +23,16 @@ from mlflow.entities.model_registry.model_version_stages import (
 )
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import add_prompt_filter_string
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    handle_resource_already_exist_error,
+    has_prompt_tag,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
@@ -196,7 +201,17 @@ class FileStore(AbstractStore):
         self._check_root_dir()
 
         _validate_model_name(name)
-        self._validate_registered_model_does_not_exist(name)
+        try:
+            self._validate_registered_model_does_not_exist(name)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                existing_model = self.get_registered_model(name)
+                handle_resource_already_exist_error(
+                    name, has_prompt_tag(existing_model._tags), has_prompt_tag(tags)
+                )
+            else:
+                raise
+
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
         meta_dir = self._get_registered_model_path(name)
