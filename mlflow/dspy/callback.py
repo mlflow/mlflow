@@ -49,7 +49,8 @@ class MlflowCallback(BaseCallback):
         self._lock = threading.Lock()
 
         ###### state management for optimization process ######
-        # TODO: support running multiple optimization processes in parallel
+        # The current callback logic assumes there is no optimization running in parallel.
+        # The state management may not work when multiple optimizations are running in parallel.
         # optimizer_stack_level is used to determine if the callback is called within compile
         # we cannot use boolean flag because the callback can be nested
         self.optimizer_stack_level = 0
