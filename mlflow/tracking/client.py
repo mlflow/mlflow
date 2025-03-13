@@ -653,7 +653,8 @@ class MlflowClient:
 
         if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
             run_ids = run_id_tags.split(",")
-            run_ids.append(run_id)
+            if run_id not in run_ids:
+                run_ids.append(run_id)
         else:
             run_ids = [run_id]
 
