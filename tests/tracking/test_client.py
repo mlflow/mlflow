@@ -1837,6 +1837,10 @@ def test_log_prompt(tracking_uri):
     client.log_prompt("run2", prompt)
     assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
 
+    # No duplicate run_ids
+    client.log_prompt("run1", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+
     with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
         client.log_prompt("run3", 123)
 
