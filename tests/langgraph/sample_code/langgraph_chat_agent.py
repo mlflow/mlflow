@@ -38,7 +38,7 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
                     content="",
                     tool_calls=[ToolCall(name="lc_tool_format", args={}, id="456")],
                 ),
-                AIMessage(content="Successfully generated"),
+                AIMessage(content="Successfully generated", id="789"),
             ]
         )
 

@@ -88,15 +88,16 @@ def test_chat_agent_output_parser_parse_response():
     message = "The weather today is"
 
     parsed_response = parser.parse(message)
-    for msg in parsed_response["messages"]:
-        assert isinstance(msg["id"], str)
-        del msg["id"]
+    assert parsed_response["messages"][0]["id"] is not None
+    del parsed_response["messages"][0]["id"]
     assert parsed_response == {
         "messages": [{"content": "The weather today is", "role": "assistant"}],
     }
 
     streaming_messages = ["The ", "weather ", "today ", "is"]
-    base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
+    base_messages = [BaseMessage(content=m, type="test", id="1") for m in streaming_messages]
     streaming_chunks = parser.transform(base_messages, RunnableConfig())
     for i, chunk in enumerate(streaming_chunks):
-        assert chunk == {"delta": {"content": streaming_messages[i], "role": "assistant"}}
+        assert chunk == {
+            "delta": {"content": streaming_messages[i], "role": "assistant", "id": "1"}
+        }
