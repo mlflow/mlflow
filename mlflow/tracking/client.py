@@ -95,6 +95,7 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import is_uuid
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -861,16 +862,11 @@ class MlflowClient:
             request_id = "12345678"
             trace = client.get_trace(request_id)
         """
-        if is_databricks_uri(str(self.tracking_uri)):
-            try:
-                uuid.UUID(request_id)
-                # If the request ID is a UUID, it's an online trace.
-                raise MlflowException.invalid_parameter_value(
-                    "Traces from inference tables can only be loaded using SQL or "
-                    "the search_traces() API."
-                )
-            except ValueError:
-                pass
+        if is_databricks_uri(str(self.tracking_uri)) and is_uuid(request_id):
+            raise MlflowException.invalid_parameter_value(
+                "Traces from inference tables can only be loaded using SQL or "
+                "the search_traces() API."
+            )
 
         trace = self._tracking_client.get_trace(request_id)
         if display:
@@ -886,6 +882,7 @@ class MlflowClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -901,6 +898,8 @@ class MlflowClient:
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
             model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -918,6 +917,7 @@ class MlflowClient:
             page_token=page_token,
             run_id=run_id,
             model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
         get_display_handler().display_traces(traces)

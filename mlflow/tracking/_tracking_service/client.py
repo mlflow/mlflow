@@ -55,7 +55,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list
+from mlflow.utils import chunk_list, is_uuid
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
@@ -304,6 +304,20 @@ class TrackingServiceClient:
             ) from None  # Ensure the original spammy exception is not included in the traceback
         return Trace(trace_info, trace_data)
 
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ) -> str:
+        return self.store.get_online_trace_details(
+            trace_id=trace_id,
+            sql_warehouse_id=sql_warehouse_id,
+            source_inference_table=source_inference_table,
+            source_databricks_request_id=source_databricks_request_id,
+        )
+
     def _search_traces(
         self,
         experiment_ids: list[str],
@@ -312,8 +326,9 @@ class TrackingServiceClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ):
-        if model_id is not None:
+        if model_id is not None and sql_warehouse_id is None:
             if filter_string:
                 raise MlflowException(
                     message=(
@@ -329,6 +344,8 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
     def search_traces(
@@ -340,7 +357,10 @@ class TrackingServiceClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
@@ -348,13 +368,28 @@ class TrackingServiceClient:
             """
             # Only the Databricks backend supports additional assessments; avoid making
             # an unnecessary duplicate call to GET trace_info if not necessary.
-            if is_databricks_uri(self.tracking_uri):
+            is_online_trace = is_uuid(trace_info.request_id)
+            if is_databricks and not is_online_trace:
                 trace_info_with_assessments = self.get_trace_info(
                     trace_info.request_id, should_query_v3=True
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
+
             try:
-                trace_data = self._download_trace_data(trace_info)
+                if is_databricks and is_online_trace:
+                    trace_data = self.get_online_trace_details(
+                        trace_info.request_id,
+                        sql_warehouse_id=sql_warehouse_id,
+                        source_inference_table=trace_info.request_metadata.get(
+                            "mlflow.sourceTable"
+                        ),
+                        source_databricks_request_id=trace_info.request_metadata.get(
+                            "mlflow.databricksRequestId"
+                        ),
+                    )
+                    trace_data = TraceData.from_dict(json.loads(trace_data))
+                else:
+                    trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
@@ -394,6 +429,7 @@ class TrackingServiceClient:
                     order_by=order_by,
                     page_token=next_token,
                     model_id=model_id,
+                    sql_warehouse_id=sql_warehouse_id,
                 )
                 traces.extend(
                     t for t in executor.map(download_trace_extra_fields, trace_infos) if t
