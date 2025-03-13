@@ -27,6 +27,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 _logger = logging.getLogger(__name__)
+_lock = threading.Lock()
 
 
 def skip_if_trace_disabled(func):
@@ -46,7 +47,6 @@ class MlflowCallback(BaseCallback):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
-        self._lock = threading.Lock()
 
         ###### state management for optimization process ######
         # The current callback logic assumes there is no optimization running in parallel.
@@ -232,10 +232,10 @@ class MlflowCallback(BaseCallback):
             if callback_metadata := inputs.get("callback_metadata"):
                 if "metric_key" in callback_metadata:
                     key = callback_metadata["metric_key"]
-            with self._lock:
-                step = self._evaluation_counter[(self.optimizer_stack_level, key)]
-                self._evaluation_counter[(self.optimizer_stack_level, key)] += 1
-            run = mlflow.start_run(run_name=f"eval_{key}_{step}", nested=True)
+            with _lock:
+                step = self._evaluation_counter[key]
+                self._evaluation_counter[key] += 1
+            run = mlflow.start_run(run_name=f"{key}_{step}", nested=True)
             self._call_id_to_metric_key[call_id] = (key, step)
             self._call_id_to_run_id[call_id] = run.info.run_id
         else:
