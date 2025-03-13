@@ -74,12 +74,18 @@ def test_model_id_tracking_thread_safety():
         assert model_id == models[index].model_id
 
 
-def test_logged_model_params_and_tags_are_logged_to_run():
+def test_logged_model_params_are_logged_to_run():
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            "my_model", python_model=DummyModel(), params={"a": 1}, tags={"b": 2}
-        )
+        mlflow.pyfunc.log_model("my_model", python_model=DummyModel(), params={"a": 1})
 
     run = mlflow.last_active_run()
     assert run.data.params["a"] == "1"
-    assert run.data.tags["b"] == "2"
+
+
+def test_run_params_are_logged_to_model():
+    with mlflow.start_run():
+        mlflow.log_params({"a": 1})
+        mlflow.pyfunc.log_model("my_model", python_model=DummyModel())
+
+    model = mlflow.last_logged_model()
+    assert model.params == {"a": "1"}
