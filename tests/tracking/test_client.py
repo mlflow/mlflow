@@ -1776,6 +1776,22 @@ def test_delete_prompt_error(tracking_uri):
         client.delete_prompt("prompt", version=2)
 
 
+def test_log_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
+    assert prompt.run_ids == []
+
+    client.log_prompt("run1", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1"]
+
+    client.log_prompt("run2", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+
+    with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
+        client.log_prompt("run3", 123)
+
+
 @pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)

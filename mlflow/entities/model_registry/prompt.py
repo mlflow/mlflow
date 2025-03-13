@@ -8,6 +8,7 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEMPLATE_VARIABLE_PATTERN,
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
@@ -105,7 +106,10 @@ class Prompt(ModelVersion):
     @property
     def run_ids(self) -> list[str]:
         """Get the run IDs associated with the prompt."""
-        return self.tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, "").split(",")
+        run_tag = self.tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        if not run_tag:
+            return []
+        return run_tag.split(",")
 
     @property
     def uri(self) -> str:
