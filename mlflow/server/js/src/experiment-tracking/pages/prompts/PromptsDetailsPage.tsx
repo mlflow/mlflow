@@ -34,6 +34,7 @@ import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { first, isEmpty } from 'lodash';
 import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
+import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -67,6 +68,10 @@ const PromptsDetailsPage = () => {
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptModal({
     registeredPrompt: promptDetailsData?.prompt,
     onSuccess: () => navigate(Routes.promptsPageRoute),
+  });
+
+  const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
+    onSuccess: refetch,
   });
 
   const {
@@ -250,6 +255,7 @@ const PromptsDetailsPage = () => {
                   aliasesByVersion={aliasesByVersion}
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
+                  showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
                 />
               )}
               {mode === PromptVersionsTableMode.COMPARE && (
@@ -261,6 +267,7 @@ const PromptsDetailsPage = () => {
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
                   aliasesByVersion={aliasesByVersion}
+                  showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
                 />
               )}
             </div>
@@ -271,6 +278,7 @@ const PromptsDetailsPage = () => {
       {EditAliasesModal}
       {CreatePromptModal}
       {DeletePromptModal}
+      {EditPromptVersionMetadataModal}
     </ScrollablePageWrapper>
   );
 };

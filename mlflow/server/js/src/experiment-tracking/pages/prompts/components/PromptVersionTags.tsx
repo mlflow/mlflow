@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PencilIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
 import { KeyValueEntity } from '../../../types';
+import { useUpdatePromptVersionMetadataModal } from '../hooks/useUpdatePromptVersionMetadataModal';
 
-export const PromptVersionTags = ({ tags }: { tags: KeyValueEntity[] }) => {
+export const PromptVersionTags = ({
+  tags,
+  onEditVersionMetadata,
+}: {
+  tags: KeyValueEntity[];
+  onEditVersionMetadata: () => void;
+}) => {
   const [showAll, setShowAll] = useState(false);
   const { theme } = useDesignSystemTheme();
 
@@ -25,8 +32,28 @@ export const PromptVersionTags = ({ tags }: { tags: KeyValueEntity[] }) => {
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
             {tags.slice(0, visibleCount).map((tag) => (
-              <KeyValueTag key={tag.key} tag={tag} />
+              <KeyValueTag css={{ margin: 0 }} key={tag.key} tag={tag} />
             ))}
+            {tags.length > 0 ? (
+              <Button
+                componentId="mlflow.prompts.details.version.edit_tags"
+                size="small"
+                icon={<PencilIcon />}
+                onClick={onEditVersionMetadata}
+              />
+            ) : (
+              <Button
+                componentId="mlflow.prompts.details.version.add_tags"
+                size="small"
+                type="link"
+                onClick={onEditVersionMetadata}
+              >
+                <FormattedMessage
+                  defaultMessage="Add"
+                  description="Model registry > model version table > metadata column > 'add' button label"
+                />
+              </Button>
+            )}
             {hasMore && (
               <Button
                 componentId="mlflow.prompts.details.version.tags.show_more"

@@ -120,6 +120,14 @@ export const RegisteredPromptsApi = {
       error: defaultErrorHandler,
     });
   },
+  deleteRegisteredPromptVersionTag: (promptName: string, promptVersion: string, key: string) => {
+    fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/model-versions/delete-tag',
+      method: 'DELETE',
+      body: JSON.stringify({ key, name: promptName, version: promptVersion }),
+      error: defaultErrorHandler,
+    });
+  },
   getPromptDetails: (promptName: string) => {
     const params = new URLSearchParams();
     params.append('name', promptName);
