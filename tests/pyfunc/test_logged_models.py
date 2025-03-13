@@ -5,6 +5,11 @@ import mlflow
 from mlflow.tracing.constant import TraceMetadataKey
 
 
+class DummyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input):
+        return len(model_input) * [0]
+
+
 class TraceModel(mlflow.pyfunc.PythonModel):
     @mlflow.trace
     def predict(self, model_input):
@@ -67,3 +72,14 @@ def test_model_id_tracking_thread_safety():
         index = json.loads(trace_inputs)["model_input"][0]
         model_id = trace.info.request_metadata["mlflow.modelId"]
         assert model_id == models[index].model_id
+
+
+def test_logged_model_params_and_tags_are_logged_to_run():
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            "my_model", python_model=DummyModel(), params={"a": 1}, tags={"b": 2}
+        )
+
+    run = mlflow.last_active_run()
+    assert run.data.params["a"] == "1"
+    assert run.data.tags["b"] == "2"
