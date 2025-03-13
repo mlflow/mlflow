@@ -19,8 +19,5 @@ def test_set_destination_databricks():
     destination = Databricks(experiment_name="Default", experiment_id="0")
     assert destination.experiment_id == "0"
 
-    with pytest.raises(MlflowException, match=r"Either experiment_id or experiment_name"):
-        Databricks()
-
     with pytest.raises(MlflowException, match=r"experiment_id and experiment_name must"):
         Databricks(experiment_name="Default", experiment_id="123")
