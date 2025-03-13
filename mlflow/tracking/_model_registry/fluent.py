@@ -11,6 +11,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
@@ -428,7 +429,14 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    return MlflowClient().load_prompt(name_or_uri=name_or_uri, version=version)
+    client = MlflowClient()
+    prompt = client.load_prompt(name_or_uri=name_or_uri, version=version)
+
+    # If there is an active MLflow run, associate the prompt with the run
+    if run := active_run():
+        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+
+    return prompt
 
 
 @experimental
