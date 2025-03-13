@@ -12,7 +12,7 @@ from typing import Any, Optional
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
-from google.protobuf.struct_pb2 import Value
+from google.protobuf.struct_pb2 import NULL_VALUE, Value
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
@@ -176,6 +176,9 @@ def set_pb_value(proto: Value, value: Any):
         proto.number_value = value
     elif isinstance(value, str):
         proto.string_value = value
+    elif value is None:
+        proto.null_value = NULL_VALUE
+
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
 
