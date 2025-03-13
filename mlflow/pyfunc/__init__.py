@@ -426,6 +426,7 @@ import mlflow
 import mlflow.models.signature
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
@@ -3321,7 +3322,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
-    prompts=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
