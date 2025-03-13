@@ -3382,5 +3382,9 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zxfWCx": {
+    "defaultMessage": "Add/Edit Prompt Version Metadata",
+    "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
   }
 }

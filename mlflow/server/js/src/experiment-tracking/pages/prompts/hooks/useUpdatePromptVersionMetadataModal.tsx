@@ -1,9 +1,10 @@
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { RegisteredPromptsApi } from '../api';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import { RegisteredPromptVersion } from '../types';
 import { useCallback } from 'react';
 import { diffCurrentAndNewTags, isUserFacingTag } from '../../../../common/utils/TagUtils';
+import { FormattedMessage } from 'react-intl';
 
 type UpdatePromptVersionMetadataPayload = {
   promptName: string;
@@ -31,6 +32,12 @@ export const useUpdatePromptVersionMetadataModal = ({ onSuccess }: { onSuccess?:
     showEditTagsModal,
     isLoading,
   } = useEditKeyValueTagsModal<Pick<RegisteredPromptVersion, 'name' | 'version' | 'tags'>>({
+    title: (
+      <FormattedMessage
+        defaultMessage="Add/Edit Prompt Version Metadata"
+        description="Title for a modal that allows the user to add or edit metadata tags on prompt versions."
+      />
+    ),
     valueRequired: true,
     saveTagsHandler: (promptVersion, currentTags, newTags) => {
       const { addedOrModifiedTags, deletedTags } = diffCurrentAndNewTags(currentTags, newTags);

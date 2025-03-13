@@ -267,7 +267,6 @@ const PromptsDetailsPage = () => {
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
                   aliasesByVersion={aliasesByVersion}
-                  showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
                 />
               )}
             </div>

@@ -28,7 +28,7 @@ export const PromptVersionMetadata = ({
   registeredPromptVersion?: RegisteredPromptVersion;
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditVersion?: (vesrion: RegisteredPromptVersion) => void;
-  showEditPromptVersionMetadataModal: (version: RegisteredPromptVersion) => void;
+  showEditPromptVersionMetadataModal?: (version: RegisteredPromptVersion) => void;
   aliasesByVersion: Record<string, string[]>;
   isBaseline?: boolean;
 }) => {
@@ -58,9 +58,11 @@ export const PromptVersionMetadata = ({
     />
   );
 
-  const onEditVersionMetadata = () => {
-    showEditPromptVersionMetadataModal(registeredPromptVersion);
-  };
+  const onEditVersionMetadata = showEditPromptVersionMetadataModal
+    ? () => {
+        showEditPromptVersionMetadataModal(registeredPromptVersion);
+      }
+    : undefined;
 
   return (
     <div

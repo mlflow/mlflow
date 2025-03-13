@@ -14,7 +14,6 @@ export const PromptContentCompare = ({
   registeredPrompt,
   aliasesByVersion,
   showEditAliasesModal,
-  showEditPromptVersionMetadataModal,
 }: {
   baselineVersion?: RegisteredPromptVersion;
   comparedVersion?: RegisteredPromptVersion;
@@ -23,7 +22,6 @@ export const PromptContentCompare = ({
   registeredPrompt?: RegisteredPrompt;
   aliasesByVersion: Record<string, string[]>;
   showEditAliasesModal?: (versionNumber: string) => void;
-  showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -80,7 +78,6 @@ export const PromptContentCompare = ({
             registeredPrompt={registeredPrompt}
             registeredPromptVersion={baselineVersion}
             showEditAliasesModal={showEditAliasesModal}
-            showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
             isBaseline
           />
         </div>
@@ -94,7 +91,6 @@ export const PromptContentCompare = ({
             registeredPrompt={registeredPrompt}
             registeredPromptVersion={comparedVersion}
             showEditAliasesModal={showEditAliasesModal}
-            showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
           />
         </div>
       </div>
