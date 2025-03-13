@@ -557,6 +557,8 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
+    # TODO: remove this mock after unitycatalog-ai release a new version to avoid setting
+    # spark session during initialization
     with mock.patch("unitycatalog.ai.core.databricks.DatabricksFunctionClient.set_spark_session"):
         client = DatabricksFunctionClient()
     toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
