@@ -8,6 +8,7 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEMPLATE_VARIABLE_PATTERN,
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
@@ -18,7 +19,7 @@ PromptVersionTag = ModelVersionTag
 
 
 def _is_reserved_tag(key: str) -> bool:
-    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY}
+    return key in {IS_PROMPT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, PROMPT_TEXT_TAG_KEY}
 
 
 # Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
@@ -117,6 +118,19 @@ class Prompt(ModelVersion):
         Return the prompt-level tags (from RegisteredModel).
         """
         return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
+      
+    @property  
+    def run_ids(self) -> list[str]:
+        """Get the run IDs associated with the prompt."""
+        run_tag = self._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        if not run_tag:
+            return []
+        return run_tag.split(",")
+
+    @property
+    def uri(self) -> str:
+        """Return the URI of the prompt."""
+        return f"prompts:/{self.name}/{self.version}"
 
     def format(self, allow_partial: bool = False, **kwargs) -> Union[Prompt, str]:
         """

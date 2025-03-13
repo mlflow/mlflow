@@ -627,24 +627,38 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def log_prompt(self, run_id: str, prompt_uri: str) -> None:
+    def log_prompt(self, run_id: str, prompt: Union[str, Prompt]) -> None:
         """
         Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
 
+        .. warning::
+
+            This API is not thread-safe. If you are logging prompts from multiple threads,
+            consider using a lock to ensure that only one thread logs a prompt to a run at a time.
+
         Args:
             run_id: The ID of the run to log the prompt to.
-            prompt_uri: The prompt URI in the format "prompts:/name/version".
+            prompt: A Prompt object or the prompt URI in the format "prompts:/name/version".
         """
-        prompt = self.load_prompt(prompt_uri)
+        if isinstance(prompt, str):
+            prompt = self.load_prompt(prompt)
+        elif isinstance(prompt, Prompt):
+            # NB: We need to load the prompt once from the registry because the tags in
+            # local prompt object may not be in sync with the registry.
+            prompt = self.load_prompt(prompt.uri)
+        elif not isinstance(prompt, Prompt):
+            raise MlflowException.invalid_parameter_value(
+                "The `prompt` argument must be a Prompt object or a prompt URI.",
+            )
+
         if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
             run_ids = run_id_tags.split(",")
             run_ids.append(run_id)
         else:
             run_ids = [run_id]
 
-        name, version = self.parse_prompt_uri(prompt_uri)
         self._get_registry_client().set_model_version_tag(
-            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+            prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )
 
     # TODO: Use model_id in MLflow 3.0
