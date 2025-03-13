@@ -1824,6 +1824,17 @@ def test_delete_prompt_error(tracking_uri):
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
         client.delete_prompt("prompt", version=2)
 
+def test_log_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt = client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+
+    prompt.run_ids
+
+    mock_store.log_prompt.assert_called_once_with(prompt, response)
+
+
+
 
 def test_log_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
