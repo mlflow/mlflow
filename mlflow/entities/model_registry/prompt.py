@@ -19,7 +19,7 @@ PromptVersionTag = ModelVersionTag
 
 
 def _is_reserved_tag(key: str) -> bool:
-    return key in {IS_PROMPT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, PROMPT_TEXT_TAG_KEY}
+    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}
 
 
 # Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
@@ -90,6 +90,17 @@ class Prompt(ModelVersion):
         Return the template text of the prompt.
         """
         return self._tags[PROMPT_TEXT_TAG_KEY]
+
+    def to_single_brace_format(self) -> str:
+        """
+        Convert the template text to single brace format. This is useful for integrating with other
+        systems that use single curly braces for variable replacement, such as LangChain's prompt
+        template. Default is False.
+        """
+        t = self.template
+        for var in self.variables:
+            t = re.sub(r"\{\{\s*" + var + r"\s*\}\}", "{" + var + "}", t)
+        return t
 
     @property
     def variables(self) -> set[str]:
