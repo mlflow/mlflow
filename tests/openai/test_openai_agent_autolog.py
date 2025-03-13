@@ -9,7 +9,7 @@ try:
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
-from agents import Agent, Runner, function_tool, set_default_openai_client
+from agents import Agent, Runner, function_tool, set_default_openai_client, trace
 from agents.tracing import set_trace_processors
 from openai.types.responses.function_tool import FunctionTool
 from openai.types.responses.response import Response
@@ -255,7 +255,7 @@ async def test_autolog_agent():
             "tool_call_id": None,
         },
     ]
-    assert spans[5].attributes[SpanAttributeKey.CHAT_TOOLS] == []
+    assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes
 
 
 @pytest.mark.asyncio
@@ -345,3 +345,58 @@ async def test_autolog_agent_llm_exception():
     assert spans[2].events[0].name == "exception"
     assert spans[2].events[0].attributes["exception.message"] == "Error getting response"
     assert spans[2].events[0].attributes["exception.stacktrace"] == '{"error": "Connection error"}'
+
+
+@pytest.mark.asyncio
+async def test_autolog_agent_with_manual_trace():
+    mlflow.openai.autolog()
+
+    # NB: We have to mock the OpenAI SDK responses to make agent works
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="Tell funny jokes.",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="Nice joke",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
+
+    set_dummy_client(DUMMY_RESPONSES)
+
+    agent = Agent(name="Joke agent", instructions="Tell funny jokes.")
+
+    with mlflow.start_span("Parent span"):
+        with trace("Joke workflow"):
+            response = await Runner.run(agent, "Tell me a joke")
+
+    assert response.final_output == "Nice joke"
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    spans = traces[0].data.spans
+    assert len(spans) == 4
+    assert spans[0].name == "Parent span"
+    assert spans[1].name == "Joke workflow"
+    assert spans[2].name == "Joke agent"
+    assert spans[3].name == "Response"

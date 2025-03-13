@@ -113,7 +113,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
             trace.__class__.__exit__ = _patched_exit
         except Exception:
-            _logger.warning("Failed to start MLflow trace", exc_info=True)
+            _logger.debug("Failed to start MLflow trace", exc_info=True)
 
     def on_trace_end(self, trace: oai.Trace) -> None:
         try:
@@ -125,7 +125,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 outputs="",
             )
         except Exception:
-            _logger.warning("Failed to end MLflow trace", exc_info=True)
+            _logger.debug("Failed to end MLflow trace", exc_info=True)
 
     def on_span_start(self, span: oai.Span[Any]) -> None:
         try:
@@ -147,7 +147,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             )
             self._span_id_to_mlflow_span[span.span_id] = mlflow_span
         except Exception:
-            _logger.warning("Failed to start MLflow span", exc_info=True)
+            _logger.debug("Failed to start MLflow span", exc_info=True)
 
     def on_span_end(self, span: oai.Span[Any]) -> None:
         try:
@@ -184,7 +184,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 status=status,
             )
         except Exception:
-            _logger.warning("Failed to end MLflow span", exc_info=True)
+            _logger.debug("Failed to end MLflow span", exc_info=True)
 
     def force_flush(self) -> None:
         # MLflow doesn't need flush but this method is required by the interface
@@ -287,7 +287,9 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
             chat_tools.append(tool)
         except Exception as e:
             _logger.debug(f"Failed to parse chat tool: {tool}. Error: {e}")
-    attributes[SpanAttributeKey.CHAT_TOOLS] = chat_tools
+
+    if chat_tools:
+        attributes[SpanAttributeKey.CHAT_TOOLS] = chat_tools
 
     return inputs, outputs, attributes
 
