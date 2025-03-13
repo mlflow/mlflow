@@ -195,7 +195,10 @@ def _wrap_function(
                 span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-                yield result
+                try:
+                    yield result
+                except GeneratorExit:
+                    pass
 
         def __init__(self, fn, args, kwargs):
             self.coro = self._wrapping_logic(fn, args, kwargs)
@@ -211,7 +214,7 @@ def _wrap_function(
             # of start_span and OTel's use_span can execute).
             if exc_type is not None:
                 self.coro.throw(exc_type, exc_value, traceback)
-            self.coro.close()
+            self.coro.close()  # This triggers GeneratorExit
 
     if inspect.iscoroutinefunction(fn):
 
