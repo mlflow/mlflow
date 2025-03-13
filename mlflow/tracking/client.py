@@ -909,6 +909,22 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        if model_id is not None:
+            if filter_string:
+                raise MlflowException(
+                    message=(
+                        "Cannot specify both `model_id` or `filter_string` in the search_traces "
+                        "call."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            filter_string = (
+                f"request_metadata.`mlflow.modelId` = '{model_id}'"
+                if sql_warehouse_id is None
+                else None
+            )
+
         traces = self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,

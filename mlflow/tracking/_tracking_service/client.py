@@ -328,16 +328,6 @@ class TrackingServiceClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ):
-        if model_id is not None and sql_warehouse_id is None:
-            if filter_string:
-                raise MlflowException(
-                    message=(
-                        "Cannot specify both `model_id` and `experiment_ids` or `filter_string`"
-                        " in the search_traces call."
-                    ),
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
         return self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
