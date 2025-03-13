@@ -35,6 +35,21 @@ def test_prompt_variables_extraction(template, expected):
     assert prompt.variables == expected
 
 
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        ("Hello, {{name}}!", "Hello, {name}!"),
+        ("Hello, {{ title }} {{ name }}!", "Hello, {title} {name}!"),
+        ("Hello, {{ person.name.first }}", "Hello, {person.name.first}"),
+        ("Hello, {{name1}}", "Hello, {name1}"),
+        ("Hello, {name}", "Hello, {name}"),
+    ],
+)
+def test_prompt_to_single_brace_format(template, expected):
+    prompt = Prompt(name="test", version=1, template=template)
+    assert prompt.to_single_brace_format() == expected
+
+
 def test_prompt_format():
     prompt = Prompt(name="test", version=1, template="Hello, {{title}} {{name}}!")
     result = prompt.format(title="Ms.", name="Alice")
