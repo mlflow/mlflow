@@ -1019,6 +1019,10 @@
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
   },
+  "GgPNAZ": {
+    "defaultMessage": "Metadata:",
+    "description": "A key-value pair for the metadata in the prompt details page"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
