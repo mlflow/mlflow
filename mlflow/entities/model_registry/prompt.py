@@ -118,8 +118,8 @@ class Prompt(ModelVersion):
         Return the prompt-level tags (from RegisteredModel).
         """
         return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
-      
-    @property  
+
+    @property
     def run_ids(self) -> list[str]:
         """Get the run IDs associated with the prompt."""
         run_tag = self._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
