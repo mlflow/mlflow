@@ -20,6 +20,7 @@ import os
 import tempfile
 import threading
 import warnings
+from collections import defaultdict
 from contextvars import ContextVar
 from typing import Any, Iterator, Optional, Union
 
@@ -912,17 +913,22 @@ class _ModelTracker:
     def __init__(self):
         self.model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
+        self._model_locks = defaultdict(threading.Lock)
 
     def get(self, model: Any) -> Optional[str]:
-        with self._lock:
-            return self.model_ids.get(id(model))
+        model_id_key = id(model)
+        with self._model_locks[model_id_key]:
+            return self.model_ids.get(model_id_key)
 
     def set(self, model: Any, model_id: str) -> None:
-        with self._lock:
-            self.model_ids[id(model)] = model_id
+        model_id_key = id(model)
+        with self._model_locks[model_id_key]:
+            self.model_ids[model_id_key] = model_id
 
     def clear(self):
-        self.model_ids.clear()
+        with self._lock:
+            self.model_ids.clear()
+            self._model_locks.clear()
 
 
 _active_model_id = ContextVar("_active_model_id", default=None)
