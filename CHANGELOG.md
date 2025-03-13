@@ -2,27 +2,9 @@
 
 ## 2.20.4 (2025-03-13)
 
-MLflow 2.20.4 includes several major features and improvements
-
-Breaking changes:
-
-- [] Revert deletion of Assessment, Evaluation, log_evaluations experimental APIs. (#14703, @brilee)
-- [] Remove old evaluation/assessment object definitions (#14656, @brilee)
-
-Features:
-
-- [Tracking] Add import and docs for txtai integration (#14712, @B-Step62)
-- [Tracking] Support new Google GenAI SDK (#14576, @TomeHirata)
-- [Tracking] Support tracing sync/async generator function with @mlflow.trace (#14459, @B-Step62)
-- [Tracking] Support generating traces from DSPy built-in compilation and evaluation (#14400, @B-Step62)
-
-Bug fixes:
+MLflow 2.20.4 is a tiny patch release to include a bug fix:
 
 - [Tracking] fix: remove `log_trace` at top level module (#14873, @yxtay)
-
-Small bug fixes and documentation updates:
-
-#14664, #14377, #14475, #14382, @B-Step62; #14535, @njbrake; #14594, @TomeHirata; #14567, #14367, @bbqiu; #14467, @seal07; #14022, #14539, #14356, @daniellok-db; #14450, @BenWilson2
 
 ## 2.20.3 (2025-02-26)
 
