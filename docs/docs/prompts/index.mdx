@@ -68,11 +68,11 @@ TODO: Add a nice video
           commit_message="Initial commit",
           # Optional: Specify any additional metadata about the prompt version
           version_metadata={
-              "task": "summarization",
               "author": "author@example.com",
           },
           # Optional: Set tags applies to the prompt (across versions)
           tags={
+              "task": "summarization",
               "language": "en",
           }
       )
@@ -83,6 +83,11 @@ TODO: Add a nice video
     </div>
   </TabItem>
 </Tabs>
+
+This creates a new prompt with the specified template text and metadata. The prompt is now available in the MLflow UI for further management.
+
+![Registered Prompt in UI](/images/llms/prompt-registry/registered-prompt.png)
+
 
 ### 2. Update the Prompt with a New Version
 
@@ -121,11 +126,10 @@ TODO: Add a nice video
 
       # Register a new version of an existing prompt
       updated_prompt = mlflow.register_prompt(
-          name="Summarization Prompt",  # Specify the existing prompt name
+          name="summarization-prompt",  # Specify the existing prompt name
           template=new_template,
           commit_message="Improvement",
-          tags={
-              "task": "summarization",
+          version_metadata={
               "author": "author@example.com",
           },
       )
@@ -133,7 +137,6 @@ TODO: Add a nice video
     </div>
   </TabItem>
 </Tabs>
-
 
 ### 3. Compare the Prompt Versions
 
@@ -160,10 +163,10 @@ MLflow Projects, MLflow Models, and MLflow Registry.
 """
 
 # Load the prompt
-prompt = mlflow.load_prompt("prompts:/Summarization Prompt/2")
+prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
 
 # Use the prompt with an LLM
-client = openai.OpenAI(api_key="<OPENAI_API_KEY>")
+client = openai.OpenAI()
 response = client.chat.completions.create(
     messages=[
         {
@@ -188,10 +191,10 @@ Key attributes of a Prompt object:
 * `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
 * `Version`: A sequential number representing the revision of the prompt.
 * `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
-* `Tags`: Optional key-value pairs for categorization and filtering. For example, you may add tags for project name, author, or domain.
-* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system.
-
-
+* `Version Metadata`: Optional key-value pairs for adding metadata to the prompt version. For example, you may use this for tracking the author of the prompt version.
+* `Tags`: Optional key-value pairs assigned at the prompt level (across versions)
+for categorization and filtering. For example, you may add tags for project name, language, etc, which apply to all versions of the prompt.
+* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](llms/prompts/cm#aliases) for more details.
 
 
 ## FAQ
@@ -207,7 +210,7 @@ import mlflow
 mlflow.delete_prompt("summarization_prompt", version=2)
 ```
 
-To avoid accidental deletion, you can only delete one version at a time. If you delete the all versions of a prompt, the prompt itself will be deleted.
+To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.
 
 
 #### Q: Can I update the prompt template of an existing prompt version?
@@ -225,10 +228,12 @@ from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 
 # Load prompt from MLflow
-mlflow_prompt = mlflow.load_prompt("question_answering")
+prompt = mlflow.load_prompt("question_answering")
 
-# Convert to LangChain format
-langchain_prompt = PromptTemplate.from_template(mlflow_prompt.template)
+# Convert to LangChain format.
+# IMPORTANT: Convert the prompt to single brace format for LangChain (MLflow uses double braces),
+#   using the `to_single_brace_format` method.
+langchain_prompt = PromptTemplate.from_template(prompt.to_single_brace_format())
 
 # Use with LangChain
 llm = OpenAI()
