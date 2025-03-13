@@ -11,6 +11,7 @@ def test_prompt_initialization():
     assert prompt.name == "my_prompt"
     assert prompt.version == 1
     assert prompt.template == "Hello, {{name}}!"
+    assert prompt.uri == "prompts:/my_prompt/1"
     # Public property should not return the reserved tag
     assert prompt.tags == {}
     assert prompt._tags[IS_PROMPT_TAG_KEY] == "true"

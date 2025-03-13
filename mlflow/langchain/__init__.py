@@ -28,6 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -442,6 +443,7 @@ def log_model(
     model_config=None,
     streamable=None,
     resources: Optional[Union[list[Resource], str]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -566,6 +568,7 @@ def log_model(
             (e.g. on LLM model serving endpoints), we encourage explicitly passing dependencies
             via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
             but dependency auto-inference is best-effort and may miss some dependencies.
+        prompts: {{ prompts }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -591,6 +594,7 @@ def log_model(
         model_config=model_config,
         streamable=streamable,
         resources=resources,
+        prompts=prompts,
     )
 
 

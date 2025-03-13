@@ -15,6 +15,7 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -840,6 +841,9 @@ class Model:
             local_path = tmp.path("model")
             if run_id is None:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+            if prompts is not None:
+                # Convert to URIs for serialization
+                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
             mlflow_model = cls(
                 artifact_path=artifact_path,
                 run_id=run_id,
@@ -922,13 +926,8 @@ class Model:
             # Associate prompts to the model Run
             if prompts:
                 client = mlflow.MlflowClient()
-                for prompt_uri in prompts:
-                    try:
-                        client.log_prompt(run_id, prompt_uri)
-                    except MlflowException:
-                        _logger.warning(
-                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
-                        )
+                for prompt in prompts:
+                    client.log_prompt(run_id, prompt)
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
