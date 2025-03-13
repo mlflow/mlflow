@@ -49,6 +49,8 @@ try:
 except ImportError:
     from langchain.text_splitter import CharacterTextSplitter
 
+import json
+
 from packaging.version import Version
 
 import mlflow
@@ -91,6 +93,18 @@ def create_openai_runnable(temperature=0.9):
         template="What is {product}?",
     )
     return prompt | ChatOpenAI(temperature=temperature) | StrOutputParser()
+
+
+@pytest.fixture
+def model_infos():
+    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 5)]
+    model_infos = []
+    for model in models:
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+            )
+    return model_infos
 
 
 def create_retriever(tmp_path):
@@ -1254,3 +1268,118 @@ def test_langchain_tracing_multi_threads():
         )
         == temperatures
     )
+
+
+def test_autolog_traces_linked_to_models():
+    # log two models + load model
+    mlflow.langchain.autolog()
+    messages = {"product": "MLflow"}
+    model1 = create_openai_runnable(temperature=0.9)
+    model2 = create_openai_runnable(temperature=0.1)
+
+    with mlflow.start_run():
+        mlflow.langchain.log_model(model2, "model2")
+    logged_model2 = mlflow.last_logged_model()
+
+    with mlflow.start_run():
+        mlflow.langchain.log_model(model1, "model1")
+    logged_model1 = mlflow.last_logged_model()
+    assert logged_model1.model_id != logged_model2.model_id
+
+    # traces generated after model logging should be linked to the logged model
+    model2.invoke(messages)
+    model1.invoke(messages)
+
+    # traces generated on loaded model should be linked to the logged model
+    model3 = mlflow.langchain.load_model(logged_model1.model_uri)
+    model3.invoke(messages)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    assert (
+        traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    )
+    assert traces[1].data.spans[2].get_attribute("invocation_params")["temperature"] == 0.9
+    assert (
+        traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    )
+    span2 = traces[2].data.spans[2]
+    assert span2.get_attribute("invocation_params")["temperature"] == 0.1
+    assert span2.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model2.model_id
+
+
+@pytest.mark.asyncio
+async def test_autolog_traces_linked_to_loaded_models(model_infos):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        await loaded_model.ainvoke(
+            {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        )
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+@pytest.mark.parametrize("func", ["invoke", "batch"])
+def test_autolog_traces_linked_to_models_batch(model_infos, func):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        msg = {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        if func == "invoke":
+            loaded_model.invoke(msg)
+        elif func == "batch":
+            loaded_model.batch([msg])
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+def test_autolog_traces_linked_to_models_multi_threading(model_infos):
+    mlflow.langchain.autolog()
+
+    # This needs to be outside of _invoke because load_model disables tracing
+    # and it impacts tracing behavior in multi-threads
+    model_and_model_ids = [
+        (mlflow.langchain.load_model(model_info.model_uri), model_info.model_id)
+        for model_info in model_infos
+    ]
+
+    def _invoke(i):
+        loaded_model, model_id = model_and_model_ids[i]
+        loaded_model.invoke({"product": f"{loaded_model.steps[1].temperature}_{model_id}"})
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_invoke, i) for i in range(len(model_infos))]
+        for future in futures:
+            future.result()
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id

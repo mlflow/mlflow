@@ -6,7 +6,7 @@ import pytest
 from langchain.embeddings.base import Embeddings
 from pydantic import BaseModel
 
-from mlflow.langchain import _LOADED_MODEL_TRACKER
+from mlflow.langchain import _MODEL_TRACKER
 
 from tests.helper_functions import start_mock_openai_server
 from tests.tracing.helper import reset_autolog_state  # noqa: F401
@@ -37,8 +37,8 @@ def reset_autolog(reset_autolog_state):
 
 
 @pytest.fixture(autouse=True)
-def reset_loaded_model_tracker():
-    _LOADED_MODEL_TRACKER.clear()
+def reset_model_tracker():
+    _MODEL_TRACKER.clear()
 
 
 # Define a special embedding for testing

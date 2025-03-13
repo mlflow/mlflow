@@ -18,7 +18,9 @@ import inspect
 import logging
 import os
 import tempfile
+import threading
 import warnings
+from contextvars import ContextVar
 from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
@@ -57,7 +59,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
-from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -100,7 +101,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.uri import is_models_uri
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -586,7 +586,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    return Model.log(
+    model = Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.langchain,
@@ -613,6 +613,11 @@ def log_model(
         step=step,
         model_id=model_id,
     )
+    # if model is logged as models as code, then we cannot
+    # get the id of the model object
+    if model.model_id and not isinstance(lc_model, str):
+        _MODEL_TRACKER.set(lc_model, model.model_id)
+    return model
 
 
 # patch_langchain_type_to_cls_dict here as we attempt to load model
@@ -899,37 +904,29 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         return _load_model(local_model_path, flavor_conf)
 
 
-class _LoadedModelTracker:
+class _ModelTracker:
     """
-    Tracks models loaded by `load_model`.
+    Tracks models existing in current context.
     """
 
     def __init__(self):
         self.model_ids: dict[int, str] = {}
-        # temporary solution to track model_id for autologging
-        # TODO: remove this and pass model_id to MlflowLangchainTracer
-        self._last_model_id = None
+        self._lock = threading.Lock()
 
     def get(self, model: Any) -> Optional[str]:
-        return self.model_ids.get(id(model))
+        with self._lock:
+            return self.model_ids.get(id(model))
 
     def set(self, model: Any, model_id: str) -> None:
-        self.model_ids[id(model)] = model_id
-
-    @property
-    def last_model_id(self) -> Optional[str]:
-        return self._last_model_id
-
-    @last_model_id.setter
-    def last_model_id(self, model_id: Optional[str]) -> None:
-        self._last_model_id = model_id
+        with self._lock:
+            self.model_ids[id(model)] = model_id
 
     def clear(self):
         self.model_ids.clear()
-        self._last_model_id = None
 
 
-_LOADED_MODEL_TRACKER = _LoadedModelTracker()
+_active_model_id = ContextVar("_active_model_id", default=None)
+_MODEL_TRACKER = _ModelTracker()
 
 
 @experimental
@@ -960,11 +957,10 @@ def load_model(model_uri, dst_path=None):
     model_uri = str(model_uri)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model = _load_model_from_local_fs(local_model_path)
-    if is_models_uri(model_uri):
-        parsed_model_uri = _parse_model_uri(model_uri)
-        if parsed_model_uri.model_id:
-            _LOADED_MODEL_TRACKER.set(model, parsed_model_uri.model_id)
-            _LOADED_MODEL_TRACKER.last_model_id = parsed_model_uri.model_id
+    mlflow_model = Model.load(local_model_path)
+    if mlflow_model.model_id:
+        _MODEL_TRACKER.set(model, mlflow_model.model_id)
+
     return model
 
 
