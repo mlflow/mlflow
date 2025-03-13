@@ -279,6 +279,8 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         max_results=100,
         order_by=None,
         page_token=None,
+        model_id=None,
+        sql_warehouse_id=None,
     )
     mock_artifact_repo.download_trace_data.assert_called()
     # The TraceInfo is already fetched prior to the upload_trace_data call,
