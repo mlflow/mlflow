@@ -8,6 +8,7 @@ cd $TEMP_DIR
 git sparse-checkout set --no-cone /mlflow /skinny /pyproject.toml
 git fetch origin pull/$PR_NUMBER/merge
 git config advice.detachedHead false
+git checkout FETCH_HEAD
 OPTIONS=$(if pip freeze | grep -q "mlflow-skinny @"; then echo "--force-reinstall --no-deps"; fi)
 pip install --no-build-isolation $OPTIONS ./skinny
 rm -rf $TEMP_DIR
