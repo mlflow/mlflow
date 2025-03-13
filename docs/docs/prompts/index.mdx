@@ -40,6 +40,13 @@ import TabItem from "@theme/TabItem";
       4. Fill in the prompt details such as name, prompt template text, and commit message (optional).
       5. Click **Create** to register the prompt.
 
+      :::note
+
+          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides a [utility method](/prompts/#q-can-i-use-prompt-templates-with-frameworks-like-langchain-or-llamaindex)
+          to convert template into single brace format for frameworks like LangChain or LlamaIndex.
+
+      :::
+
     </div>
   </TabItem>
   <TabItem value="python" label="Python" default>
