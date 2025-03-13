@@ -192,8 +192,6 @@ def test_langgraph_chat_agent_trace():
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -202,6 +200,4 @@ def test_langgraph_chat_agent_trace():
     assert len(traces) == 2
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
