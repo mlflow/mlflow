@@ -47,9 +47,7 @@ pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/m
 For Databricks, use the following command:
 
 \`\`\`
-%sh
-OPTIONS=$(if pip freeze | grep -q 'git+https://github.com/mlflow/mlflow.git'; then echo '--force-reinstall --no-deps'; fi)
-pip install $OPTIONS git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=skinny
+%sh curl -sL https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/dev/install.sh | bash -s ${issue_number}
 \`\`\`
 
 </p>
