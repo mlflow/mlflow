@@ -614,10 +614,13 @@ def test_autolog_log_nested_compile():
     assert "best_model.json" in artifacts
 
 
-@pytest.mark.skipif(
+skip_if_callback_unavailable = pytest.mark.skipif(
     Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
     reason="evaluate callback is available since 2.6.12",
 )
+
+
+@skip_if_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
 def test_autolog_log_evals(log_evals):
     dspy.settings.configure(
@@ -649,10 +652,7 @@ def test_autolog_log_evals(log_evals):
         assert run is None
 
 
-@pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
-    reason="evaluate callback is available since 2.6.12",
-)
+@skip_if_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program, eval, trainset):
