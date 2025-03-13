@@ -56,7 +56,8 @@ langchain_prompt = ChatPromptTemplate.from_messages(
     [
         (
             # IMPORTANT: Convert prompt template from double to single curly braces format
-            "system", prompt.to_single_brace_format()
+            "system",
+            prompt.to_single_brace_format(),
         ),
         ("placeholder", "{messages}"),
     ]
@@ -67,9 +68,7 @@ llm = ChatOpenAI()
 chain = langchain_prompt | llm
 
 # Invoke the chain
-response = chain.invoke(
-    {"num_sentences": 1, "sentences": "This is a test sentence."}
-)
+response = chain.invoke({"num_sentences": 1, "sentences": "This is a test sentence."})
 print(response)
 ```
 
@@ -80,9 +79,7 @@ Then log the chain to MLflow and specify the prompt URL in the `prompts` paramet
 ```python
 with mlflow.start_run(run_name="summarizer-model"):
     mlflow.langchain.log_model(
-        chain,
-        artifact_path="model",
-        prompts=["prompts:/summarization-prompt/2"]
+        chain, artifact_path="model", prompts=["prompts:/summarization-prompt/2"]
     )
 ```
 
@@ -145,8 +142,10 @@ from langgraph.graph.message import add_messages
 class State(TypedDict):
     messages: list
 
+
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
 system_prompt = mlflow.load_prompt("prompts:/chat-prompt/1")
+
 
 def add_system_message(state: State):
     return {
@@ -159,8 +158,10 @@ def add_system_message(state: State):
         ]
     }
 
+
 def chatbot(state: State):
     return {"messages": [llm.invoke(state["messages"])]}
+
 
 graph_builder = StateGraph(State)
 graph_builder.add_node("add_system_message", add_system_message)
@@ -202,14 +203,16 @@ mlflow.langchain.autolog()
 # Load the graph
 graph = mlflow.langchain.load_model(model_info.model_uri)
 
-graph.invoke({
-  "messages": [
+graph.invoke(
     {
-      "role": "user",
-      "content": "What is the difference between multi-threading and multi-processing?"
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is the difference between multi-threading and multi-processing?",
+            }
+        ]
     }
-  ]
-})
+)
 ```
 
 ![Chatbot](/images/llms/prompt-registry/prompt-logged-trace.png)
