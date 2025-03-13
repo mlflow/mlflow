@@ -121,9 +121,7 @@ export const PromptVersionMetadata = ({
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
       )}
-      {visibleTagList.length > 0 && (
-        <PromptVersionTags tags={visibleTagList} />
-      )}
+      {visibleTagList.length > 0 && <PromptVersionTags tags={visibleTagList} />}
       {(isLoadingRuns || runIds.length > 0) && (
         <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
