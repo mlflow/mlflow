@@ -557,7 +557,8 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
-    client = DatabricksFunctionClient()
+    with mock.patch("unitycatalog.ai.core.databricks.DatabricksFunctionClient.set_spark_session"):
+        client = DatabricksFunctionClient()
     toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
     llm = OpenAI(temperature=0)
     agent = initialize_agent(
