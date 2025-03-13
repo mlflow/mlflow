@@ -52,7 +52,7 @@ class Databricks(TraceDestination):
 
     If neither experiment_id nor experiment_name is specified, an active experiment
     when traces are created will be used as the destination.
-      If both are specified,
+    If both are specified, they must refer to the same experiment.
 
     Attributes:
         experiment_id: The ID of the experiment to log traces to.
