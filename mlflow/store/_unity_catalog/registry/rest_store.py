@@ -1003,7 +1003,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetRegisteredModelAliasRequest(name=full_name, alias=alias, version=version)
+            SetRegisteredModelAliasRequest(name=full_name, alias=alias, version=str(version))
         )
         self._call_endpoint(SetRegisteredModelAliasRequest, req_body)
 
