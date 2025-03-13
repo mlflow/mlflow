@@ -211,7 +211,7 @@ A: You can delete a prompt version using the MLflow UI or Python API:
 import mlflow
 
 # Delete a prompt version
-mlflow.delete_prompt("summarization_prompt", version=2)
+mlflow.delete_prompt("summarization-prompt", version=2)
 ```
 
 To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.
@@ -235,6 +235,8 @@ prompt = mlflow.load_prompt("question_answering")
 # Convert the prompt to single brace format for LangChain (MLflow uses double braces),
 # using the `to_single_brace_format` method.
 langchain_prompt = PromptTemplate.from_template(prompt.to_single_brace_format())
+print(langchain_prompt.input_variables)
+# Output: ['num_sentences', 'sentences']
 ```
 
 #### Q: Is Prompt Registry integrated with the Prompt Engineering UI?

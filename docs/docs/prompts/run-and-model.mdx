@@ -25,7 +25,7 @@ with mlflow.start_run():
         model,
         ...
         # Specify a list of prompt URLs or prompt objects.
-        prompts=["prompts:/summarization_prompt/2"]
+        prompts=["prompts:/summarization-prompt/2"]
     )
 ```
 
@@ -49,7 +49,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 # Load registered prompt
-prompt = mlflow.load_prompt("prompts:/summarization_prompt/2")
+prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
 langchain_prompt = ChatPromptTemplate.from_messages(
