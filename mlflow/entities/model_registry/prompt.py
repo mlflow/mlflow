@@ -6,26 +6,20 @@ from typing import Optional, Union
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
-
-# A special tag in RegisteredModel to indicate that it is a prompt
-IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
-# A special tag in ModelVersion to store the prompt text
-PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
-# TODO: Replace this with model_ids in MLflow 3
-PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.run_ids"
-
-_PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
-    r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_TEMPLATE_VARIABLE_PATTERN,
+    PROMPT_TEXT_DISPLAY_LIMIT,
+    PROMPT_TEXT_TAG_KEY,
 )
-
-_PROMPT_TEXT_DISPLAY_LIMIT = 30
 
 # Alias type
 PromptVersionTag = ModelVersionTag
 
 
 def _is_reserved_tag(key: str) -> bool:
-    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY}
+    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}
 
 
 # Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
@@ -44,7 +38,11 @@ class Prompt(ModelVersion):
             https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
         commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
-        tags: A dictionary of tags associated with the prompt. Optional.
+        version_metadata: A dictionary of metadata associated with the **prompt version**.
+            This is useful for storing version-specific information, such as the author of
+            the changes. Optional.
+        prompt_tags: A dictionary of tags associated with the entire prompt. This is different
+            from the `version_metadata` as it is not tied to a specific version of the prompt.
     """
 
     def __init__(
@@ -54,29 +52,34 @@ class Prompt(ModelVersion):
         template: str,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
-        tags: Optional[dict[str, str]] = None,
+        version_metadata: Optional[dict[str, str]] = None,
+        prompt_tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
     ):
         # Store template text as a tag
-        tags = tags or {}
-        tags[PROMPT_TEXT_TAG_KEY] = template
-        tags[IS_PROMPT_TAG_KEY] = "true"
+        version_metadata = version_metadata or {}
+        version_metadata[PROMPT_TEXT_TAG_KEY] = template
+        version_metadata[IS_PROMPT_TAG_KEY] = "true"
 
         super().__init__(
             name=name,
             version=version,
             creation_timestamp=creation_timestamp,
             description=commit_message,
-            tags=[ModelVersionTag(key=key, value=value) for key, value in tags.items()],
+            # "version_metadata" is represented as ModelVersion tags.
+            tags=[ModelVersionTag(key=key, value=value) for key, value in version_metadata.items()],
             aliases=aliases,
         )
 
-        self._variables = set(_PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
+        self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
+
+        # Store the prompt-level tags (from RegisteredModel).
+        self._prompt_tags = prompt_tags or {}
 
     def __repr__(self) -> str:
         text = (
-            self.template[:_PROMPT_TEXT_DISPLAY_LIMIT] + "..."
-            if len(self.template) > _PROMPT_TEXT_DISPLAY_LIMIT
+            self.template[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self.template) > PROMPT_TEXT_DISPLAY_LIMIT
             else self.template
         )
         return f"Prompt(name={self.name}, version={self.version}, template={text})"
@@ -87,6 +90,17 @@ class Prompt(ModelVersion):
         Return the template text of the prompt.
         """
         return self._tags[PROMPT_TEXT_TAG_KEY]
+
+    def to_single_brace_format(self) -> str:
+        """
+        Convert the template text to single brace format. This is useful for integrating with other
+        systems that use single curly braces for variable replacement, such as LangChain's prompt
+        template. Default is False.
+        """
+        t = self.template
+        for var in self.variables:
+            t = re.sub(r"\{\{\s*" + var + r"\s*\}\}", "{" + var + "}", t)
+        return t
 
     @property
     def variables(self) -> set[str]:
@@ -104,10 +118,30 @@ class Prompt(ModelVersion):
         return self.description  # inherited from ModelVersion
 
     @property
-    def tags(self) -> dict[str, str]:
+    def version_metadata(self) -> dict[str, str]:
         """Return the tags of the prompt as a dictionary."""
         # Remove the prompt text tag as it should not be user-facing
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Return the prompt-level tags (from RegisteredModel).
+        """
+        return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
+
+    @property
+    def run_ids(self) -> list[str]:
+        """Get the run IDs associated with the prompt."""
+        run_tag = self._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        if not run_tag:
+            return []
+        return run_tag.split(",")
+
+    @property
+    def uri(self) -> str:
+        """Return the URI of the prompt."""
+        return f"prompts:/{self.name}/{self.version}"
 
     def format(self, allow_partial: bool = False, **kwargs) -> Union[Prompt, str]:
         """
@@ -154,14 +188,22 @@ class Prompt(ModelVersion):
                     template=template,
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
-                    tags=self.tags,
+                    prompt_tags=self._prompt_tags,
+                    version_metadata=self.version_metadata,
+                    aliases=self.aliases,
                 )
         return template
 
     @classmethod
-    def from_model_version(cls, model_version: ModelVersion) -> Prompt:
+    def from_model_version(
+        cls, model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
+    ) -> Prompt:
         """
         Create a Prompt object from a ModelVersion object.
+
+        Args:
+            model_version: The ModelVersion object to convert to a Prompt.
+            prompt_tags: The prompt-level tags (from RegisteredModel). Optional.
         """
         if IS_PROMPT_TAG_KEY not in model_version.tags:
             raise MlflowException.invalid_parameter_value(
@@ -180,6 +222,7 @@ class Prompt(ModelVersion):
             template=model_version.tags[PROMPT_TEXT_TAG_KEY],
             commit_message=model_version.description,
             creation_timestamp=model_version.creation_timestamp,
-            tags=model_version.tags,
+            version_metadata=model_version.tags,
+            prompt_tags=prompt_tags,
             aliases=model_version.aliases,
         )

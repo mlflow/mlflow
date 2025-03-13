@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.20.4 (2025-03-13)
+
+MLflow 2.20.4 is a tiny patch release to include a bug fix:
+
+- [Tracking] fix: remove `log_trace` at top level module (#14873, @yxtay)
+
 ## 2.20.3 (2025-02-26)
 
 MLflow 2.20.3 is a patch release includes several major features and improvements

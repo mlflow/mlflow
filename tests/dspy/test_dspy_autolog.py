@@ -4,6 +4,7 @@ import time
 from unittest import mock
 
 import dspy
+import dspy.teleprompt
 import pytest
 from dspy.evaluate import Evaluate
 from dspy.evaluate.metrics import answer_exact_match
@@ -19,6 +20,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracking import MlflowClient
 
 from tests.tracing.helper import get_traces, score_in_model_serving
 
@@ -549,3 +551,31 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
                 "other_columns": ["column1", "column2"],
             }
         ]
+
+
+class DummyOptimizer(dspy.teleprompt.Teleprompter):
+    def compile(self, program):
+        callback = dspy.settings.callbacks[0]
+        assert callback.within_compile
+        return program
+
+
+@pytest.mark.parametrize("log_compiles", [True, False])
+def test_autolog_log_compile(log_compiles):
+    mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    assert not dspy.settings.callbacks[0].within_compile
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "best_model.json" in artifacts
+    else:
+        assert mlflow.last_active_run() is None

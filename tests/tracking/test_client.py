@@ -1646,14 +1646,12 @@ def test_crud_prompts(tracking_uri):
         name="prompt_1",
         template="Hi, {{title}} {{name}}! How are you today?",
         commit_message="A friendly greeting",
-        tags={"model": "my-model"},
     )
 
     prompt = client.load_prompt("prompt_1")
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
     assert prompt.commit_message == "A friendly greeting"
-    assert prompt.tags == {"model": "my-model"}
 
     client.register_prompt(
         name="prompt_1",
@@ -1682,6 +1680,57 @@ def test_crud_prompts(tracking_uri):
     client.delete_prompt("prompt_1", version=1)
 
 
+def test_create_prompt_with_tags_and_metadata(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{name}}!",
+        tags={
+            "application": "greeting",
+            "language": "en",
+        },
+        version_metadata={"author": "Alice"},
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {{name}}!"
+    assert prompt.tags == {
+        "application": "greeting",
+        "language": "en",
+    }
+    assert prompt.version_metadata == {"author": "Alice"}
+
+    client.register_prompt(
+        name="prompt_1",
+        template="こんにちは、{{name}}!",
+        tags={
+            # Add a new tag
+            "project": "toy",
+            # Overwrite an existing tag
+            "language": "ja",
+        },
+        version_metadata={"author": "Bob", "date": "2022-01-01"},
+    )
+
+    prompt = client.load_prompt("prompt_1", version=2)
+    assert prompt.template == "こんにちは、{{name}}!"
+    assert prompt.tags == {
+        "application": "greeting",
+        "project": "toy",
+        "language": "ja",
+    }
+    assert prompt.version_metadata == {"author": "Bob", "date": "2022-01-01"}
+
+    # Prompt level tags for version 1 should also be updated
+    prompt = client.load_prompt("prompt_1", version=1)
+    assert prompt.tags == {
+        "application": "greeting",
+        "project": "toy",
+        "language": "ja",
+    }
+
+
 def test_create_prompt_error_handling(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
@@ -1706,15 +1755,20 @@ def test_create_prompt_error_handling(tracking_uri):
 def test_create_prompt_with_invalid_name(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'."):
+    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
         client.register_prompt(name="", template="Hi, {{name}}!")
 
-    if tracking_uri.startswith("file"):
-        with pytest.raises(MlflowException, match=r"Prompt name cannot contain path separator"):
-            client.register_prompt(name="prompt_1/2", template="Hi, {{name}}!")
+    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
+        client.register_prompt(name=123, template="Hi, {{name}}!")
 
-        with pytest.raises(MlflowException, match=r"Prompt name cannot contain '%' character"):
-            client.register_prompt(name="m%6fdel", template="Hi, {{name}}!")
+    for invalid_pattern in [
+        "prompt_1/2",
+        "m%6fdel",
+        "prompt?!?",
+        "prompt with space",
+    ]:
+        with pytest.raises(MlflowException, match=r"Prompt name can only contain alphanumeric"):
+            client.register_prompt(name=invalid_pattern, template="Hi, {{name}}!")
 
     # Name conflicts with a model
     client.create_registered_model("model")
@@ -1771,11 +1825,27 @@ def test_delete_prompt_error(tracking_uri):
         client.delete_prompt("prompt", version=2)
 
 
+def test_log_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
+    assert prompt.run_ids == []
+
+    client.log_prompt("run1", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1"]
+
+    client.log_prompt("run2", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+
+    with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
+        client.log_prompt("run3", 123)
+
+
 @pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
@@ -1783,10 +1853,10 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
             tags={"model": "my-model"},
         )
 
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
         client.load_prompt("prompt_1")
 
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
         client.delete_prompt("prompt_1")
 
 
@@ -1819,6 +1889,43 @@ def test_block_create_prompt_with_existing_model_name(tracking_uri):
             commit_message="A friendly greeting",
             tags={"model": "my-model"},
         )
+
+
+def test_block_handling_prompt_with_model_apis(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("prompt", template="Hi, {{name}}!")
+    client.set_prompt_alias("prompt", alias="alias", version=1)
+    # Validate the prompt is registered
+    prompt = client.load_prompt("prompt", version=1)
+    assert prompt.name == "prompt"
+    assert prompt.aliases == ["alias"]
+
+    apis_to_args = [
+        (client.rename_registered_model, ["prompt", "new_name"]),
+        (client.update_registered_model, ["prompt", "new_description"]),
+        (client.delete_registered_model, ["prompt"]),
+        (client.get_registered_model, ["prompt"]),
+        (client.get_latest_versions, ["prompt"]),
+        (client.set_registered_model_tag, ["prompt", "tag", "value"]),
+        (client.delete_registered_model_tag, ["prompt", "tag"]),
+        (client.update_model_version, ["prompt", 1, "new_description"]),
+        (client.transition_model_version_stage, ["prompt", 1, "Production"]),
+        (client.delete_model_version, ["prompt", 1]),
+        (client.get_model_version, ["prompt", 1]),
+        (client.get_model_version_download_uri, ["prompt", 1]),
+        (client.set_model_version_tag, ["prompt", 1, "tag", "value"]),
+        (client.delete_model_version_tag, ["prompt", 1, "tag"]),
+        (client.set_registered_model_alias, ["prompt", "alias", 1]),
+        (client.delete_registered_model_alias, ["prompt", "alias"]),
+        (client.get_model_version_by_alias, ["prompt", "alias"]),
+    ]
+
+    for api, args in apis_to_args:
+        with pytest.raises(MlflowException, match=r"Registered Model with name='prompt' not found"):
+            api(*args)
+
+    with pytest.raises(MlflowException, match=r"Model with uri 'models:/prompt/1' not found"):
+        client.copy_model_version("models:/prompt/1", "new_model")
 
 
 def test_log_and_detach_prompt(tracking_uri):

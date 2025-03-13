@@ -3,7 +3,7 @@ import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyVal
 import { RegisteredPromptsApi } from '../api';
 import { RegisteredPrompt } from '../types';
 import { useCallback } from 'react';
-import { isUserFacingTag } from '../../../../common/utils/TagUtils';
+import { diffCurrentAndNewTags, isUserFacingTag } from '../../../../common/utils/TagUtils';
 
 type UpdateTagsPayload = {
   promptId: string;
@@ -26,19 +26,7 @@ export const useUpdateRegisteredPromptTags = ({ onSuccess }: { onSuccess?: () =>
   >({
     valueRequired: true,
     saveTagsHandler: (prompt, currentTags, newTags) => {
-      // First, determine new tags to be added
-      const addedOrModifiedTags = newTags.filter(
-        ({ key: newTagKey, value: newTagValue }) =>
-          !currentTags.some(
-            ({ key: existingTagKey, value: existingTagValue }) =>
-              existingTagKey === newTagKey && newTagValue === existingTagValue,
-          ),
-      );
-
-      // Next, determine those to be deleted
-      const deletedTags = currentTags.filter(
-        ({ key: existingTagKey }) => !newTags.some(({ key: newTagKey }) => existingTagKey === newTagKey),
-      );
+      const { addedOrModifiedTags, deletedTags } = diffCurrentAndNewTags(currentTags, newTags);
 
       return new Promise<void>((resolve, reject) => {
         if (!prompt.name) {
