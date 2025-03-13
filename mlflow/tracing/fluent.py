@@ -198,6 +198,7 @@ def _wrap_function(
                 try:
                     yield result
                 except GeneratorExit:
+                    # Swallow `GeneratorExit` raised when the generator is closed
                     pass
 
         def __init__(self, fn, args, kwargs):
@@ -214,7 +215,7 @@ def _wrap_function(
             # of start_span and OTel's use_span can execute).
             if exc_type is not None:
                 self.coro.throw(exc_type, exc_value, traceback)
-            self.coro.close()  # This triggers GeneratorExit
+            self.coro.close()
 
     if inspect.iscoroutinefunction(fn):
 
