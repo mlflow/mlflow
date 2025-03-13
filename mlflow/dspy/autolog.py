@@ -71,10 +71,10 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
-    # Patch teleprompter/evaluator not to generate traces by default
     def patch_fn(original, self, *args, **kwargs):
         # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
         # check this flag at runtime to determine if we should generate traces.
+        # method to disable tracing for compile and evaluate by default
         @trace_disabled
         def _trace_disabled_fn(self, *args, **kwargs):
             return original(self, *args, **kwargs)
@@ -92,6 +92,7 @@ def autolog(
                 if callback:
                     callback.optimizer_stack_level -= 1
                     if callback.optimizer_stack_level == 0:
+                        # Reset the callback state after the completion of root compile
                         callback.reset()
 
         if isinstance(self, Teleprompter):

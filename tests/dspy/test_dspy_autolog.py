@@ -580,9 +580,43 @@ def test_autolog_log_compile(log_compiles):
         assert mlflow.last_active_run() is None
 
 
+def test_autolog_log_nested_compile():
+    class NestedOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 2
+            return program
+
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def __init__(self):
+            super().__init__()
+            self.nested_optimizer = NestedOptimizer()
+
+        def compile(self, program):
+            self.nested_optimizer.compile(program)
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 1
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    assert dspy.settings.callbacks[0].optimizer_stack_level == 0
+    run = mlflow.last_active_run()
+    assert run is not None
+    client = MlflowClient()
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "best_model.json" in artifacts
+
+
 @pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.6.9"),
-    reason="evaluate callback is available since 2.6.9",
+    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    reason="evaluate callback is available since 2.6.12",
 )
 @pytest.mark.parametrize("log_evals", [True, False])
 def test_autolog_log_evals(log_evals):
@@ -616,16 +650,16 @@ def test_autolog_log_evals(log_evals):
 
 
 @pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.6.9"),
-    reason="evaluate callback is available since 2.6.9",
+    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    reason="evaluate callback is available since 2.6.12",
 )
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program, eval, trainset):
-            eval(program, devset=trainset)
-            eval(program, devset=trainset[:1])
-            eval(program, devset=trainset)
-            eval(program, devset=trainset[:1])
+            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
+            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
             return program
 
     dspy.settings.configure(
@@ -650,10 +684,9 @@ def test_autolog_log_compile_with_evals():
     # callback state
     callback = dspy.settings.callbacks[0]
     assert callback.optimizer_stack_level == 0
-    assert callback._call_id_to_eval_state == {}
+    assert callback._call_id_to_metric_key == {}
     assert callback._call_id_to_run_id == {}
     assert callback._evaluation_counter == {}
-    assert callback._best_score == 0
 
     # root run
     root_run = mlflow.last_active_run()
@@ -663,7 +696,6 @@ def test_autolog_log_compile_with_evals():
     assert "best_model.json" in artifacts
     assert root_run.data.metrics == {
         "eval_full": 50.0,
-        "eval_full_best_score": 50.0,
         "eval_minibatch": 100.0,
     }
 
