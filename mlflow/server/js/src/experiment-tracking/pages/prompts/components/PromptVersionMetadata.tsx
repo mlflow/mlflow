@@ -9,6 +9,11 @@ import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
 import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
 import { useMemo } from 'react';
 import { PromptVersionRuns } from './PromptVersionRuns';
+import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
+import { PromptVersionTags } from './PromptVersionTags';
+
+const MAX_VISIBLE_TAGS = 3;
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
@@ -40,6 +45,8 @@ export const PromptVersionMetadata = ({
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
   }
+
+  const visibleTagList = registeredPromptVersion?.tags?.filter((tag) => isUserFacingTag(tag.key)) || [];
 
   const versionElement = (
     <FormattedMessage
@@ -114,7 +121,8 @@ export const PromptVersionMetadata = ({
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
       )}
-      {(isLoadingRuns || runIds) && (
+      {visibleTagList.length > 0 && <PromptVersionTags tags={visibleTagList} />}
+      {(isLoadingRuns || runIds.length > 0) && (
         <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
     </div>
