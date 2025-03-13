@@ -677,7 +677,7 @@ const errorModal = (state = errorModalDefault, action: any) => {
   }
 };
 
-export const views = combineReducers({
+const views = combineReducers({
   errorModal,
 });
 
@@ -689,7 +689,3 @@ export const rootReducer = combineReducers({
   evaluationData,
   modelGateway,
 });
-
-export const getEntities = (state: any) => {
-  return state.entities;
-};

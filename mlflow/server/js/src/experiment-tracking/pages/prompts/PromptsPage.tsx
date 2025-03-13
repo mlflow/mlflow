@@ -12,13 +12,16 @@ import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
+import { useDebounce } from 'use-debounce';
 
 const PromptsPage = () => {
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
 
+  const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
+
   const { data, error, refetch, hasNextPage, hasPreviousPage, isLoading, onNextPage, onPreviousPage } =
-    usePromptsListQuery({ searchFilter });
+    usePromptsListQuery({ searchFilter: debouncedSearchFilter });
 
   const { EditTagsModal, showEditPromptTagsModal } = useUpdateRegisteredPromptTags({ onSuccess: refetch });
   const { CreatePromptModal, openModal: openCreateVersionModal } = useCreatePromptModal({

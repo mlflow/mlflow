@@ -432,7 +432,7 @@ def search_model_versions(
 def register_prompt(
     name: str,
     template: str,
-    description: Optional[str] = None,
+    commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> Prompt:
     """
@@ -451,7 +451,8 @@ def register_prompt(
         template: The template text of the prompt. It can contain variables enclosed in
             single curly braces, e.g. {variable}, which will be replaced with actual values
             by the `format` method.
-        description: The description of the prompt. Optional.
+        commit_message: A message describing the changes made to the prompt, similar to a
+            Git commit message. Optional.
         tags: A dictionary of tags associated with the prompt. Optional.
 
     Returns:
@@ -466,7 +467,7 @@ def register_prompt(
         # Register a new prompt
         mlflow.register_prompt(
             name="my_prompt",
-            template="Respond to the user's message as a {style} AI.",
+            template="Respond to the user's message as a {{style}} AI.",
         )
 
         # Load the prompt from the registry
@@ -487,11 +488,12 @@ def register_prompt(
         # Update the prompt with a new version
         prompt = mlflow.register_prompt(
             name="my_prompt",
-            template="Respond to the user's message as a {style} AI. {greeting}",
+            template="Respond to the user's message as a {{style}} AI. {{greeting}}",
+            commit_message="Add a greeting to the prompt.",
         )
     """
     return MlflowClient().register_prompt(
-        name=name, template=template, description=description, tags=tags
+        name=name, template=template, commit_message=commit_message, tags=tags
     )
 
 

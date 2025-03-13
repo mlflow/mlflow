@@ -136,7 +136,7 @@ export class ModelStageTransitionDropdown extends React.Component<
   }
 }
 
-export const renderActivityDescription = (activity: PendingModelVersionActivity) => {
+const renderActivityDescription = (activity: PendingModelVersionActivity) => {
   if (activity) {
     return (
       <div>

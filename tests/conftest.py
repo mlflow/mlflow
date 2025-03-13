@@ -14,7 +14,7 @@ from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.fluent import _reset_last_logged_model_id
+from mlflow.tracking.fluent import _last_active_run_id, _reset_last_logged_model_id
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -178,6 +178,10 @@ def clean_up_last_logged_model_id():
     Clean up the last logged model ID stored in a thread local var.
     """
     _reset_last_logged_model_id()
+
+
+def clean_up_last_active_run():
+    _last_active_run_id.set(None)
 
 
 @pytest.fixture

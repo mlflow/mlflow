@@ -124,5 +124,3 @@ export const useGetRunQuery = ({
     apiError: data?.mlflowGetRun?.apiError,
   } as const;
 };
-
-export const useLazyGetRunQuery = () => useLazyQuery<GetRun, GetRunVariables>(GET_RUN_QUERY);
