@@ -23,11 +23,11 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain import _MODEL_TRACKER, _active_model_id
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
 )
+from mlflow.models.model import _MODEL_TRACKER, _active_model_id
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context

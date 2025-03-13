@@ -18,10 +18,7 @@ import inspect
 import logging
 import os
 import tempfile
-import threading
 import warnings
-from collections import defaultdict
-from contextvars import ContextVar
 from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
@@ -51,7 +48,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
@@ -903,36 +900,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         return model
     else:
         return _load_model(local_model_path, flavor_conf)
-
-
-class _ModelTracker:
-    """
-    Tracks models existing in current context.
-    """
-
-    def __init__(self):
-        self.model_ids: dict[int, str] = {}
-        self._lock = threading.Lock()
-        self._model_locks = defaultdict(threading.Lock)
-
-    def get(self, model: Any) -> Optional[str]:
-        model_id_key = id(model)
-        with self._model_locks[model_id_key]:
-            return self.model_ids.get(model_id_key)
-
-    def set(self, model: Any, model_id: str) -> None:
-        model_id_key = id(model)
-        with self._model_locks[model_id_key]:
-            self.model_ids[model_id_key] = model_id
-
-    def clear(self):
-        with self._lock:
-            self.model_ids.clear()
-            self._model_locks.clear()
-
-
-_active_model_id = ContextVar("_active_model_id", default=None)
-_MODEL_TRACKER = _ModelTracker()
 
 
 @experimental

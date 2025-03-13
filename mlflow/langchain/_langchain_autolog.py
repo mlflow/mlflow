@@ -11,8 +11,8 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.langchain import _MODEL_TRACKER, _active_model_id
 from mlflow.langchain.runnables import get_runnable_steps
+from mlflow.models.model import _MODEL_TRACKER, _active_model_id
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
 from mlflow.utils.autologging_utils import get_autologging_config
