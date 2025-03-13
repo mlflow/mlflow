@@ -1,10 +1,12 @@
 import logging
+from functools import wraps
 from typing import Any, Optional, Union
 
 import dspy
 from dspy.utils.callback import BaseCallback
 
 import mlflow
+from mlflow.dspy.save import FLAVOR_NAME
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
@@ -16,8 +18,20 @@ from mlflow.tracing.utils import (
     start_client_span_or_trace,
 )
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.utils.autologging_utils import (
+    get_autologging_config,
+)
 
 _logger = logging.getLogger(__name__)
+
+
+def skip_if_trace_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if get_autologging_config(FLAVOR_NAME, "log_traces"):
+            func(*args, **kwargs)
+
+    return wrapper
 
 
 class MlflowCallback(BaseCallback):
@@ -28,6 +42,8 @@ class MlflowCallback(BaseCallback):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
+        # used to determine the behavior of the evaluation callback
+        self.within_compile = False
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
@@ -37,6 +53,7 @@ class MlflowCallback(BaseCallback):
             )
         self._dependencies_schema = dependencies_schema
 
+    @skip_if_trace_disabled
     def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)
         attributes = self._get_span_attribute_for_module(instance)
@@ -55,6 +72,7 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
+    @skip_if_trace_disabled
     def on_module_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
@@ -66,6 +84,7 @@ class MlflowCallback(BaseCallback):
 
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = (
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
@@ -94,6 +113,7 @@ class MlflowCallback(BaseCallback):
             except Exception as e:
                 _logger.debug(f"Failed to set input messages for {span}. Error: {e}")
 
+    @skip_if_trace_disabled
     def on_lm_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
@@ -123,6 +143,7 @@ class MlflowCallback(BaseCallback):
             for o in outputs
         ]
 
+    @skip_if_trace_disabled
     def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
@@ -132,11 +153,13 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
+    @skip_if_trace_disabled
     def on_adapter_format_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_adapter_parse_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
@@ -146,11 +169,13 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
+    @skip_if_trace_disabled
     def on_adapter_parse_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         # DSPy uses the special "finish" tool to signal the end of the agent.
         if instance.name == "finish":
@@ -172,6 +197,7 @@ class MlflowCallback(BaseCallback):
             },
         )
 
+    @skip_if_trace_disabled
     def on_tool_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):

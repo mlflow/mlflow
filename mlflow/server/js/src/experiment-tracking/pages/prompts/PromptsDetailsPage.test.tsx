@@ -16,7 +16,7 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { REGISTERED_PROMPT_COMMIT_MESSAGE_TAG_KEY, REGISTERED_PROMPT_SOURCE_RUN_ID } from './utils';
+import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
@@ -81,34 +81,6 @@ describe('PromptsDetailsPage', () => {
     expect(screen.getByText('content of prompt version 1')).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'alias1' })).toBeInTheDocument();
     expect(screen.getByText('some commit message for version 1')).toBeInTheDocument();
-  });
-
-  it("should preview prompt version's source run", async () => {
-    server.use(
-      getMockedRegisteredPromptVersionsResponse('prompt1', 1, [
-        { key: REGISTERED_PROMPT_SOURCE_RUN_ID, value: 'test_run_id' },
-      ]),
-      // Mock GetRun API
-      getMockedRegisteredPromptSourceRunResponse(),
-    );
-
-    renderTestComponent();
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByRole('radio', { name: 'Preview' }));
-    await userEvent.click(screen.getByRole('cell', { name: 'Version 1' }));
-
-    await waitFor(() => {
-      // Wait for both prompt and prompt version to have source run
-      expect(screen.getAllByRole('link', { name: 'test_run_name' }).length).toEqual(2);
-    });
-
-    expect(screen.getAllByRole('link', { name: 'test_run_name' })[0]).toHaveAttribute(
-      'href',
-      expect.stringMatching('/experiments/test_experiment_id/runs/test_run_id'),
-    );
   });
 
   it("should compare prompt versions' contents", async () => {
