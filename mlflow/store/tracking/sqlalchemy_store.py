@@ -104,6 +104,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_param,
     _validate_param_keys_unique,
@@ -1710,6 +1711,7 @@ class SqlAlchemyStore(AbstractStore):
         params: Optional[list[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
+        _validate_logged_model_name(name)
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
