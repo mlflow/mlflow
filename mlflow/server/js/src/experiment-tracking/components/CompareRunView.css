@@ -32,11 +32,6 @@
   text-overflow: ellipsis;
 }
 
-.responsive-table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-
 .compare-table .diff-row .data-value {
   background-color: rgba(249, 237, 190, 0.5) ;
   color: #555;
