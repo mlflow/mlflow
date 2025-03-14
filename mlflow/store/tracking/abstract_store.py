@@ -353,6 +353,17 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support `get_online_trace_details`."
+        )
+
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -360,6 +371,8 @@ class AbstractStore:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -371,6 +384,9 @@ class AbstractStore:
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
