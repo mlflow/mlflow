@@ -28,7 +28,7 @@ import mlflow
 import asyncio
 from agents import Agent, Runner
 
-# Calling the autolog API will enable trace logging by default.
+# Enable auto tracing for OpenAI Agent SDK
 mlflow.openai.autolog()
 
 # Optional: Set a tracking URI and an experiment
@@ -73,6 +73,9 @@ import asyncio
 
 from agents import Agent, Runner, function_tool
 
+# Enable auto tracing for OpenAI Agent SDK
+mlflow.openai.autolog()
+
 
 @function_tool
 def get_weather(city: str) -> str:
@@ -115,6 +118,9 @@ from agents import (
     TResponseInputItem,
     input_guardrail,
 )
+
+# Enable auto tracing for OpenAI Agent SDK
+mlflow.openai.autolog()
 
 
 class MathHomeworkOutput(BaseModel):
