@@ -1318,7 +1318,6 @@ class MlflowClient:
                 f"Span with ID {span_id} is not found or already finished.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-
         span.set_attributes(attributes or {})
         if outputs is not None:
             span.set_outputs(outputs)
