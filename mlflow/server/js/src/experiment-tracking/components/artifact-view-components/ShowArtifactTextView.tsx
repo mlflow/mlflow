@@ -72,13 +72,11 @@ class ShowArtifactTextView extends Component<Props, State> {
         this.stopAutoRefresh();
       }
     }
-
   }
 
   componentWillUnmount() {
     this.stopAutoRefresh();
   }
-
 
   startAutoRefresh() {
     if (this.refreshInterval === null) {
@@ -103,7 +101,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
       const language = isLargeFile ? 'text' : getLanguage(this.props.path);
       const { theme } = this.props.designSystemThemeApi;
-      
+
       const overrideStyles = {
         fontFamily: 'Source Code Pro,Menlo,monospace',
         fontSize: theme.typography.fontSizeMd,
@@ -134,10 +132,10 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     // Don't set loading to true if auto-refreshing to avoid flickering
-    if (!this.props.autoRefreshEnabled || this.state.text === undefined) {
+    if (!this.props.autoRefreshEnabled) {
       this.setState({ loading: true });
     }
-    
+
     const { isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
 
     const artifactLocation =
@@ -149,10 +147,10 @@ class ShowArtifactTextView extends Component<Props, State> {
       .getArtifact?.(artifactLocation)
       .then((text: string) => {
         // Store the previous text length before updating
-        this.setState({ 
-          text: text, 
+        this.setState({
+          text: text,
           loading: false,
-          previousTextLength: this.state.text?.length || 0
+          previousTextLength: this.state.text?.length || 0,
         });
       })
       .catch((error: Error) => {

@@ -217,7 +217,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   onDownloadClick(runUuid: any, artifactPath: any) {
     window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
   }
-  
+
   // Toggle auto-refresh state
   toggleAutoRefresh = () => {
     this.setState((prevState) => ({
@@ -238,7 +238,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const { runUuid } = this.props;
     const { activeNodeId, autoRefreshEnabled } = this.state;
     const { theme } = this.props.designSystemThemeApi;
-    
+
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -258,7 +258,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          
+
           {/* Only show auto-refresh toggle for text files */}
           {this.isActiveNodeTextFile() && (
             <ToggleButton
@@ -272,7 +272,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </ToggleButton>
           )}
-          
+
           <LegacyTooltip
             arrowPointAtCenter
             placement="topLeft"

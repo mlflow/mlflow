@@ -96,7 +96,13 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView {...commonArtifactProps} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} autoRefreshEnabled={autoRefreshEnabled} />; // Pass the auto-refresh prop
+          return (
+            <ShowArtifactTextView
+              {...commonArtifactProps}
+              size={this.props.size}
+              autoRefreshEnabled={autoRefreshEnabled}
+            />
+          ); // Pass the auto-refresh prop
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView {...commonArtifactProps} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
