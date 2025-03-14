@@ -3519,7 +3519,6 @@ def log_model(
         auth_policy: {{ auth_policy }}
         prompts: {{ prompts }}
 
-
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
