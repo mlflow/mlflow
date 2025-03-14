@@ -91,7 +91,6 @@ export class CompareModelVersionsViewImpl extends Component<
   state = {
     inputActive: true,
     outputActive: true,
-    schemaActive: true,
     onlyShowParameterDiff: false,
     onlyShowSchemaDiff: false,
     onlyShowMetricDiff: false,
@@ -308,7 +307,7 @@ export class CompareModelVersionsViewImpl extends Component<
     );
   }
 
-  renderTable(children: React.ReactNode) {
+  renderTable(children: React.ReactNode): React.ReactNode {
     return (
       // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
       <Table className="table compare-table compare-model-table" onScroll={this.onCompareModelTableScrollHandler}>
