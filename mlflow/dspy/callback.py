@@ -57,7 +57,6 @@ class MlflowCallback(BaseCallback):
         # call_id: (key, step)
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._call_id_to_run_id: dict[str, str] = {}
-        self._model_logged_run_id = set()
         self._evaluation_counter = defaultdict(int)
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):

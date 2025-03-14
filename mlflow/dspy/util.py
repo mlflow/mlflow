@@ -37,7 +37,7 @@ def log_dspy_module_state_params(program):
         _logger.warning("Failed to log dspy module params", exc_info=True)
 
 
-def log_dataset(dataset: list["Example"], file_name: str):
+def log_dspy_dataset(dataset: list["Example"], file_name: str):
     result = defaultdict(list)
     try:
         for example in dataset:

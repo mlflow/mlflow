@@ -1,6 +1,6 @@
 import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
-from mlflow.dspy.util import log_dataset, save_dspy_module_state
+from mlflow.dspy.util import log_dspy_dataset, save_dspy_module_state
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
@@ -110,7 +110,7 @@ def autolog(
                 {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
             )
             if trainset := inputs.get("trainset"):
-                log_dataset(trainset, "trainset.json")
+                log_dspy_dataset(trainset, "trainset.json")
             return program
 
         if isinstance(self, Teleprompter) and get_autologging_config(
