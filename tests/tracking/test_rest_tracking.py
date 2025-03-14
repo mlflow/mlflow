@@ -2429,3 +2429,30 @@ def test_search_datasets_graphql(mlflow_client):
     assert (
         sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
     )
+
+
+def test_create_logged_model(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model = mlflow_client.create_logged_model(exp_id)
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.model_id == loaded_model.model_id
+
+    model = mlflow_client.create_logged_model(exp_id, name="my_model")
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.name == "my_model"
+
+    model = mlflow_client.create_logged_model(exp_id, model_type="LLM")
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.model_type == "LLM"
+
+    model = mlflow_client.create_logged_model(exp_id, source_run_id="123")
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.source_run_id == "123"
+
+    model = mlflow_client.create_logged_model(exp_id, params={"param": "value"})
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.params == {"param": "value"}
+
+    model = mlflow_client.create_logged_model(exp_id, tags={"tag": "value"})
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert model.tags == {"tag": "value"}
