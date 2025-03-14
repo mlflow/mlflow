@@ -1646,14 +1646,12 @@ def test_crud_prompts(tracking_uri):
         name="prompt_1",
         template="Hi, {{title}} {{name}}! How are you today?",
         commit_message="A friendly greeting",
-        tags={"model": "my-model"},
     )
 
     prompt = client.load_prompt("prompt_1")
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
     assert prompt.commit_message == "A friendly greeting"
-    assert prompt.tags == {"model": "my-model"}
 
     client.register_prompt(
         name="prompt_1",
@@ -1680,6 +1678,57 @@ def test_crud_prompts(tracking_uri):
         client.load_prompt("prompt_1", version=2)
 
     client.delete_prompt("prompt_1", version=1)
+
+
+def test_create_prompt_with_tags_and_metadata(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(
+        name="prompt_1",
+        template="Hi, {{name}}!",
+        tags={
+            "application": "greeting",
+            "language": "en",
+        },
+        version_metadata={"author": "Alice"},
+    )
+
+    prompt = client.load_prompt("prompt_1")
+    assert prompt.template == "Hi, {{name}}!"
+    assert prompt.tags == {
+        "application": "greeting",
+        "language": "en",
+    }
+    assert prompt.version_metadata == {"author": "Alice"}
+
+    client.register_prompt(
+        name="prompt_1",
+        template="こんにちは、{{name}}!",
+        tags={
+            # Add a new tag
+            "project": "toy",
+            # Overwrite an existing tag
+            "language": "ja",
+        },
+        version_metadata={"author": "Bob", "date": "2022-01-01"},
+    )
+
+    prompt = client.load_prompt("prompt_1", version=2)
+    assert prompt.template == "こんにちは、{{name}}!"
+    assert prompt.tags == {
+        "application": "greeting",
+        "project": "toy",
+        "language": "ja",
+    }
+    assert prompt.version_metadata == {"author": "Bob", "date": "2022-01-01"}
+
+    # Prompt level tags for version 1 should also be updated
+    prompt = client.load_prompt("prompt_1", version=1)
+    assert prompt.tags == {
+        "application": "greeting",
+        "project": "toy",
+        "language": "ja",
+    }
 
 
 def test_create_prompt_error_handling(tracking_uri):
@@ -1774,6 +1823,26 @@ def test_delete_prompt_error(tracking_uri):
 
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
         client.delete_prompt("prompt", version=2)
+
+
+def test_log_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
+    assert prompt.run_ids == []
+
+    client.log_prompt("run1", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1"]
+
+    client.log_prompt("run2", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+
+    # No duplicate run_ids
+    client.log_prompt("run1", prompt)
+    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+
+    with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
+        client.log_prompt("run3", 123)
 
 
 @pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])

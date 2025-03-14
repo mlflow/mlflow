@@ -7,14 +7,20 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
 import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { PromptVersionRuns } from './PromptVersionRuns';
+import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
+import { PromptVersionTags } from './PromptVersionTags';
+
+const MAX_VISIBLE_TAGS = 3;
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
   registeredPrompt,
   showEditAliasesModal,
   onEditVersion,
+  showEditPromptVersionMetadataModal,
   aliasesByVersion,
   isBaseline,
 }: {
@@ -22,6 +28,7 @@ export const PromptVersionMetadata = ({
   registeredPromptVersion?: RegisteredPromptVersion;
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditVersion?: (vesrion: RegisteredPromptVersion) => void;
+  showEditPromptVersionMetadataModal?: (version: RegisteredPromptVersion) => void;
   aliasesByVersion: Record<string, string[]>;
   isBaseline?: boolean;
 }) => {
@@ -41,6 +48,8 @@ export const PromptVersionMetadata = ({
     return null;
   }
 
+  const visibleTagList = registeredPromptVersion?.tags?.filter((tag) => isUserFacingTag(tag.key)) || [];
+
   const versionElement = (
     <FormattedMessage
       defaultMessage="Version {version}"
@@ -48,6 +57,12 @@ export const PromptVersionMetadata = ({
       description="A label for the version number in the prompt details page"
     />
   );
+
+  const onEditVersionMetadata = showEditPromptVersionMetadataModal
+    ? () => {
+        showEditPromptVersionMetadataModal(registeredPromptVersion);
+      }
+    : undefined;
 
   return (
     <div
@@ -114,7 +129,8 @@ export const PromptVersionMetadata = ({
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
       )}
-      {(isLoadingRuns || runIds) && (
+      <PromptVersionTags onEditVersionMetadata={onEditVersionMetadata} tags={visibleTagList} />
+      {(isLoadingRuns || runIds.length > 0) && (
         <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
     </div>

@@ -1019,6 +1019,10 @@
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
   },
+  "GgPNAZ": {
+    "defaultMessage": "Metadata:",
+    "description": "A key-value pair for the metadata in the prompt details page"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
@@ -1150,6 +1154,10 @@
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
+  },
+  "JGQ5B2": {
+    "defaultMessage": "Add",
+    "description": "Model registry > model version table > metadata column > 'add' button label"
   },
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
@@ -1642,6 +1650,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UCQwvo": {
+    "defaultMessage": "Registered prompts",
+    "description": "Run page > Overview > Run prompts section label"
   },
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
@@ -3370,5 +3382,9 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zxfWCx": {
+    "defaultMessage": "Add/Edit Prompt Version Metadata",
+    "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
   }
 }

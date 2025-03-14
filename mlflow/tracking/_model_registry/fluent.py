@@ -11,6 +11,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
@@ -333,6 +334,7 @@ def register_prompt(
     name: str,
     template: str,
     commit_message: Optional[str] = None,
+    version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> Prompt:
     """
@@ -349,11 +351,31 @@ def register_prompt(
     Args:
         name: The name of the prompt.
         template: The template text of the prompt. It can contain variables enclosed in
-            single curly braces, e.g. {variable}, which will be replaced with actual values
+            double curly braces, e.g. {variable}, which will be replaced with actual values
             by the `format` method.
+
+            .. note::
+
+                If you want to use the prompt with a framework that uses single curly braces
+                e.g. LangChain, you can use the `to_single_brace_format` method to convert the
+                loaded prompt to a format that uses single curly braces.
+
+                .. code-block:: python
+
+                    prompt = client.load_prompt("my_prompt")
+                    langchain_format = prompt.to_single_brace_format()
+
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
-        tags: A dictionary of tags associated with the prompt. Optional.
+        version_metadata: A dictionary of metadata associated with the **prompt version**.
+            This is useful for storing version-specific information, such as the author of
+            the changes. Optional.
+        tags: A dictionary of tags associated with the entire prompt. This is different from
+            the `version_metadata` as it is not tied to a specific version of the prompt,
+            but to the prompt as a whole. For example, you can use tags to add an application
+            name for which the prompt is created. Since the application uses the prompt in
+            multiple versions, it makes sense to use tags instead of version-specific metadata.
+            Optional.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -368,6 +390,7 @@ def register_prompt(
         mlflow.register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI.",
+            version_metadata={"author": "Alice"},
         )
 
         # Load the prompt from the registry
@@ -390,10 +413,15 @@ def register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
+            version_metadata={"author": "Bob"},
         )
     """
     return MlflowClient().register_prompt(
-        name=name, template=template, commit_message=commit_message, tags=tags
+        name=name,
+        template=template,
+        commit_message=commit_message,
+        tags=tags,
+        version_metadata=version_metadata,
     )
 
 
@@ -428,7 +456,14 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    return MlflowClient().load_prompt(name_or_uri=name_or_uri, version=version)
+    client = MlflowClient()
+    prompt = client.load_prompt(name_or_uri=name_or_uri, version=version)
+
+    # If there is an active MLflow run, associate the prompt with the run
+    if run := active_run():
+        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+
+    return prompt
 
 
 @experimental

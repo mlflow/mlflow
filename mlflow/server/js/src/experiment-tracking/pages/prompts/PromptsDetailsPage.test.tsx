@@ -61,6 +61,7 @@ describe('PromptsDetailsPage', () => {
     });
 
     expect(screen.getByRole('status', { name: 'some_tag' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'some_version_tag' })).toBeInTheDocument();
   });
 
   it("should preview prompt versions' contents, aliases and commit message", async () => {

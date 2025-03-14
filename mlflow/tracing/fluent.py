@@ -195,7 +195,11 @@ def _wrap_function(
                 span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-                yield result
+                try:
+                    yield result
+                except GeneratorExit:
+                    # Swallow `GeneratorExit` raised when the generator is closed
+                    pass
 
         def __init__(self, fn, args, kwargs):
             self.coro = self._wrapping_logic(fn, args, kwargs)

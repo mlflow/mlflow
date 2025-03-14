@@ -434,7 +434,7 @@ def test_load_spark_model_from_models_uri(
         ) as mock_download_artifacts,
         mock.patch("mlflow.get_registry_uri", return_value=registry_uri),
         mock.patch.object(
-            mlflow.tracking.MlflowClient,
+            mlflow.tracking._model_registry.client.ModelRegistryClient,
             "get_model_version_by_alias",
             return_value=fake_model_version,
         ) as get_model_version_by_alias_mock,
