@@ -94,6 +94,7 @@ export class CompareModelVersionsViewImpl extends Component<
     onlyShowParameterDiff: false,
     onlyShowSchemaDiff: false,
     onlyShowMetricDiff: false,
+    compareByColumnNameToggle: false,
   };
 
   icons = {
@@ -185,6 +186,13 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderTable(<>{this.renderParams()}</>)}
           </CollapsibleSection>
           <CollapsibleSection title="Schema">
+            <Switch
+              componentId="codegen_mlflow_app_sTODO"
+              label="Ignore column ordering"
+              checked={this.state.compareByColumnNameToggle}
+              onChange={(checked, e) => this.setState({ compareByColumnNameToggle: checked })}
+            />
+            <Spacer size="sm" />
             <Switch
               componentId="codegen_mlflow_app_sTODO"
               label="Show diff only"
@@ -452,6 +460,12 @@ export class CompareModelVersionsViewImpl extends Component<
   }
 
   renderSchema(activeSection: any, sectionName: any, listByIndex: any, listByName: any) {
+    const { compareByColumnNameToggle } = this.state;
+    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+    const isActive = this.state[activeSection];
+    const showSchemaSection = isActive;
+    const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
+    const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
     const listByIndexHeaderMap = (key: any, data: any) => (
       <>
         {sectionName} [{key}]
@@ -471,6 +485,7 @@ export class CompareModelVersionsViewImpl extends Component<
         {this.renderDataRows(
           listByIndex,
           schemaFieldName,
+          showSchemaSection && showListByIndex,
           this.state.onlyShowSchemaDiff,
           listByIndexHeaderMap,
           schemaFormatter,
@@ -478,6 +493,7 @@ export class CompareModelVersionsViewImpl extends Component<
         {this.renderDataRows(
           listByName,
           schemaFieldName,
+          showSchemaSection && showListByName,
           this.state.onlyShowSchemaDiff,
           listByNameHeaderMap,
           schemaFormatter,
@@ -515,6 +531,7 @@ export class CompareModelVersionsViewImpl extends Component<
             defaultMessage="Metrics"
             description="Field name text for metrics table in the model comparison page"
           />,
+          true,
           this.state.onlyShowMetricDiff,
           metricsHeaderMap,
           Utils.formatMetric,
@@ -526,7 +543,8 @@ export class CompareModelVersionsViewImpl extends Component<
   renderDataRows(
     list: any,
     fieldName: any,
-    onlyShowDiff: boolean,
+    show = true,
+    onlyShowDiff = false,
     headerMap = (key: any, data: any) => key,
     formatter = (value: any) => (isNaN(value) ? `"${value}"` : value),
   ): React.ReactNode {
@@ -579,7 +597,11 @@ export class CompareModelVersionsViewImpl extends Component<
       }
       identical = !isDifferent && identical;
       return (
-        <TableRow key={k} className={`compare-table-row ${isDifferent ? 'diff-row' : ''}`}>
+        <TableRow
+          key={k}
+          style={{ display: `${(onlyShowDiff && !isDifferent) || !show ? 'none' : ''}` }}
+          className={`compare-table-row ${isDifferent ? 'diff-row' : ''}`}
+        >
           <TableCell
             className="head-value sticky-header"
             css={{
@@ -607,7 +629,7 @@ export class CompareModelVersionsViewImpl extends Component<
     });
     if (identical && onlyShowDiff) {
       return (
-        <TableRow className={`compare-table-row`}>
+        <TableRow className={`compare-table-row`} style={{ display: `${show ? '' : 'none'}` }}>
           <TableCell className="data-value" css={{ ...this.getTableBodyColumnWidth() }}>
             <CenteredText>
               <FormattedMessage
