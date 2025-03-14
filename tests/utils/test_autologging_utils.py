@@ -50,11 +50,6 @@ def test_flush_metrics_queue_is_thread_safe():
 
 
 def test_patching_warnings_avoids_recursion(monkeypatch):
-    """
-    This test verifies that _patched_showwarning does not trigger a RecursionError even if
-    Path.__str__ is monkey-patched to recursively call itself.
-    """
-
     if sys.platform == "win32":
         pytest.skip("This test validation will cause a stackoverflow on Windows Kernel")
     controller = _WarningsController()
@@ -88,25 +83,25 @@ def test_patching_warnings_avoids_recursion(monkeypatch):
     assert called
 
 
-def test_double_patch_does_not_overwrite_original(monkeypatch):
+def test_double_patch_does_not_overwrite(monkeypatch):
     monkeypatch.setattr(warnings, "showwarning", ORIGINAL_SHOWWARNING)
 
     controller = _WarningsController()
 
-    assert not controller._did_patch_showwarning
     assert warnings.showwarning == ORIGINAL_SHOWWARNING
+    assert not controller._did_patch_showwarning
 
     controller.set_non_mlflow_warnings_disablement_state_for_current_thread(True)
 
     assert controller._did_patch_showwarning
     assert warnings.showwarning == controller._patched_showwarning
 
-    original_func = controller._original_showwarning
+    patched_func = warnings.showwarning
 
     controller._modify_patch_state_if_necessary()
 
-    assert warnings.showwarning == controller._patched_showwarning
-    assert controller._original_showwarning == original_func
+    assert warnings.showwarning == patched_func
 
     controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
+
     assert warnings.showwarning == ORIGINAL_SHOWWARNING

@@ -26,7 +26,6 @@ class _WarningsController:
         self._state_lock = RLock()
 
         self._did_patch_showwarning = False
-        self._original_showwarning = None
 
         self._disabled_threads = set()
         self._rerouted_threads = set()
@@ -103,7 +102,6 @@ class _WarningsController:
             if self._should_patch_showwarning() and not self._did_patch_showwarning:
                 # NB: guard to prevent patching an instance of a patch
                 if warnings.showwarning != self._patched_showwarning:
-                    self._original_showwarning = warnings.showwarning
                     warnings.showwarning = self._patched_showwarning
                 self._did_patch_showwarning = True
             elif not self._should_patch_showwarning() and self._did_patch_showwarning:
