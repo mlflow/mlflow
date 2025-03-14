@@ -12,7 +12,7 @@ from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.runnables import get_runnable_steps
-from mlflow.models.model import _MODEL_TRACKER, _active_model_id
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
 from mlflow.utils.autologging_utils import get_autologging_config
@@ -64,12 +64,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     def _invoke(self, *args, **kwargs):
         with disable_patching():
-            # we don't restore _active_model_id value because
-            # original function could be a coroutine
-            if model_id := _MODEL_TRACKER.get(self):
-                _active_model_id.set(model_id)
-            else:
-                _active_model_id.set(None)
+            _MODEL_TRACKER.set_active_model_id(self)
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)

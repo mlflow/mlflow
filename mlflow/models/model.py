@@ -1395,6 +1395,8 @@ class _ModelTracker:
         self._lock = threading.Lock()
         # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
+        # thread-safe variable to track active model_id
+        self._active_model_id = ContextVar("_active_model_id", default=None)
 
     def get(self, model: Any) -> Optional[str]:
         """
@@ -1412,6 +1414,29 @@ class _ModelTracker:
         with self._model_locks[model_id_key]:
             self.model_ids[model_id_key] = model_id
 
+    def set_active_model_id(self, model: Any) -> None:
+        """
+        Set the current active model id.
+        This should be used inside the inference patching method
+        before calling the original function, so it can be picked
+        up by callbacks used for tracing.
+        """
+        # we don't restore _active_model_id value because
+        # original function could be a coroutine, so if self
+        # is not stored we set active_model_id to None
+        if model_id := self.get(model):
+            self._active_model_id.set(model_id)
+        else:
+            self._active_model_id.set(None)
+
+    def get_active_model_id(self) -> Optional[str]:
+        """
+        Get the current active model id.
+        This should be used inside callbacks before starting the
+        span to add the model id to span tags.
+        """
+        return self._active_model_id.get()
+
     def clear(self) -> None:
         with self._lock:
             self.model_ids.clear()
@@ -1419,4 +1444,3 @@ class _ModelTracker:
 
 
 _MODEL_TRACKER = _ModelTracker()
-_active_model_id = ContextVar("_active_model_id", default=None)
