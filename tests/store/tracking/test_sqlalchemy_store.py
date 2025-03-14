@@ -4674,6 +4674,13 @@ def test_create_logged_model(store: SqlAlchemyStore):
         store.create_logged_model(experiment_id=exp_id)
 
 
+@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+def test_create_logged_model_invalid_name(store: SqlAlchemyStore, name: str):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid model name"):
+        store.create_logged_model(exp_id, name=name)
+
+
 def test_get_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)

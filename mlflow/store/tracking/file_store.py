@@ -106,6 +106,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
     _validate_param,
@@ -1970,6 +1971,7 @@ class FileStore(AbstractStore):
         Returns:
             The created model.
         """
+        _validate_logged_model_name(name)
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(

@@ -1,4 +1,5 @@
 import time
+import uuid
 from unittest import mock
 
 import pytest
@@ -130,6 +131,13 @@ def test_create_logged_model_errors(store):
 
     with pytest.raises(MlflowException, match=r"exceeds the maximum length"):
         store.create_logged_model(params=[LoggedModelParameter("a" * 256, "b")])
+
+
+@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+def test_create_logged_model_invalid_name(store: FileStore, name: str):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid model name"):
+        store.create_logged_model(exp_id, name=name)
 
 
 def test_set_logged_model_tags(store):
