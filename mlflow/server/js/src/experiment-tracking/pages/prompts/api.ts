@@ -1,7 +1,7 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
 import { fetchEndpoint } from '../../../common/utils/FetchUtils';
 import { RegisteredPrompt, RegisteredPromptsListResponse, RegisteredPromptVersion } from './types';
-import { IS_PROMPT_TAG_NAME, IS_PROMPT_TAG_VALUE } from './utils';
+import { IS_PROMPT_TAG_NAME, IS_PROMPT_TAG_VALUE, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 const defaultErrorHandler = async ({
   reject,
@@ -120,6 +120,14 @@ export const RegisteredPromptsApi = {
       error: defaultErrorHandler,
     });
   },
+  deleteRegisteredPromptVersionTag: (promptName: string, promptVersion: string, key: string) => {
+    fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/model-versions/delete-tag',
+      method: 'DELETE',
+      body: JSON.stringify({ key, name: promptName, version: promptVersion }),
+      error: defaultErrorHandler,
+    });
+  },
   getPromptDetails: (promptName: string) => {
     const params = new URLSearchParams();
     params.append('name', promptName);
@@ -134,6 +142,20 @@ export const RegisteredPromptsApi = {
   getPromptVersions: (promptName: string) => {
     const params = new URLSearchParams();
     params.append('filter', `name='${promptName}' AND tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}'`);
+    const relativeUrl = ['ajax-api/2.0/mlflow/model-versions/search', params.toString()].join('?');
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<{
+      model_versions?: RegisteredPromptVersion[];
+    }>;
+  },
+  getPromptVersionsForRun: (runUuid: string) => {
+    const params = new URLSearchParams();
+    params.append(
+      'filter',
+      `tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}' AND tags.\`${REGISTERED_PROMPT_SOURCE_RUN_IDS}\` ILIKE "%${runUuid}%"`,
+    );
     const relativeUrl = ['ajax-api/2.0/mlflow/model-versions/search', params.toString()].join('?');
     return fetchEndpoint({
       relativeUrl,

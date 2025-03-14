@@ -13,10 +13,8 @@ import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { getPromptContentTagValue } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { uniq } from 'lodash';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
-import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
@@ -28,6 +26,7 @@ export const PromptContentPreview = ({
   aliasesByVersion,
   registeredPrompt,
   showEditAliasesModal,
+  showEditPromptVersionMetadataModal,
 }: {
   promptVersion?: RegisteredPromptVersion;
   onUpdatedContent?: () => Promise<any>;
@@ -35,6 +34,7 @@ export const PromptContentPreview = ({
   aliasesByVersion: Record<string, string[]>;
   registeredPrompt?: RegisteredPrompt;
   showEditAliasesModal?: (versionNumber: string) => void;
+  showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
 
@@ -114,6 +114,7 @@ export const PromptContentPreview = ({
         registeredPrompt={registeredPrompt}
         registeredPromptVersion={promptVersion}
         showEditAliasesModal={showEditAliasesModal}
+        showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
       />
       <Spacer shrinks={false} />
       <div

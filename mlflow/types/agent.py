@@ -1,7 +1,6 @@
 from typing import Any, Optional
-from uuid import uuid4
 
-from pydantic import Field
+from pydantic import ConfigDict
 
 from mlflow.types.chat import BaseModel, ChatUsage, ToolCall
 from mlflow.types.llm import (
@@ -31,7 +30,8 @@ class ChatAgentMessage(BaseModel):
         content (str): The content of the message.
             **Optional** Can be ``None`` if tool_calls is provided.
         name (str): The name of the entity that sent the message. **Optional** defaults to ``None``
-        id (str): The ID of the message. **Optional** defaults to a random UUID
+        id (str): The ID of the message. Required when it is either part of a
+            :py:class:`ChatAgentResponse` or :py:class:`ChatAgentChunk`.
         tool_calls (List[:py:class:`mlflow.types.chat.ToolCall`]): A list of tool calls made by the
             model. **Optional** defaults to ``None``
         tool_call_id (str): The ID of the tool call that this message is a response to.
@@ -42,7 +42,7 @@ class ChatAgentMessage(BaseModel):
     role: str
     content: Optional[str] = None
     name: Optional[str] = None
-    id: Optional[str] = Field(default_factory=lambda: str(uuid4()))
+    id: Optional[str] = None
     tool_calls: Optional[list[ToolCall]] = None
     tool_call_id: Optional[str] = None
     # TODO make this a pydantic class with subtypes once we have more details on usage
@@ -131,11 +131,40 @@ class ChatAgentResponse(BaseModel):
             **Optional**, defaults to None
     """
 
+    if IS_PYDANTIC_V2_OR_NEWER:
+        model_config = ConfigDict(validate_assignment=True)
+    else:
+
+        class Config:
+            validate_assignment = True
+
     messages: list[ChatAgentMessage]
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
+
+    @model_validator(mode="after")
+    def check_message_ids(cls, values):
+        """
+        Ensure that all messages have an ID and it is unique.
+        """
+        if IS_PYDANTIC_V2_OR_NEWER:
+            message_ids = [msg.id for msg in values.messages]
+        else:
+            message_ids = [msg.get("id") for msg in values.get("messages")]
+
+        if any(msg_id is None for msg_id in message_ids):
+            raise ValueError(
+                "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
+                "`str(uuid.uuid4())` to generate a unique ID."
+            )
+        if len(message_ids) != len(set(message_ids)):
+            raise ValueError(
+                "All ChatAgentMessage objects in field `messages` must have unique IDs. "
+                "You can use `str(uuid.uuid4())` to generate a unique ID."
+            )
+        return values
 
 
 class ChatAgentChunk(BaseModel):
@@ -156,11 +185,35 @@ class ChatAgentChunk(BaseModel):
             **Optional**, defaults to None
     """
 
+    if IS_PYDANTIC_V2_OR_NEWER:
+        model_config = ConfigDict(validate_assignment=True)
+    else:
+
+        class Config:
+            validate_assignment = True
+
     delta: ChatAgentMessage
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
+
+    @model_validator(mode="after")
+    def check_message_id(cls, values):
+        """
+        Ensure that the message ID is unique.
+        """
+        message_id = values.delta.id if IS_PYDANTIC_V2_OR_NEWER else values.get("delta").get("id")
+
+        if message_id is None:
+            raise ValueError(
+                "The field `delta` of ChatAgentChunk must contain a ChatAgentMessage object with an"
+                " ID. If this chunk contains partial content, it should have the same ID as other "
+                " chunks in the same message. See "
+                "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
+                " for more details. You can use `str(uuid.uuid4())` to generate a unique ID."
+            )
+        return values
 
 
 # fmt: off
