@@ -27,7 +27,10 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
@@ -2473,8 +2476,9 @@ def test_both_resources_and_auth_policy():
 
 @pytest.mark.parametrize("compression", ["lzma", "bzip2", "gzip"])
 def test_model_save_load_compression(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path, compression
+    monkeypatch, sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path, compression
 ):
+    monkeypatch.setenv(MLFLOW_LOG_MODEL_COMPRESSION.name, compression)
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -2488,7 +2492,6 @@ def test_model_save_load_compression(
         artifacts={"sk_model": sklearn_model_path},
         conda_env=_conda_env(),
         python_model=main_scoped_model_class(test_predict),
-        compression=compression,
     )
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)

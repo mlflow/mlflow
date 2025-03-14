@@ -20,6 +20,7 @@ import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
+from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -778,11 +779,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
 
 def _maybe_compress_cloudpickle_dump(python_model, path, compression):
-    if compression and compression not in _COMPRESSION_OPEN:
-        mlflow.pyfunc._logger.warning(
-            f"Unrecognized compression method specified: `{compression}` please use one of "
-            '"lzma", "bzip2", "gzip", falling back to dump to regular file'
-        )
     file_open = _COMPRESSION_OPEN.get(compression, open)
     with file_open(path, "wb") as out:
         cloudpickle.dump(python_model, out)
@@ -813,7 +809,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
-    compression=None,
 ):
     """
     Args:
@@ -852,10 +847,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
-
-        compression: One of "lzma", "bzip2" or "gzip", the cloudpickple file will be compressed
-                     using the respective format before being written to disk.
-                     Default None ie. no compression.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -868,9 +859,18 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
 
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
 
-    if compression and compression in _COMPRESSION_EXTENSION:
-        custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
-        saved_python_model_subpath += _COMPRESSION_EXTENSION[compression]
+    compression = MLFLOW_LOG_MODEL_COMPRESSION.get()
+    if compression:
+        if compression in _COMPRESSION_EXTENSION:
+            custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
+            saved_python_model_subpath += _COMPRESSION_EXTENSION[compression]
+        else:
+            mlflow.pyfunc._logger.warning(
+                f"Unrecognized compression method `{compression}` specified in "
+                "environment variable `MLFLOW_LOG_MODEL_COMPRESSION` please use "
+                'one of "lzma", "bzip2", "gzip", falling back to dump to regular file'
+            )
+            compression = None
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
     # pickle/save the python_model since the module won't be able to be imported.
