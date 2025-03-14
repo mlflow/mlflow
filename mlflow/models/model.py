@@ -1390,21 +1390,29 @@ class _ModelTracker:
     """
 
     def __init__(self):
+        # stores id(model) -> model_id of LoggedModel mapping
         self.model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
+        # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
 
     def get(self, model: Any) -> Optional[str]:
+        """
+        Get the model ID associated with the given model
+        """
         model_id_key = id(model)
         with self._model_locks[model_id_key]:
             return self.model_ids.get(model_id_key)
 
     def set(self, model: Any, model_id: str) -> None:
+        """
+        Set the model ID associated with the given model
+        """
         model_id_key = id(model)
         with self._model_locks[model_id_key]:
             self.model_ids[model_id_key] = model_id
 
-    def clear(self):
+    def clear(self) -> None:
         with self._lock:
             self.model_ids.clear()
             self._model_locks.clear()

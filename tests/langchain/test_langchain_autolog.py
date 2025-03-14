@@ -1364,12 +1364,14 @@ def test_autolog_traces_linked_to_models_multi_threading(model_infos):
         for model_info in model_infos
     ]
 
-    def _invoke(i):
-        loaded_model, model_id = model_and_model_ids[i]
+    def _invoke(loaded_model, model_id):
         loaded_model.invoke({"product": f"{loaded_model.steps[1].temperature}_{model_id}"})
 
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(_invoke, i) for i in range(len(model_infos))]
+        futures = [
+            executor.submit(_invoke, loaded_model, model_id)
+            for loaded_model, model_id in model_and_model_ids
+        ]
         for future in futures:
             future.result()
 

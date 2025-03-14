@@ -9,6 +9,7 @@ import pytest
 from opentelemetry import trace as trace_api
 
 import mlflow
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
@@ -235,3 +236,8 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture(autouse=True)
+def reset_model_tracker():
+    _MODEL_TRACKER.clear()

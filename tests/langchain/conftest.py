@@ -6,8 +6,6 @@ import pytest
 from langchain.embeddings.base import Embeddings
 from pydantic import BaseModel
 
-from mlflow.models.model import _MODEL_TRACKER
-
 from tests.helper_functions import start_mock_openai_server
 from tests.tracing.helper import reset_autolog_state  # noqa: F401
 
@@ -34,11 +32,6 @@ def mock_openai():
 def reset_autolog(reset_autolog_state):
     # Apply the reset_autolog_state fixture to all tests for LangChain
     return
-
-
-@pytest.fixture(autouse=True)
-def reset_model_tracker():
-    _MODEL_TRACKER.clear()
 
 
 # Define a special embedding for testing
