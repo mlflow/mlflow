@@ -5,7 +5,9 @@ import logging
 from typing import Any, Optional
 
 import agents.tracing as oai
+from agents import add_trace_processor
 from agents._run_impl import TraceCtxManager
+from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 from pydantic import BaseModel
 
 from mlflow import MlflowClient
@@ -50,6 +52,23 @@ _SPAN_TYPE_MAP = {
     OpenAISpanType.GUARDRAIL: SpanType.TOOL,
     # Default to chain type
 }
+
+
+def add_mlflow_trace_processor():
+    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+
+    if any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors):
+        return
+
+    add_trace_processor(MlflowOpenAgentTracingProcessor())
+
+
+def remove_mlflow_trace_processor():
+    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    non_mlflow_processors = [
+        p for p in processors if not isinstance(p, MlflowOpenAgentTracingProcessor)
+    ]
+    GLOBAL_TRACE_PROVIDER._multi_processor._processors = non_mlflow_processors
 
 
 class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):

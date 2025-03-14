@@ -23,7 +23,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, purge_traces
 
 
 def set_dummy_client(expected_responses):
@@ -400,3 +400,68 @@ async def test_autolog_agent_with_manual_trace():
     assert spans[1].name == "Joke workflow"
     assert spans[2].name == "Joke agent"
     assert spans[3].name == "Response"
+
+
+@pytest.mark.asyncio
+async def test_disable_enable_autolog():
+    # NB: We have to mock the OpenAI SDK responses to make agent works
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="You are daddy joke teller.",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="Why is Peter Pan always flying?",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
+
+    set_dummy_client(DUMMY_RESPONSES * 5)
+
+    agent = Agent(name="Agent", instructions="You are daddy joke teller")
+    messages = [{"role": "user", "content": "Tell me a joke"}]
+
+    # Enable tracing
+    mlflow.openai.autolog()
+
+    await Runner.run(agent, messages)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+    # Enabling autolog again should not cause duplicate traces
+    mlflow.openai.autolog()
+    mlflow.openai.autolog()
+
+    await Runner.run(agent, messages)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+    # Disable tracing
+    mlflow.openai.autolog(disable=True)
+
+    await Runner.run(agent, messages)
+
+    assert get_traces() == []
