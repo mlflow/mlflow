@@ -9,7 +9,7 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
-from mlflow.dspy.util import save_dspy_module_state
+from mlflow.dspy.util import log_dspy_module_state_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
@@ -57,6 +57,7 @@ class MlflowCallback(BaseCallback):
         # call_id: (key, step)
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._call_id_to_run_id: dict[str, str] = {}
+        self._model_logged_run_id = set()
         self._evaluation_counter = defaultdict(int)
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
@@ -244,9 +245,9 @@ class MlflowCallback(BaseCallback):
             if mlflow.active_run() is None:
                 run = mlflow.start_run()
                 self._call_id_to_run_id[call_id] = run.info.run_id
-        # TODO: log dataset if available
         if program := inputs.get("program"):
             save_dspy_module_state(program, "model.json")
+            log_dspy_module_state_params(program)
 
     def on_evaluate_end(
         self,

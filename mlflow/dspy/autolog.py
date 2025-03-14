@@ -1,6 +1,8 @@
+import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
-from mlflow.dspy.util import save_dspy_module_state
+from mlflow.dspy.util import log_dataset, save_dspy_module_state
 from mlflow.tracing.provider import trace_disabled
+from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -99,12 +101,16 @@ def autolog(
             if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
                 return _compile_fn(self, *args, **kwargs)
 
-            # TODO: we may want to save the trainset with mlflow.log_input()
             program = _compile_fn(self, *args, **kwargs)
             # Save the state of the best model in json format
             # so that users can see the demonstrations and instructions.
             save_dspy_module_state(program, "best_model.json")
-
+            inputs = construct_full_inputs(original, self, *args, **kwargs)
+            mlflow.log_params(
+                {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
+            )
+            if trainset := inputs.get("trainset"):
+                log_dataset(trainset, "trainset.json")
             return program
 
         if isinstance(self, Teleprompter) and get_autologging_config(
