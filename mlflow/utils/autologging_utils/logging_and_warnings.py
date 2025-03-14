@@ -53,7 +53,6 @@ class _WarningsController:
         # directory, it is an MLflow warning and should be emitted via `logger.warning`
         warning_source_path = Path(filename).resolve()
         is_mlflow_warning = self._mlflow_root_path in warning_source_path.parents
-
         curr_thread = get_current_thread_id()
 
         if (curr_thread in self._disabled_threads) or (
