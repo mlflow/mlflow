@@ -4,6 +4,7 @@ import cloudpickle
 
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_model
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
@@ -40,6 +41,11 @@ def _load_model(model_uri, dst_path=None):
         loaded_wrapper = cloudpickle.load(f)
 
     _set_dependency_schema_to_tracer(local_model_path, loaded_wrapper.dspy_settings["callbacks"])
+
+    mlflow_model = Model.load(local_model_path)
+    if mlflow_model.model_id:
+        # the model of the wrapper will be used for inference
+        _MODEL_TRACKER.set(loaded_wrapper.model, mlflow_model.model_id)
 
     return loaded_wrapper
 
