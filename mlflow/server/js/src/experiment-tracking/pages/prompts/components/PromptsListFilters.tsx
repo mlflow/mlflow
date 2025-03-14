@@ -1,5 +1,6 @@
 import { TableFilterInput, TableFilterLayout } from '@databricks/design-system';
-// import { ModelSearchInputHelpTooltip } from '../../../../model-registry/components/model-list/ModelListFilters';
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { ModelSearchInputHelpTooltip } from '../../../../model-registry/components/model-list/ModelListFilters';
 
 export const PromptsListFilters = ({
   searchFilter,
