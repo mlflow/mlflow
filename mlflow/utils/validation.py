@@ -646,10 +646,10 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
     if name is None:
         return
 
-    disallowed_chars = ("/", ":", ".")
-    if not name or any(c in name for c in disallowed_chars):
+    forbidden_chars = ("/", ":", ".")
+    if not name or any(c in name for c in forbidden_chars):
         raise MlflowException(
             f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
-            f"and cannot contain the following characters: {disallowed_chars}",
+            f"and cannot contain the following characters: {forbidden_chars}",
             INVALID_PARAMETER_VALUE,
         )
