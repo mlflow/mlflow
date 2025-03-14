@@ -16,6 +16,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -950,6 +951,7 @@ class Model:
             client = mlflow.MlflowClient(tracking_uri)
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
+
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -975,6 +977,10 @@ class Model:
                 log_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 )
+
+            if prompts is not None:
+                # Convert to URIs for serialization
+                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
 
             mlflow_model = cls(
                 artifact_path=model.artifact_location,
@@ -1061,13 +1067,8 @@ class Model:
             # Associate prompts to the model Run
             if prompts:
                 client = mlflow.MlflowClient()
-                for prompt_uri in prompts:
-                    try:
-                        client.log_prompt(run_id, prompt_uri)
-                    except MlflowException:
-                        _logger.warning(
-                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
-                        )
+                for prompt in prompts:
+                    client.log_prompt(run_id, prompt)
 
             # if the model_config kwarg is passed in, then log the model config as an params
             if model_config := kwargs.get("model_config"):
