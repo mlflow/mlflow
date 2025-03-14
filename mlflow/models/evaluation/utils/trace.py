@@ -1,4 +1,5 @@
 import contextlib
+import functools
 import inspect
 import logging
 from typing import Any, Callable
@@ -57,12 +58,16 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         # because the evaluation code usually only uses a subset of the supported flavors,
         # hence we want to avoid unnecessary overhead of configuring all flavors.
         @autologging_conf_lock
-        def _setup_autolog(module):
+        def _setup_autolog(autologging_integration: str, module: str):
             try:
-                autolog = get_autolog_function(flavor)
+                # NB: Use function argument to pass the flavor name to the hook function, rather
+                # than using the closure variable `flavor` to avoid late binding issue.
+                autolog = get_autolog_function(autologging_integration)
 
                 # If tracing is supported and not explicitly disabled, enable it.
-                if enable_tracing and _should_enable_tracing(flavor, global_config_snapshot):
+                if enable_tracing and _should_enable_tracing(
+                    autologging_integration, global_config_snapshot
+                ):
                     new_config = {
                         k: False if k.startswith("log_") else v for k, v in original_config.items()
                     }
@@ -81,13 +86,17 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     autolog(disable=True)
 
             except Exception:
-                _logger.debug(f"Failed to update autologging config for {flavor}.", exc_info=True)
+                _logger.debug(
+                    f"Failed to update autologging config for {autologging_integration}.",
+                    exc_info=True,
+                )
 
         module = FLAVOR_TO_MODULE_NAME[flavor]
         try:
             original_import_hooks[module] = get_post_import_hooks(module)
-            new_import_hooks[module] = _setup_autolog
-            register_post_import_hook(_setup_autolog, module, overwrite=True)
+            hook = functools.partial(_setup_autolog, flavor)
+            new_import_hooks[module] = hook
+            register_post_import_hook(hook, module, overwrite=True)
         except Exception:
             _logger.debug(f"Failed to register post-import hook for {flavor}.", exc_info=True)
 
@@ -121,8 +130,8 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                         # We also need to remove the config entry from AUTOLOGGING_INTEGRATIONS,
                         # so as not to confuse with the case user explicitly disabled autologging.
                         AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
-                except ImportError:
-                    pass
+                except Exception:
+                    _logger.debug(f"Failed to restore autologging for {flavor}.", exc_info=True)
 
 
 def _should_enable_tracing(flavor: str, autologging_config: dict[str, Any]) -> bool:
