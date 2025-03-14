@@ -111,7 +111,13 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
                 original_exit(exc_type, exc_val, exc_tb)
 
-            trace.__class__.__exit__ = _patched_exit
+            safe_patch(
+                FLAVOR_NAME,
+                trace.__class__,
+                "__exit__",
+                _patched_exit,
+            )
+
         except Exception:
             _logger.debug("Failed to start MLflow trace", exc_info=True)
 
