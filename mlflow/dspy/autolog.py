@@ -15,6 +15,7 @@ def autolog(
     log_traces_from_compile: bool = False,
     log_traces_from_eval: bool = True,
     log_compiles: bool = False,
+    log_evals: bool = False,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -34,6 +35,8 @@ def autolog(
             running the evaluator. Default to ``True``.
         log_compiles: If ``True``, information about the optimization process is logged when
             `Teleprompter.compile()` is called.
+        log_evals: If ``True``, information about the evaluation call is logged when
+            `Evaluate.__call__()` is called.
         disable: If ``True``, disables the DSPy autologging integration. If ``False``,
             enables the DSPy autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during DSPy
@@ -50,6 +53,7 @@ def autolog(
         log_traces_from_compile=log_traces_from_compile,
         log_traces_from_eval=log_traces_from_eval,
         log_compiles=log_compiles,
+        log_evals=log_evals,
         disable=disable,
         silent=silent,
     )
@@ -67,17 +71,17 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
-    # Patch teleprompter/evaluator not to generate traces by default
     def patch_fn(original, self, *args, **kwargs):
         # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
         # check this flag at runtime to determine if we should generate traces.
+        # method to disable tracing for compile and evaluate by default
         @trace_disabled
         def _trace_disabled_fn(self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
         def _compile_fn(self, *args, **kwargs):
             if callback := _active_callback():
-                callback.within_compile = True
+                callback.optimizer_stack_level += 1
             try:
                 if get_autologging_config(FLAVOR_NAME, "log_traces_from_compile"):
                     result = original(self, *args, **kwargs)
@@ -86,7 +90,10 @@ def autolog(
                 return result
             finally:
                 if callback:
-                    callback.within_compile = False
+                    callback.optimizer_stack_level -= 1
+                    if callback.optimizer_stack_level == 0:
+                        # Reset the callback state after the completion of root compile
+                        callback.reset()
 
         if isinstance(self, Teleprompter):
             if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
@@ -149,6 +156,7 @@ def _autolog(
     log_traces_from_compile: bool,
     log_traces_from_eval: bool,
     log_compiles: bool,
+    log_evals: bool,
     disable: bool = False,
     silent: bool = False,
 ):
