@@ -228,11 +228,13 @@ class MlflowCallback(BaseCallback):
             return
 
         if self.optimizer_stack_level > 0:
-            key = "eval_score"
+            key = "eval"
             if callback_metadata := inputs.get("callback_metadata"):
                 if "metric_key" in callback_metadata:
                     key = callback_metadata["metric_key"]
             with _lock:
+                # we may want to include optimizer_stack_level in the key
+                # to handle nested optimization
                 step = self._evaluation_counter[key]
                 self._evaluation_counter[key] += 1
             run = mlflow.start_run(run_name=f"{key}_{step}", nested=True)
