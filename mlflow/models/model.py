@@ -17,6 +17,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.param import Param
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -951,6 +952,12 @@ class Model:
             client = mlflow.MlflowClient(tracking_uri)
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
+
+            if run_id and params:
+                client.log_batch(
+                    run_id=run_id,
+                    params=[Param(k, str(v)) for k, v in params.items()] if params else [],
+                )
 
             if model_id is not None:
                 model = client.get_logged_model(model_id)
