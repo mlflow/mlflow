@@ -5,6 +5,7 @@
 We are excited to announce the release of MLflow 2.21.0! This release includes a number of significant features, enhancements, and bug fixes.
 
 ### Major New Features
+
 - 📚 **Documentation Redesign**: [MLflow documentation](https://mlflow.org/docs/latest/) is fully revamped with a new MDX-based website that provides better navigation and makes it easier to find the information you need! (#13645, @daniellok-db)
 - 🤖 **Prompt Registry**: [MLflow Prompt Registry](https://mlflow.org/docs/latest/prompts/) is a powerful tool that streamlines prompt engineering and management in your GenAI applications. It enables you to version, track, and reuse prompts across your organization. (#14795, #14834, #14936, @B-Step62, #14960, #14984, @daniellok-db, #14909, @hubertzub-db)
 - ⚡️ **FastAPI Scoring Server**: The [MLflow inference server](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#serving-frameworks)has been migrated from Flask to FastAPI, enabling ASGI-based scalable inference for improved performance and throughput. (#14307, @TomeHirata)
@@ -40,6 +41,7 @@ Bug fixes:
 - [Models] Fix ChatCompletionResponse for model serving Pydantic 1.x (#14332, @BenWilson2)
 
 Documentation updates:
+
 - [Tracking] Add guide about using MLflow tracing across thread (#14881, @B-Step62)
 - [Docs] Add guide for tracing deepseek (#14826, @B-Step62)
 - [Docs] Update llama Jupyter notebook source (#14754, @emmanuel-ferdman)
