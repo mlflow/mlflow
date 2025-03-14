@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 2.21.0 (2025-03-14)
+
+MLflow 2.21.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Add eval logging for DSPy (#14962, @TomeHirata)
+- [Tracking] Support OpenAI Agent SDK Auto Tracing (#14987, @B-Step62)
+- [Tracking] Create mlflow run for DSPy compile (#14949, @TomeHirata)
+- [Sqlalchemy / Tracking] Support mysql ssl connections with client certs (#14839, @aksylumoed)
+- [Tracking] Support async Anthropic tracing (#14793, @B-Step62)
+- [Artifacts] Supports ADLS artifact repo (#14723, @serena-ruan)
+
+Bug fixes:
+
+- [Models] Fix infinite recursion error with warning handler module (#14954, @BenWilson2)
+- [Model Registry] Fix invalid type issue for ModelRegistry RestStore (#14980, @B-Step62)
+- [] Fix: `ExperimentViewRunsControlsActionsSelectTags` doesn't set loading state to `false` when `set-tag` request fails. (#14907, @harupy)
+- [] Fix a bug in tag creation where tag values containing `": "` get truncated (#14896, @harupy)
+- [Tracking] Fix false alert from AMD GPU monitor (#14884, @B-Step62)
+- [] Fix `mlflow.doctor` to fall back to `mlflow-skinny` when `mlflow` is not found (#14782, @harupy)
+
+Documentation updates:
+
+- [Docs] Draft prompt registry doc (#14936, @B-Step62)
+- [Tracking] Add guide about using MLflow tracing across thread (#14881, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#14994, #14992, #14990, #14979, #14964, #14969, #14944, #14948, #14957, #14958, #14942, #14940, #14935, #14929, #14805, #14876, #14834, @B-Step62; #14981, #14943, #14914, #14930, #14924, #14927, #14786, #14910, #14859, #14891, #14883, #14863, #14852, #14788, @Gumichocopengin8; #14946, #14978, #14956, #14906, #14903, #14854, #14860, #14857, #14830, @serena-ruan; #14989, #14984, #14960, #14895, #14880, #14878, #14866, @daniellok-db; #14986, #14904, #14898, #14893, #14861, #14870, #14853, #14849, #14813, #14822, @harupy; #14985, #14850, @TomeHirata; #14755, @bbqiu; #14892, @brilee; #14941, #14932, #14909, @hubertzub-db; #14913, @joelrobin18
+
 ## 2.20.4 (2025-03-13)
 
 MLflow 2.20.4 is a tiny patch release to include a bug fix:
