@@ -21,12 +21,13 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
 )
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -50,11 +51,9 @@ def patched_callback_manager_init(original, self, *args, **kwargs):
 
     for handler in self.inheritable_handlers:
         if isinstance(handler, MlflowLangchainTracer):
-            if _LOADED_MODEL_TRACKER.last_model_id is not None:
-                handler._model_id = _LOADED_MODEL_TRACKER.last_model_id
             return
 
-    _handler = MlflowLangchainTracer(model_id=_LOADED_MODEL_TRACKER.last_model_id)
+    _handler = MlflowLangchainTracer()
     self.add_handler(_handler, inherit=True)
 
 
@@ -108,6 +107,7 @@ def patched_runnable_sequence_batch(original, self, *args, **kwargs):
     """
     original_state = _should_attach_span_to_context.get()
     _should_attach_span_to_context.set(False)
+    _MODEL_TRACKER.set_active_model_id(self)
     try:
         return original(self, *args, **kwargs)
     finally:
@@ -130,7 +130,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def __init__(
         self,
         prediction_context: Optional[Context] = None,
-        model_id: Optional[str] = None,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
@@ -139,7 +138,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
-        self._model_id = model_id
+        # This can be set in init because the tracer instance is only created during inference
+        self._model_id = _MODEL_TRACKER.get_active_model_id()
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
@@ -186,6 +186,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=attributes,
                     tags=dependencies_schemas,
                 )
+                if span.request_id == NO_OP_SPAN_REQUEST_ID:
+                    _logger.debug("No Op span was created, the trace will not be recorded.")
 
             # Attach the span to the current context to mark it "active"
             token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
