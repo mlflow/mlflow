@@ -1,4 +1,5 @@
 import sys
+import warnings
 from pathlib import Path
 from threading import Thread
 
@@ -6,7 +7,10 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric
-from mlflow.utils.autologging_utils.logging_and_warnings import _WarningsController
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    ORIGINAL_SHOWWARNING,
+    _WarningsController,
+)
 from mlflow.utils.autologging_utils.metrics_queue import (
     _metrics_queue,
     _metrics_queue_lock,
@@ -45,16 +49,18 @@ def test_flush_metrics_queue_is_thread_safe():
     assert len(_metrics_queue) == 0
 
 
-def test_no_recursion_error_after_fix(monkeypatch):
+def test_patching_warnings_avoids_recursion(monkeypatch):
     """
     This test verifies that _patched_showwarning does not trigger a RecursionError even if
     Path.__str__ is monkey-patched to recursively call itself.
     """
+
     if sys.platform == "win32":
         pytest.skip("This test validation will cause a stackoverflow on Windows Kernel")
     controller = _WarningsController()
 
     def recursive_str(self):
+        # NB: This intentionally recurses
         return recursive_str(self)
 
     monkeypatch.setattr(Path, "__str__", recursive_str)
@@ -65,13 +71,42 @@ def test_no_recursion_error_after_fix(monkeypatch):
         nonlocal called
         called = True
 
-    controller._original_showwarning = dummy_showwarning
+    monkeypatch.setattr(
+        "mlflow.utils.autologging_utils.logging_and_warnings.ORIGINAL_SHOWWARNING",
+        dummy_showwarning,
+    )
+
+    filename = Path("dummy")
 
     try:
         controller._patched_showwarning(
-            message="Test warning", category=UserWarning, filename="dummy", lineno=1
+            message="Test warning", category=UserWarning, filename=filename, lineno=1
         )
     except RecursionError:
         pytest.fail("RecursionError was raised despite the fix being applied.")
 
-    assert called, "The dummy original showwarning was not called as expected."
+    assert called
+
+
+def test_double_patch_does_not_overwrite_original(monkeypatch):
+    monkeypatch.setattr(warnings, "showwarning", ORIGINAL_SHOWWARNING)
+
+    controller = _WarningsController()
+
+    assert not controller._did_patch_showwarning
+    assert warnings.showwarning == ORIGINAL_SHOWWARNING
+
+    controller.set_non_mlflow_warnings_disablement_state_for_current_thread(True)
+
+    assert controller._did_patch_showwarning
+    assert warnings.showwarning == controller._patched_showwarning
+
+    original_func = controller._original_showwarning
+
+    controller._modify_patch_state_if_necessary()
+
+    assert warnings.showwarning == controller._patched_showwarning
+    assert controller._original_showwarning == original_func
+
+    controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
+    assert warnings.showwarning == ORIGINAL_SHOWWARNING
