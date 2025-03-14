@@ -451,8 +451,20 @@ def register_prompt(
     Args:
         name: The name of the prompt.
         template: The template text of the prompt. It can contain variables enclosed in
-            single curly braces, e.g. {variable}, which will be replaced with actual values
+            double curly braces, e.g. {variable}, which will be replaced with actual values
             by the `format` method.
+
+            .. note::
+
+                If you want to use the prompt with a framework that uses single curly braces
+                e.g. LangChain, you can use the `to_single_brace_format` method to convert the
+                loaded prompt to a format that uses single curly braces.
+
+                .. code-block:: python
+
+                    prompt = client.load_prompt("my_prompt")
+                    langchain_format = prompt.to_single_brace_format()
+
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         version_metadata: A dictionary of metadata associated with the **prompt version**.
