@@ -482,7 +482,7 @@ class MlflowClient:
         Args:
             name: The name of the prompt.
             template: The template text of the prompt. It can contain variables enclosed in
-                single curly braces, e.g. {variable}, which will be replaced with actual values
+                double curly braces, e.g. {{variable}}, which will be replaced with actual values
                 by the `format` method.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
