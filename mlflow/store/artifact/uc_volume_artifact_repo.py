@@ -1,3 +1,4 @@
+import logging
 import os
 import posixpath
 from pathlib import Path
@@ -10,7 +11,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import (
+    _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled,
+    get_databricks_host_creds,
+)
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.request_utils import augmented_raise_for_status
 from mlflow.utils.rest_utils import http_request
@@ -26,6 +30,8 @@ from mlflow.utils.uri import (
 DIRECTORIES_API_ENDPOINT = "/api/2.0/fs/directories"
 FILES_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
+
+_logger = logging.getLogger(__name__)
 
 
 class UCVolumesArtifactRepository(ArtifactRepository):
@@ -54,6 +60,8 @@ class UCVolumesArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(artifact_uri)
             or mlflow.tracking.get_tracking_uri()
         )
+        # The workspace client is resolved in _upload() and _download()
+        self.workspace_client = None
 
     def _relative_to_root(self, path):
         return posixpath.relpath(path, self.root_path)
@@ -107,17 +115,28 @@ class UCVolumesArtifactRepository(ArtifactRepository):
             file_path: The absolute path of the file to download.
 
         Returns:
-            The response from the API.
+            None
 
         See also:
             https://docs.databricks.com/api/workspace/files/download
         """
-        endpoint = f"{FILES_API_ENDPOINT}{file_path}"
-        with open(output_path, "wb") as f:
-            with self._api_request(endpoint=endpoint, method="GET", stream=True) as resp:
-                for content in resp.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                    f.write(content)
-                return resp
+        self.workspace_client = (
+            _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(
+                self.databricks_profile_uri
+            )
+        )
+        if self.workspace_client:
+            _logger.debug("Using Databricks SDK experimental Files API for file download.")
+            with open(output_path, "wb") as f:
+                with self.workspace_client.files.download(file_path) as remote_file:
+                    f.write(remote_file.contents.read())
+        else:
+            endpoint = f"{FILES_API_ENDPOINT}{file_path}"
+            with open(output_path, "wb") as f:
+                with self._api_request(endpoint=endpoint, method="GET", stream=True) as resp:
+                    for content in resp.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                        f.write(content)
+                    augmented_raise_for_status(resp)
 
     def _upload(self, local_file, file_path):
         """
@@ -128,14 +147,27 @@ class UCVolumesArtifactRepository(ArtifactRepository):
             file_path: The absolute path of the file to upload.
 
         Returns:
-            The response from the API.
+            None
 
         See also:
             https://docs.databricks.com/api/workspace/files/upload
         """
-        endpoint = f"{FILES_API_ENDPOINT}{file_path}"
-        with open(local_file, "rb") as f:
-            return self._api_request(endpoint=endpoint, method="PUT", data=f, allow_redirects=False)
+        self.workspace_client = (
+            _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(
+                self.databricks_profile_uri
+            )
+        )
+        if self.workspace_client:
+            _logger.debug("Using Databricks SDK experimental Files API for file upload.")
+            with open(local_file, "rb") as f:
+                self.workspace_client.files.upload(file_path, f)
+        else:
+            endpoint = f"{FILES_API_ENDPOINT}{file_path}"
+            with open(local_file, "rb") as f:
+                resp = self._api_request(
+                    endpoint=endpoint, method="PUT", data=f, allow_redirects=False
+                )
+            augmented_raise_for_status(resp)
 
     def _get_path(self, artifact_path=None):
         return (
@@ -147,8 +179,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         artifact_path = posixpath.join(artifact_path, basename) if artifact_path else basename
-        resp = self._upload(local_file, self._get_path(artifact_path))
-        augmented_raise_for_status(resp)
+        self._upload(local_file, self._get_path(artifact_path))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         local_dir = Path(local_dir).resolve()
@@ -187,8 +218,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        resp = self._download(output_path=local_path, file_path=self._get_path(remote_file_path))
-        augmented_raise_for_status(resp)
+        self._download(output_path=local_path, file_path=self._get_path(remote_file_path))
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("Not implemented yet")
