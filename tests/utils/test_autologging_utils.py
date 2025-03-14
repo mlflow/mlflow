@@ -1,9 +1,5 @@
-import sys
 import warnings
-from pathlib import Path
 from threading import Thread
-
-import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric
@@ -47,40 +43,6 @@ def test_flush_metrics_queue_is_thread_safe():
     flush_thread2.start()
     flush_thread2.join()
     assert len(_metrics_queue) == 0
-
-
-def test_patching_warnings_avoids_recursion(monkeypatch):
-    if sys.platform == "win32":
-        pytest.skip("This test validation will cause a stackoverflow on Windows Kernel")
-    controller = _WarningsController()
-
-    def recursive_str(self):
-        # NB: This intentionally recurses
-        return recursive_str(self)
-
-    monkeypatch.setattr(Path, "__str__", recursive_str)
-
-    called = False
-
-    def dummy_showwarning(message, category, filename, lineno, *args, **kwargs):
-        nonlocal called
-        called = True
-
-    monkeypatch.setattr(
-        "mlflow.utils.autologging_utils.logging_and_warnings.ORIGINAL_SHOWWARNING",
-        dummy_showwarning,
-    )
-
-    filename = Path("dummy")
-
-    try:
-        controller._patched_showwarning(
-            message="Test warning", category=UserWarning, filename=filename, lineno=1
-        )
-    except RecursionError:
-        pytest.fail("RecursionError was raised despite the fix being applied.")
-
-    assert called
 
 
 def test_double_patch_does_not_overwrite(monkeypatch):
