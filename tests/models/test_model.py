@@ -46,7 +46,7 @@ def sklearn_knn_model(iris_data):
 
 def test_model_save_load():
     m = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -62,7 +62,7 @@ def test_model_save_load():
     assert x.get_output_schema() is None
 
     n = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -86,7 +86,7 @@ def test_model_save_load():
 
 def test_model_load_remote(tmp_path, mock_s3_bucket):
     model = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -129,7 +129,7 @@ def _log_model_with_signature_and_example(
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         model = Model.log(
-            "some/path",
+            "model",
             TestFlavor,
             signature=sig,
             input_example=input_example,
@@ -211,9 +211,7 @@ def test_model_info():
 
         experiment_id = mlflow.create_experiment("test")
         with mlflow.start_run(experiment_id=experiment_id) as run:
-            model_info = Model.log(
-                "some/path", TestFlavor, signature=sig, input_example=input_example
-            )
+            model_info = Model.log("model", TestFlavor, signature=sig, input_example=input_example)
         model_uri = f"models:/{model_info.model_id}"
 
         model_info_fetched = mlflow.models.get_model_info(model_uri)
@@ -257,11 +255,11 @@ def test_model_info():
 def test_model_info_with_model_version(tmp_path):
     experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
     with mlflow.start_run(experiment_id=experiment_id):
-        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        model_info = Model.log("model", TestFlavor, registered_model_name="model_abc")
         assert model_info.registered_model_version == 1
-        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        model_info = Model.log("model", TestFlavor, registered_model_name="model_abc")
         assert model_info.registered_model_version == 2
-        model_info = Model.log("some/path", TestFlavor)
+        model_info = Model.log("model", TestFlavor)
         assert model_info.registered_model_version is None
 
 
@@ -275,7 +273,7 @@ def test_model_metadata():
 
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
-        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
+        model = Model(artifact_path="model", run_id="1234", mlflow_version=None)
         path = tmp.path("MLmodel")
         with open(path, "w") as out:
             model.to_yaml(out)
@@ -572,7 +570,7 @@ class LegacyTestFlavor:
 
 def test_legacy_flavor(mock_is_in_databricks):
     with mlflow.start_run():
-        model_info = Model.log("some/path", LegacyTestFlavor)
+        model_info = Model.log("model", LegacyTestFlavor)
 
     artifact_path = _download_artifact_from_uri(model_info.model_uri)
     metadata_path = os.path.join(artifact_path, "metadata")
