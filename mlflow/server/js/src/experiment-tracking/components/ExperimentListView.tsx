@@ -15,7 +15,7 @@ import {
 } from '@databricks/design-system';
 import { List as VList, AutoSizer, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
@@ -43,16 +43,22 @@ type State = {
 export class ExperimentListView extends Component<Props, State> {
   list?: VList = undefined;
 
-  state = {
-    checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
-    searchInput: '',
-    showCreateExperimentModal: false,
-    showDeleteExperimentModal: false,
-    showRenameExperimentModal: false,
-    selectedExperimentId: '0',
-    selectedExperimentName: '',
-  };
+  // Read the query parameter "searchExperiment" on mount to initialize state.
+  constructor(props: Props) {
+    super(props);
+    const searchParams = new URLSearchParams(props.location.search);
+    const searchInput = searchParams.get('searchExperiment') || '';
+    this.state = {
+      checkedKeys: props.activeExperimentIds,
+      hidden: false,
+      searchInput,
+      showCreateExperimentModal: false,
+      showDeleteExperimentModal: false,
+      showRenameExperimentModal: false,
+      selectedExperimentId: '0',
+      selectedExperimentName: '',
+    };
+  }
 
   bindListRef = (ref: VList) => {
     this.list = ref;
@@ -74,8 +80,14 @@ export class ExperimentListView extends Component<Props, State> {
   };
 
   handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    this.setState({
-      searchInput: event.target.value,
+    const newSearchInput = event.target.value;
+    // Update local state and then update the URL query parameter.
+    this.setState({ searchInput: newSearchInput }, () => {
+      const { location } = this.props;
+      const searchParams = new URLSearchParams(location.search);
+      searchParams.set('searchExperiment', newSearchInput);
+      const newUrl = `${location.pathname}?${searchParams.toString()}`;
+      this.props.navigate(newUrl, { replace: true });
     });
   };
 
@@ -229,7 +241,7 @@ export class ExperimentListView extends Component<Props, State> {
   hide = () => this.setState({ hidden: true });
 
   render() {
-    const { hidden } = this.state;
+    const { hidden, searchInput } = this.state;
     const { activeExperimentIds, designSystemThemeApi } = this.props;
     const { theme } = designSystemThemeApi;
 
@@ -247,7 +259,6 @@ export class ExperimentListView extends Component<Props, State> {
       );
     }
 
-    const { searchInput } = this.state;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
