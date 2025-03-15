@@ -90,7 +90,7 @@ TOOL_ATTRIBUTE = [
                     "a": {"type": "number", "description": None, "enum": None},
                     "b": {"type": "number", "description": None, "enum": None},
                 },
-                "required": None,
+                "required": ["a", "b"],
             },
         },
     },
