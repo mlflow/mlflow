@@ -177,7 +177,7 @@ export class CompareModelVersionsViewImpl extends Component<
           )}
           <CollapsibleSection title="Parameters">
             <Switch
-              componentId="codegen_mlflow_app_sTODO"
+              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_180"
               label="Show diff only"
               checked={this.state.onlyShowParameterDiff}
               onChange={(checked, e) => this.setState({ onlyShowParameterDiff: checked })}
@@ -187,14 +187,14 @@ export class CompareModelVersionsViewImpl extends Component<
           </CollapsibleSection>
           <CollapsibleSection title="Schema">
             <Switch
-              componentId="codegen_mlflow_app_sTODO"
+              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_190"
               label="Ignore column ordering"
               checked={this.state.compareByColumnNameToggle}
               onChange={(checked, e) => this.setState({ compareByColumnNameToggle: checked })}
             />
             <Spacer size="sm" />
             <Switch
-              componentId="codegen_mlflow_app_sTODO"
+              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_197"
               label="Show diff only"
               checked={this.state.onlyShowSchemaDiff}
               onChange={(checked, e) => this.setState({ onlyShowSchemaDiff: checked })}
@@ -256,7 +256,7 @@ export class CompareModelVersionsViewImpl extends Component<
           </CollapsibleSection>
           <CollapsibleSection title="Metrics">
             <Switch
-              componentId="codegen_mlflow_app_sTODO"
+              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_259"
               label="Show diff only"
               checked={this.state.onlyShowMetricDiff}
               onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
