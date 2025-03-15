@@ -5,7 +5,8 @@ import math
 import operator
 import re
 import shlex
-from typing import Any
+from dataclasses import asdict, dataclass
+from typing import Any, Optional
 
 import sqlparse
 from packaging.version import Version
@@ -20,7 +21,7 @@ from sqlparse.sql import (
 )
 from sqlparse.tokens import Token as TokenType
 
-from mlflow.entities import RunInfo
+from mlflow.entities import LoggedModel, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
@@ -635,6 +636,38 @@ class SearchUtils:
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
+    def _does_model_match_clause(cls, model, sed):
+        key_type = sed.get("type")
+        key = sed.get("key")
+        value = sed.get("value")
+        comparator = sed.get("comparator").upper()
+
+        key = SearchUtils.translate_key_alias(key)
+
+        if cls.is_metric(key_type, comparator):
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            lhs = matching_metrics[0].value if matching_metrics else None
+            value = float(value)
+        elif cls.is_param(key_type, comparator):
+            lhs = model.params.get(key, None)
+        elif cls.is_tag(key_type, comparator):
+            lhs = model.tags.get(key, None)
+        elif cls.is_string_attribute(key_type, key, comparator):
+            lhs = getattr(model.info, key)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(model.info, key)
+            value = int(value)
+        else:
+            raise MlflowException(
+                f"Invalid model search expression type '{key_type}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if lhs is None:
+            return False
+
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
+
+    @classmethod
     def filter(cls, runs, filter_string):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
@@ -743,6 +776,40 @@ class SearchUtils:
         else:
             raise MlflowException(
                 f"Invalid order_by entity type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
+            )
+
+        # Return a key such that None values are always at the end.
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+        fill_value = (1 if ascending else -1) * math.inf
+
+        if is_none:
+            sort_value = fill_value
+        elif is_nan:
+            sort_value = -fill_value
+
+        is_none_or_nan = is_none or is_nan
+
+        return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
+
+    @classmethod
+    def _get_model_value_for_sort(cls, model, key_type, key, ascending):
+        """Returns a tuple suitable to be used as a sort key for models."""
+        sort_value = None
+        key = SearchUtils.translate_key_alias(key)
+        if key_type == cls._METRIC_IDENTIFIER:
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            sort_value = float(matching_metrics[0].value) if matching_metrics else None
+        elif key_type == cls._PARAM_IDENTIFIER:
+            sort_value = model.params.get(key)
+        elif key_type == cls._TAG_IDENTIFIER:
+            sort_value = model.tags.get(key)
+        elif key_type == cls._ATTRIBUTE_IDENTIFIER:
+            sort_value = getattr(model, key)
+        else:
+            raise MlflowException(
+                f"Invalid models order_by entity type '{key_type}'",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         # Return a key such that None values are always at the end.
@@ -1780,3 +1847,152 @@ class SearchTraceUtils(SearchUtils):
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
+
+
+class SearchLoggedModelsUtils(SearchUtils):
+    NUMERIC_ATTRIBUTES = {
+        "creation_timestamp",
+        "creation_time",
+        "last_updated_timestamp",
+        "last_updated_time",
+    }
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "model_id",
+        "model_type",
+        "status",
+        "source_run_id",
+    } | NUMERIC_ATTRIBUTES
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
+
+    @classmethod
+    def _does_logged_model_match_clause(cls, model: LoggedModel, condition: dict[str, Any]):
+        key_type = condition.get("type")
+        key = condition.get("key")
+        value = condition.get("value")
+        comparator = condition.get("comparator").upper()
+
+        key = SearchUtils.translate_key_alias(key)
+
+        if cls.is_metric(key_type, comparator):
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            lhs = matching_metrics[0].value if matching_metrics else None
+            value = float(value)
+        elif cls.is_param(key_type, comparator):
+            lhs = model.params.get(key, None)
+        elif cls.is_tag(key_type, comparator):
+            lhs = model.tags.get(key, None)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(model, key)
+            value = int(value)
+        elif hasattr(model, key):
+            lhs = getattr(model, key)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid logged model search key '{key}'",
+            )
+        if lhs is None:
+            return False
+
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
+
+    @classmethod
+    def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
+        """Filters a set of runs based on a search filter string."""
+        if not filter_string:
+            return models
+
+        parsed = cls.parse_search_filter(filter_string)
+
+        def model_matches(model):
+            return all(cls._does_logged_model_match_clause(model, s) for s in parsed)
+
+        return [model for model in models if model_matches(model)]
+
+    @classmethod
+    def parse_order_by_for_logged_models(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = token_value.strip()
+        if token_value not in cls.VALID_ORDER_BY_ATTRIBUTE_KEYS:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid order by key '{token_value}' specified. Valid keys "
+                f"are '{cls.VALID_ORDER_BY_ATTRIBUTE_KEYS}'",
+            )
+        identifier = cls._get_identifier(token_value, cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        order_by = []
+        parsed_order_by = map(cls.parse_order_by_for_logged_models, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
+            if type_ == "attribute":
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "creation_timestamp" for key, _ in order_by):
+            order_by.append(("creation_timestamp", False))
+        if not any(key == "model_id" for key, _ in order_by):
+            order_by.append(("model_id", True))
+
+        return lambda logged_model: tuple(
+            _apply_reversor(logged_model, k, asc) for (k, asc) in order_by
+        )
+
+    @classmethod
+    def sort(cls, models, order_by_list):
+        return sorted(models, key=cls._get_sort_key(order_by_list))
+
+
+@dataclass
+class SearchLoggedModelsPaginationToken:
+    experiment_ids: list[str]
+    filter_string: Optional[str] = None
+    order_by: Optional[list[dict[str, Any]]] = None
+    offset: int = 0
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    def encode(self) -> str:
+        return base64.b64encode(self.to_json().encode("utf-8")).decode("utf-8")
+
+    @classmethod
+    def decode(cls, token: str) -> "SearchLoggedModelsPaginationToken":
+        try:
+            token = json.loads(base64.b64decode(token.encode("utf-8")).decode("utf-8"))
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid page token: {token}. {e}")
+
+        return cls(
+            experiment_ids=token.get("experiment_ids"),
+            filter_string=token.get("filter_string") or None,
+            order_by=token.get("order_by") or None,
+            offset=token.get("offset") or 0,
+        )
+
+    def validate(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+        order_by: Optional[list[dict[str, Any]]],
+    ) -> None:
+        if self.experiment_ids != experiment_ids:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment IDs in the page token do not match the requested experiment IDs. "
+                f"Expected: {experiment_ids}. Found: {self.experiment_ids}"
+            )
+
+        if self.filter_string != filter_string:
+            raise MlflowException.invalid_parameter_value(
+                f"Filter string in the page token does not match the requested filter string. "
+                f"Expected: {filter_string}. Found: {self.filter_string}"
+            )
+
+        if self.order_by != order_by:
+            raise MlflowException.invalid_parameter_value(
+                f"Order by in the page token does not match the requested order by. "
+                f"Expected: {order_by}. Found: {self.order_by}"
+            )

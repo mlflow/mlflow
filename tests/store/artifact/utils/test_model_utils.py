@@ -21,7 +21,8 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version == expected_version
     assert stage is None
@@ -46,7 +47,8 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage == expected_stage
@@ -66,7 +68,8 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
     ],
 )
 def test_parse_models_uri_with_latest(uri, expected_name):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage is None
@@ -92,11 +95,21 @@ def test_parse_models_uri_with_latest(uri, expected_name):
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage is None
     assert alias == expected_alias
+
+
+def test_parse_models_uri_model_id():
+    (model_id, name, version, stage, alias) = _parse_model_uri("models:/12345")
+    assert model_id == "12345"
+    assert name is None
+    assert version is None
+    assert stage is None
+    assert alias is None
 
 
 @pytest.mark.parametrize(
@@ -107,12 +120,10 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "notmodels:/NameOfModel@alias",  # wrong scheme with alias
         "models:/",  # no model name
         "models:/ /Stage",  # empty name
-        "models:/Name",  # no specifiers
         "models:/Name/",  # empty suffix
         "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
         "models:Name/Stage",  # missing slash
-        "models://Name/Stage",  # hostnames are ignored, path too short
     ],
 )
 def test_parse_models_uri_invalid_input(uri):

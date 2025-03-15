@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -20,6 +21,20 @@ from tests.store.artifact.constants import (
     UC_OSS_MODELS_ARTIFACT_REPOSITORY,
     WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
 )
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("models:/123", True),
+        ("models:/name/1", False),
+        ("/path/to/model", False),
+        (Path("path/to/model"), False),
+        ("s3://bucket/path/to/model", False),
+    ],
+)
+def test_is_logged_model_uri(uri: str, expected: bool):
+    assert ModelsArtifactRepository._is_logged_model_uri(uri) is expected
 
 
 @pytest.mark.parametrize(
