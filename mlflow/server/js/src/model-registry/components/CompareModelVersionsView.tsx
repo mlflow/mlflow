@@ -441,6 +441,7 @@ export class CompareModelVersionsViewImpl extends Component<
             defaultMessage="Parameters"
             description="Field name text for parameters table in the model comparison page"
           />,
+          true,
           this.state.onlyShowParameterDiff,
         )}
       </>
