@@ -1876,8 +1876,8 @@ class SqlAlchemyStore(AbstractStore):
             dataset_filter = []
             if dataset_name := ob.get("dataset_name"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_name == dataset_name)
-            if dataset_version := ob.get("dataset_version"):
-                dataset_filter.append(SqlLoggedModelMetric.dataset_version == dataset_version)
+            if dataset_digest := ob.get("dataset_digest"):
+                dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
             subquery = (
                 session.query(
