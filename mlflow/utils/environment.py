@@ -598,7 +598,6 @@ def _process_pip_requirements(
                 PYTHON_VERSION,
                 tmp_file.name,
             ],
-            check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
