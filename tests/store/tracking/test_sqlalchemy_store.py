@@ -4741,10 +4741,11 @@ def test_delete_logged_model_tag(store: SqlAlchemyStore):
     store.delete_logged_model_tag(model.model_id, "tag1")
     assert store.get_logged_model(model.model_id).tags == {}
 
-    store.delete_logged_model_tag(model.model_id, "tag1")
-
     with pytest.raises(MlflowException, match="not found"):
         store.delete_logged_model_tag("does-not-exist", "tag1")
+
+    with pytest.raises(MlflowException, match="No tag with key"):
+        store.delete_logged_model_tag(model.model_id, "tag1")
 
 
 def test_search_logged_models(store: SqlAlchemyStore):
