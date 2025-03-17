@@ -84,7 +84,7 @@ class Routes {
 
   static searchRunsByUser(experimentId: string, userId: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
-    const filterString = `user_id = '${userId}'`;
+    const filterString = `attributes.user_id = '${userId}'`;
     return `${path}?searchFilter=${encodeURIComponent(filterString)}`;
   }
 
