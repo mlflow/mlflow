@@ -181,6 +181,7 @@ def clean_up_last_logged_model_id():
     _reset_last_logged_model_id()
 
 
+@pytest.fixture(autouse=True)
 def clean_up_last_active_run():
     _last_active_run_id.set(None)
 

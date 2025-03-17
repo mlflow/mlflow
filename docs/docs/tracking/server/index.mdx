@@ -54,7 +54,7 @@ httpd, or connecting over VPN (See [Secure Tracking Server](#tracking-auth) for 
 
 ## Logging to a Tracking Server \{#logging_to_a_tracking_server}
 
-Once you started the tracking server, you can connect your local clients by set the `MLFLOW_TRACKING_URI` environment variable to the
+Once the tracking server is started, connect your local clients by setting the `MLFLOW_TRACKING_URI` environment variable to the
 server's URI, along with its scheme and port (for example, `http://10.0.0.1:5000`) or call <APILink fn="mlflow.set_tracking_uri" />.
 
 The <APILink fn="mlflow.start_run" />, <APILink fn="mlflow.log_param" />, and <APILink fn="mlflow.log_metric" /> calls
@@ -65,14 +65,13 @@ then make API requests to your remote tracking server.
     ```python
     import mlflow
 
-    remote_server_uri = "..."  # set to your server URI
+    remote_server_uri = "..."  # set to your server URI, e.g. http://127.0.0.1:8080
     mlflow.set_tracking_uri(remote_server_uri)
     mlflow.set_experiment("/my-experiment")
     with mlflow.start_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
     ```
-
   </TabItem>
   <TabItem label="R" value="r">
     ```r
@@ -97,12 +96,12 @@ then make API requests to your remote tracking server.
     val run = client.createRun(experimentId)
     client.logParam(run.getRunId(), "a", "1")
     ```
-
   </TabItem>
 </Tabs>
 
 :::note
-On Databricks, the experiment name passed to mlflow_set_experiment must be a valid path in the workspace e.g. `/Workspace/Users/mlflow-experiments/my-experiment`.
+On Databricks, the experiment name in <APILink fn="mlflow.set_experiment" /> must be a valid absolute path in the workspace
+(e.g., `/Workspace/Users/mlflow-experiments/my-experiment`).
 :::
 
 ## Configure Server
@@ -314,4 +313,4 @@ To mitigate this issue, the timeout length can be increased by using the ``--gun
 mlflow server --gunicorn-opts "--timeout=60" ...
 ```
 
-See https://docs.gunicorn.org/en/stable/settings.html#timeout for more information on the timeout option.
+See [timeout](https://docs.gunicorn.org/en/stable/settings.html#timeout) in the Gunicorn documentation.

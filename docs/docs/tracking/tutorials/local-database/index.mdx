@@ -1,12 +1,12 @@
-# Tracking Experiments with a Local Database
+# Tracking Experiments with Local Database
 
-In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run data to local files,
+In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow.
+
+By default, MLflow Tracking logs (_writes_) run data to local files,
 which may cause some frustration due to fractured small files and the lack of a simple access interface. Also, if you are using Python, you can use SQLite that runs
 upon your local file system (e.g. `mlruns.db`) and has a built-in client `sqlite3`, eliminating the effort to install any additional dependencies and setting up database server.
 
-## Get Started
-
-### Step 1 - Get MLflow
+## Step 1. Get MLflow
 
 MLflow is available on PyPI. If you don't already have it installed on your local machine, you can install it with:
 
@@ -14,18 +14,16 @@ MLflow is available on PyPI. If you don't already have it installed on your loca
 pip install mlflow
 ```
 
-### Step 2 - Configure MLflow environment variables
+## Step 2. Configure MLflow to Log to SQLite Database
 
-#### Set the tracking URI to a local SQLite database
-
-To point MLflow to your local SQLite database, you need to set the environment variable `MLFLOW_TRACKING_URI` to `sqlite:///mlruns.db`.
-(This will create a SQLite database file called `mlruns.db` in the current directory. Specify a different path if you want to store the database file in a different location.)
+To point MLflow to your local SQLite database, you need to set the environment variable `MLFLOW_TRACKING_URI` (e.g., `sqlite:///mlruns.db`).
+This will create a SQLite database file (`mlruns.db`) in the current directory. Specify a different path if you want to store the database file in a different location.
 
 ```bash
 export MLFLOW_TRACKING_URI=sqlite:///mlruns.db
 ```
 
-If you are on notebook, you can run the following cell instead:
+If you are in a notebook, run the following cell instead:
 
 ```
 %env MLFLOW_TRACKING_URI=sqlite:///mlruns.db
@@ -35,7 +33,7 @@ If you are on notebook, you can run the following cell instead:
 For using a SQLite database, MLflow automatically creates a new database if it does not exist. If you want to use a different database, you need to create the database first.
 :::
 
-### Step 3: Start logging
+## Step 3. Start Logging
 
 Now you are ready to start logging your experiment runs. For example, the following code runs training for a scikit-learn RandomForest model on the diabetes dataset:
 
@@ -59,7 +57,7 @@ rf.fit(X_train, y_train)
 predictions = rf.predict(X_test)
 ```
 
-### Step 4: View your logged Run in the Tracking UI
+## Step 4. View Your Logged Run in Tracking UI
 
 Once your training job finishes, you can run the following command to launch the MLflow UI (You will have to specify the path to SQLite database file with `--backend-store-uri` option):
 
