@@ -27,6 +27,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
@@ -88,6 +89,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -2592,7 +2594,7 @@ def _create_logged_model():
 
     model = _get_tracking_store().create_logged_model(
         experiment_id=request_message.experiment_id,
-        name=request_message.name,
+        name=request_message.name or None,
         model_type=request_message.model_type,
         source_run_id=request_message.source_run_id,
         params=(
@@ -2615,6 +2617,23 @@ def _create_logged_model():
 def _get_logged_model(model_id: str):
     model = _get_tracking_store().get_logged_model(model_id)
     response_message = GetLoggedModel.Response(model=model.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _finalize_logged_model(model_id: str):
+    request_message = _get_request_message(
+        FinalizeLoggedModel(),
+        schema={
+            "model_id": [_assert_string, _assert_required],
+            "status": [_assert_intlike, _assert_required],
+        },
+    )
+    model = _get_tracking_store().finalize_logged_model(
+        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+    )
+    response_message = FinalizeLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
 
 
@@ -2754,4 +2773,5 @@ HANDLERS = {
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,
+    FinalizeLoggedModel: _finalize_logged_model,
 }

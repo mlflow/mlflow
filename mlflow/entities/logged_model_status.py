@@ -17,7 +17,7 @@ class LoggedModelStatus(str, Enum):
 
     def to_proto(self):
         if self == LoggedModelStatus.UNSPECIFIED:
-            return pb2.pb2.LoggedModelStatus.LOGGED_MODEL_STATUS_UNSPECIFIED
+            return pb2.LoggedModelStatus.LOGGED_MODEL_STATUS_UNSPECIFIED
         elif self == LoggedModelStatus.PENDING:
             return pb2.LoggedModelStatus.LOGGED_MODEL_PENDING
         elif self == LoggedModelStatus.READY:

@@ -862,7 +862,10 @@ class RestStore(AbstractStore):
         json_body = message_to_json(
             FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
         )
-        return self._call_endpoint(FinalizeLoggedModel, json_body=json_body, endpoint=endpoint)
+        response_proto = self._call_endpoint(
+            FinalizeLoggedModel, json_body=json_body, endpoint=endpoint
+        )
+        return LoggedModel.from_proto(response_proto.model)
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         """
