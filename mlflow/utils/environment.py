@@ -584,7 +584,7 @@ def _process_pip_requirements(
         tmp_file.flush()
 
         uv = [uv_bin] if (uv_bin := shutil.which("uv")) else [sys.executable, "-m", "uv"]
-        out = subprocess.check_output(
+        prc = subprocess.run(
             [
                 *uv,
                 "pip",
@@ -598,9 +598,19 @@ def _process_pip_requirements(
                 PYTHON_VERSION,
                 tmp_file.name,
             ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        sanitized_pip_reqs = out.strip().splitlines()
+
+        if prc.returncode == 0:
+            sanitized_pip_reqs = prc.stdout.strip().splitlines()
+        else:
+            _logger.warning(
+                f"Failed to compile pip requirements. Falling back to the original requirements. "
+                f"stdout: {prc.stdout}, stderr: {prc.stderr}"
+            )
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
