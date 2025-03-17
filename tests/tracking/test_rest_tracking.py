@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, RestException
@@ -2456,3 +2457,10 @@ def test_create_logged_model(mlflow_client: MlflowClient):
     model = mlflow_client.create_logged_model(exp_id, tags={"tag": "value"})
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert model.tags == {"tag": "value"}
+
+
+def test_finalize_logged_model(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model = mlflow_client.create_logged_model(exp_id)
+    finalized_model = mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.READY)
+    assert finalized_model.status == LoggedModelStatus.READY
