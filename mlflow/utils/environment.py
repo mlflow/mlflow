@@ -589,6 +589,8 @@ def _process_pip_requirements(
                 *uv,
                 "pip",
                 "compile",
+                "--color",
+                "never",
                 "--universal",
                 "--python-version",
                 PYTHON_VERSION,
