@@ -2068,6 +2068,31 @@ class FileStore(AbstractStore):
             # Don't add trailing newline
             write_to(tag_path, self._writeable_value(tag.value))
 
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: The string key of the tag.
+
+        Returns:
+            None
+        """
+        _validate_tag_name(key)
+        model = self.get_logged_model(model_id)
+        tag_path = os.path.join(
+            self._get_model_dir(model.experiment_id, model.model_id),
+            FileStore.TAGS_FOLDER_NAME,
+            key,
+        )
+        if not exists(tag_path):
+            raise MlflowException(
+                f"No tag with key: {key!r} in model with ID {model_id!r}.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        os.remove(tag_path)
+
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.

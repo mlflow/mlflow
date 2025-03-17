@@ -1821,10 +1821,19 @@ class SqlAlchemyStore(AbstractStore):
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
-            session.query(SqlLoggedModelTag).filter(
-                SqlLoggedModelTag.model_id == model_id,
-                SqlLoggedModelTag.tag_key == key,
-            ).delete()
+            count = (
+                session.query(SqlLoggedModelTag)
+                .filter(
+                    SqlLoggedModelTag.model_id == model_id,
+                    SqlLoggedModelTag.tag_key == key,
+                )
+                .delete()
+            )
+            if count == 0:
+                raise MlflowException(
+                    f"No tag with key: {key!r} in model with ID {model_id!r}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
 
     def search_logged_models(
         self,

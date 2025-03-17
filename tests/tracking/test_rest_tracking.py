@@ -2467,3 +2467,23 @@ def test_finalize_logged_model(mlflow_client: MlflowClient):
 
     with pytest.raises(MlflowException, match="Invalid model status"):
         mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.UNSPECIFIED)
+
+
+def test_set_logged_model_tags(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model = mlflow_client.create_logged_model(exp_id)
+    mlflow_client.set_logged_model_tags(model.model_id, {"tag1": "value1", "tag2": "value2"})
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert loaded_model.tags == {"tag1": "value1", "tag2": "value2"}
+
+
+def test_delete_logged_model_tag(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model = mlflow_client.create_logged_model(exp_id)
+    mlflow_client.set_logged_model_tags(model.model_id, {"tag1": "value1", "tag2": "value2"})
+    mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert loaded_model.tags == {"tag2": "value2"}
+
+    with pytest.raises(MlflowException, match="No tag with key"):
+        mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
