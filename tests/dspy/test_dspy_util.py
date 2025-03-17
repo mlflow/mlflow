@@ -1,11 +1,12 @@
 import importlib.metadata
+import json
 
 import dspy
 import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.dspy.util import log_dspy_dataset, log_dspy_module_state_params, save_dspy_module_state
+from mlflow.dspy.util import log_dspy_dataset, log_dspy_module_params, save_dspy_module_state
 from mlflow.tracking import MlflowClient
 
 
@@ -32,7 +33,7 @@ def test_log_dspy_module_state_params():
     program = dspy.Predict("question -> answer")
 
     with mlflow.start_run() as run:
-        log_dspy_module_state_params(program)
+        log_dspy_module_params(program)
 
     run = mlflow.last_active_run()
     assert run.data.params == {
@@ -44,7 +45,7 @@ def test_log_dspy_module_state_params():
     }
 
 
-def test_log_dataset():
+def test_log_dataset(tmp_path):
     dataset = [
         dspy.Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
         dspy.Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
@@ -56,3 +57,12 @@ def test_log_dataset():
     client = MlflowClient()
     artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
     assert "dataset.json" in artifacts
+    client.download_artifacts(run_id=run.info.run_id, path="dataset.json", dst_path=tmp_path)
+    saved_dataset = json.loads((tmp_path / "dataset.json").read_text())
+    assert saved_dataset == {
+        "columns": ["question", "answer"],
+        "data": [
+            ["What is 1 + 1?", "2"],
+            ["What is 2 + 2?", "4"],
+        ],
+    }

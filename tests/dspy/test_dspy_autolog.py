@@ -597,7 +597,7 @@ def test_autolog_log_compile_disable():
     run = mlflow.last_active_run()
     assert run is not None
 
-    # Disable autologging
+    # verify that run is not created when disabling autologging
     mlflow.dspy.autolog(disable=True)
     optimizer.compile(program)
     client = MlflowClient()

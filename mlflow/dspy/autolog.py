@@ -1,6 +1,5 @@
 import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_dataset, save_dspy_module_state
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
@@ -63,6 +62,7 @@ def autolog(
     import dspy
 
     from mlflow.dspy.callback import MlflowCallback
+    from mlflow.dspy.util import log_dspy_dataset, save_dspy_module_state
 
     # Enable tracing by setting the MlflowCallback
     if not disable:

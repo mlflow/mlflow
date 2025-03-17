@@ -2,12 +2,10 @@ import logging
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+
+from dspy import Example
 
 import mlflow
-
-if TYPE_CHECKING:
-    from dspy import Example
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +27,7 @@ def save_dspy_module_state(program, file_name: str = "model.json"):
         _logger.warning("Failed to save dspy module state", exc_info=True)
 
 
-def log_dspy_module_state_params(program):
+def log_dspy_module_params(program):
     """
     Log the parameters of the dspy `Module` as run parameters.
 
@@ -38,7 +36,9 @@ def log_dspy_module_state_params(program):
     """
     try:
         states = program.dump_state()
-        mlflow.log_params(_flatten_dict(states, exclude_keys=("metadata", "lm", "traces", "train")))
+        mlflow.log_params(
+            _flatten_dspy_module_state(states, exclude_keys=("metadata", "lm", "traces", "train"))
+        )
     except Exception:
         _logger.warning("Failed to log dspy module params", exc_info=True)
 
@@ -61,7 +61,7 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
         _logger.warning("Failed to log dataset", exc_info=True)
 
 
-def _flatten_dict(d, parent_key="", sep=".", exclude_keys=()) -> dict:
+def _flatten_dspy_module_state(d, parent_key="", sep=".", exclude_keys=()) -> dict:
     """
     Flattens a nested dictionary and accumulates the key names.
 
@@ -75,7 +75,7 @@ def _flatten_dict(d, parent_key="", sep=".", exclude_keys=()) -> dict:
         dict: A flattened dictionary with accumulated keys.
 
     Example:
-        >>> _flatten_dict({"a": {"b": [5, 6]}})
+        >>> _flatten_dspy_module_state({"a": {"b": [5, 6]}})
         {'a.b.0': 5, 'a.b.1': 6}
     """
     items = {}
@@ -85,15 +85,15 @@ def _flatten_dict(d, parent_key="", sep=".", exclude_keys=()) -> dict:
             if k in exclude_keys:
                 continue
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
-            if hasattr(v, "toDict"):
+            if isinstance(v, Example):
                 v = v.toDict()
-            items.update(_flatten_dict(v, new_key, sep))
+            items.update(_flatten_dspy_module_state(v, new_key, sep))
     elif isinstance(d, list):
         for i, v in enumerate(d):
             new_key = f"{parent_key}{sep}{i}" if parent_key else str(i)
-            if hasattr(v, "toDict"):
+            if isinstance(v, Example):
                 v = v.toDict()
-            items.update(_flatten_dict(v, new_key, sep))
+            items.update(_flatten_dspy_module_state(v, new_key, sep))
     else:
         if d is not None:
             items[parent_key] = d
