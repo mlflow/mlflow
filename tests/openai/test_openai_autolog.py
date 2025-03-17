@@ -636,3 +636,142 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_logged_model_chat_completions(client):
+    mlflow.openai.autolog()
+
+    temperature = [temp / 10 for temp in range(1, 5)]
+    model_infos = []
+    for temp in temperature:
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.openai.log_model(
+                    "gpt-4o-mini",
+                    "chat.completions",
+                    "model",
+                    temperature=temp,
+                    messages=[{"role": "system", "content": "You are an MLflow expert."}],
+                )
+            )
+
+    for model_info in model_infos:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.chat.completions.create(
+            messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
+            model=model_dict["model"],
+            temperature=model_dict["temperature"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(temperature)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        assert model_id is not None
+        assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_logged_model_completions(client):
+    mlflow.openai.autolog()
+
+    temperature = [temp / 10 for temp in range(1, 5)]
+    model_infos = []
+    for temp in temperature:
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.openai.log_model(
+                    "gpt-4o-mini",
+                    "completions",
+                    "model",
+                    temperature=temp,
+                    prompt="Say {text}",
+                )
+            )
+
+    for model_info in model_infos:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.completions.create(
+            prompt=f"test {model_info.model_id}",
+            model=model_dict["model"],
+            temperature=model_dict["temperature"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(temperature)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        assert model_id is not None
+        assert span.inputs["prompt"] == f"test {model_id}"
+
+
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_logged_model_embeddings(client):
+    mlflow.openai.autolog()
+
+    encoding_formats = ["float", "base64"]
+    model_infos = []
+    for encoding_format in encoding_formats:
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.openai.log_model(
+                    "text-embedding-ada-002",
+                    "embeddings",
+                    "model",
+                    encoding_format=encoding_format,
+                )
+            )
+
+    for model_info in model_infos:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.embeddings.create(
+            input=f"test {model_info.model_id}",
+            model=model_dict["model"],
+            encoding_format=model_dict["encoding_format"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(encoding_formats)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        assert model_id is not None
+        assert span.inputs["input"] == f"test {model_id}"
+
+
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_original_model_after_logging(client):
+    mlflow.openai.autolog()
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+    assert model_id == model_info.model_id
+    assert span.inputs["messages"][0]["content"] == f"test {model_id}"

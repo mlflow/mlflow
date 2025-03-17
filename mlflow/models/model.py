@@ -1399,19 +1399,23 @@ class _ModelTracker:
         # thread-safe variable to track active model_id
         self._active_model_id = ContextVar("_active_model_id", default=None)
 
-    def get(self, model: Any) -> Optional[str]:
+    def get(self, model_or_model_key: Any) -> Optional[str]:
         """
-        Get the model ID associated with the given model
+        Get the model ID associated with the given model or the model key
         """
-        model_id_key = id(model)
+        model_id_key = (
+            model_or_model_key if isinstance(model_or_model_key, str) else id(model_or_model_key)
+        )
         with self._model_locks[model_id_key]:
             return self.model_ids.get(model_id_key)
 
-    def set(self, model: Any, model_id: str) -> None:
+    def set(self, model_or_model_key: Any, model_id: str) -> None:
         """
-        Set the model ID associated with the given model
+        Set the model ID associated with the given model or the model key
         """
-        model_id_key = id(model)
+        model_id_key = (
+            model_or_model_key if isinstance(model_or_model_key, str) else id(model_or_model_key)
+        )
         with self._model_locks[model_id_key]:
             self.model_ids[model_id_key] = model_id
 

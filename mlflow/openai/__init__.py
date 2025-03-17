@@ -50,10 +50,11 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import (
+    _generate_model_key,
     async_patched_call,
     patched_agent_get_chat_completion,
     patched_call,
@@ -544,7 +545,7 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
-    return Model.log(
+    mlflow_model = Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.openai,
@@ -568,6 +569,10 @@ def log_model(
         model_id=model_id,
         **kwargs,
     )
+    if mlflow_model.model_id:
+        model_key = _generate_model_key({"model": model, "task": task, **kwargs})
+        _MODEL_TRACKER.set(model_key, mlflow_model.model_id)
+    return mlflow_model
 
 
 def _load_model(path):
@@ -848,7 +853,16 @@ def load_model(model_uri, dst_path=None):
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
-    return _load_model(model_data_path)
+    model = _load_model(model_data_path)
+    mlflow_model = Model.load(local_model_path)
+    if mlflow_model.model_id:
+        model_key = _generate_model_key(model)
+        # Note: if the same model configs are loaded in the same session, the latter
+        # model_id overrides the previous one. Best practice for users is to avoid
+        # loading the same model configs multiple times. Traces will be linked to
+        # the latest model_id.
+        _MODEL_TRACKER.set(model_key, mlflow_model.model_id)
+    return model
 
 
 @experimental
