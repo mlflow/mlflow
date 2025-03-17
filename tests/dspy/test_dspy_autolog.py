@@ -19,7 +19,6 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
-from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking import MlflowClient
 
@@ -29,11 +28,6 @@ from tests.tracing.helper import get_traces, score_in_model_serving
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
-
-
-@pytest.fixture(autouse=True)
-def reset_model_tracker():
-    _MODEL_TRACKER.clear()
 
 
 def test_autolog_lm():
