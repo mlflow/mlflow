@@ -581,6 +581,30 @@ def test_autolog_log_compile(log_compiles):
         assert mlflow.last_active_run() is None
 
 
+def test_autolog_log_compile_disable():
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    # Disable autologging
+    mlflow.dspy.autolog(disable=True)
+    optimizer.compile(program)
+    client = MlflowClient()
+    runs = client.search_runs(run.info.experiment_id)
+    assert len(runs) == 1
+
+
 def test_autolog_log_nested_compile():
     class NestedOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program):

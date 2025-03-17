@@ -30,6 +30,12 @@ def save_dspy_module_state(program, file_name: str = "model.json"):
 
 
 def log_dspy_module_state_params(program):
+    """
+    Log the parameters of the dspy `Module` as run parameters.
+
+    Args:
+        program: The dspy `Module` to be logged.
+    """
     try:
         states = program.dump_state()
         mlflow.log_params(_flatten_dict(states, exclude_keys=("metadata", "lm", "traces", "train")))
@@ -38,6 +44,13 @@ def log_dspy_module_state_params(program):
 
 
 def log_dspy_dataset(dataset: list["Example"], file_name: str):
+    """
+    Log the DSPy dataset as a table.
+
+    Args:
+        dataset: The dataset to be logged.
+        file_name: The name of the file to save the dataset.
+    """
     result = defaultdict(list)
     try:
         for example in dataset:
