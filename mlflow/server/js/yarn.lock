@@ -4303,10 +4303,8 @@ __metadata:
     "@types/jest": "npm:^29.2.4"
     "@types/pako": "npm:^2.0.0"
     "@types/plotly.js": "npm:^1.54.21"
-    "@types/react": "npm:^17.0.50"
-    "@types/react-18": "npm:@types/react@^18.2.20"
-    "@types/react-dom": "npm:^17.0.17"
-    "@types/react-dom-18": "npm:@types/react-dom@^18.2.7"
+    "@types/react": "npm:^18.3.12"
+    "@types/react-dom": "npm:^18.3.1"
     "@types/react-plotly.js": "npm:^2.5.0"
     "@types/react-resizable": "npm:^3.0.3"
     "@types/react-router": "npm:^5.1.20"
@@ -8384,32 +8382,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-18@npm:@types/react@^18.2.20":
-  version: 18.2.20
-  resolution: "@types/react@npm:18.2.20"
-  dependencies:
-    "@types/prop-types": "npm:*"
-    "@types/scheduler": "npm:*"
-    csstype: "npm:^3.0.2"
-  checksum: 10c0/42bab593f14b202a5ee98073ed579f147de9e4dd4dcdefcba19588cf06c0fff83f0a602db535e9ff0c0896a3aa25759841ebddb59a2c7c293cb6981ddee08fd0
-  languageName: node
-  linkType: hard
-
-"@types/react-dom-18@npm:@types/react-dom@^18.2.7":
-  version: 18.2.7
-  resolution: "@types/react-dom@npm:18.2.7"
-  dependencies:
-    "@types/react": "npm:*"
-  checksum: 10c0/bd090f5e1b13765fbc191d9eb720dd152d26c20558221963009189c4636ce11e4c1c976e4cde4a74335f997a2be651af27d3727474a8091424101a83a71eebfb
-  languageName: node
-  linkType: hard
-
-"@types/react-dom@npm:^17.0.17":
-  version: 17.0.17
-  resolution: "@types/react-dom@npm:17.0.17"
-  dependencies:
-    "@types/react": "npm:^17"
-  checksum: 10c0/1e330f6e1c0794562a8d3459357b5b401b6f23185991bdaf9e5025cad7ccace502662b071db765b07b0d79f313be1a7584c5ef775b1062d76585b6b9aec0693c
+"@types/react-dom@npm:^18.3.1":
+  version: 18.3.5
+  resolution: "@types/react-dom@npm:18.3.5"
+  peerDependencies:
+    "@types/react": ^18.0.0
+  checksum: 10c0/b163d35a6b32a79f5782574a7aeb12a31a647e248792bf437e6d596e2676961c394c5e3c6e91d1ce44ae90441dbaf93158efb4f051c0d61e2612f1cb04ce4faa
   languageName: node
   linkType: hard
 
