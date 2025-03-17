@@ -38,6 +38,7 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
@@ -149,6 +150,13 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
         return llama_span._mlflow_span if llama_span else None
 
+    def _get_model_id(self, instance: Any) -> Optional[str]:
+        if model_id := _MODEL_TRACKER.get(instance):
+            return model_id
+        if hasattr(instance, "_mlflow_model_id"):
+            return instance._mlflow_model_id
+        return None
+
     def new_span(
         self,
         id_: str,
@@ -165,6 +173,11 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
+            if model_id := self._get_model_id(instance):
+                attributes = {
+                    **(attributes or {}),
+                    SpanAttributeKey.MODEL_ID: model_id,
+                }
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.

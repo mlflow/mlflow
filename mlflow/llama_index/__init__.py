@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _load_model_code_path,
@@ -22,7 +22,7 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -451,7 +451,7 @@ def log_model(
         model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
-    return Model.log(
+    model = Model.log(
         artifact_path=artifact_path,
         name=name,
         engine_type=engine_type,
@@ -475,6 +475,9 @@ def log_model(
         model_id=model_id,
         **kwargs,
     )
+    if model.model_id and not isinstance(llama_index_model, str):
+        _MODEL_TRACKER.set(llama_index_model, model.model_id)
+    return model
 
 
 def _validate_and_prepare_llama_index_model_or_path(llama_index_model, temp_dir=None):
@@ -552,12 +555,16 @@ def load_model(model_uri, dst_path=None):
     from mlflow.llama_index.serialize_objects import deserialize_settings
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
-    return _load_llama_model(local_model_path, flavor_conf)
+    model = _load_llama_model(local_model_path, flavor_conf)
+    if mlflow_model.model_id:
+        _MODEL_TRACKER.set(model, mlflow_model.model_id)
+    return model
 
 
 def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
@@ -617,3 +624,28 @@ def _autolog(
     """
     TODO: Implement patching logic for autologging models and artifacts.
     """
+
+    from llama_index.core.indices.base import BaseIndex
+
+    for func_name in ["as_chat_engine", "as_query_engine"]:
+        safe_patch(
+            FLAVOR_NAME,
+            BaseIndex,
+            func_name,
+            _patch_as_engine,
+        )
+    # patch subclasses for as_retriever since it's an abstract method
+    for cls in BaseIndex.__subclasses__():
+        safe_patch(
+            FLAVOR_NAME,
+            cls,
+            "as_retriever",
+            _patch_as_engine,
+        )
+
+
+def _patch_as_engine(original, self, *args, **kwargs):
+    engine = original(self, *args, **kwargs)
+    if model_id := _MODEL_TRACKER.get(self):
+        engine._mlflow_model_id = model_id
+    return engine
