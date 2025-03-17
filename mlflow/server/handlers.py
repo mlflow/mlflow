@@ -2680,10 +2680,12 @@ def _search_logged_models():
         },
     )
     models = _get_tracking_store().search_logged_models(
-        experiment_ids=[str(s) for s in request_message.experiment_ids],
+        # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
+        # to avoid serialization issues
+        experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
         max_results=request_message.max_results,
-        order_by=request_message.order_by or None,
+        order_by=list(request_message.order_by) or None,
         page_token=request_message.page_token or None,
     )
     response_message = SearchLoggedModels.Response()
