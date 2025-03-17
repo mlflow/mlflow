@@ -111,6 +111,8 @@ def autolog(
             )
             if trainset := inputs.get("trainset"):
                 log_dspy_dataset(trainset, "trainset.json")
+            if valset := inputs.get("valset"):
+                log_dspy_dataset(valset, "valset.json")
             return program
 
         if isinstance(self, Teleprompter) and get_autologging_config(

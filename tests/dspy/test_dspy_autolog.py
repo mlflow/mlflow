@@ -687,10 +687,10 @@ def test_autolog_log_evals(log_evals):
 @skip_if_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
-        def compile(self, program, eval, trainset):
-            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+        def compile(self, program, eval, trainset, valset):
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
             eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
-            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
             eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
             return program
 
@@ -711,7 +711,7 @@ def test_autolog_log_compile_with_evals():
     optimizer = EvalOptimizer()
 
     mlflow.dspy.autolog(log_compiles=True, log_evals=True)
-    optimizer.compile(program, evaluator, dataset)
+    optimizer.compile(program, evaluator, dataset, dataset)
 
     # callback state
     callback = dspy.settings.callbacks[0]
@@ -727,6 +727,7 @@ def test_autolog_log_compile_with_evals():
     artifacts = (x.path for x in client.list_artifacts(root_run.info.run_id))
     assert "best_model.json" in artifacts
     assert "trainset.json" in artifacts
+    assert "valset.json" in artifacts
     assert root_run.data.metrics == {
         "eval_full": 50.0,
         "eval_minibatch": 100.0,
