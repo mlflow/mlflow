@@ -592,14 +592,15 @@ def _process_pip_requirements(
                 "--color",
                 "never",
                 "--universal",
+                "--no-annotate",
+                "--no-header",
                 "--python-version",
                 PYTHON_VERSION,
                 tmp_file.name,
             ],
             text=True,
         )
-        lines = (l.strip() for l in out.splitlines())
-        sanitized_pip_reqs = [l for l in lines if not l.startswith("#")]
+        sanitized_pip_reqs = out.strip().splitlines()
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
