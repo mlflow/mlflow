@@ -2088,7 +2088,7 @@ class FileStore(AbstractStore):
         )
         if not exists(tag_path):
             raise MlflowException(
-                f"No tag with key: {key!r} in model with ID {model_id!r}.",
+                f"No tag with key {key!r} found for model with ID {model_id!r}.",
                 RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
