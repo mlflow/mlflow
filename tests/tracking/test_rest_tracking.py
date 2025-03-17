@@ -2476,6 +2476,10 @@ def test_set_logged_model_tags(mlflow_client: MlflowClient):
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert loaded_model.tags == {"tag1": "value1", "tag2": "value2"}
 
+    mlflow_client.set_logged_model_tags(model.model_id, {"tag1": "value3"})
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert loaded_model.tags == {"tag1": "value3", "tag2": "value2"}
+
 
 def test_delete_logged_model_tag(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
