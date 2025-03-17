@@ -19,14 +19,21 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking import MlflowClient
 
+from tests.dspy.test_save import CoT
 from tests.tracing.helper import get_traces, score_in_model_serving
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+
+
+@pytest.fixture(autouse=True)
+def reset_model_tracker():
+    _MODEL_TRACKER.clear()
 
 
 def test_autolog_lm():
@@ -714,3 +721,63 @@ def test_autolog_log_compile_with_evals():
             assert run.data.metrics == {"eval": 100.0}
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
+
+
+def test_autolog_link_traces_loaded_model_custom_module():
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+    )
+    dspy_model = CoT()
+
+    model_infos = []
+    for _ in range(5):
+        with mlflow.start_run():
+            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+
+    loaded_model_and_ids = []
+    for model_info in model_infos:
+        loaded_model_and_ids.append(
+            (mlflow.dspy.load_model(model_info.model_uri), model_info.model_id)
+        )
+    mlflow.dspy.autolog()
+    for model, model_id in loaded_model_and_ids:
+        model(model_id)
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        model_id = json.loads(trace.data.request)["args"][0]
+        assert model_id == trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+
+
+def test_autolog_link_traces_logged_model():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                }
+            ]
+            * 3
+        )
+    )
+
+    dspy_model = CoT()
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(dspy_model, "model")
+    dspy_model("test")
+
+    dspy_model2 = CoT()
+    with mlflow.start_run():
+        model_info2 = mlflow.dspy.log_model(dspy_model2, "model2")
+
+    dspy_model2("test")
+    dspy_model("test")
+    traces = get_traces()
+    assert len(traces) == 3
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+    assert traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+    assert traces[2].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id

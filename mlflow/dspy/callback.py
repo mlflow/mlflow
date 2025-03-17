@@ -14,7 +14,9 @@ from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     end_client_span_or_trace,
@@ -294,6 +296,10 @@ class MlflowCallback(BaseCallback):
         prediction_context = get_prediction_context()
         if prediction_context and self._dependencies_schema:
             prediction_context.update(**self._dependencies_schema)
+
+        # we shouldn't cache the model_id in the attributes, as it can change between calls
+        if model_id := _MODEL_TRACKER.get_active_model_id():
+            attributes = {**attributes, SpanAttributeKey.MODEL_ID: model_id}
 
         with maybe_set_prediction_context(prediction_context):
             span = start_client_span_or_trace(
