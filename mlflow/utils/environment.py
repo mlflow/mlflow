@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -574,6 +575,29 @@ def _process_pip_requirements(
 
     if constraints:
         sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+
+    from mlflow.utils import PYTHON_VERSION
+
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        # Write sanitized pip requirements to a temporary file
+        tmp_file.write("\n".join(sanitized_pip_reqs).encode("utf-8"))
+        tmp_file.flush()
+
+        uv = [uv_bin] if (uv_bin := shutil.which("uv")) else [sys.executable, "-m", "uv"]
+        out = subprocess.check_output(
+            [
+                *uv,
+                "pip",
+                "compile",
+                "--universal",
+                "--python-version",
+                PYTHON_VERSION,
+                tmp_file.name,
+            ],
+            text=True,
+        )
+        lines = (l.strip() for l in out.splitlines(keepends=True))
+        sanitized_pip_reqs = [l for l in lines if not l.startswith(b"#")]
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
