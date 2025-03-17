@@ -598,7 +598,7 @@ def _process_pip_requirements(
             ],
             text=True,
         )
-        lines = (l.lstrip() for l in out.splitlines(keepends=True))
+        lines = (l.strip() for l in out.splitlines(keepends=True))
         sanitized_pip_reqs = [l for l in lines if not l.startswith("#")]
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
