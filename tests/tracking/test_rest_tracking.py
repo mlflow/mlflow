@@ -2464,3 +2464,6 @@ def test_finalize_logged_model(mlflow_client: MlflowClient):
     model = mlflow_client.create_logged_model(exp_id)
     finalized_model = mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.READY)
     assert finalized_model.status == LoggedModelStatus.READY
+
+    with pytest.raises(MlflowException, match="Invalid model status"):
+        mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.UNSPECIFIED)
