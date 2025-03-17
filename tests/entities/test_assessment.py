@@ -180,7 +180,7 @@ def test_assessment_value_validation():
         None,
     ],
 )
-def test_assessment_proto_conversion(expectation, feedback, error, source, metadata):
+def test_assessment_conversion(expectation, feedback, error, source, metadata):
     timestamp_ms = int(time.time() * 1000)
     assessment = Assessment(
         trace_id="trace_id",
@@ -202,3 +202,28 @@ def test_assessment_proto_conversion(expectation, feedback, error, source, metad
 
     result = Assessment.from_proto(proto)
     assert result == assessment
+
+    dict = assessment.to_dictionary()
+    assert dict["assessment_id"] == assessment._assessment_id
+    assert dict["trace_id"] == assessment.trace_id
+    assert dict["name"] == assessment.name
+    assert dict["source"] == {
+        "source_type": source.source_type,
+        "source_id": source.source_id,
+    }
+    assert dict["create_time_ms"] == assessment.create_time_ms
+    assert dict["last_update_time_ms"] == assessment.last_update_time_ms
+    assert dict["rationale"] == assessment.rationale
+    assert dict["metadata"] == metadata
+
+    if expectation:
+        assert dict["expectation"] == {"value": expectation.value}
+
+    if feedback:
+        assert dict["feedback"] == feedback.to_dictionary()
+
+    if error:
+        assert dict["error"] == {
+            "error_code": error.error_code,
+            "error_message": error.error_message,
+        }
