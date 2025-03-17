@@ -752,14 +752,22 @@ export const getGroupedRowRenderMetadata = ({
         case 'metrics':
           const aMetricSoryKeyValue = a.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
           const bMetricSoryKeyValue = b.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
-          if (aMetricSoryKeyValue && bMetricSoryKeyValue && aMetricSoryKeyValue !== bMetricSoryKeyValue) {
+          if (
+            aMetricSoryKeyValue !== undefined &&
+            bMetricSoryKeyValue !== undefined &&
+            aMetricSoryKeyValue !== bMetricSoryKeyValue
+          ) {
             return aMetricSoryKeyValue > bMetricSoryKeyValue ? orderByAscVal : -orderByAscVal;
           }
           return 0;
         case 'params':
           const aParamSortKeyValue = a.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
           const bParamSortKeyValue = b.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
-          if (aParamSortKeyValue && bParamSortKeyValue && aParamSortKeyValue !== bParamSortKeyValue) {
+          if (
+            aParamSortKeyValue !== undefined &&
+            bParamSortKeyValue !== undefined &&
+            aParamSortKeyValue !== bParamSortKeyValue
+          ) {
             return aParamSortKeyValue > bParamSortKeyValue ? orderByAscVal : -orderByAscVal;
           }
           return 0;
