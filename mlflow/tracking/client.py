@@ -486,7 +486,7 @@ class MlflowClient:
         Args:
             name: The name of the prompt.
             template: The template text of the prompt. It can contain variables enclosed in
-                single curly braces, e.g. {variable}, which will be replaced with actual values
+                double curly braces, e.g. {{variable}}, which will be replaced with actual values
                 by the `format` method.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
@@ -1336,7 +1336,6 @@ class MlflowClient:
                 f"Span with ID {span_id} is not found or already finished.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-
         span.set_attributes(attributes or {})
         if outputs is not None:
             span.set_outputs(outputs)
