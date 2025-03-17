@@ -1,182 +1,309 @@
 import copy
-from contextlib import contextmanager
-from typing import Optional
 from unittest import mock
 
 import openai
 import pytest
-from openai.types.chat.chat_completion import ChatCompletion, Choice
+
+try:
+    import agents  # noqa: F401
+except ImportError:
+    pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
+
+from agents import Agent, Runner, function_tool, set_default_openai_client, trace
+from agents.tracing import set_trace_processors
+from openai.types.responses.function_tool import FunctionTool
+from openai.types.responses.response import Response
+from openai.types.responses.response_output_item import (
+    ResponseFunctionToolCall,
+    ResponseOutputMessage,
+)
+from openai.types.responses.response_output_text import ResponseOutputText
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.tracing.helper import get_traces
-
-try:
-    from swarm import Agent, Swarm
-except ImportError:
-    pytest.skip("OpenAI Swarm not installed", allow_module_level=True)
+from tests.tracing.helper import get_traces, purge_traces
 
 
-@contextmanager
-def mock_openai(oai_client, expected_responses):
-    original = oai_client.chat.completions.create
+def set_dummy_client(expected_responses):
     expected_responses = copy.deepcopy(expected_responses)
 
-    def _mocked_create(*args, **kwargs):
-        # We need to call the original SDK function because OpenAI autolog patches
-        # it to generate a span for completion.
-        original(*args, **kwargs)
+    async def _mocked_create(*args, **kwargs):
         return expected_responses.pop(0)
 
-    with mock.patch.object(oai_client.chat.completions, "create", side_effect=_mocked_create):
-        yield
+    async_client = openai.AsyncOpenAI(api_key="test")
+    async_client.responses = mock.MagicMock()
+    async_client.responses.create = _mocked_create
+
+    set_default_openai_client(async_client)
 
 
-@pytest.fixture
-def client(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
-    return openai.OpenAI(api_key="test", base_url=mock_openai)
+@pytest.fixture(autouse=True)
+def disable_default_tracing():
+    # Disable default OpenAI tracer
+    set_trace_processors([])
 
 
-def test_autolog_swarm_agent(client):
+@pytest.mark.asyncio
+async def test_autolog_agent():
     mlflow.openai.autolog()
 
     # NB: We have to mock the OpenAI SDK responses to make agent works
     DUMMY_RESPONSES = [
-        _get_chat_completion(tool_call="transfer_to_spanish_agent"),
-        _get_chat_completion(content="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"),
-    ]
-
-    swarm = Swarm(client=client)
-    english_agent = Agent(name="English_Agent", instructions="You only speak English")
-    spanish_agent = Agent(name="Spanish_Agent", instructions="You only speak Spanish")
-
-    def transfer_to_spanish_agent():
-        """Transfer spanish speaking users immediately"""
-        return spanish_agent
-
-    english_agent.functions.append(transfer_to_spanish_agent)
-
-    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
-        messages = [{"role": "user", "content": "Hola.  ¿Como estás?"}]
-        response = swarm.run(agent=english_agent, messages=messages)
-
-    assert response.messages[-1]["content"] == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
-    traces = get_traces()
-    assert len(traces) == 1
-    trace = traces[0]
-    assert trace.info.status == "OK"
-    spans = trace.data.spans
-    assert len(spans) == 6  # 1 root + 1 function call + 2 get_chat_completion + 2 Completions
-    assert spans[0].name == "run"
-    assert spans[0].inputs["agent"]["name"] == "English_Agent"
-    assert spans[0].inputs["messages"] == messages
-    assert (
-        spans[0].outputs["messages"][-1]["content"]
-        == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
-    )
-    assert spans[1].name == "English_Agent.get_chat_completion"
-    assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Completions_1"
-    assert spans[2].parent_id == spans[1].span_id
-    assert spans[3].name == "English_Agent.transfer_to_spanish_agent"
-    assert spans[3].span_type == SpanType.TOOL
-    assert spans[3].inputs == {}
-    assert spans[3].outputs["name"] == "Spanish_Agent"
-    assert spans[3].parent_id == spans[0].span_id
-    assert spans[4].name == "Spanish_Agent.get_chat_completion"
-    assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Completions_2"
-    assert spans[5].parent_id == spans[4].span_id
-
-
-def test_autolog_swarm_agent_with_context_variables(client):
-    mlflow.openai.autolog()
-
-    DUMMY_RESPONSES = [
-        _get_chat_completion(tool_call="print_account_details"),
-        _get_chat_completion(
-            content="Hello, James! Your account details have been successfully printed."
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="Handoff to the appropriate agent based on the language of the request.",
+            output=[
+                ResponseFunctionToolCall(
+                    id="123",
+                    arguments="{}",
+                    call_id="123",
+                    name="transfer_to_spanish_agent",
+                    type="function_call",
+                    status="completed",
+                )
+            ],
+            tools=[
+                FunctionTool(
+                    name="transfer_to_spanish_agent",
+                    parameters={"type": "object", "properties": {}, "required": []},
+                    type="function",
+                    description="Handoff to the Spanish_Agent agent to handle the request.",
+                    strict=False,
+                ),
+            ],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="You only speak Spanish",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
         ),
     ]
 
-    def instructions(context_variables):
-        name = context_variables.get("name", "User")
-        return f"You are a helpful agent. Greet the user by name ({name})."
+    set_dummy_client(DUMMY_RESPONSES)
 
-    def print_account_details(context_variables):
-        user_id = context_variables.get("user_id", None)
-        name = context_variables.get("name", None)
-        print(f"Account Details: {name} {user_id}")  # noqa: T201
-        return "Success"
-
-    swarm = Swarm(client=client)
-    agent = Agent(name="Agent", instructions=instructions, functions=[print_account_details])
-
-    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
-        context_variables = {"name": "James", "user_id": 123}
-        messages = [{"role": "user", "content": "Print my account details!"}]
-
-        response = swarm.run(
-            agent=agent,
-            messages=messages,
-            context_variables=context_variables,
-        )
-
-    assert (
-        response.messages[-1]["content"]
-        == "Hello, James! Your account details have been successfully printed."
+    english_agent = Agent(name="English Agent", instructions="You only speak English")
+    spanish_agent = Agent(name="Spanish Agent", instructions="You only speak Spanish")
+    triage_agent = Agent(
+        name="Triage Agent",
+        instructions="Handoff to the appropriate agent based on the language of the request.",
+        handoffs=[spanish_agent, english_agent],
     )
+
+    messages = [{"role": "user", "content": "Hola.  ¿Como estás?"}]
+    response = await Runner.run(starting_agent=triage_agent, input=messages)
+
+    assert response.final_output == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
     spans = trace.data.spans
-    assert len(spans) == 6  # 1 root + 1 function call + 2 get_chat_completion + 2 Completions
-    assert spans[0].name == "run"
-    assert spans[0].inputs["agent"]["name"] == "Agent"
-    assert spans[0].inputs["messages"] == messages
-    assert (
-        spans[0].outputs["messages"][-1]["content"]
-        == "Hello, James! Your account details have been successfully printed."
-    )
-    assert spans[1].name == "Agent.get_chat_completion_1"
+    assert len(spans) == 6  # 1 root + 2 agent + 1 handoff + 2 response
+    assert spans[0].name == "Agent workflow"
+    assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Completions_1"
+    assert spans[2].name == "Response_1"
     assert spans[2].parent_id == spans[1].span_id
-    assert spans[3].name == "Agent.print_account_details"
-    assert spans[3].span_type == SpanType.TOOL
-    assert spans[3].inputs["context_variables"] == context_variables
-    assert spans[3].outputs == "Success"
-    assert spans[3].parent_id == spans[0].span_id
-    assert spans[4].name == "Agent.get_chat_completion_2"
+    assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
+    assert spans[2].outputs == [
+        {
+            "id": "123",
+            "arguments": "{}",
+            "call_id": "123",
+            "name": "transfer_to_spanish_agent",
+            "type": "function_call",
+            "status": "completed",
+        }
+    ]
+    assert spans[2].attributes["temperature"] == 1
+    assert spans[3].name == "Handoff"
+    assert spans[3].span_type == SpanType.CHAIN
+    assert spans[3].parent_id == spans[1].span_id
+    assert spans[4].name == "Spanish Agent"
     assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Completions_2"
+    assert spans[5].name == "Response_2"
     assert spans[5].parent_id == spans[4].span_id
 
+    # Validate chat attributes
+    assert spans[2].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
+        {
+            "role": "system",
+            "content": "Handoff to the appropriate agent based on the language of the request.",
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": None,
+        },
+        {
+            "role": "user",
+            "content": "Hola.  ¿Como estás?",
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": None,
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "refusal": None,
+            "tool_calls": [
+                {
+                    "id": "123",
+                    "function": {
+                        "name": "transfer_to_spanish_agent",
+                        "arguments": "{}",
+                    },
+                    "type": "function",
+                }
+            ],
+            "tool_call_id": None,
+        },
+    ]
+    assert spans[2].attributes[SpanAttributeKey.CHAT_TOOLS] == [
+        {
+            "function": {
+                "description": "Handoff to the Spanish_Agent agent to handle the request.",
+                "name": "transfer_to_spanish_agent",
+                "parameters": {
+                    "additionalProperties": None,
+                    "properties": {},
+                    "required": [],
+                    "type": "object",
+                },
+                "strict": False,
+            },
+            "type": "function",
+        },
+    ]
+    assert spans[5].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
+        {
+            "role": "system",
+            "content": "You only speak Spanish",
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": None,
+        },
+        {
+            "role": "user",
+            "content": "Hola.  ¿Como estás?",
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": None,
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "refusal": None,
+            "tool_calls": [
+                {
+                    "id": "123",
+                    "function": {
+                        "name": "transfer_to_spanish_agent",
+                        "arguments": "{}",
+                    },
+                    "type": "function",
+                }
+            ],
+            "tool_call_id": None,
+        },
+        {
+            "role": "tool",
+            "content": "{'assistant': 'Spanish Agent'}",
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": "123",
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
+                    "type": "text",
+                }
+            ],
+            "refusal": None,
+            "tool_calls": None,
+            "tool_call_id": None,
+        },
+    ]
+    assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes
 
-def test_autolog_swarm_agent_tool_exception(client):
+
+@pytest.mark.asyncio
+async def test_autolog_agent_tool_exception():
     mlflow.openai.autolog()
 
-    DUMMY_RESPONSES = [_get_chat_completion(tool_call="always_fail")]
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="You are an agent.",
+            output=[
+                ResponseFunctionToolCall(
+                    id="123",
+                    arguments="{}",
+                    call_id="123",
+                    name="always_fail",
+                    type="function_call",
+                    status="completed",
+                )
+            ],
+            tools=[
+                FunctionTool(
+                    name="always_fail",
+                    parameters={"type": "object", "properties": {}, "required": []},
+                    type="function",
+                    strict=False,
+                ),
+            ],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
 
-    swarm = Swarm(client=client)
-
+    @function_tool(failure_error_function=None)  # Set error function None to avoid retry
     def always_fail():
         raise Exception("This function always fails")
 
-    agent = Agent(name="Agent", instructions="You are an agent", functions=[always_fail])
+    set_dummy_client(DUMMY_RESPONSES * 3)
 
-    with mock_openai(client, expected_responses=DUMMY_RESPONSES):
-        messages = [{"role": "user", "content": "Hi!"}]
-        with pytest.raises(Exception, match="This function always fails"):
-            swarm.run(agent=agent, messages=messages)
+    agent = Agent(name="Agent", instructions="You are an agent", tools=[always_fail])
+
+    with pytest.raises(Exception, match="This function always fails"):
+        await Runner.run(agent, [{"role": "user", "content": "Hi!"}])
 
     traces = get_traces()
     assert len(traces) == 1
@@ -186,67 +313,155 @@ def test_autolog_swarm_agent_tool_exception(client):
     assert len(spans) == 4  # 1 root + 1 function call + 1 get_chat_completion + 1 Completions
     assert spans[3].span_type == SpanType.TOOL
     assert spans[3].status.status_code == "ERROR"
-    assert spans[3].status.description == "Exception: This function always fails"
+    assert spans[3].status.description == "Error running tool"
     assert spans[3].events[0].name == "exception"
 
 
-def test_autolog_swarm_agent_completion_exception(client):
+@pytest.mark.asyncio
+async def test_autolog_agent_llm_exception():
     mlflow.openai.autolog()
 
-    swarm = Swarm(client=client)
     agent = Agent(name="Agent", instructions="You are an agent")
+    messages = [{"role": "user", "content": "Hi!"}]
 
-    with mock.patch.object(
-        client.chat.completions, "create", side_effect=RuntimeError("Connection error")
-    ):
-        messages = [{"role": "user", "content": "Hi!"}]
-        with pytest.raises(RuntimeError, match="Connection error"):
-            swarm.run(agent=agent, messages=messages)
+    # Mock OpenAI SDK to raise an exception
+    async_client = openai.AsyncOpenAI(api_key="test")
+    async_client.responses = mock.MagicMock()
+    async_client.responses.create.side_effect = RuntimeError("Connection error")
+    set_default_openai_client(async_client)
+
+    with pytest.raises(RuntimeError, match="Connection error"):
+        await Runner.run(agent, messages)
 
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "ERROR"
     spans = trace.data.spans
-    assert len(spans) == 2  # 1 root + 1 get_chat_completion
-    assert spans[1].status.status_code == "ERROR"
-    assert spans[1].status.description == "RuntimeError: Connection error"
-    assert spans[1].events[0].name == "exception"
+    assert len(spans) == 3
+    assert spans[0].name == "Agent workflow"
+    assert spans[2].status.status_code == "ERROR"
+    assert spans[2].status.description == "Error getting response"
+    assert spans[2].events[0].name == "exception"
+    assert spans[2].events[0].attributes["exception.message"] == "Error getting response"
+    assert spans[2].events[0].attributes["exception.stacktrace"] == '{"error": "Connection error"}'
 
 
-def _get_chat_completion(content: Optional[str] = None, tool_call: Optional[str] = None):
-    from openai.types.chat import ChatCompletionMessage
-    from openai.types.chat.chat_completion_message_tool_call import (
-        ChatCompletionMessageToolCall,
-        Function,
-    )
+@pytest.mark.asyncio
+async def test_autolog_agent_with_manual_trace():
+    mlflow.openai.autolog()
 
-    if tool_call:
-        choice = Choice(
-            finish_reason="tool_calls",
-            index=0,
-            message=ChatCompletionMessage(
-                content="",
-                role="assistant",
-                tool_calls=[
-                    ChatCompletionMessageToolCall(
-                        id="123",
-                        function=Function(
-                            arguments="{}",
-                            name=tool_call,
-                        ),
-                        type="function",
-                    )
-                ],
-            ),
-        )
-    else:
-        choice = Choice(
-            finish_reason="stop",
-            index=0,
-            message=ChatCompletionMessage(content=content, role="assistant"),
-        )
+    # NB: We have to mock the OpenAI SDK responses to make agent works
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="Tell funny jokes.",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="Nice joke",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
 
-    return ChatCompletion(
-        id="123", created=0, model="gpt-4o-mini", object="chat.completion", choices=[choice]
-    )
+    set_dummy_client(DUMMY_RESPONSES)
+
+    agent = Agent(name="Joke agent", instructions="Tell funny jokes.")
+
+    with mlflow.start_span("Parent span"):
+        with trace("Joke workflow"):
+            response = await Runner.run(agent, "Tell me a joke")
+
+    assert response.final_output == "Nice joke"
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    spans = traces[0].data.spans
+    assert len(spans) == 4
+    assert spans[0].name == "Parent span"
+    assert spans[1].name == "Joke workflow"
+    assert spans[2].name == "Joke agent"
+    assert spans[3].name == "Response"
+
+
+@pytest.mark.asyncio
+async def test_disable_enable_autolog():
+    # NB: We have to mock the OpenAI SDK responses to make agent works
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="You are daddy joke teller.",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="Why is Peter Pan always flying?",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
+
+    set_dummy_client(DUMMY_RESPONSES * 5)
+
+    agent = Agent(name="Agent", instructions="You are daddy joke teller")
+    messages = [{"role": "user", "content": "Tell me a joke"}]
+
+    # Enable tracing
+    mlflow.openai.autolog()
+
+    await Runner.run(agent, messages)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+    # Enabling autolog again should not cause duplicate traces
+    mlflow.openai.autolog()
+    mlflow.openai.autolog()
+
+    await Runner.run(agent, messages)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+    # Disable tracing
+    mlflow.openai.autolog(disable=True)
+
+    await Runner.run(agent, messages)
+
+    assert get_traces() == []

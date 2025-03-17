@@ -1,4 +1,5 @@
 import time
+import uuid
 from unittest import mock
 
 import pytest
@@ -132,6 +133,13 @@ def test_create_logged_model_errors(store):
         store.create_logged_model(params=[LoggedModelParameter("a" * 256, "b")])
 
 
+@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+def test_create_logged_model_invalid_name(store: FileStore, name: str):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid model name"):
+        store.create_logged_model(exp_id, name=name)
+
+
 def test_set_logged_model_tags(store):
     exp_id = store.create_experiment("test")
     run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
@@ -156,6 +164,20 @@ def test_set_logged_model_tags_errors(store):
         store.set_logged_model_tags(logged_model.model_id, [LoggedModelTag(None, None)])
     with pytest.raises(MlflowException, match=r"Names may only contain alphanumerics"):
         store.set_logged_model_tags(logged_model.model_id, [LoggedModelTag("a!b", "c")])
+
+
+def test_delete_logged_model_tag(store: FileStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    store.delete_logged_model_tag(model.model_id, "tag1")
+    assert store.get_logged_model(model.model_id).tags == {}
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_logged_model_tag("does-not-exist", "tag1")
+
+    with pytest.raises(MlflowException, match="No tag with key"):
+        store.delete_logged_model_tag(model.model_id, "tag1")
 
 
 def test_get_logged_model(store):

@@ -105,6 +105,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_param,
     _validate_param_keys_unique,
@@ -1711,6 +1712,7 @@ class SqlAlchemyStore(AbstractStore):
         params: Optional[list[LoggedModelParameter]] = None,
         model_type: Optional[str] = None,
     ) -> LoggedModel:
+        _validate_logged_model_name(name)
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -1820,10 +1822,19 @@ class SqlAlchemyStore(AbstractStore):
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
-            session.query(SqlLoggedModelTag).filter(
-                SqlLoggedModelTag.model_id == model_id,
-                SqlLoggedModelTag.tag_key == key,
-            ).delete()
+            count = (
+                session.query(SqlLoggedModelTag)
+                .filter(
+                    SqlLoggedModelTag.model_id == model_id,
+                    SqlLoggedModelTag.tag_key == key,
+                )
+                .delete()
+            )
+            if count == 0:
+                raise MlflowException(
+                    f"No tag with key {key!r} found for model with ID {model_id!r}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
 
     def _apply_order_by_search_logged_models(
         self,
@@ -2071,6 +2082,8 @@ class SqlAlchemyStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2082,6 +2095,9 @@ class SqlAlchemyStore(AbstractStore):
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, search traces associated with the given model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that

@@ -37,10 +37,13 @@ export const PromptContentCompare = ({
 
   const diff = useMemo(() => diffWords(baselineValue ?? '', comparedValue ?? '') ?? [], [baselineValue, comparedValue]);
 
-  const colors = {
-    addedBackground: theme.colors.green300,
-    removedBackground: theme.colors.red300,
-  };
+  const colors = useMemo(
+    () => ({
+      addedBackground: theme.isDarkMode ? theme.colors.green700 : theme.colors.green300,
+      removedBackground: theme.isDarkMode ? theme.colors.red700 : theme.colors.red300,
+    }),
+    [theme],
+  );
 
   return (
     <div

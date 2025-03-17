@@ -5,13 +5,22 @@ import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { usePromptSourceRunsInfo } from '../hooks/usePromptSourceRunsInfo';
+import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
+import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
+import { useCallback, useMemo } from 'react';
+import { PromptVersionRuns } from './PromptVersionRuns';
+import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
+import { PromptVersionTags } from './PromptVersionTags';
+
+const MAX_VISIBLE_TAGS = 3;
 
 export const PromptVersionMetadata = ({
   registeredPromptVersion,
   registeredPrompt,
   showEditAliasesModal,
   onEditVersion,
+  showEditPromptVersionMetadataModal,
   aliasesByVersion,
   isBaseline,
 }: {
@@ -19,18 +28,27 @@ export const PromptVersionMetadata = ({
   registeredPromptVersion?: RegisteredPromptVersion;
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditVersion?: (vesrion: RegisteredPromptVersion) => void;
+  showEditPromptVersionMetadataModal?: (version: RegisteredPromptVersion) => void;
   aliasesByVersion: Record<string, string[]>;
   isBaseline?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    isLoading: isLoadingSourceRun,
-    sourceRunInfos: [sourceRunInfo],
-  } = usePromptSourceRunsInfo(registeredPromptVersion ? [registeredPromptVersion] : []);
+
+  const runIds = useMemo(() => {
+    const tagValue = registeredPromptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_SOURCE_RUN_IDS)?.value;
+    if (!tagValue) {
+      return [];
+    }
+    return tagValue.split(',').map((runId) => runId.trim());
+  }, [registeredPromptVersion]);
+
+  const { isLoading: isLoadingRuns, runInfoMap } = usePromptRunsInfo(runIds ? runIds : []);
 
   if (!registeredPrompt || !registeredPromptVersion) {
     return null;
   }
+
+  const visibleTagList = registeredPromptVersion?.tags?.filter((tag) => isUserFacingTag(tag.key)) || [];
 
   const versionElement = (
     <FormattedMessage
@@ -39,6 +57,12 @@ export const PromptVersionMetadata = ({
       description="A label for the version number in the prompt details page"
     />
   );
+
+  const onEditVersionMetadata = showEditPromptVersionMetadataModal
+    ? () => {
+        showEditPromptVersionMetadataModal(registeredPromptVersion);
+      }
+    : undefined;
 
   return (
     <div
@@ -94,27 +118,6 @@ export const PromptVersionMetadata = ({
           }}
         />
       </div>
-      {(isLoadingSourceRun || sourceRunInfo) && (
-        <>
-          <Typography.Text bold>
-            <FormattedMessage
-              defaultMessage="Source run:"
-              description="A label for the source run in the prompt details page"
-            />
-          </Typography.Text>
-          <Typography.Text>
-            {isLoadingSourceRun ? (
-              <ParagraphSkeleton css={{ width: 100 }} />
-            ) : sourceRunInfo?.experimentId && sourceRunInfo?.runUuid && sourceRunInfo?.runName ? (
-              <Link to={Routes.getRunPageRoute(sourceRunInfo.experimentId, sourceRunInfo.runUuid)}>
-                {sourceRunInfo.runName}
-              </Link>
-            ) : (
-              <>{sourceRunInfo?.runName || sourceRunInfo?.runUuid}</>
-            )}
-          </Typography.Text>
-        </>
-      )}
       {registeredPromptVersion.description && (
         <>
           <Typography.Text bold>
@@ -125,6 +128,10 @@ export const PromptVersionMetadata = ({
           </Typography.Text>
           <Typography.Text>{registeredPromptVersion.description}</Typography.Text>
         </>
+      )}
+      <PromptVersionTags onEditVersionMetadata={onEditVersionMetadata} tags={visibleTagList} />
+      {(isLoadingRuns || runIds.length > 0) && (
+        <PromptVersionRuns isLoadingRuns={isLoadingRuns} runIds={runIds} runInfoMap={runInfoMap} />
       )}
     </div>
   );

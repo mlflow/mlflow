@@ -11,8 +11,8 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.langchain import _LOADED_MODEL_TRACKER
 from mlflow.langchain.runnables import get_runnable_steps
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
 from mlflow.utils.autologging_utils import get_autologging_config
@@ -64,28 +64,17 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     def _invoke(self, *args, **kwargs):
         with disable_patching():
+            _MODEL_TRACKER.set_active_model_id(self)
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
 
-    if mid := _LOADED_MODEL_TRACKER.last_model_id:
-        model_id = mid
-    elif config.log_models:
-        logged_model = mlflow.create_logged_model(name="model")
-        model_id = logged_model.model_id
-        _LOADED_MODEL_TRACKER.last_model_id = model_id
-    else:
-        model_id = None
-
     if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
         with _setup_autolog_run(config, self) as run_id:
-            result = _invoke(self, *args, **kwargs)
-            _log_optional_artifacts(
-                config, run_id, result, self, func_name, model_id, *args, **kwargs
-            )
+            _log_optional_artifacts(config, run_id, self, func_name, *args, **kwargs)
+            return _invoke(self, *args, **kwargs)
     else:
-        result = _invoke(self, *args, **kwargs)
-    return result
+        return _invoke(self, *args, **kwargs)
 
 
 @contextlib.contextmanager
@@ -247,10 +236,8 @@ def _chain_with_retriever(model):
 def _log_optional_artifacts(
     autolog_config,
     run_id,
-    result,
     self,
     func_name,
-    model_id,
     *args,
     **kwargs,
 ):
@@ -277,14 +264,16 @@ def _log_optional_artifacts(
             )
             try:
                 with disable_patching():
-                    mlflow.langchain.log_model(
+                    # if the model is loaded, we don't need to pass the model_id to log model again
+                    # if the model is logged first time, a model_id is automatically generated
+                    model_info = mlflow.langchain.log_model(
                         self,
                         name="model",
                         input_example=input_example,
                         registered_model_name=registered_model_name,
                         run_id=run_id,
-                        model_id=model_id,
                     )
+                    _MODEL_TRACKER.set(self, model_info.model_id)
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")
         # only try logging model once, even if it can't be logged
@@ -301,5 +290,3 @@ def _log_optional_artifacts(
         if not hasattr(self, "session_id"):
             self.session_id = uuid.uuid4().hex
         self.inference_id = getattr(self, "inference_id", 0) + 1
-
-    return result

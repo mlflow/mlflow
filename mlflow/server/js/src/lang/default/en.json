@@ -3,10 +3,6 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
-  "+8r+vG": {
-    "defaultMessage": "Tags",
-    "description": "Label for the tags on the registered prompt details page"
-  },
   "+Dnww0": {
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
@@ -70,10 +66,6 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
-  },
-  "/WoeqX": {
-    "defaultMessage": "Created at",
-    "description": "Label for the creation time on the registered prompt details page"
   },
   "/XlqZA": {
     "defaultMessage": "Service unavailable error",
@@ -318,6 +310,10 @@
   "4B8k46": {
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
+  },
+  "4GPLHq": {
+    "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
+    "description": "Description for the edit aliases modal on the registered prompt details page"
   },
   "4HbEVz": {
     "defaultMessage": "You need to select a served model endpoint using dropdown first",
@@ -671,6 +667,10 @@
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
   },
+  "9ZHB3D": {
+    "defaultMessage": "MLflow runs:",
+    "description": "A label for the associated MLflow runs in the prompt details page"
+  },
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
@@ -1019,6 +1019,10 @@
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
   },
+  "GgPNAZ": {
+    "defaultMessage": "Metadata:",
+    "description": "A key-value pair for the metadata in the prompt details page"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
@@ -1055,9 +1059,9 @@
     "defaultMessage": "Monitoring",
     "description": "A button enabling evaluation results monitoring mode on the experiment page"
   },
-  "Hboqen": {
-    "defaultMessage": "Failed to load chart",
-    "description": "Title for the error message when the MLflow chart fails to load"
+  "HZdpLU": {
+    "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
+    "description": "A validation state for the prompt name format in the prompt creation modal"
   },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
@@ -1150,6 +1154,10 @@
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
+  },
+  "JGQ5B2": {
+    "defaultMessage": "Add",
+    "description": "Model registry > model version table > metadata column > 'add' button label"
   },
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
@@ -1475,10 +1483,6 @@
     "defaultMessage": "No parameters match the search filter",
     "description": "Run page > Overview > Parameters table > No results after filtering"
   },
-  "QGvFrd": {
-    "defaultMessage": "Updated at",
-    "description": "Label for the last update time on the registered prompt details page"
-  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -1646,6 +1650,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UCQwvo": {
+    "defaultMessage": "Registered prompts",
+    "description": "Run page > Overview > Run prompts section label"
   },
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
@@ -2019,6 +2027,10 @@
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
   },
+  "b0KTgh": {
+    "defaultMessage": "Add/edit alias for prompt version {version}",
+    "description": "Title for the edit aliases modal on the registered prompt details page"
+  },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
@@ -2291,9 +2303,9 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
-  "fhaHvd": {
-    "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
-    "description": "Description for the error message when the MLflow chart fails to load"
+  "fh6RWb": {
+    "defaultMessage": "{count} more...",
+    "description": "Label for a link that renders the remaining tags when clicked"
   },
   "fjM/KK": {
     "defaultMessage": "Group by",
@@ -2438,10 +2450,6 @@
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
-  },
-  "iBQaZu": {
-    "defaultMessage": "Source run:",
-    "description": "A label for the source run in the prompt details page"
   },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
@@ -2847,6 +2855,10 @@
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
   },
+  "pVF+2s": {
+    "defaultMessage": "Show less",
+    "description": "Label for a link that shows less tags when clicked"
+  },
   "paQ2Wc": {
     "defaultMessage": "Stage (deprecated)",
     "description": "Label name for the deprecated stage metadata in model version page"
@@ -2886,10 +2898,6 @@
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
-  },
-  "qKOmsJ": {
-    "defaultMessage": "Source runs",
-    "description": "Label for the related runs on the registered prompt details page"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
@@ -3374,5 +3382,9 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zxfWCx": {
+    "defaultMessage": "Add/Edit Prompt Version Metadata",
+    "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
   }
 }

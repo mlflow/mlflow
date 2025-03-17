@@ -12,18 +12,15 @@ import {
   OverflowIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
-  Space,
   Spacer,
   TableIcon,
   TableSkeleton,
-  Typography,
   useDesignSystemTheme,
   ZoomMarqueeSelection,
 } from '@databricks/design-system';
-import { PromptDetailsMetadata } from './components/PromptDetailsMetadata';
 import { FormattedMessage } from 'react-intl';
 import { PromptVersionsTableMode } from './utils';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Routes from '../../routes';
 import { CreatePromptModalMode, useCreatePromptModal } from './hooks/useCreatePromptModal';
 import { useDeletePromptModal } from './hooks/useDeletePromptModal';
@@ -32,11 +29,21 @@ import { useEditRegisteredModelAliasesModal } from '../../../model-registry/hook
 import { usePromptDetailsPageViewState } from './hooks/usePromptDetailsPageViewState';
 import { PromptContentPreview } from './components/PromptContentPreview';
 import { PromptContentCompare } from './components/PromptContentCompare';
-import { NotFoundError, PredefinedError, UnauthorizedError } from '../../../shared/web-shared/errors';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { first, isEmpty } from 'lodash';
+import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
+import { PromptNotFoundView } from './components/PromptNotFoundView';
+import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
+
+const getAliasesModalTitle = (version: string) => (
+  <FormattedMessage
+    defaultMessage="Add/edit alias for prompt version {version}"
+    description="Title for the edit aliases modal on the registered prompt details page"
+    values={{ version }}
+  />
+);
 
 const PromptsDetailsPage = () => {
   const { promptName } = useParams<{ promptName: string }>();
@@ -62,6 +69,10 @@ const PromptsDetailsPage = () => {
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptModal({
     registeredPrompt: promptDetailsData?.prompt,
     onSuccess: () => navigate(Routes.promptsPageRoute),
+  });
+
+  const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
+    onSuccess: refetch,
   });
 
   const {
@@ -103,11 +114,19 @@ const PromptsDetailsPage = () => {
   const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
     model: promptDetailsData?.prompt || null,
     onSuccess: refetch,
+    modalTitle: getAliasesModalTitle,
+    modalDescription: (
+      <FormattedMessage
+        // TODO: add a documentation link ("Learn more")
+        defaultMessage="Aliases allow you to assign a mutable, named reference to a particular prompt version."
+        description="Description for the edit aliases modal on the registered prompt details page"
+      />
+    ),
   });
 
-  // If the load error occurs, throw the error into the error boundary
+  // If the load error occurs, show not found page
   if (promptLoadError) {
-    throw promptLoadError;
+    return <PromptNotFoundView promptName={promptName} />;
   }
 
   const breadcrumbs = (
@@ -160,15 +179,10 @@ const PromptsDetailsPage = () => {
           </>
         }
       />
+      <PromptsListTableTagsBox onTagsUpdated={refetch} promptEntity={promptDetailsData?.prompt} />
       <Spacer shrinks={false} />
-      <PromptDetailsMetadata
-        promptEntity={promptDetailsData?.prompt}
-        promptVersions={promptDetailsData?.versions}
-        onTagsUpdated={refetch}
-      />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: showPreviewPane ? '0 0 320px' : 1, display: 'flex', flexDirection: 'column' }}>
-          <Typography.Title level={3}>Prompt versions</Typography.Title>
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="mlflow.prompts.details.mode"
@@ -242,6 +256,7 @@ const PromptsDetailsPage = () => {
                   aliasesByVersion={aliasesByVersion}
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
+                  showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
                 />
               )}
               {mode === PromptVersionsTableMode.COMPARE && (
@@ -263,6 +278,7 @@ const PromptsDetailsPage = () => {
       {EditAliasesModal}
       {CreatePromptModal}
       {DeletePromptModal}
+      {EditPromptVersionMetadataModal}
     </ScrollablePageWrapper>
   );
 };

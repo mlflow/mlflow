@@ -92,8 +92,8 @@ export const ExperimentViewDescriptionNotes = ({
       {(tmpNote ?? defaultValue) && (
         <div
           style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre',
-            lineHeight: theme.typography.lineHeightSm,
+            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
+            lineHeight: theme.typography.lineHeightLg,
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -108,6 +108,7 @@ export const ExperimentViewDescriptionNotes = ({
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              wordBreak: 'break-word',
             }}
           >
             <div

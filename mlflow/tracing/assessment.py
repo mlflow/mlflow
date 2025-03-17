@@ -203,6 +203,7 @@ def log_feedback(
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
+            source=source,
             value=0.9,
             rationale="The model is faithful to the input.",
             metadata={"model": "gpt-4o-mini"},
@@ -235,11 +236,13 @@ def log_feedback(
         )
 
     """
+    if value is None and error is None:
+        raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
     return MlflowClient().log_assessment(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
-        feedback=Feedback(value) if value is not None else None,
+        feedback=Feedback(value),
         error=error,
         rationale=rationale,
         metadata=metadata,

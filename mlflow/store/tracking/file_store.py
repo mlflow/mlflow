@@ -106,6 +106,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
     _validate_param,
@@ -1890,6 +1891,8 @@ class FileStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ):
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1903,6 +1906,9 @@ class FileStore(AbstractStore):
                       we sort by timestamp_ms DESC.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -1970,6 +1976,7 @@ class FileStore(AbstractStore):
         Returns:
             The created model.
         """
+        _validate_logged_model_name(name)
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
@@ -2060,6 +2067,31 @@ class FileStore(AbstractStore):
             make_containing_dirs(tag_path)
             # Don't add trailing newline
             write_to(tag_path, self._writeable_value(tag.value))
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: The string key of the tag.
+
+        Returns:
+            None
+        """
+        _validate_tag_name(key)
+        model = self.get_logged_model(model_id)
+        tag_path = os.path.join(
+            self._get_model_dir(model.experiment_id, model.model_id),
+            FileStore.TAGS_FOLDER_NAME,
+            key,
+        )
+        if not exists(tag_path):
+            raise MlflowException(
+                f"No tag with key {key!r} found for model with ID {model_id!r}.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        os.remove(tag_path)
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """

@@ -7,6 +7,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -437,9 +438,10 @@ class AbstractStore:
         self._await_model_version_creation_impl(mv, await_creation_for)
 
     def _await_model_version_creation_impl(self, mv, await_creation_for, hint=""):
+        entity_type = "Prompt" if has_prompt_tag(mv.tags) else "Model"
         _logger.info(
-            f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-            f"Model name: {mv.name}, version {mv.version}",
+            f"Waiting up to {await_creation_for} seconds for {entity_type.lower()} version to "
+            f"finish creation. {entity_type} name: {mv.name}, version {mv.version}",
         )
         max_time = time() + await_creation_for
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
@@ -456,6 +458,6 @@ class AbstractStore:
             sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(
-                f"Model version creation failed for model name: {mv.name} version: "
-                f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
+                f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
+                f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )

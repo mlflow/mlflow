@@ -4674,6 +4674,13 @@ def test_create_logged_model(store: SqlAlchemyStore):
         store.create_logged_model(experiment_id=exp_id)
 
 
+@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+def test_create_logged_model_invalid_name(store: SqlAlchemyStore, name: str):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid model name"):
+        store.create_logged_model(exp_id, name=name)
+
+
 def test_get_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -4734,10 +4741,11 @@ def test_delete_logged_model_tag(store: SqlAlchemyStore):
     store.delete_logged_model_tag(model.model_id, "tag1")
     assert store.get_logged_model(model.model_id).tags == {}
 
-    store.delete_logged_model_tag(model.model_id, "tag1")
-
     with pytest.raises(MlflowException, match="not found"):
         store.delete_logged_model_tag("does-not-exist", "tag1")
+
+    with pytest.raises(MlflowException, match="No tag with key"):
+        store.delete_logged_model_tag(model.model_id, "tag1")
 
 
 def test_search_logged_models(store: SqlAlchemyStore):
