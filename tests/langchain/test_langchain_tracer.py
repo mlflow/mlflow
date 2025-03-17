@@ -697,13 +697,15 @@ def test_tracer_with_manual_traces():
 
 
 def test_serialize_invocation_params_success():
+    PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+
     class DummyModel(pydantic.BaseModel):
         field: str
 
     callback = MlflowLangchainTracer()
     attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
     result = callback._serialize_invocation_params(attributes)
-    expected_schema = DummyModel.model_json_schema()
+    expected_schema = DummyModel.model_json_schema() if PYDANTIC_V2 else DummyModel.schema()
     assert "invocation_params" in result
     assert "response_format" in result["invocation_params"]
     assert result["invocation_params"]["response_format"] == expected_schema
@@ -721,7 +723,7 @@ def test_serialize_invocation_params_failure():
     callback = MlflowLangchainTracer()
     attributes = {"invocation_params": {"response_format": FaultyModel, "other_param": "preserved"}}
     result = callback._serialize_invocation_params(attributes)
-    assert result["invocation_params"]["response_format"] == str(FaultyModel)
+    assert result["invocation_params"]["response_format"] == FaultyModel
     assert result["invocation_params"]["other_param"] == "preserved"
 
 

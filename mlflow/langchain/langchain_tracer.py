@@ -39,6 +39,8 @@ _logger = logging.getLogger(__name__)
 
 _should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
 
+PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+
 
 def patched_callback_manager_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
@@ -158,12 +160,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         response_format = invocation_params.get("response_format")
         if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
             try:
-                invocation_params["response_format"] = response_format.model_json_schema()
+                invocation_params["response_format"] = (
+                    response_format.model_json_schema() if PYDANTIC_V2 else response_format.schema()
+                )
             except Exception as e:
                 _logger.error(
                     "Failed to generate JSON schema for response_format: %s", e, exc_info=True
                 )
-                invocation_params["response_format"] = str(response_format)
         return attributes
 
     def _start_span(
