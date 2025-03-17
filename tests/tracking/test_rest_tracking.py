@@ -2491,3 +2491,22 @@ def test_delete_logged_model_tag(mlflow_client: MlflowClient):
 
     with pytest.raises(MlflowException, match="No tag with key"):
         mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
+
+
+def test_search_logged_models(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model_1 = mlflow_client.create_logged_model(exp_id)
+    time.sleep(0.001)  # to ensure different created time
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert [m.name for m in models] == [model_1.name]
+
+    model_2 = mlflow_client.create_logged_model(exp_id)
+    page_1 = mlflow_client.search_logged_models(experiment_ids=[exp_id], max_results=1)
+    assert [m.name for m in page_1] == [model_2.name]
+    assert page_1.token is not None
+
+    page_2 = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], max_results=1, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
