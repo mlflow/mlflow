@@ -50,7 +50,7 @@ pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/m
 For Databricks, use the following command:
 
 \`\`\`
-%sh curl -sL https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | bash -s ${issue_number}
+%sh curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s ${issue_number}
 \`\`\`
 
 </p>
