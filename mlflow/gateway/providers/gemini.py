@@ -9,23 +9,43 @@ from mlflow.gateway.schemas import embeddings
 class GeminiAdapter(ProviderAdapter):
     @classmethod
     def embeddings_to_model(cls, payload, config):
-        # Documentation: (https://ai.google.dev/api/embeddings#v1beta.ContentEmbedding):
-        #     ```{"requests": [{
-        #   "model": "models/text-embedding-004",
-        #   "content": {
-        #   "parts":[{
-        #     "text": "What is the meaning of life?"}]}, },
-        #   {
-        #   "model": "models/text-embedding-004",
-        #   "content": {
-        #   "parts":[{
-        #     "text": "How much wood would a woodchuck chuck?"}]}, },
-        #   {
-        #   "model": "models/text-embedding-004",
-        #   "content": {
-        #   "parts":[{
-        #     "text": "How does the brain work?"}]}, }, ]}
-        # ```
+        # Example payload for the embedding API.
+        # Documentation: https://ai.google.dev/api/embeddings#v1beta.ContentEmbedding
+        #
+        # {
+        #     "requests": [
+        #         {
+        #             "model": "models/text-embedding-004",
+        #             "content": {
+        #                 "parts": [
+        #                     {
+        #                         "text": "What is the meaning of life?"
+        #                     }
+        #                 ]
+        #             }
+        #         },
+        #         {
+        #             "model": "models/text-embedding-004",
+        #             "content": {
+        #                 "parts": [
+        #                     {
+        #                         "text": "How much wood would a woodchuck chuck?"
+        #                     }
+        #                 ]
+        #             }
+        #         },
+        #         {
+        #             "model": "models/text-embedding-004",
+        #             "content": {
+        #                 "parts": [
+        #                     {
+        #                         "text": "How does the brain work?"
+        #                     }
+        #                 ]
+        #             }
+        #         }
+        #     ]
+        # }
 
         texts = payload["input"]
         if isinstance(texts, str):
@@ -43,8 +63,9 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_embeddings(cls, resp, config):
-        # Documentation (https://ai.google.dev/api/embeddings#v1beta.ContentEmbedding):
-        # ```
+        # Documentation: https://ai.google.dev/api/embeddings#v1beta.ContentEmbedding
+        #
+        # Example Response:
         # {
         #   "embeddings": [
         #     {
@@ -52,7 +73,7 @@ class GeminiAdapter(ProviderAdapter):
         #         3.25,
         #         0.7685547,
         #         2.65625,
-        #         ...
+        #         ...,
         #         -0.30126953,
         #         -2.3554688,
         #         1.2597656
@@ -60,7 +81,6 @@ class GeminiAdapter(ProviderAdapter):
         #     }
         #   ]
         # }
-        # ```
 
         data = [
             embeddings.EmbeddingObject(embedding=item.get("values", []), index=i)

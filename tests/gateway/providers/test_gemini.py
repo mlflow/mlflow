@@ -49,20 +49,20 @@ async def test_gemini_single_embedding():
     ) as mock_post:
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
 
-        expected_data = [embeddings.EmbeddingObject(embedding=[0.1, 0.2, 0.3], index=0)]
-        expected_response = {
-            "object": "list",
-            "data": jsonable_encoder(expected_data),
-            "model": "text-embedding-004",
-            "usage": {"prompt_tokens": None, "total_tokens": None},
-        }
-        assert jsonable_encoder(response) == expected_response
+    expected_data = [embeddings.EmbeddingObject(embedding=[0.1, 0.2, 0.3], index=0)]
+    expected_response = {
+        "object": "list",
+        "data": jsonable_encoder(expected_data),
+        "model": "text-embedding-004",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
+    assert jsonable_encoder(response) == expected_response
 
-        mock_post.assert_called_once_with(
-            expected_url,
-            json=expected_payload,
-            timeout=mock.ANY,
-        )
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
 
 
 @pytest.mark.asyncio
@@ -91,21 +91,21 @@ async def test_gemini_batch_embedding():
     ) as mock_post:
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
 
-        expected_data = [
-            embeddings.EmbeddingObject(embedding=[0.1, 0.2, 0.3], index=0),
-            embeddings.EmbeddingObject(embedding=[0.4, 0.5, 0.6], index=1),
-        ]
-        expected_response = {
-            "object": "list",
-            "data": jsonable_encoder(expected_data),
-            "model": "text-embedding-004",
-            "usage": {"prompt_tokens": None, "total_tokens": None},
-        }
+    expected_data = [
+        embeddings.EmbeddingObject(embedding=[0.1, 0.2, 0.3], index=0),
+        embeddings.EmbeddingObject(embedding=[0.4, 0.5, 0.6], index=1),
+    ]
+    expected_response = {
+        "object": "list",
+        "data": jsonable_encoder(expected_data),
+        "model": "text-embedding-004",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
 
-        assert jsonable_encoder(response) == expected_response
+    assert jsonable_encoder(response) == expected_response
 
-        mock_post.assert_called_once_with(
-            expected_url,
-            json=expected_payload,
-            timeout=mock.ANY,
-        )
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
