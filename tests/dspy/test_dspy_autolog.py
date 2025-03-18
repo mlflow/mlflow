@@ -711,7 +711,7 @@ def test_autolog_log_compile_with_evals():
     optimizer = EvalOptimizer()
 
     mlflow.dspy.autolog(log_compiles=True, log_evals=True)
-    optimizer.compile(program, evaluator, dataset, dataset)
+    optimizer.compile(program, evaluator, trainset=dataset, valset=dataset)
 
     # callback state
     callback = dspy.settings.callbacks[0]

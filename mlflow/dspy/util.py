@@ -2,6 +2,7 @@ import logging
 import tempfile
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 from dspy import Example
 
@@ -61,7 +62,9 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
         _logger.warning("Failed to log dataset", exc_info=True)
 
 
-def _flatten_dspy_module_state(d, parent_key="", sep=".", exclude_keys=()) -> dict:
+def _flatten_dspy_module_state(
+    d, parent_key="", sep=".", exclude_keys: Optional[set] = None
+) -> dict:
     """
     Flattens a nested dictionary and accumulates the key names.
 
@@ -82,7 +85,7 @@ def _flatten_dspy_module_state(d, parent_key="", sep=".", exclude_keys=()) -> di
 
     if isinstance(d, dict):
         for k, v in d.items():
-            if k in exclude_keys:
+            if exclude_keys and k in exclude_keys:
                 continue
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, Example):

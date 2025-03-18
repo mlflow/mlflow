@@ -105,6 +105,7 @@ def autolog(
             # Save the state of the best model in json format
             # so that users can see the demonstrations and instructions.
             save_dspy_module_state(program, "best_model.json")
+            # Construct the dict of arguments passed to the compile call
             inputs = construct_full_inputs(original, self, *args, **kwargs)
             mlflow.log_params(
                 {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
