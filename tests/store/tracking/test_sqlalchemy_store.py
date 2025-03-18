@@ -4841,9 +4841,9 @@ def test_search_logged_models_order_by(store: SqlAlchemyStore):
     models = store.search_logged_models(experiment_ids=[exp_id])
     assert [m.name for m in models] == [model_2.name, model_1.name]
 
-    # Should be sorted by creation time in descending order by default
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": True}]
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "creation_timestamp", "ascending": True}],
     )
     assert [m.name for m in models] == [model_1.name, model_2.name]
 
