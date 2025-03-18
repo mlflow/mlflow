@@ -64,7 +64,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     def _invoke(self, *args, **kwargs):
         with disable_patching():
-            _MODEL_TRACKER.set_active_model_id(self)
+            _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
@@ -273,7 +273,7 @@ def _log_optional_artifacts(
                         registered_model_name=registered_model_name,
                         run_id=run_id,
                     )
-                    _MODEL_TRACKER.set(self, model_info.model_id)
+                    _MODEL_TRACKER.set(id(self), model_info.model_id)
             except Exception as e:
                 _logger.warning(f"Failed to log model due to error {e}.")
         # only try logging model once, even if it can't be logged
