@@ -41,7 +41,7 @@ def test_log_dspy_module_state_params():
         "Predict.signature.fields.0.prefix": "Question:",
         "Predict.signature.fields.1.description": "${answer}",
         "Predict.signature.fields.1.prefix": "Answer:",
-        "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+        "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
     }
 
 

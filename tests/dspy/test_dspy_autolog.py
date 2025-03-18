@@ -678,7 +678,7 @@ def test_autolog_log_evals(log_evals):
             "Predict.signature.fields.0.prefix": "Question:",
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
-            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
         }
     else:
         assert run is None
@@ -753,5 +753,5 @@ def test_autolog_log_compile_with_evals():
             "Predict.signature.fields.0.prefix": "Question:",
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
-            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
         }
