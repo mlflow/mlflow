@@ -65,7 +65,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    autologging_is_disabled,
+    safe_patch,
+)
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -861,6 +865,12 @@ def load_model(model_uri, dst_path=None):
         # model_id overrides the previous one. Best practice for users is to avoid
         # loading the same model configs multiple times. Traces will be linked to
         # the latest model_id.
+        if _MODEL_TRACKER.get(model_identity) and not autologging_is_disabled(FLAVOR_NAME):
+            _logger.warning(
+                "A model with the same configuration was loaded previously. Traces generated from "
+                "identical configurations will be linked to the newly loaded "
+                f"model {mlflow_model.model_id}."
+            )
         _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
     return model
 

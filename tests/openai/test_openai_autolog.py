@@ -642,9 +642,9 @@ async def test_response_format(client):
 async def test_autolog_link_traces_to_logged_model_chat_completions(client):
     mlflow.openai.autolog()
 
-    temperature = [temp / 10 for temp in range(1, 5)]
+    temperatures = [temp / 10 for temp in range(1, 5)]
     model_infos = []
-    for temp in temperature:
+    for temp in temperatures:
         with mlflow.start_run():
             model_infos.append(
                 mlflow.openai.log_model(
@@ -667,7 +667,7 @@ async def test_autolog_link_traces_to_logged_model_chat_completions(client):
             await resp
 
     traces = get_traces()
-    assert len(traces) == len(temperature)
+    assert len(traces) == len(temperatures)
     for trace in traces:
         span = trace.data.spans[0]
         model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
@@ -679,9 +679,9 @@ async def test_autolog_link_traces_to_logged_model_chat_completions(client):
 async def test_autolog_link_traces_to_logged_model_completions(client):
     mlflow.openai.autolog()
 
-    temperature = [temp / 10 for temp in range(1, 5)]
+    temperatures = [temp / 10 for temp in range(1, 5)]
     model_infos = []
-    for temp in temperature:
+    for temp in temperatures:
         with mlflow.start_run():
             model_infos.append(
                 mlflow.openai.log_model(
@@ -704,7 +704,7 @@ async def test_autolog_link_traces_to_logged_model_completions(client):
             await resp
 
     traces = get_traces()
-    assert len(traces) == len(temperature)
+    assert len(traces) == len(temperatures)
     for trace in traces:
         span = trace.data.spans[0]
         model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)

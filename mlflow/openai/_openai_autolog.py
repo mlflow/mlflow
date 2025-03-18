@@ -493,10 +493,23 @@ def _generate_model_identity(model_dict) -> int:
     if not {"model", "task"} <= set(model_dict.keys()):
         raise ValueError("The model dictionary must contain 'model' and 'task' keys.")
     model = model_dict["model"]
-    # drop input field from the model_dict since it's not part of model config
+    # drop input and non-model config fields to ensure consistent hashing
+    exclude_fields = {
+        # inputs
+        "messages",
+        "prompt",
+        "input",
+        # extra API configs
+        "extra_headers",
+        "extra_query",
+        "extra_body",
+        "timeout",
+        # model
+        "model",
+    }
     model_dict = {
         k: json.dumps(model_dict[k], default=str)
-        for k in sorted(model_dict.keys() - {"messages", "prompt", "input", "model"})
+        for k in sorted(model_dict.keys() - exclude_fields)
     }
     model_str = model if isinstance(model, str) else str(id(model))
     return hash(model_str)
