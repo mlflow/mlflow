@@ -646,7 +646,7 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
     if name is None:
         return
 
-    bad_chars = ("/", ":", ".")
+    bad_chars = ("/", ":", ".", "%", '"', "'")
     if not name or any(c in name for c in bad_chars):
         raise MlflowException(
             f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
