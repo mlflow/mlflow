@@ -4,15 +4,22 @@ https://github.com/googleapis/python-genai
 """
 
 import base64
+import importlib.metadata
+import os
 from unittest.mock import patch
 
 import pytest
 from google import genai
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
+
+is_gemini_larger_than_1_5 = Version(importlib.metadata.version("google.genai")) > Version(
+    "1.5.0"
+) or os.environ.get("GOOGLE_GENAI_DEV")
 
 _CONTENT = {"parts": [{"text": "test answer"}], "role": "model"}
 
@@ -90,7 +97,7 @@ TOOL_ATTRIBUTE = [
                     "a": {"type": "number", "description": None, "enum": None},
                     "b": {"type": "number", "description": None, "enum": None},
                 },
-                "required": None,
+                "required": ["a", "b"] if is_gemini_larger_than_1_5 else None,
             },
         },
     },
