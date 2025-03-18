@@ -54,7 +54,7 @@ from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import (
-    _generate_model_key,
+    _generate_model_identity,
     async_patched_call,
     patched_agent_get_chat_completion,
     patched_call,
@@ -570,8 +570,8 @@ def log_model(
         **kwargs,
     )
     if mlflow_model.model_id:
-        model_key = _generate_model_key({"model": model, "task": task, **kwargs})
-        _MODEL_TRACKER.set(model_key, mlflow_model.model_id)
+        model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
+        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
     return mlflow_model
 
 
@@ -856,12 +856,12 @@ def load_model(model_uri, dst_path=None):
     model = _load_model(model_data_path)
     mlflow_model = Model.load(local_model_path)
     if mlflow_model.model_id:
-        model_key = _generate_model_key(model)
+        model_identity = _generate_model_identity(model)
         # Note: if the same model configs are loaded in the same session, the latter
         # model_id overrides the previous one. Best practice for users is to avoid
         # loading the same model configs multiple times. Traces will be linked to
         # the latest model_id.
-        _MODEL_TRACKER.set(model_key, mlflow_model.model_id)
+        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
     return model
 
 

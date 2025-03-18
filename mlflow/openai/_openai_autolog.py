@@ -1,5 +1,4 @@
 import functools
-import hashlib
 import json
 import logging
 import os
@@ -185,8 +184,8 @@ def patched_call(original, self, *args, **kwargs):
             _logger.warning(f"Failed to log model due to error: {e}")
         self._mlflow_model_logged = True
 
-    model_key = _generate_model_key({"task": task, **kwargs})
-    model_id = _MODEL_TRACKER.get(model_key)
+    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_id = _MODEL_TRACKER.get(model_identity)
     # TODO: create LoggedModel if model_id is None and set into _MODEL_TRACKER
 
     if config.log_traces:
@@ -227,8 +226,8 @@ async def async_patched_call(original, self, *args, **kwargs):
         run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
 
     task = mlflow.openai._get_task_name(self.__class__)
-    model_key = _generate_model_key({"task": task, **kwargs})
-    model_id = _MODEL_TRACKER.get(model_key)
+    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
@@ -490,7 +489,7 @@ def patched_swarm_run(original, self, *args, **kwargs):
     return traced_fn(self, *args, **kwargs)
 
 
-def _generate_model_key(model_dict) -> str:
+def _generate_model_identity(model_dict) -> int:
     if not {"model", "task"} <= set(model_dict.keys()):
         raise ValueError("The model dictionary must contain 'model' and 'task' keys.")
     model = model_dict["model"]
@@ -500,4 +499,4 @@ def _generate_model_key(model_dict) -> str:
         for k in sorted(model_dict.keys() - {"messages", "prompt", "input", "model"})
     }
     model_str = model if isinstance(model, str) else str(id(model))
-    return hashlib.md5(f"{model_str}-{model_dict}".encode(), usedforsecurity=False).hexdigest()
+    return hash(model_str)

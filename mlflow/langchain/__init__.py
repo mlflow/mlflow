@@ -618,7 +618,7 @@ def log_model(
     # if model is logged as models as code, then we cannot
     # get the id of the model object
     if model.model_id and not isinstance(lc_model, str):
-        _MODEL_TRACKER.set(lc_model, model.model_id)
+        _MODEL_TRACKER.set(id(lc_model), model.model_id)
     return model
 
 
@@ -936,7 +936,7 @@ def load_model(model_uri, dst_path=None):
     model = _load_model_from_local_fs(local_model_path)
     mlflow_model = Model.load(local_model_path)
     if mlflow_model.model_id:
-        _MODEL_TRACKER.set(model, mlflow_model.model_id)
+        _MODEL_TRACKER.set(id(model), mlflow_model.model_id)
 
     return model
 

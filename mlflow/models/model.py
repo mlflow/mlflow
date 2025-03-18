@@ -1399,40 +1399,29 @@ class _ModelTracker:
         # thread-safe variable to track active model_id
         self._active_model_id = ContextVar("_active_model_id", default=None)
 
-    def get(self, model_or_model_key: Any) -> Optional[str]:
+    def get(self, identity: int) -> Optional[str]:
         """
-        Get the model ID associated with the given model or the model key
+        Get the model ID associated with the given model identity
         """
-        model_id_key = (
-            model_or_model_key if isinstance(model_or_model_key, str) else id(model_or_model_key)
-        )
-        with self._model_locks[model_id_key]:
-            return self.model_ids.get(model_id_key)
+        if not isinstance(identity, int):
+            raise TypeError("identity must be an integer")
+        with self._model_locks[identity]:
+            return self.model_ids.get(identity)
 
-    def set(self, model_or_model_key: Any, model_id: str) -> None:
+    def set(self, identity: int, model_id: str) -> None:
         """
-        Set the model ID associated with the given model or the model key
+        Set the model ID associated with the given model identity
         """
-        model_id_key = (
-            model_or_model_key if isinstance(model_or_model_key, str) else id(model_or_model_key)
-        )
-        with self._model_locks[model_id_key]:
-            self.model_ids[model_id_key] = model_id
+        if not isinstance(identity, int):
+            raise TypeError("identity must be an integer")
+        with self._model_locks[identity]:
+            self.model_ids[identity] = model_id
 
-    def set_active_model_id(self, model: Any) -> None:
+    def set_active_model_id(self, model_id: Optional[str]) -> None:
         """
         Set the current active model id.
-        This should be used inside the inference patching method
-        before calling the original function, so it can be picked
-        up by callbacks used for tracing.
         """
-        # we don't restore _active_model_id value because
-        # original function could be a coroutine, so if self
-        # is not stored we set active_model_id to None
-        if model_id := self.get(model):
-            self._active_model_id.set(model_id)
-        else:
-            self._active_model_id.set(None)
+        self._active_model_id.set(model_id)
 
     def get_active_model_id(self) -> Optional[str]:
         """
@@ -1441,6 +1430,20 @@ class _ModelTracker:
         span to add the model id to span tags.
         """
         return self._active_model_id.get()
+
+    def set_active_model_id_for_identity(self, identity: int) -> None:
+        """
+        Set the current active model id for the given model identity.
+        This should be default behavior for most model objects.
+        """
+        # we don't restore _active_model_id value because
+        # original function could be a coroutine.
+        # If the model identity is not stored we set active_model_id to
+        # None to avoid inheriting the previous active model id.
+        if model_id := self.get(identity):
+            self.set_active_model_id(model_id)
+        else:
+            self.set_active_model_id(None)
 
     def clear(self) -> None:
         with self._lock:

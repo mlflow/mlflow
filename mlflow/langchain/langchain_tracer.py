@@ -107,7 +107,7 @@ def patched_runnable_sequence_batch(original, self, *args, **kwargs):
     """
     original_state = _should_attach_span_to_context.get()
     _should_attach_span_to_context.set(False)
-    _MODEL_TRACKER.set_active_model_id(self)
+    _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
     try:
         return original(self, *args, **kwargs)
     finally:
