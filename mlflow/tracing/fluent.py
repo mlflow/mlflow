@@ -165,10 +165,6 @@ def trace(
             single value to be set as the span output.
         model_id: If specified, associates the span with the given model ID.
     """
-    if model_id is None:
-        from mlflow.models.model import _MODEL_TRACKER
-
-        model_id = _MODEL_TRACKER.get_active_model_id()
 
     def decorator(fn):
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
@@ -196,6 +192,12 @@ def _wrap_function(
         @staticmethod
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
+
+            nonlocal model_id
+            if model_id is None:
+                from mlflow.models.model import _MODEL_TRACKER
+
+                model_id = _MODEL_TRACKER.get_active_model_id()
 
             with start_span(
                 name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
