@@ -520,7 +520,8 @@ class SqlAlchemyStore(AbstractStore):
             session.add(run)
 
             run = run.to_mlflow_entity()
-            inputs = self._get_run_inputs(session, [run_id])[0]
+            inputs_list = self._get_run_inputs(session, [run_id])
+            dataset_inputs = inputs_list[0] if inputs_list else []
             return Run(run.info, run.data, RunInputs(dataset_inputs=inputs))
 
     def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
