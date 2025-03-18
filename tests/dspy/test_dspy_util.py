@@ -37,11 +37,11 @@ def test_log_dspy_module_state_params():
 
     run = mlflow.last_active_run()
     assert run.data.params == {
-        "signature.fields.0.description": "${question}",
-        "signature.fields.0.prefix": "Question:",
-        "signature.fields.1.description": "${answer}",
-        "signature.fields.1.prefix": "Answer:",
-        "signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+        "Predict.signature.fields.0.description": "${question}",
+        "Predict.signature.fields.0.prefix": "Question:",
+        "Predict.signature.fields.1.description": "${answer}",
+        "Predict.signature.fields.1.prefix": "Answer:",
+        "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
     }
 
 

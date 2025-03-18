@@ -674,11 +674,11 @@ def test_autolog_log_evals(log_evals):
         assert "model.json" in artifacts
         assert run.data.metrics == {"eval": 50.0}
         assert run.data.params == {
-            "signature.fields.0.description": "${question}",
-            "signature.fields.0.prefix": "Question:",
-            "signature.fields.1.description": "${answer}",
-            "signature.fields.1.prefix": "Answer:",
-            "signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
         }
     else:
         assert run is None
@@ -749,9 +749,9 @@ def test_autolog_log_compile_with_evals():
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
         assert run.data.params == {
-            "signature.fields.0.description": "${question}",
-            "signature.fields.0.prefix": "Question:",
-            "signature.fields.1.description": "${answer}",
-            "signature.fields.1.prefix": "Answer:",
-            "signature.instructions": "Given the fields `question`, produce the fields `answer`.",
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",
         }

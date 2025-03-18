@@ -24,8 +24,8 @@ def save_dspy_module_state(program, file_name: str = "model.json"):
             path = Path(tmp_dir, file_name)
             program.save(path)
             mlflow.log_artifact(path)
-    except Exception:
-        _logger.warning("Failed to save dspy module state", exc_info=True)
+    except Exception as e:
+        _logger.warning(f"Failed to save dspy module state: {e}")
 
 
 def log_dspy_module_params(program):
@@ -37,11 +37,14 @@ def log_dspy_module_params(program):
     """
     try:
         states = program.dump_state()
-        mlflow.log_params(
-            _flatten_dspy_module_state(states, exclude_keys=("metadata", "lm", "traces", "train"))
+        flat_state_dict = _flatten_dspy_module_state(
+            states, exclude_keys=("metadata", "lm", "traces", "train")
         )
-    except Exception:
-        _logger.warning("Failed to log dspy module params", exc_info=True)
+        mlflow.log_params(
+            {f"{program.__class__.__name__}.{k}": v for k, v in flat_state_dict.items()}
+        )
+    except Exception as e:
+        _logger.warning(f"Failed to log dspy module params: {e}")
 
 
 def log_dspy_dataset(dataset: list["Example"], file_name: str):
@@ -58,8 +61,8 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
             for k, v in example.items():
                 result[k].append(v)
         mlflow.log_table(result, file_name)
-    except Exception:
-        _logger.warning("Failed to log dataset", exc_info=True)
+    except Exception as e:
+        _logger.warning(f"Failed to log dataset: {e}")
 
 
 def _flatten_dspy_module_state(
