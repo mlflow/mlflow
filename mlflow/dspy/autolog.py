@@ -1,5 +1,6 @@
 from mlflow.dspy.save import FLAVOR_NAME
 from mlflow.dspy.util import save_dspy_module_state
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -71,6 +72,11 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
+    def patch_module(original, self, *args, **kwargs):
+        _MODEL_TRACKER.set_active_model_id(self)
+        return original(self, *args, **kwargs)
+
+    # Patch teleprompter/evaluator not to generate traces by default
     def patch_fn(original, self, *args, **kwargs):
         # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
         # check this flag at runtime to determine if we should generate traces.
@@ -119,8 +125,16 @@ def autolog(
 
         return _trace_disabled_fn(self, *args, **kwargs)
 
+    from dspy import Module
     from dspy.evaluate import Evaluate
     from dspy.teleprompt import Teleprompter
+
+    safe_patch(
+        FLAVOR_NAME,
+        Module,
+        "__call__",
+        patch_module,
+    )
 
     compile_patch = "compile"
     for cls in Teleprompter.__subclasses__():
