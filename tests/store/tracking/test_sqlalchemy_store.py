@@ -4971,6 +4971,30 @@ def test_search_logged_models_order_by_dataset(store: SqlAlchemyStore):
     )
     assert [m.name for m in models] == [model_1.name, model_2.name]
 
+    # Sort by accuracy with only name
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_1.name,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # Sort by accuracy with only digest
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_digest": dataset_1.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
 
 def test_search_logged_models_pagination(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
