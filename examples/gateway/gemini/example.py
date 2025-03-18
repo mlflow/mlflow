@@ -5,9 +5,10 @@ def main():
     client = get_deploy_client("http://localhost:7000")
 
     print(f"Gemini endpoints: {client.list_endpoints()}\n")
-    print(f"Gemini completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
+    print(f"Gemini Embeddings endpoint info: {client.get_endpoint(endpoint='embeddings')}\n")
 
     # Embeddings request
+    # TODO: Replace this example with chat completion once completed
     response_embeddings = client.predict(
         endpoint="embeddings",
         inputs={

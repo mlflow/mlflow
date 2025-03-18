@@ -120,14 +120,6 @@ class GeminiProvider(BaseProvider):
     def adapter_class(self):
         return GeminiAdapter
 
-    def get_endpoint_url(self, route_type: str) -> str:
-        if route_type == "llm/v1/chat" or route_type == "llm/v1/completions":
-            return f"{self.base_url}/{self.config.model.name}:generateContent"
-        elif route_type == "llm/v1/embeddings":
-            return f"{self.base_url}/{self.config.model.name}:embedContent"
-        else:
-            raise ValueError(f"Invalid route type {route_type}")
-
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.headers,
@@ -143,6 +135,7 @@ class GeminiProvider(BaseProvider):
         self.check_for_model_field(payload)
 
         embedding_payload = self.adapter_class.embeddings_to_model(payload, self.config)
+        # Documentation: https://ai.google.dev/api/embeddings
 
         # Use the batch endpoint if payload contains "requests"
         if "requests" in embedding_payload:
