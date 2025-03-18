@@ -4847,6 +4847,13 @@ def test_search_logged_models_order_by(store: SqlAlchemyStore):
     )
     assert [m.name for m in models] == [model_1.name, model_2.name]
 
+    # Sort by name
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "name", "ascending": True}],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
     # Sort by metric
     models = store.search_logged_models(
         experiment_ids=[exp_id],
