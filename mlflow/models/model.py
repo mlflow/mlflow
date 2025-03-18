@@ -1398,6 +1398,7 @@ class _ModelTracker:
         self._model_locks = defaultdict(threading.Lock)
         # thread-safe variable to track active model_id
         self._active_model_id = ContextVar("_active_model_id", default=None)
+        self._is_active_model_id_set = False
 
     def get(self, identity: int) -> Optional[str]:
         """
