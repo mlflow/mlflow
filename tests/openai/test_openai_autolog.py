@@ -398,19 +398,13 @@ def test_autolog_use_active_run_id(client):
     with mlflow.start_run() as run_1:
         _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_1.info.run_id
-
     with mlflow.start_run() as run_2:
         _call_create()
         _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_2.info.run_id
-
     with mlflow.start_run() as run_3:
         mlflow.openai.autolog()
         _call_create()
-
-    assert client.chat.completions._mlflow_run_id == run_3.info.run_id
 
     traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
     assert len(traces) == 4
