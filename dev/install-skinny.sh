@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 PR_NUMBER=$1
 
-# Only clone the necessary files to speed up the installation. Full clone is slow.
+# Fetching the entire repo is slow. Use sparse-checkout to only fetch the necessary files.
 TEMP_DIR=$(mktemp -d)
 git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR
 cd $TEMP_DIR
