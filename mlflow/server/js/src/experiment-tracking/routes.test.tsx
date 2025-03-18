@@ -20,7 +20,7 @@ describe('experiment tracking page routes', () => {
     );
     expect(Routes.searchRunsByLifecycleStage('123', 'ACTIVE')).toEqual('/experiments/123?lifecycleFilter=ACTIVE');
     expect(Routes.searchRunsByUser('123', '987654321')).toEqual(
-      "/experiments/123?searchFilter=user_id%20%3D%20'987654321'",
+      "/experiments/123?searchFilter=attributes.user_id%20%3D%20'987654321'",
     );
   });
 
