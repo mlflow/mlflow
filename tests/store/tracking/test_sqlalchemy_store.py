@@ -4774,9 +4774,9 @@ def test_search_logged_models(store: SqlAlchemyStore):
 
 def test_search_logged_models_order_by(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    model_1 = store.create_logged_model(experiment_id=exp_id)
+    model_1 = store.create_logged_model(name="model_1", experiment_id=exp_id)
     time.sleep(0.001)  # Ensure the next model has a different timestamp
-    model_2 = store.create_logged_model(experiment_id=exp_id)
+    model_2 = store.create_logged_model(name="model_2", experiment_id=exp_id)
     time.sleep(0.001)  # Ensure the next model has a different timestamp
     run = store.create_run(
         experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
@@ -4850,7 +4850,7 @@ def test_search_logged_models_order_by(store: SqlAlchemyStore):
     # Sort by name
     models = store.search_logged_models(
         experiment_ids=[exp_id],
-        order_by=[{"field_name": "name", "ascending": True}],
+        order_by=[{"field_name": "name"}],
     )
     assert [m.name for m in models] == [model_1.name, model_2.name]
 
