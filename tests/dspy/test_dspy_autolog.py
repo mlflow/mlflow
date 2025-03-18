@@ -556,7 +556,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
 @pytest.mark.parametrize("log_compiles", [True, False])
 def test_autolog_log_compile(log_compiles):
     class DummyOptimizer(dspy.teleprompt.Teleprompter):
-        def compile(self, program):
+        def compile(self, program, kwarg1=None, kwarg2=None):
             callback = dspy.settings.callbacks[0]
             assert callback.optimizer_stack_level == 1
             return program
@@ -567,17 +567,42 @@ def test_autolog_log_compile(log_compiles):
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
 
-    optimizer.compile(program)
+    optimizer.compile(program, kwarg1=1, kwarg2="2")
 
     assert dspy.settings.callbacks[0].optimizer_stack_level == 0
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
+        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
     else:
         assert mlflow.last_active_run() is None
+
+
+def test_autolog_log_compile_disable():
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    # verify that run is not created when disabling autologging
+    mlflow.dspy.autolog(disable=True)
+    optimizer.compile(program)
+    client = MlflowClient()
+    runs = client.search_runs(run.info.experiment_id)
+    assert len(runs) == 1
 
 
 def test_autolog_log_nested_compile():
@@ -648,6 +673,13 @@ def test_autolog_log_evals(log_evals):
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
         assert run.data.metrics == {"eval": 50.0}
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
     else:
         assert run is None
 
@@ -655,10 +687,10 @@ def test_autolog_log_evals(log_evals):
 @skip_if_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
-        def compile(self, program, eval, trainset):
-            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+        def compile(self, program, eval, trainset, valset):
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
             eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
-            eval(program, devset=trainset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
             eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
             return program
 
@@ -679,7 +711,7 @@ def test_autolog_log_compile_with_evals():
     optimizer = EvalOptimizer()
 
     mlflow.dspy.autolog(log_compiles=True, log_evals=True)
-    optimizer.compile(program, evaluator, dataset)
+    optimizer.compile(program, evaluator, trainset=dataset, valset=dataset)
 
     # callback state
     callback = dspy.settings.callbacks[0]
@@ -694,6 +726,8 @@ def test_autolog_log_compile_with_evals():
     client = MlflowClient()
     artifacts = (x.path for x in client.list_artifacts(root_run.info.run_id))
     assert "best_model.json" in artifacts
+    assert "trainset.json" in artifacts
+    assert "valset.json" in artifacts
     assert root_run.data.metrics == {
         "eval_full": 50.0,
         "eval_minibatch": 100.0,
@@ -714,3 +748,10 @@ def test_autolog_log_compile_with_evals():
             assert run.data.metrics == {"eval": 100.0}
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
