@@ -165,6 +165,10 @@ def trace(
             single value to be set as the span output.
         model_id: If specified, associates the span with the given model ID.
     """
+    if model_id is None:
+        from mlflow.models.model import _MODEL_TRACKER
+
+        model_id = _MODEL_TRACKER.get_active_model_id()
 
     def decorator(fn):
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
