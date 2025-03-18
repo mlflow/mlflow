@@ -133,7 +133,18 @@ def test_create_logged_model_errors(store):
         store.create_logged_model(params=[LoggedModelParameter("a" * 256, "b")])
 
 
-@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "my/model",
+        "my.model",
+        "my:model",
+        "my%model",
+        "my'model",
+        'my"model',
+    ],
+)
 def test_create_logged_model_invalid_name(store: FileStore, name: str):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match="Invalid model name"):
