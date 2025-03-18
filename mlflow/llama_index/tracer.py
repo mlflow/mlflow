@@ -151,7 +151,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return llama_span._mlflow_span if llama_span else None
 
     def _get_model_id(self, instance: Any) -> Optional[str]:
-        if model_id := _MODEL_TRACKER.get(instance):
+        if model_id := _MODEL_TRACKER.get(id(instance)):
             return model_id
         if hasattr(instance, "_mlflow_model_id"):
             return instance._mlflow_model_id

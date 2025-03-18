@@ -476,7 +476,7 @@ def log_model(
         **kwargs,
     )
     if model.model_id and not isinstance(llama_index_model, str):
-        _MODEL_TRACKER.set(llama_index_model, model.model_id)
+        _MODEL_TRACKER.set(id(llama_index_model), model.model_id)
     return model
 
 
@@ -563,7 +563,7 @@ def load_model(model_uri, dst_path=None):
     deserialize_settings(settings_path)
     model = _load_llama_model(local_model_path, flavor_conf)
     if mlflow_model.model_id:
-        _MODEL_TRACKER.set(model, mlflow_model.model_id)
+        _MODEL_TRACKER.set(id(model), mlflow_model.model_id)
     return model
 
 
@@ -646,6 +646,6 @@ def _autolog(
 
 def _patch_as_engine(original, self, *args, **kwargs):
     engine = original(self, *args, **kwargs)
-    if model_id := _MODEL_TRACKER.get(self):
+    if model_id := _MODEL_TRACKER.get(id(self)):
         engine._mlflow_model_id = model_id
     return engine
