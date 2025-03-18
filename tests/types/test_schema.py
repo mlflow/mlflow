@@ -1920,6 +1920,10 @@ def test_convert_dataclass_to_schema_invalid():
             Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
         ),
         (
+            {"a": {"x": pd.NA}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
             [
                 {
                     "id": None,
