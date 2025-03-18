@@ -68,6 +68,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
+    disable_autologging,
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
@@ -549,34 +550,37 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
-    mlflow_model = Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        flavor=mlflow.openai,
-        registered_model_name=registered_model_name,
-        model=model,
-        task=task,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        metadata=metadata,
-        example_no_conversion=example_no_conversion,
-        prompts=prompts,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-        **kwargs,
-    )
-    if mlflow_model.model_id:
+    with disable_autologging():
         model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
-        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
-    return mlflow_model
+        if model_id is None and (existing_model_id := _MODEL_TRACKER.get(model_identity)):
+            model_id = existing_model_id
+        mlflow_model = Model.log(
+            artifact_path=artifact_path,
+            name=name,
+            flavor=mlflow.openai,
+            registered_model_name=registered_model_name,
+            model=model,
+            task=task,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+            example_no_conversion=example_no_conversion,
+            prompts=prompts,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
+            **kwargs,
+        )
+        if mlflow_model.model_id and not _MODEL_TRACKER.get(model_identity):
+            _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
+        return mlflow_model
 
 
 def _load_model(path):
@@ -877,16 +881,10 @@ def load_model(model_uri, dst_path=None):
 
 @experimental
 def autolog(
-    log_input_examples=False,
-    log_model_signatures=False,
-    log_models=False,
-    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    registered_model_name=None,
-    extra_tags=None,
     log_traces=True,
 ):
     """
@@ -895,24 +893,6 @@ def autolog(
     if the OpenAI version < 1.0.
 
     Args:
-        log_input_examples: If ``True``, input examples from inference data are collected and
-            logged along with Langchain model artifacts during inference. If
-            ``False``, input examples are not logged.
-            Note: Input examples are MLflow model attributes
-            and are only collected if ``log_models`` is also ``True``.
-        log_model_signatures: If ``True``,
-            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-            describing model inputs and outputs are collected and logged along
-            with OpenAI model artifacts during inference. If ``False``,
-            signatures are not logged.
-            Note: Model signatures are MLflow model attributes
-            and are only collected if ``log_models`` is also ``True``.
-        log_models: If ``True``, OpenAI models are logged as MLflow model artifacts.
-            If ``False``, OpenAI models are not logged.
-            Input examples and model signatures, which are attributes of MLflow models,
-            are also omitted when ``log_models`` is ``False``.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
-            if applicable. If ``False``, dataset information is not logged.
         disable: If ``True``, disables the OpenAI autologging integration. If ``False``,
             enables the OpenAI autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -924,10 +904,6 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during OpenAI
             autologging. If ``False``, show all events and warnings during OpenAI
             autologging.
-        registered_model_name: If given, each time a model is trained, it is registered as a
-            new model version of the registered model with this name.
-            The registered model is created if it does not already exist.
-        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
@@ -937,16 +913,10 @@ def autolog(
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
     # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     _autolog(
-        log_input_examples=log_input_examples,
-        log_model_signatures=log_model_signatures,
-        log_models=log_models,
-        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
         silent=silent,
-        registered_model_name=registered_model_name,
-        extra_tags=extra_tags,
         log_traces=log_traces,
     )
 
@@ -976,16 +946,10 @@ autolog.integration_name = FLAVOR_NAME
 # when autologging is turned off.
 @autologging_integration(FLAVOR_NAME)
 def _autolog(
-    log_input_examples=False,
-    log_model_signatures=False,
-    log_models=False,
-    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    registered_model_name=None,
-    extra_tags=None,
     log_traces=True,
 ):
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
