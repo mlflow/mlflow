@@ -8,6 +8,7 @@ import shutil
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 from unittest import mock
@@ -4859,6 +4860,108 @@ def test_search_logged_models_order_by(store: SqlAlchemyStore):
             order_by=[{"field_name": "metrics.metric_2", "ascending": ascending}],
         )
         assert [m.name for m in models] == [model_1.name, model_2.name]
+
+
+@dataclass
+class DummyDataset:
+    name: str
+    digest: str
+
+
+def test_search_logged_models_order_by_dataset(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    dataset_1 = DummyDataset("dataset1", "digest1")
+    dataset_2 = DummyDataset("dataset2", "digest2")
+
+    # For dataset_1, model_1 has a higher accuracy
+    # For dataset_2, model_2 has a higher accuracy
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="accuracy",
+                value=0.9,
+                timestamp=1,
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name=dataset_1.name,
+                dataset_digest=dataset_1.digest,
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="accuracy",
+                value=0.8,
+                timestamp=2,
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name=dataset_2.name,
+                dataset_digest=dataset_2.digest,
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="accuracy",
+                value=0.8,
+                timestamp=3,
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name=dataset_1.name,
+                dataset_digest=dataset_1.digest,
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="accuracy",
+                value=0.9,
+                timestamp=4,
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name=dataset_2.name,
+                dataset_digest=dataset_2.digest,
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Sorted by accuracy for dataset_1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_1.name,
+                "dataset_digest": dataset_1.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # Sorted by accuracy for dataset_2
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_2.name,
+                "dataset_digest": dataset_2.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
 
 
 def test_search_logged_models_pagination(store: SqlAlchemyStore):
