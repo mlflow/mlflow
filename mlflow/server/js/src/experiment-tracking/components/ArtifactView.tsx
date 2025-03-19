@@ -220,7 +220,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 
   // Toggle auto-refresh state
   toggleAutoRefresh = () => {
-    this.setState((prevState) => ({
+    this.setState((prevState: ArtifactViewImplState) => ({
       autoRefreshEnabled: !prevState.autoRefreshEnabled,
     }));
   };
