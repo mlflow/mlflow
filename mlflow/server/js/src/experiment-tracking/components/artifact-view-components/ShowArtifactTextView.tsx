@@ -25,15 +25,7 @@ type Props = DesignSystemHocProps & {
   autoRefreshEnabled?: boolean; // Add autoRefreshEnabled prop from parent
 } & LoggedModelArtifactViewerProps;
 
-type State = {
-  loading?: boolean;
-  error?: Error;
-  text?: string;
-  path?: string;
-  previousTextLength?: number; // Track previous text length to detect changes
-};
-
-class ShowArtifactTextView extends Component<Props, State> {
+class ShowArtifactTextView extends Component<Props> {
   private refreshInterval: number | null = null;
   constructor(props: Props) {
     super(props);
@@ -44,12 +36,11 @@ class ShowArtifactTextView extends Component<Props, State> {
     getArtifact: getArtifactContent,
   };
 
-  state: State = {
+  state = {
     loading: true,
     error: undefined,
     text: undefined,
     path: undefined,
-    previousTextLength: 0,
   };
 
   componentDidMount() {
@@ -150,7 +141,6 @@ class ShowArtifactTextView extends Component<Props, State> {
         this.setState({
           text: text,
           loading: false,
-          previousTextLength: this.state.text?.length || 0,
         });
       })
       .catch((error: Error) => {
