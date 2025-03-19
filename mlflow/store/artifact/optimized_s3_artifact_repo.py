@@ -159,8 +159,25 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
 
+        print(f"rohit: Starting S3 upload - Bucket: {bucket}, Key: {key}, Local file: {local_file}")
+        print(f"rohit: Extra args for upload: {extra_args}")
+
         def try_func(creds):
-            creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+            try:
+                print(f"rohit: Attempting upload with credentials")
+                creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+                print(f"rohit: Successfully uploaded file to S3 - Bucket: {bucket}, Key: {key}")
+            except Exception as e:
+                error_response = getattr(e, "response", {})
+                error_code = error_response.get("Error", {}).get("Code", "Unknown")
+                error_message = error_response.get("Error", {}).get("Message", str(e))
+                request_id = error_response.get("ResponseMetadata", {}).get("RequestId", "N/A")
+                print(f"rohit: S3 Upload Error - Bucket: {bucket}, Key: {key}")
+                print(f"rohit: Error Code: {error_code}")
+                print(f"rohit: Error Message: {error_message}")
+                print(f"rohit: Request ID: {request_id}")
+                print(f"rohit: Full Error: {str(e)}")
+                raise
 
         _retry_with_new_creds(
             try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
