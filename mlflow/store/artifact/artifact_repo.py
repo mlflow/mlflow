@@ -300,6 +300,7 @@ class ArtifactRepository:
                     f.result()
                     pbar.update()
                 except Exception as e:
+                    print("Rohit Exception", e)
                     path = futures[f]
                     failed_downloads[path] = e
                     tracebacks[path] = traceback.format_exc()
