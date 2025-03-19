@@ -222,7 +222,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
     """Write dictionary data in yaml format.
 
     Args:
@@ -230,6 +230,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_ya
         file_name: Desired file name.
         data: Data to be dumped as yaml format.
         overwrite: If True, will overwrite existing files.
+        sort_keys: Whether to sort the keys when writing the yaml file.
         ensure_yaml_extension: If True, will automatically add .yaml extension if not given.
     """
     if not exists(root):
@@ -371,13 +372,13 @@ def read_parquet_as_pandas_df(data_parquet_path: str):
 
     Args:
         data_parquet_path: String, path object (implementing os.PathLike[str]),
-        or file-like object implementing a binary read() function. The string
-        could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
-        For file URLs, a host is expected. A local file could
-        be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
-        directory that contains multiple partitioned parquet files. Pyarrow
-        support paths to directories as well as file URLs. A directory
-        path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+            or file-like object implementing a binary read() function. The string
+            could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+            For file URLs, a host is expected. A local file could
+            be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+            directory that contains multiple partitioned parquet files. Pyarrow
+            support paths to directories as well as file URLs. A directory
+            path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
 
     Returns:
         pandas dataframe
@@ -459,11 +460,12 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):  # noqa: D417
+def get_file_info(path, rel_path):
     """Returns file meta data : location, size, ... etc
 
     Args:
-        path: Path to artifact
+        path: Path to artifact.
+        rel_path: Relative path.
 
     Returns:
         `FileInfo` object
@@ -516,21 +518,25 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(
-            filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
-        ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
+        with (
+            gzip.GzipFile(
+                filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
+            ) as gzipped_tar,
+            open(unzipped_filename, "rb") as tar,
+        ):
             gzipped_tar.write(tar.read())
     finally:
         os.close(unzipped_file_handle)
 
 
-def _copy_project(src_path, dst_path=""):  # noqa: D417
+def _copy_project(src_path, dst_path=""):
     """Internal function used to copy MLflow project during development.
 
     Copies the content of the whole directory tree except patterns defined in .dockerignore.
     The MLflow is assumed to be accessible as a local directory in this case.
 
     Args:
+        src_path: Path to the original MLflow project
         dst_path: MLflow will be copied here
 
     Returns:
@@ -1031,6 +1037,9 @@ def remove_on_error(path: os.PathLike, onerror=None):
                 os.remove(path)
             elif os.path.isdir(path):
                 shutil.rmtree(path)
+        _logger.warning(
+            f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
+        )
         raise
 
 

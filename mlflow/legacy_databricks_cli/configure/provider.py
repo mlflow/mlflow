@@ -102,13 +102,14 @@ def _overwrite_config(raw_config):
         raw_config.write(cfg)
 
 
-def update_and_persist_config(profile, databricks_config):  # noqa: D417
+def update_and_persist_config(profile, databricks_config):
     """
     Takes a DatabricksConfig and adds the in memory contents to the persisted version of the
     config. This will overwrite any other config that was persisted to the file system under the
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
@@ -132,7 +133,6 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
         config = _config_provider.get_config()
         if config:
@@ -191,7 +191,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 
@@ -469,10 +468,15 @@ class DatabricksConfig:
         return self.auth_type == "databricks-cli"
 
     @property
+    def is_azure_cli_auth_type(self):
+        return self.auth_type == "azure-cli"
+
+    @property
     def is_valid(self):
         return (
             self.is_valid_with_token
             or self.is_valid_with_password
             or self.is_valid_with_client_id_secret
             or self.is_databricks_cli_auth_type
+            or self.is_azure_cli_auth_type
         )

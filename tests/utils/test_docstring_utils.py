@@ -41,7 +41,7 @@ Another line\n    Another indented line""",
             "single_line": "hi",
         }
     )
-    def f():
+    def f(p1, p2, p3, p4):
         """asdf
 
         Args:
@@ -79,7 +79,7 @@ Another line\n    Another indented line""",
         }
     )
     # fmt: off
-    def f():
+    def f(p1, p2, p3, p4):
         """asdf
 
         Args:

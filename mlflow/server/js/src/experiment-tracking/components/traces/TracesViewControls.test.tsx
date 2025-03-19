@@ -1,4 +1,4 @@
-import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { renderWithIntl, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewControls } from './TracesViewControls';
 import { ExperimentViewTracesTableColumns } from './TracesView.utils';
@@ -25,6 +25,8 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
+        traces={[]}
       />,
     );
 
@@ -44,6 +46,8 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
+        traces={[]}
       />,
     );
 
@@ -66,6 +70,8 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
+        traces={[]}
       />,
     );
 
@@ -90,6 +96,8 @@ describe('ExperimentViewTracesControls', () => {
         rowSelection={{}}
         setRowSelection={() => {}}
         refreshTraces={() => {}}
+        baseComponentId="test"
+        traces={[]}
       />,
     );
 

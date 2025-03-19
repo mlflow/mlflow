@@ -6,6 +6,7 @@ const CORE_MAINTAINERS = new Set([
   "gabrielfu",
   "harupy",
   "serena-ruan",
+  "TomeHirata",
   "WeichenXu123",
   "xq-yin",
 ]);

@@ -105,7 +105,7 @@ def test_ingests_custom_format(pandas_df, tmp_recipe_root_path, tmp_path):
     pandas_df_part2 = pandas_df[1:]
     pandas_df_part1.to_csv(dataset_path / "df1.csv")
     pandas_df_part2.to_csv(dataset_path / "df2.csv")
-    dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+    dataset_path = [f"{dataset_path / 'df1.csv'}", f"{dataset_path / 'df2.csv'}"]
 
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
@@ -160,7 +160,7 @@ def test_ingests_csv_successfully(
         dataset_path = pathlib.Path(os.path.relpath(dataset_path))
 
     if explicit_file_list and multiple_files:
-        dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+        dataset_path = [f"{dataset_path / 'df1.csv'}", f"{dataset_path / 'df2.csv'}"]
     else:
         dataset_path = str(dataset_path)
 
@@ -659,11 +659,15 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
 
-    with mock.patch(
-        "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
-        side_effect=Exception("Spark unavailable"),
-    ), pytest.raises(
-        MlflowException, match="Encountered an error while searching for an active Spark session"
+    with (
+        mock.patch(
+            "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
+            side_effect=Exception("Spark unavailable"),
+        ),
+        pytest.raises(
+            MlflowException,
+            match="Encountered an error while searching for an active Spark session",
+        ),
     ):
         IngestStep.from_recipe_config(
             recipe_config={

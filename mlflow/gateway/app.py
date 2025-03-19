@@ -1,5 +1,6 @@
+import functools
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -40,6 +41,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
@@ -51,7 +53,7 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: Dict[str, RouteConfig] = {}
+        self.dynamic_routes: dict[str, RouteConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
@@ -77,10 +79,26 @@ class GatewayAPI(FastAPI):
         return r.to_route() if (r := self.dynamic_routes.get(route_name)) else None
 
 
+def _translate_http_exception(func):
+    """
+    Decorator for translating MLflow exceptions to HTTP exceptions
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except AIGatewayException as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+    return wrapper
+
+
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
+    @_translate_http_exception
     async def _chat(
         request: Request, payload: chat.RequestPayload
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
@@ -95,6 +113,7 @@ def _create_chat_endpoint(config: RouteConfig):
 def _create_completions_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
+    @_translate_http_exception
     async def _completions(
         request: Request, payload: completions.RequestPayload
     ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
@@ -109,6 +128,7 @@ def _create_completions_endpoint(config: RouteConfig):
 def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
+    @_translate_http_exception
     async def _embeddings(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
@@ -147,7 +167,7 @@ class HealthResponse(BaseModel):
 
 
 class ListEndpointsResponse(BaseModel):
-    endpoints: List[Endpoint]
+    endpoints: list[Endpoint]
     next_page_token: Optional[str] = None
 
     class Config:
@@ -186,7 +206,7 @@ class ListEndpointsResponse(BaseModel):
 
 
 class SearchRoutesResponse(BaseModel):
-    routes: List[Route]
+    routes: list[Route]
     next_page_token: Optional[str] = None
 
     class Config:

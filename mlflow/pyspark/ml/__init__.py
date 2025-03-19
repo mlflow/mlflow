@@ -556,7 +556,7 @@ class _AutologgingMetricsManager:
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
     (4) _evaluator_call_info, it is a double level map:
-       `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
+       `_metric_api_call_info[run_id][metric_name]` will get a list of tuples, each tuple is:
          (logged_metric_key, evaluator_information)
         Evaluator information includes evaluator class name and params, these information
         will also be logged into "metric_info.json" artifacts.
@@ -961,7 +961,7 @@ def autolog(
             "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
 
             **The default log model allowlist in mlflow**
-                .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
+                .. literalinclude:: ../../../../mlflow/pyspark/ml/log_model_allowlist.txt
                     :language: text
 
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
@@ -1098,6 +1098,14 @@ def autolog(
                         )
                         log_model_signatures = False
 
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 input_example_spark_df, signature = resolve_input_example_and_signature(
                     _get_input_example_spark_df,
                     _infer_model_signature,
@@ -1114,7 +1122,7 @@ def autolog(
                     input_example = None
                 mlflow.spark.log_model(
                     spark_model,
-                    artifact_path="model",
+                    "model",
                     registered_model_name=registered_model_name,
                     input_example=input_example,
                     signature=signature,
@@ -1122,7 +1130,7 @@ def autolog(
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(
                         spark_model.bestModel,
-                        artifact_path="best_model",
+                        "best_model",
                     )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))

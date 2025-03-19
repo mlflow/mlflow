@@ -2,7 +2,6 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import List
 
 import requests
 
@@ -15,11 +14,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
-    _retry_with_new_creds,
 )
 
 
@@ -39,7 +38,8 @@ def _parse_abfss_uri(uri):
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, domain suffix, and path
+        A tuple containing the name of the filesystem, account name, domain suffix,
+        and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
@@ -81,7 +81,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def __init__(
         self,
         artifact_uri,
-        credential,
+        credential=None,
         credential_refresh_def=None,
     ):
         super().__init__(artifact_uri)
@@ -91,10 +91,21 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self._credential_refresh_def = credential_refresh_def
 
     def _parse_credentials(self, credential):
-        self.credential = credential
         (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
         account_url = f"https://{account_name}.{domain_suffix}"
-        data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
+        self.sas_token = ""
+        if credential is None:
+            if sas_token := os.environ.get("AZURE_STORAGE_SAS_TOKEN"):
+                self.sas_token = f"?{sas_token}"
+                account_url += self.sas_token
+            else:
+                from azure.identity import DefaultAzureCredential
+
+                credential = DefaultAzureCredential()
+        self.credential = credential
+        data_lake_client = _get_data_lake_client(
+            account_url=account_url, credential=self.credential
+        )
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
@@ -125,7 +136,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     file_client.upload_data(data=file, overwrite=True)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def list_artifacts(self, path=None):
@@ -166,7 +177,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 file_client.download_file().readinto(file)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=self.fs_client
         )
 
     def delete_artifacts(self, artifact_path=None):
@@ -259,19 +270,23 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Returns:
             a string presigned URL.
         """
-        sas_token = self.credential.signature
+        sas_token = (
+            f"?{self.credential.signature}"
+            if hasattr(self.credential, "signature")
+            else self.sas_token
+        )
         return (
             f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
-            f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+            f"{self.base_data_lake_directory}/{artifact_file_path}{sas_token}"
         )
 
-    def _get_write_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+    def _get_write_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:
         return [
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in remote_file_paths
         ]
 
-    def _get_read_credential_infos(self, remote_file_paths) -> List[ArtifactCredentialInfo]:
+    def _get_read_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:
         return [
             ArtifactCredentialInfo(signed_uri=self._get_presigned_uri(path))
             for path in remote_file_paths

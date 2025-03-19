@@ -11,7 +11,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -70,11 +70,17 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
     if _tracking_uri != uri:
         _tracking_uri = uri
+        if _tracking_uri is not None:
+            # Set 'MLFLOW_TRACKING_URI' environment variable
+            # so that subprocess can inherit it.
+            MLFLOW_TRACKING_URI.set(_tracking_uri)
+        else:
+            MLFLOW_TRACKING_URI.unset()
 
         # Tracer provider uses tracking URI to determine where to export traces.
         # Tracer provider stores the URI as its state so we need to reset
         # it explicitly when the global tracking URI changes.
-        reset_tracer_setup()
+        reset()
 
 
 @contextmanager
@@ -85,7 +91,6 @@ def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
         uri: The tracking URI to use.
 
     """
-    global _tracking_uri
     old_tracking_uri = _tracking_uri
     try:
         set_tracking_uri(uri)
@@ -117,7 +122,6 @@ def get_tracking_uri() -> str:
 
         Current tracking uri: file:///.../mlruns
     """
-    global _tracking_uri
     if _tracking_uri is not None:
         return _tracking_uri
     elif uri := MLFLOW_TRACKING_URI.get():
@@ -150,7 +154,6 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.exceptions import MlflowException
     from mlflow.version import VERSION
 
-    global _tracking_store_registry
     supported_schemes = [
         scheme
         for scheme in _tracking_store_registry._registry
@@ -179,7 +182,6 @@ _tracking_store_registry = TrackingStoreRegistry()
 
 
 def _register_tracking_stores():
-    global _tracking_store_registry
     _tracking_store_registry.register("", _get_file_store)
     _tracking_store_registry.register("file", _get_file_store)
     _tracking_store_registry.register("databricks", _get_databricks_rest_store)

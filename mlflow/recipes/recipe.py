@@ -1,7 +1,8 @@
 import abc
 import logging
 import os
-from typing import List, Optional
+import warnings
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -155,7 +156,7 @@ class BaseRecipe:
             )
         return self._steps[step_names.index(step_name)]
 
-    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> list[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
         The returned list should be a sublist of self._steps.
@@ -312,7 +313,7 @@ class BaseRecipe:
 
         return recipe_dag_file
 
-    def _resolve_recipe_steps(self) -> List[BaseStep]:
+    def _resolve_recipe_steps(self) -> list[BaseStep]:
         """
         Constructs and returns all recipe step objects from the recipe configuration.
         """
@@ -395,6 +396,10 @@ class Recipe:
             regression_recipe = Recipe(profile="local")
             regression_recipe.run(step="train")
         """
+        warnings.warn(
+            "MLflow Recipes is deprecated and will be removed in MLflow 3.0.",
+            FutureWarning,
+        )
         if not profile:
             raise MlflowException(
                 "A profile name must be provided to construct a valid Recipe object.",
@@ -433,9 +438,9 @@ class Recipe:
                 ) from None
             else:
                 raise MlflowException(
-                    f"Failed to construct Recipe {class_name}. Error: {e!r}",
+                    f"Failed to construct Recipe {class_name}",
                     error_code=INTERNAL_ERROR,
-                ) from None
+                ) from e
 
         recipe_name = get_recipe_name(recipe_root_path)
         _logger.info(f"Creating MLflow Recipe '{recipe_name}' with profile: '{profile}'")

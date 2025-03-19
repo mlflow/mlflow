@@ -41,7 +41,10 @@ export const ImageGridMultipleKeyPlot = ({
     <div css={{ height: '100%', width: '100%' }}>
       <Table grid scrollable>
         <TableRow isHeader>
-          <TableHeader css={{ minWidth: imageSize + theme.spacing.md }}>
+          <TableHeader
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_charts_imagegridmultiplekeyplot.tsx_44"
+            css={{ minWidth: imageSize + theme.spacing.md }}
+          >
             <FormattedMessage
               defaultMessage="images"
               description="Experiment tracking > runs charts > charts > image grid multiple key > table header text"
@@ -49,7 +52,11 @@ export const ImageGridMultipleKeyPlot = ({
           </TableHeader>
           {displayRuns.map((run: RunsChartsRunData) => {
             return (
-              <TableHeader key={run.uuid} css={{ minWidth: imageSize + theme.spacing.md }}>
+              <TableHeader
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_charts_imagegridmultiplekeyplot.tsx_52"
+                key={run.uuid}
+                css={{ minWidth: imageSize + theme.spacing.md }}
+              >
                 <LegacyTooltip title={run.displayName}>
                   <div
                     css={{

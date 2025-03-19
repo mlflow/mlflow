@@ -188,7 +188,7 @@ export const ModelVersionTable = ({
           description: 'Column title text for created at timestamp in model version table',
         }),
         accessorKey: 'creation_timestamp',
-        cell: ({ getValue }) => Utils.formatTimestamp(getValue()),
+        cell: ({ getValue }) => Utils.formatTimestamp(getValue(), intl),
       },
 
       {
@@ -275,7 +275,7 @@ export const ModelVersionTable = ({
       }),
       meta: { styles: { flex: 2 } },
       accessorKey: 'description',
-      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue() as string, 32),
     });
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);
@@ -361,6 +361,7 @@ export const ModelVersionTable = ({
           />
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_458"
               multiline={false}
               key={header.id}
               sortable={header.column.getCanSort()}

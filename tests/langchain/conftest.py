@@ -1,5 +1,4 @@
 import importlib
-from typing import List
 
 import numpy as np
 import openai
@@ -8,6 +7,7 @@ from langchain.embeddings.base import Embeddings
 from pydantic import BaseModel
 
 from tests.helper_functions import start_mock_openai_server
+from tests.tracing.helper import reset_autolog_state  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -28,17 +28,23 @@ def mock_openai():
         yield base_url
 
 
+@pytest.fixture(autouse=True)
+def reset_autolog(reset_autolog_state):
+    # Apply the reset_autolog_state fixture to all tests for LangChain
+    return
+
+
 # Define a special embedding for testing
 class DeterministicDummyEmbeddings(Embeddings, BaseModel):
     size: int
 
-    def _get_embedding(self, text: str) -> List[float]:
+    def _get_embedding(self, text: str) -> list[float]:
         seed = abs(hash(text)) % (10**8)
         np.random.seed(seed)
         return list(np.random.normal(size=self.size))
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [self._get_embedding(t) for t in texts]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self._get_embedding(text)

@@ -24,7 +24,7 @@ import os
 import posixpath
 import re
 import shutil
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -68,7 +68,6 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -167,6 +166,15 @@ def log_model(
         spark_model: Spark model to be saved - MLflow can only save descendants of
             pyspark.ml.Model or pyspark.ml.Transformer which implement
             MLReadable and MLWritable.
+
+                .. Note:: The provided Spark model's `transform` method must generate one column
+                    named with "prediction", the column is used as MLflow pyfunc model output.
+                    Most Spark models generate the output column with "prediction" name that
+                    contains prediction labels by default.
+                    To set probability column as the output column for probabilistic
+                    classification models, you need to set "probabilityCol" param to "prediction"
+                    and set "predictionCol" param to "".
+                    (e.g. `model.setProbabilityCol("prediction").setPredictionCol("")`)
         artifact_path: Run relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -224,7 +232,7 @@ def log_model(
                         signature=signature,
                     )
 
-                # The following signature is outputed:
+                # The following signature is outputted:
                 # inputs:
                 #   ['features': SparkML vector (required)]
                 # outputs:
@@ -760,6 +768,14 @@ def save_model(
             spark = _get_active_spark_session()
             if spark is not None:
                 input_example_spark_df = spark.createDataFrame(input_ex)
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 signature = mlflow.pyspark.ml._infer_spark_model_signature(
                     spark_model, input_example_spark_df
                 )
@@ -884,10 +900,10 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
     )
+    flavor_conf = Model.load(local_mlflow_model_path).flavors[FLAVOR_NAME]
     _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
     model_class = flavor_conf.get("model_class")
@@ -1028,7 +1044,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.
@@ -1108,7 +1124,11 @@ def autolog(disable=False, silent=False):
     `mlflow-spark JAR
     <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
-    this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
+    this method within a function parallelized by Spark).
+    The mlflow-spark JAR used must match the Scala version of Spark. Please see the
+    `Maven Repository
+    <https://mvnrepository.com/artifact/org.mlflow/mlflow-spark>`_
+    for available versions. This API requires Spark 3.0 or above.
 
     Datasource information is cached in memory and logged to all subsequent MLflow runs,
     including the active MLflow run (if one exists when the data is read). Note that autologging of
@@ -1120,6 +1140,8 @@ def autolog(disable=False, silent=False):
     to stderr & stdout generated from your MLflow code - datasource information is pulled from
     Spark, so logs relevant to debugging may show up amongst the Spark logs.
 
+    .. Note:: Spark datasource autologging only supports logging to MLflow runs in a single thread
+
     .. code-block:: python
         :caption: Example
 
@@ -1129,11 +1151,16 @@ def autolog(disable=False, silent=False):
         from pyspark.sql import SparkSession
 
         # Create and persist some dummy data
+        # Note: the 2.12 in 'org.mlflow:mlflow-spark_2.12:2.16.2' below indicates the Scala
+        # version, please match this with that of Spark. The 2.16.2 indicates the mlflow version.
         # Note: On environments like Databricks with pre-created SparkSessions,
-        # ensure the org.mlflow:mlflow-spark:2.22.0 is attached as a library to
+        # ensure the org.mlflow:mlflow-spark_2.12:2.16.2 is attached as a library to
         # your cluster
         spark = (
-            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:2.22.0")
+            SparkSession.builder.config(
+                "spark.jars.packages",
+                "org.mlflow:mlflow-spark_2.12:2.16.2",
+            )
             .master("local[*]")
             .getOrCreate()
         )

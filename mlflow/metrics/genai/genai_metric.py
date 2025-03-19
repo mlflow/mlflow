@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -17,6 +17,7 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -40,7 +41,7 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(grading_context_columns: Optional[List[str]], eval_values, indx) -> str:
+def _format_args_string(grading_context_columns: Optional[list[str]], eval_values, indx) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -98,12 +99,18 @@ def _extract_score_and_justification(text):
 
 
 def _score_model_on_one_payload(
-    payload,
-    eval_model,
-    parameters,
+    payload: str,
+    eval_model: str,
+    parameters: Optional[dict[str, Any]],
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
 ):
     try:
-        raw_result = model_utils.score_model_on_payload(eval_model, payload, parameters)
+        # If the endpoint does not specify type, default to chat format
+        endpoint_type = model_utils.get_endpoint_type(eval_model) or "llm/v1/chat"
+        raw_result = model_utils.score_model_on_payload(
+            eval_model, payload, parameters, extra_headers, proxy_url, endpoint_type
+        )
         return _extract_score_and_justification(raw_result)
     except ImportError:
         raise
@@ -121,8 +128,8 @@ def _score_model_on_one_payload(
 
 
 def _score_model_on_payloads(
-    grading_payloads, model, parameters, max_workers
-) -> Tuple[List[int], List[str]]:
+    grading_payloads, model, parameters, headers, proxy_url, max_workers
+) -> tuple[list[int], list[str]]:
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -132,6 +139,8 @@ def _score_model_on_payloads(
                 payload,
                 model,
                 parameters,
+                headers,
+                proxy_url,
             ): indx
             for indx, payload in enumerate(grading_payloads)
         }
@@ -189,11 +198,13 @@ def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,
     model: Optional[str] = _get_default_model(),
-    parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    aggregations: Optional[list[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
@@ -208,12 +219,9 @@ def make_genai_metric_from_prompt(
             scores can be parsed. The prompt may use f-string formatting to include variables.
             Corresponding variables must be passed as keyword arguments into the
             resulting metric's eval function.
-        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-            format of "openai:/gpt-4", "gateway:/my-route",
-            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
-            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
-            and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
             set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
             setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
@@ -225,6 +233,11 @@ def make_genai_metric_from_prompt(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
+        extra_headers: (Optional) Additional headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
 
     Returns:
         A metric object.
@@ -250,6 +263,11 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    import numpy as np
+
+    prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
+    allowed_variables = prompt_template.variables
+
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
     # the configuration, allowing users to understand their LLM evaluation results more clearly.
@@ -276,22 +294,28 @@ def make_genai_metric_from_prompt(
         """
         This is the function that is called when the metric is evaluated.
         """
-        prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
-        missing_variables = prompt_template.variables - set(kwargs.keys())
-        if missing_variables:
+        if missing_variables := allowed_variables - set(kwargs.keys()):
             raise MlflowException(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        kwargs = {k: [v] if np.isscalar(v) else v for k, v in kwargs.items()}
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
         arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
         scores, justifications = _score_model_on_payloads(
-            arg_strings, model, parameters, max_workers
+            arg_strings, model, parameters, extra_headers, proxy_url, max_workers
         )
 
         aggregate_scores = _get_aggregate_results(scores, aggregations)
 
         return MetricValue(scores, justifications, aggregate_scores)
+
+    if allowed_variables:
+        eval_fn.__signature__ = Signature(
+            parameters=[
+                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
+            ]
+        )
 
     return make_metric(
         eval_fn=eval_fn,
@@ -307,16 +331,18 @@ def make_genai_metric(
     name: str,
     definition: str,
     grading_prompt: str,
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, List[str]]] = None,
+    grading_context_columns: Optional[Union[str, list[str]]] = None,
     include_input: bool = True,
-    parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    aggregations: Optional[list[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[Dict[str, Any]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -328,12 +354,9 @@ def make_genai_metric(
         grading_prompt: Grading criteria of the metric.
         examples: (Optional) Examples of the metric.
         version: (Optional) Version of the metric. Currently supported versions are: v1.
-        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-            format of "openai:/gpt-4", "gateway:/my-route",
-            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
-            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
-            and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         grading_context_columns: (Optional) The name of the grading context column, or a list of
             grading context column names, required to compute the metric. The
             ``grading_context_columns`` are used by the LLM as a judge as additional information to
@@ -353,6 +376,12 @@ def make_genai_metric(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
+        extra_headers: (Optional) Additional headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+
 
     Returns:
         A metric object.
@@ -503,7 +532,7 @@ def make_genai_metric(
 
     def eval_fn(
         predictions: "pd.Series",
-        metrics: Dict[str, MetricValue],
+        metrics: dict[str, MetricValue],
         inputs: "pd.Series",
         *args,
     ) -> MetricValue:
@@ -563,6 +592,8 @@ def make_genai_metric(
                     payload,
                     eval_model,
                     eval_parameters,
+                    extra_headers,
+                    proxy_url,
                 ): indx
                 for indx, payload in enumerate(grading_payloads)
             }
@@ -586,7 +617,7 @@ def make_genai_metric(
 
     signature_parameters = [
         Parameter("predictions", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
-        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=Dict[str, MetricValue]),
+        Parameter("metrics", Parameter.POSITIONAL_OR_KEYWORD, annotation=dict[str, MetricValue]),
         Parameter("inputs", Parameter.POSITIONAL_OR_KEYWORD, annotation="pd.Series"),
     ]
 
@@ -594,9 +625,11 @@ def make_genai_metric(
     for var in grading_context_columns:
         signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
 
+    # Note: this doesn't change how python allows calling the function
+    # extra params in grading_context_columns can only be passed as positional args
     eval_fn.__signature__ = Signature(signature_parameters)
 
-    return make_metric(
+    return _make_metric(
         eval_fn=eval_fn,
         greater_is_better=greater_is_better,
         name=name,
@@ -604,6 +637,7 @@ def make_genai_metric(
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
+        require_strict_signature=True,
     )
 
 
@@ -646,7 +680,7 @@ def retrieve_custom_metrics(
     run_id: str,
     name: Optional[str] = None,
     version: Optional[str] = None,
-) -> List[EvaluationMetric]:
+) -> list[EvaluationMetric]:
     """
     Retrieve the custom metrics created by users through `make_genai_metric()` or
     `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.

@@ -1,14 +1,13 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-import mlflow
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
@@ -45,9 +44,15 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     This processor is used when the tracing destination is MLflow Tracking Server.
     """
 
-    def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+        client: Optional[MlflowClient] = None,
+        experiment_id: Optional[str] = None,
+    ):
         self.span_exporter = span_exporter
         self._client = client or MlflowClient()
+        self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
 
         # We issue a warning when a trace is created under the default experiment.
@@ -64,10 +69,19 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry Span object that is started.
             parent_context: The context of the span. Note that this is only passed when the context
-            object is explicitly specified to OpenTelemetry start_span call. If the parent span is
-            obtained from the global context, it won't be passed here so we should not rely on it.
+                object is explicitly specified to OpenTelemetry start_span call. If the parent span
+                is obtained from the global context, it won't be passed here so we should not rely
+                on it.
         """
         request_id = self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
+
+        if not request_id and span.parent is not None:
+            _logger.debug(
+                "Received a non-root span but the request ID is not found."
+                "The trace has likely been halted due to a timeout expiration."
+            )
+            return
+
         if not request_id:
             # If the user started trace/span with fixed start time, this attribute is set
             start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
@@ -85,19 +99,22 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
     def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
-        experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
+        from mlflow.tracking.fluent import _get_latest_active_run
+
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+
         # If the span is started within an active MLflow run, we should record it as a trace tag
-        if run := mlflow.active_run():
+        # Note `mlflow.active_run()` can only get thread-local active run,
+        # but tracing routine might be applied to model inference worker threads
+        # in the following cases:
+        #  - langchain model `chain.batch` which uses thread pool to spawn workers.
+        #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
+        # Therefore, we use `_get_global_active_run()` instead to get the active run from
+        # all threads and set it as the tracing source run.
+        if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
-            if experiment_id is None:
-                # if we're inside a run, the run's experiment id should
-                # take precedence over the environment experiment id
-                experiment_id = run.info.experiment_id
 
-        if experiment_id is None:
-            experiment_id = _get_experiment_id()
-
+        experiment_id = self._get_experiment_id_for_trace(span)
         if experiment_id == DEFAULT_EXPERIMENT_ID and not self._issued_default_exp_warning:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
@@ -123,8 +140,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # backend API.
         if request_id := maybe_get_request_id(is_evaluate=True):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
-        if depedencies_schema := maybe_get_dependencies_schemas():
-            tags.update(depedencies_schema)
+        if dependencies_schema := maybe_get_dependencies_schemas():
+            tags.update(dependencies_schema)
         tags.update({TraceTagKey.TRACE_NAME: span.name})
 
         return self._client._start_tracked_trace(
@@ -160,6 +177,29 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         super().on_end(span)
 
+    def _get_experiment_id_for_trace(self, span: OTelReadableSpan) -> str:
+        """
+        Determine the experiment ID to associate with the trace.
+
+        The experiment ID can be configured in multiple ways, in order of precedence:
+          1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
+          2. An experiment ID specified via the processor constructor
+          3. An experiment ID of an active run.
+          4. The default experiment ID
+        """
+        from mlflow.tracking.fluent import _get_latest_active_run
+
+        if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
+            return experiment_id
+
+        if self._experiment_id:
+            return self._experiment_id
+
+        if run := _get_latest_active_run():
+            return run.info.experiment_id
+
+        return _get_experiment_id()
+
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
@@ -188,21 +228,3 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value
-
-    def _create_trace_info(
-        self,
-        request_id: str,
-        span: OTelSpan,
-        experiment_id: Optional[str] = None,
-        request_metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[Dict[str, str]] = None,
-    ) -> TraceInfo:
-        return TraceInfo(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
-        )

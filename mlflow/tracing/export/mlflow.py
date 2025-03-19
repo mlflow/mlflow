@@ -47,15 +47,15 @@ class MlflowSpanExporter(SpanExporter):
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._async_queue = AsyncTraceExportQueue(self._client)
 
-    def export(self, root_spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to MLflow backend.
 
         Args:
-            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method.
+            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
+                a span processor. Only root spans for each trace should be exported.
         """
-        for span in root_spans:
+        for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
@@ -80,12 +80,6 @@ class MlflowSpanExporter(SpanExporter):
 
     def _log_trace(self, trace: Trace):
         """Log the trace to MLflow backend."""
-        upload_tag_task = Task(
-            handler=self._client._upload_trace_spans_as_tag,
-            args=(trace.info, trace.data),
-            error_msg="Failed to log trace spans as tag to MLflow backend.",
-        )
-
         upload_trace_data_task = Task(
             handler=self._client._upload_trace_data,
             args=(trace.info, trace.data),
@@ -99,11 +93,9 @@ class MlflowSpanExporter(SpanExporter):
         )
 
         if MLFLOW_ENABLE_ASYNC_LOGGING.get():
-            self._async_queue.put(upload_tag_task)
             self._async_queue.put(upload_trace_data_task)
             self._async_queue.put(upload_ended_trace_info_task)
         else:
-            upload_tag_task.handle()
             upload_trace_data_task.handle()
             upload_ended_trace_info_task.handle()
 

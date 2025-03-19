@@ -344,6 +344,7 @@ def test_openai_chat(gateway):
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
                     "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -536,6 +537,7 @@ def test_mosaicml_chat(gateway):
                     "role": "assistant",
                     "content": "This is a test",
                     "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -600,6 +602,7 @@ def test_palm_chat(gateway):
                     "role": "1",
                     "content": "Hi there! How can I help you today?",
                     "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -741,10 +744,10 @@ def test_invalid_response_structure_raises(gateway):
     ):
         return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        MlflowException, match=".*Max retries exceeded.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(MlflowException, match=".*Max retries exceeded.*"),
     ):
         query(route=route.name, data=data)
 
@@ -778,10 +781,10 @@ def test_invalid_response_structure_no_raises(gateway):
     ):
         return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match=".*Internal Server Error.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match=".*Internal Server Error.*"),
     ):
         query(route=route.name, data=data)
 
@@ -826,10 +829,10 @@ def test_invalid_query_request_raises(gateway):
     ):
         return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", new=mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match="Unprocessable Entity for"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", new=mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match="Unprocessable Entity for"),
     ):
         query(route=route.name, data=data)
 
@@ -848,6 +851,7 @@ def test_mlflow_chat(gateway):
                     "role": "assistant",
                     "content": "It is a test",
                     "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -1157,6 +1161,7 @@ def test_togetherai_chat(gateway):
                         "clarification, just let me know."
                     ),
                     "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
             }

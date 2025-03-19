@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import List, Set
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -28,6 +27,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -1197,8 +1197,8 @@ def get_metric_history_bulk_handler():
 
 
 def _get_sampled_steps_from_steps(
-    start_step: int, end_step: int, max_results: int, all_steps: List[int]
-) -> Set[int]:
+    start_step: int, end_step: int, max_results: int, all_steps: list[int]
+) -> set[int]:
     # NOTE: all_steps should be sorted before
     # being passed to this function
     start_idx = bisect.bisect_left(all_steps, start_step)
@@ -1886,7 +1886,9 @@ def _create_model_version():
         },
     )
 
-    _validate_source(request_message.source, request_message.run_id)
+    # If the model version is a prompt, we don't validate the source
+    if not _is_prompt_request(request_message):
+        _validate_source(request_message.source, request_message.run_id)
 
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
@@ -1898,6 +1900,10 @@ def _create_model_version():
     )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
+
+
+def _is_prompt_request(request_message):
+    return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
 
 
 @catch_mlflow_exception

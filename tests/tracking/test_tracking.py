@@ -157,13 +157,14 @@ def test_set_experiment_with_deleted_experiment():
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id():
     mock_experiment = MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
-    with mock.patch.object(
-        MlflowClient,
-        "get_experiment_by_name",
-        mock.Mock(return_value=mock_experiment),
-    ) as get_experiment_by_name_mock, mock.patch.object(
-        MlflowClient, "create_experiment"
-    ) as create_experiment_mock:
+    with (
+        mock.patch.object(
+            MlflowClient,
+            "get_experiment_by_name",
+            mock.Mock(return_value=mock_experiment),
+        ) as get_experiment_by_name_mock,
+        mock.patch.object(MlflowClient, "create_experiment") as create_experiment_mock,
+    ):
         mlflow.set_experiment("my_exp")
         get_experiment_by_name_mock.assert_called_once()
         create_experiment_mock.assert_not_called()
@@ -218,7 +219,11 @@ def test_metric_timestamp():
 
 def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
-    expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
+    expected_params = {
+        "param-key0": "param-val0",
+        "param-key1": 123,
+        "param-key2": None,
+    }
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
     approx_expected_tags = {
         MLFLOW_USER,
@@ -258,7 +263,7 @@ def test_log_batch():
         else:
             assert exact_expected_tags[tag_key] == tag_value
     # Validate params
-    assert finished_run.data.params == expected_params
+    assert finished_run.data.params == {k: str(v) for k, v in expected_params.items()}
     # test that log_batch works with fewer params
     new_tags = {"1": "2", "3": "4", "5": "6"}
     tags = [RunTag(key=key, value=value) for key, value in new_tags.items()]

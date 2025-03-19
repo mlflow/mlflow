@@ -40,7 +40,7 @@ export type RunsSearchAutoCompleteProps = {
   searchFilter: string;
   onSearchFilterChange: (newValue: string) => void;
   onClear: () => void;
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
 };
 
 /**
@@ -58,6 +58,10 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   const [focused, setFocused] = useState(false);
   const onFocus = () => setFocused(true);
   const onBlur = () => setFocused(false);
+  const onClearSearch = () => {
+    onClear();
+    setText('');
+  };
   // Determines whether the text was changed by making a selection in the autocomplete
   // dialog, as opposed to by typing.
   const [lastSetBySelection, setLastSetBySelection] = useState(false);
@@ -278,7 +282,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
               {text && (
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_212"
-                  onClick={onClear}
+                  onClick={onClearSearch}
                   type="link"
                   data-test-id="clear-button"
                 >
@@ -287,6 +291,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
               )}
               {quickRegexpFilter ? (
                 <Tooltip
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_310"
                   content={
                     <FormattedMessage
                       defaultMessage="Using regular expression quick filter. The following query will be used: {filterSample}"

@@ -12,9 +12,6 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,6 +40,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,6 +58,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +80,8 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -95,10 +96,35 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
             --ignore tests/deployments/server tests
 
+  py310:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.10"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/cache-pip
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install .
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
+          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -149,6 +175,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -170,6 +197,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,6 +212,10 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras uvicorn
+          # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
+          pip install "litellm>=1.52.9"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -201,6 +233,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -234,6 +267,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v4
         with:
@@ -245,12 +285,12 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]'
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -259,12 +299,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 2
+          - splits: 4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -284,15 +325,21 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
+      - name: Run tests on pydantic v1
+        run: |
+          pip install 'pydantic<2'
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -313,6 +360,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -336,7 +384,6 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install '.[extras,genai]'
           pip install pyspark
-          pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
@@ -344,6 +391,8 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

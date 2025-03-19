@@ -4,7 +4,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
@@ -45,13 +45,23 @@ class ChatState:
     # LLM/Tool Spans created after the last message in the chat session.
     # We consider them as operations for generating the next message and
     # re-locate them under the corresponding message span.
-    pending_spans: List[Span] = field(default_factory=list)
+    pending_spans: list[Span] = field(default_factory=list)
 
     def clear(self):
         self.session_span = None
         self.last_message = None
         self.last_message_timestamp = 0
         self.pending_spans = []
+
+
+def _catch_exception(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            _logger.error(f"Error occurred during AutoGen tracing: {e}")
+
+    return wrapper
 
 
 class MlflowAutogenLogger(BaseLogger):
@@ -62,7 +72,8 @@ class MlflowAutogenLogger(BaseLogger):
     def start(self) -> str:
         return "session_id"
 
-    def log_new_agent(self, agent: ConversableAgent, init_args: Dict[str, Any]) -> None:
+    @_catch_exception
+    def log_new_agent(self, agent: ConversableAgent, init_args: dict[str, Any]) -> None:
         """
         This handler is called whenever a new agent instance is created.
         Here we patch the agent's methods to start and end a trace around its chat session.
@@ -168,8 +179,8 @@ class MlflowAutogenLogger(BaseLogger):
         self,
         name: str,
         span_type: str,
-        inputs: Dict[str, Any],
-        attributes: Optional[Dict[str, Any]] = None,
+        inputs: dict[str, Any],
+        attributes: Optional[dict[str, Any]] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
         """
@@ -193,7 +204,8 @@ class MlflowAutogenLogger(BaseLogger):
             start_time_ns=start_time_ns,
         )
 
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: Dict[str, Any]):
+    @_catch_exception
+    def log_event(self, source: Union[str, Agent], name: str, **kwargs: dict[str, Any]):
         event_end_time = time.time_ns()
         if name == "received_message":
             if (self._chat_state.last_message is not None) and (
@@ -221,13 +233,14 @@ class MlflowAutogenLogger(BaseLogger):
             self._chat_state.last_message = kwargs
             self._chat_state.last_message_timestamp = event_end_time
 
+    @_catch_exception
     def log_chat_completion(
         self,
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
         source: Union[str, Agent],
-        request: Dict[str, Union[float, str, List[Dict[str, str]]]],
+        request: dict[str, Union[float, str, list[dict[str, str]]]],
         response: Union[str, ChatCompletion],
         is_cached: int,
         cost: float,
@@ -260,17 +273,22 @@ class MlflowAutogenLogger(BaseLogger):
         self._chat_state.pending_spans.append(span)
 
     # The following methods are not used but are required to implement the BaseLogger interface.
+    @_catch_exception
     def log_function_use(self, *args: Any, **kwargs: Any):
         pass
 
+    @_catch_exception
     def log_new_wrapper(self, wrapper, init_args):
         pass
 
+    @_catch_exception
     def log_new_client(self, client, wrapper, init_args):
         pass
 
+    @_catch_exception
     def stop(self) -> None:
         pass
 
+    @_catch_exception
     def get_connection(self):
         pass

@@ -12,7 +12,6 @@ import posixpath
 import sys
 import time
 import urllib.parse
-from typing import Dict
 from unittest import mock
 
 import flask
@@ -155,7 +154,7 @@ def test_create_experiment_validation(mlflow_client):
         },
         "Invalid value 123 for parameter 'name'",
     )
-    assert_bad_request({}, "Missing value for required parameter 'name'")
+    assert_bad_request({}, "Missing value for required parameter 'name'.")
     assert_bad_request(
         {
             "name": "experiment name",
@@ -1032,9 +1031,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         def get(self, key, default=None):
             return self.args_dict.get(key, default)
 
-    with mock.patch(
-        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-    ), flask_app.test_request_context() as mock_context:
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_store),
+        flask_app.test_request_context() as mock_context,
+    ):
         run_ids = [str(i) for i in range(10)]
         mock_context.request.args = MockRequestArgs(
             {
@@ -1669,7 +1669,9 @@ def test_log_inputs_validation(mlflow_client):
         source="source1",
     )
     tags = [InputTag(key="tag1", value="value1")]
-    dataset_inputs = [message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto())]
+    dataset_inputs = [
+        json.loads(message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto()))
+    ]
     assert_bad_request(
         {
             "datasets": dataset_inputs,
@@ -1997,7 +1999,7 @@ def test_start_and_end_trace(mlflow_client):
     client = mlflow_client._tracking_client
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
-    def _exclude_system_tags(tags: Dict[str, str]):
+    def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
     trace_info = client.start_trace(

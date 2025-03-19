@@ -2,7 +2,7 @@ import dbutils
 
 dbutils.library.restartPython()
 
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -31,8 +31,8 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
 
         def _generate(
             self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> ChatResult:

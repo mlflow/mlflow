@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
@@ -14,7 +14,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
+def pop_trace(request_id: str) -> Optional[dict[str, Any]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
@@ -49,15 +49,15 @@ class InferenceTableSpanExporter(SpanExporter):
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def export(self, root_spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to Inference Table via the TTLCache buffer.
 
         Args:
-            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method.
+            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
+                a span processor. Only root spans for each trace should be exported.
         """
-        for span in root_spans:
+        for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue

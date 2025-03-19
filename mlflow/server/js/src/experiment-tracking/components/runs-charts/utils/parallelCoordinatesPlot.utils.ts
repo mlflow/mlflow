@@ -1,4 +1,5 @@
 import { RunsChartsRunData } from '../components/RunsCharts.common';
+import { RunsChartsParallelCardConfig } from '../runs-charts.types';
 
 export type ParallelCoordinateDataEntry = Record<string, string | number | null>;
 export const PARALLEL_CHART_MAX_NUMBER_STRINGS = 30;
@@ -89,3 +90,10 @@ export function filterParallelCoordinateData(
 
   return stringRuns;
 }
+
+export const isParallelChartConfigured = (cardConfig: RunsChartsParallelCardConfig) => {
+  const selectedParamsCount = cardConfig.selectedParams?.length || 0;
+  const selectedMetricsCount = cardConfig.selectedMetrics?.length || 0;
+
+  return selectedParamsCount + selectedMetricsCount >= 2;
+};

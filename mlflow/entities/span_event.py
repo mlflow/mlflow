@@ -4,11 +4,12 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.utils.proto_json_utils import set_pb_value
 
 
 @dataclass
@@ -31,7 +32,7 @@ class SpanEvent(_MlflowObject):
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
     timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
-    attributes: Dict[str, AttributeValue] = field(default_factory=dict)
+    attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod
     def from_exception(cls, exception: Exception):
@@ -56,7 +57,7 @@ class SpanEvent(_MlflowObject):
                 tb = traceback.format_exception(error.__class__, error, error.__traceback__)
             else:
                 tb = traceback.format_exception(error)
-            return (msg + "\n\n".join(tb)).strip()
+            return "".join(tb).strip()
         except Exception:
             return msg
 
@@ -68,6 +69,17 @@ class SpanEvent(_MlflowObject):
             if self.attributes
             else None,
         }
+
+    def to_proto(self):
+        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
+        proto = ProtoSpan.Event(
+            name=self.name,
+            time_unix_nano=self.timestamp,
+        )
+        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
+        for key, value in self.attributes.items():
+            set_pb_value(proto.attributes[key], value)
+        return proto
 
 
 class CustomEncoder(json.JSONEncoder):

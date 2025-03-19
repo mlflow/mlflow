@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 import mlflow
 from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
@@ -38,7 +38,7 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str) -> None:
+    def __init__(self, step_config: dict[str, Any], recipe_root: str) -> None:
         super().__init__(step_config, recipe_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 

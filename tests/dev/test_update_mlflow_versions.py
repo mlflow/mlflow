@@ -55,15 +55,15 @@ _PYTHON_FILES = {
 }
 
 _PYPROJECT_TOML_FILES = {
-    "pyproject.skinny.toml": {
-        7: 'version = "{new_version}"',
+    "skinny/pyproject.toml": {
+        10: 'version = "{new_version}"',
     },
     "pyproject.toml": {
-        7: 'version = "{new_version}"',
+        12: 'version = "{new_version}"',
     },
     "pyproject.release.toml": {
-        7: 'version = "{new_version}"',
-        25: '  "mlflow-skinny=={new_version}",',
+        12: 'version = "{new_version}"',
+        30: '  "mlflow-skinny=={new_version}",',
     },
 }
 

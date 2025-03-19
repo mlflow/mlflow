@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState } from 'react';
 
-import { Alert, Button, Form, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, LegacyForm, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
 import { ModelEntity } from '../../experiment-tracking/types';
 import { ModelVersionAliasSelect } from '../components/aliases/ModelVersionAliasSelect';
@@ -20,12 +20,16 @@ const MAX_ALIASES_PER_MODEL_VERSION = 10;
 export const useEditRegisteredModelAliasesModal = ({
   model,
   onSuccess,
+  modalTitle,
+  modalDescription,
 }: {
   model: null | ModelEntity;
   onSuccess?: () => void;
+  modalTitle?: (version: string) => React.ReactNode;
+  modalDescription?: React.ReactNode;
 }) => {
   const [showModal, setShowModal] = useState(false);
-  const [form] = Form.useForm();
+  const [form] = LegacyForm.useForm();
 
   const [errorMessage, setErrorMessage] = useState<string>('');
   const { theme } = useDesignSystemTheme();
@@ -151,30 +155,36 @@ export const useEditRegisteredModelAliasesModal = ({
       }
       destroyOnClose
       title={
-        <FormattedMessage
-          defaultMessage="Add/Edit alias for model version {version}"
-          description="Model registry > model version alias editor > Title of the update alias modal"
-          values={{ version: currentlyEditedVersion }}
-        />
+        modalTitle ? (
+          modalTitle(currentlyEditedVersion)
+        ) : (
+          <FormattedMessage
+            defaultMessage="Add/Edit alias for model version {version}"
+            description="Model registry > model version alias editor > Title of the update alias modal"
+            values={{ version: currentlyEditedVersion }}
+          />
+        )
       }
       onCancel={() => setShowModal(false)}
       confirmLoading={false}
     >
       <Typography.Paragraph>
-        <FormattedMessage
-          defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
-          description="Explanation of registered model aliases"
-          values={{
-            link: (chunks) => (
-              <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
-                {chunks}
-              </a>
-            ),
-          }}
-        />
+        {modalDescription ?? (
+          <FormattedMessage
+            defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
+            description="Explanation of registered model aliases"
+            values={{
+              link: (chunks) => (
+                <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
+                  {chunks}
+                </a>
+              ),
+            }}
+          />
+        )}
       </Typography.Paragraph>
-      <Form form={form} layout="vertical">
-        <Form.Item>
+      <LegacyForm form={form} layout="vertical">
+        <LegacyForm.Item>
           <ModelVersionAliasSelect
             disabled={false}
             renderKey={conflictedAliases} // todo
@@ -184,7 +194,7 @@ export const useEditRegisteredModelAliasesModal = ({
             existingAliases={existingAliases}
             setDraftAliases={setDraftAliases}
           />
-        </Form.Item>
+        </LegacyForm.Item>
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           {isExceedingLimit && (
             <Alert
@@ -227,7 +237,7 @@ export const useEditRegisteredModelAliasesModal = ({
             />
           )}
         </div>
-      </Form>
+      </LegacyForm>
     </Modal>
   );
 

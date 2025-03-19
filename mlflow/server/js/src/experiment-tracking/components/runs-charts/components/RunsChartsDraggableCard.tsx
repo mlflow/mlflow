@@ -2,11 +2,14 @@ import { forwardRef, memo, useCallback, useRef, useState } from 'react';
 import { RunsChartsCard, type RunsChartsCardProps } from './cards/RunsChartsCard';
 import { DraggableCore, type DraggableEventHandler } from 'react-draggable';
 import { Resizable } from 'react-resizable';
-import { useDesignSystemTheme } from '@databricks/design-system';
-import { useIsInViewportV2 } from '../hooks/useIsInViewportV2';
-import { shouldDeferLineChartRendering } from '../../../../common/utils/FeatureUtils';
+import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import { useIsInViewport } from '../hooks/useIsInViewport';
 import { useDebounce } from 'use-debounce';
-import { DRAGGABLE_CARD_HANDLE_CLASS, DRAGGABLE_CARD_TRANSITION_VAR } from './cards/ChartCard.common';
+import {
+  DRAGGABLE_CARD_HANDLE_CLASS,
+  DRAGGABLE_CARD_TRANSITION_VAR,
+  RunsChartCardLoadingPlaceholder,
+} from './cards/ChartCard.common';
 import { useRunsChartsDraggableGridActionsContext } from './RunsChartsDraggableCardsGridContext';
 import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
@@ -21,17 +24,12 @@ interface RunsChartsDraggableCardProps extends RunsChartsCardProps {
 }
 
 export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps) => {
-  const { setElementRef, isInViewport } = useIsInViewportV2<HTMLDivElement>();
+  const { setElementRef, isInViewport } = useIsInViewport<HTMLDivElement>();
   const { uuid, translateBy, onResizeStart, onResize, onResizeStop, ...cardProps } = props;
+  const { theme } = useDesignSystemTheme();
 
-  let isInViewportDeferred = isInViewport;
-
-  if (shouldDeferLineChartRendering()) {
-    // We can safely disable the eslint rule here because flag evaluation is stable
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [deferredValue] = useDebounce(isInViewport, VIEWPORT_DEBOUNCE_MS);
-    isInViewportDeferred = deferredValue;
-  }
+  const [deferredValue] = useDebounce(isInViewport, VIEWPORT_DEBOUNCE_MS);
+  const isInViewportDeferred = deferredValue;
 
   const [resizeWidth, setResizeWidth] = useState(0);
   const [resizeHeight, setResizeHeight] = useState(0);
@@ -86,6 +84,24 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     },
     [onResize],
   );
+
+  if (!isInViewport) {
+    // If the card is not in the viewport, we avoid rendering draggable/resizable components
+    // and render a placeholder element having card's height instead.
+    return (
+      <RunsChartCardLoadingPlaceholder
+        style={{
+          height: props.height,
+        }}
+        css={{
+          backgroundColor: theme.colors.backgroundPrimary,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.general.borderRadiusBase,
+        }}
+        ref={setElementRef}
+      />
+    );
+  }
 
   return (
     <DraggableCore

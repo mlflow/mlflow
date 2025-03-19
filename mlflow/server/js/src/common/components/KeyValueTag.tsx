@@ -10,7 +10,7 @@ import { Interpolation, Theme } from '@emotion/react';
  * long and should be truncated. We want to avoid short keys or values
  * in a long tag to be truncated
  * */
-export const TRUNCATE_ON_CHARS_LENGTH = 30;
+const TRUNCATE_ON_CHARS_LENGTH = 30;
 
 function getTruncatedStyles(shouldTruncate = true): Interpolation<Theme> {
   return shouldTruncate

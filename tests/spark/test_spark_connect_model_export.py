@@ -109,8 +109,8 @@ def test_model_export(spark_model, model_path):
 def test_sparkml_model_log(spark_model):
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
-            artifact_path="model",
-            spark_model=spark_model.model,
+            spark_model.model,
+            "model",
         )
     model_uri = model_info.model_uri
 
@@ -122,12 +122,11 @@ def test_sparkml_model_log(spark_model):
 def test_pyfunc_serve_and_score(spark_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.spark.log_model(spark_model.model, artifact_path)
 
     input_data = pd.DataFrame({"features": spark_model.pandas_df["features"].map(list)})
     resp = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=input_data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],

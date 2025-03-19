@@ -33,8 +33,9 @@ def test_display_html_opens_html_data():
 def test_display_html_opens_html_file(tmp_path, monkeypatch):
     html_file = tmp_path / "test.html"
     html_file.write_text("<!DOCTYPE html><html><body><p>Hey</p></body></html>")
-    with mock.patch("subprocess.run") as patched_subprocess, mock.patch(
-        "shutil.which", return_value=True
+    with (
+        mock.patch("subprocess.run") as patched_subprocess,
+        mock.patch("shutil.which", return_value=True),
     ):
         monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         display_html(html_file_path=html_file)
@@ -43,15 +44,18 @@ def test_display_html_opens_html_file(tmp_path, monkeypatch):
 
 def test_display_html_throws_error_on_old_dbr():
     html_data = "<!DOCTYPE html><html><body><p>Hey</p></body></html>"
-    with mock.patch(
-        "mlflow.recipes.utils.step.is_running_in_ipython_environment", return_value=True
-    ), mock.patch(
-        "mlflow.recipes.utils.step.is_in_databricks_runtime", return_value=True
-    ), mock.patch(
-        "mlflow.recipes.utils.step.get_databricks_runtime_version",
-        return_value="10.4.x",
-    ), pytest.raises(
-        MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Recipes"
+    with (
+        mock.patch(
+            "mlflow.recipes.utils.step.is_running_in_ipython_environment", return_value=True
+        ),
+        mock.patch("mlflow.recipes.utils.step.is_in_databricks_runtime", return_value=True),
+        mock.patch(
+            "mlflow.recipes.utils.step.get_databricks_runtime_version",
+            return_value="10.4.x",
+        ),
+        pytest.raises(
+            MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Recipes"
+        ),
     ):
         display_html(html_data=html_data)
 

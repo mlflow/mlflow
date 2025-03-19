@@ -25,7 +25,7 @@ import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -353,7 +353,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -781,7 +781,7 @@ def autolog(
             )
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
@@ -871,6 +871,5 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         )
     else:
         _logger.warning(
-            "Unable to log dataset information to MLflow Tracking."
-            "XGBoost version must be >= 1.7.0"
+            "Unable to log dataset information to MLflow Tracking.XGBoost version must be >= 1.7.0"
         )

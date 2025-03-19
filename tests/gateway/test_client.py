@@ -212,7 +212,7 @@ def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
     assert isinstance(gateway_client.get_route("completions"), Route)
 
 
-def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
+def test_create_gateway_client_with_overridden_env_variable(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, "http://localhost:99999")
 
     # Pass a bad env variable config in
@@ -556,9 +556,10 @@ def test_query_timeout_not_retried(mixed_gateway):
     data = {"prompt": "Test", "temperature": 0.4}
     route = "completions"
 
-    with mock.patch(
-        "mlflow.gateway.constants.MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS", new=1
-    ), mock.patch("requests.Session.request", side_effect=Timeout) as mocked_request:
+    with (
+        mock.patch("mlflow.gateway.constants.MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS", new=1),
+        mock.patch("requests.Session.request", side_effect=Timeout) as mocked_request,
+    ):
         with pytest.raises(MlflowException, match="The provider has timed out while generating"):
             gateway_client.query(route=route, data=data)
 

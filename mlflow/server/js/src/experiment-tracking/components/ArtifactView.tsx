@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage } from 'react-intl';
+import { injectIntl, FormattedMessage, IntlShape, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -22,7 +22,7 @@ import {
   modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import _ from 'lodash';
+import _, { first } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import {
   DesignSystemHocProps,
@@ -36,7 +36,7 @@ import './ArtifactView.css';
 
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
-import { listArtifactsApi } from '../actions';
+import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
@@ -47,6 +47,9 @@ import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
+import { MlflowService } from '../sdk/MlflowService';
 
 const { Text } = Typography;
 
@@ -56,20 +59,19 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
   listArtifactsApi: (...args: any[]) => any;
+  listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   modelVersionsBySource: any;
   handleActiveNodeChange: (...args: any[]) => any;
   runTags?: any;
   modelVersions?: any[];
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
 
   /**
    * If true, the artifact browser will try to use all available height
    */
   useAutoHeight?: boolean;
-};
+} & LoggedModelArtifactViewerProps;
 
 type ArtifactViewImplState = any;
 
@@ -103,8 +105,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  renderModelVersionInfoSection(existingModelVersions: any) {
-    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />;
+  renderModelVersionInfoSection(existingModelVersions: any, intl: IntlShape) {
+    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} intl={this.props.intl} />;
   }
 
   renderPathAndSizeInfo() {
@@ -260,7 +262,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     if (existingModelVersions && Utils.isModelRegistryEnabled()) {
       // note that this case won't trigger for files inside a registered model/model version folder
       // React searches for existing model versions under the path of the file, which won't exist.
-      toRender = this.renderModelVersionInfoSection(existingModelVersions);
+      toRender = this.renderModelVersionInfoSection(existingModelVersions, this.props.intl);
     } else if (this.activeNodeCanBeRegistered() && Utils.isModelRegistryEnabled()) {
       toRender = this.renderRegisterModelButton();
     } else if (this.activeNodeIsDirectory()) {
@@ -304,11 +306,19 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     toggled: boolean,
   ) => {
     const { id, loading } = dataNode;
+
+    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
     // - requestedNodeIds keeps track of in flight requests.
     if (loading && !this.state.requestedNodeIds.has(id)) {
-      this.props.listArtifactsApi(this.props.runUuid, id);
+      // Call relevant API based on the mode we are in
+      if (usingLoggedModels && this.props.loggedModelId) {
+        this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, id);
+      } else {
+        this.props.listArtifactsApi(this.props.runUuid, id);
+      }
     }
     this.setState({
       activeNodeId: id,
@@ -420,6 +430,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           // or expand anything.
           ArtifactUtils.findChild(this.props.artifactNode, this.props.initialSelectedArtifactPath);
         } catch (err) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(err);
           return;
         }
@@ -457,6 +468,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     }
     const { theme } = this.props.designSystemThemeApi;
 
+    const { loggedModelId, isLoggedModelsMode } = this.props;
+
     return (
       <div
         className="artifact-view"
@@ -493,6 +506,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             artifactRootUri={this.props.artifactRootUri}
             modelVersions={this.props.modelVersions}
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
+            loggedModelId={loggedModelId}
+            isLoggedModelsMode={isLoggedModelsMode}
           />
         </div>
       </div>
@@ -501,9 +516,10 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 }
 
 const mapStateToProps = (state: any, ownProps: any) => {
-  const { runUuid } = ownProps;
+  const { runUuid, loggedModelId, isLoggedModelsMode } = ownProps;
   const { apis } = state;
-  const artifactNode = getArtifacts(runUuid, state);
+  const artifactNode =
+    isLoggedModelsMode && loggedModelId ? getArtifacts(loggedModelId, state) : getArtifacts(runUuid, state);
   const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
   const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
@@ -516,20 +532,21 @@ const mapStateToProps = (state: any, ownProps: any) => {
 
 const mapDispatchToProps = {
   listArtifactsApi,
+  listArtifactsLoggedModelApi,
 };
 
 export const ArtifactView = connect(
   mapStateToProps,
   mapDispatchToProps,
-  // @ts-expect-error TS(2769): No overload matches this call.
 )(WithDesignSystemThemeHoc(injectIntl(ArtifactViewImpl)));
 
 type ModelVersionInfoSectionProps = {
   modelVersion: any;
+  intl: IntlShape;
 };
 
 function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
-  const { modelVersion } = props;
+  const { modelVersion, intl } = props;
   const { name, version, status, status_message } = modelVersion;
 
   // eslint-disable-next-line prefer-const
@@ -559,7 +576,7 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
               defaultMessage="Registered on {registeredDate}"
               description="Label to display at what date the model was registered"
               values={{
-                registeredDate: Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd'),
+                registeredDate: Utils.formatTimestamp(modelVersion.creation_timestamp, intl),
               }}
             />
           </React.Fragment>

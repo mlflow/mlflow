@@ -33,11 +33,13 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   saveTagsHandler,
   allAvailableTags,
   valueRequired = false,
+  title,
 }: {
   onSuccess?: () => void;
   saveTagsHandler: (editedEntity: T, existingTags: KeyValueEntity[], newTags: KeyValueEntity[]) => Promise<any>;
   allAvailableTags?: string[];
   valueRequired?: boolean;
+  title?: React.ReactNode;
 }) => {
   const editedEntityRef = useRef<T>();
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -137,10 +139,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
       destroyOnClose
       visible={showModal}
       title={
-        <FormattedMessage
-          defaultMessage="Add/Edit tags"
-          description="Key-value tag editor modal > Title of the update tags modal"
-        />
+        title ?? (
+          <FormattedMessage
+            defaultMessage="Add/Edit tags"
+            description="Key-value tag editor modal > Title of the update tags modal"
+          />
+        )
       }
       onCancel={hideModal}
       footer={
@@ -306,7 +310,7 @@ function UnsavedTagPopoverTrigger({
     },
   );
   return (
-    <Popover.Root>
+    <Popover.Root componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_309">
       <Popover.Trigger asChild>
         <Button
           componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_306"

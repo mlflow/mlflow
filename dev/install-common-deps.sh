@@ -48,8 +48,7 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  cat pyproject.skinny.toml > pyproject.toml
-  pip install . --upgrade
+  pip install ./skinny
 else
   pip install .[extras] --upgrade
 fi

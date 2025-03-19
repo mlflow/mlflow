@@ -1,5 +1,6 @@
 import base64
 import json
+from functools import lru_cache
 
 import requests
 
@@ -87,23 +88,14 @@ def http_request(
     url = f"{cleaned_hostname}{endpoint}"
 
     if host_creds.use_databricks_sdk:
-        from databricks.sdk import WorkspaceClient
-        from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        if host_creds.use_secret_scope_token:
-            config = Config(
-                host=host_creds.host,
-                token=host_creds.token,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        else:
-            config = Config(
-                profile=host_creds.databricks_auth_profile,
-                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-            )
-        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
-        ws_client = WorkspaceClient(config=config)
+        ws_client = get_workspace_client(
+            host_creds.use_secret_scope_token,
+            host_creds.host,
+            host_creds.token,
+            host_creds.databricks_auth_profile,
+        )
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -210,6 +202,23 @@ def http_request(
         raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
+
+
+@lru_cache(maxsize=1)
+def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
+
+    if use_secret_scope_token:
+        kwargs = {"host": host, "token": token}
+    else:
+        kwargs = {"profile": databricks_auth_profile}
+    config = Config(
+        **kwargs,
+        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+    )
+    # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+    return WorkspaceClient(config=config)
 
 
 def _can_parse_as_json_object(string):
@@ -345,13 +354,26 @@ def get_trace_info_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/info"
 
 
+def get_trace_assessment_endpoint(request_id):
+    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
+    return f"{get_single_trace_endpoint(request_id)}"
+
+
 def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
 
 
+def get_create_assessment_endpoint(trace_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+
+
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
-    if json_body:
+    if json_body is not None:
         json_body = json.loads(json_body)
     call_kwargs = {
         "host_creds": host_creds,
@@ -370,6 +392,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
     js_dict = json.loads(response_to_parse)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 

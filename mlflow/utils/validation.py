@@ -7,10 +7,13 @@ import logging
 import numbers
 import posixpath
 import re
-from typing import List
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
+from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
+from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_TRUNCATE_LONG_VALUES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -102,7 +105,7 @@ tracking store."""
 
 def invalid_value(path, value, message=None):
     """
-    Compose a standarized error message for invalid parameter values.
+    Compose a standardized error message for invalid parameter values.
     """
     formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
 
@@ -116,18 +119,22 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 
+def not_integer_value(path, value):
+    return f"Parameter '{path}' must be an integer, got '{value}'."
+
+
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
 
 
-def append_to_json_path(currenPath, value):
-    if not currenPath:
+def append_to_json_path(currentPath, value):
+    if not currentPath:
         return value
 
     if value.startswith("["):
-        return f"{currenPath}{value}"
+        return f"{currentPath}{value}"
 
-    return f"{currenPath}.{value}"
+    return f"{currentPath}.{value}"
 
 
 def bad_path_message(name):
@@ -155,7 +162,7 @@ def bad_character_message():
         "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
         " spaces ( ){} and slashes (/)."
     )
-    return msg.format(", colon(:)") if is_windows() else msg.format("")
+    return msg.format("") if is_windows() else msg.format(", colon(:)")
 
 
 def path_not_unique(name):
@@ -260,8 +267,10 @@ def _validate_tag(key, value, path=""):
     """
     _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
-        _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
-        _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
+        _validate_length_limit(append_to_json_path(path, "key"), MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit(
+            append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
+        ),
     )
 
 
@@ -270,8 +279,8 @@ def _validate_experiment_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Tag key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
 def _validate_registered_model_tag(key, value):
@@ -279,8 +288,8 @@ def _validate_registered_model_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Registered model key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Registered model value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_model_version_tag(key, value):
@@ -289,8 +298,15 @@ def _validate_model_version_tag(key, value):
     """
     _validate_tag_name(key)
     _validate_tag_value(value)
-    _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
-    _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+
+    # Check prompt text tag particularly for showing friendly error message
+    if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
+        )
+
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_param_keys_unique(params):
@@ -365,8 +381,7 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
         return value[:limit]
 
     raise MlflowException(
-        f"{entity_name} '{value[:250]}' had length {len(value)}, "
-        f"which exceeded length limit of {limit}",
+        exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -463,7 +478,12 @@ def _validate_experiment_id_type(experiment_id):
 
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
-        raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_renaming(model_new_name):
+    if model_new_name is None or model_new_name == "":
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version(model_version):
@@ -471,8 +491,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            f"Model version must be an integer, got '{model_version}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -531,7 +550,7 @@ def _validate_tag_value(value):
         raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)
 
 
-def _validate_dataset_inputs(dataset_inputs: List[DatasetInput]):
+def _validate_dataset_inputs(dataset_inputs: list[DatasetInput]):
     for dataset_input in dataset_inputs:
         _validate_dataset(dataset_input.dataset)
         _validate_input_tags(dataset_input.tags)
@@ -575,7 +594,7 @@ def _validate_dataset(dataset: Dataset):
         )
 
 
-def _validate_input_tags(input_tags: List[InputTag]):
+def _validate_input_tags(input_tags: list[InputTag]):
     for input_tag in input_tags:
         _validate_input_tag(input_tag)
 
@@ -606,8 +625,17 @@ def _validate_username(username):
 
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
-    key = _validate_length_limit("Trace tag key", MAX_TRACE_TAG_KEY_LENGTH, key)
-    value = _validate_length_limit(
-        "Trace tag value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
-    )
+    key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value
+
+
+def _validate_experiment_artifact_location_length(artifact_location: str):
+    max_length = MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.get()
+    if len(artifact_location) > max_length:
+        raise MlflowException(
+            "Invalid artifact path length. The length of the artifact path cannot be "
+            f"greater than {max_length} characters. To configure this limit, please set the "
+            "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )

@@ -11,7 +11,11 @@ $ python dev/update_ml_package_versions.py
 import argparse
 import json
 import re
+import sys
+import time
+import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -28,10 +32,25 @@ def save_file(src, path):
         f.write(src)
 
 
+def uploaded_recently(dist) -> bool:
+    if ut := dist.get("upload_time"):
+        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    return False
+
+
 def get_package_versions(package_name):
     url = f"https://pypi.python.org/pypi/{package_name}/json"
-    with urllib.request.urlopen(url) as res:
-        data = json.load(res)
+    for _ in range(5):  # Retry up to 5 times
+        try:
+            with urllib.request.urlopen(url) as res:
+                data = json.load(res)
+        except ConnectionResetError as e:
+            sys.stderr.write(f"Retrying {url} due to {e}\n")
+            time.sleep(1)
+        else:
+            break
+    else:
+        raise Exception(f"Failed to fetch {url}")
 
     def is_dev_or_pre_release(version_str):
         v = Version(version_str)
@@ -40,7 +59,11 @@ def get_package_versions(package_name):
     return [
         version
         for version, dist_files in data["releases"].items()
-        if len(dist_files) > 0 and not is_dev_or_pre_release(version)
+        if (
+            len(dist_files) > 0
+            and not is_dev_or_pre_release(version)
+            and not any(uploaded_recently(dist) for dist in dist_files)
+        )
     ]
 
 
@@ -136,15 +159,14 @@ def update_ml_package_versions_py(config_path):
                         "maximum": max_version,
                     },
                 }
-                if module_name:
-                    config[name]["package_info"]["module_name"] = module_name
             else:
                 config[name] = {
                     "package_info": {
                         "pip_release": pip_release,
                     }
                 }
-
+            if module_name:
+                config[name]["package_info"]["module_name"] = module_name
             min_version = extract_field(cfg, ("autologging", "minimum"))
             max_version = extract_field(cfg, ("autologging", "maximum"))
             if (pip_release, min_version, max_version).count(None) > 0:
@@ -159,6 +181,11 @@ def update_ml_package_versions_py(config_path):
                 },
             )
         flavor_module_mapping = _get_autolog_flavor_module_map(config)
+
+        # We have "langgraph" entry in ml-package-versions.yml so that we can run test
+        # against multiple versions of langgraph. However, we don't have a flavor for
+        # langgraph and it is a part of the langchain flavor.
+        flavor_module_mapping.pop("langgraph", None)
 
         this_file = Path(__file__).name
         dst = Path("mlflow", "ml_package_versions.py")

@@ -41,7 +41,10 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
 
   return (
     <DropdownMenu.Root modal={false}>
-      <Tooltip content={label}>
+      <Tooltip
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsglobalchartsettingsdropdown.tsx_44"
+        content={label}
+      >
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.charts.controls.global_chart_setup_dropdown"
@@ -156,7 +159,7 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
               min={0}
               max={100}
               onChange={(lineSmoothness) => updateGlobalLineChartSettings({ lineSmoothness })}
-              defaultValue={lineSmoothness ? lineSmoothness : 0}
+              value={lineSmoothness ? lineSmoothness : 0}
             />
           </div>
         </DropdownMenu.Group>

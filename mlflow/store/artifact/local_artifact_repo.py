@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Any, Dict
+from typing import Any
 
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
@@ -127,7 +127,7 @@ class LocalArtifactRepository(ArtifactRepository):
             else:
                 shutil.rmtree(artifact_path)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
 

@@ -19,7 +19,7 @@ import string
 import sys
 from collections import namedtuple
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -28,6 +28,7 @@ import yaml
 from packaging.version import Version
 
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
@@ -189,7 +190,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-def get_default_pip_requirements(model) -> List[str]:
+def get_default_pip_requirements(model) -> list[str]:
     """
     Args:
         model: The model instance to be saved in order to provide the required underlying
@@ -277,16 +278,16 @@ def save_model(
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    model_config: Optional[dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
@@ -390,6 +391,48 @@ def save_model(
 
             .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
+        code_paths: {{ code_paths }}
+        mlflow_model: An MLflow model object that specifies the flavor that this model is being
+            added to.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+
+            .. code-block:: python
+                :caption: Example
+
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
+
+                en_to_de = pipeline("translation_en_to_de")
+
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
+
+                mlflow.transformers.save_model(
+                    transformers_model=en_to_de,
+                    path="/path/to/save/model",
+                    signature=signature,
+                    input_example=data,
+                )
+
+                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
+                print(loaded.predict(data))
+                # MLflow ist großartig!
+
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: {{ metadata }}
         model_config:
             A dict of valid overrides that can be applied to a pipeline instance during inference.
             These arguments are used exclusively for the case of loading the model as a ``pyfunc``
@@ -441,49 +484,6 @@ def save_model(
                     task=task,
                     model_config=model_config,
                 )
-
-        code_paths: {{ code_paths }}
-        mlflow_model: An MLflow model object that specifies the flavor that this model is being
-            added to.
-        signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
-            of `mlflow.models.signature`.
-
-            .. code-block:: python
-                :caption: Example
-
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
-                from transformers import pipeline
-
-                en_to_de = pipeline("translation_en_to_de")
-
-                data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
-
-                mlflow.transformers.save_model(
-                    transformers_model=en_to_de,
-                    path="/path/to/save/model",
-                    signature=signature,
-                    input_example=data,
-                )
-
-                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
-                print(loaded.predict(data))
-                # MLflow ist großartig!
-
-            If an input_example is provided and the signature is not, a signature will
-            be inferred automatically and applied to the MLmodel file iff the
-            pipeline type is a text-based model (NLP). If the pipeline type is not
-            a supported type, this inference functionality will not function correctly
-            and a warning will be issued. In order to ensure that a precise signature
-            is logged, it is recommended to explicitly provide one.
-        input_example: {{ input_example }}
-        pip_requirements: {{ pip_requirements }}
-        extra_pip_requirements: {{ extra_pip_requirements }}
-        conda_env: {{ conda_env }}
-        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
@@ -798,20 +798,21 @@ def log_model(
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    model_config: Optional[dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     **kwargs,
 ):
     """
@@ -909,57 +910,6 @@ def log_model(
         inference_config:
 
             .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
-        model_config:
-            A dict of valid overrides that can be applied to a pipeline instance during inference.
-            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-            Model or for use in Spark. These values are not applied to a returned Pipeline from a
-            call to ``mlflow.transformers.load_model()``
-
-            .. Warning:: If the key provided is not compatible with either the
-                         Pipeline instance for the task provided or is not a valid
-                         override to any arguments available in the Model, an
-                         Exception will be raised at runtime. It is very important
-                         to validate the entries in this dictionary to ensure
-                         that they are valid prior to saving or logging.
-
-            An example of providing overrides for a question generation model:
-
-            .. code-block:: python
-
-                from transformers import pipeline, AutoTokenizer
-
-                task = "text-generation"
-                architecture = "gpt2"
-
-                sentence_pipeline = pipeline(
-                    task=task,
-                    tokenizer=AutoTokenizer.from_pretrained(architecture),
-                    model=architecture,
-                )
-
-                # Validate that the overrides function
-                prompts = ["Generative models are", "I'd like a coconut so that I can"]
-
-                # validation of config prior to save or log
-                model_config = {
-                    "top_k": 2,
-                    "num_beams": 5,
-                    "max_length": 30,
-                    "temperature": 0.62,
-                    "top_p": 0.85,
-                    "repetition_penalty": 1.15,
-                }
-
-                # Verify that no exceptions are thrown
-                sentence_pipeline(prompts, **model_config)
-
-                with mlflow.start_run():
-                    mlflow.transformers.log_model(
-                        transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
-                        task=task,
-                        model_config=model_config,
-                    )
 
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -1012,9 +962,61 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        model_config:
+            A dict of valid overrides that can be applied to a pipeline instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark. These values are not applied to a returned Pipeline from a
+            call to ``mlflow.transformers.load_model()``
+
+            .. Warning:: If the key provided is not compatible with either the
+                         Pipeline instance for the task provided or is not a valid
+                         override to any arguments available in the Model, an
+                         Exception will be raised at runtime. It is very important
+                         to validate the entries in this dictionary to ensure
+                         that they are valid prior to saving or logging.
+
+            An example of providing overrides for a question generation model:
+
+            .. code-block:: python
+
+                from transformers import pipeline, AutoTokenizer
+
+                task = "text-generation"
+                architecture = "gpt2"
+
+                sentence_pipeline = pipeline(
+                    task=task,
+                    tokenizer=AutoTokenizer.from_pretrained(architecture),
+                    model=architecture,
+                )
+
+                # Validate that the overrides function
+                prompts = ["Generative models are", "I'd like a coconut so that I can"]
+
+                # validation of config prior to save or log
+                model_config = {
+                    "top_k": 2,
+                    "num_beams": 5,
+                    "max_length": 30,
+                    "temperature": 0.62,
+                    "top_p": 0.85,
+                    "repetition_penalty": 1.15,
+                }
+
+                # Verify that no exceptions are thrown
+                sentence_pipeline(prompts, **model_config)
+
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=sentence_pipeline,
+                        artifact_path="my_sentence_generator",
+                        task=task,
+                        model_config=model_config,
+                    )
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
+        prompts: {{ prompts }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -1045,6 +1047,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         prompt_template=prompt_template,
         save_pretrained=save_pretrained,
+        prompts=prompts,
         **kwargs,
     )
 
@@ -1474,7 +1477,7 @@ def _get_supported_pretrained_model_types():
     return supported_model_types
 
 
-def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[str]) -> Pipeline:
+def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: Optional[str]) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
@@ -1515,10 +1518,28 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
     NB: The get_task() function only works for remote models available in the Hugging
     Face hub, so the default task should be supplied when using a custom local model.
     """
-    from transformers.pipelines import get_task
+    from transformers.pipelines import get_supported_tasks, get_task
 
     try:
-        return get_task(model_name_or_path)
+        model_task = get_task(model_name_or_path)
+        if model_task in get_supported_tasks():
+            return model_task
+        elif default_task is not None:
+            _logger.warning(
+                f"The task '{model_task}' inferred from the model is not"
+                "supported by the transformers pipeline. MLflow will "
+                f"construct the pipeline with the fallback task {default_task} "
+                "inferred from the specified 'llm/v1/xxx' task."
+            )
+            return default_task
+        else:
+            raise MlflowException(
+                f"Cannot construct transformers pipeline because the task '{model_task}' "
+                "inferred from the model is not supported by the transformers pipeline. "
+                "Please construct the pipeline instance manually and pass it to the "
+                "`log_model` or `save_model` function."
+            )
+
     except RuntimeError as e:
         if default_task:
             return default_task
@@ -1630,7 +1651,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
     """
     Loads the model as pyfunc model
     """
@@ -1814,7 +1835,7 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.
@@ -2193,8 +2214,8 @@ class _TransformersWrapper:
             return data
 
     def _coerce_exploded_dict_to_single_dict(
-        self, data: List[Dict[str, Any]]
-    ) -> Dict[str, List[Any]]:
+        self, data: list[dict[str, Any]]
+    ) -> dict[str, list[Any]]:
         """
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
@@ -2400,7 +2421,7 @@ class _TransformersWrapper:
         else:
             return output_data
 
-    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
+    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> list[str]:
         """
         Parses the output results from select Pipeline types to extract specific values from a
         target key.
@@ -2766,8 +2787,8 @@ class _TransformersWrapper:
         return input_data
 
     def _convert_audio_input(
-        self, data: Union[AudioInput, List[Dict[int, List[AudioInput]]]]
-    ) -> Union[AudioInput, List[AudioInput]]:
+        self, data: Union[AudioInput, list[dict[int, list[AudioInput]]]]
+    ) -> Union[AudioInput, list[AudioInput]]:
         """
         Convert the input data into the format that the Transformers pipeline expects.
 

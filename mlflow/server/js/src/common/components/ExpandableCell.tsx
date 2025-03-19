@@ -25,7 +25,7 @@ export const ExpandedJSONValueCell = ({ value }: { value: string }) => {
   );
 };
 
-export const ExpandableCell = ({
+const ExpandableCell = ({
   value,
   isExpanded,
   toggleExpanded,

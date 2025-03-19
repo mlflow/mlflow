@@ -1,6 +1,15 @@
+import logging
+import operator
+import os
+from decimal import Decimal
+from typing import Optional
+
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation import EvaluationResult
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import deprecated
+
+_logger = logging.getLogger(__name__)
 
 
 class MetricThreshold:
@@ -243,3 +252,205 @@ class _MetricValidationResult:
 class ModelValidationFailedException(MlflowException):
     def __init__(self, message, **kwargs):
         super().__init__(message, error_code=BAD_REQUEST, **kwargs)
+
+
+def validate_evaluation_results(
+    validation_thresholds: dict[str, MetricThreshold],
+    candidate_result: EvaluationResult,
+    baseline_result: Optional[EvaluationResult] = None,
+):
+    """
+    Validate the evaluation result from one model (candidate) against another
+    model (baseline). If the candidate results do not meet the validation
+    thresholds, an ModelValidationFailedException will be raised.
+
+    .. note::
+
+        This API is a replacement for the deprecated model validation
+        functionality in the :py:func:`mlflow.evaluate` API.
+
+    Args:
+        validation_thresholds: A dictionary of metric name to
+            :py:class:`mlflow.models.MetricThreshold` used for model validation.
+            Each metric name must either be the name of a builtin metric or the
+            name of a metric defined in the ``extra_metrics`` parameter.
+        candidate_result: The evaluation result of the candidate model.
+            Returned by the :py:func:`mlflow.evaluate` API.
+        baseline_result: The evaluation result of the baseline model.
+            Returned by the :py:func:`mlflow.evaluate` API.
+            If set to None, the candidate model result will be
+            compared against the threshold values directly.
+
+    Code Example:
+
+        .. code-block:: python
+            :caption: Example of Model Validation
+
+            import mlflow
+            from mlflow.models import MetricThreshold
+
+            thresholds = {
+                "accuracy_score": MetricThreshold(
+                    # accuracy should be >=0.8
+                    threshold=0.8,
+                    # accuracy should be at least 5 percent greater than baseline model accuracy
+                    min_absolute_change=0.05,
+                    # accuracy should be at least 0.05 greater than baseline model accuracy
+                    min_relative_change=0.05,
+                    greater_is_better=True,
+                ),
+            }
+
+            # Get evaluation results for the candidate model
+            candidate_result = mlflow.evaluate(
+                model="<YOUR_CANDIDATE_MODEL_URI>",
+                data=eval_dataset,
+                targets="ground_truth",
+                model_type="classifier",
+            )
+
+            # Get evaluation results for the baseline model
+            baseline_result = mlflow.evaluate(
+                model="<YOUR_BASELINE_MODEL_URI>",
+                data=eval_dataset,
+                targets="ground_truth",
+                model_type="classifier",
+            )
+
+            # Validate the results
+            mlflow.validate_evaluation_results(
+                thresholds,
+                candidate_result,
+                baseline_result,
+            )
+
+        See `the Model Validation documentation
+        <../../models/index.html#performing-model-validation>`_ for more details.
+    """
+    try:
+        assert type(validation_thresholds) is dict
+        for key in validation_thresholds.keys():
+            assert type(key) is str
+        for threshold in validation_thresholds.values():
+            assert isinstance(threshold, MetricThreshold)
+    except AssertionError:
+        raise MlflowException(
+            message="The validation thresholds argument must be a dictionary that maps strings "
+            "to MetricThreshold objects.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    _logger.info("Validating candidate model metrics against baseline")
+    _validate(
+        validation_thresholds,
+        candidate_result.metrics,
+        baseline_result.metrics if baseline_result else {},
+    )
+    _logger.info("Model validation passed!")
+
+
+def _validate(
+    validation_thresholds: dict[str, MetricThreshold],
+    candidate_metrics: dict[str, float],
+    baseline_metrics: dict[str, float],
+):
+    """
+    Validate the model based on validation_thresholds by metrics value and
+    metrics comparison between candidate model's metrics (candidate_metrics) and
+    baseline model's metrics (baseline_metrics).
+
+    Args:
+        validation_thresholds: A dictionary from metric_name to MetricThreshold.
+        candidate_metrics: The metric evaluation result of the candidate model.
+        baseline_metrics: The metric evaluation result of the baseline model.
+
+    Raises:
+        If the validation does not pass, raise an MlflowException with detail failure message.
+    """
+    validation_results = {
+        metric_name: _MetricValidationResult(
+            metric_name,
+            candidate_metrics.get(metric_name),
+            threshold,
+            baseline_metrics.get(metric_name),
+        )
+        for (metric_name, threshold) in validation_thresholds.items()
+    }
+
+    for metric_name, metric_threshold in validation_thresholds.items():
+        validation_result = validation_results[metric_name]
+
+        if metric_name not in candidate_metrics:
+            validation_result.missing_candidate = True
+            continue
+
+        candidate_metric_value = candidate_metrics[metric_name]
+        baseline_metric_value = baseline_metrics[metric_name] if baseline_metrics else None
+
+        # If metric is higher is better, >= is used, otherwise <= is used
+        # for thresholding metric value and model comparison
+        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
+
+        if metric_threshold.threshold is not None:
+            # metric threshold fails
+            # - if not (metric_value >= threshold) for higher is better
+            # - if not (metric_value <= threshold) for lower is better
+            validation_result.threshold_failed = not comparator_fn(
+                candidate_metric_value, metric_threshold.threshold
+            )
+
+        if (
+            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
+        ) and metric_name not in baseline_metrics:
+            validation_result.missing_baseline = True
+            continue
+
+        if metric_threshold.min_absolute_change is not None:
+            # metric comparison absolute change fails
+            # - if not (metric_value >= baseline + min_absolute_change) for higher is better
+            # - if not (metric_value <= baseline - min_absolute_change) for lower is better
+            validation_result.min_absolute_change_failed = not comparator_fn(
+                Decimal(candidate_metric_value),
+                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
+            )
+
+        if metric_threshold.min_relative_change is not None:
+            # If baseline metric value equals 0, fallback to simple comparison check
+            if baseline_metric_value == 0:
+                _logger.warning(
+                    f"Cannot perform relative model comparison for metric {metric_name} as "
+                    "baseline metric value is 0. Falling back to simple comparison: verifying "
+                    "that candidate metric value is better than the baseline metric value."
+                )
+                validation_result.min_relative_change_failed = not comparator_fn(
+                    Decimal(candidate_metric_value),
+                    Decimal(operator_fn(baseline_metric_value, 1e-10)),
+                )
+                continue
+            # metric comparison relative change fails
+            # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
+            # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
+            if metric_threshold.greater_is_better:
+                relative_change = (
+                    candidate_metric_value - baseline_metric_value
+                ) / baseline_metric_value
+            else:
+                relative_change = (
+                    baseline_metric_value - candidate_metric_value
+                ) / baseline_metric_value
+            validation_result.min_relative_change_failed = (
+                relative_change < metric_threshold.min_relative_change
+            )
+
+    failure_messages = []
+
+    for metric_validation_result in validation_results.values():
+        if metric_validation_result.is_success():
+            continue
+        failure_messages.append(str(metric_validation_result))
+
+    if not failure_messages:
+        return
+
+    raise ModelValidationFailedException(message=os.linesep.join(failure_messages))

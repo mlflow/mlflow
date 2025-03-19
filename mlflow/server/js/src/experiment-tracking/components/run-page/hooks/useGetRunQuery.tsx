@@ -1,6 +1,6 @@
-import { type ApolloError, type ApolloQueryResult, gql } from '@apollo/client';
+import { type ApolloError, type ApolloQueryResult, gql } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import type { GetRun, GetRunVariables } from '../../../../graphql/__generated__/graphql';
-import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { useQuery, useLazyQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 const GET_RUN_QUERY = gql`
   query GetRun($data: MlflowGetRunInput!) @component(name: "MLflow.ExperimentRunTracking") {

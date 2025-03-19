@@ -10,6 +10,11 @@ export type RootProps = PropsWithChildren<{
     initialContentId?: string | undefined;
 }>;
 export declare function Root({ children, initialContentId }: RootProps): import("@emotion/react/jsx-runtime").JSX.Element;
+export interface DocumentationSideBarState {
+    currentContentId: string | undefined;
+    setCurrentContentId: (value: string | undefined) => void;
+}
+export declare const useDocumentationSidebarContext: () => DocumentationSideBarState;
 export interface TriggerProps<T extends string> extends Omit<TooltipProps, 'content' | 'children'> {
     /**
      * ContentId that will be passed along to the Content.
@@ -18,13 +23,25 @@ export interface TriggerProps<T extends string> extends Omit<TooltipProps, 'cont
     /**
      * aria-label for the info icon button
      */
-    label: string;
+    label?: string;
     /**
-     * Content for tooltip for the info icon button
+     * Optional content for tooltip that will wrap the trigger content
      */
-    tooltipContent: React.ReactNode;
+    tooltipContent?: React.ReactNode;
+    /**
+     * Set to true if you want to render your own trigger; requires children to a valid single React node
+     *
+     * Will default to render an `InfoIcon` wrapped in a button
+     */
+    asChild?: boolean;
+    /**
+     * Will be rendered as trigger content if `asChild` is true
+     *
+     * The node must be an interactive element ex: <Button/>
+     */
+    children?: React.ReactNode;
 }
-export declare function Trigger<T extends string>({ contentId, label, tooltipContent, ...tooltipProps }: TriggerProps<T>): import("@emotion/react/jsx-runtime").JSX.Element;
+export declare function Trigger<T extends string>({ contentId, label, tooltipContent, asChild, children, ...tooltipProps }: TriggerProps<T>): import("@emotion/react/jsx-runtime").JSX.Element;
 export interface ContentChildProps<T extends string> {
     contentId: T;
 }

@@ -1,6 +1,6 @@
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
-import logo from '../../common/static/home-logo.png';
+import logo from '../static/home-logo.png';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
@@ -17,6 +17,7 @@ const classNames = {
 
 const isExperimentsActive = (location: Location) => matchPath('/experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
+const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
 
 export const MlflowHeader = ({
   isDarkTheme = false,
@@ -86,6 +87,12 @@ export const MlflowHeader = ({
           style={isModelsActive(location) ? classNames.activeNavLink : undefined}
         >
           Models
+        </Link>
+        <Link
+          to={ExperimentTrackingRoutes.promptsPageRoute}
+          style={isPromptsActive(location) ? classNames.activeNavLink : undefined}
+        >
+          Prompts
         </Link>
       </div>
       <div css={{ flex: 1 }} />

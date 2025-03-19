@@ -9,7 +9,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 from unittest import mock
 
 import pytest
@@ -28,13 +28,15 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
     ViewType,
     _DatasetSummary,
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -223,7 +225,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -493,6 +495,8 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         store.DEFAULT_EXPERIMENT_ID,
     ]
 
+    # To avoid that the creation_time equals `now`, we wait one additional millisecond.
+    time.sleep(0.001)
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time >= {now}")
     assert experiments == []
@@ -778,7 +782,7 @@ def test_run_data_model(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         run_id = uuid.uuid4().hex
         m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
-        m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
+        m2 = models.SqlMetric(run_uuid=run_id, key="recall", value=0.89)
         p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
         p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
         run_data = models.SqlRun(run_uuid=run_id)
@@ -1234,8 +1238,7 @@ def test_log_null_param(store: SqlAlchemyStore):
 @pytest.mark.skipif(
     Version(sqlalchemy.__version__) < Version("2.0")
     and mlflow.get_tracking_uri().startswith("mssql"),
-    reason="large string parameters are sent as TEXT/NTEXT; "
-    "see tests/db/compose.yml for details",
+    reason="large string parameters are sent as TEXT/NTEXT; see tests/db/compose.yml for details",
 )
 def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
@@ -1246,7 +1249,7 @@ def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = store.get_run(run.info.run_id)
     assert run.data.params[tkey] == str(tval)
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1282,7 +1285,7 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
     long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
-    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
         store.set_experiment_tag(exp_id, long_tag)
     # test can set tags that are somewhat long
     long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
@@ -1306,7 +1309,9 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     store.set_tag(run.info.run_id, new_tag)
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match=f"exceeded length limit of {MAX_TAG_VAL_LENGTH}"):
+    with pytest.raises(
+        MlflowException, match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters"
+    ):
         store.set_tag(
             run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
         )
@@ -2708,9 +2713,11 @@ def test_log_batch_internal_error(store: SqlAlchemyStore):
         raise Exception("Some internal error")
 
     package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-    with mock.patch(package + "._log_metrics") as metric_mock, mock.patch(
-        package + "._log_params"
-    ) as param_mock, mock.patch(package + "._set_tags") as tags_mock:
+    with (
+        mock.patch(package + "._log_metrics") as metric_mock,
+        mock.patch(package + "._log_params") as param_mock,
+        mock.patch(package + "._set_tags") as tags_mock,
+    ):
         metric_mock.side_effect = _raise_exception_fn
         param_mock.side_effect = _raise_exception_fn
         tags_mock.side_effect = _raise_exception_fn
@@ -2784,7 +2791,7 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         metric,
         metric2,
     ]
-    store._log_metrics(run.info.run_id, metrics, path="metrics")
+    store._log_metrics(run.info.run_id, metrics)
 
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.metrics
@@ -2862,7 +2869,7 @@ def test_log_batch_params_max_length_value(store: SqlAlchemyStore, monkeypatch):
     _verify_logged(store, run.info.run_id, [], expected_param_entities, [])
     param_entities = [Param("long param", "x" * 6001)]
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, [], param_entities, [])
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -3290,7 +3297,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         # made to the input tags
         overwrite_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(
             run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
@@ -3351,7 +3358,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
         new_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -3868,6 +3875,10 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             )
             exp_id = store.create_experiment(name="exp")
             exp = store.get_experiment(exp_id)
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
@@ -3978,6 +3989,10 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
                 tags=[],
                 run_name="name",
             )
+
+            if hasattr(store, "__del__"):
+                store.__del__()
+
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
             if is_windows() and expected_artifact_uri_format.startswith("file:"):
@@ -4169,6 +4184,16 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
+        # In case if under the hood of `store` is a GO implementation, it is
+        # not possible to mock `generate.request_id`. Let's send generated `request_id`
+        # via special tag='mock.generate_request_id.go.testing.tag'
+        # so GO implementation can catch it.
+        if _MLFLOW_GO_STORE_TESTING.get():
+            if tags:
+                tags["mock.generate_request_id.go.testing.tag"] = request_id
+            else:
+                tags = {"mock.generate_request_id.go.testing.tag": request_id}
+
         trace_info = store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
@@ -4398,7 +4423,7 @@ def test_search_traces_pagination_tie_breaker(store):
         _create_trace(store, rid, exp1, timestamp_ms=0)
 
     # Insert 5 more traces with newer timestamp
-    request_ids = [f"tr-{i+5}" for i in range(5)]
+    request_ids = [f"tr-{i + 5}" for i in range(5)]
     random.shuffle(request_ids)
     for rid in request_ids:
         _create_trace(store, rid, exp1, timestamp_ms=1)
@@ -4454,7 +4479,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
             "Invalid value \"/\\.:\\\\\\\\.\" for parameter 'key' supplied",
         ),
         ("../", "value", "Invalid value \"\\.\\./\" for parameter 'key' supplied"),
-        ("a" * 251, "value", "Trace tag key 'aaa"),
+        ("a" * 251, "value", "'key' exceeds the maximum length of 250 characters"),
     ],
     # Name each test case too avoid including the long string arguments in the test name
     ids=["null-key", "bad-key-1", "bad-key-2", "bad-key-3", "too-long-key"],

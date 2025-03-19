@@ -262,14 +262,11 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
         if hasattr(runnable, "save"):
             runnable.save(model_path)
         elif hasattr(runnable, "dict"):
-            try:
-                runnable_dict = runnable.dict()
-                with open(model_path, "w") as f:
-                    yaml.dump(runnable_dict, f, default_flow_style=False)
-                # if the model cannot be loaded back, then `dict` is not enough for saving.
-                _load_model_from_config(path, conf)
-            except Exception:
-                raise Exception("Cannot save runnable without `save` method.")
+            runnable_dict = runnable.dict()
+            with open(model_path, "w") as f:
+                yaml.dump(runnable_dict, f, default_flow_style=False)
+            # if the model cannot be loaded back, then `dict` is not enough for saving.
+            _load_model_from_config(path, conf)
         else:
             raise Exception("Cannot save runnable without `save` or `dict` methods.")
     return conf
@@ -446,7 +443,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     model_config = {}
 
     # runnableBinding bound is the real runnable to be invoked
-    model_config["bound"] = _save_runnables(model.bound, save_path, loader_fn, persist_dir)
+    model_config["bound"] = _save_internal_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
     for field, value in model.dict().items():

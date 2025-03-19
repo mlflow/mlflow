@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -14,6 +14,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -22,6 +23,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.utils.proto_json_utils import set_pb_value
 
 _logger = logging.getLogger(__name__)
 
@@ -158,7 +160,7 @@ class Span:
         return encode_trace_id(self._span.context.trace_id)
 
     @property
-    def attributes(self) -> Dict[str, Any]:
+    def attributes(self) -> dict[str, Any]:
         """
         Get all attributes of the span.
 
@@ -168,7 +170,7 @@ class Span:
         return self._attributes.get_all()
 
     @property
-    def events(self) -> List[SpanEvent]:
+    def events(self) -> list[SpanEvent]:
         """
         Get all events of the span.
 
@@ -224,7 +226,7 @@ class Span:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         """
         Create a Span object from the given dictionary.
         """
@@ -264,6 +266,43 @@ class Span:
                 INVALID_PARAMETER_VALUE,
             ) from e
 
+    def to_proto(self):
+        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
+        otel_status = self._span.status
+        status = ProtoSpan.Status(
+            code=otel_status.status_code.value,
+            message=otel_status.description,
+        )
+        parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
+
+        proto = ProtoSpan(
+            trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
+            span_id=_encode_span_id_to_byte(self._span.context.span_id),
+            trace_state=self._span.context.trace_state or "",
+            parent_span_id=parent,
+            name=self.name,
+            start_time_unix_nano=self._span.start_time,
+            end_time_unix_nano=self._span.end_time,
+            events=[event.to_proto() for event in self.events],
+            status=status,
+        )
+
+        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
+        for key, value in self._span.attributes.items():
+            set_pb_value(proto.attributes[key], value)
+
+        return proto
+
+
+def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
+    return span_id.to_bytes(length=8, byteorder="big", signed=False)
+
+
+def _encode_trace_id_to_byte(trace_id: int) -> bytes:
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
+    return trace_id.to_bytes(length=16, byteorder="big", signed=False)
+
 
 class LiveSpan(Span):
     """
@@ -300,6 +339,10 @@ class LiveSpan(Span):
         self._attributes.set(SpanAttributeKey.REQUEST_ID, request_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
 
+    def set_span_type(self, span_type: str):
+        """Set the type of the span."""
+        self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
@@ -308,7 +351,7 @@ class LiveSpan(Span):
         """Set the output values to the span."""
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         """
         Set the attributes to the span. The attributes must be a dictionary of key-value pairs.
         This method is additive, i.e. it will add new attributes to the existing ones. If an
@@ -380,7 +423,7 @@ class LiveSpan(Span):
 
         self._span.end(end_time=end_time)
 
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
     def to_immutable_span(self) -> "Span":
@@ -529,13 +572,13 @@ class NoOpSpan(Span):
     def _trace_id(self):
         return None
 
-    def set_inputs(self, inputs: Dict[str, Any]):
+    def set_inputs(self, inputs: dict[str, Any]):
         pass
 
-    def set_outputs(self, outputs: Dict[str, Any]):
+    def set_outputs(self, outputs: dict[str, Any]):
         pass
 
-    def set_attributes(self, attributes: Dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]):
         pass
 
     def set_attribute(self, key: str, value: Any):
@@ -565,7 +608,7 @@ class _SpanAttributesRegistry:
     def __init__(self, otel_span: OTelSpan):
         self._span = otel_span
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         return {key: self.get(key) for key in self._span.attributes.keys()}
 
     def get(self, key: str):

@@ -108,14 +108,15 @@ def score_model_in_sagemaker_docker_container(
         return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
 
     Args:
+        output_directory: Output directory to generate Dockerfile and model artifacts
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
-        output_directory: Output directory to generate Dockerfile and model artifacts
+        env: Environment variables to use.
     """
     cmd = [
         "mlflow",
@@ -133,13 +134,14 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):  # noqa: D417
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
     Args:
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
+        env: Environment variables to pass to the subprocess building the image.
     """
     name = uuid.uuid4().hex
     cmd = [
@@ -182,7 +184,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
+    image_name, host_port, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -193,8 +195,6 @@ def pyfunc_serve_from_docker_image_with_env_override(
     scoring_cmd = [
         "docker",
         "run",
-        "-e",
-        f"GUNICORN_CMD_ARGS={gunicorn_opts}",
         "-p",
         f"{host_port}:8080",
         *(extra_docker_run_options or []),
@@ -223,22 +223,19 @@ def pyfunc_serve_and_score_model(
 
 
 @contextmanager
-def pyfunc_scoring_endpoint(  # noqa: D417
+def pyfunc_scoring_endpoint(
     model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
 ):
     """
     Args:
         model_uri: URI to the model to be served.
-        data: The data to send to the pyfunc server for testing. This is either a
-            Pandas dataframe or string of the format specified by `content_type`.
-        content_type: The type of the data to send to the pyfunc server for testing. This is
-            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
         activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
             declaring the scoring process to have failed.
         extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
+        stdout: The output stream to which standard output is redirected. Defaults to `sys.stdout`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -418,10 +415,10 @@ def _read_lines(path):
         return f.read().splitlines()
 
 
-def _compare_logged_code_paths(code_path, model_path, flavor_name):
-    import mlflow.pyfunc
+def _compare_logged_code_paths(code_path: str, model_uri: str, flavor_name: str) -> None:
     from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
+    model_path = _download_artifact_from_uri(model_uri)
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -661,6 +658,8 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+    except Exception as e:
+        _logger.warning(f"Failed to clear cache: {e}", exc_info=True)
 
 
 def flaky(max_tries=3):
@@ -682,7 +681,7 @@ def flaky(max_tries=3):
                 try:
                     return test_func(*args, **kwargs)
                 except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    _logger.warning(f"Attempt {i + 1} failed with error: {e}")
                     if i == max_tries - 1:
                         raise
                     time.sleep(3)

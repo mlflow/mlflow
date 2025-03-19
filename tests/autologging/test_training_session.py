@@ -100,7 +100,7 @@ def test_parent_session_overrides_child_session():
     assert_session_stack([])
 
 
-def test_should_log_returns_false_when_parrent_session_has_the_same_estimator():
+def test_should_log_returns_false_when_parent_session_has_the_same_estimator():
     # This test case corresponds to when Pipeline.fit() calls Transformer.fit_transform()
     # which calls Transformer.fit()
     with _TrainingSession(PARENT, allow_children=True) as p:

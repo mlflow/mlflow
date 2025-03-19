@@ -1,6 +1,6 @@
 import re
 from functools import reduce
-from typing import Set, Union
+from typing import Union
 
 try:
     # For spark >= 4.0
@@ -49,7 +49,7 @@ def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, Pipeli
     return transformer.transform(df)
 
 
-def _get_struct_type_by_cols(input_fields: Set[str], df_schema: t.StructType) -> t.StructType:
+def _get_struct_type_by_cols(input_fields: set[str], df_schema: t.StructType) -> t.StructType:
     """
     Args:
         input_fields: A set of input columns to be
@@ -68,7 +68,7 @@ def _get_struct_type_by_cols(input_fields: Set[str], df_schema: t.StructType) ->
 def get_feature_cols(
     df: DataFrame,
     transformer: Union[Transformer, PipelineModel],
-) -> Set[str]:
+) -> set[str]:
     """
     Finds feature columns from an input dataset. If a dataset
     contains non-feature columns, those columns are not returned, but

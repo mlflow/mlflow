@@ -1,9 +1,9 @@
 import warnings
-from typing import Dict
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -112,6 +112,7 @@ _artifact_repository_registry.register("models", ModelsArtifactRepository)
 for scheme in ["http", "https"]:
     _artifact_repository_registry.register(scheme, HttpArtifactRepository)
 _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
+_artifact_repository_registry.register("abfss", AzureDataLakeArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
 
@@ -132,7 +133,7 @@ def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
 
 
-def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
+def get_registered_artifact_repositories() -> dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 

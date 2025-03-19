@@ -1,0 +1,98 @@
+---
+sidebar_position: 4
+sidebar_label: Low-level Client APIs
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# (Advanced) Low-level Client APIs
+
+The <APILink fn="mlflow.client.MlflowClient">`MlflowClient`</APILink> class provides a set of low-level APIS for fine-grained control over creating, manipulating, and retrieving traces.
+
+:::warning
+We recommend using the client APIs ONLY when the high-level APIs like `@mlflow.trace` and `mlflow.start_span` do not satisfy your requirements. See [this page](/tracing/api/manual-instrumentation) for the usage of those high-level APIs.
+:::
+
+### Starting a Trace
+
+Unlike with the high-level APIs, the MLflow Trace Client API requires that you explicitly start a trace before adding child spans. This initial API call
+starts the root span for the trace, providing a context request_id that is used for associating subsequent spans to the root span.
+
+To start a new trace, use the <APILink fn="mlflow.client.MlflowClient.start_trace" /> method. This method creates a new trace and returns the root span object.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Start a new trace
+root_span = client.start_trace("my_trace")
+
+# The request_id is used for creating additional spans that have a hierarchical association to this root span
+request_id = root_span.request_id
+```
+
+### Adding a Child Span
+
+Once a trace is started, you can add child spans to it with the <APILink fn="mlflow.client.MlflowClient.start_span" /> API. Child spans allow you to break down the trace into smaller, more manageable segments,
+each representing a specific operation or step within the overall process.
+
+```python
+# Create a child span
+child_span = client.start_span(
+    name="child_span",
+    request_id=request_id,
+    parent_id=root_span.span_id,
+    inputs={"input_key": "input_value"},
+    attributes={"attribute_key": "attribute_value"},
+)
+```
+
+### Ending a Span
+
+After performing the operations associated with a span, you must end the span explicitly using the <APILink fn="mlflow.client.MlflowClient.end_span" /> method. Make note of the two required fields
+that are in the API signature:
+
+- **request_id**: The identifier associated with the root span
+- **span_id**: The identifier associated with the span that is being ended
+
+In order to effectively end a particular span, both the root span (returned from calling `start_trace`) and the targeted span (returned from calling `start_span`)
+need to be identified when calling the `end_span` API.
+The initiating `request_id` can be accessed from any parent span object's properties.
+
+:::note
+Spans created via the Client API will need to be terminated manually. Ensure that all spans that have been started with the `start_span` API
+have been ended with the `end_span` API.
+:::
+
+```python
+# End the child span
+client.end_span(
+    request_id=child_span.request_id,
+    span_id=child_span.span_id,
+    outputs={"output_key": "output_value"},
+    attributes={"custom_attribute": "value"},
+)
+```
+
+### Ending a Trace
+
+To complete the trace, end the root span using the <APILink fn="mlflow.client.MlflowClient.end_trace" /> method. This will also ensure that all associated child
+spans are properly ended.
+
+```python
+# End the root span (trace)
+client.end_trace(
+    request_id=request_id,
+    outputs={"final_output_key": "final_output_value"},
+    attributes={"token_usage": "1174"},
+)
+```
+
+### Other APIs
+
+The MLflow client exposes several other APIs for interacting with trace data. Refer to the [how-to guide](/tracing/api/how-to) to learn more.
