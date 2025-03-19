@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -1938,34 +1938,73 @@ class SqlAlchemyStore(AbstractStore):
                 f"Invalid filter string: {filter_string}. Expected a single SQL expression.",
             )
 
-        class Entity(Enum):
+        class EntityType(Enum):
             ATTRIBUTE = "attributes"
             METRIC = "metrics"
             PARAM = "params"
             TAG = "tags"
 
-            def from_str(s: str) -> "Entity":
+            @classmethod
+            def from_str(cls, s: str) -> "Entity":
                 if s == "attributes":
-                    return Entity.ATTRIBUTE
+                    return cls.ATTRIBUTE
                 if s == "metrics":
-                    return Entity.METRIC
+                    return cls.METRIC
                 if s == "params":
-                    return Entity.PARAM
+                    return cls.PARAM
                 if s == "tags":
-                    return Entity.TAG
+                    return cls.TAG
 
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid entity: {s}. Expected one of {[e.value for e in Entity]}."
+                    f"Invalid entity type: {s!r}. Expected one of {[e.value for e in cls]}."
                 )
 
         @dataclass
-        class Comparison:
-            entity: Entity
+        class Entity:
+            type: EntityType
             key: str
-            op: str
-            value: str
 
-        comparisons: list[Comparison] = []
+            IDENTIFIER_RE = re.compile(r"^([a-z]+)\.(.+)$")
+
+            def __repr__(self) -> str:
+                return f"{self.type.value}.{self.key}"
+
+            @classmethod
+            def from_str(self, s: str) -> "Entity":
+                if m := Entity.IDENTIFIER_RE.match(s):
+                    return Entity(
+                        type=EntityType.from_str(m.group(1)),
+                        key=m.group(2).strip("`"),
+                    )
+                return Entity(
+                    type=EntityType.ATTRIBUTE, key=SqlLoggedModel.ALIASES.get(s, s).strip("`")
+                )
+
+            def is_numeric(self) -> bool:
+                """
+                Does this entity represent a numeric column?
+                """
+                return self.type == EntityType.METRIC or (
+                    self.type == EntityType.ATTRIBUTE and SqlLoggedModel.is_numeric(self.key)
+                )
+
+            def validate_op(self, op: str) -> None:
+                numeric_ops = ("<", "<=", ">", ">=", "=", "!=")
+                string_ops = ("=", "!=", "LIKE", "ILIKE")
+                ops = numeric_ops if self.is_numeric() else string_ops
+                if op not in ops:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparison operator for {self}: {op!r}. "
+                        f"Expected one of {string_ops}."
+                    )
+
+        @dataclass
+        class Comparison:
+            left: Entity
+            op: str
+            right: Union[str, float]
+
+        comparisons: list[sqlalchemy.BinaryExpression] = []
         for stmt in parsed[0]:
             if isinstance(stmt, sqlparse.sql.Comparison):
                 non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
@@ -1974,22 +2013,10 @@ class SqlAlchemyStore(AbstractStore):
                         f"Invalid comparison: {stmt}. Expected a comparison with 3 tokens."
                     )
                 identifier, op, value = non_whitespace_tokens
-                value = value.strip("'").strip('"')
-                if m := re.match(r"^([a-z]+)\.(.+)", identifier):
-                    comp = Comparison(
-                        entity=Entity.from_str(m.group(1)),
-                        key=m.group(2).strip("`"),
-                        op=op,
-                        value=value,
-                    )
-                else:
-                    comp = Comparison(
-                        entity=Entity.ATTRIBUTE,
-                        key=identifier.strip("`"),
-                        op=op,
-                        value=value,
-                    )
-                comparisons.append(comp)
+                ent = Entity.from_str(identifier)
+                ent.validate_op(op)
+                right = float(value) if ent.is_numeric() else value.strip("'")
+                comparisons.append(Comparison(left=ent, op=op, right=right))
             # Ignore whitespace and 'AND' tokens, otherwise raise an error
             elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
                 raise MlflowException.invalid_parameter_value(
@@ -2000,35 +2027,32 @@ class SqlAlchemyStore(AbstractStore):
         filters = []
         dialect = self._get_dialect()
         for comp in comparisons:
-            if comp.entity == Entity.ATTRIBUTE:
-                comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
-                key = SqlLoggedModel.ALIASES.get(comp.key, comp.key)
-                value = float(comp.value) if SqlLoggedModel.is_numeric(key) else comp.value
-                filters.append(comp_func(getattr(SqlLoggedModel, key), value))
+            comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
+            if comp.left.type == EntityType.ATTRIBUTE:
+                filters.append(comp_func(getattr(SqlLoggedModel, comp.left.key), comp.right))
                 continue
 
-            comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
-            if comp.entity == Entity.METRIC:
+            if comp.left.type == EntityType.METRIC:
                 subquery = (
                     session.query(SqlLoggedModelMetric)
-                    .filter(SqlLoggedModelMetric.metric_name == comp.key)
+                    .filter(SqlLoggedModelMetric.metric_name == comp.left.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelMetric.metric_value, float(comp.value)))
-            elif comp.entity == Entity.PARAM:
+                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.right))
+            elif comp.left.type == EntityType.PARAM:
                 subquery = (
                     session.query(SqlLoggedModelParam)
-                    .filter(SqlLoggedModelParam.param_key == comp.key)
+                    .filter(SqlLoggedModelParam.param_key == comp.left.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
-            elif comp.entity == Entity.TAG:
+                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.right))
+            elif comp.left.type == EntityType.TAG:
                 subquery = (
                     session.query(SqlLoggedModelTag)
-                    .filter(SqlLoggedModelTag.tag_key == comp.key)
+                    .filter(SqlLoggedModelTag.tag_key == comp.left.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
+                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.right))
 
             models = models.join(subquery)
 

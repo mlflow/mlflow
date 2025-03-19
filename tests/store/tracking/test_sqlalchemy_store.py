@@ -4941,6 +4941,24 @@ def test_search_logged_models_invalid_filter_string(store: SqlAlchemyStore):
             filter_string="name = 'foo' OR name = 'bar'",
         )
 
+    with pytest.raises(MlflowException, match="Invalid entity type"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="foo.bar = 'a'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="name > 'foo'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="metrics.foo LIKE 0",
+        )
+
 
 def test_search_logged_models_order_by(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")

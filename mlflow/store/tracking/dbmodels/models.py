@@ -862,7 +862,10 @@ class SqlLoggedModel(Base):
 
     @staticmethod
     def is_numeric(s: str) -> bool:
-        return s in {"creation_timestamp_ms", "last_updated_timestamp_ms"}
+        return SqlLoggedModel.ALIASES.get(s, s) in {
+            "creation_timestamp_ms",
+            "last_updated_timestamp_ms",
+        }
 
 
 class SqlLoggedModelMetric(Base):
