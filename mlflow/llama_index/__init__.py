@@ -632,7 +632,7 @@ def _autolog(
             FLAVOR_NAME,
             BaseIndex,
             func_name,
-            _patch_as_engine,
+            _patch_as_func,
         )
     # patch subclasses for as_retriever since it's an abstract method
     for cls in BaseIndex.__subclasses__():
@@ -640,11 +640,11 @@ def _autolog(
             FLAVOR_NAME,
             cls,
             "as_retriever",
-            _patch_as_engine,
+            _patch_as_func,
         )
 
 
-def _patch_as_engine(original, self, *args, **kwargs):
+def _patch_as_func(original, self, *args, **kwargs):
     engine = original(self, *args, **kwargs)
     if model_id := _MODEL_TRACKER.get(id(self)):
         engine._mlflow_model_id = model_id
