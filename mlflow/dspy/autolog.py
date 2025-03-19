@@ -75,7 +75,7 @@ def autolog(
         )
 
     def patch_module(original, self, *args, **kwargs):
-        _MODEL_TRACKER.set_active_model_id(self)
+        _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
         return original(self, *args, **kwargs)
 
     # Patch teleprompter/evaluator not to generate traces by default

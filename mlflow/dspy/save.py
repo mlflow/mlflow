@@ -382,5 +382,5 @@ def log_model(
         model_id=model_id,
     )
     if model.model_id and not isinstance(dspy_model, str):
-        _MODEL_TRACKER.set(dspy_model, model.model_id)
+        _MODEL_TRACKER.set(id(dspy_model), model.model_id)
     return model
