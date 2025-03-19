@@ -1923,31 +1923,31 @@ class SqlAlchemyStore(AbstractStore):
         filters: list[sqlalchemy.BinaryExpression] = []
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
-            if comp.left.type == EntityType.ATTRIBUTE:
-                filters.append(comp_func(getattr(SqlLoggedModel, comp.left.key), comp.right))
+            if comp.entity.type == EntityType.ATTRIBUTE:
+                filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
                 continue
 
-            if comp.left.type == EntityType.METRIC:
+            if comp.entity.type == EntityType.METRIC:
                 subquery = (
                     session.query(SqlLoggedModelMetric)
-                    .filter(SqlLoggedModelMetric.metric_name == comp.left.key)
+                    .filter(SqlLoggedModelMetric.metric_name == comp.entity.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.right))
-            elif comp.left.type == EntityType.PARAM:
+                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.value))
+            elif comp.entity.type == EntityType.PARAM:
                 subquery = (
                     session.query(SqlLoggedModelParam)
-                    .filter(SqlLoggedModelParam.param_key == comp.left.key)
+                    .filter(SqlLoggedModelParam.param_key == comp.entity.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.right))
-            elif comp.left.type == EntityType.TAG:
+                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
+            elif comp.entity.type == EntityType.TAG:
                 subquery = (
                     session.query(SqlLoggedModelTag)
-                    .filter(SqlLoggedModelTag.tag_key == comp.left.key)
+                    .filter(SqlLoggedModelTag.tag_key == comp.entity.key)
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.right))
+                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
 
             models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
 

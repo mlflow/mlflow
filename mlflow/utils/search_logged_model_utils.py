@@ -71,9 +71,9 @@ class Entity:
 
 @dataclass
 class Comparison:
-    left: Entity
+    entity: Entity
     op: str
-    right: Union[str, float]
+    value: Union[str, float]
 
 
 def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
@@ -100,10 +100,10 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
                     f"Invalid comparison: {stmt}. Expected a comparison with 3 tokens."
                 )
             identifier, op, value = non_whitespace_tokens
-            ent = Entity.from_str(identifier)
-            ent.validate_op(op)
-            right = float(value) if ent.is_numeric() else value.strip("'")
-            comparisons.append(Comparison(left=ent, op=op, right=right))
+            entity = Entity.from_str(identifier)
+            entity.validate_op(op)
+            value = float(value) if entity.is_numeric() else value.strip("'")
+            comparisons.append(Comparison(entity=entity, op=op, value=value))
         # Ignore whitespace and 'AND' tokens, otherwise raise an error
         elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
             raise MlflowException.invalid_parameter_value(
