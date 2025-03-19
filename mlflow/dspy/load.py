@@ -45,7 +45,7 @@ def _load_model(model_uri, dst_path=None):
     mlflow_model = Model.load(local_model_path)
     if mlflow_model.model_id:
         # the model of the wrapper will be used for inference
-        _MODEL_TRACKER.set(loaded_wrapper.model, mlflow_model.model_id)
+        _MODEL_TRACKER.set(id(loaded_wrapper.model), mlflow_model.model_id)
 
     return loaded_wrapper
 
