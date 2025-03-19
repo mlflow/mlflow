@@ -344,8 +344,25 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
 
+        print(f"rohit: Starting S3 download - Bucket: {self.bucket}, Remote path: {s3_full_path}, Local path: {local_path}")
+        print(f"rohit: Local path exists: {os.path.exists(local_path)}")
+        print(f"rohit: Local path directory exists: {os.path.exists(os.path.dirname(local_path))}")
+        print(f"rohit: Local path directory permissions: {oct(os.stat(os.path.dirname(local_path)).st_mode)[-3:]}")
+
         def try_func(creds):
-            creds.download_file(self.bucket, s3_full_path, local_path)
+            try:
+                print(f"rohit: Attempting download with credentials")
+                creds.download_file(self.bucket, s3_full_path, local_path)
+                print(f"rohit: Successfully downloaded file from S3")
+            except Exception as e:
+                print(f"rohit: S3 Download Error - Bucket: {self.bucket}, Remote path: {s3_full_path}")
+                print(f"rohit: Error Type: {type(e).__name__}")
+                print(f"rohit: Error Message: {str(e)}")
+                print(f"rohit: Local path: {local_path}")
+                print(f"rohit: Local path exists: {os.path.exists(local_path)}")
+                print(f"rohit: Local path directory exists: {os.path.exists(os.path.dirname(local_path))}")
+                print(f"rohit: Local path directory permissions: {oct(os.stat(os.path.dirname(local_path)).st_mode)[-3:]}")
+                raise
 
         _retry_with_new_creds(
             try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
