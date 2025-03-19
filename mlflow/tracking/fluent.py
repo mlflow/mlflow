@@ -2109,7 +2109,7 @@ def search_logged_models(
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
-            Examples:
+            Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
                 - `tags.release LIKE 'v1.%'`
