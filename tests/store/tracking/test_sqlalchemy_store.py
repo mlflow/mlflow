@@ -4799,6 +4799,13 @@ def test_search_logged_models_filter_string(store: SqlAlchemyStore):
 
     models = store.search_logged_models(
         experiment_ids=[exp_id_1],
+        filter_string=f"attributes.name = '{model_1.name}'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
         filter_string=f"name LIKE '{model_1.name[:3]}%'",
     )
     assert [m.name for m in models] == [model_1.name]
