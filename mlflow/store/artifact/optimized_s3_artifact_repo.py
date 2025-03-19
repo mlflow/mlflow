@@ -348,10 +348,30 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         print(f"rohit: Local path exists: {os.path.exists(local_path)}")
         print(f"rohit: Local path directory exists: {os.path.exists(os.path.dirname(local_path))}")
         print(f"rohit: Local path directory permissions: {oct(os.stat(os.path.dirname(local_path)).st_mode)[-3:]}")
+        
+        # Get file size before download
+        try:
+            response = s3_client.head_object(Bucket=self.bucket, Key=s3_full_path)
+            file_size = response.get('ContentLength', 0)
+            print(f"rohit: File size before download: {file_size} bytes ({file_size / (1024*1024):.2f} MB)")
+        except Exception as e:
+            print(f"rohit: Could not get file size: {str(e)}")
 
         def try_func(creds):
             try:
                 print(f"rohit: Attempting download with credentials")
+                # Try to create the file first to test write permissions
+                try:
+                    print(f"rohit: Testing file creation at {local_path}")
+                    with open(local_path, 'wb') as f:
+                        f.write(b'')
+                    print(f"rohit: Successfully created empty file")
+                    os.remove(local_path)
+                    print(f"rohit: Successfully removed test file")
+                except Exception as e:
+                    print(f"rohit: Error testing file creation: {str(e)}")
+                    print(f"rohit: Error type during file creation: {type(e).__name__}")
+                
                 creds.download_file(self.bucket, s3_full_path, local_path)
                 print(f"rohit: Successfully downloaded file from S3")
             except Exception as e:
