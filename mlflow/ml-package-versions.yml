@@ -857,7 +857,6 @@ gemini:
     module_name: "google.genai"
     install_dev: |
       pip install git+https://github.com/googleapis/python-genai
-      export GOOGLE_GENAI_DEV=true
   autologging:
     minimum: "1.0.0"
     maximum: "1.5.0"
