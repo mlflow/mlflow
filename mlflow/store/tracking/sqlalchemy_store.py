@@ -1949,7 +1949,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.right))
 
-            models = models.join(subquery)
+            models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
 
         return models.filter(SqlLoggedModel.experiment_id.in_(experiment_ids), *filters)
 
