@@ -137,7 +137,6 @@ class ShowArtifactTextView extends Component<Props> {
     this.props
       .getArtifact?.(artifactLocation)
       .then((text: string) => {
-        // Store the previous text length before updating
         this.setState({
           text: text,
           loading: false,
