@@ -3,8 +3,8 @@ name: rerun-cross-version-tests
 
 on:
   schedule:
-    # Run this workflow daily at 17:00 UTC (4 hours after cross-version-tests.yml workflow)
-    - cron: "0 17 * * *"
+    # Run this workflow daily at 19:00 UTC (6 hours after cross-version-tests.yml workflow)
+    - cron: "0 19 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
