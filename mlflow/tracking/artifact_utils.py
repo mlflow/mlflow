@@ -108,6 +108,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None, lineage_header_i
     repo = get_artifact_repository(artifact_uri=root_uri)
 
     if isinstance(repo, ModelsArtifactRepository):
+        print("Rohit ModelsArtifactRepository", repo)
         return repo.download_artifacts(
             artifact_path=artifact_path,
             dst_path=output_path,
