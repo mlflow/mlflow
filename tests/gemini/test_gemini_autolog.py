@@ -17,9 +17,10 @@ from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
 
-is_gemini_larger_than_1_5 = Version(importlib.metadata.version("google.genai")) > Version(
-    "1.5.0"
-) or os.environ.get("GOOGLE_GENAI_DEV")
+is_gemini_larger_than_1_5 = (
+    Version(importlib.metadata.version("google.genai")) > Version("1.5.0")
+    or os.environ.get("GOOGLE_GENAI_DEV") == "true"
+)
 
 _CONTENT = {"parts": [{"text": "test answer"}], "role": "model"}
 
