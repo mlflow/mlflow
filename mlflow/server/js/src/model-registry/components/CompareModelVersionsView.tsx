@@ -91,9 +91,9 @@ export class CompareModelVersionsViewImpl extends Component<
   state = {
     inputActive: true,
     outputActive: true,
-    onlyShowParameterDiff: false,
-    onlyShowSchemaDiff: false,
-    onlyShowMetricDiff: false,
+    onlyShowParameterDiff: true,
+    onlyShowSchemaDiff: true,
+    onlyShowMetricDiff: true,
     compareByColumnNameToggle: false,
   };
 
@@ -147,6 +147,7 @@ export class CompareModelVersionsViewImpl extends Component<
       runDisplayNames,
       paramLists,
       metricLists,
+      intl,
     } = this.props;
     const title = (
       <FormattedMessage
@@ -165,6 +166,11 @@ export class CompareModelVersionsViewImpl extends Component<
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 
+    const showdiffIntlMessage = intl.formatMessage({
+      defaultMessage: 'Show diff only',
+      description: 'Toggle text that determines whether to show diff only in the model comparison page',
+    });
+
     return (
       <div>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
@@ -175,27 +181,41 @@ export class CompareModelVersionsViewImpl extends Component<
               {this.renderModelVersionInfo()}
             </>,
           )}
-          <CollapsibleSection title="Parameters">
+          <CollapsibleSection
+            title={intl.formatMessage({
+              defaultMessage: 'Parameters',
+              description: 'Table title text for parameters table in the model comparison page',
+            })}
+          >
             <Switch
-              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_180"
-              label="Show diff only"
+              componentId="mlflow.model-registry.compare-model-versions-parameters-diff-switch"
+              label={showdiffIntlMessage}
               checked={this.state.onlyShowParameterDiff}
               onChange={(checked, e) => this.setState({ onlyShowParameterDiff: checked })}
             />
             <Spacer size="sm" />
-            {this.renderTable(<>{this.renderParams()}</>)}
+            {this.renderTable(this.renderParams())}
           </CollapsibleSection>
-          <CollapsibleSection title="Schema">
+          <CollapsibleSection
+            title={intl.formatMessage({
+              defaultMessage: 'Schema',
+              description: 'Table title text for schema table in the model comparison page',
+            })}
+          >
             <Switch
-              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_190"
-              label="Ignore column ordering"
+              componentId="mlflow.model-registry.compare-model-versions-schema-ignore-column-order-switch"
+              label={intl.formatMessage({
+                defaultMessage: 'Ignore column ordering',
+                description:
+                  'Toggle text that determines whether to ignore column order in the\n                      model comparison page',
+              })}
               checked={this.state.compareByColumnNameToggle}
               onChange={(checked, e) => this.setState({ compareByColumnNameToggle: checked })}
             />
             <Spacer size="sm" />
             <Switch
-              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_197"
-              label="Show diff only"
+              componentId="mlflow.model-registry.compare-model-versions-schema-diff-switch"
+              label={showdiffIntlMessage}
               checked={this.state.onlyShowSchemaDiff}
               onChange={(checked, e) => this.setState({ onlyShowSchemaDiff: checked })}
             />
@@ -211,17 +231,15 @@ export class CompareModelVersionsViewImpl extends Component<
               {this.state.inputActive && (
                 <>
                   {this.renderTable(
-                    <>
-                      {this.renderSchema(
-                        'inputActive',
-                        <FormattedMessage
-                          defaultMessage="Inputs"
-                          description="Table section name for schema inputs in the model comparison page"
-                        />,
-                        inputsListByIndex,
-                        inputsListByName,
-                      )}
-                    </>,
+                    this.renderSchema(
+                      'inputActive',
+                      <FormattedMessage
+                        defaultMessage="Inputs"
+                        description="Table section name for schema inputs in the model comparison page"
+                      />,
+                      inputsListByIndex,
+                      inputsListByName,
+                    ),
                   )}
                 </>
               )}
@@ -238,31 +256,34 @@ export class CompareModelVersionsViewImpl extends Component<
               {this.state.outputActive && (
                 <>
                   {this.renderTable(
-                    <>
-                      {this.renderSchema(
-                        'outputActive',
-                        <FormattedMessage
-                          defaultMessage="Outputs"
-                          description="Table section name for schema outputs in the model comparison page"
-                        />,
-                        outputsListByIndex,
-                        outputsListByName,
-                      )}
-                    </>,
+                    this.renderSchema(
+                      'outputActive',
+                      <FormattedMessage
+                        defaultMessage="Outputs"
+                        description="Table section name for schema outputs in the model comparison page"
+                      />,
+                      outputsListByIndex,
+                      outputsListByName,
+                    ),
                   )}
                 </>
               )}
             </div>
           </CollapsibleSection>
-          <CollapsibleSection title="Metrics">
+          <CollapsibleSection
+            title={intl.formatMessage({
+              defaultMessage: 'Metrics',
+              description: 'Table title text for metrics table in the model comparison page',
+            })}
+          >
             <Switch
-              componentId="codegen_mlflow_app_src_model-registry_components_CompareModelVersionsView.tsx_259"
-              label="Show diff only"
+              componentId="mlflow.model-registry.compare-model-versions-metrics-diff-switch"
+              label={showdiffIntlMessage}
               checked={this.state.onlyShowMetricDiff}
               onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
             />
             <Spacer size="sm" />
-            {this.renderTable(<> {this.renderMetrics()}</>)}
+            {this.renderTable(this.renderMetrics())}
           </CollapsibleSection>
         </div>
         <LegacyTabs>
