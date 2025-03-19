@@ -2,14 +2,11 @@ import json
 import logging
 import math
 import random
-import re
 import threading
 import time
 import uuid
-from dataclasses import dataclass
-from enum import Enum
 from functools import reduce
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -1919,113 +1916,11 @@ class SqlAlchemyStore(AbstractStore):
         experiment_ids: list[str],
         filter_string: Optional[str],
     ):
-        import sqlparse
+        from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
-        if not filter_string:
-            return session.query(SqlLoggedModel).filter(
-                SqlLoggedModel.experiment_id.in_(experiment_ids)
-            )
-
-        try:
-            parsed = sqlparse.parse(filter_string)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid filter string: {filter_string}. {e!r}"
-            ) from e
-
-        if len(parsed) != 1:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid filter string: {filter_string}. Expected a single SQL expression.",
-            )
-
-        class EntityType(Enum):
-            ATTRIBUTE = "attributes"
-            METRIC = "metrics"
-            PARAM = "params"
-            TAG = "tags"
-
-            @classmethod
-            def from_str(cls, s: str) -> "Entity":
-                if s == "attributes":
-                    return cls.ATTRIBUTE
-                if s == "metrics":
-                    return cls.METRIC
-                if s == "params":
-                    return cls.PARAM
-                if s == "tags":
-                    return cls.TAG
-
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid entity type: {s!r}. Expected one of {[e.value for e in cls]}."
-                )
-
-        @dataclass
-        class Entity:
-            type: EntityType
-            key: str
-
-            IDENTIFIER_RE = re.compile(r"^([a-z]+)\.(.+)$")
-
-            def __repr__(self) -> str:
-                return f"{self.type.value}.{self.key}"
-
-            @classmethod
-            def from_str(self, s: str) -> "Entity":
-                if m := Entity.IDENTIFIER_RE.match(s):
-                    return Entity(
-                        type=EntityType.from_str(m.group(1)),
-                        key=m.group(2).strip("`"),
-                    )
-                return Entity(
-                    type=EntityType.ATTRIBUTE, key=SqlLoggedModel.ALIASES.get(s, s).strip("`")
-                )
-
-            def is_numeric(self) -> bool:
-                """
-                Does this entity represent a numeric column?
-                """
-                return self.type == EntityType.METRIC or (
-                    self.type == EntityType.ATTRIBUTE and SqlLoggedModel.is_numeric(self.key)
-                )
-
-            def validate_op(self, op: str) -> None:
-                numeric_ops = ("<", "<=", ">", ">=", "=", "!=")
-                string_ops = ("=", "!=", "LIKE", "ILIKE")
-                ops = numeric_ops if self.is_numeric() else string_ops
-                if op not in ops:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid comparison operator for {self}: {op!r}. "
-                        f"Expected one of {string_ops}."
-                    )
-
-        @dataclass
-        class Comparison:
-            left: Entity
-            op: str
-            right: Union[str, float]
-
-        comparisons: list[sqlalchemy.BinaryExpression] = []
-        for stmt in parsed[0]:
-            if isinstance(stmt, sqlparse.sql.Comparison):
-                non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
-                if len(non_whitespace_tokens) != 3:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid comparison: {stmt}. Expected a comparison with 3 tokens."
-                    )
-                identifier, op, value = non_whitespace_tokens
-                ent = Entity.from_str(identifier)
-                ent.validate_op(op)
-                right = float(value) if ent.is_numeric() else value.strip("'")
-                comparisons.append(Comparison(left=ent, op=op, right=right))
-            # Ignore whitespace and 'AND' tokens, otherwise raise an error
-            elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid filter string: {filter_string}. Expected a list of comparisons "
-                    f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
-                )
-
-        filters = []
+        comparisons = parse_filter_string(filter_string)
         dialect = self._get_dialect()
+        filters: list[sqlalchemy.BinaryExpression] = []
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.left.type == EntityType.ATTRIBUTE:
