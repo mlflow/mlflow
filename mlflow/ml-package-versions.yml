@@ -903,7 +903,7 @@ mistral:
       TMP_DIR=$(mktemp -d)
       git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
       cd $TMP_DIR
-      python scripts/prepare-readme.py
+      python scripts/prepare_readme.py
       pip install .
       rm -rf $TMP_DIR
   autologging:
