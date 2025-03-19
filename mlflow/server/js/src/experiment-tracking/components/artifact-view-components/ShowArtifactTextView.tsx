@@ -25,7 +25,14 @@ type Props = DesignSystemHocProps & {
   autoRefreshEnabled?: boolean; // Add autoRefreshEnabled prop from parent
 } & LoggedModelArtifactViewerProps;
 
-class ShowArtifactTextView extends Component<Props> {
+type State = {
+  loading?: boolean;
+  error?: Error;
+  text?: string;
+  path?: string;
+};
+
+class ShowArtifactTextView extends Component<Props, State> {
   private refreshInterval: number | null = null;
   constructor(props: Props) {
     super(props);
