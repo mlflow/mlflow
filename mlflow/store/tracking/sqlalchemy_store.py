@@ -2,9 +2,12 @@ import json
 import logging
 import math
 import random
+import re
 import threading
 import time
 import uuid
+from dataclasses import dataclass
+from enum import Enum
 from functools import reduce
 from typing import Any, Optional
 
@@ -1842,17 +1845,13 @@ class SqlAlchemyStore(AbstractStore):
         session: sqlalchemy.orm.Session,
         order_by: Optional[list[dict[str, Any]]] = None,
     ) -> sqlalchemy.orm.Query:
-        attribute_aliases = {
-            "creation_timestamp": "creation_timestamp_ms",
-            "last_updated_timestamp": "last_updated_timestamp_ms",
-        }
         order_by_clauses = []
         has_creation_timestamp = False
         for ob in order_by or []:
             field_name = ob.get("field_name")
             ascending = ob.get("ascending", True)
             if "." not in field_name:
-                name = attribute_aliases.get(field_name, field_name)
+                name = SqlLoggedModel.ALIASES.get(field_name, field_name)
                 if name == "creation_timestamp_ms":
                     has_creation_timestamp = True
                 try:
@@ -1913,6 +1912,128 @@ class SqlAlchemyStore(AbstractStore):
 
         return models.order_by(*order_by_clauses)
 
+    def _apply_filter_string_search_logged_models(
+        self,
+        models: sqlalchemy.orm.Query,
+        session: sqlalchemy.orm.Session,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+    ):
+        import sqlparse
+
+        if not filter_string:
+            return session.query(SqlLoggedModel).filter(
+                SqlLoggedModel.experiment_id.in_(experiment_ids)
+            )
+
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter string: {filter_string}. {e!r}"
+            ) from e
+
+        if len(parsed) != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter string: {filter_string}. Expected a single SQL expression.",
+            )
+
+        class Entity(Enum):
+            ATTRIBUTE = "attributes"
+            METRIC = "metrics"
+            PARAM = "params"
+            TAG = "tags"
+
+            def from_str(s: str) -> "Entity":
+                if s == "attributes":
+                    return Entity.ATTRIBUTE
+                if s == "metrics":
+                    return Entity.METRIC
+                if s == "params":
+                    return Entity.PARAM
+                if s == "tags":
+                    return Entity.TAG
+
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid entity: {s}. Expected one of {[e.value for e in Entity]}."
+                )
+
+        @dataclass
+        class Comparison:
+            entity: Entity
+            key: str
+            op: str
+            value: str
+
+        comparisons: list[Comparison] = []
+        for stmt in parsed[0]:
+            if isinstance(stmt, sqlparse.sql.Comparison):
+                non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
+                if len(non_whitespace_tokens) != 3:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparison: {stmt}. Expected a comparison with 3 tokens."
+                    )
+                identifier, op, value = non_whitespace_tokens
+                value = value.strip("'").strip('"')
+                if m := re.match(r"^([a-z]+)\.(.+)", identifier):
+                    comp = Comparison(
+                        entity=Entity.from_str(m.group(1)),
+                        key=m.group(2).strip("`"),
+                        op=op,
+                        value=value,
+                    )
+                else:
+                    comp = Comparison(
+                        entity=Entity.ATTRIBUTE,
+                        key=identifier.strip("`"),
+                        op=op,
+                        value=value,
+                    )
+                comparisons.append(comp)
+            # Ignore whitespace and 'AND' tokens, otherwise raise an error
+            elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filter string: {filter_string}. Expected a list of comparisons "
+                    f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
+                )
+
+        filters = []
+        dialect = self._get_dialect()
+        for comp in comparisons:
+            if comp.entity == Entity.ATTRIBUTE:
+                comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
+                key = SqlLoggedModel.ALIASES.get(comp.key, comp.key)
+                value = float(comp.value) if SqlLoggedModel.is_numeric(key) else comp.value
+                filters.append(comp_func(getattr(SqlLoggedModel, key), value))
+                continue
+
+            comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
+            if comp.entity == Entity.METRIC:
+                subquery = (
+                    session.query(SqlLoggedModelMetric)
+                    .filter(SqlLoggedModelMetric.metric_name == comp.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelMetric.metric_value, float(comp.value)))
+            elif comp.entity == Entity.PARAM:
+                subquery = (
+                    session.query(SqlLoggedModelParam)
+                    .filter(SqlLoggedModelParam.param_key == comp.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
+            elif comp.entity == Entity.TAG:
+                subquery = (
+                    session.query(SqlLoggedModelTag)
+                    .filter(SqlLoggedModelTag.tag_key == comp.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
+
+            models = models.join(subquery)
+
+        return models.filter(SqlLoggedModel.experiment_id.in_(experiment_ids), *filters)
+
     def search_logged_models(
         self,
         experiment_ids: list[str],
@@ -1921,7 +2042,6 @@ class SqlAlchemyStore(AbstractStore):
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
-        # TODO: Support filtering
         if page_token:
             token = SearchLoggedModelsPaginationToken.decode(page_token)
             token.validate(experiment_ids, filter_string, order_by)
@@ -1931,8 +2051,9 @@ class SqlAlchemyStore(AbstractStore):
 
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         with self.ManagedSessionMaker() as session:
-            models = session.query(SqlLoggedModel).filter(
-                SqlLoggedModel.experiment_id.in_(experiment_ids)
+            models = session.query(SqlLoggedModel)
+            models = self._apply_filter_string_search_logged_models(
+                models, session, experiment_ids, filter_string
             )
             models = self._apply_order_by_search_logged_models(models, session, order_by)
             models = models.offset(offset).limit(max_results + 1).all()
