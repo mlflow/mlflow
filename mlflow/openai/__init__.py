@@ -132,9 +132,8 @@ def get_default_conda_env():
 
 def _get_obj_to_task_mapping():
     from openai import resources as r
-    from openai.resources.beta.chat import completions as c
 
-    return {
+    mapping = {
         r.Audio: "audio",
         r.chat.Completions: "chat.completions",
         r.Completions: "completions",
@@ -148,9 +147,20 @@ def _get_obj_to_task_mapping():
         r.chat.AsyncCompletions: "chat.completions",
         r.AsyncCompletions: "completions",
         r.AsyncEmbeddings: "embeddings",
-        c.AsyncCompletions: "chat.completions",
-        c.Completions: "chat.completions",
     }
+
+    try:
+        from openai.resources.beta.chat import completions as c
+
+        mapping.update(
+            {
+                c.AsyncCompletions: "chat.completions",
+                c.Completions: "chat.completions",
+            }
+        )
+    except ImportError:
+        pass
+    return mapping
 
 
 def _get_model_name(model):
