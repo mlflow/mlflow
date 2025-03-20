@@ -241,12 +241,9 @@ INSTALL_JAVA = click.option(
     flag_value=True,
     default=None,
     type=bool,
-    help="Install Java in the image. Default is None. "
-    "In images where a model artifact is provided at build-time,"
-    "we can deduce whether Java is required or not. So, None is interpreted "
-    "in those flows as 'let MLflow decide if Java will be installed'. "
-    "Not installing Java saves on build time and image size. "
-    "In images where the model artifact is provided at run-time, such as "
-    " for sagemaker build-and-push-container, we cannot infer "
-    "whether Java will be needed or not. So, None means 'install Java' in that case.",
+    help="Installs Java in the image if needed. Default is None, "
+    "allowing MLflow to determine installation. Flavors requiring "
+    "Java, such as Spark, enable this automatically. "
+     "Note: This option only works with the UBUNTU base image; "
+     "Python base images do not support Java installation."
 )
