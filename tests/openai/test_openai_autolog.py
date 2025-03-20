@@ -11,6 +11,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai._openai_autolog import _generate_model_identity
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.mock_openai import EMPTY_CHOICES
@@ -826,3 +827,114 @@ async def test_log_model_multiple_times_different_model_id(client):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+class DummyModel:
+    def __init__(self, temperature):
+        self.temperature = temperature
+
+
+@pytest.mark.parametrize(
+    ("model_dict1", "model_dict2"),
+    [
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+                "messages": [{"role": "system", "content": "test"}],
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+                "messages": [{"role": "system", "content": "abc"}],
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "task": "chat.completions",
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "messages": "abc",
+            },
+        ),
+        (
+            {"model": DummyModel, "task": "chat.completions"},
+            {"model": DummyModel, "task": "chat.completions"},
+        ),
+    ],
+)
+def test_generate_model_identity_same(model_dict1, model_dict2):
+    assert _generate_model_identity(model_dict1) == _generate_model_identity(model_dict1)
+
+
+@pytest.mark.parametrize(
+    ("model_dict1", "model_dict2"),
+    [
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.2,
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+                "xyz": "abc",
+            },
+        ),
+        (
+            {
+                "model": "test",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+        ),
+        (
+            {"model": DummyModel, "task": "completions"},
+            {"model": DummyModel, "task": "chat.completions"},
+        ),
+        (
+            {"model": DummyModel(temperature=0.1), "task": "completions"},
+            {"model": DummyModel(temperature=0.1), "task": "completions"},
+        ),
+    ],
+)
+def test_generate_model_identity_different(model_dict1, model_dict2):
+    assert _generate_model_identity(model_dict1) != _generate_model_identity(model_dict2)
