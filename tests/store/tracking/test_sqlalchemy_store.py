@@ -4783,6 +4783,190 @@ def test_search_logged_models(store: SqlAlchemyStore):
     assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
 
 
+def test_search_logged_models_filter_string(store: SqlAlchemyStore):
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+
+    # Search by string attribute
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"name = '{model_1.name}'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"attributes.name = '{model_1.name}'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"name LIKE '{model_1.name[:3]}%'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    # Search by numeric attribute
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp > 0",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp = 0",
+    )
+    assert models == []
+    assert models.token is None
+
+    # Search by param
+    model_2 = store.create_logged_model(
+        experiment_id=exp_id_1, params=[LoggedModelParameter("param1", "val1")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="params.param1 = 'val1'",
+    )
+    assert [m.name for m in models] == [model_2.name]
+    assert models.token is None
+
+    # Search by tag
+    model_3 = store.create_logged_model(
+        experiment_id=exp_id_1, tags=[LoggedModelTag("tag1", "val1")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="tags.tag1 = 'val1'",
+    )
+    assert [m.name for m in models] == [model_3.name]
+    assert models.token is None
+
+    # Search by metric
+    model_4 = store.create_logged_model(experiment_id=exp_id_1)
+    run = store.create_run(
+        experiment_id=exp_id_1, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_4.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            )
+        ],
+        params=[],
+        tags=[],
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric = 1",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric > 0.5",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric < 3",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    # Search by multiple entities
+    model_5 = store.create_logged_model(
+        experiment_id=exp_id_1,
+        params=[LoggedModelParameter("param2", "val2")],
+        tags=[LoggedModelTag("tag2", "val2")],
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="params.param2 = 'val2' AND tags.tag2 = 'val2'",
+    )
+    assert [m.name for m in models] == [model_5.name]
+    assert models.token is None
+
+    # Search by tag with key containing whitespace
+    model_6 = store.create_logged_model(
+        experiment_id=exp_id_1, tags=[LoggedModelTag("tag 3", "val3")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="tags.`tag 3` = 'val3'",
+    )
+    assert [m.name for m in models] == [model_6.name]
+    assert models.token is None
+
+    # Pagination with filter_string
+    first_page = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=2, filter_string="creation_timestamp > 0"
+    )
+    assert [m.name for m in first_page] == [model_6.name, model_5.name]
+    assert first_page.token is not None
+    second_page = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp > 0",
+        page_token=first_page.token,
+    )
+    assert [m.name for m in second_page] == [model_4.name, model_3.name, model_2.name, model_1.name]
+    assert second_page.token is None
+
+
+def test_search_logged_models_invalid_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid filter string"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="Foo",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid filter string"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="name = 'foo' OR name = 'bar'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid entity type"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="foo.bar = 'a'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="name > 'foo'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="metrics.foo LIKE 0",
+        )
+
+
 def test_search_logged_models_order_by(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model_1 = store.create_logged_model(name="model_1", experiment_id=exp_id)

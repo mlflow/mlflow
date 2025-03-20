@@ -2097,7 +2097,25 @@ def search_logged_models(
     Args:
         experiment_ids: List of experiment IDs to search for logged models. If not specified,
             the active experiment will be used.
-        filter_string: Filter query string, defaults to searching all logged models.
+        filter_string: A SQL-like filter string to parse. The filter string syntax supports:
+
+            - Entity specification:
+                - attributes: `attribute_name` (default if no prefix is specified)
+                - metrics: `metrics.metric_name`
+                - parameters: `params.param_name`
+                - tags: `tags.tag_name`
+            - Comparison operators:
+                - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
+                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+            - Multiple conditions can be joined with 'AND'
+            - String values must be enclosed in single quotes
+
+            Example filter strings:
+                - `creation_time > 100`
+                - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
+                - `tags.release LIKE 'v1.%'`
+                - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
+
         max_results: The maximum number of logged models to return.
         order_by: List of dictionaries to specify the ordering of the search results. The following
             fields are supported:
