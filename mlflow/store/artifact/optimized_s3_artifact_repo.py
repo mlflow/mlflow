@@ -64,6 +64,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
         self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
+        # Set thread pool size to 1 for serial execution
+        self.chunk_thread_pool._max_workers = 1
+        print(f"rohit: Thread pool size set to 1 for serial execution")
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -360,18 +363,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         def try_func(creds):
             try:
                 print(f"rohit: Attempting download with credentials")
-                # Try to create the file first to test write permissions
-                try:
-                    print(f"rohit: Testing file creation at {local_path}")
-                    with open(local_path, 'wb') as f:
-                        f.write(b'')
-                    print(f"rohit: Successfully created empty file")
-                    os.remove(local_path)
-                    print(f"rohit: Successfully removed test file")
-                except Exception as e:
-                    print(f"rohit: Error testing file creation: {str(e)}")
-                    print(f"rohit: Error type during file creation: {type(e).__name__}")
-                
                 creds.download_file(self.bucket, s3_full_path, local_path)
                 print(f"rohit: Successfully downloaded file from S3")
             except Exception as e:
