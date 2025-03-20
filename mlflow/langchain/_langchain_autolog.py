@@ -53,7 +53,7 @@ def _patched_invoke(original, self, *args, **kwargs):
     A patched implementation of langchain models invoke process which enables
     logging the traces.
     """
-    if model_id := _MODEL_TRACKER.get(id(self)):
+    if model_id := (_MODEL_TRACKER.get(id(self)) or _MODEL_TRACKER.get_logged_model_id(id(self))):
         _MODEL_TRACKER.set_active_model_id(model_id)
     # NB: this check ensures we don't create LoggedModels for internal components
     elif not _MODEL_TRACKER._is_active_model_id_set:
