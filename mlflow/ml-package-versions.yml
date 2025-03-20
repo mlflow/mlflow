@@ -704,6 +704,8 @@ langchain:
           "langchain-huggingface",
           # Install langchain-databricks from the main branch
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
+          # Install databricks-langchain from the main branch
+          "git+https://git@github.com/databricks/databricks-ai-bridge.git#subdirectory=integrations/langchain",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
