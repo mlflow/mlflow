@@ -90,7 +90,8 @@ def generate_dockerfile(
     if base_image.startswith("python:"):
         if install_java:
             _logger.warning(
-                "Ignoring --install-java option because we're using a python base image"
+                "`install_java` option is not supported when using python base image, "
+                "switch to UBUNTU_BASE_IMAGE to enable java installation."
             )
         setup_python_venv_steps = (
             "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
