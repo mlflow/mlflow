@@ -88,7 +88,7 @@ def generate_dockerfile(
     install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     if base_image.startswith("python:"):
-        if install_java is not None:
+        if install_java:
             _logger.warning(
                 "Ignoring --install-java option because we're using a python base image"
             )
