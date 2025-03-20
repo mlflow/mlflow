@@ -1256,3 +1256,56 @@ def test_autolog_traces_linked_to_models_multi_threading(model_infos):
         assert logged_model_id is not None
         assert str(temp) == logged_temp
         assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+def test_new_model_logged_after_loaded():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+    with mlflow.start_run():
+        new_model_info = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+    assert new_model_info.model_id != model_info.model_id
+
+    loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+    new_loaded_model = mlflow.langchain.load_model(new_model_info.model_uri)
+    new_loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 3
+    assert (
+        traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == new_model_info.model_id
+    )
+
+
+def test_log_model_multiple_times_different_model_id():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        model_info1 = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+        model_info2 = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+    assert model_info1.model_id != model_info2.model_id
+
+    model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 1
+    # traces link to the latest model_id
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id

@@ -591,7 +591,7 @@ def log_model(
         if (
             model_id is None
             and not isinstance(lc_model, str)
-            and (existing_model_id := _MODEL_TRACKER.get(id(lc_model)))
+            and (existing_model_id := _MODEL_TRACKER.get_logged_model_id(id(lc_model)))
         ):
             model_id = existing_model_id
         model = Model.log(
@@ -624,12 +624,9 @@ def log_model(
         )
         # if model is logged as models as code, then we cannot
         # get the id of the model object
-        if (
-            model.model_id
-            and not isinstance(lc_model, str)
-            and not _MODEL_TRACKER.get(id(lc_model))
-        ):
+        if model.model_id and not isinstance(lc_model, str):
             _MODEL_TRACKER.set(id(lc_model), model.model_id)
+            _MODEL_TRACKER.remove_logged_model_id(id(lc_model))
         return model
 
 

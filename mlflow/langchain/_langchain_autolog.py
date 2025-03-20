@@ -60,7 +60,7 @@ def _patched_invoke(original, self, *args, **kwargs):
         logged_model = mlflow.create_logged_model(
             name=self.__class__.__name__,
         )
-        _MODEL_TRACKER.set(id(self), logged_model.model_id)
+        _MODEL_TRACKER.set_logged_model_id(id(self), logged_model.model_id)
         _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
     else:
         _MODEL_TRACKER.set_active_model_id(None)
