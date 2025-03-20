@@ -744,3 +744,85 @@ async def test_autolog_create_logged_model_and_link_traces(client):
     traces = get_traces()
     assert len(traces) == 2
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+
+@pytest.mark.asyncio
+async def test_new_model_logged_after_loaded(client):
+    mlflow.openai.autolog()
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+    loaded_model_id = model_info.model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+    new_logged_model_id = model_info.model_id
+    assert new_logged_model_id != loaded_model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test again"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == new_logged_model_id
+
+
+@pytest.mark.asyncio
+async def test_log_model_multiple_times_different_model_id(client):
+    mlflow.openai.autolog()
+
+    model_infos = []
+    for i in range(2):
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.openai.log_model(
+                    "gpt-4o-mini",
+                    "chat.completions",
+                    "model",
+                    temperature=0.1,
+                    messages=[{"role": "system", "content": "test"}],
+                )
+            )
+    assert model_infos[0].model_id != model_infos[1].model_id
+    logged_model_id = model_infos[-1].model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test again"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id

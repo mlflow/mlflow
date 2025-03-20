@@ -552,7 +552,9 @@ def log_model(
     """
     with disable_autologging():
         model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
-        if model_id is None and (existing_model_id := _MODEL_TRACKER.get(model_identity)):
+        if model_id is None and (
+            existing_model_id := _MODEL_TRACKER.get_logged_model_id(model_identity)
+        ):
             model_id = existing_model_id
         mlflow_model = Model.log(
             artifact_path=artifact_path,
@@ -578,8 +580,9 @@ def log_model(
             model_id=model_id,
             **kwargs,
         )
-        if mlflow_model.model_id and not _MODEL_TRACKER.get(model_identity):
+        if mlflow_model.model_id:
             _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
+            _MODEL_TRACKER.remove_logged_model_id(model_identity)
         return mlflow_model
 
 
