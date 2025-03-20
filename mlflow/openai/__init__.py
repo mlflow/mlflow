@@ -132,6 +132,7 @@ def get_default_conda_env():
 
 def _get_obj_to_task_mapping():
     from openai import resources as r
+    from openai.resources.beta.chat import completions as c
 
     return {
         r.Audio: "audio",
@@ -147,6 +148,8 @@ def _get_obj_to_task_mapping():
         r.chat.AsyncCompletions: "chat.completions",
         r.AsyncCompletions: "completions",
         r.AsyncEmbeddings: "embeddings",
+        c.AsyncCompletions: "chat.completions",
+        c.Completions: "chat.completions",
     }
 
 
