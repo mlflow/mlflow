@@ -1479,7 +1479,7 @@ class SearchModelVersionUtils(SearchUtils):
         if not filter_string:
             return []
         try:
-            parsed = sqlparse.parse(filter_string)
+            parsed = sqlparse.parse(filter_string.replace("\\", "%5C"))
         except Exception:
             raise MlflowException(
                 f"Error on parsing filter '{filter_string}'", error_code=INVALID_PARAMETER_VALUE
