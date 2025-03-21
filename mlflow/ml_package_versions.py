@@ -230,11 +230,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "transformers"
         },
         "models": {
-            "minimum": "4.25.1",
+            "minimum": "4.35.0",
             "maximum": "4.49.0"
         },
         "autologging": {
-            "minimum": "4.25.1",
+            "minimum": "4.35.0",
             "maximum": "4.49.0"
         }
     },
