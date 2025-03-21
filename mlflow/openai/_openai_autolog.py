@@ -15,11 +15,13 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.assessment import MlflowClient
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -145,8 +147,49 @@ def patched_call(original, self, *args, **kwargs):
     if config.should_log_optional_artifacts():
         run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
 
+    input_example = None
+    model_id = None
+    task = mlflow.openai._get_task_name(self.__class__)
+    # TODO: drop log_models
+    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
+        if config.log_input_examples:
+            input_example = deepcopy(_get_input_from_model(self, kwargs))
+            if not config.log_model_signatures:
+                _logger.info(
+                    "Signature is automatically generated for logged model if "
+                    "input_example is provided. To disable log_model_signatures, "
+                    "please also disable log_input_examples."
+                )
+
+        registered_model_name = get_autologging_config(
+            mlflow.openai.FLAVOR_NAME, "registered_model_name", None
+        )
+        try:
+            with disable_autologging():
+                # If the user is using `openai.OpenAI()` client,
+                # they do not need to set the "OPENAI_API_KEY" environment variable.
+                # This temporarily sets the API key as an environment variable
+                # so that the model can be logged.
+                with _set_api_key_env_var(self._client):
+                    logged_model = mlflow.openai.log_model(
+                        model=kwargs.get("model"),
+                        task=task,
+                        name="model",
+                        input_example=input_example,
+                        registered_model_name=registered_model_name,
+                        run_id=run_id,
+                    )
+                    model_id = logged_model.model_id
+        except Exception as e:
+            _logger.warning(f"Failed to log model due to error: {e}")
+        self._mlflow_model_logged = True
+
+    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_id = _MODEL_TRACKER.get(model_identity)
+    # TODO: create LoggedModel if model_id is None and set into _MODEL_TRACKER
+
     if config.log_traces:
-        span = _start_span(mlflow_client, self, kwargs, run_id)
+        span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
     try:
@@ -182,8 +225,11 @@ async def async_patched_call(original, self, *args, **kwargs):
     if config.should_log_optional_artifacts():
         run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
 
+    task = mlflow.openai._get_task_name(self.__class__)
+    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
-        span = _start_span(mlflow_client, self, kwargs, run_id)
+        span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
     try:
@@ -285,7 +331,13 @@ def _log_optional_artifacts(
     instance._mlflow_model_logged = True
 
 
-def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, Any], run_id: str):
+def _start_span(
+    mlflow_client: MlflowClient,
+    instance: Any,
+    inputs: dict[str, Any],
+    run_id: str,
+    model_id: Optional[str] = None,
+):
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k != "messages"}
 
@@ -295,7 +347,7 @@ def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, An
         name=instance.__class__.__name__,
         span_type=_get_span_type(instance.__class__),
         inputs=inputs,
-        attributes=attributes,
+        attributes={**attributes, SpanAttributeKey.MODEL_ID: model_id} if model_id else attributes,
     )
 
     # Associate run ID to the trace manually, because if a new run is created by
@@ -435,3 +487,29 @@ def patched_swarm_run(original, self, *args, **kwargs):
     """
     traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
     return traced_fn(self, *args, **kwargs)
+
+
+def _generate_model_identity(model_dict) -> int:
+    if not {"model", "task"} <= set(model_dict.keys()):
+        raise ValueError("The model dictionary must contain 'model' and 'task' keys.")
+    model = model_dict["model"]
+    # drop input and non-model config fields to ensure consistent hashing
+    exclude_fields = {
+        # inputs
+        "messages",
+        "prompt",
+        "input",
+        # extra API configs
+        "extra_headers",
+        "extra_query",
+        "extra_body",
+        "timeout",
+        # model
+        "model",
+    }
+    model_dict = {
+        k: json.dumps(model_dict[k], default=str)
+        for k in sorted(model_dict.keys() - exclude_fields)
+    }
+    model_str = model if isinstance(model, str) else str(id(model))
+    return hash(model_str)

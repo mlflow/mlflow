@@ -19,7 +19,7 @@ from mlflow.models import (
     infer_pip_requirements,
 )
 from mlflow.models.dependencies_schemas import _get_dependencies_schemas
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
 from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -257,7 +257,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -271,6 +271,12 @@ def log_model(
     metadata: Optional[dict[str, Any]] = None,
     resources: Optional[Union[str, Path, list[Resource]]] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -280,7 +286,7 @@ def log_model(
 
     Args:
         dspy_model: an instance of `dspy.Module`. The Dspy model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
             now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
@@ -303,6 +309,12 @@ def log_model(
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -345,8 +357,9 @@ def log_model(
                 signature=signature,
             )
     """
-    return Model.log(
+    model = Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.dspy,
         model=dspy_model,
         task=task,
@@ -362,4 +375,12 @@ def log_model(
         metadata=metadata,
         resources=resources,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
+    if model.model_id and not isinstance(dspy_model, str):
+        _MODEL_TRACKER.set(id(dspy_model), model.model_id)
+    return model

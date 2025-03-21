@@ -31,7 +31,7 @@ from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 )
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import _get_conda_env_name
@@ -896,7 +896,7 @@ def assert_base_model_reqs():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_info.model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     requirements_txt_file = local_paths.requirements
@@ -924,7 +924,7 @@ def test_update_requirements_cli_adds_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -950,7 +950,7 @@ def test_update_requirements_cli_removes_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone
@@ -982,7 +982,7 @@ def test_update_model_requirements_add():
         model_uri, "add", ["mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"]
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -1003,7 +1003,7 @@ def test_update_model_requirements_remove():
     model_uri = assert_base_model_reqs()
 
     update_model_requirements(model_uri, "remove", ["mlflow"])
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone

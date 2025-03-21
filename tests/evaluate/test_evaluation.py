@@ -116,7 +116,7 @@ def get_local_artifact_path(run_id, artifact_path):
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y}
+    constructor_args = {"data": eval_X, "targets": eval_y, "name": "dataset"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -934,6 +934,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 mock_evaluate.assert_called_once_with(
                     model=PyFuncModelMatcher(),
                     model_type="classifier",
+                    model_id=multiclass_logistic_regressor_model_uri.split("/")[-1],
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
@@ -967,6 +968,7 @@ def test_evaluate_with_multi_evaluators(
             return {
                 "model": model,
                 "model_type": "classifier",
+                "model_id": model.model_id,
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
@@ -1067,6 +1069,7 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                     dataset=iris_dataset,
                     predictions=None,
                     model_type="classifier",
+                    model_id=None,
                     run_id=run.info.run_id,
                     evaluator_config={},
                     custom_metrics=None,

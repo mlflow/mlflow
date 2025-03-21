@@ -26,6 +26,10 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
@@ -78,15 +82,19 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
@@ -96,6 +104,7 @@ from mlflow.protos.service_pb2 import (
     LogInputs,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     MlflowService,
     RestoreExperiment,
@@ -105,6 +114,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
@@ -910,6 +920,22 @@ def _log_inputs():
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _log_outputs():
+    request_message = _get_request_message(
+        LogOutputs(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "models": [_assert_required, _assert_array],
+        },
+    )
+    models = [LoggedModelOutput.from_proto(p) for p in request_message.models]
+    _get_tracking_store().log_outputs(run_id=request_message.run_id, models=models)
+    response_message = LogOutputs.Response()
+    return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
@@ -1883,6 +1909,8 @@ def _create_model_version():
             "tags": [_assert_array],
             "run_link": [_assert_string],
             "description": [_assert_string],
+            "model_id": [_assert_string],
+            "model_params": [_assert_array],
         },
     )
 
@@ -1897,6 +1925,8 @@ def _create_model_version():
         run_link=request_message.run_link,
         tags=request_message.tags,
         description=request_message.description,
+        model_id=request_message.model_id,
+        model_params=request_message.model_params,
     )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
@@ -2567,6 +2597,88 @@ def get_trace_artifact_handler():
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_logged_model():
+    request_message = _get_request_message(
+        CreateLoggedModel(),
+        schema={
+            "experiment_id": [_assert_string, _assert_required],
+            "name": [_assert_string],
+            "model_type": [_assert_string],
+            "source_run_id": [_assert_string],
+            "params": [_assert_array],
+            "tags": [_assert_array],
+        },
+    )
+
+    model = _get_tracking_store().create_logged_model(
+        experiment_id=request_message.experiment_id,
+        name=request_message.name or None,
+        model_type=request_message.model_type,
+        source_run_id=request_message.source_run_id,
+        params=(
+            [LoggedModelParameter.from_proto(param) for param in request_message.params]
+            if request_message.params
+            else None
+        ),
+        tags=(
+            [LoggedModelTag(key=tag.key, value=tag.value) for tag in request_message.tags]
+            if request_message.tags
+            else None
+        ),
+    )
+    response_message = CreateLoggedModel.Response(model=model.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_logged_model(model_id: str):
+    model = _get_tracking_store().get_logged_model(model_id)
+    response_message = GetLoggedModel.Response(model=model.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _finalize_logged_model(model_id: str):
+    request_message = _get_request_message(
+        FinalizeLoggedModel(),
+        schema={
+            "model_id": [_assert_string, _assert_required],
+            "status": [_assert_intlike, _assert_required],
+        },
+    )
+    model = _get_tracking_store().finalize_logged_model(
+        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+    )
+    response_message = FinalizeLoggedModel.Response(model=model.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_logged_model_tags(model_id: str):
+    request_message = _get_request_message(
+        SetLoggedModelTags(),
+        schema={
+            "model_id": [_assert_string, _assert_required],
+            "tags": [_assert_array],
+        },
+    )
+    tags = [LoggedModelTag(key=tag.key, value=tag.value) for tag in request_message.tags]
+    _get_tracking_store().set_logged_model_tags(request_message.model_id, tags)
+    return _wrap_response(SetLoggedModelTags.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_logged_model_tag(model_id: str, tag_key: str):
+    _get_tracking_store().delete_logged_model_tag(model_id, tag_key)
+    return _wrap_response(DeleteLoggedModelTag.Response())
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2662,6 +2774,7 @@ HANDLERS = {
     GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,
     LogInputs: _log_inputs,
+    LogOutputs: _log_outputs,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,
@@ -2700,4 +2813,10 @@ HANDLERS = {
     DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
+    # Logged Models APIs
+    CreateLoggedModel: _create_logged_model,
+    GetLoggedModel: _get_logged_model,
+    FinalizeLoggedModel: _finalize_logged_model,
+    SetLoggedModelTags: _set_logged_model_tags,
+    DeleteLoggedModelTag: _delete_logged_model_tag,
 }

@@ -119,10 +119,14 @@ def fit_func_name(request):
 
 def _get_model_uri(name: str = MODEL_DIR) -> str:
     """
-    Get the model URI for the last active run.
+    Search for the model with the given name and return its URI.
     """
-    last_active_run = mlflow.last_active_run()
-    return f"runs:/{last_active_run.info.run_id}/{name}"
+    if uri := next(
+        m.model_uri for m in mlflow.search_logged_models(output_format="list") if m.name == name
+    ):
+        return uri
+
+    raise ValueError(f"Model with name {name:r} not found")
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -1108,7 +1112,7 @@ def test_sklearn_autolog_log_models_configuration(log_models):
 
     run_id = run.info.run_id
     _, _, _, artifacts = get_run_data(run_id)
-    assert (MODEL_DIR in artifacts) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])

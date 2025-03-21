@@ -89,6 +89,7 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
                     "tags": {"key": "value"},
                 }
             ],
+            "model_inputs": [],
         },
     }
     # Run must be json serializable
@@ -134,7 +135,7 @@ def test_string_repr():
         "run_uuid='hi', start_time=0, status=4, user_id='user-id'>, inputs=<RunInputs: "
         "dataset_inputs=<DatasetInput: dataset=<Dataset: digest='digest1', "
         "name='name1', profile=None, schema=None, source='source', "
-        "source_type='my_source_type'>, tags=[]>>>"
+        "source_type='my_source_type'>, tags=[]>, model_inputs=[]>, outputs=None>"
     )
     assert str(run1) == expected
 
