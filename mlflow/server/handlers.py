@@ -2685,7 +2685,19 @@ def _search_logged_models():
         experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
         max_results=request_message.max_results or None,
-        order_by=list(request_message.order_by) or None,
+        order_by=(
+            [
+                {
+                    "field_name": ob.field_name,
+                    "ascending": ob.ascending,
+                    "dataset_name": ob.dataset_name,
+                    "dataset_digest": ob.dataset_digest,
+                }
+                for ob in request_message.order_by
+            ]
+            if request_message.order_by
+            else None
+        ),
         page_token=request_message.page_token or None,
     )
     response_message = SearchLoggedModels.Response()
