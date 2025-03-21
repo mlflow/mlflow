@@ -512,7 +512,7 @@ transformers:
     install_dev: |
       pip install git+https://github.com/huggingface/transformers
   models:
-    minimum: "4.35.0"
+    minimum: "4.35.2"
     maximum: "4.49.0"
     test_every_n_versions: 4
     unsupported: [
@@ -555,7 +555,7 @@ transformers:
       pip uninstall -y accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
-    minimum: "4.35.0"
+    minimum: "4.35.2"
     maximum: "4.49.0"
     test_every_n_versions: 4
     unsupported: [
