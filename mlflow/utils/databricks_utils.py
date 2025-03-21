@@ -219,6 +219,20 @@ def is_mlflow_tracing_enabled_in_model_serving() -> bool:
     return os.environ.get("ENABLE_MLFLOW_TRACING", "false").lower() == "true"
 
 
+def is_trace_server_dual_write_enabled_in_serving() -> bool:
+    """
+    This environment variable guards dual write behavior for traces in databricks
+    model serving. When set to true, traces will be written to both the trace server
+    and the inference table. This is a temporary flag to enable dual write until
+    the backend is fully migrated to the trace server.
+    """
+    return (
+        is_in_databricks_model_serving_environment()
+        and is_mlflow_tracing_enabled_in_model_serving()
+        and os.environ.get("TODO_UPDATE_ENV_VAR_NAME", "false").lower() == "true"
+    )
+
+
 # this should only be the case when we are in model serving environment
 # and OAuth token file exists in specified path
 def should_fetch_model_serving_environment_oauth():
