@@ -262,7 +262,8 @@ class MlflowCallback(BaseCallback):
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
         if exception:
-            mlflow.end_run(status=RunStatus.FAILED)
+            mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+            return
         score = outputs if isinstance(outputs, float) else outputs[0]
         mlflow.log_metric("eval", score)
 
