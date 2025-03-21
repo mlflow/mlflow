@@ -81,3 +81,7 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+uv:
+  pip_release: uv
+  max_major_version: 0
