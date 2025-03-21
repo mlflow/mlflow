@@ -1138,6 +1138,10 @@ class _Reversor:
         return other.obj == self.obj
 
     def __lt__(self, other):
+        if self.obj is None:
+            return False
+        if other.obj is None:
+            return True
         return other.obj < self.obj
 
 
@@ -1959,15 +1963,23 @@ class SearchLoggedModelsUtils(SearchUtils):
     ):
         if "." in key:
             metric_key = key.split(".", 1)[1]
-            metric_values = [
-                m.value
-                for m in model.metrics
-                if m.key == metric_key
-                and (dataset_name is None or m.dataset_name == dataset_name)
-                and (dataset_digest is None or m.dataset_digest == dataset_digest)
-            ]
-            value = None if len(metric_values) == 0 else max(metric_values)
-            return _LoggedModelMetricComp(value) if ascending else _LoggedModelMetricReversor(value)
+            filtered_metrics = sorted(
+                [
+                    m
+                    for m in model.metrics
+                    if m.key == metric_key
+                    and (not dataset_name or m.dataset_name == dataset_name)
+                    and (not dataset_digest or m.dataset_digest == dataset_digest)
+                ],
+                key=lambda metric: metric.timestamp,
+                reverse=True,
+            )
+            latest_metric_value = None if len(filtered_metrics) == 0 else filtered_metrics[0].value
+            return (
+                _LoggedModelMetricComp(latest_metric_value)
+                if ascending
+                else _Reversor(latest_metric_value)
+            )
         else:
             value = getattr(model, key)
         return value if ascending else _Reversor(value)
@@ -2005,21 +2017,6 @@ class _LoggedModelMetricComp:
         if other.obj is None:
             return True
         return self.obj < other.obj
-
-
-class _LoggedModelMetricReversor:
-    def __init__(self, obj):
-        self.obj = obj
-
-    def __eq__(self, other):
-        return other.obj == self.obj
-
-    def __lt__(self, other):
-        if self.obj is None:
-            return False
-        if other.obj is None:
-            return True
-        return other.obj < self.obj
 
 
 @dataclass

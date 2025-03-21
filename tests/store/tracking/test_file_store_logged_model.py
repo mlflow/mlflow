@@ -666,9 +666,9 @@ def test_search_logged_models_order_by_metrics(store):
     run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
     model1 = store.create_logged_model(exp_id, source_run_id=run_id)
     # model1:
-    # metric1+dataset1+digest1: 0.1
-    # metric1+dataset1+digest2: 1.0
-    # metric2+dataset2+digest2: step 0 - 0.2; step 1 - 1.0
+    # metric1+dataset1+digest1+timestamp0: 0.1
+    # metric1+dataset1+digest2+timestamp1: 1.0
+    # metric2+dataset2+digest2: timestamp 0 - 0.2; timestamp 1 - 1.0
     store.log_batch(
         run_id,
         metrics=[
@@ -685,7 +685,7 @@ def test_search_logged_models_order_by_metrics(store):
             Metric(
                 key="metric1",
                 value=1.0,
-                timestamp=0,
+                timestamp=1,
                 step=0,
                 model_id=model1.model_id,
                 dataset_name="dataset1",
@@ -705,7 +705,7 @@ def test_search_logged_models_order_by_metrics(store):
             Metric(
                 key="metric2",
                 value=1.0,
-                timestamp=0,
+                timestamp=1,
                 step=1,
                 model_id=model1.model_id,
                 dataset_name="dataset2",
@@ -719,10 +719,10 @@ def test_search_logged_models_order_by_metrics(store):
 
     model2 = store.create_logged_model(exp_id, source_run_id=run_id)
     # model2:
-    # metric1+dataset1+digest1: 0.2
-    # metric1+dataset1+digest2: 0.1
-    # metric2+dataset2+digest2: 0.5
-    # metric2+dataset3+digest3: 0.1
+    # metric1+dataset1+digest1+timestamp0: 0.2
+    # metric1+dataset1+digest2+timestamp1: 0.1
+    # metric2+dataset2+digest2+timestamp0: 0.5
+    # metric2+dataset3+digest3+timestamp1: 0.1
     # metric3: 1.0
     store.log_batch(
         run_id,
@@ -740,7 +740,7 @@ def test_search_logged_models_order_by_metrics(store):
             Metric(
                 key="metric1",
                 value=0.1,
-                timestamp=0,
+                timestamp=1,
                 step=0,
                 model_id=model2.model_id,
                 dataset_name="dataset1",
@@ -760,7 +760,7 @@ def test_search_logged_models_order_by_metrics(store):
             Metric(
                 key="metric2",
                 value=0.1,
-                timestamp=0,
+                timestamp=1,
                 step=0,
                 model_id=model2.model_id,
                 dataset_name="dataset3",
@@ -793,6 +793,10 @@ def test_search_logged_models_order_by_metrics(store):
         experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric1", "ascending": False}]
     )
     assert_models_match(models, [model1, model2])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric1", "dataset_name": ""}]
+    )
+    assert_models_match(models, [model2, model1])
     # only model2 has metric3
     # no matter it's ASC or DESC, model2 should be first
     models = store.search_logged_models(
