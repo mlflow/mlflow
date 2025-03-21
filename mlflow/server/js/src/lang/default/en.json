@@ -1031,10 +1031,6 @@
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
-  "H+4gFh": {
-    "defaultMessage": "Show diff only",
-    "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
-  },
   "H7JwOl": {
     "defaultMessage": "Delete version",
     "description": "A label for a button to delete prompt version on the prompt details page"
@@ -1194,6 +1190,10 @@
   "K+5g8S": {
     "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
     "description": "Experiment page > traces data drawer > in-progress description"
+  },
+  "K32dke": {
+    "defaultMessage": "Show diff only",
+    "description": "Toggle text that determines whether to show diff only in the model comparison page"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
