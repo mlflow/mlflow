@@ -244,6 +244,6 @@ INSTALL_JAVA = click.option(
     help="Installs Java in the image if needed. Default is None, "
     "allowing MLflow to determine installation. Flavors requiring "
     "Java, such as Spark, enable this automatically. "
-     "Note: This option only works with the UBUNTU base image; "
-     "Python base images do not support Java installation."
+    "Note: This option only works with the UBUNTU base image; "
+    "Python base images do not support Java installation.",
 )
