@@ -932,12 +932,9 @@ def _log_outputs():
             "models": [_assert_required, _assert_array],
         },
     )
-    run_id = request_message.run_id
     models = [LoggedModelOutput.from_proto(p) for p in request_message.models]
-
-    _get_tracking_store().log_outputs(run_id, models=models)
+    _get_tracking_store().log_outputs(run_id=request_message.run_id, models=models)
     response_message = LogOutputs.Response()
-
     return _wrap_response(response_message)
 
 
