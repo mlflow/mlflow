@@ -1910,7 +1910,9 @@ class SearchLoggedModelsUtils(SearchUtils):
         return [model for model in models if model_matches(model)]
 
     @classmethod
-    def parse_order_by_for_logged_models(cls, order_by: dict[str, Any]) -> dict[str, Any]:
+    def parse_order_by_for_logged_models(
+        cls, order_by: dict[str, Any]
+    ) -> tuple[str, bool, str, str]:
         if not isinstance(order_by, dict):
             raise MlflowException.invalid_parameter_value(
                 "`order_by` must be a list of dictionaries."
@@ -1921,7 +1923,7 @@ class SearchLoggedModelsUtils(SearchUtils):
                 "`field_name` in the `order_by` clause must be specified."
             )
         if "." in field_name:
-            entity, _ = field_name.split(".")
+            entity = field_name.split(".", 1)[0]
             if entity != "metrics":
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid order by field name: {entity}, only `metrics.<name>` is allowed."
@@ -1956,7 +1958,7 @@ class SearchLoggedModelsUtils(SearchUtils):
         dataset_digest: Optional[str],
     ):
         if "." in key:
-            metric_key = key.split(".")[1]
+            metric_key = key.split(".", 1)[1]
             metric_values = [
                 m.value
                 for m in model.metrics
