@@ -145,7 +145,7 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
                 _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
             except OSError as e:
                 # A common error is code-paths includes Databricks Notebook. We include it in error
-                # message when running in Databricks, but not in other envs tp avoid confusion.
+                # message when running in Databricks, but not in other envs to avoid confusion.
                 example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
                 raise MlflowException(
                     message=(
@@ -246,7 +246,7 @@ def _validate_and_copy_file_to_directory(file_path: str, dir_path: str, name: st
         _copy_file_or_tree(src=file_path, dst=dir_path)
     except OSError as e:
         # A common error is code-paths includes Databricks Notebook. We include it in error
-        # message when running in Databricks, but not in other envs tp avoid confusion.
+        # message when running in Databricks, but not in other envs to avoid confusion.
         example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
         raise MlflowException(
             message=(
