@@ -948,7 +948,7 @@ def _autolog(
     extra_tags=None,
     log_traces=True,
 ):
-    enabled_configs = {
+    user_specified_args = {
         key
         for key, value in {
             "log_input_examples": log_input_examples,
@@ -960,11 +960,11 @@ def _autolog(
         }.items()
         if value is True or value is not None
     }
-    if any(enabled_configs):
+    if user_specified_args:
         color_warning(
             "The following parameters are deprecated in OpenAI autologging and will be removed "
-            f"in a future release: `{', '.join(enabled_configs)}`. OpenAI autologging will not "
-            "support automatic model logging and its related attributes. Please log your model "
+            f"in a future release: `{', '.join(user_specified_args)}`. OpenAI autologging will not "
+            "support automatic model logging and any related parameters. Please log your model "
             "manually with `mlflow.openai.log_model` if needed.",
             stacklevel=2,
             color="red",
