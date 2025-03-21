@@ -95,6 +95,7 @@ from mlflow.utils.openai_utils import (
     _validate_model_params,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -947,6 +948,29 @@ def _autolog(
     extra_tags=None,
     log_traces=True,
 ):
+    user_specified_args = {
+        key
+        for key, value in {
+            "log_input_examples": log_input_examples,
+            "log_model_signatures": log_model_signatures,
+            "log_models": log_models,
+            "log_datasets": log_datasets,
+            "registered_model_name": registered_model_name,
+            "extra_tags": extra_tags,
+        }.items()
+        if value is True or value is not None
+    }
+    if user_specified_args:
+        color_warning(
+            "The following parameters are deprecated in OpenAI autologging and will be removed "
+            f"in a future release: `{', '.join(user_specified_args)}`. OpenAI autologging will not "
+            "support automatic model logging and any related parameters. Please log your model "
+            "manually with `mlflow.openai.log_model` if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
