@@ -675,6 +675,8 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
     maximum: "0.3.20"
+    python:
+      ">= 0.3": "3.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -702,12 +704,18 @@ langchain:
       "< 0.2": ["langchain-openai<=0.1.22"]
       ">= 0.2": [
           "langchain-huggingface",
-          # Install langchain-databricks from the main branch
-          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
-          # Install databricks-langchain from the main branch
-          "git+https://git@github.com/databricks/databricks-ai-bridge.git#subdirectory=integrations/langchain",
           # Required for testing uc tools
           "unitycatalog-langchain",
+          "databricks-vectorsearch",
+        ]
+      ">= 0.3": [
+          "langchain-huggingface",
+          # Install databricks-langchain from the main branch
+          # "git+https://git@github.com/databricks/databricks-ai-bridge.git#subdirectory=integrations/langchain",
+          "databricks-langchain",
+          # Required for testing uc tools
+          "unitycatalog-langchain",
+          "databricks-vectorsearch>=0.50",
         ]
     run: |
       # Run all langchain tests except autologging and evaluation
