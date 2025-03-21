@@ -1913,6 +1913,13 @@ class SearchLoggedModelsUtils(SearchUtils):
 
         return [model for model in models if model_matches(model)]
 
+    @dataclass
+    class OrderBy:
+        field_name: str
+        ascending: bool = True
+        dataset_name: Optional[str] = None
+        dataset_digest: Optional[str] = None
+
     @classmethod
     def parse_order_by_for_logged_models(
         cls, order_by: dict[str, Any]
@@ -1950,26 +1957,23 @@ class SearchLoggedModelsUtils(SearchUtils):
             raise MlflowException.invalid_parameter_value(
                 "`dataset_digest` can only be specified if `dataset_name` is also specified."
             )
-        return field_name, ascending, dataset_name, dataset_digest
+        return cls.OrderBy(field_name, ascending, dataset_name, dataset_digest)
 
     @classmethod
     def _apply_reversor_for_logged_model(
         cls,
         model: LoggedModel,
-        key: str,
-        ascending: bool,
-        dataset_name: Optional[str],
-        dataset_digest: Optional[str],
+        order_by: OrderBy,
     ):
-        if "." in key:
-            metric_key = key.split(".", 1)[1]
+        if "." in order_by.field_name:
+            metric_key = order_by.field_name.split(".", 1)[1]
             filtered_metrics = sorted(
                 [
                     m
                     for m in model.metrics
                     if m.key == metric_key
-                    and (not dataset_name or m.dataset_name == dataset_name)
-                    and (not dataset_digest or m.dataset_digest == dataset_digest)
+                    and (not order_by.dataset_name or m.dataset_name == order_by.dataset_name)
+                    and (not order_by.dataset_digest or m.dataset_digest == order_by.dataset_digest)
                 ],
                 key=lambda metric: metric.timestamp,
                 reverse=True,
@@ -1977,26 +1981,26 @@ class SearchLoggedModelsUtils(SearchUtils):
             latest_metric_value = None if len(filtered_metrics) == 0 else filtered_metrics[0].value
             return (
                 _LoggedModelMetricComp(latest_metric_value)
-                if ascending
+                if order_by.ascending
                 else _Reversor(latest_metric_value)
             )
         else:
-            value = getattr(model, key)
-        return value if ascending else _Reversor(value)
+            value = getattr(model, order_by.field_name)
+        return value if order_by.ascending else _Reversor(value)
 
     @classmethod
     def _get_sort_key(cls, order_by_list: Optional[list[dict[str, Any]]]):
         parsed_order_by = list(map(cls.parse_order_by_for_logged_models, order_by_list or []))
 
         # Add a tie-breaker
-        if not any(key == "creation_timestamp" for key, _, _, _ in parsed_order_by):
-            parsed_order_by.append(("creation_timestamp", False, None, None))
-        if not any(key == "model_id" for key, _, _, _ in parsed_order_by):
-            parsed_order_by.append(("model_id", True, None, None))
+        if not any(order_by.field_name == "creation_timestamp" for order_by in parsed_order_by):
+            parsed_order_by.append(cls.OrderBy("creation_timestamp", False))
+        if not any(order_by.field_name == "model_id" for order_by in parsed_order_by):
+            parsed_order_by.append(cls.OrderBy("model_id"))
 
         return lambda logged_model: tuple(
-            cls._apply_reversor_for_logged_model(logged_model, k, asc, dataset_name, dataset_digest)
-            for (k, asc, dataset_name, dataset_digest) in parsed_order_by
+            cls._apply_reversor_for_logged_model(logged_model, order_by)
+            for order_by in parsed_order_by
         )
 
     @classmethod
