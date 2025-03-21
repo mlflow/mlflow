@@ -1031,12 +1031,12 @@ def autolog(
             "registered_model_name": registered_model_name,
             "extra_tags": extra_tags,
         }.items()
-        if value is True
+        if value is True or value is not None
     }
     if any(enabled_configs):
         color_warning(
-            "The follow parameters are deprecated in langchain autologging and will be removed "
-            f"in a future release: `{', '.join(enabled_configs)}`. Langchain autologging no longer "
+            "The following parameters are deprecated in langchain autologging and will be removed "
+            f"in a future release: `{', '.join(enabled_configs)}`. Langchain autologging will not "
             "support automatic model logging and its related attributes. Please log your model "
             "manually with `mlflow.langchain.log_model` if needed.",
             stacklevel=2,
