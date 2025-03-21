@@ -237,8 +237,13 @@ NO_CONDA = click.option(
 
 INSTALL_JAVA = click.option(
     "--install-java",
-    is_flag=True,
-    help="Install Java in the image. Default is False in order to reduce both the "
-    "image size and the build time. Model flavors requiring Java will enable this "
-    "setting automatically, such as the Spark flavor.",
+    is_flag=False,
+    flag_value=True,
+    default=None,
+    type=bool,
+    help="Installs Java in the image if needed. Default is None, "
+    "allowing MLflow to determine installation. Flavors requiring "
+    "Java, such as Spark, enable this automatically. "
+    "Note: This option only works with the UBUNTU base image; "
+    "Python base images do not support Java installation.",
 )
