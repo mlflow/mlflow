@@ -54,9 +54,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     super(props);
     this.state = {
       tableWidth: null,
-      onlyShowParamDiff: false,
-      onlyShowTagDiff: false,
-      onlyShowMetricDiff: false,
+      onlyShowParamDiff: true,
+      onlyShowTagDiff: true,
+      onlyShowMetricDiff: true,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
