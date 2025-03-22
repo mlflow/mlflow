@@ -1,16 +1,22 @@
-import hashlib
-from typing import Any
+from __future__ import annotations
 
-from packaging.version import Version
+import hashlib
+from typing import TYPE_CHECKING, Any
+
 import narwhals.stable.v1 as nw
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+    import pyarrow as pa
+
 MAX_ROWS = 10000
 
 
-def compute_pandas_digest(df) -> str:
+def compute_pandas_digest(df: pd.DataFrame) -> str:
     """Computes a digest for the given Pandas DataFrame.
 
     Args:
@@ -37,6 +43,40 @@ def compute_pandas_digest(df) -> str:
         ]
         + [str(x).encode() for x in df.columns]
     )
+
+
+def compute_polars_digest(df: pl.DataFrame) -> str:
+    """Computes a digest for the given polars DataFrame.
+
+    Base on the following stackoverflow answer:
+    https://stackoverflow.com/a/79092287/12411536
+
+    Args:
+        df: A polars DataFrame.
+
+    Returns:
+        A string digest.
+    """
+    md5 = hashlib.md5(usedforsecurity=False)
+    for col_name, col_type in df.schema.items():
+        md5.update(col_name.encode())
+        md5.update(str(col_type).encode())
+    for h in df.head(MAX_ROWS).hash_rows():
+        md5.update(h.to_bytes(64, "big"))
+    return md5.hexdigest()
+
+
+def compute_pyarrow_digest(df: pa.Table) -> str:
+    """Computes a digest for the pyarrow Table.
+
+    Args:
+        df: A pyarrow Table
+
+    Returns:
+        A string digest.
+    """
+    msg = "PyArrow digest computation is not yet implemented"
+    raise NotImplementedError(msg)
 
 
 def compute_numpy_digest(features, targets=None) -> str:

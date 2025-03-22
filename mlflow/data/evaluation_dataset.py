@@ -228,7 +228,7 @@ def _validate_dataset_type_supports_predictions(data, supported_predictions_data
         )
 
 
-class EvaluationDataset:
+class EvaluationDataset:  # TODO(Narwhals): Add support for more data types
     """
     An input dataset for model evaluation. This is intended for use with the
     :py:func:`mlflow.models.evaluate()`
