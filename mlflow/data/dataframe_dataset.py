@@ -288,7 +288,7 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
         for use with mlflow.evaluate().
         """
         return EvaluationDataset(
-            data=self._df.to_native(),
+            data=self._df,
             targets=self._targets,
             path=path,
             feature_names=feature_names,
