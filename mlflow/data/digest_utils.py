@@ -2,6 +2,7 @@ import hashlib
 from typing import Any
 
 from packaging.version import Version
+import narwhals.stable.v1 as nw
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -22,17 +23,12 @@ def compute_pandas_digest(df) -> str:
     import pandas as pd
 
     # trim to max rows
-    trimmed_df = df.head(MAX_ROWS)
-
-    # keep string and number columns, drop other column types
-    if Version(pd.__version__) >= Version("2.1.0"):
-        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
-    else:
-        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
-    numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
-
-    desired_columns = string_columns.union(numeric_columns)
-    trimmed_df = trimmed_df[desired_columns]
+    trimmed_df = (
+        nw.from_native(df)
+        .head(MAX_ROWS)
+        .select(*[nw.selectors.string(), nw.selectors.numeric()])
+        .to_native()
+    )
 
     return get_normalized_md5_digest(
         [

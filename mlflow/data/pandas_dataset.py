@@ -3,6 +3,7 @@ import logging
 from functools import cached_property
 from typing import Any, Optional, Union
 
+import narwhals.stable.v1 as nw
 import pandas as pd
 
 from mlflow.data.dataset import Dataset
@@ -12,11 +13,116 @@ from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.types import Schema
+from mlflow.types import Schema, ColSpec
+from mlflow.types.schema import Array, DataType, Object, Property
 from mlflow.types.utils import _infer_schema
 
 _logger = logging.getLogger(__name__)
 
+ColSpecType = Union[DataType, Array, Object, str]
+
+TYPE_MAP = {
+    # nw.Binary: DataType.binary,  # TODO(Narwhals): next release this will be available
+    nw.Boolean: DataType.boolean,
+    nw.Datetime: DataType.datetime,
+    nw.Float32: DataType.float,
+    nw.Float64: DataType.double,
+    nw.Int8: DataType.integer,
+    nw.Int16: DataType.integer,
+    nw.Int32: DataType.integer,
+    nw.Int64: DataType.long,
+    nw.String: DataType.string,
+}
+CLOSE_MAP = {
+    nw.Categorical: DataType.string,
+    nw.Enum: DataType.string,
+    nw.Date: DataType.datetime,
+    nw.UInt8: DataType.integer,
+    nw.UInt16: DataType.integer,
+    nw.UInt32: DataType.long,
+    nw.UInt64: DataType.long,
+}
+# Remaining types:
+# nw.Decimal
+# nw.Duration
+# nw.Time
+# nw.Null
+# nw.Object
+# nw.Unknown
+
+def infer_schema(df: nw.DataFrame) -> Schema:
+    return Schema([
+        infer_colspec(col_name, col_dtype)
+        for col_name, col_dtype in df.collect_schema().items()
+    ])
+
+def infer_colspec(
+    col_name: str, col_dtype: nw.dtypes.DType, *, allow_unknown: bool = True,
+) -> ColSpec:
+    return ColSpec(
+        type=infer_dtype(dtype=col_dtype, col_name=col_name, allow_unknown=allow_unknown),
+        name=col_name,
+    )
+
+
+def infer_dtype(
+    dtype: nw.dtypes.DType, col_name: str, *, allow_unknown: bool
+) -> ColSpecType:
+    dtype_cls = type(dtype)
+    mapped = TYPE_MAP.get(dtype_cls)
+    if mapped is not None:
+        return mapped
+
+    mapped = CLOSE_MAP.get(dtype_cls)
+    if mapped is not None:
+        logging.warning(
+            "Data type of Column '%s' contains dtype=%s which will be mapped to %s."
+            " This is not an exact match but is close enough",
+            col_name,
+            dtype,
+            mapped,
+        )
+        return mapped
+
+    if isinstance(dtype, (nw.Array, nw.List)):
+        inner = (
+            "Unknown"
+            if dtype.inner is None
+            else infer_dtype(dtype.inner, f"{col_name}.[]", allow_unknown=allow_unknown)
+        )
+        return Array(inner)
+
+    if isinstance(dtype, nw.Struct):
+        return Object(
+            [
+                Property(
+                    name=field.name,
+                    dtype=infer_dtype(
+                        field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
+                    ),
+                )
+                for field in dtype.fields
+            ]
+        )
+
+    return _handle_unknown_dtype(dtype=dtype, col_name=col_name, allow_unknown=allow_unknown)
+
+
+def _handle_unknown_dtype(dtype: Any, col_name: str, *, allow_unknown: bool) -> str:
+    if not allow_unknown:
+        _raise_unknown_type(dtype)
+
+    logging.warning(
+        "Data type of Columns '%s' contains dtype=%s, which cannot be mapped to any DataType",
+        col_name,
+        dtype,
+    )
+    return str(dtype)
+
+
+def _raise_unknown_type(dtype: Any) -> None:
+    msg = f"Unknown type: {dtype!r}"
+    raise ValueError(msg)
 
 class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
@@ -57,7 +163,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{predictions}'.",
                 INVALID_PARAMETER_VALUE,
             )
-        self._df = df
+        self._df: nw.DataFrame = nw.from_native(df)
         self._targets = targets
         self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
@@ -90,7 +196,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         The underlying pandas DataFrame.
         """
-        return self._df
+        return self._df.to_native()
 
     @property
     def source(self) -> DatasetSource:
@@ -118,9 +224,10 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be ``None`` if a profile cannot be computed.
         """
+        n_rows, n_cols = self._df.shape
         return {
-            "num_rows": len(self._df),
-            "num_elements": int(self._df.size),
+            "num_rows": n_rows,
+            "num_elements": int(n_rows*n_cols),
         }
 
     @cached_property
@@ -130,7 +237,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         ``None`` if the schema cannot be inferred from the dataset.
         """
         try:
-            return _infer_schema(self._df)
+            return infer_schema(self._df)
         except Exception as e:
             _logger.warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
             return None
@@ -141,11 +248,11 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         evaluation. Required for use with mlflow.evaluate().
         """
         if self._targets:
-            inputs = self._df.drop(columns=[self._targets])
-            outputs = self._df[self._targets]
+            inputs = self._df.drop(self._targets).to_native()
+            outputs = self._df.get_column(self._targets).to_native()
             return PyFuncInputsOutputs(inputs, outputs)
         else:
-            return PyFuncInputsOutputs(self._df)
+            return PyFuncInputsOutputs(self._df.to_native())
 
     def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
@@ -153,7 +260,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         for use with mlflow.evaluate().
         """
         return EvaluationDataset(
-            data=self._df,
+            data=self._df.to_native(),
             targets=self._targets,
             path=path,
             feature_names=feature_names,
