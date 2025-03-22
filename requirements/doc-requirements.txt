@@ -5,6 +5,7 @@ tensorflow-cpu<=2.12.0
                             # Only do this for the purpose of setting up the dev environment, do not
                             # commit this change to the repo.
 pyspark
+polars>=1
 datasets
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
