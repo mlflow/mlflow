@@ -232,6 +232,10 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
+    elif is_polars_dataframe(data):
+        return mlflow.data.from_polars(df=data, targets=targets, predictions=predictions)
+    elif is_pyarrow_table(data):
+        return mlflow.data.from_arrow(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
         return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
     else:

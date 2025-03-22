@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import json
 import logging
 from functools import cached_property
-from typing import Any, Generic, Optional, Union
+from typing import Any, Generic, Literal, Optional, Union
 
 import narwhals.stable.v1 as nw
 from narwhals.typing import IntoDataFrame, IntoDataFrameT
@@ -144,7 +146,7 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
     Represents a (eager) DataFrame for use with MLflow Tracking.
     """
 
-    backend_name: str
+    backend_name: Literal["pandas", "polars", "pyarrow"]
 
     def __init__(
         self,
@@ -303,6 +305,7 @@ def from_dataframe(
     name: Optional[str] = None,
     digest: Optional[str] = None,
     predictions: Optional[str] = None,
+    dataset_cls: type[DataFrameDataset[IntoDataFrameT]] = DataFrameDataset,
 ) -> DataFrameDataset[IntoDataFrameT]:
     """
     Constructs a :py:class:`DataFrameDataset <mlflow.data.dataframe_dataset.DataFrameDataset>`
@@ -325,6 +328,11 @@ def from_dataframe(
             automatically.
         predictions: An optional predictions column name for model evaluation. This column
             must be present in the dataframe (``df``).
+        dataset_cls: The class to use for the dataset. This is useful for creating
+            custom dataset classes that inherit from :py:class:`DataFrameDataset
+            <mlflow.data.dataframe_dataset.DataFrameDataset>`.
+            The default is :py:class:`DataFrameDataset
+            <mlflow.data.dataframe_dataset.DataFrameDataset>`.
 
     .. code-block:: python
         :test:
@@ -362,7 +370,7 @@ def from_dataframe(
     else:
         context_tags = registry.resolve_tags()
         resolved_source = CodeDatasetSource(tags=context_tags)
-    return DataFrameDataset(
+    return dataset_cls(
         df=df,
         source=resolved_source,
         targets=targets,
