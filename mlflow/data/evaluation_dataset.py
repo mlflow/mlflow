@@ -431,14 +431,12 @@ class EvaluationDataset:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # TODO(Narwhals): Hashing from here fails for polars and arrow dataframes.
         # generate dataset hash
         md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
-
-        if self._labels_data is not None:  # if not None, then it's a numpy array
+        if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
-        if self._predictions_data is not None:  # if not None, then it's a numpy array
+        if self._predictions_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._predictions_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
@@ -452,7 +450,7 @@ class EvaluationDataset:
     def features_data(self):
         """
         return features data as a numpy array, a pandas DataFrame, a polars DataFrame, or
-        a pyspark Table.
+        a pyarrow Table.
         """
         return self._features_data
 
