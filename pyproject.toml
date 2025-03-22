@@ -43,6 +43,7 @@ dependencies = [
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
+  "narwhals>=1.31.0",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
@@ -60,7 +61,6 @@ dependencies = [
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
-  "narwhals>=1.31.0",
 ]
 [[project.maintainers]]
 name = "Databricks"

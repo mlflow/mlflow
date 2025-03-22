@@ -92,3 +92,8 @@ fastapi:
 uvicorn:
   pip_release: uvicorn
   max_major_version: 0
+
+narwhals:
+  pip_release: narwhals
+  minimum: "1.31.0"
+  max_major_version: 3

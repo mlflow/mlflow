@@ -32,6 +32,7 @@ dependencies = [
   "fastapi<1",
   "gitpython<4,>=3.1.9",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "narwhals>=1.31.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",
@@ -42,7 +43,6 @@ dependencies = [
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
-  "narwhals>=1.31.0",
 ]
 [[project.maintainers]]
 name = "Databricks"

@@ -81,3 +81,8 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+narwhals:
+  pip_release: narwhals
+  minimum: "1.31.0"
+  max_major_version: 2
