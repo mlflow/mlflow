@@ -32,7 +32,7 @@ dependencies = [
   "fastapi<1",
   "gitpython<4,>=3.1.9",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
-  "narwhals>=1.31.0",
+  "narwhals<3,>=1.31.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",

@@ -43,7 +43,7 @@ dependencies = [
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "narwhals>=1.31.0",
+  "narwhals<3,>=1.31.0",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
@@ -113,8 +113,6 @@ xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
 langchain = ["langchain>=0.1.0,<=0.3.20"]
 auth = ["Flask-WTF<2"]
-polars = ["narwhals[polars]"]
-pyarrow = ["narwhals[pyarrow]"]
 
 [project.urls]
 homepage = "https://mlflow.org"
