@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+from itertools import chain
 from typing import TYPE_CHECKING, Any
 
 import narwhals.stable.v1 as nw
+from narwhals.typing import IntoDataFrameT
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -14,6 +16,15 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 MAX_ROWS = 10000
+
+
+def _trim_dataframe(df: IntoDataFrameT) -> IntoDataFrameT:
+    return (
+        nw.from_native(df)
+        .head(MAX_ROWS)
+        .select(*[nw.selectors.string(), nw.selectors.numeric()])
+        .to_native()
+    )
 
 
 def compute_pandas_digest(df: pd.DataFrame) -> str:
@@ -28,18 +39,13 @@ def compute_pandas_digest(df: pd.DataFrame) -> str:
     import numpy as np
     import pandas as pd
 
-    # trim to max rows
-    trimmed_df = (
-        nw.from_native(df)
-        .head(MAX_ROWS)
-        .select(*[nw.selectors.string(), nw.selectors.numeric()])
-        .to_native()
-    )
+    num_rows = len(df)
+    trimmed_df = _trim_dataframe(df)
 
     return get_normalized_md5_digest(
         [
             pd.util.hash_pandas_object(trimmed_df).values,
-            np.int64(len(df)),
+            np.int64(num_rows),
         ]
         + [str(x).encode() for x in df.columns]
     )
@@ -48,7 +54,7 @@ def compute_pandas_digest(df: pd.DataFrame) -> str:
 def compute_polars_digest(df: pl.DataFrame) -> str:
     """Computes a digest for the given polars DataFrame.
 
-    Base on the following stackoverflow answer:
+    Adjusted from the following stackoverflow answer:
     https://stackoverflow.com/a/79092287/12411536
 
     Args:
@@ -57,13 +63,18 @@ def compute_polars_digest(df: pl.DataFrame) -> str:
     Returns:
         A string digest.
     """
-    md5 = hashlib.md5(usedforsecurity=False)
-    for col_name, col_type in df.schema.items():
-        md5.update(col_name.encode())
-        md5.update(str(col_type).encode())
-    for h in df.head(MAX_ROWS).hash_rows():
-        md5.update(h.to_bytes(64, "big"))
-    return md5.hexdigest()
+    num_rows = len(df)
+    trimmed_df = _trim_dataframe(df)
+
+    elements = list(
+        chain(
+            [col_name.encode() for col_name in trimmed_df.columns],
+            [str(col_type).encode() for col_type in trimmed_df.dtypes],
+            [h.to_bytes(64, "big") for h in trimmed_df.hash_rows()],
+            [str(num_rows).encode()],
+        )
+    )
+    return get_normalized_md5_digest(elements)
 
 
 def compute_pyarrow_digest(df: pa.Table) -> str:
@@ -75,8 +86,25 @@ def compute_pyarrow_digest(df: pa.Table) -> str:
     Returns:
         A string digest.
     """
-    msg = "PyArrow digest computation is not yet implemented"
-    raise NotImplementedError(msg)
+    import pyarrow as pa
+
+    num_rows = len(df)
+    trimmed_df = _trim_dataframe(df)
+
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, trimmed_df.schema) as writer:
+        writer.write_table(trimmed_df)
+    ipc_bytes = sink.getvalue().to_pybytes()
+
+    elements = list(
+        chain(
+            [x.name.encode() for x in trimmed_df.schema],
+            [str(x.type).encode() for x in trimmed_df.schema],
+            [ipc_bytes],
+            [str(num_rows).encode()],
+        )
+    )
+    return get_normalized_md5_digest(elements)
 
 
 def compute_numpy_digest(features, targets=None) -> str:

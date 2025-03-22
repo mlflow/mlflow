@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import Any, Generic, Optional, Union
 
 import narwhals.stable.v1 as nw
-from narwhals.typing import IntoDataFrameT
+from narwhals.typing import IntoDataFrame, IntoDataFrameT
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -62,8 +62,11 @@ APPROX_DTYPE_MAPPING = {
 #     - nw.Unknown
 
 
-def infer_mlflow_schema(df: nw.DataFrame) -> Schema:
-    return Schema([infer_colspec(col_name, col_dtype) for col_name, col_dtype in df.schema.items()])
+def infer_mlflow_schema(df: Union[nw.DataFrame, IntoDataFrame]) -> Schema:
+    df_nw = nw.from_native(df, eager_only=True, pass_through=False)
+    return Schema(
+        [infer_colspec(col_name, col_dtype) for col_name, col_dtype in df_nw.schema.items()]
+    )
 
 
 def infer_colspec(
