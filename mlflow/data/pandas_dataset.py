@@ -55,11 +55,23 @@ def from_pandas(
         )
         dataset = mlflow.data.from_pandas(x, targets="Label", predictions="ModelOutput")
     """
-    return from_dataframe(
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(
+            f"The specified dataframe must be an instance of pandas.DataFrame. Got: {type(df)}."
+        )
+    dataframe_dataset = from_dataframe(
         df=df,
         source=source,
         targets=targets,
         name=name,
         digest=digest,
         predictions=predictions,
+    )
+    return PandasDataset(
+        df=df,
+        source=dataframe_dataset.source,
+        targets=dataframe_dataset.targets,
+        name=dataframe_dataset.name,
+        digest=dataframe_dataset.digest,
+        predictions=dataframe_dataset.predictions,
     )
