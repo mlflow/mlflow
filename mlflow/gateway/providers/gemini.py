@@ -17,7 +17,7 @@ class GeminiAdapter(ProviderAdapter):
         # {
         #     "contents": [
         #         {
-        #             "role": "model",
+        #             "role": "user",
         #             "parts": [
         #                 {
         #                     "text": "System: You are an advanced AI Assistant"
@@ -412,7 +412,7 @@ class GeminiProvider(BaseProvider):
         # Documentation: https://ai.google.dev/api/generate-content
 
         if payload.get("stream", False):
-            # TODO: Implement streaming for completions
+            # TODO: Implement streaming for chat completions
             raise AIGatewayException(
                 status_code=422,
                 detail="Streaming is not yet supported for chat completions with Gemini AI Gateway",

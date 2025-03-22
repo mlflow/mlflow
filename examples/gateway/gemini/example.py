@@ -1,8 +1,4 @@
-import logging
-
 from mlflow.deployments import get_deploy_client
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def main():
@@ -11,7 +7,7 @@ def main():
     print(f"Gemini endpoints: {client.list_endpoints()}\n")
     print(f"Gemini completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
-    # # Completions request
+    # Completions request
     response_completions = client.predict(
         endpoint="completions",
         inputs={
