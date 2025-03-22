@@ -444,6 +444,7 @@ def test_langchain_native_log_and_load_model():
     assert list(result) == ["Hello", " world"]
 
 
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_pyfunc_spark_udf_with_langchain_model(spark):
     model = create_openai_runnable()
     with mlflow.start_run():
@@ -1127,7 +1128,7 @@ def test_save_load_runnable_passthrough():
         "predictions": ["hello"]
     }
 
-
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_save_load_runnable_lambda(spark):
     def add_one(x: int) -> int:
         return x + 1
@@ -1563,6 +1564,7 @@ def test_save_load_chain_with_model_paths():
         add_mock.assert_called()
 
 
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_save_load_simple_chat_model(spark, fake_chat_model):
     prompt = ChatPromptTemplate.from_template(
         "What is a good name for a company that makes {product}?"
@@ -1603,6 +1605,7 @@ def test_save_load_simple_chat_model(spark, fake_chat_model):
     }
 
 
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_save_load_rag(tmp_path, spark, fake_chat_model):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -1781,6 +1784,7 @@ def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat
     }
 
 
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_chat_with_history(spark, fake_chat_model):
     prompt_with_history_str = """
     Here is a history between you and a human: {chat_history}
@@ -2118,6 +2122,7 @@ class ChatModel(SimpleChatModel):
         return "chat model"
 
 
+@pytest.mark.skipif(IS_LANGCHAIN_03, reason="LLMChain is deprecated")
 def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     input_example = {
         "messages": [
