@@ -352,6 +352,28 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
+    def openai_rate_limit(route_type: RouteType, key: str):
+        def decorate(handler):
+            @functools.wraps(handler)
+            async def wrapper(request: Request, *args, **kwargs):
+                payload = kwargs["payload"]
+                route = _look_up_route(payload.model)
+                if route.route_type != route_type:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Endpoint {route.name!r} is not a {route_type} endpoint.",
+                    )
+
+                if limit := route.limit:
+                    limit_value = f"{limit.calls}/{limit.renewal_period}"
+                    handler.__name__ = f"{handler.__name__}_{route.name}_{key}"
+                    limited_handler = app.state.limiter.limit(limit_value)(handler)
+                    return await limited_handler(request, *args, **kwargs)
+                else:
+                    return await handler(request, *args, **kwargs)
+            return wrapper
+        return decorate
+
     def _look_up_route(name: str) -> Optional[Route]:
         if r := app.dynamic_routes.get(name):
             return r
@@ -362,16 +384,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.post("/v1/chat/completions")
+    @openai_rate_limit(RouteType.LLM_V1_CHAT, key="deployments")
     async def openai_chat_handler(
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_CHAT:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Endpoint {route.name!r} is not a chat endpoint.",
-            )
-
         prov = get_provider(route.model.provider)(route)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
@@ -380,16 +397,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             return await prov.chat(payload)
 
     @app.post("/v1/completions")
+    @openai_rate_limit(RouteType.LLM_V1_COMPLETIONS, key="deployments")
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_COMPLETIONS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Endpoint {route.name!r} is not a completions endpoint.",
-            )
-
         prov = get_provider(route.model.provider)(route)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
@@ -398,16 +410,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             return await prov.completions(payload)
 
     @app.post("/v1/embeddings")
+    @openai_rate_limit(RouteType.LLM_V1_EMBEDDINGS, key="deployments")
     async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",
-            )
-
         prov = get_provider(route.model.provider)(route)
         payload.model = None  # provider rejects a request with model field, must be set to None
         return await prov.embeddings(payload)
