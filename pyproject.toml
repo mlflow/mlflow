@@ -60,7 +60,7 @@ dependencies = [
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
-  "narwhals>=1.32.0",
+  "narwhals>=1.31.0",
 ]
 [[project.maintainers]]
 name = "Databricks"
