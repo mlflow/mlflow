@@ -7,6 +7,8 @@ import sys
 from contextlib import suppress
 
 import narwhals.stable.v1 as nw
+from narwhals.dependencies import is_polars_dataframe, is_pyarrow_table
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
@@ -119,8 +121,8 @@ def _hash_dict_as_bytes(data_dict):
 
 def _hash_array_like_obj_as_bytes(data):
     """
-    Helper method to convert pandas dataframe/numpy array/list into bytes for
-    MD5 calculation purpose.
+    Helper method to convert pandas dataframe/polars dataframe/pyarrow table/numpy array/list into
+    bytes for MD5 calculation purpose.
     """
     if isinstance(data, tuple(SUPPORTED_DATAFRAME_TYPES)):
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -144,12 +146,17 @@ def _hash_array_like_obj_as_bytes(data):
             except TypeError:
                 return b""  # Skip unhashable types by returning an empty byte string
 
-        data = (
-            nw.from_native(data, pass_through=False)
-            .select(nw.all().map_batches(_hash_array_like_element_as_bytes))
-            .to_native()
-        )
+        if is_polars_dataframe(data):
+            return polars_to_bytes(data)
+        elif is_pyarrow_table(data):
+            return pyarrow_to_bytes(data)
+        else:
+            if Version(pd.__version__) >= Version("2.1.0"):
+                data = data.map(_hash_array_like_element_as_bytes)
+            else:
+                data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
+
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
         # because lists are not hashable
@@ -180,10 +187,11 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
-        if isinstance(data, pd.DataFrame):
-            # Access rows of pandas Df with iloc
-            head_rows = data.iloc[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
-            tail_rows = data.iloc[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        if isinstance(data, tuple(SUPPORTED_DATAFRAME_TYPES)):
+            # Access rows of dataframe via head and tail methods
+            data_nw = nw.from_native(data, eager_only=True, pass_through=False)
+            head_rows = data_nw.head(EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH).to_native()
+            tail_rows = data_nw.tail(EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH).to_native()
         else:
             head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
             tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
@@ -427,9 +435,10 @@ class EvaluationDataset:
         # generate dataset hash
         md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
-        if self._labels_data is not None:
+
+        if self._labels_data is not None:  # if not None, then it's a numpy array
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
-        if self._predictions_data is not None:
+        if self._predictions_data is not None:  # if not None, then it's a numpy array
             _gen_md5_for_arraylike_obj(md5_gen, self._predictions_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
@@ -569,3 +578,22 @@ class EvaluationDataset:
             and self.path == other.path
             and self._feature_names == other._feature_names
         )
+
+
+def pyarrow_to_bytes(table: pa.Table) -> bytes:
+    """
+    Convert a pyarrow table to bytes for hashing.
+    """
+    import pyarrow as pa
+
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    return sink.getvalue().to_pybytes()
+
+
+def polars_to_bytes(frame: pl.DataFrame) -> bytes:
+    """
+    Convert a polars dataframe to bytes for hashing.
+    """
+    return frame.write_ipc(file=None).getvalue()
