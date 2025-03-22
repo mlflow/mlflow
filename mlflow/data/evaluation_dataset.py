@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -5,6 +7,7 @@ import math
 import struct
 import sys
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 import narwhals.stable.v1 as nw
 from narwhals.dependencies import is_polars_dataframe, is_pyarrow_table
@@ -15,6 +18,10 @@ from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
+
+if TYPE_CHECKING:
+    import polars as pl
+    import pyarrow as pa
 
 SUPPORTED_DATAFRAME_TYPES = [nw.DataFrame]
 

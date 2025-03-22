@@ -69,7 +69,7 @@ loaders = (
 )
 
 
-@pytest.fixture(scope="module", params=zip(constructors, datasets, loaders, strict=True))
+@pytest.fixture(scope="module", params=zip(constructors, datasets, loaders))
 def constructor_dataset_loaders(
     request: pytest.FixtureRequest,
 ) -> tuple[Callable[[dict[str, list[Any]]], IntoDataFrame], type[Dataset], Callable[..., Dataset]]:
