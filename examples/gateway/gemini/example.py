@@ -1,4 +1,8 @@
+import logging
+
 from mlflow.deployments import get_deploy_client
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def main():
@@ -7,7 +11,7 @@ def main():
     print(f"Gemini endpoints: {client.list_endpoints()}\n")
     print(f"Gemini completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
-    # Completions request
+    # # Completions request
     response_completions = client.predict(
         endpoint="completions",
         inputs={
@@ -23,7 +27,6 @@ def main():
     print(f"Gemini response for completions: {response_completions}")
 
     # Embeddings request
-    # TODO: Replace this example with chat completion once completed
     response_embeddings = client.predict(
         endpoint="embeddings",
         inputs={
@@ -33,6 +36,30 @@ def main():
         },
     )
     print(f"Gemini response for embeddings: {response_embeddings}\n")
+
+    # Chat example
+    response_chat = client.predict(
+        endpoint="chat",
+        inputs={
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a talented European rapper with a background in US history",
+                },
+                {
+                    "role": "user",
+                    "content": "Please recite the preamble to the US Constitution as if it were "
+                    "written today by a rapper from Reykjavík",
+                },
+            ],
+            "temperature": 0.1,
+            "top_p": 1,
+            "n": 3,
+            "max_tokens": 1000,
+            "top_k": 40,
+        },
+    )
+    print(f"Gemini response for chat: {response_chat}")
 
 
 if __name__ == "__main__":

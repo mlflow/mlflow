@@ -5,7 +5,7 @@ from mlflow.gateway.config import GeminiConfig, RouteConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -95,6 +95,69 @@ class GeminiAdapter(ProviderAdapter):
             gemini_payload["generationConfig"] = generation_config
 
         return gemini_payload
+
+    @classmethod
+    def model_to_chat(cls, resp, config):
+        # Documentation: https://ai.google.dev/api/generate-content
+        #
+        # Example Response:
+        # {
+        #   "candidates": [
+        #     {
+        #       "content": {
+        #         "parts": [
+        #           {
+        #             "text": "Blue is often seen as a calming and soothing color."
+        #           }
+        #         ]
+        #       },
+        #       "finishReason": "stop"
+        #     }
+        #   ],
+        #   "usageMetadata": {
+        #     "promptTokenCount": 10,
+        #     "candidatesTokenCount": 10,
+        #     "totalTokenCount": 20
+        #   }
+        # }
+        choices = []
+        for idx, candidate in enumerate(resp.get("candidates", [])):
+            content = ""
+            if "content" in candidate and candidate["content"]["parts"]:
+                content = candidate["content"]["parts"][0].get("text", "")
+
+            finish_reason = candidate.get("finishReason", "stop")
+            if finish_reason == "MAX_TOKENS":
+                finish_reason = "length"
+
+            choices.append(
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role="assistant",
+                        content=content,
+                    ),
+                    finish_reason=finish_reason,
+                )
+            )
+
+        usage_metadata = resp.get("usageMetadata", {})
+        prompt_tokens = usage_metadata.get("promptTokenCount", None)
+        completion_tokens = usage_metadata.get("candidatesTokenCount", None)
+        total_tokens = usage_metadata.get("totalTokenCount", None)
+
+        return chat.ResponsePayload(
+            id=resp.get("promptFeedback", {}).get("promptId", f"gemini-chat-{int(time.time())}"),
+            created=int(time.time()),
+            object="chat.completion",
+            model=config.model.name,
+            choices=choices,
+            usage=chat.ChatUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            ),
+        )
 
     @classmethod
     def completions_to_model(cls, payload, config):
@@ -338,3 +401,26 @@ class GeminiProvider(BaseProvider):
         )
 
         return self.adapter_class.model_to_completions(resp, self.config)
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+
+        chat_payload = self.adapter_class.chat_to_model(payload, self.config)
+        # Documentation: https://ai.google.dev/api/generate-content
+
+        if payload.get("stream", False):
+            # TODO: Implement streaming for completions
+            raise AIGatewayException(
+                status_code=422,
+                detail="Streaming is not yet supported for chat completions with Gemini AI Gateway",
+            )
+
+        resp = await self._request(
+            f"{self.config.model.name}:generateContent",
+            chat_payload,
+        )
+
+        return self.adapter_class.model_to_chat(resp, self.config)
