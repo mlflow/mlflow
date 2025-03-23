@@ -126,6 +126,25 @@ def _hash_dict_as_bytes(data_dict):
     return result
 
 
+def _hash_pyarrow_table_as_bytes(table: pa.Table) -> bytes:
+    """
+    Convert a pyarrow table to bytes for hashing.
+    """
+    import pyarrow as pa
+
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    return sink.getvalue().to_pybytes()
+
+
+def _hash_polars_table_as_bytes(frame: pl.DataFrame) -> bytes:
+    """
+    Convert a polars dataframe to bytes for hashing.
+    """
+    return frame.write_ipc(file=None).getvalue()
+
+
 def _hash_array_like_obj_as_bytes(data):
     """
     Helper method to convert pandas dataframe/polars dataframe/pyarrow table/numpy array/list into
@@ -154,9 +173,9 @@ def _hash_array_like_obj_as_bytes(data):
                 return b""  # Skip unhashable types by returning an empty byte string
 
         if is_polars_dataframe(data):
-            return polars_to_bytes(data)
+            return _hash_polars_table_as_bytes(data)
         elif is_pyarrow_table(data):
-            return pyarrow_to_bytes(data)
+            return _hash_pyarrow_table_as_bytes(data)
         else:
             if Version(pd.__version__) >= Version("2.1.0"):
                 data = data.map(_hash_array_like_element_as_bytes)
@@ -585,22 +604,3 @@ class EvaluationDataset:
             and self.path == other.path
             and self._feature_names == other._feature_names
         )
-
-
-def pyarrow_to_bytes(table: pa.Table) -> bytes:
-    """
-    Convert a pyarrow table to bytes for hashing.
-    """
-    import pyarrow as pa
-
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, table.schema) as writer:
-        writer.write_table(table)
-    return sink.getvalue().to_pybytes()
-
-
-def polars_to_bytes(frame: pl.DataFrame) -> bytes:
-    """
-    Convert a polars dataframe to bytes for hashing.
-    """
-    return frame.write_ipc(file=None).getvalue()
