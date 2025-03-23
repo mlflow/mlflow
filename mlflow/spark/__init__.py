@@ -859,7 +859,7 @@ def save_model(
     )
 
 
-def _load_model_databricks(dfs_tmpdir, local_model_path):
+def _load_model_databricks_dbfs(dfs_tmpdir, local_model_path):
     from pyspark.ml.pipeline import PipelineModel
 
     # Spark ML expects the model to be stored on DFS
@@ -873,12 +873,36 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     return PipelineModel.load(dfs_tmpdir)
 
 
+def _load_model_databricks_uc_volume(dfs_tmpdir, local_model_path):
+    from pyspark.ml.pipeline import PipelineModel
+
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    fuse_dfs_tmpdir = urlparse(dfs_tmpdir).path
+    shutil.copytree(src=local_model_path, dst=fuse_dfs_tmpdir)
+    return PipelineModel.load(dfs_tmpdir)
+
+
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
     dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
+
+    if (
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+    ):
+        if not _is_uc_volume_uri(dfs_tmpdir):
+            raise MlflowException(
+                "In Databricks shared cluster or serverless, if you want to load SparkML "
+                "model through MLflow, specify environment variable 'MLFLOW_DFS_TMP' to "
+                "a UC volume path like '/Volumes/...'."
+            )
+        return _load_model_databricks_uc_volume(
+            dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
+        )
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
-        return _load_model_databricks(
+        return _load_model_databricks_dbfs(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
         )
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
