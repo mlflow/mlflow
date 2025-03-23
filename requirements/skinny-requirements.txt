@@ -19,4 +19,3 @@ pydantic<3,>=1.10.8
 typing-extensions<5,>=4.0.0
 fastapi<1
 uvicorn<1
-narwhals<3,>=1.31.0
