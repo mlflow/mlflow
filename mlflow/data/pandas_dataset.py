@@ -9,8 +9,6 @@ from mlflow.data.dataset_source import DatasetSource
 class PandasDataset(DataFrameDataset[pd.DataFrame]):
     """Represents a Pandas DataFrame for use with MLflow Tracking."""
 
-    backend_name = "pandas"
-
 
 def from_pandas(
     df: pd.DataFrame,

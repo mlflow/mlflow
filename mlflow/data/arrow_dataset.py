@@ -9,8 +9,6 @@ from mlflow.data.dataset_source import DatasetSource
 class ArrowDataset(DataFrameDataset[pa.Table]):
     """Represents a PyArrow Table for use with MLflow Tracking."""
 
-    backend_name = "pyarrow"
-
 
 def from_arrow(
     df: pa.Table,

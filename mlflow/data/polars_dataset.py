@@ -9,8 +9,6 @@ from mlflow.data.dataset_source import DatasetSource
 class PolarsDataset(DataFrameDataset[pl.DataFrame]):
     """Represents a Polars DataFrame for use with MLflow Tracking."""
 
-    backend_name = "polars"
-
 
 def from_polars(
     df: pl.DataFrame,

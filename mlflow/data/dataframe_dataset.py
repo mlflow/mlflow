@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 from functools import cached_property
-from typing import Any, Generic, Literal, Optional, Union
+from itertools import starmap
+from typing import Any, Generic, Optional, Union
 
 import narwhals.stable.v1 as nw
 from narwhals.typing import IntoDataFrame, IntoDataFrameT
@@ -66,9 +67,7 @@ APPROX_DTYPE_MAPPING = {
 
 def infer_mlflow_schema(df: Union[nw.DataFrame, IntoDataFrame]) -> Schema:
     df_nw = nw.from_native(df, eager_only=True, pass_through=False)
-    return Schema(
-        [infer_colspec(col_name, col_dtype) for col_name, col_dtype in df_nw.schema.items()]
-    )
+    return Schema(list(starmap(infer_colspec, df_nw.schema.items())))
 
 
 def infer_colspec(
@@ -146,8 +145,6 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
     Represents a (eager) DataFrame for use with MLflow Tracking.
     """
 
-    backend_name: Literal["pandas", "polars", "pyarrow"]
-
     def __init__(
         self,
         df: IntoDataFrameT,
@@ -170,16 +167,18 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
                 if the dataset contains model predictions. If specified, this column
                 must be present in the dataframe (``df``).
         """
-        nw_frame = nw.from_native(df, eager_only=True)
+        nw_frame = nw.from_native(df, eager_only=True, pass_through=False)
+        backend_name = nw_frame.implementation.name.lower()
+
         if targets is not None and targets not in nw_frame.columns:
             raise MlflowException(
-                f"The specified {self.backend_name} DataFrame does not contain the specified "
+                f"The specified {backend_name} DataFrame does not contain the specified "
                 f"targets column '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
         if predictions is not None and predictions not in nw_frame.columns:
             raise MlflowException(
-                f"The specified {self.backend_name} DataFrame does not contain the specified "
+                f"The specified {backend_name} DataFrame does not contain the specified "
                 f"predictions column '{predictions}'.",
                 INVALID_PARAMETER_VALUE,
             )
@@ -257,7 +256,7 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
         n_rows, n_cols = self._df.shape
         return {
             "num_rows": n_rows,
-            "num_elements": int(n_rows * n_cols),
+            "num_elements": n_rows * n_cols,
         }
 
     @cached_property
@@ -281,8 +280,8 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
             inputs = self._df.drop(self._targets).to_native()
             outputs = self._df.get_column(self._targets).to_native()
             return PyFuncInputsOutputs(inputs, outputs)
-        else:
-            return PyFuncInputsOutputs(self._df.to_native())
+
+        return PyFuncInputsOutputs(self._df.to_native())
 
     def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
@@ -361,15 +360,13 @@ def from_dataframe(
     from mlflow.tracking.context import registry
 
     if source is not None:
-        if isinstance(source, DatasetSource):
-            resolved_source = source
-        else:
-            resolved_source = resolve_dataset_source(
-                source,
-            )
+        resolved_source = (
+            source if isinstance(source, DatasetSource) else resolve_dataset_source(source)
+        )
     else:
         context_tags = registry.resolve_tags()
         resolved_source = CodeDatasetSource(tags=context_tags)
+
     return dataset_cls(
         df=df,
         source=resolved_source,

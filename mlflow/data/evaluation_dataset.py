@@ -308,7 +308,7 @@ class EvaluationDataset:
         self._predictions_name = None
         self._has_predictions = predictions is not None
 
-        try:
+        with suppress(ImportError):
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
@@ -317,8 +317,6 @@ class EvaluationDataset:
                 spark_df_type = get_spark_dataframe_type()
                 self._supported_dataframe_types = (*self._supported_dataframe_types, spark_df_type)
                 self._spark_df_type = spark_df_type
-        except ImportError:
-            pass
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise MlflowException(
