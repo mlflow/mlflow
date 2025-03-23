@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 import narwhals.stable.v1 as nw
 import pandas as pd
@@ -44,44 +44,42 @@ def spark_session():
         yield session
 
 
-constructors = (
-    pd.DataFrame,
-    lambda data: pd.DataFrame(data).convert_dtypes(dtype_backend="numpy_nullable"),
-    lambda data: pd.DataFrame(data).convert_dtypes(dtype_backend="pyarrow"),
-    pl.DataFrame,
-    pa.table,
+class Backend(NamedTuple):
+    """Container for the dataset class, dataframe constructor, and loader function."""
+
+    dataset_cls: type[Dataset]
+    frame_constructor: Callable[[dict[str, list[Any]]], IntoDataFrame]
+    loader: Callable[..., Dataset]
+
+
+backends = (
+    Backend(PandasDataset, pd.DataFrame, mlflow.data.from_pandas),
+    Backend(
+        PandasDataset,
+        lambda data: pd.DataFrame(data).convert_dtypes(dtype_backend="numpy_nullable"),
+        mlflow.data.from_pandas,
+    ),
+    Backend(
+        PandasDataset,
+        lambda data: pd.DataFrame(data).convert_dtypes(dtype_backend="pyarrow"),
+        mlflow.data.from_pandas,
+    ),
+    Backend(PolarsDataset, pl.DataFrame, mlflow.data.from_polars),
+    Backend(ArrowDataset, pa.table, mlflow.data.from_arrow),
 )
 
-datasets = (
-    PandasDataset,
-    PandasDataset,
-    PandasDataset,
-    PolarsDataset,
-    ArrowDataset,
-)
 
-loaders = (
-    mlflow.data.from_pandas,
-    mlflow.data.from_pandas,
-    mlflow.data.from_pandas,
-    mlflow.data.from_polars,
-    mlflow.data.from_arrow,
-)
-
-
-@pytest.fixture(scope="module", params=zip(constructors, datasets, loaders))
-def constructor_dataset_loaders(
-    request: pytest.FixtureRequest,
-) -> tuple[Callable[[dict[str, list[Any]]], IntoDataFrame], type[Dataset], Callable[..., Dataset]]:
+@pytest.fixture(scope="module", params=backends)
+def backend(request: pytest.FixtureRequest) -> Backend:
     return request.param
 
 
-def test_conversion_to_json(constructor_dataset_loaders):
+def test_conversion_to_json(backend: Backend) -> None:
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
 
     data = {"Numbers": [1, 2, 3]}
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+    dataset_cls, constructor, _ = backend
 
     dataset = dataset_cls(
         constructor(data),
@@ -102,8 +100,8 @@ def test_conversion_to_json(constructor_dataset_loaders):
     assert Schema.from_json(schema_json) == dataset.schema
 
 
-def test_digest_property_has_expected_value(constructor_dataset_loaders, request):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_digest_property_has_expected_value(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -116,11 +114,12 @@ def test_digest_property_has_expected_value(constructor_dataset_loaders, request
     )
 
     assert dataset.digest == dataset._compute_digest()
+    assert isinstance(dataset.digest, str)
     # assert dataset.digest == "31ccce44"  #TODO: Polars returns a different value
 
 
-def test_df_property(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_df_property(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -134,8 +133,8 @@ def test_df_property(constructor_dataset_loaders):
     assert dataset.df.equals(constructor(data))
 
 
-def test_targets_property(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_targets_property(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -160,8 +159,8 @@ def test_targets_property(constructor_dataset_loaders):
     assert dataset_with_targets._targets == "c"
 
 
-def test_with_invalid_targets(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_with_invalid_targets(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -184,8 +183,8 @@ def test_with_invalid_targets(constructor_dataset_loaders):
         )
 
 
-def test_to_pyfunc(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_to_pyfunc(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -199,8 +198,8 @@ def test_to_pyfunc(constructor_dataset_loaders):
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
-def test_to_pyfunc_with_outputs(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_to_pyfunc_with_outputs(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -222,8 +221,8 @@ def test_to_pyfunc_with_outputs(constructor_dataset_loaders):
     assert input_outputs.outputs.equals(output_data)
 
 
-def test_from_loader_with_targets(tmp_path, constructor_dataset_loaders):
-    constructor, _, loader = constructor_dataset_loaders
+def test_from_loader_with_targets(tmp_path, backend: Backend) -> None:
+    _, constructor, loader = backend
 
     data = {"a": [1, 1], "b": [2, 2], "c": [3, 3]}
     df = constructor(data)
@@ -241,8 +240,8 @@ def test_from_loader_with_targets(tmp_path, constructor_dataset_loaders):
     assert input_outputs.outputs.equals(output_data)
 
 
-def test_from_loader_file_system_datasource(tmp_path, constructor_dataset_loaders):
-    constructor, dataset_cls, loader = constructor_dataset_loaders
+def test_from_loader_file_system_datasource(tmp_path, backend: Backend) -> None:
+    dataset_cls, constructor, loader = backend
 
     data = {"a": [1, 1], "b": [2, 2], "c": [3, 3]}
     df = constructor(data)
@@ -265,8 +264,8 @@ def test_from_loader_file_system_datasource(tmp_path, constructor_dataset_loader
     assert isinstance(mlflow_df.source, FileSystemDatasetSource)
 
 
-def test_from_loader_spark_datasource(spark_session, tmp_path, constructor_dataset_loaders):
-    constructor, dataset_cls, loader = constructor_dataset_loaders
+def test_from_loader_spark_datasource(spark_session, tmp_path, backend: Backend) -> None:
+    dataset_cls, constructor, loader = backend
 
     data = {"a": [1, 1], "b": [2, 2], "c": [3, 3]}
     df = constructor(data)
@@ -289,8 +288,8 @@ def test_from_loader_spark_datasource(spark_session, tmp_path, constructor_datas
     assert isinstance(mlflow_df.source, SparkDatasetSource)
 
 
-def test_from_loader_delta_datasource(spark_session, tmp_path, constructor_dataset_loaders):
-    constructor, dataset_cls, loader = constructor_dataset_loaders
+def test_from_loader_delta_datasource(spark_session, tmp_path, backend: Backend) -> None:
+    dataset_cls, constructor, loader = backend
 
     data = {"a": [1, 1], "b": [2, 2], "c": [3, 3]}
     df = constructor(data)
@@ -313,8 +312,8 @@ def test_from_loader_delta_datasource(spark_session, tmp_path, constructor_datas
     assert isinstance(mlflow_df.source, DeltaDatasetSource)
 
 
-def test_from_loader_no_source_specified(constructor_dataset_loaders):
-    constructor, dataset_cls, loader = constructor_dataset_loaders
+def test_from_loader_no_source_specified(backend: Backend) -> None:
+    dataset_cls, constructor, loader = backend
 
     data = {"a": [1, 1], "b": [2, 2], "c": [3, 3]}
     df = constructor(data)
@@ -326,10 +325,10 @@ def test_from_loader_no_source_specified(constructor_dataset_loaders):
     assert "mlflow.source.name" in mlflow_df.source.to_json()
 
 
-def test_to_evaluation_dataset(constructor_dataset_loaders):
+def test_to_evaluation_dataset(backend: Backend) -> None:
     import numpy as np
 
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -350,8 +349,8 @@ def test_to_evaluation_dataset(constructor_dataset_loaders):
     assert np.array_equal(evaluation_dataset.labels_data, df_nw["c"].to_numpy())
 
 
-def test_df_hashing_with_strings(constructor_dataset_loaders):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_df_hashing_with_strings(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
@@ -371,8 +370,8 @@ def test_df_hashing_with_strings(constructor_dataset_loaders):
     assert dataset1.digest != dataset2.digest
 
 
-def test_df_hashing_with_dicts(constructor_dataset_loaders, request):
-    constructor, dataset_cls, _ = constructor_dataset_loaders
+def test_df_hashing_with_dicts(backend: Backend) -> None:
+    dataset_cls, constructor, _ = backend
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
