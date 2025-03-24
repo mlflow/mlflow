@@ -124,7 +124,10 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                 except ImportError:
                     pass
                 except Exception as e:
-                    if original_config is None or not original_config.get("silent", False):
+                    if original_config is None or (
+                        not original_config.get("disable", False)
+                        and not original_config.get("silent", False)
+                    ):
                         _logger.warning(
                             "Exception raised while calling autologging for %s: %s",
                             flavor, str(e),

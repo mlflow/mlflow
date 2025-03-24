@@ -1204,9 +1204,11 @@ def autolog(disable=False, silent=False):
         databricks_utils.is_in_databricks_serverless_runtime()
         or databricks_utils.is_in_databricks_shared_cluster_runtime()
     ):
+        if disable:
+            return
         raise MlflowException(
-            "MLflow Spark dataset autologging can't support Databricks shared cluster "
-            "or Databricks serverless."
+            "MLflow Spark dataset autologging is not supported on Databricks shared clusters "
+            "or Databricks serverless clusters."
         )
 
     # Check if environment variable PYSPARK_PIN_THREAD is set to false.
