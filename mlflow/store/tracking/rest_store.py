@@ -845,7 +845,7 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(SearchLoggedModels, req_body)
         models = [LoggedModel.from_proto(x) for x in response_proto.models]
-        return PagedList(models, response_proto.next_page_token)
+        return PagedList(models, response_proto.next_page_token or None)
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """

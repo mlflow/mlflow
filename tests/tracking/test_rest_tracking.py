@@ -2494,6 +2494,39 @@ def test_delete_logged_model_tag(mlflow_client: MlflowClient):
         mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
 
 
+def test_search_logged_models(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model_1 = mlflow_client.create_logged_model(exp_id)
+    time.sleep(0.001)  # to ensure different created time
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert [m.name for m in models] == [model_1.name]
+
+    # max_results
+    model_2 = mlflow_client.create_logged_model(exp_id)
+    page_1 = mlflow_client.search_logged_models(experiment_ids=[exp_id], max_results=1)
+    assert [m.name for m in page_1] == [model_2.name]
+    assert page_1.token is not None
+
+    # pagination
+    page_2 = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], max_results=1, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    # filter_string
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], filter_string=f"name = {model_1.name!r}"
+    )
+    assert [m.name for m in models] == [model_1.name]
+
+    # order_by
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+
 def test_log_outputs(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("log_outputs")
     run = mlflow_client.create_run(experiment_id=exp_id)

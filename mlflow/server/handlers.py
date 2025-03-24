@@ -111,6 +111,7 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchDatasets,
     SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SetExperimentTag,
@@ -2679,6 +2680,51 @@ def _delete_logged_model_tag(model_id: str, tag_key: str):
     return _wrap_response(DeleteLoggedModelTag.Response())
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_logged_models():
+    request_message = _get_request_message(
+        SearchLoggedModels(),
+        schema={
+            "experiment_ids": [
+                _assert_array,
+                _assert_item_type_string,
+                _assert_required,
+            ],
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike],
+            "order_by": [_assert_array],
+            "page_token": [_assert_string],
+        },
+    )
+    models = _get_tracking_store().search_logged_models(
+        # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
+        # to avoid serialization issues
+        experiment_ids=list(request_message.experiment_ids),
+        filter_string=request_message.filter or None,
+        max_results=request_message.max_results or None,
+        order_by=(
+            [
+                {
+                    "field_name": ob.field_name,
+                    "ascending": ob.ascending,
+                    "dataset_name": ob.dataset_name,
+                    "dataset_digest": ob.dataset_digest,
+                }
+                for ob in request_message.order_by
+            ]
+            if request_message.order_by
+            else None
+        ),
+        page_token=request_message.page_token or None,
+    )
+    response_message = SearchLoggedModels.Response()
+    response_message.models.extend([e.to_proto() for e in models])
+    if models.token:
+        response_message.next_page_token = models.token
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2819,4 +2865,5 @@ HANDLERS = {
     FinalizeLoggedModel: _finalize_logged_model,
     SetLoggedModelTags: _set_logged_model_tags,
     DeleteLoggedModelTag: _delete_logged_model_tag,
+    SearchLoggedModels: _search_logged_models,
 }
