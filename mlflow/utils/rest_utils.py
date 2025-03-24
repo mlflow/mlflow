@@ -169,9 +169,19 @@ def http_request(
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
-        from requests_auth_aws_sigv4 import AWSSigV4
+        from requests_aws4auth import AWS4Auth
+        import boto3
 
-        kwargs["auth"] = AWSSigV4("execute-api")
+        session = boto3.Session()
+        credentials = session.get_credentials()
+
+        kwargs["auth"] = AWS4Auth(
+            credentials.access_key,
+            credentials.secret_key,
+            session.region_name,
+            "execute-api",
+            session_token=credentials.token
+        )
     elif host_creds.auth:
         from mlflow.tracking.request_auth.registry import fetch_auth
 

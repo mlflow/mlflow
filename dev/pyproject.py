@@ -158,7 +158,7 @@ def build(package_type: PackageType) -> None:
                     # Required to log artifacts and models to HDFS artifact locations
                     "pyarrow",
                     # Required to sign outgoing request with SigV4 signature
-                    "requests-auth-aws-sigv4",
+                    "requests-aws4auth",
                     # Required to log artifacts and models to AWS S3 artifact locations
                     "boto3",
                     "botocore",
