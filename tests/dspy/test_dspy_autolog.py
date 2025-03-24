@@ -880,16 +880,28 @@ def test_autolog_create_logged_model_and_link_traces():
                     "reasoning": "No more responses",
                 }
             ]
-            * 3
+            * 6
         )
     )
 
     dspy_model = CoT()
-    dspy_model("test")
-    logged_model = mlflow.last_logged_model()
+    with mlflow.start_run() as run:
+        for _ in range(5):
+            dspy_model("test")
+
+    # only one LoggedModel is created
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
     traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
+    assert len(traces) == 5
+    for i in range(5):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
 
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(dspy_model, "model")
@@ -897,7 +909,7 @@ def test_autolog_create_logged_model_and_link_traces():
     loaded_model = mlflow.dspy.load_model(model_info.model_uri)
     loaded_model("test")
     traces = get_traces()
-    assert len(traces) == 2
+    assert len(traces) == 6
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
 
 
