@@ -1,4 +1,4 @@
-# MLflow 3 Quick Starters
+# MLflow 3 Examples
 
 ## Pre-requisites
 

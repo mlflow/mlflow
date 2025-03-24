@@ -75,8 +75,13 @@ with mlflow.start_run() as training_run:
     # m-fa4e1bca8cb64971bce2322a8fd427d3, [<Metric: dataset_name='train', key='rmse', model_id='m-fa4e1bca8cb64971bce2322a8fd427d3, value=0.7538635773139717, ...>, ...]
 
 
-# Some time later, when we get a new evaluation dataset based on the latest production data, we will run a new model evaluation job, which is tracked as a new MLflow Run, to measure the performance of the model on this new dataset.
-# This example will produced two MLflow Runs (training_run and evaluation_run) and one MLflow Logged Model (elasticnet). From the resulting Logged Model, we can see all of the parameters and metadata. We can also see all of the metrics linked from the training and evaluation runs.
+# Some time later, when we get a new evaluation dataset based on the latest production data,
+# we will run a new model evaluation job, which is tracked as a new MLflow Run,
+# to measure the performance of the model on this new dataset.
+# This example will produced two MLflow Runs (training_run and evaluation_run) and
+# one MLflow Logged Model (elasticnet). From the resulting Logged Model,
+# we can see all of the parameters and metadata. We can also see all of the metrics linked
+# from the training and evaluation runs.
 
 # Start a run to represent the test dataset evaluation job
 with mlflow.start_run() as evaluation_run:
