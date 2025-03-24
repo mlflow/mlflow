@@ -2033,6 +2033,8 @@ def create_logged_model(
         source_run_id = run.info.run_id
     if experiment_id is None and (run := active_run()):
         experiment_id = run.info.experiment_id
+    elif experiment_id is None:
+        experiment_id = _get_experiment_id()
     model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
