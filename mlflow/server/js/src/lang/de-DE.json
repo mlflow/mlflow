@@ -2318,7 +2318,7 @@
     "defaultMessage" : "Durchsuchen",
     "description" : "Button text for browsing tables on the configure inference form"
   },
-  "H+4gFh" : {
+  "K32dke" : {
     "defaultMessage" : "Nur Unterschiede anzeigen",
     "description" : "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
