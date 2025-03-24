@@ -130,7 +130,8 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     ):
                         _logger.warning(
                             "Exception raised while calling autologging for %s: %s",
-                            flavor, str(e),
+                            flavor,
+                            str(e),
                         )
 
 
