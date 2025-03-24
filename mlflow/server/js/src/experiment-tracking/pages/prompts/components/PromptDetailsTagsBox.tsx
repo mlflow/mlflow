@@ -35,9 +35,7 @@ export const PromptsListTableTagsBox = ({
         gap: theme.spacing.xs,
       }}
     >
-      {visibleTagList?.map((tag) => (
-        <KeyValueTag key={tag.key} tag={tag} />
-      ))}
+      {visibleTagList?.map((tag) => <KeyValueTag key={tag.key} tag={tag} />)}
       <Button
         componentId="mlflow.prompts.details.tags.edit"
         size="small"

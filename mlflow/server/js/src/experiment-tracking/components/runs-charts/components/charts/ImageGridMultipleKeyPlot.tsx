@@ -84,12 +84,15 @@ export const ImageGridMultipleKeyPlot = ({
               </TableCell>
               {displayRuns.map((run: RunsChartsRunData) => {
                 if (run.images[imageKey] && Object.keys(run.images[imageKey]).length > 0) {
-                  const metadataByStep = Object.values(run.images[imageKey]).reduce((acc, metadata) => {
-                    if (metadata.step !== undefined) {
-                      acc[metadata.step] = metadata;
-                    }
-                    return acc;
-                  }, {} as Record<number, ImageEntity>);
+                  const metadataByStep = Object.values(run.images[imageKey]).reduce(
+                    (acc, metadata) => {
+                      if (metadata.step !== undefined) {
+                        acc[metadata.step] = metadata;
+                      }
+                      return acc;
+                    },
+                    {} as Record<number, ImageEntity>,
+                  );
                   return (
                     <TableCell key={run.uuid} css={{ minWidth: imageSize + theme.spacing.md }}>
                       <ImagePlotWithHistory

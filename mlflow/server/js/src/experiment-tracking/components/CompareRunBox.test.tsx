@@ -15,7 +15,7 @@ describe('CompareRunBox', () => {
         ({
           runUuid,
           experimentId: '0',
-        } as RunInfoEntity),
+        }) as RunInfoEntity,
     ),
     runDisplayNames: runUuids,
   };

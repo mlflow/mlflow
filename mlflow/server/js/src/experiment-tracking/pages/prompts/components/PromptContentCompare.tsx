@@ -153,8 +153,8 @@ export const PromptContentCompare = ({
                   backgroundColor: part.added
                     ? colors.addedBackground
                     : part.removed
-                    ? colors.removedBackground
-                    : undefined,
+                      ? colors.removedBackground
+                      : undefined,
                   textDecoration: part.removed ? 'line-through' : 'none',
                 }}
               >

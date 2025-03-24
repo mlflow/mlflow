@@ -112,16 +112,16 @@ export const RowActionsCellRenderer = React.memo(
         ? labels.visibility.groups.unhide
         : labels.visibility.groups.hide
       : isRowHidden
-      ? labels.visibility.runs.unhide
-      : labels.visibility.runs.hide;
+        ? labels.visibility.runs.unhide
+        : labels.visibility.runs.hide;
 
     const pinningMessageDescriptor = isGroupRow
       ? pinned
         ? labels.pinning.groups.unpin
         : labels.pinning.groups.pin
       : pinned
-      ? labels.pinning.runs.unpin
-      : labels.pinning.runs.pin;
+        ? labels.pinning.runs.unpin
+        : labels.pinning.runs.pin;
 
     const isVisibilityButtonHidden = useMemo(() => {
       if (shouldEnableToggleIndividualRunsInGroups()) {

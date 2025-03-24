@@ -141,7 +141,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
               ],
               autoRefreshEnabled: true,
             }),
-        } as any),
+        }) as any,
     );
   });
   const renderComponent = async ({
