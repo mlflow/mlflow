@@ -18,7 +18,7 @@ type Props = {
 };
 
 type State = {
-  hasError: boolean
+  hasError: boolean;
 };
 
 class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> {
