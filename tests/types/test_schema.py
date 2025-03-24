@@ -1920,6 +1920,18 @@ def test_convert_dataclass_to_schema_invalid():
             Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
         ),
         (
+            {"a": {"x": pd.NA}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}).astype("boolean"),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
             [
                 {
                     "id": None,
