@@ -11,6 +11,7 @@ import tempfile
 import time
 import urllib
 from functools import wraps
+from typing import Optional
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -26,6 +27,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -100,6 +102,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     ListArtifacts,
+    ListLoggedModelArtifacts,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -2725,6 +2728,41 @@ def _search_logged_models():
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_logged_model_artifacts(model_id: str):
+    request_message = _get_request_message(
+        ListLoggedModelArtifacts(),
+        schema={
+            "artifact_directory_path": [_assert_string],
+        },
+    )
+    if request_message.HasField("artifact_directory_path"):
+        artifact_path = validate_path_is_safe(request_message.artifact_directory_path)
+    else:
+        artifact_path = None
+
+    return _list_logged_model_artifacts_impl(model_id, artifact_path)
+
+
+def _list_logged_model_artifacts_impl(model_id: str, artifact_directory_path: Optional[str]):
+    response = ListLoggedModelArtifacts.Response()
+    logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
+    if _is_servable_proxied_run_artifact_root(logged_model.artifact_location):
+        artifact_entities = _list_artifacts_for_proxied_run_artifact_root(
+            proxied_artifact_root=logged_model.artifact_location,
+            relative_path=artifact_directory_path,
+        )
+    else:
+        artifact_entities = get_artifact_repository(logged_model.artifact_location).list_artifacts(
+            artifact_directory_path
+        )
+
+    response.files.extend([a.to_proto() for a in artifact_entities])
+    response.root_uri = logged_model.artifact_location
+    return _wrap_response(response)
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2866,4 +2904,5 @@ HANDLERS = {
     SetLoggedModelTags: _set_logged_model_tags,
     DeleteLoggedModelTag: _delete_logged_model_tag,
     SearchLoggedModels: _search_logged_models,
+    ListLoggedModelArtifacts: _list_logged_model_artifacts,
 }
