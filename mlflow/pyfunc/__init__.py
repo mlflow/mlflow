@@ -2443,7 +2443,11 @@ e.g., struct<a:int, b:array<int>>.
             return pandas.Series(result_values)
 
         if isinstance(result_type, SparkStructType):
-            if isinstance(result, list) and isinstance(result[0], pydantic.BaseModel):
+            if (
+                isinstance(result, list)
+                and len(result) > 0
+                and isinstance(result[0], pydantic.BaseModel)
+            ):
                 result = pandas.DataFrame([model_dump_compat(r) for r in result])
             else:
                 result = pandas.DataFrame(result)
