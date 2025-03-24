@@ -1921,9 +1921,7 @@ class SearchLoggedModelsUtils(SearchUtils):
         dataset_digest: Optional[str] = None
 
     @classmethod
-    def parse_order_by_for_logged_models(
-        cls, order_by: dict[str, Any]
-    ) -> tuple[str, bool, str, str]:
+    def parse_order_by_for_logged_models(cls, order_by: dict[str, Any]) -> OrderBy:
         if not isinstance(order_by, dict):
             raise MlflowException.invalid_parameter_value(
                 "`order_by` must be a list of dictionaries."
