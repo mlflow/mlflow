@@ -309,12 +309,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   renderTagTable(colWidth: number) {
-    const dataRows = this.renderDataRows(
-      this.props.tagLists,
-      colWidth,
-      this.state.onlyShowTagDiff,
-      true,
-    );
+    const dataRows = this.renderDataRows(this.props.tagLists, colWidth, this.state.onlyShowTagDiff, true);
     if (dataRows.length === 0) {
       return (
         <h2>
