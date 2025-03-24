@@ -264,7 +264,12 @@ class MlflowCallback(BaseCallback):
         if exception:
             mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
             return
-        score = outputs if isinstance(outputs, float) else outputs[0]
+        if isinstance(outputs, float):
+            score = outputs
+        elif isinstance(outputs, list):
+            score = outputs[0]
+        elif isinstance(outputs, dspy.Prediction):
+            score = float(outputs)
         mlflow.log_metric("eval", score)
 
         if self._call_id_to_run_id.pop(call_id, None):
