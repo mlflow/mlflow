@@ -1,10 +1,9 @@
 .sticky-header {
   position: sticky;
-  position: -webkit-sticky;
   left: 0;
 }
 
-.compare-run-table {
+.compare-model-table {
   display: block;
   overflow: auto;
   width: 100%;
@@ -25,18 +24,9 @@
   color: #555;
 }
 
-.compare-table .diff-row .head-value {
-  background-color: rgba(249, 237, 190, 1.0) ;
-  color: #555;
-}
-
+.compare-table .diff-row:hover,
+.compare-table .diff-row .head-value,
 .compare-table .diff-row .head-value > span {
   background-color: rgba(249, 237, 190, 1.0) ;
   color: #555;
 }
-
-.compare-table .diff-row:hover {
-  background-color: rgba(249, 237, 190, 1.0) ;
-  color: #555;
-}
-
