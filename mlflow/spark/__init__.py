@@ -1198,6 +1198,16 @@ def autolog(disable=False, silent=False):
         _stop_listen_for_spark_activity,
     )
     from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow.utils import databricks_utils
+
+    if (
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+    ):
+        raise MlflowException(
+            "MLflow Spark dataset autologging can't support Databricks shared cluster "
+            "or Databricks serverless."
+        )
 
     # Check if environment variable PYSPARK_PIN_THREAD is set to false.
     # The "Pin thread" concept was introduced since Pyspark 3.0.0 and set to default to true

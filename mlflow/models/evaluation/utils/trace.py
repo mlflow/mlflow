@@ -123,6 +123,12 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                         AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
                 except ImportError:
                     pass
+                except Exception as e:
+                    if original_config is None or not original_config.get("silent", False):
+                        _logger.warning(
+                            "Exception raised while calling autologging for %s: %s",
+                            flavor, str(e),
+                        )
 
 
 def _should_enable_tracing(flavor: str, autologging_config: dict[str, Any]) -> bool:
