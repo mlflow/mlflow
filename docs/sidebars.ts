@@ -20,6 +20,12 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      label: 'MLflow 3.0',
+      className: 'sidebar-top-level-category',
+      id: 'mlflow-3/index'
+    },
+    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',

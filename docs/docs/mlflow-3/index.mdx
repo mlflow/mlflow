@@ -1,0 +1,347 @@
+---
+sidebar_label: MLflow 3.0
+sidebar_position: 1
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import Platform from "@site/src/content/platform.mdx"
+
+# MLflow 3.0
+
+Discover the next generation of MLflow, designed to streamline your AI experimentation and accelerate your journey from idea to production. MLflow 3.0 brings cutting-edge support for GenAI workflows, enabling seamless integration of generative AI models into your projects.
+
+## What is MLflow 3.0?
+
+The best AI experimentation platform for building high quality models and GenAI agents! MLflow 3.0 introduces a variety of exciting improvements to MLflow Tracking and Tracing, including:
+- First class model support in MLflow tracking with **LoggedModel**
+- **Model-centric** information architecture for params and metrics in MLflow tracking
+- Enhanced **tracing** experience with lineage tracking for LoggedModels
+
+[Model Tracking](#model-tracking) helps you create and evaluate different model/agent configurations in your experiments, LoggedModel helps you find the best ones for production usage, and tracing helps enhance observability in your model or GenAI applications.
+
+
+## Model Tracking with LoggedModel
+
+In MLflow 3.0, we introduce a new model-centric design, together with revamped APIs (UI will come later), tailored to enhance deep learning and generative AI workflows. 
+In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment. 
+With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers. 
+
+We are introducing a new first-class object, the Logged Model entity, into MLflow Tracking to streamline these processes. As your deep learning jobs create and evaluate models, 
+or you define and evaluate your GenAI agents in code, they will be automatically stored as MLflow Logged Models in your MLflow Experiment. 
+
+Every deep learning checkpoint is stored as a Logged Model with direct links to its own metrics. There is no longer any need to carefully log evaluation metrics for each checkpoint
+at its epoch all within the same Run, or to later query all metrics at a certain epoch just to retrieve metrics for one checkpoint. 
+Similarly, each GenAI agent consolidates its evaluation metrics from offline jobs, and online interactions if you use managed MLflow with Databricks. 
+This feature removes the need to query Runs for traces from different environments (batch jobs, separate inference tables etc.) to gain a full understanding of the agent’s performance.
+
+Specifically, you will be able to:
+- View Logged Models alongside key information, including code and weights as artifacts and configurable parameters that affect model behavior
+- Holistically track all performance metrics related to your logged models with links to training and evaluation jobs
+- Search for and rank existing models based on a set of certain criteria, such as performance metrics on training or evaluation datasets
+
+Simple example:
+
+```python
+import mlflow
+
+
+class MyModel(mlflow.pyfunc.PythonModel):
+    @mlflow.trace
+    def predict(self, model_input: list[str]):
+        return ",".join(model_input)
+
+
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        python_model=MyModel(), name="my_model", input_example=["a", "b", "c"]
+    )
+
+print(f"LoggedModel model id: {model_info.model_id}")
+
+pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+pyfunc_model.predict(["x", "y", "z"])
+traces = mlflow.search_traces(model_id=model_info.model_id)
+print(traces)
+
+#                          request_id                                              trace   timestamp_ms  ...                                              spans                                               tags assessments
+# 0  af5da8c78a6f49c793f57ebb19dcb6c7  Trace(request_id=af5da8c78a6f49c793f57ebb19dcb...  1742781867233  ...  [{'name': 'predict', 'context': {'span_id': '0...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+```
+
+### DeepLearning Example
+
+In this example, we demonstrate how to use MLflow 3.0 to track and evaluate deep learning models with a PyTorch-based Iris classifier.
+The example showcases how to log checkpoints, link metrics to datasets, and rank models based on performance metrics.
+With ``mlflow.search_logged_models`` you can easily find the best model based on the metric value.
+
+```python
+import pandas as pd
+import torch
+import torch.nn as nn
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+import mlflow
+import mlflow.pytorch
+from mlflow.entities import Dataset
+
+
+# Helper function to prepare data
+def prepare_data(df):
+    X = torch.tensor(df.iloc[:, :-1].values, dtype=torch.float32)
+    y = torch.tensor(df.iloc[:, -1].values, dtype=torch.long)
+    return X, y
+
+
+# Helper function to compute accuracy
+def compute_accuracy(model, X, y):
+    with torch.no_grad():
+        outputs = model(X)
+        _, predicted = torch.max(outputs, 1)
+        accuracy = (predicted == y).sum().item() / y.size(0)
+    return accuracy
+
+
+# Define a basic PyTorch classifier
+class IrisClassifier(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
+
+# Load Iris dataset and prepare the DataFrame
+iris = load_iris()
+iris_df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
+iris_df["target"] = iris.target
+
+# Split into training and testing datasets
+train_df, test_df = train_test_split(iris_df, test_size=0.2, random_state=42)
+
+# Prepare training data
+train_dataset = mlflow.data.from_pandas(train_df, name="train")
+X_train, y_train = prepare_data(train_dataset.df)
+
+# Define the PyTorch model and move it to the device
+input_size = X_train.shape[1]
+hidden_size = 16
+output_size = len(iris.target_names)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+scripted_model = IrisClassifier(input_size, hidden_size, output_size).to(device)
+scripted_model = torch.jit.script(scripted_model)
+
+# Start a run to represent the training job
+with mlflow.start_run() as run:
+    # Load the training dataset with MLflow. We will link training metrics to this dataset.
+    train_dataset: Dataset = mlflow.data.from_pandas(train_df, name="train")
+    X_train, y_train = prepare_data(train_dataset.df)
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(scripted_model.parameters(), lr=0.01)
+
+    for epoch in range(101):
+        X_train, y_train = X_train.to(device), y_train.to(device)
+        out = scripted_model(X_train)
+        loss = criterion(out, y_train)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Log a checkpoint with metrics every 10 epochs
+        if epoch % 10 == 0:
+            # Each newly created LoggedModel checkpoint is linked with its
+            # name, params, and step
+            model_info = mlflow.pytorch.log_model(
+                pytorch_model=scripted_model,
+                name=f"torch-iris-{epoch}",
+                params={
+                    "n_layers": 3,
+                    "activation": "ReLU",
+                    "criterion": "CrossEntropyLoss",
+                    "optimizer": "Adam",
+                },
+                step=epoch,
+                input_example=X_train.numpy(),
+            )
+            # Log metric on training dataset at step and link to LoggedModel
+            mlflow.log_metric(
+                key="accuracy",
+                value=compute_accuracy(scripted_model, X_train, y_train),
+                step=epoch,
+                model_id=model_info.model_id,
+                dataset=train_dataset,
+            )
+
+ranked_checkpoints = mlflow.search_logged_models(
+    filter_string=f"source_run_id='{run.info.run_id}'",
+    order_by=[{"field_name": "metrics.accuracy", "ascending": False}],
+    output_format="list",
+)
+
+best_checkpoint = ranked_checkpoints[0]
+print(f"Best model: {best_checkpoint}")
+print(best_checkpoint.metrics)
+
+# Best model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow/mlruns/0/models/4661d15d-84ae-4896-b9cf-3731be3fac7b/artifacts', creation_timestamp=1742784533012, experiment_id='0', last_updated_timestamp=1742784538509, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='4661d15d-84ae-4896-b9cf-3731be3fac7b', run_id='92b65129f25a412f9455e637a3d95a2a', step=100, timestamp=1742784538522, value=0.9833333333333333>], model_id='4661d15d-84ae-4896-b9cf-3731be3fac7b', model_type=None, model_uri='models:/4661d15d-84ae-4896-b9cf-3731be3fac7b', name='torch-iris-100', params={'activation': 'ReLU',
+#  'criterion': 'CrossEntropyLoss',
+#  'n_layers': '3',
+#  'optimizer': 'Adam'}, source_run_id='92b65129f25a412f9455e637a3d95a2a', status=<LoggedModelStatus.READY: 'READY'>, status_message=None, tags={}>
+# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='4661d15d-84ae-4896-b9cf-3731be3fac7b', run_id='92b65129f25a412f9455e637a3d95a2a', step=100, timestamp=1742784538522, value=0.9833333333333333>]
+
+worst_checkpoint = ranked_checkpoints[-1]
+print(f"Worst model: {worst_checkpoint}")
+print(worst_checkpoint.metrics)
+
+# Worst model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow/mlruns/0/models/da03f02f-1352-456a-97dc-3cf4f1f83fae/artifacts', creation_timestamp=1742784476515, experiment_id='0', last_updated_timestamp=1742784483429, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='da03f02f-1352-456a-97dc-3cf4f1f83fae', run_id='92b65129f25a412f9455e637a3d95a2a', step=0, timestamp=1742784483447, value=0.3333333333333333>], model_id='da03f02f-1352-456a-97dc-3cf4f1f83fae', model_type=None, model_uri='models:/da03f02f-1352-456a-97dc-3cf4f1f83fae', name='torch-iris-0', params={'activation': 'ReLU',
+# 'criterion': 'CrossEntropyLoss',
+# 'n_layers': '3',
+# 'optimizer': 'Adam'}, source_run_id='92b65129f25a412f9455e637a3d95a2a', status=<LoggedModelStatus.READY: 'READY'>, status_message=None, tags={}>
+# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='da03f02f-1352-456a-97dc-3cf4f1f83fae', run_id='92b65129f25a412f9455e637a3d95a2a', step=0, timestamp=1742784483447, value=0.3333333333333333>]
+```
+
+
+### GenAI Example
+
+This example demonstrates how to use MLflow to log and evaluate a generative AI agent.
+It showcases how to register prompts, log models, and assess their performance using evaluation datasets.
+The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
+
+Prerequisite: ``pip install langchain langchain-community langchain-openai``
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+import mlflow
+
+# register a prompt so we can link it when logging the model
+system_prompt = mlflow.register_prompt(
+    name="system_prompt",
+    template="You are a chatbot that can answer questions about IT.",
+    commit_message="Initial version of system prompt",
+)
+
+chat_model = ChatOpenAI(
+    model="gpt-4o-mini", temperature=0.1, max_completion_tokens=2000
+)
+chat_prompt = ChatPromptTemplate.from_messages(
+    [("system", system_prompt.to_single_brace_format()), ("user", "{messages}")]
+)
+chain = chat_prompt | chat_model
+print(chain.invoke({"messages": "What is MLflow?"}))
+
+# Log the chain with MLflow, specifying its parameters
+# As a new feature, the LoggedModel entity is linked to its name and params
+with mlflow.start_run():
+    model_info = mlflow.langchain.log_model(
+        lc_model=chain,
+        name="chain",
+        params={"temperature": 0.1, "max_tokens": 2000},
+        model_type="agent",
+        input_example={"messages": "What is MLflow?"},
+        # specify the prompts used, it will be linked to the run
+        prompts=[system_prompt],
+    )
+
+# Inspect the LoggedModel and its properties
+logged_model = mlflow.get_logged_model(model_info.model_id)
+print(logged_model.model_id, logged_model.params)
+# 1695b392-36f8-44b6-8a06-7fc9f12e100f {'max_tokens': '2000', 'temperature': '0.1'}
+
+# Enable autologging so that interactive traces from the chain are automatically linked to its LoggedModel
+mlflow.langchain.autolog()
+loaded_chain = mlflow.langchain.load_model(model_info.model_uri)
+chain_inputs = [
+    {"messages": "What is MLflow?"},
+    {"messages": "What is Unity Catalog?"},
+    {"messages": "What are user-defined functions (UDFs)?"},
+]
+
+for chain_input in chain_inputs:
+    loaded_chain.invoke(chain_input)
+
+traces = mlflow.search_traces(model_id=logged_model.model_id)
+print(traces)
+
+#                          request_id                                              trace   timestamp_ms  ...                                              spans                                               tags assessments
+# 0  c4922d6515004439ba6745506969c401  Trace(request_id=c4922d6515004439by6745506969c...  1742786913864  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+# 1  a6e4de782b5540f1af2f2661ba85abd2  Trace(request_id=a6e4de782b5540f1af2f2661by85a...  1742786909657  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+# 2  bc72367e96ae4e978e28594d5ce438e8  Trace(request_id=bc72367e96ae4e978e28594d5ce43...  1742786905377  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+```
+
+Then we use MLflow evaluate to assess the performance of the logged model on the evaluation dataset. 
+This step involves calculating additional metrics, such as latency and answer correctness, to gain deeper insights into the model's behavior and accuracy.
+
+```python
+# Prepare the eval dataset in a pandas DataFrame
+import pandas as pd
+
+eval_df = pd.DataFrame(
+    {
+        "messages": chain_inputs,
+        "expected_response": [
+            """MLflow Tracking is a key component of the MLflow platform designed to record and manage machine learning experiments. It enables data scientists and engineers to log parameters, code versions, metrics, and artifacts in a systematic way, facilitating experiment tracking and reproducibility.\n\nHow It Works:\n\nAt the heart of MLflow Tracking is the concept of a run, which is an execution of a machine learning code. Each run can log the following:\n\nParameters: Input variables or hyperparameters used in the model (e.g., learning rate, number of trees). Metrics: Quantitative measures to evaluate the model's performance (e.g., accuracy, loss). Artifacts: Output files like models, datasets, or images generated during the run. Source Code: The version of the code or Git commit hash used. These logs are stored in a tracking server, which can be set up locally or on a remote server. The tracking server uses a backend storage (like a database or file system) to keep a record of all runs and their associated data.\n\n Users interact with MLflow Tracking through its APIs available in multiple languages (Python, R, Java, etc.). By invoking these APIs in the code, you can start and end runs, and log data as the experiment progresses. Additionally, MLflow offers autologging capabilities for popular machine learning libraries, automatically capturing relevant parameters and metrics without manual code changes.\n\nThe logged data can be visualized using the MLflow UI, a web-based interface that displays all experiments and runs. This UI allows you to compare runs side-by-side, filter results, and analyze performance metrics over time. It aids in identifying the best models and understanding the impact of different parameters.\n\nBy providing a structured way to record experiments, MLflow Tracking enhances collaboration among team members, ensures transparency, and makes it easier to reproduce results. It integrates seamlessly with other MLflow components like Projects and Model Registry, offering a comprehensive solution for managing the machine learning lifecycle.""",
+            """Unity Catalog is a feature in Databricks that allows you to create a centralized inventory of your data assets, such as tables, views, and functions, and share them across different teams and projects. It enables easy discovery, collaboration, and reuse of data assets within your organization.\n\nWith Unity Catalog, you can:\n\n1. Create a single source of truth for your data assets: Unity Catalog acts as a central repository of all your data assets, making it easier to find and access the data you need.\n2. Improve collaboration: By providing a shared inventory of data assets, Unity Catalog enables data scientists, engineers, and other stakeholders to collaborate more effectively.\n3. Foster reuse of data assets: Unity Catalog encourages the reuse of existing data assets, reducing the need to create new assets from scratch and improving overall efficiency.\n4. Enhance data governance: Unity Catalog provides a clear view of data assets, enabling better data governance and compliance.\n\nUnity Catalog is particularly useful in large organizations where data is scattered across different teams, projects, and environments. It helps create a unified view of data assets, making it easier to work with data across different teams and projects.""",
+            """User-defined functions (UDFs) in the context of Databricks and Apache Spark are custom functions that you can create to perform specific tasks on your data. These functions are written in a programming language such as Python, Java, Scala, or SQL, and can be used to extend the built-in functionality of Spark.\n\nUDFs can be used to perform complex data transformations, data cleaning, or to apply custom business logic to your data. Once defined, UDFs can be invoked in SQL queries or in DataFrame transformations, allowing you to reuse your custom logic across multiple queries and applications.\n\nTo use UDFs in Databricks, you first need to define them in a supported programming language, and then register them with the SparkSession. Once registered, UDFs can be used in SQL queries or DataFrame transformations like any other built-in function.\n\nHere\'s an example of how to define and register a UDF in Python:\n\n```python\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import IntegerType\n\n# Define the UDF function\ndef multiply_by_two(value):\n    return value * 2\n\n# Register the UDF with the SparkSession\nmultiply_udf = udf(multiply_by_two, IntegerType())\n\n# Use the UDF in a DataFrame transformation\ndata = spark.range(10)\nresult = data.withColumn("multiplied", multiply_udf(data.id))\nresult.show()\n```\n\nIn this example, we define a UDF called `multiply_by_two` that multiplies a given value by two. We then register this UDF with the SparkSession using the `udf` function, and use it in a DataFrame transformation to multiply the `id` column of a DataFrame by two.""",
+        ],
+    }
+)
+
+# Start a run to represent the evaluation job
+with mlflow.start_run() as evaluation_run:
+    eval_dataset = mlflow.data.from_pandas(
+        df=eval_df, name="eval_dataset", targets="expected_response"
+    )
+    # Run the evaluation based on extra metrics
+    result = mlflow.evaluate(
+        model=f"models:/{logged_model.model_id}",
+        data=eval_dataset,
+        # targets="expected_response",
+        model_type="question-answering",
+        extra_metrics=[
+            mlflow.metrics.latency(),
+            mlflow.metrics.genai.answer_correctness("openai:/gpt-4o-mini"),
+        ],
+        # This is needed since answer_correctness looks for 'inputs' field
+        evaluator_config={"col_mapping": {"inputs": "messages"}},
+    )
+    # Log evaluation metrics and associate with agent
+    mlflow.log_metrics(
+        metrics=result.metrics,
+        dataset=eval_dataset,
+        # Specify the ID of the agent logged above
+        model_id=logged_model.model_id,
+    )
+
+print(result.tables["eval_results_table"])
+#                                         messages                                  expected_response  ... answer_correctness/v1/score                answer_correctness/v1/justification
+# 0  What is MLflow Tracking and how does it work?  MLflow Tracking is a key component of the MLfl...  ...                           5  The output accurately describes MLflow Trackin...
+# 1                         What is Unity Catalog?  Unity Catalog is a feature in Databricks that ...  ...                           5  The output accurately describes Unity Catalog ...
+# 2        What are user-defined functions (UDFs)?  User-defined functions (UDFs) in the context o...  ...                           5  The output accurately describes user-defined f...
+```
+
+
+## Migration Guide
+
+MLflow 3.0 introduces some key API changes while also removes some outdated features. This guide will help you transition smoothly to the latest version.
+
+### Key API changes
+
+- `mlflow.<flavor>.log_model`: `artifact_path` parameter is deprecated, use **`name`** instead
+
+### Removed Features
+
+- MLflow Recipes
+- Flavors: the following model flavors are no longer supported
+    - fastai
+    - h2o
+	- mleap
+- AI gateway APIs: use deployments APIs instead
+
