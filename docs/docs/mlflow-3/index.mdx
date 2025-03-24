@@ -68,7 +68,7 @@ print(traces)
 # 0  af5da8c78a6f49c793f57ebb19dcb6c7  Trace(request_id=af5da8c78a6f49c793f57ebb19dcb...  1742781867233  ...  [{'name': 'predict', 'context': {'span_id': '0...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 ```
 
-### DeepLearning Example
+### Deep Learning Example
 
 In this example, we demonstrate how to use MLflow 3.0 to track and evaluate deep learning models with a PyTorch-based Iris classifier.
 The example showcases how to log checkpoints, link metrics to datasets, and rank models based on performance metrics.
@@ -312,13 +312,6 @@ with mlflow.start_run() as evaluation_run:
         # This is needed since answer_correctness looks for 'inputs' field
         evaluator_config={"col_mapping": {"inputs": "messages"}},
     )
-    # Log evaluation metrics and associate with agent
-    mlflow.log_metrics(
-        metrics=result.metrics,
-        dataset=eval_dataset,
-        # Specify the ID of the agent logged above
-        model_id=logged_model.model_id,
-    )
 
 print(result.tables["eval_results_table"])
 #                                         messages                                  expected_response  ... answer_correctness/v1/score                answer_correctness/v1/justification
@@ -343,6 +336,6 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
 - Flavors: the following model flavors are no longer supported
     - fastai
     - h2o
-	- mleap
+    - mleap
 - AI gateway APIs: use deployments APIs instead
 
