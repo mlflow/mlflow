@@ -2535,3 +2535,15 @@ def test_log_outputs(mlflow_client: MlflowClient):
     mlflow_client.log_outputs(run.info.run_id, model_outputs)
     run = mlflow_client.get_run(run.info.run_id)
     assert run.outputs.model_outputs == model_outputs
+
+
+def test_list_logged_model_artifacts(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    artifacts = mlflow_client.list_logged_model_artifacts(model_info.model_id)
+    paths = [a.path for a in artifacts]
+    assert "MLmodel" in paths
