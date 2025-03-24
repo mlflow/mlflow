@@ -585,26 +585,13 @@ module.exports = {
         'no-shadow': 'off',
         '@typescript-eslint/no-shadow': 'off',
 
-        // Please leave this rule as the last item in the array, as it's quite large
-        '@typescript-eslint/ban-types': [
+        '@typescript-eslint/no-empty-object-type': 'error',
+        '@typescript-eslint/no-unsafe-function-type': 'error',
+        '@typescript-eslint/no-wrapper-object-types': 'error',
+        '@typescript-eslint/no-restricted-types': [
           'error',
           {
             types: {
-              Function: {
-                message:
-                  'The `Function` type accepts any function-like value. It provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.',
-                fixWith: '(...args: unknown[]) => unknown',
-              },
-              '{}': {
-                message:
-                  '`{}` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
-                fixWith: 'Record<string, never>',
-              },
-              Object: {
-                message:
-                  '`Object` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
-                fixWith: 'Record<string, unknown>',
-              },
               object: {
                 message:
                   "Don't use `object` as a type. The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys.",

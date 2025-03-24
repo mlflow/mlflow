@@ -553,16 +553,40 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
         ]
 
 
-class DummyOptimizer(dspy.teleprompt.Teleprompter):
-    def compile(self, program):
-        callback = dspy.settings.callbacks[0]
-        assert callback.within_compile
-        return program
-
-
 @pytest.mark.parametrize("log_compiles", [True, False])
 def test_autolog_log_compile(log_compiles):
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, kwarg1=None, kwarg2=None):
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 1
+            return program
+
     mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program, kwarg1=1, kwarg2="2")
+
+    assert dspy.settings.callbacks[0].optimizer_stack_level == 0
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "best_model.json" in artifacts
+    else:
+        assert mlflow.last_active_run() is None
+
+
+def test_autolog_log_compile_disable():
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
     dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
@@ -570,12 +594,164 @@ def test_autolog_log_compile(log_compiles):
 
     optimizer.compile(program)
 
-    assert not dspy.settings.callbacks[0].within_compile
-    if log_compiles:
-        run = mlflow.last_active_run()
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    # verify that run is not created when disabling autologging
+    mlflow.dspy.autolog(disable=True)
+    optimizer.compile(program)
+    client = MlflowClient()
+    runs = client.search_runs(run.info.experiment_id)
+    assert len(runs) == 1
+
+
+def test_autolog_log_nested_compile():
+    class NestedOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 2
+            return program
+
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def __init__(self):
+            super().__init__()
+            self.nested_optimizer = NestedOptimizer()
+
+        def compile(self, program):
+            self.nested_optimizer.compile(program)
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 1
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    assert dspy.settings.callbacks[0].optimizer_stack_level == 0
+    run = mlflow.last_active_run()
+    assert run is not None
+    client = MlflowClient()
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "best_model.json" in artifacts
+
+
+skip_if_callback_unavailable = pytest.mark.skipif(
+    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    reason="evaluate callback is available since 2.6.12",
+)
+
+
+@skip_if_callback_unavailable
+@pytest.mark.parametrize("log_evals", [True, False])
+def test_autolog_log_evals(log_evals):
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+    dataset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+    program = Predict("question -> answer")
+    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+
+    mlflow.dspy.autolog(log_evals=log_evals)
+    evaluator(program, devset=dataset)
+
+    run = mlflow.last_active_run()
+    if log_evals:
         assert run is not None
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "best_model.json" in artifacts
+        assert "model.json" in artifacts
+        assert run.data.metrics == {"eval": 50.0}
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
     else:
-        assert mlflow.last_active_run() is None
+        assert run is None
+
+
+@skip_if_callback_unavailable
+def test_autolog_log_compile_with_evals():
+    class EvalOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, eval, trainset, valset):
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
+            return program
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+    dataset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+    program = Predict("question -> answer")
+    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+    optimizer = EvalOptimizer()
+
+    mlflow.dspy.autolog(log_compiles=True, log_evals=True)
+    optimizer.compile(program, evaluator, trainset=dataset, valset=dataset)
+
+    # callback state
+    callback = dspy.settings.callbacks[0]
+    assert callback.optimizer_stack_level == 0
+    assert callback._call_id_to_metric_key == {}
+    assert callback._call_id_to_run_id == {}
+    assert callback._evaluation_counter == {}
+
+    # root run
+    root_run = mlflow.last_active_run()
+    assert root_run is not None
+    client = MlflowClient()
+    artifacts = (x.path for x in client.list_artifacts(root_run.info.run_id))
+    assert "best_model.json" in artifacts
+    assert "trainset.json" in artifacts
+    assert "valset.json" in artifacts
+    assert root_run.data.metrics == {
+        "eval_full": 50.0,
+        "eval_minibatch": 100.0,
+    }
+
+    # children runs
+    child_runs = client.search_runs(
+        root_run.info.experiment_id,
+        filter_string=f"tags.mlflow.parentRunId = '{root_run.info.run_id}'",
+        order_by=["attributes.start_time ASC"],
+    )
+    assert len(child_runs) == 4
+
+    for i, run in enumerate(child_runs):
+        if i % 2 == 0:
+            assert run.data.metrics == {"eval": 50.0}
+        else:
+            assert run.data.metrics == {"eval": 100.0}
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }

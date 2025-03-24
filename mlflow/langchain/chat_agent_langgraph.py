@@ -1,7 +1,7 @@
 import importlib.metadata
 import json
-import uuid
-from typing import Annotated, Any, Optional, TypedDict
+from typing import Annotated, Any, Optional, TypedDict, Union
+from uuid import uuid4
 
 from packaging.version import Version
 
@@ -18,8 +18,11 @@ try:
         # show a friendlier error message
         if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
             raise ImportError(
-                "Please install `langgraph-prebuilt>=0.3.0` to use MLflow LangGraph ChatAgent "
-                "helpers with LangGraph 0.3.x."
+                "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
+                "helpers with LangGraph 0.3.x.\n"
+                "If you already have the proper versions installed, please try running "
+                "`pip install --force-reinstall langgraph`. This is a known issue. See: "
+                "https://github.com/langchain-ai/langgraph/issues/3662"
             ) from e
 
         # LangGraph < 0.3
@@ -37,19 +40,23 @@ from mlflow.types.agent import ChatAgentMessage
 from mlflow.utils.annotations import experimental
 
 
-def _add_agent_messages(left: list[dict], right: list[dict]):
+def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[dict]]):
+    if not isinstance(left, list):
+        left = [left]
+    if not isinstance(right, list):
+        right = [right]
     # assign missing ids
     for i, m in enumerate(left):
         if isinstance(m, BaseMessage):
             left[i] = parse_message(m)
         if left[i].get("id") is None:
-            left[i]["id"] = str(uuid.uuid4())
+            left[i]["id"] = str(uuid4())
 
     for i, m in enumerate(right):
         if isinstance(m, BaseMessage):
             right[i] = parse_message(m)
         if right[i].get("id") is None:
-            right[i]["id"] = str(uuid.uuid4())
+            right[i]["id"] = str(uuid4())
 
     # merge
     left_idx_by_id = {m.get("id"): i for i, m in enumerate(left)}
@@ -322,6 +329,8 @@ class ChatAgentToolNode(ToolNode):
                         pass
                 if "custom_outputs" in return_obj:
                     custom_outputs = return_obj["custom_outputs"]
+                if m.id is None:
+                    m.id = str(uuid4())
                 messages.append(parse_message(m, attachments=return_obj.get("attachments")))
             except Exception:
                 messages.append(parse_message(m))

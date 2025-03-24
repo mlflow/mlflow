@@ -262,7 +262,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       colWidth,
       // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
       this.state.onlyShowMetricDiff,
-      false,
+      true,
       (key, data) => {
         return (
           <Link

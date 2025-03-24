@@ -61,6 +61,7 @@ describe('PromptsDetailsPage', () => {
     });
 
     expect(screen.getByRole('status', { name: 'some_tag' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'some_version_tag' })).toBeInTheDocument();
   });
 
   it("should preview prompt versions' contents, aliases and commit message", async () => {
@@ -190,15 +191,15 @@ describe('PromptsDetailsPage', () => {
     expect(screen.getByRole('columnheader', { name: 'Registered at' })).toBeInTheDocument();
   });
 
-  it('should display error boundary UI component upon showstopper failure', async () => {
+  it('should display 404 UI component upon showstopper failure', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     server.use(getFailedRegisteredPromptDetailsResponse(404));
 
     renderTestComponent();
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Error' })).toBeInTheDocument();
-    });
-    expect(screen.getByText('The requested resource was not found.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: "Prompt name 'prompt1' does not exist, go back to the home page." }),
+    ).toBeInTheDocument();
     jest.restoreAllMocks();
   });
 });

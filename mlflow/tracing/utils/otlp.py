@@ -59,5 +59,5 @@ def _get_otlp_endpoint() -> Optional[str]:
 
 def _get_otlp_protocol() -> str:
     return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or os.environ.get(
-        "OTEL_EXPORTER_OPTL_PROTOCOL", "grpc"
+        "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
     )

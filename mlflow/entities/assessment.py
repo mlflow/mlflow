@@ -87,12 +87,13 @@ class Assessment(_MlflowObject):
         return self._assessment_id
 
     def __post_init__(self):
-        if (
-            sum([self.expectation is not None, self.feedback is not None, self.error is not None])
-            != 1
-        ):
+        if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
-                "Exactly one of `expectation`, `feedback` or `error` should be specified.",
+                "Exactly one of `expectation` or `feedback` should be specified.",
+            )
+        if (self.expectation is not None) and self.error is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Expectations cannot have `error` specified.",
             )
 
     def to_proto(self):
@@ -138,7 +139,8 @@ class Assessment(_MlflowObject):
             feedback = None
 
         error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
-        metadata = proto.metadata
+        # Convert ScalarMapContainer to a normal Python dict
+        metadata = dict(proto.metadata) if proto.metadata else None
 
         return cls(
             _assessment_id=proto.assessment_id or None,
@@ -150,25 +152,25 @@ class Assessment(_MlflowObject):
             expectation=expectation,
             feedback=feedback,
             rationale=proto.rationale or None,
-            metadata=metadata or None,
+            metadata=metadata,
             error=error,
             span_id=proto.span_id or None,
         )
 
     def to_dictionary(self):
         return {
+            "assessment_id": self._assessment_id,
             "trace_id": self.trace_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
             "create_time_ms": self.create_time_ms,
             "last_update_time_ms": self.last_update_time_ms,
-            "expectation": self.expectation,
-            "feedback": self.feedback,
+            "expectation": self.expectation.to_dictionary() if self.expectation else None,
+            "feedback": self.feedback.to_dictionary() if self.feedback else None,
             "rationale": self.rationale,
             "metadata": self.metadata,
             "error": self.error.to_dictionary() if self.error else None,
             "span_id": self.span_id,
-            "_assessment_id": self._assessment_id,
         }
 
 
