@@ -144,18 +144,14 @@ mlflow.end_run()
           key="classical-ml"
         >
           <div style={{ position: 'relative' }}>
-            <CodeSnippet
-              style={{ padding: '5px', height: snippetHeight }}
-              language="python"
-              theme={codeSnippetTheme}
-            >
+            <CodeSnippet style={{ padding: '5px', height: snippetHeight }} language="python" theme={codeSnippetTheme}>
               {classical_ml_text}
             </CodeSnippet>
             <CopyButton
               copyText={classical_ml_text}
               showLabel={false}
               icon={<CopyIcon />}
-              style={{ position: 'absolute', top: theme.spacing.sm, right: theme.spacing.md }}
+              style={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
             />
           </div>
         </LegacyTabPane>
@@ -164,18 +160,14 @@ mlflow.end_run()
           key="llm"
         >
           <div style={{ position: 'relative' }}>
-            <CodeSnippet
-              style={{ padding: '5px', height: snippetHeight }}
-              language="python"
-              theme={codeSnippetTheme}
-            >
+            <CodeSnippet style={{ padding: '5px', height: snippetHeight }} language="python" theme={codeSnippetTheme}>
               {llm_text}
             </CodeSnippet>
             <CopyButton
               copyText={llm_text}
               showLabel={false}
               icon={<CopyIcon />}
-              style={{ position: 'absolute', top: theme.spacing.sm, right: theme.spacing.md }}
+              style={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
             />
           </div>
         </LegacyTabPane>
