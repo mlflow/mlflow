@@ -332,9 +332,10 @@ print(result.tables["eval_results_table"])
 
 MLflow 3.0 introduces some key API changes while also removes some outdated features. This guide will help you transition smoothly to the latest version.
 
-### Key API changes
+### Key changes
 
-- `mlflow.<flavor>.log_model`: `artifact_path` parameter is deprecated, use **`name`** instead
+- `mlflow.<flavor>.log_model` API usage: `artifact_path` parameter is deprecated, use **`name`** instead
+- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts. Since MLflow 3.0, those artifacts will be stored into models artifacts location.
 
 ### Removed Features
 
