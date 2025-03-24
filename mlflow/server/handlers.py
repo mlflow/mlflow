@@ -2733,9 +2733,7 @@ def _search_logged_models():
 def _list_logged_model_artifacts(model_id: str):
     request_message = _get_request_message(
         ListLoggedModelArtifacts(),
-        schema={
-            "artifact_directory_path": [_assert_string],
-        },
+        schema={"artifact_directory_path": [_assert_string]},
     )
     if request_message.HasField("artifact_directory_path"):
         artifact_path = validate_path_is_safe(request_message.artifact_directory_path)
@@ -2745,20 +2743,22 @@ def _list_logged_model_artifacts(model_id: str):
     return _list_logged_model_artifacts_impl(model_id, artifact_path)
 
 
-def _list_logged_model_artifacts_impl(model_id: str, artifact_directory_path: Optional[str]):
+def _list_logged_model_artifacts_impl(
+    model_id: str, artifact_directory_path: Optional[str]
+) -> Response:
     response = ListLoggedModelArtifacts.Response()
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
     if _is_servable_proxied_run_artifact_root(logged_model.artifact_location):
-        artifact_entities = _list_artifacts_for_proxied_run_artifact_root(
+        artifacts = _list_artifacts_for_proxied_run_artifact_root(
             proxied_artifact_root=logged_model.artifact_location,
             relative_path=artifact_directory_path,
         )
     else:
-        artifact_entities = get_artifact_repository(logged_model.artifact_location).list_artifacts(
+        artifacts = get_artifact_repository(logged_model.artifact_location).list_artifacts(
             artifact_directory_path
         )
 
-    response.files.extend([a.to_proto() for a in artifact_entities])
+    response.files.extend([a.to_proto() for a in artifacts])
     response.root_uri = logged_model.artifact_location
     return _wrap_response(response)
 
