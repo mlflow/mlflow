@@ -507,6 +507,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
+    # NB: We can't use pd.isna() because the input can be a series.
     return x is None or x is pd.NA or x is pd.NaT
 
 
