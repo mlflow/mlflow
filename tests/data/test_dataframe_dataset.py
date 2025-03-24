@@ -13,7 +13,6 @@ from narwhals.typing import IntoDataFrame
 import mlflow.data
 from mlflow.data.arrow_dataset import ArrowDataset
 from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.data.dataframe_dataset import infer_mlflow_schema
 from mlflow.data.dataset import Dataset
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.evaluation_dataset import EvaluationDataset
@@ -24,6 +23,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
+from mlflow.types.utils import _infer_schema
 
 from tests.resources.data.dataset_source import SampleDatasetSource
 
@@ -253,7 +253,7 @@ def test_from_loader_file_system_datasource(tmp_path, backend: Backend) -> None:
 
     assert isinstance(mlflow_df, dataset_cls)
     assert mlflow_df.df.equals(df)
-    assert mlflow_df.schema == infer_mlflow_schema(df)
+    assert mlflow_df.schema == _infer_schema(df)
 
     num_rows, num_cols = df_nw.shape
     assert mlflow_df.profile == {
@@ -278,7 +278,7 @@ def test_from_loader_spark_datasource(spark_session, tmp_path, backend: Backend)
 
     assert isinstance(mlflow_df, dataset_cls)
     assert mlflow_df.df.equals(df)
-    assert mlflow_df.schema == infer_mlflow_schema(df)
+    assert mlflow_df.schema == _infer_schema(df)
     num_rows, num_cols = nw.from_native(df, eager_only=True, pass_through=False).shape
     assert mlflow_df.profile == {
         "num_rows": num_rows,
@@ -302,7 +302,7 @@ def test_from_loader_delta_datasource(spark_session, tmp_path, backend: Backend)
 
     assert isinstance(mlflow_df, dataset_cls)
     assert mlflow_df.df.equals(df)
-    assert mlflow_df.schema == infer_mlflow_schema(df)
+    assert mlflow_df.schema == _infer_schema(df)
     num_rows, num_cols = nw.from_native(df, eager_only=True, pass_through=False).shape
     assert mlflow_df.profile == {
         "num_rows": num_rows,

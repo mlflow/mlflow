@@ -3,11 +3,10 @@ from __future__ import annotations
 import json
 import logging
 from functools import cached_property
-from itertools import starmap
 from typing import Any, Generic, Optional, Union
 
 import narwhals.stable.v1 as nw
-from narwhals.typing import IntoDataFrame, IntoDataFrameT
+from narwhals.typing import IntoDataFrameT
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -20,124 +19,13 @@ from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.types import ColSpec, Schema
-from mlflow.types.schema import Array, DataType, Object, Property
+from mlflow.types import Schema
+from mlflow.types.schema import Array, DataType, Object
+from mlflow.types.utils import _infer_schema
 
 _logger = logging.getLogger(__name__)
 
 ColSpecType = Union[DataType, Array, Object, str]
-
-# Mapping from narwhals data types to MLflow data types
-EXACT_DTYPE_MAPPING = {
-    # nw.Binary: DataType.binary,  # TODO(Narwhals): next release this will be available
-    nw.Boolean: DataType.boolean,
-    nw.Datetime: DataType.datetime,
-    nw.Float32: DataType.float,
-    nw.Float64: DataType.double,
-    nw.Int8: DataType.integer,
-    nw.Int16: DataType.integer,
-    nw.Int32: DataType.integer,
-    nw.Int64: DataType.long,
-    nw.String: DataType.string,
-}
-APPROX_DTYPE_MAPPING = {
-    nw.Categorical: DataType.string,
-    nw.Enum: DataType.string,
-    nw.Date: DataType.datetime,
-    nw.UInt8: DataType.integer,
-    nw.UInt16: DataType.integer,
-    nw.UInt32: DataType.long,
-}
-# Remaining types:
-# - Nested:
-#     - nw.Array
-#     - nw.List
-#     - nw.Struct
-# - Scalar:
-#     - nw.Decimal
-#     - nw.Duration
-#     - nw.Time
-#     - nw.UInt64
-#     - nw.UInt128
-#     - nw.Int128
-# - Other
-#     - nw.Object
-#     - nw.Unknown
-
-
-def infer_mlflow_schema(df: Union[nw.DataFrame, IntoDataFrame]) -> Schema:
-    df_nw = nw.from_native(df, eager_only=True, pass_through=False)
-    return Schema(list(starmap(infer_colspec, df_nw.schema.items())))
-
-
-def infer_colspec(
-    col_name: str,
-    col_dtype: nw.dtypes.DType,
-    *,
-    allow_unknown: bool = True,
-) -> ColSpec:
-    return ColSpec(
-        type=infer_mlflow_dtype(dtype=col_dtype, col_name=col_name, allow_unknown=allow_unknown),
-        name=col_name,
-    )
-
-
-def infer_mlflow_dtype(
-    dtype: nw.dtypes.DType,
-    col_name: str,
-    *,
-    allow_unknown: bool,
-) -> ColSpecType:
-    dtype_cls = type(dtype)
-    mapped = EXACT_DTYPE_MAPPING.get(dtype_cls)
-    if mapped is not None:
-        return mapped
-
-    mapped = APPROX_DTYPE_MAPPING.get(dtype_cls)
-    if mapped is not None:
-        logging.warning(
-            "Data type of Column '%s' contains dtype=%s which will be mapped to %s."
-            " This is not an exact match but is close enough",
-            col_name,
-            dtype,
-            mapped,
-        )
-        return mapped
-
-    if isinstance(dtype, (nw.Array, nw.List)):
-        return Array(infer_mlflow_dtype(dtype.inner, f"{col_name}.[]", allow_unknown=allow_unknown))
-
-    if isinstance(dtype, nw.Struct):
-        return Object(
-            [
-                Property(
-                    name=field.name,
-                    dtype=infer_mlflow_dtype(
-                        field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
-                    ),
-                )
-                for field in dtype.fields
-            ]
-        )
-
-    return _handle_unknown_dtype(dtype=dtype, col_name=col_name, allow_unknown=allow_unknown)
-
-
-def _handle_unknown_dtype(dtype: Any, col_name: str, *, allow_unknown: bool) -> str:
-    if not allow_unknown:
-        _raise_unknown_type(dtype)
-
-    logging.warning(
-        "Data type of Columns '%s' contains dtype=%s, which cannot be mapped to any DataType",
-        col_name,
-        dtype,
-    )
-    return str(dtype)
-
-
-def _raise_unknown_type(dtype: Any) -> None:
-    msg = f"Unknown type: {dtype!r}"
-    raise ValueError(msg)
 
 
 class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataFrameT]):
@@ -266,7 +154,7 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
         ``None`` if the schema cannot be inferred from the dataset.
         """
         try:
-            return infer_mlflow_schema(self._df)
+            return _infer_schema(self._df)
         except Exception as e:
             _logger.warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
             return None

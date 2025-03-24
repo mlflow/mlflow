@@ -4,9 +4,10 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
+import narwhals.stable.v1 as nw
 import numpy as np
-import pandas as pd
 import pydantic
+from narwhals.dependencies import is_into_dataframe, is_into_series
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -368,28 +369,35 @@ def _infer_schema(data: Any) -> Schema:
                     for name, value in data.items()
                 ]
             )
-    # pandas.Series
-    elif isinstance(data, pd.Series):
-        name = getattr(data, "name", None)
+    # narwhals.Series, pandas.Series, polars.Series, pyarrow.ChunkedArray
+    elif is_into_series(data):
+        nw_series = nw.from_native(data, allow_series=True)
+        col_name = getattr(data, "name", None)
+        col_dtype = nw_series.dtype
         schema = Schema(
             [
                 ColSpec(
-                    type=_infer_pandas_column(data),
-                    name=name,
-                    required=_infer_required(data),
+                    type=_infer_narwhals_dtype(
+                        dtype=col_dtype, col_name=col_name, allow_unknown=True
+                    ),
+                    name=col_name,
+                    required=_infer_required(nw_series),
                 )
             ]
         )
-    # pandas.DataFrame
-    elif isinstance(data, pd.DataFrame):
+    # narwhals.DataFrame, pandas.DataFrame, polars.DataFrame, pyarrow.Table
+    elif is_into_dataframe(data):
+        nw_frame = nw.from_native(data, eager_only=True)
         schema = Schema(
             [
                 ColSpec(
-                    type=_infer_pandas_column(data[col]),
-                    name=col,
-                    required=_infer_required(data[col]),
+                    type=_infer_narwhals_dtype(
+                        dtype=col_dtype, col_name=col_name, allow_unknown=True
+                    ),
+                    name=col_name,
+                    required=_infer_required(nw_frame.get_column(col_name)),
                 )
-                for col in data.columns
+                for col_name, col_dtype in nw_frame.schema.items()
             ]
         )
     # numpy.ndarray
@@ -511,35 +519,96 @@ def _is_none_or_nan(x):
 
 
 def _infer_required(col) -> bool:
-    if isinstance(col, (list, pd.Series)):
+    if isinstance(col, list):
         return not any(_is_none_or_nan(x) for x in col)
+    elif is_into_series(col):
+        nw_col = nw.from_native(col, allow_series=True)
+        return not (nw_col.is_nan() | nw_col.is_null()).any()
     return not _is_none_or_nan(col)
 
 
-def _infer_pandas_column(col: pd.Series) -> DataType:
-    if not isinstance(col, pd.Series):
-        raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
-    if len(col.values.shape) > 1:
-        raise MlflowException(f"Expected 1d array, got array with shape {col.shape}")
+def _infer_narwhals_dtype(
+    dtype: nw.dtypes.DType, col_name: str, *, allow_unknown: bool
+) -> DataType:
+    EXACT_DTYPE_MAPPING = {
+        nw.Binary: DataType.binary,
+        nw.Boolean: DataType.boolean,
+        nw.Datetime: DataType.datetime,
+        nw.Float32: DataType.float,
+        nw.Float64: DataType.double,
+        nw.Int8: DataType.integer,
+        nw.Int16: DataType.integer,
+        nw.Int32: DataType.integer,
+        nw.Int64: DataType.long,
+        nw.String: DataType.string,
+    }
+    APPROX_DTYPE_MAPPING = {
+        nw.Categorical: DataType.string,
+        nw.Enum: DataType.string,
+        nw.Date: DataType.datetime,
+        nw.UInt8: DataType.integer,
+        nw.UInt16: DataType.integer,
+        nw.UInt32: DataType.long,
+    }
+    # Remaining types:
+    # - Nested:
+    #     - nw.Array
+    #     - nw.List
+    #     - nw.Struct
+    # - Scalar:
+    #     - nw.Decimal
+    #     - nw.Duration
+    #     - nw.Time
+    #     - nw.UInt64
+    #     - nw.UInt128
+    #     - nw.Int128
+    # - Other
+    #     - nw.Object
+    #     - nw.Unknown
+    dtype_cls = type(dtype)
+    mapped = EXACT_DTYPE_MAPPING.get(dtype_cls)
+    if mapped is not None:
+        return mapped
 
-    if col.dtype.kind == "O":
-        col = col.infer_objects()
-    if col.dtype.kind == "O":
-        try:
-            # We convert pandas Series into list and infer the schema.
-            # The real schema for internal field should be the Array's dtype
-            arr_type = _infer_colspec_type(col.to_list())
-            return arr_type.dtype
-        except Exception as e:
-            # For backwards compatibility, we fall back to string
-            # if the provided array is of string type
-            # This is for diviner test where df field is ('key2', 'key1', 'key0')
-            if pd.api.types.is_string_dtype(col):
-                return DataType.string
-            raise MlflowException(f"Failed to infer schema for pandas.Series {col}. Error: {e}")
-    else:
-        # NB: The following works for numpy types as well as pandas extension types.
-        return _infer_numpy_dtype(col.dtype)
+    mapped = APPROX_DTYPE_MAPPING.get(dtype_cls)
+    if mapped is not None:
+        logging.warning(
+            "Data type of Column '%s' contains dtype=%s which will be mapped to %s."
+            " This is not an exact match but is close enough",
+            col_name,
+            dtype,
+            mapped,
+        )
+        return mapped
+
+    if isinstance(dtype, (nw.Array, nw.List)):
+        return Array(
+            _infer_narwhals_dtype(dtype.inner, f"{col_name}.[]", allow_unknown=allow_unknown)
+        )
+
+    if isinstance(dtype, nw.Struct):
+        return Object(
+            [
+                Property(
+                    name=field.name,
+                    dtype=_infer_narwhals_dtype(
+                        field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
+                    ),
+                )
+                for field in dtype.fields
+            ]
+        )
+
+    if not allow_unknown:
+        msg = f"Unknown type: {dtype!r}"
+        raise ValueError(msg)
+
+    logging.warning(
+        "Data type of Columns '%s' contains dtype=%s, which cannot be mapped to any DataType",
+        col_name,
+        dtype,
+    )
+    return str(dtype)
 
 
 def _infer_spark_type(x, data=None, col_name=None) -> DataType:
