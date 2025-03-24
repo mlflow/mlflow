@@ -2243,7 +2243,7 @@ class FileStore(AbstractStore):
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[list[list[str, Any]]] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
         """
@@ -2256,9 +2256,16 @@ class FileStore(AbstractStore):
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
 
-                field_name (str): Required. Name of the field to order by, e.g. "model_id".
-                ascending or descending: (str): Optional. Whether the order is ascending or not.
-                    Default is ascending. e.g. "ASC" or "DESC".
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
             page_token: Token specifying the next page of results.
 
         Returns:
