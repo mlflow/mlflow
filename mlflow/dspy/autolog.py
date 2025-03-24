@@ -75,8 +75,19 @@ def autolog(
         )
 
     def patch_module(original, self, *args, **kwargs):
-        _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
-        return original(self, *args, **kwargs)
+        if model_id := (
+            _MODEL_TRACKER.get(id(self)) or _MODEL_TRACKER.get_logged_model_id(id(self))
+        ):
+            _MODEL_TRACKER.set_active_model_id(model_id)
+        elif not _MODEL_TRACKER._is_active_model_id_set:
+            logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
+            _MODEL_TRACKER.set_logged_model_id(id(self), logged_model.model_id)
+            _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
+        _MODEL_TRACKER._is_active_model_id_set = True
+        try:
+            return original(self, *args, **kwargs)
+        finally:
+            _MODEL_TRACKER._is_active_model_id_set = False
 
     # Patch teleprompter/evaluator not to generate traces by default
     def patch_fn(original, self, *args, **kwargs):

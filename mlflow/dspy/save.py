@@ -27,6 +27,7 @@ from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import disable_autologging
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -357,30 +358,38 @@ def log_model(
                 signature=signature,
             )
     """
-    model = Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        flavor=mlflow.dspy,
-        model=dspy_model,
-        task=task,
-        model_config=model_config,
-        code_paths=code_paths,
-        conda_env=conda_env,
-        registered_model_name=registered_model_name,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        metadata=metadata,
-        resources=resources,
-        prompts=prompts,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-    )
-    if model.model_id and not isinstance(dspy_model, str):
-        _MODEL_TRACKER.set(id(dspy_model), model.model_id)
-    return model
+    with disable_autologging():
+        if (
+            model_id is None
+            and not isinstance(dspy_model, str)
+            and (existing_model_id := _MODEL_TRACKER.get_logged_model_id(id(dspy_model)))
+        ):
+            model_id = existing_model_id
+        model = Model.log(
+            artifact_path=artifact_path,
+            name=name,
+            flavor=mlflow.dspy,
+            model=dspy_model,
+            task=task,
+            model_config=model_config,
+            code_paths=code_paths,
+            conda_env=conda_env,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+            resources=resources,
+            prompts=prompts,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
+        )
+        if model.model_id and not isinstance(dspy_model, str):
+            _MODEL_TRACKER.set(id(dspy_model), model.model_id)
+            _MODEL_TRACKER.remove_logged_model_id(id(dspy_model))
+        return model
