@@ -20,17 +20,17 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
-from mlflow.types.schema import Array, DataType, Object
 from mlflow.types.utils import _infer_schema
 
 _logger = logging.getLogger(__name__)
-
-ColSpecType = Union[DataType, Array, Object, str]
 
 
 class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataFrameT]):
     """
     Represents a (eager) DataFrame for use with MLflow Tracking.
+
+    This class is a generic class that can be instantiated with a pandas, polars or pyarrow.
+    It can be used directly, or subclassed to create custom dataset classes.
     """
 
     def __init__(
