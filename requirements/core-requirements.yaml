@@ -84,5 +84,5 @@ graphene:
 
 narwhals:
   pip_release: narwhals
-  minimum: "1.31.0"
+  minimum: "1.32.0"
   max_major_version: 2
