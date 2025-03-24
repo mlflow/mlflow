@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
@@ -2524,3 +2525,13 @@ def test_search_logged_models(mlflow_client: MlflowClient):
         experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
     )
     assert [m.name for m in models] == [model_2.name, model_1.name]
+
+
+def test_log_outputs(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("log_outputs")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    model_outputs = [LoggedModelOutput(model.model_id, 1)]
+    mlflow_client.log_outputs(run.info.run_id, model_outputs)
+    run = mlflow_client.get_run(run.info.run_id)
+    assert run.outputs.model_outputs == model_outputs
