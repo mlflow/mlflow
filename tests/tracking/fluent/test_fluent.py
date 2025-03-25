@@ -1690,6 +1690,22 @@ def test_runs_are_ended_by_run_id():
     assert mlflow.active_run() is None
 
 
+def test_create_logged_model_active_run():
+    with mlflow.start_run() as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    exp_id = mlflow.create_experiment("exp")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    model = mlflow.create_logged_model()
+    assert model.source_run_id is None
+
+
 def test_create_logged_model_tags_from_context():
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
