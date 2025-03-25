@@ -6,13 +6,13 @@ MLflow 2.21.1 is a patch release that introduces minor features and addresses so
 
 Features:
 
-- [Tracking] Introduce the support for logging evaluations within the DSPy integration (#14962, @TomeHirata)
+- [Tracking] Introduce support for logging evaluations within DSPy (#14962, @TomeHirata)
 - [Tracking] Add support for run creation when DSPy compile is executed (#14949, @TomeHirata)
-- [Docker / Sagemaker] Add support for building a sagemaker serving container that does not contain Java via the --install-java option (#14868, @rgangopadhya)
+- [Docker / Sagemaker] Add support for building a SageMaker serving container that does not contain Java via the `--install-java option` (#14868, @rgangopadhya)
 
 Bug fixes:
 
-- [Tracing] Fix an ordering bug for traces due to incorrect timestamp conversion timezone bug (#15094, @orm011)
+- [Tracing] Fix an issue with trace ordering due to a timestamp conversion timezone bug (#15094, @orm011)
 - [Tracking] Fix a typo in the environment variable `OTEL_EXPORTER_OTLP_PROTOCOL` definition (#15008, @gabrielfu)
 - [Tracking] Fix an issue in shared and serverless clusters on Databricks when logging Spark Datasources when using the evaluate API (#15077, @WeichenXu123)
 - [UI] Fix a rendering issue with displaying images from within the metric tab in the UI (#15034, @TomeHirata)
