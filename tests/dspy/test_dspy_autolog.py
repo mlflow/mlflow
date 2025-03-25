@@ -646,29 +646,69 @@ skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
 
 
 # Evaluate.call starts to return dspy.Prediction since 2.7.0
-is_result_table_available = Version(importlib.metadata.version("dspy")) >= Version("2.6.11")
+is_result_table_available = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
 
 
 @skip_if_evaluate_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
-def test_autolog_log_evals(log_evals, tmp_path):
-    dspy.settings.configure(
-        lm=DummyLM(
+@pytest.mark.parametrize(
+    ("lm", "examples", "expected_result_table"),
+    [
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+            ],
             {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
-    )
-    dataset = [
-        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
-        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
-    ]
+                "columns": ["score", "example_question", "example_answer", "pred_answer"],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2"],
+                    [False, "What is 2 + 2?", "4", "1000"],
+                ],
+            },
+        ),
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4", reason="should be 4").with_inputs(
+                    "question"
+                ),
+            ],
+            {
+                "columns": [
+                    "score",
+                    "example_question",
+                    "example_answer",
+                    "pred_answer",
+                    "example_reason",
+                ],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2", None],
+                    [False, "What is 2 + 2?", "4", "1000", "should be 4"],
+                ],
+            },
+        ),
+    ],
+)
+def test_autolog_log_evals(tmp_path, log_evals, lm, examples, expected_result_table):
+    dspy.settings.configure(lm=lm)
     program = Predict("question -> answer")
-    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
 
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=dataset)
+    evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
@@ -690,13 +730,7 @@ def test_autolog_log_evals(log_evals, tmp_path):
                 run_id=run.info.run_id, path="result_table.json", dst_path=tmp_path
             )
             result_table = json.loads((tmp_path / "result_table.json").read_text())
-            assert result_table == {
-                "columns": ["example_question", "example_answer", "pred_answer", "score"],
-                "data": [
-                    ["What is 1 + 1?", "2", "2", True],
-                    ["What is 2 + 2?", "4", "1000", False],
-                ],
-            }
+            assert result_table == expected_result_table
     else:
         assert run is None
 

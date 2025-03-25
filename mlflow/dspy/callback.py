@@ -384,16 +384,18 @@ class MlflowCallback(BaseCallback):
         return {**inputs_wo_kwargs, **kwargs}
 
     def _generate_result_table(
-        self, outputs: list[tuple[dspy.Example, dspy.Example, Any]]
+        self, outputs: list[tuple[dspy.Example, dspy.Prediction, Any]]
     ) -> dict[str, list[Any]]:
-        result = defaultdict(list)
+        result = {"score": []}
         for i, (example, prediction, score) in enumerate(outputs):
             for k, v in example.items():
+                if f"example_{k}" not in result:
+                    result[f"example_{k}"] = [None] * i
                 result[f"example_{k}"].append(v)
 
-            if not hasattr(prediction, "items"):
-                prediction = dict(prediction)
             for k, v in prediction.items():
+                if f"pred_{k}" not in result:
+                    result[f"pred_{k}"] = [None] * i
                 result[f"pred_{k}"].append(v)
 
             result["score"].append(score)
