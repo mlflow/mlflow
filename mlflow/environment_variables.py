@@ -695,8 +695,9 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )
 
-# Specifies the artifact compression method used when logging a model
-# allowed values are "lzma", "bzip2" and "gzip"
+#: Specifies the artifact compression method used when logging a model
+#: allowed values are "lzma", "bzip2" and "gzip"
+#: (default: ``None``, indicating no compression)
 MLFLOW_LOG_MODEL_COMPRESSION = _EnvironmentVariable("MLFLOW_LOG_MODEL_COMPRESSION", str, None)
 
 
