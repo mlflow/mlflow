@@ -87,6 +87,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
@@ -2663,6 +2664,13 @@ def _finalize_logged_model(model_id: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _delete_logged_model(model_id: str):
+    _get_tracking_store().delete_logged_model(model_id)
+    return _wrap_response(DeleteLoggedModel.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _set_logged_model_tags(model_id: str):
     request_message = _get_request_message(
         SetLoggedModelTags(),
@@ -2901,6 +2909,7 @@ HANDLERS = {
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,
     FinalizeLoggedModel: _finalize_logged_model,
+    DeleteLoggedModel: _delete_logged_model,
     SetLoggedModelTags: _set_logged_model_tags,
     DeleteLoggedModelTag: _delete_logged_model_tag,
     SearchLoggedModels: _search_logged_models,

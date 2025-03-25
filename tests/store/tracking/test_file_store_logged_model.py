@@ -221,6 +221,17 @@ def test_get_logged_model(store):
     assert logged_model.to_dictionary() == fetched_model.to_dictionary()
 
 
+def test_delete_logged_model(store: FileStore):
+    logged_model = store.create_logged_model()
+    assert store.get_logged_model(logged_model.model_id) is not None
+    store.delete_logged_model(logged_model.model_id)
+    with pytest.raises(MlflowException, match=r"not found"):
+        store.get_logged_model(logged_model.model_id)
+
+    models = store.search_logged_models(experiment_ids=["0"])
+    assert len(models) == 0
+
+
 def test_get_logged_model_errors(store):
     with pytest.raises(MlflowException, match=r"Model '1234' not found"):
         store.get_logged_model("1234")

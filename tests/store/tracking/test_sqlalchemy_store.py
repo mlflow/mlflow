@@ -4706,6 +4706,17 @@ def test_get_logged_model(store: SqlAlchemyStore):
         store.get_logged_model("does-not-exist")
 
 
+def test_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model(model.model_id)
+
+    models = store.search_logged_models(experiment_ids=[exp_id])
+    assert len(models) == 0
+
+
 def test_finalize_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)
