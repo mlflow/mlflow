@@ -911,7 +911,7 @@ def test_search_traces(return_type, mock_client):
 
 
 def test_search_traces_invalid_return_types(mock_client):
-    with pytest.raises(MlflowException, match=r"Invalid return_type"):
+    with pytest.raises(MlflowException, match=r"Invalid return type"):
         mlflow.search_traces(return_type="invalid")
 
     with pytest.raises(MlflowException, match=r"The `extract_fields`"):
