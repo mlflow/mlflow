@@ -51,8 +51,11 @@ def test_spark_datasource_autologging_raise_on_databricks_serverless_shared_clus
     ]:
         with mock.patch(f"mlflow.utils.databricks_utils.{mock_fun}", return_value=True):
             mlflow.spark.autolog(disable=True)  # assert no error is raised.
-            with pytest.raises(MlflowException, match=(
+            with pytest.raises(
+                MlflowException,
+                match=(
                     "MLflow Spark dataset autologging is not supported on Databricks "
                     "shared clusters or Databricks serverless clusters."
-            )):
+                ),
+            ):
                 mlflow.spark.autolog()
