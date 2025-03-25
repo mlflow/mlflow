@@ -2547,3 +2547,18 @@ def test_list_logged_model_artifacts(mlflow_client: MlflowClient):
     artifacts = mlflow_client.list_logged_model_artifacts(model_info.model_id)
     paths = [a.path for a in artifacts]
     assert "MLmodel" in paths
+
+
+def test_get_logged_model_artifact(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    resp = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/logged-models/{model_info.model_id}/artifacts/files",
+        params={"artifact_file_path": "MLmodel"},
+    )
+    assert resp.status_code == 200
+    assert model_info.model_id in resp.text
