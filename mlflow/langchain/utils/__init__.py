@@ -571,7 +571,11 @@ def patch_langchain_type_to_cls_dict(func):
 
             return _wrapped
 
-        modules_to_patch = ["langchain_databricks", "langchain.llms", "langchain_community.llms.loading"]
+        modules_to_patch = [
+            "langchain_databricks",
+            "langchain.llms",
+            "langchain_community.llms.loading",
+        ]
         originals = {}
         for name in modules_to_patch:
             try:
