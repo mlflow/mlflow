@@ -100,6 +100,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -1020,6 +1021,29 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
+    user_specified_args = {
+        key
+        for key, value in {
+            "log_input_examples": log_input_examples,
+            "log_model_signatures": log_model_signatures,
+            "log_models": log_models,
+            "log_datasets": log_datasets,
+            "registered_model_name": registered_model_name,
+            "extra_tags": extra_tags,
+        }.items()
+        if value is True or value is not None
+    }
+    if user_specified_args:
+        color_warning(
+            "The following parameters are deprecated in langchain autologging and will be removed "
+            f"in a future release: `{', '.join(user_specified_args)}`. Langchain autologging will "
+            "not support automatic model logging and any related parameters. Please log your model "
+            "manually with `mlflow.langchain.log_model` if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+
     from mlflow.langchain.langchain_tracer import (
         patched_callback_manager_init,
         patched_callback_manager_merge,
