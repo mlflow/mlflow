@@ -23,7 +23,7 @@ class LoggedModel(_MlflowObject):
         last_updated_timestamp: int,
         model_type: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        status: LoggedModelStatus = LoggedModelStatus.READY,
+        status: Union[LoggedModelStatus, int] = LoggedModelStatus.READY,
         status_message: Optional[str] = None,
         tags: Optional[Union[list[LoggedModelTag], dict[str, str]]] = None,
         params: Optional[Union[list[LoggedModelParameter], dict[str, str]]] = None,
@@ -38,7 +38,9 @@ class LoggedModel(_MlflowObject):
         self._last_updated_timestamp: int = last_updated_timestamp
         self._model_type: Optional[str] = model_type
         self._source_run_id: Optional[str] = source_run_id
-        self._status: LoggedModelStatus = status
+        self._status: LoggedModelStatus = (
+            status if isinstance(status, LoggedModelStatus) else LoggedModelStatus.from_int(status)
+        )
         self._status_message: Optional[str] = status_message
         self._tags: dict[str, str] = (
             {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else (tags or {})
@@ -165,7 +167,7 @@ class LoggedModel(_MlflowObject):
 
     def to_dictionary(self) -> dict[str, Any]:
         model_dict = dict(self)
-        model_dict["status"] = str(self.status)
+        model_dict["status"] = self.status.to_int()
         # Remove the model_uri field from the dictionary since it is a derived field
         del model_dict["model_uri"]
         return model_dict

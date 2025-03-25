@@ -4,6 +4,7 @@ import time
 from unittest import mock
 
 import dspy
+import dspy.teleprompt
 import pytest
 from dspy.evaluate import Evaluate
 from dspy.evaluate.metrics import answer_exact_match
@@ -19,7 +20,9 @@ from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracking import MlflowClient
 
+from tests.dspy.test_save import CoT
 from tests.tracing.helper import get_traces, score_in_model_serving
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
@@ -549,3 +552,318 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
                 "other_columns": ["column1", "column2"],
             }
         ]
+
+
+@pytest.mark.parametrize("log_compiles", [True, False])
+def test_autolog_log_compile(log_compiles):
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, kwarg1=None, kwarg2=None):
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 1
+            return program
+
+    mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program, kwarg1=1, kwarg2="2")
+
+    assert dspy.settings.callbacks[0].optimizer_stack_level == 0
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "best_model.json" in artifacts
+    else:
+        assert mlflow.last_active_run() is None
+
+
+def test_autolog_log_compile_disable():
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    # verify that run is not created when disabling autologging
+    mlflow.dspy.autolog(disable=True)
+    optimizer.compile(program)
+    client = MlflowClient()
+    runs = client.search_runs(run.info.experiment_id)
+    assert len(runs) == 1
+
+
+def test_autolog_log_nested_compile():
+    class NestedOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program):
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 2
+            return program
+
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def __init__(self):
+            super().__init__()
+            self.nested_optimizer = NestedOptimizer()
+
+        def compile(self, program):
+            self.nested_optimizer.compile(program)
+            callback = dspy.settings.callbacks[0]
+            assert callback.optimizer_stack_level == 1
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    optimizer.compile(program)
+
+    assert dspy.settings.callbacks[0].optimizer_stack_level == 0
+    run = mlflow.last_active_run()
+    assert run is not None
+    client = MlflowClient()
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "best_model.json" in artifacts
+
+
+skip_if_callback_unavailable = pytest.mark.skipif(
+    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    reason="evaluate callback is available since 2.6.12",
+)
+
+
+@skip_if_callback_unavailable
+@pytest.mark.parametrize("log_evals", [True, False])
+def test_autolog_log_evals(log_evals):
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+    dataset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+    program = Predict("question -> answer")
+    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+
+    mlflow.dspy.autolog(log_evals=log_evals)
+    evaluator(program, devset=dataset)
+
+    run = mlflow.last_active_run()
+    if log_evals:
+        assert run is not None
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+        assert run.data.metrics == {"eval": 50.0}
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
+    else:
+        assert run is None
+
+
+@skip_if_callback_unavailable
+def test_autolog_log_compile_with_evals():
+    class EvalOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, eval, trainset, valset):
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
+            eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
+            eval(program, devset=trainset[:1], callback_metadata={"metric_key": "eval_minibatch"})
+            return program
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }
+        )
+    )
+    dataset = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+    program = Predict("question -> answer")
+    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+    optimizer = EvalOptimizer()
+
+    mlflow.dspy.autolog(log_compiles=True, log_evals=True)
+    optimizer.compile(program, evaluator, trainset=dataset, valset=dataset)
+
+    # callback state
+    callback = dspy.settings.callbacks[0]
+    assert callback.optimizer_stack_level == 0
+    assert callback._call_id_to_metric_key == {}
+    assert callback._call_id_to_run_id == {}
+    assert callback._evaluation_counter == {}
+
+    # root run
+    root_run = mlflow.last_active_run()
+    assert root_run is not None
+    client = MlflowClient()
+    artifacts = (x.path for x in client.list_artifacts(root_run.info.run_id))
+    assert "best_model.json" in artifacts
+    assert "trainset.json" in artifacts
+    assert "valset.json" in artifacts
+    assert root_run.data.metrics == {
+        "eval_full": 50.0,
+        "eval_minibatch": 100.0,
+    }
+
+    # children runs
+    child_runs = client.search_runs(
+        root_run.info.experiment_id,
+        filter_string=f"tags.mlflow.parentRunId = '{root_run.info.run_id}'",
+        order_by=["attributes.start_time ASC"],
+    )
+    assert len(child_runs) == 4
+
+    for i, run in enumerate(child_runs):
+        if i % 2 == 0:
+            assert run.data.metrics == {"eval": 50.0}
+        else:
+            assert run.data.metrics == {"eval": 100.0}
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
+
+
+def test_autolog_link_traces_loaded_model_custom_module():
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+    )
+    dspy_model = CoT()
+
+    model_infos = []
+    for _ in range(5):
+        with mlflow.start_run():
+            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+
+    loaded_model_and_ids = []
+    for model_info in model_infos:
+        loaded_model_and_ids.append(
+            (mlflow.dspy.load_model(model_info.model_uri), model_info.model_id)
+        )
+    mlflow.dspy.autolog()
+    for model, model_id in loaded_model_and_ids:
+        model(model_id)
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        model_id = json.loads(trace.data.request)["args"][0]
+        assert model_id == trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+
+
+def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+    )
+    dspy_model = CoT()
+
+    model_infos = []
+    for _ in range(5):
+        with mlflow.start_run():
+            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+
+    pyfunc_model_and_ids = []
+    for model_info in model_infos:
+        pyfunc_model_and_ids.append(
+            (mlflow.pyfunc.load_model(model_info.model_uri), model_info.model_id)
+        )
+
+    for model, model_id in pyfunc_model_and_ids:
+        model.predict(model_id)
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        model_id = json.loads(trace.data.request)["args"][0]
+        assert model_id == trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+
+
+def test_autolog_link_traces_logged_model():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                }
+            ]
+            * 3
+        )
+    )
+
+    dspy_model = CoT()
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(dspy_model, "model")
+    dspy_model("test")
+
+    dspy_model2 = CoT()
+    with mlflow.start_run():
+        model_info2 = mlflow.dspy.log_model(dspy_model2, "model2")
+
+    dspy_model2("test")
+    dspy_model("test")
+    traces = get_traces()
+    assert len(traces) == 3
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+    assert traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+    assert traces[2].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+
+def test_autolog_with_pyfunc_model_link_traces():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            self.dspy_model = CoT()
+
+        @mlflow.trace
+        def predict(self, model_input):
+            return self.dspy_model(model_input)
+
+    mlflow.dspy.autolog()
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}])
+    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict("test")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id

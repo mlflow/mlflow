@@ -9,12 +9,13 @@ import pytest
 from opentelemetry import trace as trace_api
 
 import mlflow
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.fluent import _reset_last_logged_model_id
+from mlflow.tracking.fluent import _last_active_run_id, _reset_last_logged_model_id
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -180,6 +181,11 @@ def clean_up_last_logged_model_id():
     _reset_last_logged_model_id()
 
 
+@pytest.fixture(autouse=True)
+def clean_up_last_active_run():
+    _last_active_run_id.set(None)
+
+
 @pytest.fixture
 def mock_s3_bucket():
     """
@@ -235,3 +241,8 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture(autouse=True)
+def reset_model_tracker():
+    _MODEL_TRACKER.clear()

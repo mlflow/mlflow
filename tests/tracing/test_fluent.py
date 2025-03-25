@@ -899,6 +899,7 @@ def test_search_traces(mock_client):
         order_by=["timestamp DESC"],
         page_token=None,
         model_id=None,
+        sql_warehouse_id=None,
     )
 
 
@@ -929,9 +930,9 @@ def test_search_traces_with_pagination(mock_client):
     }
     mock_client.search_traces.assert_has_calls(
         [
-            mock.call(**common_args, page_token=None, model_id=None),
-            mock.call(**common_args, page_token="token-1", model_id=None),
-            mock.call(**common_args, page_token="token-2", model_id=None),
+            mock.call(**common_args, page_token=None, model_id=None, sql_warehouse_id=None),
+            mock.call(**common_args, page_token="token-1", model_id=None, sql_warehouse_id=None),
+            mock.call(**common_args, page_token="token-2", model_id=None, sql_warehouse_id=None),
         ]
     )
 
@@ -949,6 +950,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         order_by=None,
         page_token=None,
         model_id=None,
+        sql_warehouse_id=None,
     )
 
 

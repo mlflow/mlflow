@@ -7,8 +7,10 @@ import logging
 import numbers
 import posixpath
 import re
+from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
+from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -298,6 +300,13 @@ def _validate_model_version_tag(key, value):
     _validate_tag_name(key)
     _validate_tag_value(value)
     _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+
+    # Check prompt text tag particularly for showing friendly error message
+    if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
+        )
+
     _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
@@ -629,5 +638,18 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
             "Invalid artifact path length. The length of the artifact path cannot be "
             f"greater than {max_length} characters. To configure this limit, please set the "
             "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_logged_model_name(name: Optional[str]) -> None:
+    if name is None:
+        return
+
+    bad_chars = ("/", ":", ".", "%", '"', "'")
+    if not name or any(c in name for c in bad_chars):
+        raise MlflowException(
+            f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
+            f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
         )

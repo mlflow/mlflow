@@ -3,8 +3,11 @@ import logging
 import os
 import posixpath
 import shutil
+import threading
 import uuid
 import warnings
+from collections import defaultdict
+from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -16,6 +19,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, LoggedModelStatus, Metric
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
@@ -950,6 +954,7 @@ class Model:
             client = mlflow.MlflowClient(tracking_uri)
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
+
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -975,6 +980,10 @@ class Model:
                 log_model_metrics_for_step(
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 )
+
+            if prompts is not None:
+                # Convert to URIs for serialization
+                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
 
             mlflow_model = cls(
                 artifact_path=model.artifact_location,
@@ -1059,15 +1068,11 @@ class Model:
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
             # Associate prompts to the model Run
-            if prompts:
+            # TODO: pass model_id to log_prompt
+            if prompts and run_id:
                 client = mlflow.MlflowClient()
-                for prompt_uri in prompts:
-                    try:
-                        client.log_prompt(run_id, prompt_uri)
-                    except MlflowException:
-                        _logger.warning(
-                            f"Failed to associate prompt {prompt_uri} with the model run {run_id}."
-                        )
+                for prompt in prompts:
+                    client.log_prompt(run_id, prompt)
 
             # if the model_config kwarg is passed in, then log the model config as an params
             if model_config := kwargs.get("model_config"):
@@ -1379,3 +1384,72 @@ def set_model(model) -> None:
             pass
 
     raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+
+class _ModelTracker:
+    """
+    Tracks models existing in current context.
+    """
+
+    def __init__(self):
+        # stores id(model) -> model_id of LoggedModel mapping
+        self.model_ids: dict[int, str] = {}
+        self._lock = threading.Lock()
+        # use model-level locks to avoid contention
+        self._model_locks = defaultdict(threading.Lock)
+        # thread-safe variable to track active model_id
+        self._active_model_id = ContextVar("_active_model_id", default=None)
+
+    def get(self, identity: int) -> Optional[str]:
+        """
+        Get the model ID associated with the given model identity
+        """
+        if not isinstance(identity, int):
+            raise TypeError("identity must be an integer")
+        with self._model_locks[identity]:
+            return self.model_ids.get(identity)
+
+    def set(self, identity: int, model_id: str) -> None:
+        """
+        Set the model ID associated with the given model identity
+        """
+        if not isinstance(identity, int):
+            raise TypeError("identity must be an integer")
+        with self._model_locks[identity]:
+            self.model_ids[identity] = model_id
+
+    def set_active_model_id(self, model_id: Optional[str]) -> None:
+        """
+        Set the current active model id.
+        """
+        self._active_model_id.set(model_id)
+
+    def get_active_model_id(self) -> Optional[str]:
+        """
+        Get the current active model id.
+        This should be used inside callbacks before starting the
+        span to add the model id to span tags.
+        """
+        return self._active_model_id.get()
+
+    def set_active_model_id_for_identity(self, identity: int) -> None:
+        """
+        Set the current active model id for the given model identity.
+        This should be default behavior for most model objects.
+        """
+        # we don't restore _active_model_id value because
+        # original function could be a coroutine.
+        # If the model identity is not stored we set active_model_id to
+        # None to avoid inheriting the previous active model id.
+        if model_id := self.get(identity):
+            self.set_active_model_id(model_id)
+        else:
+            self.set_active_model_id(None)
+
+    def clear(self) -> None:
+        with self._lock:
+            self.model_ids.clear()
+            self._model_locks.clear()
+
+
+_MODEL_TRACKER = _ModelTracker()

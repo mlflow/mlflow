@@ -10,6 +10,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import (
     Model,
@@ -18,7 +19,7 @@ from mlflow.models import (
     infer_pip_requirements,
 )
 from mlflow.models.dependencies_schemas import _get_dependencies_schemas
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
 from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -269,6 +270,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     resources: Optional[Union[str, Path, list[Resource]]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -306,6 +308,7 @@ def log_model(
             file.
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -354,7 +357,7 @@ def log_model(
                 signature=signature,
             )
     """
-    return Model.log(
+    model = Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.dspy,
@@ -371,9 +374,13 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         resources=resources,
+        prompts=prompts,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
     )
+    if model.model_id and not isinstance(dspy_model, str):
+        _MODEL_TRACKER.set(id(dspy_model), model.model_id)
+    return model

@@ -6,7 +6,7 @@ click<9,>=7.0
 cloudpickle<4
 gitpython<4,>=3.1.9
 pyyaml<7,>=5.1
-protobuf<6,>=3.12.0
+protobuf<7,>=3.12.0
 requests<3,>=2.17.3
 packaging<25
 importlib_metadata<9,>=3.7.0,!=4.7.0

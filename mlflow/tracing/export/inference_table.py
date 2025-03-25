@@ -49,15 +49,15 @@ class InferenceTableSpanExporter(SpanExporter):
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def export(self, root_spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to Inference Table via the TTLCache buffer.
 
         Args:
-            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method.
+            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
+                a span processor. Only root spans for each trace should be exported.
         """
-        for span in root_spans:
+        for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue

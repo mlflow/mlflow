@@ -7,6 +7,7 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
 import userEvent from '@testing-library/user-event';
 import { getRunApi, setTagApi } from '../../actions';
+import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
@@ -22,6 +23,22 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+const testPromptName = 'test-prompt';
+const testPromptVersion = 1;
+
+jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
+  usePromptVersionsForRunQuery: jest.fn(() => ({
+    data: {
+      model_versions: [
+        {
+          name: testPromptName,
+          version: testPromptVersion,
+        },
+      ],
+    },
+  })),
 }));
 
 jest.setTimeout(30000); // Larget timeout for integration testing
@@ -320,6 +337,15 @@ describe('RunViewOverview integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
       expect(getRunApi).toBeCalledWith(testParentRunUuid);
+    });
+  });
+
+  test('Run overview contains prompts', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
+      expect(usePromptVersionsForRunQuery).toBeCalledWith({ runUuid: testRunUuid });
     });
   });
 

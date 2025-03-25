@@ -22,6 +22,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -109,6 +110,7 @@ def log_model(
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
     example_no_conversion=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -177,6 +179,7 @@ def log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -204,6 +207,7 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
         params=params,
         tags=tags,
         model_type=model_type,

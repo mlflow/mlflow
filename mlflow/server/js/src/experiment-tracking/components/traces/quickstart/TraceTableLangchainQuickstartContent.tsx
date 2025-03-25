@@ -53,6 +53,7 @@ ${runUuid ? `with mlflow.start_run():\n    ` : ''}chain.invoke("What is MLflow?"
             marginTop: theme.spacing.md,
           }}
           language="python"
+          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
         >
           {code}
         </CodeSnippet>

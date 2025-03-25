@@ -36,7 +36,7 @@ def test_assessment_creation():
     assessment_with_error = Assessment(
         **{
             **default_params,
-            "feedback": None,
+            "feedback": Feedback(None),
             "error": AssessmentError(error_code="E001", error_message="An error occurred."),
         }
     )
@@ -79,6 +79,7 @@ def test_assessment_equality():
     )
     assessment_5 = Assessment(
         source=source_1,
+        feedback=Feedback(None),
         error=AssessmentError(
             error_code="E002",
             error_message="A different error occurred.",
@@ -87,6 +88,7 @@ def test_assessment_equality():
     )
     assessment_6 = Assessment(
         source=source_1,
+        feedback=Feedback(None),
         error=AssessmentError(
             error_code="E001",
             error_message="Another error message.",
@@ -114,16 +116,39 @@ def test_assessment_value_validation():
     # Valid cases
     Assessment(expectation=Expectation("MLflow"), **common_args)
     Assessment(feedback=Feedback("This is correct."), **common_args)
+    Assessment(feedback=Feedback(None), error=AssessmentError(error_code="E001"), **common_args)
+    Assessment(
+        feedback=Feedback("This is correct."),
+        error=AssessmentError(error_code="E001"),
+        **common_args,
+    )
 
     # Invalid case: no value specified
     with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(**common_args)
 
-    # Invalid case: both value and error specified
+    # Invalid case: both feedback and expectation specified
     with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
             expectation=Expectation("MLflow"),
-            error=AssessmentError(error_code="E001", error_message="An error occurred."),
+            feedback=Feedback("This is correct."),
+            **common_args,
+        )
+
+    # Invalid case: Expectation with an error
+    with pytest.raises(MlflowException, match=r"Expectations cannot have"):
+        Assessment(
+            expectation=Expectation("MLflow"),
+            error=AssessmentError(error_code="E001"),
+            **common_args,
+        )
+
+    # Invalid case: All three are set
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
+        Assessment(
+            expectation=Expectation("MLflow"),
+            feedback=Feedback("This is correct."),
+            error=AssessmentError(error_code="E001"),
             **common_args,
         )
 
@@ -133,8 +158,12 @@ def test_assessment_value_validation():
     [
         (Expectation("MLflow"), None, None),
         (None, Feedback("This is correct."), None),
-        (None, None, AssessmentError(error_code="E001")),
-        (None, None, AssessmentError(error_code="E001", error_message="An error occurred.")),
+        (None, Feedback(None), AssessmentError(error_code="E001")),
+        (
+            None,
+            Feedback(None),
+            AssessmentError(error_code="E001", error_message="An error occurred."),
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -151,7 +180,7 @@ def test_assessment_value_validation():
         None,
     ],
 )
-def test_assessment_proto_conversion(expectation, feedback, error, source, metadata):
+def test_assessment_conversion(expectation, feedback, error, source, metadata):
     timestamp_ms = int(time.time() * 1000)
     assessment = Assessment(
         trace_id="trace_id",
@@ -173,3 +202,28 @@ def test_assessment_proto_conversion(expectation, feedback, error, source, metad
 
     result = Assessment.from_proto(proto)
     assert result == assessment
+
+    dict = assessment.to_dictionary()
+    assert dict["assessment_id"] == assessment._assessment_id
+    assert dict["trace_id"] == assessment.trace_id
+    assert dict["name"] == assessment.name
+    assert dict["source"] == {
+        "source_type": source.source_type,
+        "source_id": source.source_id,
+    }
+    assert dict["create_time_ms"] == assessment.create_time_ms
+    assert dict["last_update_time_ms"] == assessment.last_update_time_ms
+    assert dict["rationale"] == assessment.rationale
+    assert dict["metadata"] == metadata
+
+    if expectation:
+        assert dict["expectation"] == {"value": expectation.value}
+
+    if feedback:
+        assert dict["feedback"] == feedback.to_dictionary()
+
+    if error:
+        assert dict["error"] == {
+            "error_code": error.error_code,
+            "error_message": error.error_message,
+        }

@@ -427,6 +427,7 @@ import mlflow
 import mlflow.models.signature
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
@@ -498,7 +499,6 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
-from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -1180,7 +1180,7 @@ def load_model(
         model_impl=model_impl,
         predict_fn=predict_fn,
         predict_stream_fn=predict_stream_fn,
-        model_id=_parse_model_id_if_present(model_uri),
+        model_id=model_meta.model_id,
     )
 
     try:
@@ -3352,7 +3352,7 @@ def log_model(
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
-    prompts=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     name=None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,

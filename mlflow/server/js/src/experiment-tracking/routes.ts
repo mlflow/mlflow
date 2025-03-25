@@ -41,6 +41,16 @@ export class RoutePaths {
   static get compareExperimentsSearch() {
     return createMLflowRoutePath('/compare-experiments/:searchString');
   }
+  /**
+   * Route paths for prompts management.
+   * Featured exclusively in open source MLflow.
+   */
+  static get promptsPage() {
+    return createMLflowRoutePath('/prompts');
+  }
+  static get promptDetailsPage() {
+    return createMLflowRoutePath('/prompts/:promptName');
+  }
 }
 
 // Concrete routes and functions for generating parametrized paths
@@ -74,7 +84,7 @@ class Routes {
 
   static searchRunsByUser(experimentId: string, userId: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
-    const filterString = `user_id = '${userId}'`;
+    const filterString = `attributes.user_id = '${userId}'`;
     return `${path}?searchFilter=${encodeURIComponent(filterString)}`;
   }
 
@@ -177,6 +187,18 @@ class Routes {
     const queryString = `?experiments=${JSON.stringify(experimentIds.slice().sort())}`;
     const path = generatePath(RoutePaths.compareExperimentsSearch, { searchString: 's' });
     return `${path}${queryString}`;
+  }
+
+  /**
+   * Routes for prompts management.
+   * Featured exclusively in open source MLflow.
+   */
+  static get promptsPageRoute() {
+    return RoutePaths.promptsPage;
+  }
+
+  static getPromptDetailsPageRoute(promptName: string) {
+    return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
 }
 

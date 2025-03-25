@@ -39,20 +39,22 @@ import os
 import warnings
 from functools import partial
 from string import Formatter
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import yaml
 from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import (
+    _generate_model_identity,
     async_patched_call,
     patched_agent_get_chat_completion,
     patched_call,
@@ -63,7 +65,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    autologging_is_disabled,
+    safe_patch,
+)
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -455,6 +461,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -500,6 +507,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -541,7 +549,7 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
-    return Model.log(
+    mlflow_model = Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.openai,
@@ -557,6 +565,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -564,6 +573,10 @@ def log_model(
         model_id=model_id,
         **kwargs,
     )
+    if mlflow_model.model_id:
+        model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
+        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
+    return mlflow_model
 
 
 def _load_model(path):
@@ -844,11 +857,25 @@ def load_model(model_uri, dst_path=None):
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
-    return _load_model(model_data_path)
+    model = _load_model(model_data_path)
+    mlflow_model = Model.load(local_model_path)
+    if mlflow_model.model_id:
+        model_identity = _generate_model_identity(model)
+        # Note: if the same model configs are loaded in the same session, the latter
+        # model_id overrides the previous one. Best practice for users is to avoid
+        # loading the same model configs multiple times. Traces will be linked to
+        # the latest model_id.
+        if _MODEL_TRACKER.get(model_identity) and not autologging_is_disabled(FLAVOR_NAME):
+            _logger.warning(
+                "A model with the same configuration was loaded previously. Traces generated from "
+                "identical configurations will be linked to the newly loaded "
+                f"model {mlflow_model.model_id}."
+            )
+        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
+    return model
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
     log_model_signatures=False,
@@ -904,10 +931,63 @@ def autolog(
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-
     if Version(_get_openai_package_version()).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
+    _autolog(
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        log_datasets=log_datasets,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        registered_model_name=registered_model_name,
+        extra_tags=extra_tags,
+        log_traces=log_traces,
+    )
+
+    # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
+    # `@autologging_integration` because the function is not executed when `disable=True`.
+    try:
+        from mlflow.openai._agent_tracer import (
+            add_mlflow_trace_processor,
+            remove_mlflow_trace_processor,
+        )
+
+        if log_traces and not disable:
+            add_mlflow_trace_processor()
+        else:
+            remove_mlflow_trace_processor()
+    except ImportError:
+        pass
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
+
+
+# NB: The @autologging_integration annotation must be applied here, and the callback injection
+# needs to happen outside the annotated function. This is because the annotated function is NOT
+# executed when disable=True is passed. This prevents us from removing our callback and patching
+# when autologging is turned off.
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+    log_traces=True,
+):
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -930,6 +1010,15 @@ def autolog(
     # Patch Swarm agent to generate traces
     try:
         from swarm import Swarm
+
+        warnings.warn(
+            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
+            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
+            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
+            "(https://github.com/openai/openai-agents-python) for more details.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
 
         safe_patch(
             FLAVOR_NAME,

@@ -200,7 +200,11 @@ def _wrap_function(
                 span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-                yield result
+                try:
+                    yield result
+                except GeneratorExit:
+                    # Swallow `GeneratorExit` raised when the generator is closed
+                    pass
 
         def __init__(self, fn, args, kwargs):
             self.coro = self._wrapping_logic(fn, args, kwargs)
@@ -515,6 +519,7 @@ def search_traces(
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
     model_id: Optional[str] = None,
+    sql_warehouse_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -559,6 +564,8 @@ def search_traces(
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
         model_id: If specified, search traces associated with the given model ID.
+        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+            searching traces in inference tables.
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
@@ -637,6 +644,7 @@ def search_traces(
             order_by=order_by,
             page_token=next_page_token,
             model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
     results = get_results_from_paginated_fn(

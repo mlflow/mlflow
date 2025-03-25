@@ -559,6 +559,32 @@ service MlflowService {
     };
   }
 
+  // Edge endpoint used to search for online traces from an inference table.
+  rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unified-traces"
+        since {major: 2, minor: 0},
+      }],
+        visibility: PUBLIC_UNDOCUMENTED,
+        rpc_doc_title: "Search Unified Traces",
+      };
+  }
+
+  // Edge endpoint used to retrieve for online trace from an inference table.
+  rpc getOnlineTraceDetails(GetOnlineTraceDetails) returns (GetOnlineTraceDetails.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/get-online-trace-details"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Online Trace Details",
+    };
+  }
+
   rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
     option (rpc) = {
       endpoints: [{
@@ -1813,6 +1839,60 @@ message SearchTraces {
     // Information about traces that match the search criteria.
     repeated TraceInfo traces = 1;
     optional string next_page_token = 2;
+  }
+}
+
+message SearchUnifiedTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string model_id = 1 [(validate_required) = true];
+
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  // TODO: Eventually we want to provide an API that only uses model_id
+  repeated string experiment_ids = 3;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 4;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 5 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 6;
+
+  // Token indicating the page of traces to fetch. This is a unified token that encodes both online and offline traces
+  // tokens.
+  optional string page_token = 7;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfo traces = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+message GetOnlineTraceDetails {
+  // Trace ID to retrieve
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // SQL warehouse to use for query
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  // Source inference table to use for query
+  // ie. "ml.bbqiu.codegen_payload"
+  optional string source_inference_table = 3 [(validate_required) = true];
+
+  // Source databricks request id to use for query
+  // ie. "8d1992ce-ba3d-49e9-9701-e9b323c5cc8c"
+  optional string source_databricks_request_id = 4 [(validate_required) = true];
+
+  message Response {
+    // Return trace JSON in string form
+    // Note: we may change this to a TraceData object in the future
+    optional string trace_data = 1;
   }
 }
 

@@ -1,14 +1,22 @@
 import logging
+import threading
+from collections import defaultdict
+from functools import wraps
 from typing import Any, Optional, Union
 
 import dspy
 from dspy.utils.callback import BaseCallback
 
 import mlflow
+from mlflow.dspy.save import FLAVOR_NAME
+from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     end_client_span_or_trace,
@@ -16,8 +24,21 @@ from mlflow.tracing.utils import (
     start_client_span_or_trace,
 )
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.utils.autologging_utils import (
+    get_autologging_config,
+)
 
 _logger = logging.getLogger(__name__)
+_lock = threading.Lock()
+
+
+def skip_if_trace_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if get_autologging_config(FLAVOR_NAME, "log_traces"):
+            func(*args, **kwargs)
+
+    return wrapper
 
 
 class MlflowCallback(BaseCallback):
@@ -29,6 +50,17 @@ class MlflowCallback(BaseCallback):
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
 
+        ###### state management for optimization process ######
+        # The current callback logic assumes there is no optimization running in parallel.
+        # The state management may not work when multiple optimizations are running in parallel.
+        # optimizer_stack_level is used to determine if the callback is called within compile
+        # we cannot use boolean flag because the callback can be nested
+        self.optimizer_stack_level = 0
+        # call_id: (key, step)
+        self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
+        self._call_id_to_run_id: dict[str, str] = {}
+        self._evaluation_counter = defaultdict(int)
+
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
             raise MlflowException(
@@ -37,6 +69,7 @@ class MlflowCallback(BaseCallback):
             )
         self._dependencies_schema = dependencies_schema
 
+    @skip_if_trace_disabled
     def on_module_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = self._get_span_type_for_module(instance)
         attributes = self._get_span_attribute_for_module(instance)
@@ -55,6 +88,7 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
+    @skip_if_trace_disabled
     def on_module_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
@@ -66,6 +100,7 @@ class MlflowCallback(BaseCallback):
 
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         span_type = (
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
@@ -94,6 +129,7 @@ class MlflowCallback(BaseCallback):
             except Exception as e:
                 _logger.debug(f"Failed to set input messages for {span}. Error: {e}")
 
+    @skip_if_trace_disabled
     def on_lm_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
@@ -123,6 +159,7 @@ class MlflowCallback(BaseCallback):
             for o in outputs
         ]
 
+    @skip_if_trace_disabled
     def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
@@ -132,11 +169,13 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
+    @skip_if_trace_disabled
     def on_adapter_format_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_adapter_parse_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         self._start_span(
             call_id,
@@ -146,11 +185,13 @@ class MlflowCallback(BaseCallback):
             attributes={},
         )
 
+    @skip_if_trace_disabled
     def on_adapter_parse_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         self._end_span(call_id, outputs, exception)
 
+    @skip_if_trace_disabled
     def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         # DSPy uses the special "finish" tool to signal the end of the agent.
         if instance.name == "finish":
@@ -172,11 +213,77 @@ class MlflowCallback(BaseCallback):
             },
         )
 
+    @skip_if_trace_disabled
     def on_tool_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
         if call_id in self._call_id_to_span:
             self._end_span(call_id, outputs, exception)
+
+    def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
+        """
+        Callback handler at the beginning of evaluation call. Available with DSPy>=2.6.9.
+        This callback starts a nested run for each evaluation call inside optimization.
+        If called outside optimization and no active run exists, it creates a new run.
+        """
+        if not get_autologging_config(FLAVOR_NAME, "log_evals"):
+            return
+
+        if self.optimizer_stack_level > 0:
+            key = "eval"
+            if callback_metadata := inputs.get("callback_metadata"):
+                if "metric_key" in callback_metadata:
+                    key = callback_metadata["metric_key"]
+            with _lock:
+                # we may want to include optimizer_stack_level in the key
+                # to handle nested optimization
+                step = self._evaluation_counter[key]
+                self._evaluation_counter[key] += 1
+            run = mlflow.start_run(run_name=f"{key}_{step}", nested=True)
+            self._call_id_to_metric_key[call_id] = (key, step)
+            self._call_id_to_run_id[call_id] = run.info.run_id
+        else:
+            if mlflow.active_run() is None:
+                run = mlflow.start_run()
+                self._call_id_to_run_id[call_id] = run.info.run_id
+        if program := inputs.get("program"):
+            save_dspy_module_state(program, "model.json")
+            log_dspy_module_params(program)
+
+    def on_evaluate_end(
+        self,
+        call_id: str,
+        outputs: Any,
+        exception: Optional[Exception] = None,
+    ):
+        """
+        Callback handler at the end of evaluation call. Available with DSPy>=2.6.9.
+        This callback logs the evaluation score to the individual run
+        and add eval metric to the parent run if called inside optimization.
+        """
+        if not get_autologging_config(FLAVOR_NAME, "log_evals"):
+            return
+        if exception:
+            mlflow.end_run(status=RunStatus.FAILED)
+        score = outputs if isinstance(outputs, float) else outputs[0]
+        mlflow.log_metric("eval", score)
+
+        if self._call_id_to_run_id.pop(call_id, None):
+            mlflow.end_run()
+        if self.optimizer_stack_level > 0 and mlflow.active_run() is not None:
+            if call_id not in self._call_id_to_metric_key:
+                return
+            key, step = self._call_id_to_metric_key.pop(call_id)
+            mlflow.log_metric(
+                key,
+                score,
+                step=step,
+            )
+
+    def reset(self):
+        self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
+        self._call_id_to_run_id: dict[str, str] = {}
+        self._evaluation_counter = defaultdict(int)
 
     def _start_span(
         self,
@@ -189,6 +296,10 @@ class MlflowCallback(BaseCallback):
         prediction_context = get_prediction_context()
         if prediction_context and self._dependencies_schema:
             prediction_context.update(**self._dependencies_schema)
+
+        # we shouldn't cache the model_id in the attributes, as it can change between calls
+        if model_id := _MODEL_TRACKER.get_active_model_id():
+            attributes = {**attributes, SpanAttributeKey.MODEL_ID: model_id}
 
         with maybe_set_prediction_context(prediction_context):
             span = start_client_span_or_trace(

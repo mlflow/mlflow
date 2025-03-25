@@ -605,7 +605,7 @@ const styles = {
 /**
  * Returns common styles to be used in ag-grid powered tables
  */
-export const useExperimentAgGridTableStyles = ({
+const useExperimentAgGridTableStyles = ({
   usingCustomHeaderComponent = true,
 }: { usingCustomHeaderComponent?: boolean } = {}) => {
   const { theme } = useDesignSystemTheme();
