@@ -197,7 +197,7 @@ class AmazonBedrockProvider(BaseProvider):
             return self._client
 
         try:
-            self._client = boto3.client('bedrock-runtime', 
+            self._client = boto3.client('bedrock-runtime',
                                         self.bedrock_config.aws_config.aws_region)
             return self._client
         except botocore.exceptions.NoCredentialsError as e:
@@ -207,7 +207,7 @@ class AmazonBedrockProvider(BaseProvider):
                 "Otherwise likely missing credentials or accessing account to "
                 "Amazon Bedrock Private"
             ) from e
-        
+
         session = boto3.Session(**self._construct_session_args())
 
         try:
@@ -285,7 +285,7 @@ class AmazonBedrockProvider(BaseProvider):
 
         if self._client is None:
             self.get_bedrock_client()
-            
+
         try:
             response = self._client.invoke_model(
                 body=json.dumps(body).encode(),
