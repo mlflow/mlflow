@@ -1955,7 +1955,13 @@ class SearchLoggedModelsUtils(SearchUtils):
             raise MlflowException.invalid_parameter_value(
                 "`dataset_digest` can only be specified if `dataset_name` is also specified."
             )
-        return cls.OrderBy(field_name, ascending, dataset_name, dataset_digest)
+
+        aliases = {
+            "creation_time": "creation_timestamp",
+        }
+        return cls.OrderBy(
+            aliases.get(field_name, field_name), ascending, dataset_name, dataset_digest
+        )
 
     @classmethod
     def _apply_reversor_for_logged_model(
