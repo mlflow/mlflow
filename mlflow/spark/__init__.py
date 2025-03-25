@@ -824,10 +824,7 @@ def save_model(
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
         spark_model.save(tmp_path)
 
-        if (
-            databricks_utils.is_in_databricks_runtime()
-            and _is_uc_volume_uri(tmp_path)
-        ):
+        if databricks_utils.is_in_databricks_runtime() and _is_uc_volume_uri(tmp_path):
             # The temp DFS path is a UC volume path.
             # Use UC volume fuse mount to read data.
             tmp_path_fuse = urlparse(tmp_path).path
