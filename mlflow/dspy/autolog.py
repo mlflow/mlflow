@@ -142,12 +142,6 @@ def autolog(
 
         return _trace_disabled_fn(self, *args, **kwargs)
 
-    def patch_construct_result_table_fn(original, self, *args, **kwargs):
-        result = original(self, *args, **kwargs)
-        if get_autologging_config(FLAVOR_NAME, "log_evals") and result is not None:
-            mlflow.log_table(result, "result_table.json")
-        return result
-
     from dspy.evaluate import Evaluate
     from dspy.teleprompt import Teleprompter
 
@@ -172,15 +166,6 @@ def autolog(
             Evaluate,
             call_patch,
             patch_fn,
-        )
-
-    result_table_patch = "_construct_result_table"
-    if hasattr(Evaluate, result_table_patch):
-        safe_patch(
-            FLAVOR_NAME,
-            Evaluate,
-            result_table_patch,
-            patch_construct_result_table_fn,
         )
 
 

@@ -645,10 +645,8 @@ skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
 )
 
 
-# _construct_result_table is available since 2.6.14
-is_construct_result_table_available = Version(importlib.metadata.version("dspy")) >= Version(
-    "2.6.12"
-)
+# Evaluate.call starts to return dspy.Prediction since 2.7.0
+is_result_table_available = Version(importlib.metadata.version("dspy")) >= Version("2.6.11")
 
 
 @skip_if_evaluate_callback_unavailable
@@ -686,14 +684,14 @@ def test_autolog_log_evals(log_evals, tmp_path):
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
-        if is_construct_result_table_available:
+        if is_result_table_available:
             assert "result_table.json" in artifacts
             client.download_artifacts(
                 run_id=run.info.run_id, path="result_table.json", dst_path=tmp_path
             )
             result_table = json.loads((tmp_path / "result_table.json").read_text())
             assert result_table == {
-                "columns": ["question", "example_answer", "pred_answer", "answer_exact_match"],
+                "columns": ["example_question", "example_answer", "pred_answer", "score"],
                 "data": [
                     ["What is 1 + 1?", "2", "2", True],
                     ["What is 2 + 2?", "4", "1000", False],

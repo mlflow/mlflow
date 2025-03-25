@@ -270,6 +270,12 @@ class MlflowCallback(BaseCallback):
             score = outputs[0]
         elif isinstance(outputs, dspy.Prediction):
             score = float(outputs)
+            try:
+                mlflow.log_table(
+                    self._generate_result_table(outputs.all_outputs), "result_table.json"
+                )
+            except Exception:
+                _logger.debug("Failed to log result table.", exc_info=True)
         mlflow.log_metric("eval", score)
 
         if self._call_id_to_run_id.pop(call_id, None):
@@ -376,3 +382,24 @@ class MlflowCallback(BaseCallback):
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
         return {**inputs_wo_kwargs, **kwargs}
+
+    def _generate_result_table(
+        self, outputs: list[tuple[dspy.Example, dspy.Example, Any]]
+    ) -> dict[str, list[Any]]:
+        result = defaultdict(list)
+        for i, (example, prediction, score) in enumerate(outputs):
+            for k, v in example.items():
+                result[f"example_{k}"].append(v)
+
+            if not hasattr(prediction, "items"):
+                prediction = dict(prediction)
+            for k, v in prediction.items():
+                result[f"pred_{k}"].append(v)
+
+            result["score"].append(score)
+
+            for k, v in result.items():
+                if len(v) != i + 1:
+                    result[k].append(None)
+
+        return result
