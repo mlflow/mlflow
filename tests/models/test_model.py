@@ -79,6 +79,8 @@ def test_model_save_load():
     with TempDir() as tmp:
         m.save(tmp.path("MLmodel"))
         o = Model.load(tmp.path("MLmodel"))
+        # Check loading with file uri as well
+        Model.load("file://" + tmp.path("MLmodel"))
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()

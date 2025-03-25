@@ -705,12 +705,12 @@ class Model:
             self.to_yaml(out)
 
     @classmethod
-    def load(cls, path) -> "Model":
+    def load(cls, model_uri) -> "Model":
         """
         Load a model from its YAML representation.
 
         Args:
-            path: A local filesystem path or URI referring to the MLmodel YAML file
+            model_uri: A local filesystem path or URI referring to the MLmodel YAML file
                 representation of the Model object or to the directory containing
                 the MLmodel YAML file representation.
 
@@ -728,25 +728,27 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
-        # Check if the path is a local directory and not remote
-        sep = os.path.sep
-        path = str(path).rstrip(sep)
-        path_scheme = urlparse(path).scheme
-        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
+        # Convert dir paths to model file paths
+        model_uri = str(model_uri).rstrip(os.path.sep)
+        is_model_dir = model_uri.rsplit(os.path.sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        model_uri = f"{model_uri}/{MLMODEL_FILE_NAME}" if is_model_dir else model_uri
+        parsed_uri = urlparse(model_uri)
+        # Raise informative exception if local path doesn't exist
+        if (not parsed_uri.scheme or parsed_uri.scheme == "file") and not os.path.exists(
+            parsed_uri.path
+        ):
             raise MlflowException(
-                f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
+                f"Could not find configuration file at {model_uri}",
                 RESOURCE_DOES_NOT_EXIST,
             )
-
-        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
-        mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
-        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
+        # Downloads remote or returns local paths unchanged
+        mlmodel_local_path = _download_artifact_from_uri(artifact_uri=model_uri)
         with open(mlmodel_local_path) as f:
             model_dict = yaml.safe_load(f)
         env_var_path = (
-            f"{path}/{ENV_VAR_FILE_NAME}"
+            f"{model_uri}/{ENV_VAR_FILE_NAME}"
             if is_model_dir
-            else posixpath.join(posixpath.dirname(path), ENV_VAR_FILE_NAME)
+            else posixpath.join(posixpath.dirname(model_uri), ENV_VAR_FILE_NAME)
         )
 
         try:
