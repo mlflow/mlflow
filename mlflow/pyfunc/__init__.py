@@ -3128,6 +3128,8 @@ def save_model(
             model_for_signature_inference = python_model
             predict_func = python_model.predict
 
+        context = PythonModelContext(artifacts, model_config)
+        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
@@ -3136,8 +3138,6 @@ def save_model(
                 not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
             )
             if should_infer_signature_from_type_hints:
-                context = PythonModelContext(artifacts, model_config)
-                model_for_signature_inference.load_context(context)
                 signature_from_type_hints = _infer_signature_from_type_hints(
                     func=predict_func,
                     type_hints=type_hints,
