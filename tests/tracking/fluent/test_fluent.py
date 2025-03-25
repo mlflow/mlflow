@@ -1716,9 +1716,7 @@ def test_create_logged_model_tags_from_context():
         source_version_patch,
     ):
         model = mlflow.create_logged_model()
-    assert (
-        expected_tags.items() <= mlflow.MlflowClient().get_logged_model(model.model_id).tags.items()
-    )
+        assert expected_tags.items() <= model.tags.items()
 
 
 def test_last_logged_model():
