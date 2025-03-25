@@ -2604,6 +2604,31 @@ def get_trace_artifact_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def get_logged_model_artifact_handler(model_id: str):
+    artifact_file_path = request.args.get("artifact_file_path")
+    if not artifact_file_path:
+        raise MlflowException(
+            'Request must include the "artifact_file_path" query parameter.',
+            error_code=BAD_REQUEST,
+        )
+    validate_path_is_safe(artifact_file_path)
+
+    logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
+    if _is_servable_proxied_run_artifact_root(logged_model.artifact_location):
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_path = _get_proxied_run_artifact_destination_path(
+            proxied_artifact_root=logged_model.artifact_location,
+            relative_path=artifact_file_path,
+        )
+    else:
+        artifact_repo = get_artifact_repository(logged_model.artifact_location)
+        artifact_path = artifact_file_path
+
+    return _send_artifact(artifact_repo, artifact_path)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _create_logged_model():
     request_message = _get_request_message(
         CreateLoggedModel(),
