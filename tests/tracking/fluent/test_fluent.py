@@ -1702,6 +1702,9 @@ def test_create_logged_model_active_run():
         assert model.source_run_id == run.info.run_id
         assert model.experiment_id == run.info.experiment_id
 
+    model = mlflow.create_logged_model()
+    assert model.source_run_id is None
+
 
 def test_create_logged_model_tags_from_context():
     expected_tags = {
