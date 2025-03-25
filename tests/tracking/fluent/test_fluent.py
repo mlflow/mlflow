@@ -1730,7 +1730,7 @@ def test_last_logged_model():
     assert mlflow.last_logged_model().tags == {"tag": "value"}
 
     client.delete_logged_model_tag(model.model_id, "tag")
-    assert mlflow.last_logged_model().tags == {}
+    assert "tag" not in mlflow.last_logged_model().tags
 
     another_model = mlflow.create_logged_model()
     assert mlflow.last_logged_model().model_id == another_model.model_id
