@@ -790,6 +790,7 @@ async def test_log_model_multiple_times_different_model_id(client):
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
 
 
+# Used for testing model identity generation on same/different objects
 class DummyModel:
     def __init__(self, temperature):
         self.temperature = temperature

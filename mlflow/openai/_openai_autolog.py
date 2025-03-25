@@ -318,9 +318,11 @@ def _generate_model_identity(model_dict) -> int:
         "model",
     }
     model_dict = {
-        k: model_dict[k]
-        if isinstance(model_dict[k], str)
-        else json.dumps(model_dict[k], default=str)
+        k: (
+            model_dict[k]
+            if isinstance(model_dict[k], str)
+            else json.dumps(model_dict[k], default=str)
+        )
         for k in sorted(model_dict.keys() - exclude_fields)
     }
     model_str = model if isinstance(model, str) else str(id(model))
