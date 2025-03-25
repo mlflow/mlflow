@@ -340,12 +340,13 @@ def log_model(
             databricks_utils.is_in_databricks_serverless_runtime()
             or databricks_utils.is_in_databricks_shared_cluster_runtime()
         ):
-            dfs_tmp = MLFLOW_DFS_TMP.get()
-            if not dfs_tmp or not _is_uc_volume_uri(dfs_tmp):
+            dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
+            if not dfs_tmpdir or not _is_uc_volume_uri(dfs_tmpdir):
                 raise MlflowException(
-                    "In Databricks shared cluster or serverless, if you want to log SparkML "
-                    "model, specify environment variable 'MLFLOW_DFS_TMP' to a UC volume "
-                    "path like '/Volumes/...'."
+                    "UC volume path must be provided to log SparkML models In Databricks "
+                    "shared or serverless clusters. Specify environment variable 'MLFLOW_DFS_TMP' "
+                    "or 'dfs_tmpdir' argument to a UC volume path like '/Volumes/...' "
+                    "when logging a model."
                 )
         return Model.log(
             artifact_path=artifact_path,
@@ -894,9 +895,10 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     ):
         if not _is_uc_volume_uri(dfs_tmpdir):
             raise MlflowException(
-                "In Databricks shared cluster or serverless, if you want to load SparkML "
-                "model through MLflow, specify environment variable 'MLFLOW_DFS_TMP' to "
-                "a UC volume path like '/Volumes/...'."
+                "UC volume path must be provided to load SparkML models In Databricks "
+                "shared or serverless clusters. Specify environment variable 'MLFLOW_DFS_TMP' "
+                "or 'dfs_tmpdir' argument to a UC volume path like '/Volumes/...' "
+                "when loading a model."
             )
         return _load_model_databricks_uc_volume(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
