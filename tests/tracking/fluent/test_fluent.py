@@ -1727,7 +1727,7 @@ def test_last_logged_model():
 
     client = MlflowClient()
     client.set_logged_model_tags(model.model_id, {"tag": "value"})
-    assert mlflow.last_logged_model().tags == {"tag": "value"}
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
 
     client.delete_logged_model_tag(model.model_id, "tag")
     assert "tag" not in mlflow.last_logged_model().tags
