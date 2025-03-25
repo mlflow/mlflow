@@ -2470,6 +2470,17 @@ def test_finalize_logged_model(mlflow_client: MlflowClient):
         mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.UNSPECIFIED)
 
 
+def test_delete_logged_model(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("delete_logged_model")
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    mlflow_client.delete_logged_model(model.model_id)
+    with pytest.raises(MlflowException, match="not found"):
+        mlflow_client.get_logged_model(model.model_id)
+
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert len(models) == 0
+
+
 def test_set_logged_model_tags(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)

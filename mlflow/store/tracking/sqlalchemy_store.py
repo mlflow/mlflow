@@ -1967,7 +1967,11 @@ class SqlAlchemyStore(AbstractStore):
 
             models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
 
-        return models.filter(SqlLoggedModel.experiment_id.in_(experiment_ids), *filters)
+        return models.filter(
+            SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+            SqlLoggedModel.experiment_id.in_(experiment_ids),
+            *filters,
+        )
 
     def search_logged_models(
         self,
