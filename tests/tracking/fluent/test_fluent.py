@@ -1690,6 +1690,37 @@ def test_runs_are_ended_by_run_id():
     assert mlflow.active_run() is None
 
 
+def test_create_logged_model_tags_from_context():
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: "1234",
+    }
+
+    source_name_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_name",
+        return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
+    )
+    source_type_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_type",
+        return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
+    )
+    source_version_patch = mock.patch(
+        "mlflow.tracking.context.git_context._get_source_version",
+        return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+    )
+
+    with multi_context(
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+    ):
+        model = mlflow.create_logged_model()
+    assert (
+        expected_tags.items() <= mlflow.MlflowClient().get_logged_model(model.model_id).tags.items()
+    )
+
+
 def test_last_logged_model():
     _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
