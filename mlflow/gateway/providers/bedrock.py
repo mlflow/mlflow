@@ -197,8 +197,9 @@ class AmazonBedrockProvider(BaseProvider):
             return self._client
 
         try:
-            self._client = boto3.client('bedrock-runtime',
-                                        self.bedrock_config.aws_config.aws_region)
+            self._client = boto3.client(
+                "bedrock-runtime", self.bedrock_config.aws_config.aws_region
+            )
             return self._client
         except botocore.exceptions.NoCredentialsError as e:
             raise AIGatewayConfigException(
