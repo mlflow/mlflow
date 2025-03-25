@@ -195,7 +195,19 @@ class AmazonBedrockProvider(BaseProvider):
 
         if self._client is not None and not self._client_expired():
             return self._client
-
+        else:
+            try:
+                self._client = boto3.client('bedrock-runtime', 
+                                            self.bedrock_config.aws_config.aws_region)
+                return self._client
+            except botocore.exceptions.NoCredentialsError as e:
+                raise AIGatewayConfigException(
+                    "Cannot create Amazon Bedrock client; ensure boto3/botocore "
+                    "linked from the Amazon Bedrock user guide are installed. "
+                    "Otherwise likely missing credentials or accessing account to "
+                    "Amazon Bedrock Private"
+                ) from e
+        
         session = boto3.Session(**self._construct_session_args())
 
         try:
@@ -271,8 +283,11 @@ class AmazonBedrockProvider(BaseProvider):
     def _request(self, body):
         import botocore.exceptions
 
+        if self._client is None:
+            self.get_bedrock_client()
+            
         try:
-            response = self.get_bedrock_client().invoke_model(
+            response = self._client.invoke_model(
                 body=json.dumps(body).encode(),
                 modelId=self.config.model.name,
                 # defaults
