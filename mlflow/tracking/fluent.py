@@ -2032,11 +2032,12 @@ def create_logged_model(
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
+    resolved_tags = context_registry.resolve_tags(tags)
     model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
-        tags=tags,
+        tags=resolved_tags,
         params=params,
         model_type=model_type,
     )

@@ -44,7 +44,11 @@ def assert_logged_model_attributes(
         assert logged_model.source_run_id is None
     else:
         assert logged_model.source_run_id == source_run_id
-    assert logged_model.tags == (tags or {})
+    # NB: In many cases, there are default tags populated from the context in which a model
+    # is created, such as the notebook ID or git hash. We don't want to assert that these
+    # tags are present in the model's tags field (because it's complicated and already tested
+    # elsewhere), so we only check that the tags we specify are present
+    assert (tags or {}).items() <= logged_model.tags.items()
     assert logged_model.params == (params or {})
     assert logged_model.model_type == model_type
     assert logged_model.status == status
