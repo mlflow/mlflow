@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2.21.1 (2025-03-25)
+
+MLflow 2.21.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Add eval logging for DSPy (#14962, @TomeHirata)
+- [Tracking] Create mlflow run for DSPy compile (#14949, @TomeHirata)
+- [Docker / Java / Models] Add --install-java option to sagemaker build-and-push-container (#14868, @rgangopadhya)
+
+Bug fixes:
+
+- [] fix: typo in `OTEL_EXPORTER_OTLP_PROTOCOL` env var (#15008, @gabrielfu)
+- [] Show images in the metric tab (#15034, @TomeHirata)
+- [Tracking] Add exception handling for spark dataset autolog in Databricks shared cluster and serverless (#15077, @WeichenXu123)
+- [] fix timestamp conversion timezone bug introduced by using datetime.fr… (#15094, @orm011)
+
+Documentation updates:
+
+- [Docs] Clarify set_retriever_schema docs (#15099, @smurching)
+
+Small bug fixes and documentation updates:
+
+#15009, #14995, #15039, #15040, @TomeHirata; #15010, #15053, @B-Step62; #15014, #15025, #15030, #15050, #15070, @Gumichocopengin8; #15035, #15064, @joelrobin18; #15058, @serena-ruan; #14945, @turbotimon
+
 ## 2.21.0 (2025-03-14)
 
 We are excited to announce the release of MLflow 2.21.0! This release includes a number of significant features, enhancements, and bug fixes.
