@@ -71,7 +71,7 @@ def set_retriever_schema(
             #     },
             #     {
             #         'document_id': '7537fe93c97f4fdb9867412e9c1f9e5b',
-            #         'chunk_text': 'A great way to get started with MLflow is to use the autologging...',
+            #         'chunk_text': 'A great way to get started with MLflow is...',
             #         'doc_uri': 'https://mlflow.org/docs/latest/getting-started/',
             #         'title': 'Getting Started with MLflow'
             #     },
