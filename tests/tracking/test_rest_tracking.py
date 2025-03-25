@@ -2470,6 +2470,17 @@ def test_finalize_logged_model(mlflow_client: MlflowClient):
         mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.UNSPECIFIED)
 
 
+def test_delete_logged_model(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("delete_logged_model")
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    mlflow_client.delete_logged_model(model.model_id)
+    with pytest.raises(MlflowException, match="not found"):
+        mlflow_client.get_logged_model(model.model_id)
+
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert len(models) == 0
+
+
 def test_set_logged_model_tags(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
@@ -2535,3 +2546,34 @@ def test_log_outputs(mlflow_client: MlflowClient):
     mlflow_client.log_outputs(run.info.run_id, model_outputs)
     run = mlflow_client.get_run(run.info.run_id)
     assert run.outputs.model_outputs == model_outputs
+
+
+def test_list_logged_model_artifacts(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    resp = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/logged-models/{model_info.model_id}/artifacts/directories"
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    paths = [f["path"] for f in data["files"]]
+    assert "MLmodel" in paths
+
+
+def test_get_logged_model_artifact(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    resp = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/logged-models/{model_info.model_id}/artifacts/files",
+        params={"artifact_file_path": "MLmodel"},
+    )
+    assert resp.status_code == 200
+    assert model_info.model_id in resp.text

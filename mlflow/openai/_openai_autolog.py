@@ -1,16 +1,12 @@
 import functools
 import json
 import logging
-import os
-from contextlib import contextmanager
-from copy import deepcopy
 from typing import Any, AsyncIterator, Iterator, Optional
 
 from packaging.version import Version
 
 import mlflow
-from mlflow import MlflowException
-from mlflow.entities import RunTag, SpanType
+from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
@@ -30,59 +26,12 @@ from mlflow.tracing.utils import (
     end_client_span_or_trace,
     start_client_span_or_trace,
 )
-from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
-from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["maximum"])
 
 _logger = logging.getLogger(__name__)
-
-
-def _get_input_from_model(model, kwargs):
-    from openai.resources.chat.completions import Completions as ChatCompletions
-    from openai.resources.completions import Completions
-    from openai.resources.embeddings import Embeddings
-
-    model_class_param_name_mapping = {
-        ChatCompletions: "messages",
-        Completions: "prompt",
-        Embeddings: "input",
-    }
-    if param_name := model_class_param_name_mapping.get(model.__class__):
-        # openai tasks accept only keyword arguments
-        if param := kwargs.get(param_name):
-            return param
-        input_example_exc = MlflowException(
-            "Inference function signature changes, please contact MLflow team to "
-            "fix OpenAI autologging.",
-        )
-    else:
-        input_example_exc = MlflowException(
-            "Unsupported OpenAI task. Only support chat completions, completions and embeddings."
-        )
-    _logger.warning(
-        f"Failed to gather input example of model {model.__class__.__name__} "
-        f"due to error: {input_example_exc}"
-    )
-
-
-@contextmanager
-def _set_api_key_env_var(client):
-    """
-    Gets the API key from the client and temporarily set it as an environment variable
-    """
-    api_key = client.api_key
-    original = os.environ.get("OPENAI_API_KEY", None)
-    os.environ["OPENAI_API_KEY"] = api_key
-    yield
-    if original is not None:
-        os.environ["OPENAI_API_KEY"] = original
-    else:
-        os.environ.pop("OPENAI_API_KEY")
 
 
 def _get_span_type(task: type) -> str:
@@ -140,50 +89,11 @@ def _try_parse_raw_response(response: Any) -> Any:
 def patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
-    run_id = _get_autolog_run_id(self, active_run)
+    run_id = active_run.info.run_id if active_run else None
     mlflow_client = mlflow.MlflowClient()
 
-    # If optional artifacts logging are enabled e.g. log_models, we need to create a run
-    if config.should_log_optional_artifacts():
-        run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
-
-    input_example = None
     model_id = None
     task = mlflow.openai._get_task_name(self.__class__)
-    # TODO: drop log_models
-    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
-        if config.log_input_examples:
-            input_example = deepcopy(_get_input_from_model(self, kwargs))
-            if not config.log_model_signatures:
-                _logger.info(
-                    "Signature is automatically generated for logged model if "
-                    "input_example is provided. To disable log_model_signatures, "
-                    "please also disable log_input_examples."
-                )
-
-        registered_model_name = get_autologging_config(
-            mlflow.openai.FLAVOR_NAME, "registered_model_name", None
-        )
-        try:
-            with disable_autologging():
-                # If the user is using `openai.OpenAI()` client,
-                # they do not need to set the "OPENAI_API_KEY" environment variable.
-                # This temporarily sets the API key as an environment variable
-                # so that the model can be logged.
-                with _set_api_key_env_var(self._client):
-                    logged_model = mlflow.openai.log_model(
-                        model=kwargs.get("model"),
-                        task=task,
-                        name="model",
-                        input_example=input_example,
-                        registered_model_name=registered_model_name,
-                        run_id=run_id,
-                    )
-                    model_id = logged_model.model_id
-        except Exception as e:
-            _logger.warning(f"Failed to log model due to error: {e}")
-        self._mlflow_model_logged = True
-
     model_identity = _generate_model_identity({"task": task, **kwargs})
     model_id = _MODEL_TRACKER.get(model_identity)
     # TODO: create LoggedModel if model_id is None and set into _MODEL_TRACKER
@@ -202,28 +112,14 @@ def patched_call(original, self, *args, **kwargs):
     if config.log_traces:
         _end_span_on_success(mlflow_client, span, kwargs, raw_result)
 
-    if config.should_log_optional_artifacts():
-        _log_optional_artifacts(config, run_id, self, kwargs)
-
-    # Even if the model is not logged, we keep a single run per model
-    self._mlflow_run_id = run_id
-
-    # Terminate the run if it is not managed by the user
-    if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
-        mlflow_client.set_terminated(run_id)
-
     return raw_result
 
 
 async def async_patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
-    run_id = _get_autolog_run_id(self, active_run)
+    run_id = active_run.info.run_id if active_run else None
     mlflow_client = mlflow.MlflowClient()
-
-    # If optional artifacts logging are enabled e.g. log_models, we need to create a run
-    if config.should_log_optional_artifacts():
-        run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
 
     task = mlflow.openai._get_task_name(self.__class__)
     model_identity = _generate_model_identity({"task": task, **kwargs})
@@ -242,93 +138,7 @@ async def async_patched_call(original, self, *args, **kwargs):
     if config.log_traces:
         _end_span_on_success(mlflow_client, span, kwargs, raw_result)
 
-    if config.should_log_optional_artifacts():
-        _log_optional_artifacts(config, run_id, self, kwargs)
-
-    # Even if the model is not logged, we keep a single run per model
-    self._mlflow_run_id = run_id
-
-    # Terminate the run if it is not managed by the user
-    if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
-        mlflow_client.set_terminated(run_id)
-
     return raw_result
-
-
-def _get_autolog_run_id(instance, active_run):
-    """
-    Get the run ID to use for logging artifacts and associate with the trace.
-
-    The run ID is determined as follows:
-    - If there is an active run (created by a user), use its run ID.
-    - If the model has a `_mlflow_run_id` attribute, use it. This is the run ID created
-        by autologging in a previous call to the same model.
-    """
-    return active_run.info.run_id if active_run else getattr(instance, "_mlflow_run_id", None)
-
-
-def _start_run_or_log_tag(
-    mlflow_client: MlflowClient, config: AutoLoggingConfig, run_id: Optional[str]
-) -> str:
-    """Start a new run or log models, or log extra tags if a run is already active."""
-    # include run context tags
-    resolved_tags = context_registry.resolve_tags(config.extra_tags)
-    tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
-    if run_id is not None:
-        mlflow_client.log_batch(
-            run_id=run_id,
-            tags=[RunTag(key, str(value)) for key, value in tags.items()],
-        )
-    else:
-        run = mlflow_client.create_run(
-            experiment_id=_get_experiment_id(),
-            tags=tags,
-        )
-        run_id = run.info.run_id
-    return run_id
-
-
-def _log_optional_artifacts(
-    config: AutoLoggingConfig, run_id: str, instance: Any, kwargs: dict[str, Any]
-):
-    if hasattr(instance, "_mlflow_model_logged"):
-        # Model is already logged for this instance, no need to log again
-        return
-
-    input_example = None
-    if config.log_input_examples:
-        input_example = deepcopy(_get_input_from_model(instance, kwargs))
-        if not config.log_model_signatures:
-            _logger.info(
-                "Signature is automatically generated for logged model if "
-                "input_example is provided. To disable log_model_signatures, "
-                "please also disable log_input_examples."
-            )
-
-    registered_model_name = get_autologging_config(
-        mlflow.openai.FLAVOR_NAME, "registered_model_name", None
-    )
-    try:
-        task = mlflow.openai._get_task_name(instance.__class__)
-        with disable_autologging():
-            # If the user is using `openai.OpenAI()` client,
-            # they do not need to set the "OPENAI_API_KEY" environment variable.
-            # This temporarily sets the API key as an environment variable
-            # so that the model can be logged.
-            with _set_api_key_env_var(instance._client):
-                mlflow.openai.log_model(
-                    kwargs.get("model"),
-                    task,
-                    "model",
-                    input_example=input_example,
-                    registered_model_name=registered_model_name,
-                    run_id=run_id,
-                )
-    except Exception as e:
-        _logger.warning(f"Failed to log model due to error: {e}")
-
-    # Even if the model is not logged, we keep a single run per model
-    instance._mlflow_model_logged = True
 
 
 def _start_span(
@@ -508,8 +318,12 @@ def _generate_model_identity(model_dict) -> int:
         "model",
     }
     model_dict = {
-        k: json.dumps(model_dict[k], default=str)
+        k: (
+            model_dict[k]
+            if isinstance(model_dict[k], str)
+            else json.dumps(model_dict[k], default=str)
+        )
         for k in sorted(model_dict.keys() - exclude_fields)
     }
     model_str = model if isinstance(model, str) else str(id(model))
-    return hash(model_str)
+    return hash(f"{model_str}-{model_dict}")

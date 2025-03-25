@@ -2035,11 +2035,12 @@ def create_logged_model(
         experiment_id = run.info.experiment_id
     elif experiment_id is None:
         experiment_id = _get_experiment_id()
+    resolved_tags = context_registry.resolve_tags(tags)
     model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
-        tags=tags,
+        tags=resolved_tags,
         params=params,
         model_type=model_type,
     )

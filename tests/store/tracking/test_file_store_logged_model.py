@@ -44,7 +44,11 @@ def assert_logged_model_attributes(
         assert logged_model.source_run_id is None
     else:
         assert logged_model.source_run_id == source_run_id
-    assert logged_model.tags == (tags or {})
+    # NB: In many cases, there are default tags populated from the context in which a model
+    # is created, such as the notebook ID or git hash. We don't want to assert that these
+    # tags are present in the model's tags field (because it's complicated and already tested
+    # elsewhere), so we only check that the tags we specify are present
+    assert (tags or {}).items() <= logged_model.tags.items()
     assert logged_model.params == (params or {})
     assert logged_model.model_type == model_type
     assert logged_model.status == status
@@ -219,6 +223,17 @@ def test_get_logged_model(store):
     fetched_model = store.get_logged_model(logged_model.model_id)
     assert logged_model.model_uri == fetched_model.model_uri
     assert logged_model.to_dictionary() == fetched_model.to_dictionary()
+
+
+def test_delete_logged_model(store: FileStore):
+    logged_model = store.create_logged_model()
+    assert store.get_logged_model(logged_model.model_id) is not None
+    store.delete_logged_model(logged_model.model_id)
+    with pytest.raises(MlflowException, match=r"not found"):
+        store.get_logged_model(logged_model.model_id)
+
+    models = store.search_logged_models(experiment_ids=["0"])
+    assert len(models) == 0
 
 
 def test_get_logged_model_errors(store):
@@ -629,6 +644,15 @@ def test_search_logged_models_order_by(store):
         models,
         sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
     )
+    # Alias for creation_timestamp
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_time", "ascending": True}]
+    )
+    assert_models_match(
+        models,
+        sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
+    )
+
     models = store.search_logged_models(
         experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
     )

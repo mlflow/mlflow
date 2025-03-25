@@ -856,6 +856,7 @@ class SqlLoggedModel(Base):
         )
 
     ALIASES = {
+        "creation_time": "creation_timestamp_ms",
         "creation_timestamp": "creation_timestamp_ms",
         "last_updated_timestamp": "last_updated_timestamp_ms",
     }

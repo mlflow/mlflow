@@ -28,6 +28,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteExperiment,
+    DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
@@ -791,6 +792,13 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
+
+    def delete_logged_model(self, model_id) -> None:
+        request = DeleteLoggedModel(model_id=model_id)
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(
+            DeleteLoggedModel, endpoint=endpoint, json_body=message_to_json(request)
+        )
 
     def search_logged_models(
         self,
