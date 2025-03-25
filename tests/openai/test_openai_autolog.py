@@ -9,9 +9,9 @@ from packaging.version import Version
 from pydantic import BaseModel
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai._openai_autolog import _generate_model_identity
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.mock_openai import EMPTY_CHOICES
@@ -55,9 +55,8 @@ def client(request, monkeypatch, mock_openai):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_chat_completions_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_chat_completions_autolog(client):
+    mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
     response = client.chat.completions.create(
@@ -82,20 +81,7 @@ async def test_chat_completions_autolog(client, log_models):
     assert span.attributes["model"] == "gpt-4o-mini"
     assert span.attributes["temperature"] == 0
 
-    if log_models:
-        run_id = client.chat.completions._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "gpt-4o-mini",
-            "task": "chat.completions",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        assert pyfunc_model.predict("test") == [json.dumps(messages)]
-
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
 @pytest.mark.asyncio
@@ -284,9 +270,8 @@ async def test_chat_completions_streaming_empty_choices(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_completions_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_completions_autolog(client):
+    mlflow.openai.autolog()
 
     response = client.completions.create(
         prompt="test",
@@ -306,19 +291,7 @@ async def test_completions_autolog(client, log_models):
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
 
-    if log_models:
-        run_id = client.completions._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "gpt-4o-mini",
-            "task": "completions",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        assert pyfunc_model.predict("test") == ["test"]
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
 @pytest.mark.asyncio
@@ -388,9 +361,8 @@ async def test_completions_autolog_streaming(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_embeddings_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_embeddings_autolog(client):
+    mlflow.openai.autolog()
 
     response = client.embeddings.create(
         input="test",
@@ -409,44 +381,12 @@ async def test_embeddings_autolog(client, log_models):
     assert span.inputs == {"input": "test", "model": "text-embedding-ada-002"}
     assert span.outputs["data"][0]["embedding"] == list(range(1536))
 
-    if log_models:
-        run_id = client.embeddings._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "text-embedding-ada-002",
-            "task": "embeddings",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        output = pyfunc_model.predict("test")
-        assert len(output) == 1
-        assert len(output[0]) == 1536
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
 @pytest.mark.asyncio
-async def test_autolog_with_registered_model_name(client):
-    registered_model_name = "test_model"
-    mlflow.openai.autolog(log_models=True, registered_model_name=registered_model_name)
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": "test"}],
-        model="gpt-4o-mini",
-        temperature=0,
-    )
-
-    if client._is_async:
-        await response
-
-    registered_model = MlflowClient().get_registered_model(registered_model_name)
-    assert registered_model.name == registered_model_name
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-def test_autolog_use_active_run_id(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+def test_autolog_use_active_run_id(client):
+    mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
 
@@ -459,22 +399,13 @@ def test_autolog_use_active_run_id(client, log_models):
     with mlflow.start_run() as run_1:
         _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_1.info.run_id
-
     with mlflow.start_run() as run_2:
         _call_create()
         _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_2.info.run_id
-
     with mlflow.start_run() as run_3:
-        mlflow.openai.autolog(
-            log_models=log_models,
-            extra_tags={"foo": "bar"},
-        )
+        mlflow.openai.autolog()
         _call_create()
-
-    assert client.chat.completions._mlflow_run_id == run_3.info.run_id
 
     traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
     assert len(traces) == 4
@@ -775,3 +706,196 @@ async def test_autolog_link_traces_to_original_model_after_logging(client):
     model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
     assert model_id == model_info.model_id
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+@pytest.mark.asyncio
+async def test_new_model_logged_after_loaded(client):
+    mlflow.openai.autolog()
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+    loaded_model_id = model_info.model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+    new_logged_model_id = model_info.model_id
+    assert new_logged_model_id != loaded_model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test again"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == new_logged_model_id
+
+
+@pytest.mark.asyncio
+async def test_log_model_multiple_times_different_model_id(client):
+    mlflow.openai.autolog()
+
+    model_infos = []
+    for i in range(2):
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.openai.log_model(
+                    "gpt-4o-mini",
+                    "chat.completions",
+                    "model",
+                    temperature=0.1,
+                    messages=[{"role": "system", "content": "test"}],
+                )
+            )
+    assert model_infos[0].model_id != model_infos[1].model_id
+    logged_model_id = model_infos[-1].model_id
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test again"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+class DummyModel:
+    def __init__(self, temperature):
+        self.temperature = temperature
+
+
+@pytest.mark.parametrize(
+    ("model_dict1", "model_dict2"),
+    [
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+                "messages": [{"role": "system", "content": "test"}],
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+                "messages": [{"role": "system", "content": "abc"}],
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "task": "chat.completions",
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "messages": "abc",
+            },
+        ),
+        (
+            {"model": DummyModel, "task": "chat.completions"},
+            {"model": DummyModel, "task": "chat.completions"},
+        ),
+    ],
+)
+def test_generate_model_identity_same(model_dict1, model_dict2):
+    assert _generate_model_identity(model_dict1) == _generate_model_identity(model_dict1)
+
+
+@pytest.mark.parametrize(
+    ("model_dict1", "model_dict2"),
+    [
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.2,
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "chat.completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+        ),
+        (
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+                "xyz": "abc",
+            },
+        ),
+        (
+            {
+                "model": "test",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+            {
+                "model": "gpt-4o-mini",
+                "task": "completions",
+                "temperature": 0.1,
+            },
+        ),
+        (
+            {"model": DummyModel, "task": "completions"},
+            {"model": DummyModel, "task": "chat.completions"},
+        ),
+        (
+            {"model": DummyModel(temperature=0.1), "task": "completions"},
+            {"model": DummyModel(temperature=0.1), "task": "completions"},
+        ),
+    ],
+)
+def test_generate_model_identity_different(model_dict1, model_dict2):
+    assert _generate_model_identity(model_dict1) != _generate_model_identity(model_dict2)
