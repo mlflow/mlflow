@@ -1697,26 +1697,25 @@ def test_create_logged_model_tags_from_context():
         mlflow_tags.MLFLOW_GIT_COMMIT: "1234",
     }
 
-    source_name_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_name",
-        return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
-    )
-    source_type_patch = mock.patch(
-        "mlflow.tracking.context.default_context._get_source_type",
-        return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
-    )
-    source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version",
-        return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
-    )
-
-    with multi_context(
-        source_name_patch,
-        source_type_patch,
-        source_version_patch,
+    with (
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_name",
+            return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
+        ) as m_get_source_name,
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_type",
+            return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
+        ) as m_get_source_type,
+        mock.patch(
+            "mlflow.tracking.context.git_context._get_source_version",
+            return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+        ) as m_get_source_version,
     ):
         model = mlflow.create_logged_model()
         assert expected_tags.items() <= model.tags.items()
+        m_get_source_name.assert_called_once()
+        m_get_source_type.assert_called_once()
+        m_get_source_version.assert_called_once()
 
 
 def test_last_logged_model():
