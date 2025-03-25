@@ -1,7 +1,13 @@
 import { ArrowDownIcon, ArrowUpIcon, DashIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { DifferenceChartCellDirection } from '../../utils/differenceView';
 
-export const CellDifference = ({ label, direction }: { label: string; direction: DifferenceChartCellDirection }) => {
+export const CellDifference = ({
+  label,
+  direction,
+}: {
+  label: string;
+  direction: typeof DifferenceChartCellDirection[keyof typeof DifferenceChartCellDirection];
+}) => {
   const { theme } = useDesignSystemTheme();
   let paragraphColor = undefined;
   let icon = null;

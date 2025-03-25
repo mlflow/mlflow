@@ -30,7 +30,7 @@ export const useRunsHighlightTableRow = (
    * Listener function that highlights a row in the table by adding a class to it.
    */
   const highlightFn = useCallback(
-    (rowUuid: string | null, source?: ChartsTraceHighlightSource) => {
+    (rowUuid: string | null, source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource]) => {
       // First, quickly remove the highlight class from the previous highlighted row
       const existingHighlightedRowElement = containerElementRef.current?.querySelector(`.${highlightedClassName}`);
 

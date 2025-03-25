@@ -155,18 +155,26 @@ export const useRenderRunsChartTraceHighlight = (
   };
 };
 
-export enum ChartsTraceHighlightSource {
-  NONE,
-  CHART,
-  TABLE,
-}
+export const ChartsTraceHighlightSource = {
+  NONE: 'NONE',
+  CHART: 'CHART',
+  TABLE: 'TABLE',
+} as const;
 
 interface RunsChartsSetHighlightContextType {
   highlightDataTrace: (
     traceUuid: string | null,
-    options?: { source?: ChartsTraceHighlightSource; shouldBlock?: boolean },
+    options?: {
+      source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource];
+      shouldBlock?: boolean;
+    },
   ) => void;
-  onHighlightChange: (fn: (traceUuid: string | null, source?: ChartsTraceHighlightSource) => void) => () => void;
+  onHighlightChange: (
+    fn: (
+      traceUuid: string | null,
+      source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource],
+    ) => void,
+  ) => () => void;
 }
 
 const RunsChartsSetHighlightContext = createContext<RunsChartsSetHighlightContextType>({
@@ -175,7 +183,12 @@ const RunsChartsSetHighlightContext = createContext<RunsChartsSetHighlightContex
 });
 
 export const RunsChartsSetHighlightContextProvider = ({ children }: PropsWithChildren<unknown>) => {
-  const highlightListenerFns = useRef<((traceUuid: string | null, source?: ChartsTraceHighlightSource) => void)[]>([]);
+  const highlightListenerFns = useRef<
+    ((
+      traceUuid: string | null,
+      source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource],
+    ) => void)[]
+  >([]);
   const block = useRef(false);
 
   // Stable and memoized context value
@@ -188,7 +201,10 @@ export const RunsChartsSetHighlightContextProvider = ({ children }: PropsWithChi
       };
     }
 
-    const notifyListeners = (traceUuid: string | null, source?: ChartsTraceHighlightSource) => {
+    const notifyListeners = (
+      traceUuid: string | null,
+      source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource],
+    ) => {
       for (const fn of highlightListenerFns.current) {
         fn(traceUuid, source);
       }
@@ -196,7 +212,13 @@ export const RunsChartsSetHighlightContextProvider = ({ children }: PropsWithChi
 
     const highlightDataTrace = (
       traceUuid: string | null,
-      { shouldBlock, source }: { source?: ChartsTraceHighlightSource; shouldBlock?: boolean } = {},
+      {
+        shouldBlock,
+        source,
+      }: {
+        source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource];
+        shouldBlock?: boolean;
+      } = {},
     ) => {
       if (!isUndefined(shouldBlock)) {
         block.current = shouldBlock;
@@ -206,7 +228,12 @@ export const RunsChartsSetHighlightContextProvider = ({ children }: PropsWithChi
       notifyListeners(traceUuid, source);
     };
 
-    const onHighlightChange = (listener: (traceUuid: string | null, source?: ChartsTraceHighlightSource) => void) => {
+    const onHighlightChange = (
+      listener: (
+        traceUuid: string | null,
+        source?: typeof ChartsTraceHighlightSource[keyof typeof ChartsTraceHighlightSource],
+      ) => void,
+    ) => {
       highlightListenerFns.current.push(listener);
       return () => {
         highlightListenerFns.current = highlightListenerFns.current.filter((fn) => fn !== listener);

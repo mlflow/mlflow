@@ -118,65 +118,72 @@ export const DifferenceViewPlot = ({
 
   const dataRows = useMemo<DifferencePlotDataRow[]>(
     () =>
-      cardConfig.compareGroups.reduce((acc: DifferencePlotDataRow[], group: DifferenceCardConfigCompareGroup) => {
-        switch (group) {
-          case DifferenceCardConfigCompareGroup.MODEL_METRICS:
-            acc.push({
-              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
-                defaultMessage: `Model Metrics`,
-                description:
-                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > model metrics heading',
-              }),
-              children: [...modelMetrics],
-              key: 'modelMetrics',
-            });
-            break;
-          case DifferenceCardConfigCompareGroup.SYSTEM_METRICS:
-            acc.push({
-              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
-                defaultMessage: `System Metrics`,
-                description:
-                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading',
-              }),
-              children: [...systemMetrics],
-              key: 'systemMetrics',
-            });
-            break;
-          case DifferenceCardConfigCompareGroup.PARAMETERS:
-            acc.push({
-              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
-                defaultMessage: `Parameters`,
-                description:
-                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading',
-              }),
-              children: getDifferencePlotJSONRows(parameters),
-              key: 'parameters',
-            });
-            break;
-          case DifferenceCardConfigCompareGroup.ATTRIBUTES:
-            acc.push({
-              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
-                defaultMessage: `Attributes`,
-                description:
-                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading',
-              }),
-              children: [...attributes],
-              key: 'attributes',
-            });
-            break;
-          case DifferenceCardConfigCompareGroup.TAGS:
-            acc.push({
-              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
-                defaultMessage: `Tags`,
-                description: 'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > tags heading',
-              }),
-              children: [...tags],
-              key: 'tags',
-            });
-            break;
-        }
-        return acc;
-      }, []),
+      cardConfig.compareGroups.reduce(
+        (
+          acc: DifferencePlotDataRow[],
+          group: typeof DifferenceCardConfigCompareGroup[keyof typeof DifferenceCardConfigCompareGroup],
+        ) => {
+          switch (group) {
+            case DifferenceCardConfigCompareGroup.MODEL_METRICS:
+              acc.push({
+                [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                  defaultMessage: `Model Metrics`,
+                  description:
+                    'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > model metrics heading',
+                }),
+                children: [...modelMetrics],
+                key: 'modelMetrics',
+              });
+              break;
+            case DifferenceCardConfigCompareGroup.SYSTEM_METRICS:
+              acc.push({
+                [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                  defaultMessage: `System Metrics`,
+                  description:
+                    'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading',
+                }),
+                children: [...systemMetrics],
+                key: 'systemMetrics',
+              });
+              break;
+            case DifferenceCardConfigCompareGroup.PARAMETERS:
+              acc.push({
+                [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                  defaultMessage: `Parameters`,
+                  description:
+                    'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading',
+                }),
+                children: getDifferencePlotJSONRows(parameters),
+                key: 'parameters',
+              });
+              break;
+            case DifferenceCardConfigCompareGroup.ATTRIBUTES:
+              acc.push({
+                [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                  defaultMessage: `Attributes`,
+                  description:
+                    'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading',
+                }),
+                children: [...attributes],
+                key: 'attributes',
+              });
+              break;
+            case DifferenceCardConfigCompareGroup.TAGS:
+              acc.push({
+                [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                  defaultMessage: `Tags`,
+                  description:
+                    'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > tags heading',
+                }),
+                children: [...tags],
+                key: 'tags',
+              });
+              break;
+          }
+          return acc;
+        },
+        [],
+      ),
     [modelMetrics, systemMetrics, parameters, tags, attributes, cardConfig.compareGroups, formatMessage],
   );
 

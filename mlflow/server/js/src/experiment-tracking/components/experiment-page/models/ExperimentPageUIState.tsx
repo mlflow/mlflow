@@ -38,13 +38,13 @@ const getDefaultSelectedColumns = () => {
   return result;
 };
 
-export enum RUNS_VISIBILITY_MODE {
-  SHOWALL = 'SHOW_ALL',
-  HIDEALL = 'HIDE_ALL',
-  FIRST_10_RUNS = 'FIRST_10_RUNS',
-  FIRST_20_RUNS = 'FIRST_20_RUNS',
-  CUSTOM = 'CUSTOM',
-}
+export const RUNS_VISIBILITY_MODE = {
+  SHOWALL: 'SHOW_ALL',
+  HIDEALL: 'HIDE_ALL',
+  FIRST_10_RUNS: 'FIRST_10_RUNS',
+  FIRST_20_RUNS: 'FIRST_20_RUNS',
+  CUSTOM: 'CUSTOM',
+} as const;
 
 export type RunsChartsGlobalLineChartConfig = Partial<
   Pick<RunsChartsLineCardConfig, 'selectedXAxisMetricKey' | 'xAxisKey' | 'lineSmoothness'>
@@ -115,7 +115,7 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   /**
    * Determines default visibility mode for runs which are not explicitly specified by "runsVisibilityMap" field
    */
-  runsHiddenMode: RUNS_VISIBILITY_MODE;
+  runsHiddenMode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE];
 
   /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that

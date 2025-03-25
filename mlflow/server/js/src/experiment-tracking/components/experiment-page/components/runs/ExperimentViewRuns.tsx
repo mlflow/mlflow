@@ -36,8 +36,8 @@ import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hook
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
   experiments: ExperimentEntity[];
-  modelVersionFilter?: MODEL_VERSION_FILTER;
-  lifecycleFilter?: LIFECYCLE_FILTER;
+  modelVersionFilter?: typeof MODEL_VERSION_FILTER[keyof typeof MODEL_VERSION_FILTER];
+  lifecycleFilter?: typeof LIFECYCLE_FILTER[keyof typeof LIFECYCLE_FILTER];
   datasetsFilter?: DatasetSummary[];
   onMaximizedChange?: (newIsMaximized: boolean) => void;
 

@@ -23,7 +23,7 @@ export interface RunsChartsSectionHeaderProps {
   index: number;
   section: ChartSectionConfig;
   sectionChartsLength: number;
-  addNewChartCard: (metricSectionId: string) => (type: RunsChartType) => void;
+  addNewChartCard: (metricSectionId: string) => (type: typeof RunsChartType[keyof typeof RunsChartType]) => void;
   onDeleteSection: (sectionId: string) => void;
   onAddSection: (sectionId: string, above: boolean) => void;
   editSection: number;
@@ -31,7 +31,7 @@ export interface RunsChartsSectionHeaderProps {
   onSetSectionName: (sectionId: string, name: string) => void;
   onSectionReorder: (sourceSectionId: string, targetSectionId: string) => void;
   isExpanded: boolean;
-  supportedChartTypes?: RunsChartType[] | undefined;
+  supportedChartTypes?: typeof RunsChartType[keyof typeof RunsChartType][] | undefined;
   /**
    * Set to "true" to hide various controls (e.g. edit, add, delete) in the section header.
    */

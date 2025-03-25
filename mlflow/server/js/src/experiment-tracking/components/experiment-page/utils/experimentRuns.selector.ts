@@ -78,8 +78,8 @@ export type ExperimentRunsSelectorResult = {
 export type ExperimentRunsSelectorParams = {
   experiments: ExperimentEntity[];
   experimentIds?: string[];
-  lifecycleFilter?: LIFECYCLE_FILTER;
-  modelVersionFilter?: MODEL_VERSION_FILTER;
+  lifecycleFilter?: typeof LIFECYCLE_FILTER[keyof typeof LIFECYCLE_FILTER];
+  modelVersionFilter?: typeof MODEL_VERSION_FILTER[keyof typeof MODEL_VERSION_FILTER];
   datasetsFilter?: DatasetSummary[];
 };
 

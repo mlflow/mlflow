@@ -15,15 +15,15 @@ import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricB
 /**
  * Enum for all recognized chart types used in runs charts
  */
-export enum RunsChartType {
-  BAR = 'BAR',
-  LINE = 'LINE',
-  SCATTER = 'SCATTER',
-  CONTOUR = 'CONTOUR',
-  PARALLEL = 'PARALLEL',
-  DIFFERENCE = 'DIFFERENCE',
-  IMAGE = 'IMAGE',
-}
+export const RunsChartType = {
+  BAR: 'BAR',
+  LINE: 'LINE',
+  SCATTER: 'SCATTER',
+  CONTOUR: 'CONTOUR',
+  PARALLEL: 'PARALLEL',
+  DIFFERENCE: 'DIFFERENCE',
+  IMAGE: 'IMAGE',
+};
 
 const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 1;
 
@@ -45,7 +45,7 @@ const dataTraceMetricsContainMultipleEpochs = (dataTrace: RunsChartsRunData, met
  */
 export abstract class RunsChartsCardConfig {
   uuid?: string;
-  type: RunsChartType = RunsChartType.BAR;
+  type: typeof RunsChartType[keyof typeof RunsChartType] = RunsChartType.BAR;
   runsCountToCompare?: number = 10;
   metricSectionId?: string = '';
   deleted = false;
@@ -76,7 +76,12 @@ export abstract class RunsChartsCardConfig {
    * Creates empty chart (card) config basing on a type.
    * TODO: consume visible run set and determine best configuration of metrics, params etc.
    */
-  static getEmptyChartCardByType(type: RunsChartType, isGenerated: boolean, uuid?: string, metricSectionId?: string) {
+  static getEmptyChartCardByType(
+    type: typeof RunsChartType[keyof typeof RunsChartType],
+    isGenerated: boolean,
+    uuid?: string,
+    metricSectionId?: string,
+  ) {
     if (type === RunsChartType.BAR) {
       return new RunsChartsBarCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsChartType.SCATTER) {
@@ -446,7 +451,7 @@ export abstract class RunsChartsCardConfig {
 
 // TODO: add configuration fields relevant to scatter chart
 export class RunsChartsScatterCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType.SCATTER = RunsChartType.SCATTER;
+  type: typeof RunsChartType.SCATTER = RunsChartType.SCATTER;
   xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   runsCountToCompare = 100;
@@ -459,10 +464,10 @@ export interface ChartRange {
   yMax?: number;
 }
 
-export enum RunsChartsLineChartYAxisType {
-  METRIC = 'metric',
-  EXPRESSION = 'expression',
-}
+export const RunsChartsLineChartYAxisType = {
+  METRIC: 'metric',
+  EXPRESSION: 'expression',
+} as const;
 
 export interface RunsChartsLineChartExpression {
   // The expression parsed in Reverse Polish Notation
@@ -475,7 +480,7 @@ export interface RunsChartsLineChartExpression {
 
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType.LINE = RunsChartType.LINE;
+  type: typeof RunsChartType.LINE = RunsChartType.LINE;
 
   /**
    * A metric key used for chart's X axis
@@ -516,7 +521,8 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   /**
    * Choose X axis mode - numeric step, relative time in seconds or absolute time value
    */
-  xAxisKey: RunsChartsLineChartXAxisType = RunsChartsLineChartXAxisType.STEP;
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType] =
+    RunsChartsLineChartXAxisType.STEP;
 
   /**
    * Name of the metric to use for the X axis. Used when xAxisKey is set to 'metric'
@@ -532,7 +538,8 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   /**
    * Show metrics directly or custom expressions on metrics
    */
-  yAxisKey?: RunsChartsLineChartYAxisType = RunsChartsLineChartYAxisType.METRIC;
+  yAxisKey?: typeof RunsChartsLineChartYAxisType[keyof typeof RunsChartsLineChartYAxisType] =
+    RunsChartsLineChartYAxisType.METRIC;
 
   /**
    * Custom expressions for Y axis
@@ -558,7 +565,7 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
 
 // TODO: add configuration fields relevant to bar chart
 export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType.BAR = RunsChartType.BAR;
+  type: typeof RunsChartType.BAR = RunsChartType.BAR;
 
   /**
    * A metric key used for chart's X axis
@@ -578,7 +585,7 @@ export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
 
 // TODO: add configuration fields relevant to contour chart
 export class RunsChartsContourCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType.CONTOUR = RunsChartType.CONTOUR;
+  type: typeof RunsChartType.CONTOUR = RunsChartType.CONTOUR;
   xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   zaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
@@ -586,19 +593,19 @@ export class RunsChartsContourCardConfig extends RunsChartsCardConfig {
 
 // TODO: add configuration fields relevant to parallel coords chart
 export class RunsChartsParallelCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType.PARALLEL = RunsChartType.PARALLEL;
+  type: typeof RunsChartType.PARALLEL = RunsChartType.PARALLEL;
   selectedParams: string[] = [];
   selectedMetrics: string[] = [];
   showAllRuns?: boolean = false;
 }
 
-export enum DifferenceCardConfigCompareGroup {
-  MODEL_METRICS = 'Model metrics',
-  SYSTEM_METRICS = 'System metrics',
-  PARAMETERS = 'Parameters',
-  ATTRIBUTES = 'Attributes',
-  TAGS = 'Tags',
-}
+export const DifferenceCardConfigCompareGroup = {
+  MODEL_METRICS: 'Model metrics',
+  SYSTEM_METRICS: 'System metrics',
+  PARAMETERS: 'Parameters',
+  ATTRIBUTES: 'Attributes',
+  TAGS: 'Tags',
+} as const;
 
 export const DISABLED_GROUP_WHEN_GROUPBY = [
   DifferenceCardConfigCompareGroup.PARAMETERS,
@@ -606,17 +613,17 @@ export const DISABLED_GROUP_WHEN_GROUPBY = [
   DifferenceCardConfigCompareGroup.ATTRIBUTES,
 ];
 
-export enum DifferenceCardAttributes {
-  USER = 'User',
-  SOURCE = 'Source',
-  VERSION = 'Version',
-  MODELS = 'Models',
-}
+export const DifferenceCardAttributes = {
+  USER: 'User',
+  SOURCE: 'Source',
+  VERSION: 'Version',
+  MODELS: 'Models',
+} as const;
 
 // TODO: add configuration fields relevant to difference view chart
 export class RunsChartsDifferenceCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType = RunsChartType.DIFFERENCE;
-  compareGroups: DifferenceCardConfigCompareGroup[] = [];
+  type: typeof RunsChartType[keyof typeof RunsChartType] = RunsChartType.DIFFERENCE;
+  compareGroups: typeof DifferenceCardConfigCompareGroup[keyof typeof DifferenceCardConfigCompareGroup][] = [];
   chartName = 'Runs difference view';
   showChangeFromBaseline = true;
   showDifferencesOnly = true;
@@ -624,7 +631,7 @@ export class RunsChartsDifferenceCardConfig extends RunsChartsCardConfig {
 }
 
 export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
-  type: RunsChartType = RunsChartType.IMAGE;
+  type: typeof RunsChartType.IMAGE = RunsChartType.IMAGE;
   // image keys to show
   imageKeys: string[] = [];
   step = 0;

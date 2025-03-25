@@ -141,7 +141,7 @@ const GroupBySelectorBody = ({
   const hasAnyResults = filteredTagNames.length > 0 || filteredParamNames.length > 0 || attributesMatchFilter;
 
   const groupByToggle = useCallback(
-    (mode: RunGroupingMode, groupByData: string, checked: boolean) => {
+    (mode: typeof RunGroupingMode[keyof typeof RunGroupingMode], groupByData: string, checked: boolean) => {
       if (checked) {
         // Scenario #1: user selected new grouping key
         const newGroupByKeys = [...groupByKeys];
@@ -175,13 +175,14 @@ const GroupBySelectorBody = ({
 
   const aggregateFunctionChanged = (aggregateFunctionString: string) => {
     if (values<string>(RunGroupingAggregateFunction).includes(aggregateFunctionString)) {
-      const newFunction = aggregateFunctionString as RunGroupingAggregateFunction;
+      const newFunction =
+        aggregateFunctionString as typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
       const newGroupBy: RunsGroupByConfig = { ...groupBy, aggregateFunction: newFunction };
       onChange(newGroupBy);
     }
   };
 
-  const isGroupedBy = (mode: RunGroupingMode, groupByData: string) => {
+  const isGroupedBy = (mode: typeof RunGroupingMode[keyof typeof RunGroupingMode], groupByData: string) => {
     return groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
   };
 

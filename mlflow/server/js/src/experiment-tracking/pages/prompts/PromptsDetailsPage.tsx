@@ -90,7 +90,9 @@ const PromptsDetailsPage = () => {
   const isEmptyVersions = !isLoading && !promptDetailsData?.versions.length;
 
   const showPreviewPane =
-    !isLoading && !isEmptyVersions && [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE].includes(mode);
+    !isLoading &&
+    !isEmptyVersions &&
+    (PromptVersionsTableMode.PREVIEW === mode || PromptVersionsTableMode.COMPARE === mode);
 
   const selectedVersionEntity = promptDetailsData?.versions.find(
     ({ version }) => version === viewState.selectedVersion,

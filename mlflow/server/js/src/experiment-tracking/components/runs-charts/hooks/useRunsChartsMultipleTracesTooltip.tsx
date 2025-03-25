@@ -53,7 +53,7 @@ export const useRunsMultipleTracesTooltipData = ({
   containsMultipleMetricKeys?: boolean;
   xAxisKeyLabel: string;
   disabled?: boolean;
-  xAxisKey: RunsChartsLineChartXAxisType;
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType];
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';
   positionInSection?: number;

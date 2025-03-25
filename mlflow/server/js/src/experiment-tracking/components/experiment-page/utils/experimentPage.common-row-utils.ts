@@ -5,7 +5,7 @@ import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 // Utility function that determines if a particular table run should be hidden,
 // based on the selected mode, position on the list and current state of manually hidden runs array.
 export const determineIfRowIsHidden = (
-  runsHiddenMode: RUNS_VISIBILITY_MODE,
+  runsHiddenMode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE],
   /**
    * @deprecated Use "runsVisibilityMap" field instead which has better control over visibility
    */

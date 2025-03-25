@@ -485,7 +485,7 @@ export const useExperimentRunRows = ({
 const determineVisibleRuns = (
   runs: RunRowType[],
   runsHidden: string[],
-  runsHiddenMode: RUNS_VISIBILITY_MODE,
+  runsHiddenMode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE],
   runsVisibilityMap: Record<string, boolean> = {},
 ): RunRowType[] => {
   // In the new visibility model, we will count rows that can change visibility (groups and ungrouped runs)

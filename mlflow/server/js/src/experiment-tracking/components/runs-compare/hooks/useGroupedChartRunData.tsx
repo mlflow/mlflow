@@ -17,7 +17,7 @@ import type { MetricHistoryByName } from '../../../types';
 export interface UseGroupedChartRunDataParams {
   ungroupedRunsData: RunsChartsRunData[];
   enabled: boolean;
-  aggregateFunction?: RunGroupingAggregateFunction;
+  aggregateFunction?: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
   metricKeys: string[];
   sampledDataResultsByRunUuid: Dictionary<SampledMetricsByRun>;
   selectedXAxisMetricKey?: string;

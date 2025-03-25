@@ -108,7 +108,7 @@ const RunViewMetricChartsImpl = ({
 
   const reorderCharts = useReorderRunsChartsFn();
 
-  const addNewChartCard = (metricSectionId: string) => (type: RunsChartType) =>
+  const addNewChartCard = (metricSectionId: string) => (type: typeof RunsChartType[keyof typeof RunsChartType]) =>
     setConfiguredCardConfig(RunsChartsCardConfig.getEmptyChartCardByType(type, false, undefined, metricSectionId));
 
   const insertCharts = useInsertRunsChartsFn();

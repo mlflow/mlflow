@@ -17,12 +17,12 @@ export interface ModelStageTransitionFormModalValues {
   archiveExistingVersions: boolean;
 }
 
-export enum ModelStageTransitionFormModalMode {
-  RequestOrDirect,
-  Approve,
-  Reject,
-  Cancel,
-}
+export const ModelStageTransitionFormModalMode = {
+  RequestOrDirect: 'RequestOrDirect',
+  Approve: 'Approve',
+  Reject: 'Reject',
+  Cancel: 'Cancel',
+} as const;
 
 export const ModelStageTransitionFormModal = ({
   visible,
@@ -37,7 +37,7 @@ export const ModelStageTransitionFormModal = ({
   transitionDescription: React.ReactNode;
   allowArchivingExistingVersions?: boolean;
   onConfirm?: (values: ModelStageTransitionFormModalValues) => void;
-  mode?: ModelStageTransitionFormModalMode;
+  mode?: typeof ModelStageTransitionFormModalMode[keyof typeof ModelStageTransitionFormModalMode];
 } & Pick<ModalProps, 'visible' | 'onCancel'>) => {
   const { theme } = useDesignSystemTheme();
   const form = useForm<ModelStageTransitionFormModalValues>({

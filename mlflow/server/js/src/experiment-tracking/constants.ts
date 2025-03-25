@@ -43,16 +43,16 @@ export const COLUMN_SORT_BY_ASC = 'ASCENDING';
 export const COLUMN_SORT_BY_DESC = 'DESCENDING';
 export const SORT_DELIMITER_SYMBOL = '***';
 
-export enum LIFECYCLE_FILTER {
-  ACTIVE = 'Active',
-  DELETED = 'Deleted',
-}
+export const LIFECYCLE_FILTER = {
+  ACTIVE: 'Active',
+  DELETED: 'Deleted',
+} as const;
 
-export enum MODEL_VERSION_FILTER {
-  WITH_MODEL_VERSIONS = 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
-  ALL_RUNS = 'All Runs',
-}
+const MODEL_VERSION_FILTER = {
+  WITH_MODEL_VERSIONS: 'With Model Versions',
+  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
+  ALL_RUNS: 'All Runs',
+} as const;
 
 export const DEFAULT_ORDER_BY_KEY = ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 export const DEFAULT_ORDER_BY_ASC = false;
@@ -85,20 +85,20 @@ export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 
-export enum MLflowRunSourceType {
-  PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
-}
+export const MLflowRunSourceType = {
+  PROMPT_ENGINEERING: 'PROMPT_ENGINEERING',
+} as const;
 
 export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json';
 
-export enum RunPageTabName {
-  OVERVIEW = 'overview',
-  TRACES = 'traces',
-  MODEL_METRIC_CHARTS = 'model-metrics',
-  SYSTEM_METRIC_CHARTS = 'system-metrics',
-  ARTIFACTS = 'artifacts',
-  EVALUATIONS = 'evaluations',
-}
+export const RunPageTabName = {
+  OVERVIEW: 'overview',
+  TRACES: 'traces',
+  MODEL_METRIC_CHARTS: 'model-metrics',
+  SYSTEM_METRIC_CHARTS: 'system-metrics',
+  ARTIFACTS: 'artifacts',
+  EVALUATIONS: 'evaluations',
+} as const;
 
 export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';
 
@@ -131,9 +131,9 @@ export const EPOCH_RELATIVE_TIME = 28800000;
 export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
 export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
-export enum ExperimentPageTabName {
-  Models = 'models',
-  EvaluationMonitoring = 'evaluation-monitoring',
-  Datasets = 'datasets',
-  LabelingSessions = 'labeling-sessions',
-}
+export const ExperimentPageTabName = {
+  Models: 'models',
+  EvaluationMonitoring: 'evaluation-monitoring',
+  Datasets: 'datasets',
+  LabelingSessions: 'labeling-sessions',
+} as const;

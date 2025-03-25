@@ -5,7 +5,7 @@ import { RegisteredPromptDetailsResponse } from '../types';
 
 const promptDetailsViewStateReducer = (
   state: {
-    mode: PromptVersionsTableMode;
+    mode: typeof PromptVersionsTableMode[keyof typeof PromptVersionsTableMode];
     selectedVersion?: string;
     comparedVersion?: string;
   },

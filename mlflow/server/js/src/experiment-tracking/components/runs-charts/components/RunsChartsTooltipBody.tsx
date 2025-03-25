@@ -137,7 +137,7 @@ const normalizeRelativeTimeChartTooltipValue = (value: string | number) => {
 
 const getTooltipXValue = (
   hoverData: RunsMetricsSingleTraceTooltipData | undefined,
-  xAxisKey: RunsChartsLineChartXAxisType,
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
 ) => {
   if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
     return hoverData?.xValue ?? '';
