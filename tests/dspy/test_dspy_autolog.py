@@ -903,15 +903,6 @@ def test_autolog_create_logged_model_and_link_traces():
             == logged_model.model_id
         )
 
-    with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
-    assert model_info.model_id == logged_model.model_id
-    loaded_model = mlflow.dspy.load_model(model_info.model_uri)
-    loaded_model("test")
-    traces = get_traces()
-    assert len(traces) == 6
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
-
 
 def test_autolog_create_new_model_logged_after_loaded():
     mlflow.dspy.autolog()

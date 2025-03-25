@@ -1393,8 +1393,6 @@ class _ModelTracker:
     def __init__(self):
         # maps model identity (id(model)) to model_id for logged models
         self._model_ids: dict[int, str] = {}
-        # maps model identity (id(model)) to model_id for LoggedModels (with no artifacts logged)
-        self._logged_model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
         # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
@@ -1419,34 +1417,6 @@ class _ModelTracker:
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
             self._model_ids[identity] = model_id
-
-    def set_logged_model_id(self, identity: int, model_id: str) -> None:
-        """
-        This method should only be used when MLflow calls create_logged_model
-        to create a LoggedModel entity with no artifacts.
-        """
-        if not isinstance(identity, int):
-            raise TypeError("identity must be an integer")
-        with self._model_locks[identity]:
-            self._logged_model_ids[identity] = model_id
-
-    def get_logged_model_id(self, identity: int) -> Optional[str]:
-        """
-        Get the model ID associated with the given model identity
-        """
-        if not isinstance(identity, int):
-            raise TypeError("identity must be an integer")
-        with self._model_locks[identity]:
-            return self._logged_model_ids.get(identity)
-
-    def remove_logged_model_id(self, identity: int) -> None:
-        """
-        Remove the model ID associated with the given model identity
-        """
-        if not isinstance(identity, int):
-            raise TypeError("identity must be an integer")
-        with self._model_locks[identity]:
-            self._logged_model_ids.pop(identity, None)
 
     def set_active_model_id(self, model_id: Optional[str]) -> None:
         """
@@ -1479,7 +1449,6 @@ class _ModelTracker:
     def clear(self) -> None:
         with self._lock:
             self._model_ids.clear()
-            self._logged_model_ids.clear()
             self._model_locks.clear()
 
 

@@ -359,12 +359,6 @@ def log_model(
             )
     """
     with disable_autologging():
-        if (
-            model_id is None
-            and not isinstance(dspy_model, str)
-            and (existing_model_id := _MODEL_TRACKER.get_logged_model_id(id(dspy_model)))
-        ):
-            model_id = existing_model_id
         model = Model.log(
             artifact_path=artifact_path,
             name=name,
@@ -391,5 +385,4 @@ def log_model(
         )
         if model.model_id and not isinstance(dspy_model, str):
             _MODEL_TRACKER.set(id(dspy_model), model.model_id)
-            _MODEL_TRACKER.remove_logged_model_id(id(dspy_model))
         return model
