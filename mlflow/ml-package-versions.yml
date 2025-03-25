@@ -707,6 +707,9 @@ langchain:
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
+      ">=0.3": [
+          "databricks-langchain"
+      ]
     run: |
       # Run all langchain tests except autologging and evaluation
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py

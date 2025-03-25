@@ -147,7 +147,7 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
     if _isinstance_with_multiple_modules(
         chat_model,
         "ChatDatabricks",
-        ["langchain_databricks", "langchain.chat_models", "langchain_community.chat_models"],
+        ["databricks_langchain", "langchain_databricks", "langchain.chat_models", "langchain_community.chat_models"],
     ):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
