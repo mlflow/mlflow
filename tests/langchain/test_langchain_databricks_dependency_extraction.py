@@ -39,7 +39,7 @@ class MockDatabricksServingEndpointClient:
 
 def _is_partner_package_installed():
     try:
-        import databricks_langchain # noqa: F401
+        import databricks_langchain  # noqa: F401
 
         return True
     except ImportError:
@@ -461,28 +461,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package
             expected_maps.get(resource_type, [])
         )
 
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="Tools are not supported the way we want in earlier versions",
-)
-@pytest.mark.parametrize("use_partner_package", [True, False])
-def test_parsing_dependency_from_databricks_chat_roshni(monkeypatch, use_partner_package):
-    if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`databricks-langchain` is not installed")
-
-    if use_partner_package:
-        from databricks_langchain import ChatDatabricks
-
-        remove_langchain_community(monkeypatch)
-        with pytest.raises(ImportError, match="No module named 'langchain_community"):
-            from langchain_community.chat_models import ChatDatabricks
-    else:
-        from langchain_community.chat_models import ChatDatabricks
-
-    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
-    resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
-    assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):

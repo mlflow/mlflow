@@ -34,7 +34,7 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         vectorstore,
         "DatabricksVectorSearch",
-        ["langchain_databricks", "langchain_community.vectorstores", "langchain.vectorstores"],
+        ["databricks_langchain", "langchain_databricks", "langchain_community.vectorstores", "langchain.vectorstores"],
     ):
         index = vectorstore.index
         yield DatabricksVectorSearchIndex(index_name=index.name)
@@ -45,7 +45,7 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         embeddings,
         "DatabricksEmbeddings",
-        ["langchain_databricks", "langchain_community.embeddings", "langchain.embeddings"],
+        ["databricks_langchain", "langchain_databricks", "langchain_community.embeddings", "langchain.embeddings"],
     ):
         yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
