@@ -50,7 +50,7 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.responses import ResponsesRequest
+from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
@@ -803,10 +803,12 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
                     ),
                 )
 
-    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict(self, model_input: ResponsesRequest) -> ResponsesResponse:
         pass
 
-    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(
+        self, model_input: ResponsesRequest
+    ) -> Generator[ResponsesStreamEvent, None, None]:
         pass
 
 
