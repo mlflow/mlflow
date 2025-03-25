@@ -50,7 +50,6 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.responses import ResponsesRequest
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
@@ -782,32 +781,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             "Streaming implementation not provided. Please override the "
             "`predict_stream` method on your model to generate streaming predictions"
         )
-
-
-class ResponsesAgent(PythonModel, metaclass=ABCMeta):
-    _skip_type_hint_validation = True
-
-    def __init_subclass__(cls, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        for attr_name in ("predict", "predict_stream"):
-            attr = cls.__dict__.get(attr_name)
-            if callable(attr):
-                setattr(
-                    cls,
-                    attr_name,
-                    _wrap_predict(
-                        attr,
-                        ResponsesRequest,
-                        "Invalid dictionary input for a ResponsesAgent. Expected a dictionary with the "
-                        "ResponsesRequest schema.",
-                    ),
-                )
-
-    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
-        pass
-
-    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
-        pass
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
