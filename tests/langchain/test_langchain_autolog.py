@@ -262,29 +262,17 @@ def test_loaded_llmchain_autolog():
     mlflow.langchain.autolog()
     model = create_openai_llmchain()
     question = {"product": "MLflow"}
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
-    assert model.invoke(question) == answer
-
-    logged_model = mlflow.last_logged_model()
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
-
-    model.invoke(question)
-    traces = get_traces()
-    assert len(traces) == 2
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
-
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            model, "model", input_example=question, model_id=logged_model.model_id
-        )
-    assert model_info.model_id == logged_model.model_id
+        model_info = mlflow.langchain.log_model(model, "model", input_example=question)
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    loaded_model.invoke(question)
+    for i in range(3):
+        loaded_model.invoke(question)
     traces = get_traces()
     assert len(traces) == 3
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
+    for i in range(3):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+        )
 
 
 @pytest.mark.skipif(
