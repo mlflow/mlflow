@@ -22,7 +22,7 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import autologging_integration, disable_autologging, safe_patch
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -451,33 +451,34 @@ def log_model(
         model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
-    model = Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        engine_type=engine_type,
-        model_config=model_config,
-        flavor=mlflow.llama_index,
-        registered_model_name=registered_model_name,
-        llama_index_model=llama_index_model,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        metadata=metadata,
-        prompts=prompts,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-        **kwargs,
-    )
-    if model.model_id and not isinstance(llama_index_model, str):
-        _MODEL_TRACKER.set(id(llama_index_model), model.model_id)
-    return model
+    with disable_autologging():
+        model = Model.log(
+            artifact_path=artifact_path,
+            name=name,
+            engine_type=engine_type,
+            model_config=model_config,
+            flavor=mlflow.llama_index,
+            registered_model_name=registered_model_name,
+            llama_index_model=llama_index_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+            prompts=prompts,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
+            **kwargs,
+        )
+        if model.model_id and not isinstance(llama_index_model, str):
+            _MODEL_TRACKER.set(id(llama_index_model), model.model_id)
+        return model
 
 
 def _validate_and_prepare_llama_index_model_or_path(llama_index_model, temp_dir=None):
@@ -646,6 +647,10 @@ def _autolog(
 
 def _patch_as_func(original, self, *args, **kwargs):
     engine = original(self, *args, **kwargs)
-    if model_id := _MODEL_TRACKER.get(id(self)):
-        engine._mlflow_model_id = model_id
+    engine_model_id = _MODEL_TRACKER.get(id(self))
+    if engine_model_id is None:
+        logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
+        _MODEL_TRACKER.set(id(self), logged_model.model_id)
+        _logger.debug(f"Created LoggedModel with model_id {logged_model.model_id} for index {self}")
+    engine._mlflow_model_id = engine_model_id
     return engine
