@@ -2,24 +2,24 @@
 
 ## 2.21.1 (2025-03-25)
 
-MLflow 2.21.1 includes several major features and improvements
+MLflow 2.21.1 is a patch release that introduces minor features and addresses some minor bugs.
 
 Features:
 
-- [Tracking] Add eval logging for DSPy (#14962, @TomeHirata)
-- [Tracking] Create mlflow run for DSPy compile (#14949, @TomeHirata)
-- [Docker / Java / Models] Add --install-java option to sagemaker build-and-push-container (#14868, @rgangopadhya)
+- [Tracking] Introduce the support for logging evaluations within the DSPy integration (#14962, @TomeHirata)
+- [Tracking] Add support for run creation when DSPy compile is executed (#14949, @TomeHirata)
+- [Docker / Sagemaker] Add support for building a sagemaker serving container that does not contain Java via the --install-java option (#14868, @rgangopadhya)
 
 Bug fixes:
 
-- [] fix: typo in `OTEL_EXPORTER_OTLP_PROTOCOL` env var (#15008, @gabrielfu)
-- [] Show images in the metric tab (#15034, @TomeHirata)
-- [Tracking] Add exception handling for spark dataset autolog in Databricks shared cluster and serverless (#15077, @WeichenXu123)
-- [] fix timestamp conversion timezone bug introduced by using datetime.fr… (#15094, @orm011)
+- [Tracing] Fix an ordering bug for traces due to incorrect timestamp conversion timezone bug (#15094, @orm011)
+- [Tracking] Fix a typo in the environment variable `OTEL_EXPORTER_OTLP_PROTOCOL` definition (#15008, @gabrielfu)
+- [Tracking] Fix an issue in shared and serverless clusters on Databricks when logging Spark Datasources when using the evaluate API (#15077, @WeichenXu123)
+- [UI] Fix a rendering issue with displaying images from within the metric tab in the UI (#15034, @TomeHirata)
 
 Documentation updates:
 
-- [Docs] Clarify set_retriever_schema docs (#15099, @smurching)
+- [Docs] Add additional contextual information within the set_retriever_schema API docs (#15099, @smurching)
 
 Small bug fixes and documentation updates:
 
