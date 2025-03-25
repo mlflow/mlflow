@@ -45,7 +45,13 @@ type CompareRunViewProps = {
   intl: IntlShape;
 };
 
-type CompareRunViewState = any;
+type CompareRunViewState = {
+  tableWidth: number | null;
+  onlyShowParamDiff: boolean;
+  onlyShowTagDiff: boolean;
+  onlyShowMetricDiff: boolean;
+};
+
 class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
   compareRunViewRef: any;
   runDetailsTableRef: any;
@@ -54,9 +60,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     super(props);
     this.state = {
       tableWidth: null,
-      onlyShowParamDiff: false,
-      onlyShowTagDiff: false,
-      onlyShowMetricDiff: false,
+      onlyShowParamDiff: true,
+      onlyShowTagDiff: true,
+      onlyShowMetricDiff: true,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
@@ -108,9 +114,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const minColWidth = 200;
     let colWidth = minColWidth;
 
-    // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
     if (this.state.tableWidth !== null) {
-      // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
       colWidth = Math.round(this.state.tableWidth / (this.props.runInfos.length + 1));
       if (colWidth < minColWidth) {
         colWidth = minColWidth;
@@ -211,7 +215,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const dataRows = this.renderDataRows(
       this.props.paramLists,
       colWidth,
-      // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
       (key: any, data: any) => key,
@@ -260,7 +263,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const dataRows = this.renderDataRows(
       this.props.metricLists,
       colWidth,
-      // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
       this.state.onlyShowMetricDiff,
       true,
       (key, data) => {
@@ -307,13 +309,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   renderTagTable(colWidth: number) {
-    const dataRows = this.renderDataRows(
-      this.props.tagLists,
-      colWidth,
-      // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
-      this.state.onlyShowTagDiff,
-      true,
-    );
+    const dataRows = this.renderDataRows(this.props.tagLists, colWidth, this.state.onlyShowTagDiff, true);
     if (dataRows.length === 0) {
       return (
         <h2>
@@ -602,7 +598,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_570"
             label={diffOnlyLabel}
             aria-label={[paramsLabel, diffOnlyLabel].join(' - ')}
-            // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
             checked={this.state.onlyShowParamDiff}
             onChange={(checked, e) => this.setState({ onlyShowParamDiff: checked })}
           />
@@ -614,7 +609,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_581"
             label={diffOnlyLabel}
             aria-label={[metricsLabel, diffOnlyLabel].join(' - ')}
-            // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
             checked={this.state.onlyShowMetricDiff}
             onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
           />
@@ -627,7 +621,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
             label={diffOnlyLabel}
             aria-label={[tagsLabel, diffOnlyLabel].join(' - ')}
-            // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
             checked={this.state.onlyShowTagDiff}
             onChange={(checked, e) => this.setState({ onlyShowTagDiff: checked })}
           />

@@ -44,7 +44,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 2.3": ["numpy<2"]
+      "< 2.3": ["numpy<2", "transformers<=4.49.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -512,8 +512,9 @@ transformers:
     install_dev: |
       pip install git+https://github.com/huggingface/transformers
   models:
-    minimum: "4.25.1"
+    minimum: "4.35.2"
     maximum: "4.49.0"
+    test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -540,15 +541,8 @@ transformers:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
-      # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
-      # prior to 4.30.0 are incompatible with this breaking change in Keras.
-      # See: https://github.com/huggingface/transformers/issues/23352 for discussion
-      "< 4.30.0": ["tensorflow<2.13.0", "pydantic<2"]
       # peft >= 0.14 relies on classes from newer versions of transformers
       "< 4.43": ["peft<0.14.0"]
-      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
-      # `accelerate>=0.32.0` and `peft>=0.13.0` are incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0", "peft<0.13.0"]
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
       "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
@@ -561,8 +555,9 @@ transformers:
       pip uninstall -y accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
-    minimum: "4.25.1"
+    minimum: "4.35.2"
     maximum: "4.49.0"
+    test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -584,16 +579,6 @@ transformers:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
-      # sentence-transformers >= 2.4.0 relies on `transformers.utils.import_utils.is_nltk_available`
-      # to check nltk availability. This function is only available in transformers>=4.34.0.
-      "< 4.34": ["sentence-transformers<2.4.0"]
-      # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
-      # prior to 4.30.0 are incompatible with this breaking change in Keras.
-      # See: https://github.com/huggingface/transformers/issues/23352 for discussion
-      "< 4.30.0": ["tensorflow<2.13.0"]
-      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
-      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
-      "== 4.34.1": ["accelerate<0.32.0", "sentence-transformers<3.1.0"]
       "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
