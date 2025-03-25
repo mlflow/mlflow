@@ -35,15 +35,16 @@ def set_retriever_schema(
     Specify the return schema of a retriever span within your agent or generative AI app code.
 
     **Note**: MLflow recommends that your retriever return the default MLflow retriever output
-    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans, in which
-    case you do not need to call `set_retriever_schema`. APIs that read MLflow traces and look for retriever
-    spans, such as MLflow evaluation, will automatically detect retriever spans that match MLflow's default
-    retriever schema.
+    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans,
+    in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
+    and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
+    spans that match MLflow's default retriever schema.
 
     If your retriever does not return the default MLflow retriever output schema, call this API to
-    specify which fields in each retrieved document correspond to the page content, document URI, document ID,
-    etc. This enables downstream features like MLflow evaluation to properly identify these fields. Note that
-    `set_retriever_schema` assumes that your retriever span returns a list of objects.
+    specify which fields in each retrieved document correspond to the page content, document
+    URI, document ID, etc. This enables downstream features like MLflow evaluation to properly
+    identify these fields. Note that `set_retriever_schema` assumes that your retriever span
+    returns a list of objects.
 
 
     Args:
@@ -64,13 +65,13 @@ def set_retriever_schema(
             # [
             #     {
             #         'document_id': '9a8292da3a9d4005a988bf0bfdd0024c',
-            #         'chunk_text': 'MLflow is an open-source platform, purpose-built to assist machine learning practitioners...',
+            #         'chunk_text': 'MLflow is an open-source platform, purpose-built to assist...',
             #         'doc_uri': 'https://mlflow.org/docs/latest/index.html',
             #         'title': 'MLflow: A Tool for Managing the Machine Learning Lifecycle'
             #     },
             #     {
             #         'document_id': '7537fe93c97f4fdb9867412e9c1f9e5b',
-            #         'chunk_text': 'A great way to get started with MLflow is to use the autologging feature. Autologging automatically logs your model...',
+            #         'chunk_text': 'A great way to get started with MLflow is to use the autologging...',
             #         'doc_uri': 'https://mlflow.org/docs/latest/getting-started/',
             #         'title': 'Getting Started with MLflow'
             #     },
