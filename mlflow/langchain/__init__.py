@@ -64,6 +64,7 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
+    disable_autologging,
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
@@ -585,39 +586,48 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    model = Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        flavor=mlflow.langchain,
-        registered_model_name=registered_model_name,
-        lc_model=lc_model,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        metadata=metadata,
-        loader_fn=loader_fn,
-        persist_dir=persist_dir,
-        example_no_conversion=example_no_conversion,
-        run_id=run_id,
-        model_config=model_config,
-        streamable=streamable,
-        resources=resources,
-        prompts=prompts,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-    )
-    # if model is logged as models as code, then we cannot
-    # get the id of the model object
-    if model.model_id and not isinstance(lc_model, str):
-        _MODEL_TRACKER.set(id(lc_model), model.model_id)
-    return model
+    # disable autologging to avoid patching the model predict happening inside model logging
+    with disable_autologging():
+        if (
+            model_id is None
+            and not isinstance(lc_model, str)
+            and (existing_model_id := _MODEL_TRACKER.get_logged_model_id(id(lc_model)))
+        ):
+            model_id = existing_model_id
+        model = Model.log(
+            artifact_path=artifact_path,
+            name=name,
+            flavor=mlflow.langchain,
+            registered_model_name=registered_model_name,
+            lc_model=lc_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+            loader_fn=loader_fn,
+            persist_dir=persist_dir,
+            example_no_conversion=example_no_conversion,
+            run_id=run_id,
+            model_config=model_config,
+            streamable=streamable,
+            resources=resources,
+            prompts=prompts,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
+        )
+        # if model is logged as models as code, then we cannot
+        # get the id of the model object
+        if model.model_id and not isinstance(lc_model, str):
+            _MODEL_TRACKER.set(id(lc_model), model.model_id)
+            _MODEL_TRACKER.remove_logged_model_id(id(lc_model))
+        return model
 
 
 # patch_langchain_type_to_cls_dict here as we attempt to load model

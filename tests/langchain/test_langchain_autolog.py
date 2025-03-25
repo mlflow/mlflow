@@ -1280,3 +1280,32 @@ def test_log_model_multiple_times_different_model_id():
     assert len(traces) == 1
     # traces link to the latest model_id
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+
+
+def test_autolog_create_logged_model_and_link_traces_invoke():
+    mlflow.langchain.autolog()
+    chain, input_example = create_runnable_sequence()
+    chain.invoke(input_example)
+
+    assert len(mlflow.search_logged_models(output_format="list")) == 1
+    logged_model = mlflow.last_logged_model()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
+
+    chain.invoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
+    assert len(mlflow.search_logged_models(output_format="list")) == 1
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
+    # The model is automatically logged to the model_id
+    assert model_info.model_id == logged_model.model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 3
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model.model_id
+    assert len(mlflow.search_logged_models(output_format="list")) == 1

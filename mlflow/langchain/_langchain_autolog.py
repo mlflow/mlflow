@@ -2,6 +2,7 @@ import importlib
 import inspect
 import logging
 
+import mlflow
 from mlflow.langchain import FLAVOR_NAME
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.utils.autologging_utils import safe_patch
@@ -17,7 +18,16 @@ def _patch_runnable_cls(cls):
     Args:
         cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
+    if hasattr(cls, "invoke"):
+        # NB: we only generate LoggedModel for invoke method because other functions
+        # don't run inference on the model itself first (could be sub components)
+        safe_patch(
+            FLAVOR_NAME,
+            cls,
+            "invoke",
+            _patched_invoke,
+        )
+    for func_name in ["batch", "stream", "ainvoke", "abatch", "astream"]:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -36,6 +46,32 @@ def _patched_inference(original, self, *args, **kwargs):
     """
     _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
     return original(self, *args, **kwargs)
+
+
+def _patched_invoke(original, self, *args, **kwargs):
+    """
+    A patched implementation of langchain models invoke process which enables
+    logging the traces.
+    """
+    if model_id := (_MODEL_TRACKER.get(id(self)) or _MODEL_TRACKER.get_logged_model_id(id(self))):
+        _MODEL_TRACKER.set_active_model_id(model_id)
+    # NB: this check ensures we don't create LoggedModels for internal components
+    elif not _MODEL_TRACKER._is_active_model_id_set:
+        logged_model = mlflow.create_logged_model(
+            name=self.__class__.__name__,
+        )
+        _MODEL_TRACKER.set_logged_model_id(id(self), logged_model.model_id)
+        _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
+    else:
+        _MODEL_TRACKER.set_active_model_id(None)
+        # return directly in this case to avoid mutating _is_active_model_id_set
+        return original(self, *args, **kwargs)
+
+    _MODEL_TRACKER._is_active_model_id_set = True
+    try:
+        return original(self, *args, **kwargs)
+    finally:
+        _MODEL_TRACKER._is_active_model_id_set = False
 
 
 def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes):
