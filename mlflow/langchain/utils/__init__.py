@@ -246,7 +246,7 @@ def _get_supported_llms():
     safe_import_and_add("langchain.llms", "HuggingFacePipeline")
     safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
-    safe_import_and_add("langchain_databricks", "ChatDatabricks")
+    safe_import_and_add("databricks_langchain", "ChatDatabricks")
 
     for llm_name in ["Databricks", "Mlflow"]:
         safe_import_and_add("langchain.llms", llm_name)
@@ -557,7 +557,7 @@ def patch_langchain_type_to_cls_dict(func):
             return AzureChatOpenAI
 
         def _load_chat_databricks():
-            from langchain_databricks import ChatDatabricks
+            from databricks_langchain import ChatDatabricks
 
             return ChatDatabricks
 
