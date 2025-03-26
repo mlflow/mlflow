@@ -5,7 +5,7 @@ sidebar_position: 1
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import Platform from "@site/src/content/platform.mdx"
+import { APILink } from "@site/src/components/APILink";
 
 # MLflow 3.0
 
@@ -14,7 +14,7 @@ Discover the next generation of MLflow, designed to streamline your AI experimen
 ## What is MLflow 3.0?
 
 The best AI experimentation platform for building high quality models and GenAI agents! MLflow 3.0 introduces a variety of exciting improvements to MLflow Tracking and Tracing, including:
-- First class model support in MLflow tracking with **LoggedModel**
+- First class model support in MLflow tracking with <APILink fn="mlflow.entities.LoggedModel">**LoggedModel**</APILink>
 - **Model-centric** information architecture for params and metrics in MLflow tracking
 - Enhanced **tracing** experience with lineage tracking for LoggedModels
 
@@ -32,8 +32,8 @@ or you define and evaluate your GenAI agents in code, they will be automatically
 
 Every deep learning checkpoint is stored as a Logged Model with direct links to its own metrics. There is no longer any need to carefully log evaluation metrics for each checkpoint
 at its epoch all within the same Run, or to later query all metrics at a certain epoch just to retrieve metrics for one checkpoint. 
-Similarly, each GenAI agent consolidates its evaluation metrics from offline jobs, and online interactions if you use managed MLflow with Databricks. 
-This feature removes the need to query Runs for traces from different environments (batch jobs, separate inference tables etc.) to gain a full understanding of the agent’s performance.
+Similarly, each GenAI agent consolidates its evaluation metrics from both offline jobs and online interactions if you use managed MLflow with Databricks. 
+This feature removes the need to query Runs for traces from different environments (batch jobs, different notebook sessions etc.) to gain a full understanding of the agent’s performance.
 
 Specifically, you will be able to:
 - View Logged Models alongside key information, including code and weights as artifacts and configurable parameters that affect model behavior
@@ -215,6 +215,8 @@ The example also highlights the ability to track interactive traces and link the
 
 Prerequisite: ``pip install langchain langchain-community langchain-openai``
 
+#### Create an agent
+
 ```python
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -236,12 +238,48 @@ chat_prompt = ChatPromptTemplate.from_messages(
 )
 chain = chat_prompt | chat_model
 print(chain.invoke({"messages": "What is MLflow?"}))
+```
 
-# Log the chain with MLflow, specifying its parameters
+#### Log the agent
+
+We recommend using a code-based logging approach for agents. Save your agent to a python file (e.g., `agent.py`)
+and specify the file name when logging the model. This ensures better reproducibility and maintainability of your agent.
+
+`agent.py` file:
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+import mlflow
+from mlflow.models import set_model
+
+# register a prompt so we can link it when logging the model
+system_prompt = mlflow.register_prompt(
+    name="system_prompt",
+    template="You are a chatbot that can answer questions about IT.",
+    commit_message="Initial version of system prompt",
+)
+
+chat_model = ChatOpenAI(
+    model="gpt-4o-mini", temperature=0.1, max_completion_tokens=2000
+)
+chat_prompt = ChatPromptTemplate.from_messages(
+    [("system", system_prompt.to_single_brace_format()), ("user", "{messages}")]
+)
+chain = chat_prompt | chat_model
+
+# remember to set the model
+set_model(chain)
+```
+
+Then log the agent with MLflow:
+
+```python
+# Log the agent with MLflow, specifying its parameters
 # As a new feature, the LoggedModel entity is linked to its name and params
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
-        lc_model=chain,
+        lc_model="agent.py",
         name="chain",
         params={"temperature": 0.1, "max_tokens": 2000},
         model_type="agent",
@@ -254,7 +292,11 @@ with mlflow.start_run():
 logged_model = mlflow.get_logged_model(model_info.model_id)
 print(logged_model.model_id, logged_model.params)
 # 1695b392-36f8-44b6-8a06-7fc9f12e100f {'max_tokens': '2000', 'temperature': '0.1'}
+```
 
+#### Test the agent with tracing observability
+
+```python
 # Enable autologging so that interactive traces from the chain are automatically linked to its LoggedModel
 mlflow.langchain.autolog()
 loaded_chain = mlflow.langchain.load_model(model_info.model_uri)
@@ -275,6 +317,8 @@ print(traces)
 # 1  a6e4de782b5540f1af2f2661ba85abd2  Trace(request_id=a6e4de782b5540f1af2f2661by85a...  1742786909657  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 # 2  bc72367e96ae4e978e28594d5ce438e8  Trace(request_id=bc72367e96ae4e978e28594d5ce43...  1742786905377  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 ```
+
+#### Evaluate on the agent
 
 Then we use MLflow evaluate to assess the performance of the logged model on the evaluation dataset. 
 This step involves calculating additional metrics, such as latency and answer correctness, to gain deeper insights into the model's behavior and accuracy.
@@ -328,7 +372,24 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
 ### Key changes
 
 - `mlflow.<flavor>.log_model` API usage: `artifact_path` parameter is deprecated, use **`name`** instead
-- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts. Since MLflow 3.0, those artifacts will be stored into models artifacts location.
+<Tabs>
+    <TabItem label="MLflow 2.x" value="mlflow_2" default>
+        ```python
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(artifact_path="model", python_model=python_model, ...)
+        ```
+    </TabItem>
+    <TabItem label="MLflow 3.0" value="mlflow_3">
+        Pass `name` when logging a model. This allows you to later search for LoggedModels using this name.
+        ```python
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
+        ```
+    </TabItem>
+</Tabs>
+
+- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts. 
+Since MLflow 3.0, those artifacts will be stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">``list_artifacts``</APILink> API.
 
 ### Removed Features
 
