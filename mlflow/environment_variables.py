@@ -737,3 +737,24 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 #: Used when creating a SQLAlchemy engine for MySQL
 #: (default: ``None``)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
+
+
+#: Timeout in seconds for exporting traces to Databricks monitoring backend.
+#: (default: ``10``)
+MLFLOW_DATABRICKS_TRACE_EXPORT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_TRACE_EXPORT_TIMEOUT", int, 10
+)
+
+#: Maximum allowed HTTP connection size for exporting traces to Databricks monitoring backend.
+#: The default value follows the recommendation in the httpx library https://www.python-httpx.org/advanced/resource-limits/
+#: (default: ``100``)
+MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS", int, 100
+)
+
+#: Maximum allowed HTTP keep-alive pool size for exporting traces to Databricks monitoring backend.
+#: The default value follows the recommendation in the httpx library https://www.python-httpx.org/advanced/resource-limits/
+#: (default: ``20``)
+MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE", int, 20
+)

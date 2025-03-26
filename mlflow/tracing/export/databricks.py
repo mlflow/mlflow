@@ -1,20 +1,21 @@
 import logging
 from typing import Sequence
 
+import httpx
 from google.protobuf.json_format import MessageToDict
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE,
+    MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
-    extract_api_info_for_service,
-    http_request,
-)
+from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX, extract_api_info_for_service
 
 _logger = logging.getLogger(__name__)
 
@@ -24,10 +25,23 @@ _METHOD_TO_INFO = extract_api_info_for_service(
 )
 
 
+# NB: Set shorter timeout than the default timeout for MLflow HTTP request (120 sec)
+# because we don't want to block the application for too long when exporting traces.
+# Once we switch to asynchronous trace logging, we can increase this timeout.
+_DEFAULT_REQUEST_TIMEOUT = 10
+
+
 class DatabricksSpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to Databricks Tracing Server.
     """
+
+    def __init__(self):
+        limits = httpx.Limits(
+            max_keepalive_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS.get(),
+            max_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE.get(),
+        )
+        self.client = httpx.Client(limits=limits)
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -52,17 +66,15 @@ class DatabricksSpanExporter(SpanExporter):
     def _log_trace(self, trace: Trace):
         """Create a new Trace record in the Databricks Tracing Server."""
         request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
-        endpoint, method = _METHOD_TO_INFO[CreateTrace]
 
-        res = http_request(
-            host_creds=get_databricks_host_creds(),
-            endpoint=endpoint,
-            method=method,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
-            # Not doing reties here because trace export is currently running synchronously
-            # and we don't want to bottleneck the application by retrying.
+        creds = get_databricks_host_creds()
+        endpoint, _ = _METHOD_TO_INFO[CreateTrace]
+
+        res = self.client.post(
+            url=f"{creds.host}{endpoint}",
             json=request_body,
+            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw() or _DEFAULT_REQUEST_TIMEOUT,
+            headers={"Authorization": f"Bearer {creds.token}"},
         )
-
         if res.status_code != 200:
             _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")

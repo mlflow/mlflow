@@ -1,6 +1,7 @@
 import base64
 from unittest import mock
 
+import httpx
 import pytest
 
 import mlflow
@@ -30,16 +31,14 @@ def test_export(experiment_id, monkeypatch):
     response.status_code = 200
     response.text = "{}"
 
-    with mock.patch(
-        "mlflow.tracing.export.databricks.http_request", return_value=response
-    ) as mock_http:
+    with mock.patch("httpx.Client.post", return_value=response) as mock_http:
         _predict("hello")
 
     mock_http.assert_called_once()
     call_args = mock_http.call_args
-    assert call_args.kwargs["host_creds"] is not None
-    assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
-    assert call_args.kwargs["method"] == "POST"
+    assert call_args.kwargs["url"] == "dummy-host/api/2.0/tracing/traces"
+    assert call_args.kwargs["timeout"] == 10
+    assert call_args.kwargs["headers"] == {"Authorization": "Bearer dummy-token"}
 
     trace = call_args.kwargs["json"]
     trace_id = trace["info"]["trace_id"]
@@ -129,12 +128,35 @@ def test_export_catch_failure(monkeypatch):
     response.text = "Failed to export trace"
 
     with (
-        mock.patch(
-            "mlflow.tracing.export.databricks.http_request", return_value=response
-        ) as mock_http,
+        mock.patch("httpx.Client.post", return_value=response) as mock_http,
         mock.patch("mlflow.tracing.export.databricks._logger") as mock_logger,
     ):
         _predict("hello")
 
     mock_http.assert_called_once()
     mock_logger.warning.assert_called_once()
+
+
+def test_export_override_configs(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "20")
+    monkeypatch.setenv("MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS", "10")
+    monkeypatch.setenv("MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE", "5")
+
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    mock_http = mock.MagicMock()
+    mock_http.post.return_value = response
+
+    with mock.patch("httpx.Client", return_value=mock_http) as mock_httpx_init:
+        _predict("hello")
+
+    mock_http.post.assert_called_once()
+    mock_httpx_init.assert_called_once_with(
+        limits=httpx.Limits(max_keepalive_connections=10, max_connections=5)
+    )
