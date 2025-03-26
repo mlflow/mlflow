@@ -40,6 +40,7 @@ def test_export(experiment_id, monkeypatch):
     assert call_args.kwargs["host_creds"] is not None
     assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
     assert call_args.kwargs["method"] == "POST"
+    assert call_args.kwargs["timeout"] == 5
 
     trace = call_args.kwargs["json"]
     trace_id = trace["info"]["trace_id"]
