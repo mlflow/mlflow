@@ -34,7 +34,12 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         vectorstore,
         "DatabricksVectorSearch",
-        ["databricks_langchain", "langchain_community.vectorstores", "langchain.vectorstores"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.vectorstores",
+            "langchain.vectorstores",
+        ],
     ):
         index = vectorstore.index
         yield DatabricksVectorSearchIndex(index_name=index.name)
@@ -45,7 +50,12 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         embeddings,
         "DatabricksEmbeddings",
-        ["databricks_langchain", "langchain_community.embeddings", "langchain.embeddings"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.embeddings",
+            "langchain.embeddings",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
@@ -147,7 +157,12 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
     if _isinstance_with_multiple_modules(
         chat_model,
         "ChatDatabricks",
-        ["databricks_langchain", "langchain.chat_models", "langchain_community.chat_models"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain.chat_models",
+            "langchain_community.chat_models",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 

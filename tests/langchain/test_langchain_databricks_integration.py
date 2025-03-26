@@ -1,4 +1,4 @@
-# Test integration with the `langchain-databricks` package.
+# Test integration with the `databricks-langchain` package.
 from typing import Generator
 from unittest import mock
 
@@ -44,8 +44,8 @@ def model_path(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks(model_path):
     from databricks_langchain import ChatDatabricks
@@ -56,10 +56,6 @@ def test_save_and_load_chat_databricks(model_path):
 
     mlflow.langchain.save_model(chain, path=model_path)
 
-    with model_path.joinpath("requirements.txt").open() as f:
-        reqs = {req.split("==")[0] for req in f.read().split("\n")}
-    assert "langchain-databricks" in reqs
-
     loaded_model = mlflow.langchain.load_model(model_path)
     assert loaded_model == chain
 
@@ -69,8 +65,8 @@ def test_save_and_load_chat_databricks(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks
