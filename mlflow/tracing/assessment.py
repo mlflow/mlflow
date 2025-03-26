@@ -10,6 +10,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracking.client import MlflowClient
 
 
@@ -64,7 +65,7 @@ def log_expectation(
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
 
-    return MlflowClient().log_assessment(
+    created_assessment = MlflowClient().log_assessment(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
@@ -72,6 +73,9 @@ def log_expectation(
         metadata=metadata,
         span_id=span_id,
     )
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        trace.info.assessments.append(created_assessment)
+    return created_assessment
 
 
 @experimental
@@ -124,13 +128,18 @@ def update_expectation(
             value=43,
         )
     """
-    return MlflowClient().update_assessment(
+    updated_assessment = MlflowClient().update_assessment(
         assessment_id=assessment_id,
         trace_id=trace_id,
         name=name,
         expectation=Expectation(value) if value is not None else None,
         metadata=metadata,
     )
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        for idx, assessment in enumerate(trace.info.assessments):
+            if assessment.assessment_id == assessment_id:
+                trace.info.assessments[idx] = updated_assessment
+    return updated_assessment
 
 
 @experimental
@@ -146,7 +155,11 @@ def delete_expectation(trace_id: str, assessment_id: str):
         trace_id: The ID of the trace.
         assessment_id: The ID of the expectation assessment to delete.
     """
-    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        trace.info.assessments = [
+            a for a in trace.info.assessments if a.assessment_id != assessment_id
+        ]
 
 
 @experimental
@@ -238,7 +251,7 @@ def log_feedback(
     """
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
-    return MlflowClient().log_assessment(
+    logged_assessment = MlflowClient().log_assessment(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
@@ -248,6 +261,9 @@ def log_feedback(
         metadata=metadata,
         span_id=span_id,
     )
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        trace.info.assessments.append(logged_assessment)
+    return logged_assessment
 
 
 @experimental
@@ -303,7 +319,7 @@ def update_feedback(
             value=0.95,
         )
     """
-    return MlflowClient().update_assessment(
+    updated_assessment = MlflowClient().update_assessment(
         trace_id=trace_id,
         assessment_id=assessment_id,
         name=name,
@@ -311,6 +327,11 @@ def update_feedback(
         rationale=rationale,
         metadata=metadata,
     )
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        for idx, assessment in enumerate(trace.info.assessments):
+            if assessment.assessment_id == assessment_id:
+                trace.info.assessments[idx] = updated_assessment
+    return updated_assessment
 
 
 @experimental
@@ -326,7 +347,11 @@ def delete_feedback(trace_id: str, assessment_id: str):
         trace_id: The ID of the trace.
         assessment_id: The ID of the feedback assessment to delete.
     """
-    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    if (trace := TRACE_BUFFER.get(trace_id, None)) is not None:
+        trace.info.assessments = [
+            a for a in trace.info.assessments if a.assessment_id != assessment_id
+        ]
 
 
 def _parse_source(source: Union[str, AssessmentSource]) -> AssessmentSource:
