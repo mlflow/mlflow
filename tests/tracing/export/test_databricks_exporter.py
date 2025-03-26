@@ -1,11 +1,14 @@
 import base64
+import json
 from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.destination import Databricks
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -117,6 +120,9 @@ def test_export(experiment_id, monkeypatch):
         },
     }
 
+    # By default, trace should not be written to the inference server
+    assert len(_TRACE_BUFFER) == 0
+
 
 def test_export_catch_failure(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
@@ -138,3 +144,58 @@ def test_export_catch_failure(monkeypatch):
 
     mock_http.assert_called_once()
     mock_logger.warning.assert_called_once()
+
+
+@pytest.mark.parametrize("is_in_serving", [True, False, None])
+@pytest.mark.parametrize("is_trace_enabled", [True, False, None])
+@pytest.mark.parametrize("is_dual_write_enabled", [True, False, None])
+def test_export_dual_write_in_model_serving(
+    is_in_serving, is_trace_enabled, is_dual_write_enabled, monkeypatch
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+
+    if is_in_serving is not None:
+        monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", str(is_in_serving))
+    if is_trace_enabled is not None:
+        monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(is_trace_enabled))
+    if is_dual_write_enabled is not None:
+        monkeypatch.setenv("TODO_UPDATE_ENV_VAR_NAME", str(is_dual_write_enabled))
+
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    databricks_request_id = "databricks-request-id"
+
+    with mock.patch(
+        "mlflow.tracing.export.databricks.http_request", return_value=response
+    ) as mock_http:
+        with set_prediction_context(Context(request_id=databricks_request_id)):
+            _predict("hello")
+
+    mock_http.assert_called_once()
+    call_args = mock_http.call_args
+    assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
+
+    trace = call_args.kwargs["json"]
+    trace_id = trace["info"]["trace_id"]
+    assert trace_id is not None
+    # The trace_id sent to the trace server should be UUID, not the Databricks request ID
+    assert trace_id != databricks_request_id
+
+    # Dual write should only happen when all environment variables are set to True
+    expect_dual_write = int(
+        (is_in_serving is True) and (is_trace_enabled is True) and (is_dual_write_enabled is True)
+    )
+    if expect_dual_write:
+        assert len(_TRACE_BUFFER) == 1
+        trace = _TRACE_BUFFER.get(databricks_request_id)
+        assert trace is not None
+        assert trace["info"]["request_id"] == databricks_request_id
+        for span in trace["data"]["spans"]:
+            assert json.loads(span["attributes"]["mlflow.traceRequestId"]) == databricks_request_id
+    else:
+        assert len(_TRACE_BUFFER) == 0

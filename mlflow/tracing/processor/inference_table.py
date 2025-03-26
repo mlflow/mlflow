@@ -24,14 +24,6 @@ _logger = logging.getLogger(__name__)
 _HEADER_REQUEST_ID_KEY = "X-Request-Id"
 
 
-# Extracting for testing purposes
-def _get_flask_request():
-    import flask
-
-    if flask.has_request_context():
-        return flask.request
-
-
 class InferenceTableSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
@@ -54,27 +46,9 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        request_id = maybe_get_request_id()
+        request_id = get_databricks_request_id()
         if request_id is None:
-            # NB: This is currently used for streaming inference in Databricks Model Serving.
-            # In normal prediction, serving logic pass the request ID using the
-            # `with set_prediction_context` context manager that wraps `model.predict`
-            # call. However, in streaming case, the context manager is not applicable
-            # so we still need to rely on Flask request context (which is set to the
-            # stream response via flask.stream_with_context()
-            if flask_request := _get_flask_request():
-                request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
-                if not request_id:
-                    _logger.warning(
-                        "Request ID not found in the request headers. Skipping trace processing."
-                    )
-                    return
-            else:
-                _logger.warning(
-                    "Failed to get request ID from the request headers because "
-                    "request context is not available. Skipping trace processing."
-                )
-                return
+            return
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {}
@@ -115,3 +89,35 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
+
+
+def get_databricks_request_id():
+    request_id = maybe_get_request_id()
+    if request_id is None:
+        # NB: This is currently used for streaming inference in Databricks Model Serving.
+        # In normal prediction, serving logic pass the request ID using the
+        # `with set_prediction_context` context manager that wraps `model.predict`
+        # call. However, in streaming case, the context manager is not applicable
+        # so we still need to rely on Flask request context (which is set to the
+        # stream response via flask.stream_with_context()
+        if flask_request := _get_flask_request():
+            request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
+            if not request_id:
+                _logger.warning("Request ID not found in the request headers.")
+                return None
+        else:
+            _logger.warning(
+                "Failed to get request ID from the request headers because "
+                "request context is not available. Skipping trace processing."
+            )
+            return None
+
+    return request_id
+
+
+# Extracting for testing purposes
+def _get_flask_request():
+    import flask
+
+    if flask.has_request_context():
+        return flask.request

@@ -28,6 +28,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
+    is_trace_server_dual_write_enabled_in_serving,
 )
 
 if TYPE_CHECKING:
@@ -248,7 +249,9 @@ def _setup_tracer_provider(disabled=False):
             from mlflow.tracing.export.databricks import DatabricksSpanExporter
             from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 
-            exporter = DatabricksSpanExporter()
+            exporter = DatabricksSpanExporter(
+                is_dual_write_enabled=is_trace_server_dual_write_enabled_in_serving()
+            )
             processor = DatabricksSpanProcessor(
                 span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
@@ -270,6 +273,7 @@ def _setup_tracer_provider(disabled=False):
 
     elif is_in_databricks_model_serving_environment():
         # Export to Inference Table when running in Databricks Model Serving
+        # TODO: Remove this branch once we fully migrate to the new tracing server
         if not is_mlflow_tracing_enabled_in_model_serving():
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
