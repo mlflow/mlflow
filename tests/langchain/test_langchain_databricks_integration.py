@@ -48,7 +48,7 @@ def model_path(tmp_path):
     reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks(model_path):
-    from langchain_databricks import ChatDatabricks
+    from databricks_langchain import ChatDatabricks
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")
