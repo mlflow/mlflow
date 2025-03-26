@@ -165,7 +165,7 @@ def get_vector_search(
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
         from databricks_langchain import DatabricksEmbeddings
@@ -257,7 +257,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_p
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_retriever_with_embedding_endpoint_in_index(use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     vectorstore = get_vector_search(
         use_partner_package=use_partner_package,
@@ -337,7 +337,7 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
@@ -465,7 +465,7 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
@@ -484,7 +484,7 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
         from databricks_langchain import ChatDatabricks

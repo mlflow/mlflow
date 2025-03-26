@@ -246,6 +246,7 @@ def _get_supported_llms():
     safe_import_and_add("langchain.llms", "HuggingFacePipeline")
     safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
+    safe_import_and_add("langchain_databricks", "ChatDatabricks")
     safe_import_and_add("databricks_langchain", "ChatDatabricks")
 
     for llm_name in ["Databricks", "Mlflow"]:
@@ -572,7 +573,11 @@ def patch_langchain_type_to_cls_dict(func):
 
             return _wrapped
 
-        modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
+        modules_to_patch = [
+            "langchain_databricks",
+            "langchain.llms",
+            "langchain_community.llms.loading",
+        ]
         originals = {}
         for name in modules_to_patch:
             try:
