@@ -202,7 +202,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     this.setState({ searchInput: searchInput });
   };
 
-  updateUrlWithSearchFilter = (searchInput: any, orderByKey: any, orderByAsc: any, page: any) => {
+  updateUrlWithSearchFilter = (searchInput: any, orderByKey: string, orderByAsc: any, page: any) => {
     const urlParams = {};
     if (searchInput) {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
@@ -245,7 +245,10 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     this.loadPage(currentPage - 1, false);
   };
 
-  handleClickSortableColumn = (orderByKey: any, sortOrder: any) => {
+  handleClickSortableColumn = (
+    orderByKey: string,
+    sortOrder: typeof AntdTableSortOrder[keyof typeof AntdTableSortOrder],
+  ) => {
     const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
     this.setState({ orderByKey, orderByAsc }, () => {
       this.resetHistoryState();

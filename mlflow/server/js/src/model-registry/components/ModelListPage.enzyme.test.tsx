@@ -144,7 +144,7 @@ describe('ModelListPage', () => {
       false,
       2,
     );
-    const expectedUrl = `/models?searchInput=name%20ilike%20%22%25name%25%22%20AND%20tag.key%3Dvalue&orderByKey=timestamp&orderByAsc=false&page=2`;
+    const expectedUrl = `/models?searchInput=name%20ilike%20%22%25name%25%22%20AND%20tag.key%3Dvalue&orderByKey=last_updated_timestamp&orderByAsc=false&page=2`;
     expect(navigateSpy).toHaveBeenCalledWith(createMLflowRoutePath(expectedUrl));
   });
 
