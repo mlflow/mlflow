@@ -853,10 +853,6 @@ class Model:
                 prompts=prompts,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            # `save_model` calls `load_model` to infer the model requirements, which may result in
-            # __pycache__ directories being created in the model directory.
-            for pycache in Path(local_path).rglob("__pycache__"):
-                shutil.rmtree(pycache, ignore_errors=True)
 
             if is_in_databricks_runtime():
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
@@ -929,6 +925,10 @@ class Model:
                 for prompt in prompts:
                     client.log_prompt(run_id, prompt)
 
+            # `save_model` calls `load_model` to infer the model requirements, which may result in
+            # __pycache__ directories being created in the model directory.
+            for pycache in Path(local_path).rglob("__pycache__"):
+                shutil.rmtree(pycache, ignore_errors=True)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
