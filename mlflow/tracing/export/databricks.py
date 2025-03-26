@@ -58,7 +58,8 @@ class DatabricksSpanExporter(SpanExporter):
         request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
 
-        res = http_request(
+        # Use context manager to ensure the request is closed properly
+        with http_request(
             host_creds=get_databricks_host_creds(),
             endpoint=endpoint,
             method=method,
@@ -66,10 +67,6 @@ class DatabricksSpanExporter(SpanExporter):
             # Not doing reties here because trace export is currently running synchronously
             # and we don't want to bottleneck the application by retrying.
             json=request_body,
-        )
-
-        if res.status_code != 200:
-            _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
-
-        # Close the response to release the connection back to the pool
-        res.close()
+        ) as res:
+            if res.status_code != 200:
+                _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
