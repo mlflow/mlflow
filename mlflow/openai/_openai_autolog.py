@@ -360,7 +360,9 @@ def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
     # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
     if isinstance(chunk, Completion) and chunk.choices:
         parsed = chunk.choices[0].text or ""
-    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
+    # In Azure OpenAI’s content filtering response, `chunk.choices[0].delta` can become `None`.
+    # https://github.com/mlflow/mlflow/issues/15135
+    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices and chunk.choices[0].delta:
         parsed = chunk.choices[0].delta.content or ""
     else:
         parsed = ""
