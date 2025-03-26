@@ -158,5 +158,5 @@ def test_export_override_configs(monkeypatch):
 
     mock_http.post.assert_called_once()
     mock_httpx_init.assert_called_once_with(
-        limits=httpx.Limits(max_keepalive_connections=10, max_connections=5)
+        limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
     )

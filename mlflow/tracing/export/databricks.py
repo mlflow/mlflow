@@ -10,7 +10,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE,
     MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS,
-    MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_DATABRICKS_TRACE_EXPORT_TIMEOUT,
 )
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -25,12 +25,6 @@ _METHOD_TO_INFO = extract_api_info_for_service(
 )
 
 
-# NB: Set shorter timeout than the default timeout for MLflow HTTP request (120 sec)
-# because we don't want to block the application for too long when exporting traces.
-# Once we switch to asynchronous trace logging, we can increase this timeout.
-_DEFAULT_REQUEST_TIMEOUT = 10
-
-
 class DatabricksSpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to Databricks Tracing Server.
@@ -38,8 +32,8 @@ class DatabricksSpanExporter(SpanExporter):
 
     def __init__(self):
         limits = httpx.Limits(
-            max_keepalive_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS.get(),
-            max_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE.get(),
+            max_keepalive_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_KEEP_ALIVE.get(),
+            max_connections=MLFLOW_DATABRICKS_TRACE_EXPORT_MAX_CONNECTIONS.get(),
         )
         self.client = httpx.Client(limits=limits)
 
@@ -73,7 +67,7 @@ class DatabricksSpanExporter(SpanExporter):
         res = self.client.post(
             url=f"{creds.host}{endpoint}",
             json=request_body,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw() or _DEFAULT_REQUEST_TIMEOUT,
+            timeout=MLFLOW_DATABRICKS_TRACE_EXPORT_TIMEOUT.get(),
             headers={"Authorization": f"Bearer {creds.token}"},
         )
         if res.status_code != 200:
