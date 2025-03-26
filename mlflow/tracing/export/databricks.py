@@ -63,10 +63,15 @@ class DatabricksSpanExporter(SpanExporter):
             host_creds=get_databricks_host_creds(),
             endpoint=endpoint,
             method=method,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw() or _DEFAULT_TRACE_EXPORT_TIMEOUT,
+            timeout=self._get_timeout(),
             # Not doing reties here because trace export is currently running synchronously
             # and we don't want to bottleneck the application by retrying.
             json=request_body,
         ) as res:
             if res.status_code != 200:
                 _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
+
+    def _get_timeout(self) -> int:
+        if MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw() is not None:
+            return int(MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw())
+        return _DEFAULT_TRACE_EXPORT_TIMEOUT
