@@ -49,6 +49,7 @@ MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
 # when MLflow Tracking APIs are used within a Databricks Job
 MLFLOW_DATABRICKS_JOB_ID = "mlflow.databricks.jobID"
 MLFLOW_DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID"
+MLFLOW_DATABRICKS_TASK_RUN_ID = "mlflow.databricks.taskRunID"
 # Here MLFLOW_DATABRICKS_JOB_TYPE means the job task type and MLFLOW_DATABRICKS_JOB_TYPE_INFO
 # implies the job type which could be normal, ephemeral, etc.
 MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
