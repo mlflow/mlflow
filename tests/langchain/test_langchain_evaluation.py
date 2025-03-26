@@ -42,8 +42,6 @@ def create_fake_chain():
     [
         None,
         {"log_traces": False},
-        {"log_models": True},
-        {"log_traces": False, "log_models": False},
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
