@@ -612,7 +612,7 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         securable_list = []
         if run.inputs is not None:
-            _logger.info("UC REST STORE: inputs length: %s", len(run.inputs))
+            _logger.info("UC REST STORE: inputs length: %s", str(len(run.inputs.dataset_inputs)))
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
                 if (
