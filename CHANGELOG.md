@@ -2,11 +2,10 @@
 
 ## 2.21.2 (2025-03-26)
 
-MLflow 2.21.2 includes several major features and improvements
+MLflow 2.21.2 is a patch release that introduces minor features and bug fixes.
 
-Small bug fixes and documentation updates:
-
-#15124, @B-Step62; #15061, @TomeHirata
+- Fix connection exhausting when exporting traces to Databricks (#15124, @B-Step62)
+- Add logging of result table for DSPy optimizer tracking (#15061, @TomeHirata)
 
 ## 2.21.1 (2025-03-25)
 
