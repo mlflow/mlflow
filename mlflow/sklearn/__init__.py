@@ -35,6 +35,7 @@ from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model_tracker import _MODEL_TRACKER
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -614,6 +615,7 @@ def _save_model(sk_model, output_path, serialization_format):
             )
 
 
+@_MODEL_TRACKER
 def load_model(model_uri, dst_path=None):
     """
     Load a scikit-learn model from a local file or a run.
