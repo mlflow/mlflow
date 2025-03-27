@@ -111,7 +111,8 @@ def http_request(
                 data=kwargs.get("data"),
             )
             raw_resp = resp["contents"]._response
-            raw_resp.content
+            # raw_resp.content
+            raw_resp
             return raw_resp
         except DatabricksError as e:
             response = requests.Response()
