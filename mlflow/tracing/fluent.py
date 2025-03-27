@@ -6,7 +6,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
