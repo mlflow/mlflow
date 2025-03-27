@@ -565,9 +565,9 @@ def search_traces(
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
 
     Returns:
-        Traces that satisfy the search expressions, either as a list of :py:class:`Trace
-        <mlflow.entities.Trace>` objects or as a Pandas DataFrame, depending on the value of
-        the `return_type` parameter.
+        Traces that satisfy the search expressions. Either as a list of
+        :py:class:`Trace <mlflow.entities.Trace>` objects or as a Pandas DataFrame,
+        depending on the value of the `return_type` parameter.
 
     .. code-block:: python
         :test:
