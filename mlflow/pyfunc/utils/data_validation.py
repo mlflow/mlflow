@@ -80,25 +80,49 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
     return wrapper
 
 
-def _wrap_non_list_predict(func, input_pydantic_model, validation_error_msg):
+def wrap_non_list_predict_pydantic(func, input_pydantic_model, validation_error_msg, unpack=False):
+    """
+    Used by MLflow defined subclasses of PythonModel that have non-list a pydantic model as input.
+    Takes in a dict input, validates it against `input_pydantic_model`, and then creates the pydantic
+    model.
+
+    If `unpack` is True, the validated dict is parsed into the function arguments.
+    Otherwise, the whole pydantic object is passed to the function.
+
+    Args:
+        func: The predict/predict_stream method of the PythonModel subclass.
+        input_pydantic_model: The pydantic model that the input should be validated against.
+        validation_error_msg: The error message to raise if the dict input fails to validate.
+        unpack: Whether to unpack the validated dict into the function arguments. Defaults to False.
+
+    Raises:
+        MlflowException: If the input fails to validate against the pydantic model.
+
+    Returns:
+        A function that can take either a dict input or a pydantic object as input.
+    """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], dict):
             try:
                 model_validate(input_pydantic_model, args[0])
-                request = input_pydantic_model(**args[0])
+                pydantic_obj = input_pydantic_model(**args[0])
             except pydantic.ValidationError as e:
                 raise MlflowException(
                     f"{validation_error_msg} Pydantic validation error: {e}"
                 ) from e
             else:
-                param_names = inspect.signature(func).parameters.keys() - {"self"}
-                kwargs = {k: getattr(request, k) for k in param_names}
-                return func(self, **kwargs)
+                if unpack:
+                    param_names = inspect.signature(func).parameters.keys() - {"self"}
+                    kwargs = {k: getattr(pydantic_obj, k) for k in param_names}
+                    return func(self, **kwargs)
+                else:
+                    return func(self, pydantic_obj)
         else:
+            # Before logging, this is equivalent to the behavior from the raw predict method
             # After logging, signature enforcement happens in the _convert_input method
             # of the wrapper class
-            # Before logging, this is equivalent to the behavior from the raw predict method
             return func(self, *args, **kwargs)
 
     wrapper._is_pyfunc = True

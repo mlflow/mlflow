@@ -32,8 +32,8 @@ from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.data_validation import (
     _check_func_signature,
     _get_func_info_if_type_hint_supported,
-    _wrap_non_list_predict,
     _wrap_predict_with_pyfunc,
+    wrap_non_list_predict_pydantic,
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -658,7 +658,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
                 setattr(
                     cls,
                     attr_name,
-                    _wrap_non_list_predict(
+                    wrap_non_list_predict_pydantic(
                         attr,
                         ChatAgentRequest,
                         "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
