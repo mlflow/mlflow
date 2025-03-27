@@ -524,6 +524,7 @@ from mlflow.types.responses import (
     RESPONSES_AGENT_INPUT_SCHEMA,
     RESPONSES_AGENT_OUTPUT_SCHEMA,
     ResponsesRequest,
+    ResponsesResponse,
 )
 from mlflow.types.type_hints import (
     _convert_dataframe_to_example_format,
@@ -3722,9 +3723,6 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
 
     Returns: a dict input_example
     """
-    default_metadata = {TASK: _DEFAULT_RESPONSES_AGENT_METADATA_TASK}
-    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
-
     if signature is not None:
         raise MlflowException(
             "ResponsesAgent subclasses have a standard signature that is set "
@@ -3736,6 +3734,12 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
         inputs=RESPONSES_AGENT_INPUT_SCHEMA,
         outputs=RESPONSES_AGENT_OUTPUT_SCHEMA,
     )
+
+    # For ResponsesAgent we set default metadata to indicate its task
+    default_metadata = {TASK: _DEFAULT_RESPONSES_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    # We accept either a dict or a ResponsesRequest object as input
     if input_example:
         try:
             model_validate(ResponsesRequest, input_example)
@@ -3751,4 +3755,15 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
             input_example = input_example.model_dump_compat(exclude_none=True)
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
+    _logger.info("Predicting on input example to validate output")
+    request = ResponsesRequest(**input_example)
+    output = python_model.predict(request)
+    try:
+        model_validate(ResponsesResponse, output)
+    except Exception as e:
+        raise MlflowException(
+            "Failed to save ResponsesAgent. Ensure your model's predict() method returns a "
+            "ResponsesResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
     return input_example
