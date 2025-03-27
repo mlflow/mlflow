@@ -2526,6 +2526,8 @@ def _get_experiment_id_from_env():
 def _get_experiment_id():
     if _active_experiment_id:
         return _active_experiment_id
+    elif run := active_run():
+        return run.info.experiment_id
     else:
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
