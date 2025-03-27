@@ -389,9 +389,10 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
 
-    response = verify_rest_response(response, endpoint)
-    response_to_parse = response.text
-    js_dict = json.loads(response_to_parse)
+    with response as res:
+        res = verify_rest_response(res, endpoint)
+        response_to_parse = res.text
+        js_dict = json.loads(response_to_parse)
 
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
