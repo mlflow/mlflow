@@ -110,7 +110,7 @@ def autolog(
             # so that users can see the demonstrations and instructions.
             save_dspy_module_state(program, "best_model.json")
 
-            # Telepromper.get_params is introduced in dspy 2.6.15
+            # Teleprompter.get_params is introduced in dspy 2.6.15
             params = (
                 self.get_params()
                 if Version(importlib.metadata.version("dspy")) >= Version("2.6.15")
