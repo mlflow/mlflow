@@ -137,3 +137,5 @@ export enum ExperimentPageTabName {
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
 }
+
+export const DEFAULT_EXPERIMENT_ID = '0';
