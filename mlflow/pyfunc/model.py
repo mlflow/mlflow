@@ -796,7 +796,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
                 setattr(
                     cls,
                     attr_name,
-                    _wrap_non_list_predict(
+                    wrap_non_list_predict_pydantic(
                         attr,
                         ResponsesRequest,
                         "Invalid dictionary input for a ResponsesAgent. Expected a dictionary with the "
