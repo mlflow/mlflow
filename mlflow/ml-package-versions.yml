@@ -44,7 +44,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 2.3": ["numpy<2"]
+      "< 2.3": ["numpy<2", "transformers<=4.49.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -491,15 +491,14 @@ paddle:
   package_info:
     pip_release: "paddlepaddle"
   models:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]
-      "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]

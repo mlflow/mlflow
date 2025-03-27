@@ -264,8 +264,18 @@ class MlflowCallback(BaseCallback):
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
         if exception:
-            mlflow.end_run(status=RunStatus.FAILED)
-        score = outputs if isinstance(outputs, float) else outputs[0]
+            mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+            return
+        if isinstance(outputs, float):
+            score = outputs
+        elif isinstance(outputs, list):
+            score = outputs[0]
+        elif isinstance(outputs, dspy.Prediction):
+            score = float(outputs)
+            try:
+                mlflow.log_table(self._generate_result_table(outputs.outputs), "result_table.json")
+            except Exception:
+                _logger.debug("Failed to log result table.", exc_info=True)
         mlflow.log_metric("eval", score)
 
         if self._call_id_to_run_id.pop(call_id, None):
@@ -376,3 +386,26 @@ class MlflowCallback(BaseCallback):
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
         return {**inputs_wo_kwargs, **kwargs}
+
+    def _generate_result_table(
+        self, outputs: list[tuple[dspy.Example, dspy.Prediction, Any]]
+    ) -> dict[str, list[Any]]:
+        result = {"score": []}
+        for i, (example, prediction, score) in enumerate(outputs):
+            for k, v in example.items():
+                if f"example_{k}" not in result:
+                    result[f"example_{k}"] = [None] * i
+                result[f"example_{k}"].append(v)
+
+            for k, v in prediction.items():
+                if f"pred_{k}" not in result:
+                    result[f"pred_{k}"] = [None] * i
+                result[f"pred_{k}"].append(v)
+
+            result["score"].append(score)
+
+            for k, v in result.items():
+                if len(v) != i + 1:
+                    result[k].append(None)
+
+        return result
