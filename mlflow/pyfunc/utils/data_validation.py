@@ -83,8 +83,8 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
 def wrap_non_list_predict_pydantic(func, input_pydantic_model, validation_error_msg, unpack=False):
     """
     Used by MLflow defined subclasses of PythonModel that have non-list a pydantic model as input.
-    Takes in a dict input, validates it against `input_pydantic_model`, and then creates the pydantic
-    model.
+    Takes in a dict input, validates it against `input_pydantic_model`, and then creates
+    the pydantic model.
 
     If `unpack` is True, the validated dict is parsed into the function arguments.
     Otherwise, the whole pydantic object is passed to the function.
