@@ -104,7 +104,7 @@ def http_request(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
-                raw=True,
+                # raw=True,
                 query=kwargs.get("params"),
                 body=kwargs.get("json"),
                 files=kwargs.get("files"),
