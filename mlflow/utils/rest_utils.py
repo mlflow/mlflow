@@ -104,15 +104,15 @@ def http_request(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
-                raw=True,
+                raw=True,  # raw is passed to stream in databricks sdk
                 query=kwargs.get("params"),
                 body=kwargs.get("json"),
                 files=kwargs.get("files"),
                 data=kwargs.get("data"),
             )
-            with resp["contents"]._response as raw_resp:
-                raw_resp.content
-                return raw_resp
+            raw_resp = resp["contents"]._response
+            raw_resp.content
+            return raw_resp
         except DatabricksError as e:
             response = requests.Response()
             response.url = url
