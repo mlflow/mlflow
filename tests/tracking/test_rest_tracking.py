@@ -676,7 +676,6 @@ def test_log_batch_validation(mlflow_client):
     assert response.status_code == 200
 
 
-@pytest.mark.xfail(reason="Tracking server does not support logged-model endpoints yet")
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
@@ -1578,7 +1577,6 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
-@pytest.mark.xfail(reason="Tracking server does not support logged-model endpoints yet")
 def test_logging_model_with_local_artifact_uri(mlflow_client):
     from sklearn.linear_model import LogisticRegression
 
