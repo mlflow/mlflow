@@ -183,12 +183,13 @@ class FileStore(AbstractStore):
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    MODELS_FOLDER_NAME = "models"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
+        MODELS_FOLDER_NAME,
     ]
-    MODELS_FOLDER_NAME = "models"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
