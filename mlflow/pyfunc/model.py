@@ -663,6 +663,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
                         ChatAgentRequest,
                         "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
                         "ChatAgentRequest schema.",
+                        unpack=True,
                     ),
                 )
 
