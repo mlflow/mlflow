@@ -507,7 +507,7 @@ def search_traces(
     order_by: Optional[list[str]] = None,
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
-    return_type: str = "pandas",
+    return_type: Literal["pandas", "list"] = "pandas",
 ) -> Union["pandas.DataFrame", list[Trace]]:
     """
     Return traces that match the given list of search expressions within the experiments.
