@@ -76,12 +76,13 @@ mlflow.dspy.autolog(log_compiles=True, log_evals=True, log_traces_from_compile=T
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("DSPy")
 
-lm = dspy.LM(model='openai/gpt-3.5-turbo', max_tokens=250)
+lm = dspy.LM(model="openai/gpt-3.5-turbo", max_tokens=250)
 dspy.configure(lm=lm)
 
 gms8k = GSM8K()
 
 trainset, devset = gms8k.train, gms8k.dev[:50]
+
 
 class CoT(dspy.Module):
     def __init__(self):
@@ -90,6 +91,7 @@ class CoT(dspy.Module):
 
     def forward(self, question):
         return self.prog(question=question)
+
 
 program = CoT()
 
