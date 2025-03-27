@@ -79,6 +79,7 @@ CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
+_DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v3/chat"
 
 _logger = logging.getLogger(__name__)
 
@@ -1200,6 +1201,8 @@ def _get_pyfunc_loader_module(python_model):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
+    elif isinstance(python_model, ResponsesAgent):
+        return mlflow.pyfunc.loaders.responses_agent.__name__
     return __name__
 
 

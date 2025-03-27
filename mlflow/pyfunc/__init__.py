@@ -488,10 +488,12 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
 from mlflow.pyfunc.model import (
     _DEFAULT_CHAT_AGENT_METADATA_TASK,
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    _DEFAULT_RESPONSES_AGENT_METADATA_TASK,
     ChatAgent,
     ChatModel,
     PythonModel,
     PythonModelContext,
+    ResponsesAgent,
     _FunctionPythonModel,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
@@ -516,6 +518,12 @@ from mlflow.types.llm import (
     ChatCompletionResponse,
     ChatMessage,
     ChatParams,
+)
+from mlflow.types.responses import (
+    RESPONSES_AGENT_INPUT_EXAMPLE,
+    RESPONSES_AGENT_INPUT_SCHEMA,
+    RESPONSES_AGENT_OUTPUT_SCHEMA,
+    ResponsesRequest,
 )
 from mlflow.types.type_hints import (
     _convert_dataframe_to_example_format,
@@ -3103,6 +3111,10 @@ def save_model(
         input_example = _save_model_chat_agent_helper(
             python_model, mlflow_model, signature, input_example
         )
+    elif isinstance(python_model, ResponsesAgent):
+        input_example = _save_model_responses_agent_helper(
+            python_model, mlflow_model, signature, input_example
+        )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
         predict_func = None
@@ -3702,4 +3714,41 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
             "ChatAgentResponse object or a dict with the same schema."
             f"Pydantic validation error: {e}"
         ) from e
+    return input_example
+
+
+def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+    """Helper method for save_model for ResponsesAgent models
+
+    Returns: a dict input_example
+    """
+    default_metadata = {TASK: _DEFAULT_RESPONSES_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    if signature is not None:
+        raise MlflowException(
+            "ResponsesAgent subclasses have a standard signature that is set "
+            "automatically. Please remove the `signature` parameter from "
+            "the call to log_model() or save_model().",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    mlflow_model.signature = ModelSignature(
+        inputs=RESPONSES_AGENT_INPUT_SCHEMA,
+        outputs=RESPONSES_AGENT_OUTPUT_SCHEMA,
+    )
+    if input_example:
+        try:
+            model_validate(ResponsesRequest, input_example)
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    f"Invalid input example. Expected a ResponsesRequest object or dictionary with"
+                    f" its schema. Pydantic validation error: {e}"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        if isinstance(input_example, ResponsesRequest):
+            input_example = input_example.model_dump_compat(exclude_none=True)
+    else:
+        input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     return input_example
