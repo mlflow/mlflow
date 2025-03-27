@@ -640,39 +640,80 @@ def test_autolog_log_nested_compile():
     assert "best_model.json" in artifacts
 
 
-skip_if_callback_unavailable = pytest.mark.skipif(
+skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
     Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
     reason="evaluate callback is available since 2.6.12",
 )
 
 
-@skip_if_callback_unavailable
+# Evaluate.call starts to return dspy.Prediction since 2.7.0
+is_result_table_available = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
+
+
+@skip_if_evaluate_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
-def test_autolog_log_evals(log_evals):
-    dspy.settings.configure(
-        lm=DummyLM(
+@pytest.mark.parametrize(
+    ("lm", "examples", "expected_result_table"),
+    [
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+            ],
             {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
-    )
-    dataset = [
-        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
-        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
-    ]
+                "columns": ["score", "example_question", "example_answer", "pred_answer"],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2"],
+                    [False, "What is 2 + 2?", "4", "1000"],
+                ],
+            },
+        ),
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4", reason="should be 4").with_inputs(
+                    "question"
+                ),
+            ],
+            {
+                "columns": [
+                    "score",
+                    "example_question",
+                    "example_answer",
+                    "pred_answer",
+                    "example_reason",
+                ],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2", None],
+                    [False, "What is 2 + 2?", "4", "1000", "should be 4"],
+                ],
+            },
+        ),
+    ],
+)
+def test_autolog_log_evals(tmp_path, log_evals, lm, examples, expected_result_table):
+    dspy.settings.configure(lm=lm)
     program = Predict("question -> answer")
-    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
 
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=dataset)
+    evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
         assert run is not None
-        client = MlflowClient()
-        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "model.json" in artifacts
         assert run.data.metrics == {"eval": 50.0}
         assert run.data.params == {
             "Predict.signature.fields.0.description": "${question}",
@@ -681,11 +722,21 @@ def test_autolog_log_evals(log_evals):
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
         }
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+        if is_result_table_available:
+            assert "result_table.json" in artifacts
+            client.download_artifacts(
+                run_id=run.info.run_id, path="result_table.json", dst_path=tmp_path
+            )
+            result_table = json.loads((tmp_path / "result_table.json").read_text())
+            assert result_table == expected_result_table
     else:
         assert run is None
 
 
-@skip_if_callback_unavailable
+@skip_if_evaluate_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program, eval, trainset, valset):

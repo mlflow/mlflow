@@ -1,4 +1,3 @@
-import asyncio
 import json
 from unittest import mock
 
@@ -385,27 +384,27 @@ async def test_embeddings_autolog(client):
 
 
 @pytest.mark.asyncio
-def test_autolog_use_active_run_id(client):
+async def test_autolog_use_active_run_id(client):
     mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
 
-    def _call_create():
+    async def _call_create():
         response = client.chat.completions.create(messages=messages, model="gpt-4o-mini")
         if client._is_async:
-            return asyncio.run(response)
+            await response
         return response
 
     with mlflow.start_run() as run_1:
-        _call_create()
+        await _call_create()
 
     with mlflow.start_run() as run_2:
-        _call_create()
-        _call_create()
+        await _call_create()
+        await _call_create()
 
     with mlflow.start_run() as run_3:
         mlflow.openai.autolog()
-        _call_create()
+        await _call_create()
 
     traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
     assert len(traces) == 4
