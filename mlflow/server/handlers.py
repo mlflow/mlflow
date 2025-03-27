@@ -2699,13 +2699,10 @@ def _delete_logged_model(model_id: str):
 def _set_logged_model_tags(model_id: str):
     request_message = _get_request_message(
         SetLoggedModelTags(),
-        schema={
-            "model_id": [_assert_string, _assert_required],
-            "tags": [_assert_array],
-        },
+        schema={"tags": [_assert_array]},
     )
     tags = [LoggedModelTag(key=tag.key, value=tag.value) for tag in request_message.tags]
-    _get_tracking_store().set_logged_model_tags(request_message.model_id, tags)
+    _get_tracking_store().set_logged_model_tags(model_id, tags)
     return _wrap_response(SetLoggedModelTags.Response())
 
 
