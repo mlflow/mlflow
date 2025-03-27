@@ -1,9 +1,9 @@
 import { APILink } from "@site/src/components/APILink";
 
-# DSPy Optimizer Tracking
+# DSPy Optimizer Autologging
 
 A [DSPy optimizer](https://dspy.ai/learn/optimization/optimizers/) is an algorithm that tunes the parameters of a DSPy program (i.e., the prompts and/or the LM weights) to maximize the metrics you specify.
-Historically optimizers have following challenges due to its black box nature:
+However, optimizers have the following challenges due to its black box nature:
 
 1. **Parameters and Score of individual trial**: Program parameters (e.g. proposed instructions and selected demonstrations) and performance of each trial during optimization are not saved. 
 2. **Intermediate Artifacts**: Prompts and model responses for the intermediate programs are not available. While some of them are printed out, there is no easy way to store the information in a structured manner.
@@ -48,21 +48,27 @@ mlflow.dspy.autolog(log_compiles=True, log_evals=True, log_traces_from_compile=T
             <td>MLflow does not generate traces for program calls during optimization by default. Set `True` to see traces for programs calls during optimization.</td>
         </tr>
         <tr>
+            <td>Traces during Evaluation</td>
+            <td>`True`</td>
+            <td>`log_traces_from_eval`</td>
+            <td>If set `True`, MLflow generates traces for program calls during evaluation.</td>
+        </tr>
+        <tr>
             <td>Optimization</td>
             <td>`false`</td>
-            <td>`log_compile`</td>
+            <td>`log_compiles`</td>
             <td>If set to `True`, a MLflow run is created for each `Teleprompter.compile` call, and metrics and artifacts for the optimization are logged.</td>
         </tr>
         <tr>
             <td>Evaluation</td>
             <td>`false`</td>
             <td>`log_evals`</td>
-            <td>If set to `True`, a MLflow run is created for each `Evaluation.__call__` call, and metrics and artifacts for the evaluation are logged.</td>
+            <td>If set to `True`, a MLflow run is created for each `Evaluate.__call__` call, and metrics and artifacts for the evaluation are logged.</td>
         </tr>
     </tbody>
 </table>
 
-# Example Code of DSPy Optimizer Tracking
+## Example Code of DSPy Optimizer Tracking
 
 ```python
 import dspy
@@ -79,9 +85,9 @@ mlflow.set_experiment("DSPy")
 lm = dspy.LM(model="openai/gpt-3.5-turbo", max_tokens=250)
 dspy.configure(lm=lm)
 
-gms8k = GSM8K()
+gsm8k = GSM8K()
 
-trainset, devset = gms8k.train, gms8k.dev[:50]
+trainset, devset = gsm8k.train, gsm8k.dev[:50]
 
 
 class CoT(dspy.Module):
@@ -110,7 +116,7 @@ optimized_program = teleprompter.compile(
 )
 ```
 
-# What are logged?
+## What Gets Logged?
 MLflow optimizer tracking logs the following information:
 - **Optimizer Parameters**: The hyper parameters of the optimizer (e.g. number of demonstrates).
 - **Optimized Program**: MLflow automatically saves the states of the optimized program as a json artifact.
@@ -119,11 +125,12 @@ MLflow optimizer tracking logs the following information:
 - **Intermediate Program States and Metric**: The states of the program and the performance metric at each evaluation are captured in an evaluation run.
 - **Traces**: The traces of each intermediate program are captured in an evaluation run.
 
-When both `log_compile` and `log_evals` are set to `True`, MLflow creates a run for `Teleprompter.compile` with child runs for `Evaluation.__call__` calls. 
+When both `log_compiles` and `log_evals` are set to `True`, MLflow creates a run for `Teleprompter.compile` with child runs for `Evaluate.__call__` calls. 
 In the MLflow UI, they are displayed hierarchically as shown below:
-<img src="https://i.imgur.com/582t3nV.png" alt="Experiment Page" width="700px"/>
+<img src="https://i.imgur.com/eD0lA6V.png" alt="Experiment Page" width="700px"/>
 
 In the run page for the parent run (compile call), the optimizer parameters are displayed as run parameters. The progression of program performance is displayed as model metrics and the datasets used in the optimization are displayed as artifacts.
+When there are multiple type of evaluation calls (e.g. full dataset evaluation and mini-batch evaluation), the evaluation results are logged separately.
 <img src="https://i.imgur.com/lXKINPQ.png" alt="Parent Run" width="1000px"/>
 
 In the run page for the child run (evaluation call), the intermediate program states are displayed as run parameters, the performance metric are displayed as model metrics and the traces of the program are available in the trace tab.
