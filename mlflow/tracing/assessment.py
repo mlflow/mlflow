@@ -238,6 +238,7 @@ def log_feedback(
     """
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
+
     return MlflowClient().log_assessment(
         trace_id=trace_id,
         name=name,

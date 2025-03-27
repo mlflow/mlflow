@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -52,6 +53,7 @@ class AssessmentSource(_MlflowObject):
 @experimental
 class AssessmentSourceType:
     SOURCE_TYPE_UNSPECIFIED = "SOURCE_TYPE_UNSPECIFIED"
+    AI_JUDGE = "AI_JUDGE"  # Deprecated, use LLM_JUDGE instead
     LLM_JUDGE = "LLM_JUDGE"
     HUMAN = "HUMAN"
     CODE = "CODE"
@@ -63,6 +65,13 @@ class AssessmentSourceType:
     @staticmethod
     def _parse(source_type: str) -> str:
         source_type = source_type.upper()
+        # Backwards compatibility shim for mlflow.evaluations.AssessmentSourceType
+        if source_type == AssessmentSourceType.AI_JUDGE:
+            warnings.warn(
+                "AI_JUDGE is deprecated. Use LLM_JUDGE instead.",
+                DeprecationWarning,
+            )
+            source_type = AssessmentSourceType.LLM_JUDGE
         if source_type not in AssessmentSourceType._SOURCE_TYPES:
             raise MlflowException(
                 message=(
