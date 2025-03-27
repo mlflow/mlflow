@@ -3,11 +3,10 @@ from typing import Any, Optional, Union
 from mlflow.types.chat import BaseModel
 from mlflow.utils.pydantic_utils import model_validator
 
+
 ################################
 # Response helper classes
 ################################
-
-
 class ResponseError(BaseModel):
     code: str
     """The error code for the response."""
@@ -796,6 +795,275 @@ class Response(BaseModel):
 
     @model_validator(mode="after")
     def truncation(self) -> "Response":
+        if self.truncation not in {"auto", "disabled"}:
+            raise ValueError(f"Invalid truncation: {self.truncation}")
+        return self
+
+
+################################
+# ResponseRequest helper classes
+################################
+
+
+class ResponseInputTextParam(BaseModel):
+    text: str
+    """The text input to the model."""
+
+    type: str = "input_text"
+    """The type of the input item. Always `input_text`."""
+
+    @model_validator(mode="after")
+    def check_type(self) -> "ResponseInputTextParam":
+        if self.type != "input_text":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+
+class ResponseInputImageParam(BaseModel):
+    detail: str
+    """The detail level of the image to be sent to the model.
+
+    One of `high`, `low`, or `auto`. Defaults to `auto`.
+    """
+
+    type: str = "input_image"
+    """The type of the input item. Always `input_image`."""
+
+    file_id: Optional[str]
+    """The ID of the file to be sent to the model."""
+
+    image_url: Optional[str]
+    """The URL of the image to be sent to the model.
+
+    A fully qualified URL or base64 encoded image in a data URL.
+    """
+
+    @model_validator(mode="after")
+    def check_type(self) -> "ResponseInputImageParam":
+        if self.type != "input_image":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+    @model_validator(mode="after")
+    def check_detail(self) -> "ResponseInputImageParam":
+        if self.detail not in {"high", "low", "auto"}:
+            raise ValueError(f"Invalid detail: {self.detail}")
+        return self
+
+
+class ResponseInputFileParam(BaseModel):
+    type: str = "input_file"
+    """The type of the input item. Always `input_file`."""
+
+    file_data: Optional[str] = None
+    """The content of the file to be sent to the model."""
+
+    file_id: Optional[str] = None
+    """The ID of the file to be sent to the model."""
+
+    filename: Optional[str] = None
+    """The name of the file to be sent to the model."""
+
+    @model_validator(mode="after")
+    def check_type(self) -> "ResponseInputFileParam":
+        if self.type != "input_file":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+
+class EasyInputMessageParam(BaseModel):
+    content: Union[
+        str, list[Union[ResponseInputTextParam, ResponseInputImageParam, ResponseInputFileParam]]
+    ]
+    """
+    Text, image, or audio input to the model, used to generate a response. Can also
+    contain previous assistant responses.
+    """
+
+    role: str
+    """The role of the message input.
+
+    One of `user`, `assistant`, `system`, or `developer`.
+    """
+
+    type: str = "message"
+    """The type of the message input. Always `message`."""
+
+    @model_validator(mode="after")
+    def check_type(self) -> "EasyInputMessageParam":
+        if self.type != "message":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+    @model_validator(mode="after")
+    def check_role(self) -> "EasyInputMessageParam":
+        if self.role not in {"user", "assistant", "system", "developer"}:
+            raise ValueError(f"Invalid role: {self.role}")
+        return self
+
+
+class Message(BaseModel):
+    content: list[Union[ResponseInputTextParam, ResponseInputImageParam, ResponseInputFileParam]]
+    """
+    A list of one or many input items to the model, containing different content
+    types.
+    """
+
+    role: str
+    """The role of the message input. One of `user`, `system`, or `developer`."""
+
+    status: str
+    """The status of item.
+
+    One of `in_progress`, `completed`, or `incomplete`. Populated when items are
+    returned via API.
+    """
+
+    type: str = "message"
+    """The type of the message input. Always set to `message`."""
+
+    @model_validator(mode="after")
+    def check_type(self) -> "Message":
+        if self.type != "message":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+    @model_validator(mode="after")
+    def check_role(self) -> "Message":
+        if self.role not in {"user", "assistant", "system", "developer"}:
+            raise ValueError(f"Invalid role: {self.role}")
+        return self
+
+    @model_validator(mode="after")
+    def check_status(self) -> "Message":
+        if self.status not in {"in_progress", "completed", "incomplete"}:
+            raise ValueError(f"Invalid status: {self.status}")
+        return self
+
+
+class ComputerCallOutput(BaseModel):
+    call_id: str
+    """The ID of the computer tool call that produced the output."""
+
+    # TODO bbqiu revisit this to see if we need to validate ResponseComputerToolCallOutputScreenshotParam
+    output: Any
+    """A computer screenshot image used with the computer use tool."""
+
+    type: str = "computer_call_output"
+    """The type of the computer tool call output. Always `computer_call_output`."""
+
+    id: str
+    """The ID of the computer tool call output."""
+
+    # TODO bbqiu revisit this to see if we need to validate ComputerCallOutputAcknowledgedSafetyCheck
+    acknowledged_safety_checks: list[Any]
+    """
+    The safety checks reported by the API that have been acknowledged by the
+    developer.
+    """
+
+    status: str
+    """The status of the message input.
+
+    One of `in_progress`, `completed`, or `incomplete`. Populated when input items
+    are returned via API.
+    """
+
+    @model_validator(mode="after")
+    def check_type(self) -> "ComputerCallOutput":
+        if self.type != "computer_call_output":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+    @model_validator(mode="after")
+    def check_status(self) -> "ComputerCallOutput":
+        if self.status not in {"in_progress", "completed", "incomplete"}:
+            raise ValueError(f"Invalid status: {self.status}")
+        return self
+
+
+class FunctionCallOutput(BaseModel):
+    call_id: str
+    """The unique ID of the function tool call generated by the model."""
+
+    output: str
+    """A JSON string of the output of the function tool call."""
+
+    type: str = "function_call_output"
+    """The type of the function tool call output. Always `function_call_output`."""
+
+    id: str
+    """The unique ID of the function tool call output.
+
+    Populated when this item is returned via API.
+    """
+
+    status: str
+    """The status of the item.
+
+    One of `in_progress`, `completed`, or `incomplete`. Populated when items are
+    returned via API.
+    """
+
+    @model_validator(mode="after")
+    def check_type(self) -> "FunctionCallOutput":
+        if self.type != "function_call_output":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+    @model_validator(mode="after")
+    def check_status(self) -> "FunctionCallOutput":
+        if self.status not in {"in_progress", "completed", "incomplete"}:
+            raise ValueError(f"Invalid status: {self.status}")
+        return self
+
+
+class ItemReference(BaseModel):
+    id: str
+    """The ID of the item to reference."""
+
+    type: str = "item_reference"
+    """The type of item to reference. Always `item_reference`."""
+
+    @model_validator(mode="after")
+    def check_type(self) -> "ItemReference":
+        if self.type != "item_reference":
+            raise ValueError(f"Invalid type: {self.type}")
+        return self
+
+
+class BaseRequestPayload(BaseModel):
+    model: str
+    max_output_tokens: Optional[int]
+    metadata: Optional[dict[str, Any]]
+    parallel_tool_calls: Optional[bool]
+    reasoning: Optional[Reasoning]
+    store: Optional[bool]
+    stream: Optional[bool] = False
+    temperature: Optional[float]
+    # TODO bbqiu revisit this ResponseFormatTextConfig: TypeAlias
+    text: Any
+    tool_choice: Optional[Union[str, ToolChoiceFunction]]
+    top_p: Optional[float]
+    truncation: Optional[str]
+    user: Optional[str]
+
+    @model_validator(mode="after")
+    def check_tool_choice(self) -> "Response":
+        if isinstance(self.tool_choice, str) and self.tool_choice not in {
+            "none",
+            "auto",
+            "required",
+            "file_search",
+            "web_search_preview",
+            "computer_use_preview",
+            "web_search_preview_2025_03_11",
+        }:
+            raise ValueError(f"Invalid tool_choice: {self.tool_choice}")
+        return self
+
+    @model_validator(mode="after")
+    def check_truncation(self) -> "Response":
         if self.truncation not in {"auto", "disabled"}:
             raise ValueError(f"Invalid truncation: {self.truncation}")
         return self
