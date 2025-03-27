@@ -20,6 +20,59 @@ export const TracesViewTableNoTracesQuickstart = ({
   // only display the experiment ID if the user is viewing exactly one experiment
   const experimentId = experimentIds.length === 1 ? experimentIds[0] : null;
 
+  const tabs = [
+    {
+      value: 'langchain',
+      title: (
+        <FormattedMessage
+          defaultMessage="LangChain / LangGraph"
+          description="Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
+        />
+      ),
+      component: TraceTableLangchainQuickstartContent,
+    },
+    {
+      value: 'llama-index',
+      title: (
+        <FormattedMessage
+          defaultMessage="LlamaIndex"
+          description="Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
+        />
+      ),
+      component: TraceTableLlamaIndexQuickstartContent,
+    },
+    {
+      value: 'autogen',
+      title: (
+        <FormattedMessage
+          defaultMessage="AutoGen"
+          description="Header for AutoGen tab in the MLflow Tracing quickstart guide"
+        />
+      ),
+      component: TraceTableAutogenQuickstartContent,
+    },
+    {
+      value: 'openai',
+      title: (
+        <FormattedMessage
+          defaultMessage="OpenAI"
+          description="Header for OpenAI tab in the MLflow Tracing quickstart guide"
+        />
+      ),
+      component: TraceTableOpenAIQuickstartContent,
+    },
+    {
+      value: 'custom',
+      title: (
+        <FormattedMessage
+          defaultMessage="Custom"
+          description="Header for custom tracing tab in the MLflow Tracing quickstart guide"
+        />
+      ),
+      component: TraceTableCustomQuickstartContent,
+    },
+  ];
+
   return (
     <div css={{ marginLeft: -theme.spacing.md }}>
       <Header
@@ -64,72 +117,20 @@ export const TracesViewTableNoTracesQuickstart = ({
       </Typography.Text>
       <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="langchain">
         <Tabs.List>
-          <Tabs.Trigger value="langchain">
-            <FormattedMessage
-              defaultMessage="LangChain / LangGraph"
-              description="Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="llama-index">
-            <FormattedMessage
-              defaultMessage="LlamaIndex"
-              description="Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="autogen">
-            <FormattedMessage
-              defaultMessage="AutoGen"
-              description="Header for AutoGen tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="openai">
-            <FormattedMessage
-              defaultMessage="OpenAI"
-              description="Header for OpenAI tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="custom">
-            <FormattedMessage
-              defaultMessage="Custom"
-              description="Header for custom tracing tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
+          {tabs.map((tab) => (
+            <Tabs.Trigger key={tab.value} value={tab.value}>
+              {tab.title}
+            </Tabs.Trigger>
+          ))}
         </Tabs.List>
-        <Tabs.Content value="langchain">
-          <TraceTableLangchainQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="llama-index">
-          <TraceTableLlamaIndexQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="autogen">
-          <TraceTableAutogenQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="openai">
-          <TraceTableOpenAIQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="custom">
-          <TraceTableCustomQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
+        {tabs.map((tab) => {
+          const Component = tab.component;
+          return (
+            <Tabs.Content key={tab.value} value={tab.value}>
+              <Component baseComponentId={baseComponentId} experimentId={experimentId} runUuid={runUuid} />
+            </Tabs.Content>
+          );
+        })}
       </Tabs.Root>
     </div>
   );
