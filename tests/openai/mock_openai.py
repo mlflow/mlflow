@@ -8,7 +8,8 @@ from starlette.responses import StreamingResponse
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
-EMPTY_CHOICES = "EMPTY_CHOICES"
+STREAMING_WITH_AOAI_CONTENT_FILTERING = "STREAMING_WITH_AOAI_CONTENT_FILTERING"
+STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING = "STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING"
 
 app = fastapi.FastAPI()
 
@@ -88,23 +89,63 @@ def _make_chat_stream_chunk_empty_choices():
     }
 
 
+def _make_chat_stream_chunk_choice_delta_none():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [{}],
+        "usage": None,
+    }
+
+
+def _make_chat_stream_chunk_choice_delta_content_none():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [{"delta": {}}],
+        "usage": None,
+    }
+
+
 async def chat_response_stream():
     yield _make_chat_stream_chunk("Hello")
     yield _make_chat_stream_chunk(" world")
 
 
-async def chat_response_stream_empty_choices():
+async def chat_response_stream_with_aoai_content_filtering():
+    # Input prompt filtering
     yield _make_chat_stream_chunk_empty_choices()
     yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk_choice_delta_content_none()
+
+
+async def chat_response_stream_with_aoai_async_content_filtering():
+    # Input prompt filtering
+    yield _make_chat_stream_chunk_empty_choices()
+    yield _make_chat_stream_chunk("Hello")
+    # Output filtering
+    yield _make_chat_stream_chunk_choice_delta_none()
 
 
 @app.post("/chat/completions", response_model_exclude_unset=True)
 async def chat(payload: ChatCompletionRequest):
     if payload.stream:
         # SSE stream
-        if EMPTY_CHOICES == payload.messages[0].content:
+        if STREAMING_WITH_AOAI_CONTENT_FILTERING == payload.messages[0].content:
             content = (
-                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_aoai_content_filtering()
+            )
+        elif STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_aoai_async_content_filtering()
             )
         else:
             content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
@@ -165,23 +206,53 @@ def _make_completions_stream_chunk_empty_choices():
     }
 
 
+def _make_completions_stream_chunk_choice_text_empty():
+    return {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4o-mini",
+        "choices": [{"text": ""}],
+        "system_fingerprint": None,
+        "usage": None,
+    }
+
+
 async def completions_response_stream():
     yield _make_completions_stream_chunk("Hello")
     yield _make_completions_stream_chunk(" world")
 
 
-async def completions_response_stream_empty_choices():
+async def completions_response_stream_with_aoai_content_filtering():
+    # Input prompt filtering
     yield _make_completions_stream_chunk_empty_choices()
     yield _make_completions_stream_chunk("Hello")
+    # Usage
+    yield _make_completions_stream_chunk_empty_choices()
+
+
+async def completions_response_stream_with_aoai_async_content_filtering():
+    # Input prompt filtering
+    yield _make_completions_stream_chunk_empty_choices()
+    yield _make_completions_stream_chunk("Hello")
+    # Output filtering
+    yield _make_completions_stream_chunk_choice_text_empty()
+    # Usage
+    yield _make_completions_stream_chunk_empty_choices()
 
 
 @app.post("/completions")
 def completions(payload: CompletionsPayload):
     if payload.stream:
-        if EMPTY_CHOICES == payload.prompt:
+        if STREAMING_WITH_AOAI_CONTENT_FILTERING == payload.prompt:
             content = (
                 f"data: {json.dumps(d)}\n\n"
-                async for d in completions_response_stream_empty_choices()
+                async for d in completions_response_stream_with_aoai_content_filtering()
+            )
+        elif STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING == payload.prompt:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in completions_response_stream_with_aoai_async_content_filtering()
             )
         else:
             content = (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream())
