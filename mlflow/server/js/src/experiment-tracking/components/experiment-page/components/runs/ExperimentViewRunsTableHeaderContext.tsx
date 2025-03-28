@@ -1,7 +1,20 @@
 import React, { useMemo } from 'react';
 import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIState';
 
-const ExperimentViewRunsTableHeaderContext = React.createContext({
+type ExperimentViewRunsTableHeaderContextType = {
+  runsHiddenMode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE];
+  useGroupedValuesInCharts?: boolean;
+  /**
+   * Whether the user is using custom visibility settings (at least one row is configured manually)
+   */
+  usingCustomVisibility?: boolean;
+  /**
+   * Whether all runs are hidden
+   */
+  allRunsHidden?: boolean;
+};
+
+const ExperimentViewRunsTableHeaderContext = React.createContext<ExperimentViewRunsTableHeaderContextType>({
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   useGroupedValuesInCharts: true,
   usingCustomVisibility: false,
@@ -21,19 +34,7 @@ export const ExperimentViewRunsTableHeaderContextProvider = ({
   useGroupedValuesInCharts,
   usingCustomVisibility,
   allRunsHidden,
-}: {
-  children: React.ReactNode;
-  runsHiddenMode: RUNS_VISIBILITY_MODE;
-  useGroupedValuesInCharts?: boolean;
-  /**
-   * Whether the user is using custom visibility settings (at least one row is configured manually)
-   */
-  usingCustomVisibility?: boolean;
-  /**
-   * Whether all runs are hidden
-   */
-  allRunsHidden?: boolean;
-}) => {
+}: ExperimentViewRunsTableHeaderContextType & { children: React.ReactNode }) => {
   const contextValue = useMemo(
     () => ({
       runsHiddenMode,

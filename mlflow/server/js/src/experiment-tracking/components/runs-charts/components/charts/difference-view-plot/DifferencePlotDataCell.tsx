@@ -7,7 +7,13 @@ import {
 import { type CellContext } from '@tanstack/react-table';
 import { DifferencePlotDataColumnDef, type DifferencePlotDataRow } from '../DifferenceViewPlot';
 
-const CellDifference = ({ label, direction }: { label: string; direction: DifferenceChartCellDirection }) => {
+const CellDifference = ({
+  label,
+  direction,
+}: {
+  label: string;
+  direction: typeof DifferenceChartCellDirection[keyof typeof DifferenceChartCellDirection];
+}) => {
   const { theme } = useDesignSystemTheme();
   let paragraphColor = undefined;
   let icon = null;

@@ -1,19 +1,10 @@
-import type { ErrorLogType } from './ErrorLogType';
-import type { ErrorName } from './ErrorName';
 import {
-  PredefinedError,
   matchPredefinedError,
   NotFoundError,
   PermissionError,
   UnauthorizedError,
   UnknownError,
 } from './PredefinedErrors';
-
-class GenericError extends PredefinedError {
-  errorLogType = 'GenericError' as ErrorLogType;
-  errorName = 'GenericError' as ErrorName;
-  displayMessage = 'Generic Message';
-}
 
 describe('PredefinedErrors', () => {
   describe('matchPredefinedError', () => {

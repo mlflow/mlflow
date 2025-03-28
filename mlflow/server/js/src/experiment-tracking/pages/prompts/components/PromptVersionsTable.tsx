@@ -39,7 +39,7 @@ export const PromptVersionsTable = ({
   comparedVersion?: string;
   onUpdateSelectedVersion: (version: string) => void;
   onUpdateComparedVersion: (version: string) => void;
-  mode: PromptVersionsTableMode;
+  mode: typeof PromptVersionsTableMode[keyof typeof PromptVersionsTableMode];
   registeredPrompt?: RegisteredPrompt;
   showEditAliasesModal?: (versionNumber: string) => void;
   aliasesByVersion: Record<string, string[]>;
@@ -138,13 +138,13 @@ export const PromptVersionsTable = ({
         ) : (
           table.getRowModel().rows.map((row) => {
             const isSelectedSingle =
-              [PromptVersionsTableMode.PREVIEW].includes(mode) && selectedVersion === row.original.version;
+              PromptVersionsTableMode.PREVIEW === mode && selectedVersion === row.original.version;
 
             const isSelectedFirstToCompare =
-              [PromptVersionsTableMode.COMPARE].includes(mode) && selectedVersion === row.original.version;
+              PromptVersionsTableMode.COMPARE === mode && selectedVersion === row.original.version;
 
             const isSelectedSecondToCompare =
-              [PromptVersionsTableMode.COMPARE].includes(mode) && comparedVersion === row.original.version;
+              PromptVersionsTableMode.COMPARE === mode && comparedVersion === row.original.version;
 
             const getColor = () => {
               if (isSelectedSingle) {

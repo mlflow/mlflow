@@ -8,10 +8,10 @@ import { getPromptContentTagValue } from '../utils';
 import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
 import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 
-export enum CreatePromptModalMode {
-  CreatePrompt = 'CreatePrompt',
-  CreatePromptVersion = 'CreatePromptVersion',
-}
+export const CreatePromptModalMode = {
+  CreatePrompt: 'CreatePrompt',
+  CreatePromptVersion: 'CreatePromptVersion',
+} as const;
 
 export const useCreatePromptModal = ({
   mode = CreatePromptModalMode.CreatePromptVersion,
@@ -19,7 +19,7 @@ export const useCreatePromptModal = ({
   latestVersion,
   onSuccess,
 }: {
-  mode: CreatePromptModalMode;
+  mode: typeof CreatePromptModalMode[keyof typeof CreatePromptModalMode];
   registeredPrompt?: RegisteredPrompt;
   latestVersion?: RegisteredPromptVersion;
   onSuccess?: (result: { promptName: string; promptVersion?: string }) => void | Promise<any>;

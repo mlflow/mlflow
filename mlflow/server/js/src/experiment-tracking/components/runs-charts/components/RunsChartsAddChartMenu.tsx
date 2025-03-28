@@ -13,12 +13,13 @@ import { shouldEnableDifferenceViewCharts } from '@mlflow/mlflow/src/common/util
 import { FormattedMessage } from 'react-intl';
 
 export interface RunsChartsAddChartMenuProps {
-  onAddChart: (type: RunsChartType) => void;
-  supportedChartTypes?: RunsChartType[];
+  onAddChart: (type: typeof RunsChartType[keyof typeof RunsChartType]) => void;
+  supportedChartTypes?: typeof RunsChartType[keyof typeof RunsChartType][];
 }
 
 export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: RunsChartsAddChartMenuProps) => {
-  const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
+  const isChartTypeSupported = (type: typeof RunsChartType[keyof typeof RunsChartType]) =>
+    !supportedChartTypes || supportedChartTypes.includes(type);
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>

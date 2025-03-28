@@ -272,16 +272,16 @@ export interface ExperimentStoreEntities {
   colorByRunUuid: Record<string, string>;
 }
 
-export enum LIFECYCLE_FILTER {
-  ACTIVE = 'Active',
-  DELETED = 'Deleted',
-}
+export const LIFECYCLE_FILTER = {
+  ACTIVE: 'Active',
+  DELETED: 'Deleted',
+} as const;
 
-export enum MODEL_VERSION_FILTER {
-  WITH_MODEL_VERSIONS = 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
-  ALL_RUNS = 'All Runs',
-}
+export const MODEL_VERSION_FILTER = {
+  WITH_MODEL_VERSIONS: 'With Model Versions',
+  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
+  ALL_RUNS: 'All Runs',
+} as const;
 
 export type ExperimentCategorizedUncheckedKeys = {
   attributes: string[];
@@ -299,16 +299,16 @@ export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<Experime
 /**
  * Enum representing the different types of dataset sources.
  */
-export enum DatasetSourceTypes {
-  DELTA = 'delta_table',
-  EXTERNAL = 'external',
-  CODE = 'code',
-  LOCAL = 'local',
-  HTTP = 'http',
-  S3 = 's3',
-  HUGGING_FACE = 'hugging_face',
-  UC = 'uc_volume',
-}
+export const DatasetSourceTypes = {
+  DELTA: 'delta_table',
+  EXTERNAL: 'external',
+  CODE: 'code',
+  LOCAL: 'local',
+  HTTP: 'http',
+  S3: 's3',
+  HUGGING_FACE: 'hugging_face',
+  UC: 'uc_volume',
+} as const;
 
 /**
  * Describes a single entry in the text evaluation artifact
@@ -343,16 +343,16 @@ export interface EvaluationArtifactTable {
 /**
  * Known artifact types that are useful for the evaluation purposes
  */
-export enum RunLoggedArtifactType {
-  TABLE = 'table',
-}
+export const RunLoggedArtifactType = {
+  TABLE: 'table',
+} as const;
 
 /**
  * Shape of the contents of "mlflow.loggedArtifacts" tag
  */
 export type RunLoggedArtifactsDeclaration = {
   path: string;
-  type: RunLoggedArtifactType;
+  type: typeof RunLoggedArtifactType[keyof typeof RunLoggedArtifactType];
 }[];
 
 // "MODELS", "EVAL_RESULTS", "DATASETS", and "LABELING_SESSIONS" are the not real legacy view modes, they are used to navigate to the

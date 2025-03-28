@@ -22,10 +22,10 @@ export const DRAGGABLE_CARD_HANDLE_CLASS = 'drag-handle';
 export const DRAGGABLE_CARD_TRANSITION_NAME = '--drag-transform';
 export const DRAGGABLE_CARD_TRANSITION_VAR = `var(${DRAGGABLE_CARD_TRANSITION_NAME})`;
 
-export enum RunsChartsChartsDragGroup {
-  PARALLEL_CHARTS_AREA = 'PARALLEL_CHARTS_AREA',
-  GENERAL_AREA = 'GENERAL_AREA',
-}
+export const RunsChartsChartsDragGroup = {
+  PARALLEL_CHARTS_AREA: 'PARALLEL_CHARTS_AREA',
+  GENERAL_AREA: 'GENERAL_AREA',
+} as const;
 
 export interface RunsChartCardReorderProps {
   onReorderWith: (draggedKey: string, targetDropKey: string) => void;
@@ -69,7 +69,7 @@ export interface ChartCardWrapperProps extends RunsChartCardReorderProps, RunsCh
   onDelete: () => void;
   tooltip?: React.ReactNode;
   uuid?: string;
-  dragGroupKey: RunsChartsChartsDragGroup;
+  dragGroupKey: typeof RunsChartsChartsDragGroup[keyof typeof RunsChartsChartsDragGroup];
   additionalMenuContent?: React.ReactNode;
   toggleFullScreenChart?: () => void;
   toggles?: ChartCardToggleProps[];

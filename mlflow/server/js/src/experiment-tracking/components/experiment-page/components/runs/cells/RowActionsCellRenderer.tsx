@@ -78,7 +78,10 @@ export const RowActionsCellRenderer = React.memo(
     data: RunRowType;
     value: { pinned: boolean; hidden: boolean };
     onTogglePin: (runUuid: string) => void;
-    onToggleVisibility: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
+    onToggleVisibility: (
+      runUuidOrToggle: string | typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE],
+      runUuid?: string,
+    ) => void;
   }) => {
     const updateUIState = useUpdateExperimentViewUIState();
     const { theme } = useDesignSystemTheme();

@@ -42,7 +42,7 @@ export const StageTagComponents = {
 export interface ModelVersionActivity {
   creation_timestamp?: number;
   user_id?: string;
-  activity_type: ActivityTypes;
+  activity_type: typeof ActivityTypes[keyof typeof ActivityTypes];
   comment?: string;
   last_updated_timestamp?: number;
   from_stage?: string;
@@ -51,18 +51,18 @@ export interface ModelVersionActivity {
   id?: string;
 }
 
-export enum ActivityTypes {
-  APPLIED_TRANSITION = 'APPLIED_TRANSITION',
-  REQUESTED_TRANSITION = 'REQUESTED_TRANSITION',
-  SYSTEM_TRANSITION = 'SYSTEM_TRANSITION',
-  CANCELLED_REQUEST = 'CANCELLED_REQUEST',
-  APPROVED_REQUEST = 'APPROVED_REQUEST',
-  REJECTED_REQUEST = 'REJECTED_REQUEST',
-  NEW_COMMENT = 'NEW_COMMENT',
-}
+export const ActivityTypes = {
+  APPLIED_TRANSITION: 'APPLIED_TRANSITION',
+  REQUESTED_TRANSITION: 'REQUESTED_TRANSITION',
+  SYSTEM_TRANSITION: 'SYSTEM_TRANSITION',
+  CANCELLED_REQUEST: 'CANCELLED_REQUEST',
+  APPROVED_REQUEST: 'APPROVED_REQUEST',
+  REJECTED_REQUEST: 'REJECTED_REQUEST',
+  NEW_COMMENT: 'NEW_COMMENT',
+} as const;
 
 export interface PendingModelVersionActivity {
-  type: ActivityTypes;
+  type: typeof ActivityTypes[keyof typeof ActivityTypes];
   to_stage: string;
 }
 

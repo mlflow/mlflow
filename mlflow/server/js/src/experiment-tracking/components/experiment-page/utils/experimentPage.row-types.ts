@@ -9,20 +9,20 @@ import type {
 /**
  * Represents how eye icon should be displayed for a particular row in runs table.
  */
-export enum RunRowVisibilityControl {
+export const RunRowVisibilityControl = {
   /**
    * Eye icon button is enabled and visible.
    */
-  Enabled = 0,
+  Enabled: 0,
   /**
    * Eye icon button is disabled but visible.
    */
-  Disabled = 1,
+  Disabled: 1,
   /**
    * Eye icon button is hidden.
    */
-  Hidden = 2,
-}
+  Hidden: 2,
+} as const;
 
 /**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
@@ -50,7 +50,7 @@ export interface RunRowType {
   defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];
-  visibilityControl?: RunRowVisibilityControl;
+  visibilityControl?: typeof RunRowVisibilityControl[keyof typeof RunRowVisibilityControl];
 
   /**
    * Contains information about run's date, timing and hierarchy. Empty for group rows.
@@ -111,17 +111,18 @@ export interface RunRowDateAndNestInfo {
   level: number;
 }
 
-export enum RunGroupingMode {
-  Dataset = 'dataset',
-  Tag = 'tag',
-  Param = 'param',
-}
+export const RunGroupingMode = {
+  Dataset: 'dataset',
+  Tag: 'tag',
+  Param: 'param',
+} as const;
 
-export enum RunGroupingAggregateFunction {
-  Min = 'min',
-  Average = 'average',
-  Max = 'max',
-}
+export const RunGroupingAggregateFunction = {
+  Min: 'min',
+  Average: 'average',
+  Max: 'max',
+} as const;
+
 export type RunGroupByValueType =
   | string
   | {
@@ -130,7 +131,7 @@ export type RunGroupByValueType =
     };
 
 export type RunGroupByGroupingValue = {
-  mode: RunGroupingMode;
+  mode: typeof RunGroupingMode[keyof typeof RunGroupingMode];
   groupByData: any;
   value: RunGroupByValueType | null;
 };
@@ -147,7 +148,7 @@ export interface RunGroupParentInfo {
   runUuidsForAggregation?: string[];
   aggregatedMetricData: Record<string, { key: string; value: number; maxStep: number }>;
   aggregatedParamData: Record<string, { key: string; value: number }>;
-  aggregateFunction?: RunGroupingAggregateFunction;
+  aggregateFunction?: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
 }
 
 /**
@@ -173,7 +174,7 @@ export interface RowRenderMetadata {
   isGroup?: false;
   rowUuid: string;
   hidden?: boolean;
-  visibilityControl?: RunRowVisibilityControl;
+  visibilityControl?: typeof RunRowVisibilityControl[keyof typeof RunRowVisibilityControl];
 }
 
 export interface RowGroupRenderMetadata {
@@ -193,10 +194,10 @@ export interface RowGroupRenderMetadata {
     key: string;
     value: number;
   }[];
-  aggregateFunction: RunGroupingAggregateFunction;
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
   groupingValues: RunGroupByGroupingValue[];
   isRemainingRunsGroup: boolean;
   hidden?: boolean;
   allRunsHidden?: boolean;
-  visibilityControl?: RunRowVisibilityControl;
+  visibilityControl?: typeof RunRowVisibilityControl[keyof typeof RunRowVisibilityControl];
 }

@@ -13,7 +13,10 @@ const RowActionsHeaderCellRendererV2 = React.memo(
   ({
     onToggleVisibility,
   }: {
-    onToggleVisibility: (mode: RUNS_VISIBILITY_MODE | string, runOrGroupUuid?: string) => void;
+    onToggleVisibility: (
+      mode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE] | string,
+      runOrGroupUuid?: string,
+    ) => void;
   }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();

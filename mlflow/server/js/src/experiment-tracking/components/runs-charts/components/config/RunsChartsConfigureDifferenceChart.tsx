@@ -38,7 +38,7 @@ export const RunsChartsConfigureDifferenceChart = ({
    * Callback for updating compare groups
    */
   const updateCompareGroups = useCallback(
-    (compareGroup: DifferenceCardConfigCompareGroup) => {
+    (compareGroup: typeof DifferenceCardConfigCompareGroup[keyof typeof DifferenceCardConfigCompareGroup]) => {
       onStateChange((current) => {
         const currentConfig = current as RunsChartsDifferenceCardConfig;
         const compareGroups = currentConfig.compareGroups;
@@ -92,7 +92,7 @@ export const RunsChartsConfigureDifferenceChart = ({
       >
         <Checkbox.Group id="checkbox-group" defaultValue={state.compareGroups}>
           {Object.values(DifferenceCardConfigCompareGroup).map((group) => {
-            const groupedCondition = groupBy ? DISABLED_GROUP_WHEN_GROUPBY.includes(group) : false;
+            const groupedCondition = groupBy ? (DISABLED_GROUP_WHEN_GROUPBY as string[]).includes(group) : false;
             return (
               <div css={{ display: 'inline-flex', alignItems: 'center' }} key={group}>
                 <Checkbox

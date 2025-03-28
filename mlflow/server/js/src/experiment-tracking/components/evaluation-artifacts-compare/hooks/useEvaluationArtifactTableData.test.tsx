@@ -218,12 +218,12 @@ describe('useEvaluationArtifactTableData', () => {
   });
 
   describe('properly pulls and generates data for multiple data tables and columns', () => {
-    enum TestColumns {
-      StaticData = 'StaticData',
-      ValueVaryingPerTable = 'ValueVaryingPerTable',
-      ValueVaryingPerRun = 'ValueVaryingPerRun',
-      ValueVaryingPerRunAndTable = 'ValueVaryingPerRunAndTable',
-    }
+    const TestColumns = {
+      StaticData: 'StaticData',
+      ValueVaryingPerTable: 'ValueVaryingPerTable',
+      ValueVaryingPerRun: 'ValueVaryingPerRun',
+      ValueVaryingPerRunAndTable: 'ValueVaryingPerRunAndTable',
+    } as const;
 
     // Prepare ten run UUIDS: run_0, run_1, run_2 etc.
     const RUN_IDS = new Array(10).fill(0).map((_, i) => `run_${i + 1}`);

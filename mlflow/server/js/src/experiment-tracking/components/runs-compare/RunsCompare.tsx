@@ -187,7 +187,7 @@ const RunsCompareImpl = ({
   >(undefined);
 
   const addNewChartCard = (metricSectionId: string) => {
-    return (type: RunsChartType) => {
+    return (type: typeof RunsChartType[keyof typeof RunsChartType]) => {
       // TODO: pass existing runs data and get pre-configured initial setup for every chart type
       setConfiguredCardConfig(RunsChartsCardConfig.getEmptyChartCardByType(type, false, undefined, metricSectionId));
     };

@@ -77,12 +77,12 @@ export interface RunsChartsSectionAccordionProps {
   isMetricHistoryLoading?: boolean;
   startEditChart: (chartCard: RunsChartsCardConfig) => void;
   removeChart: (configToDelete: RunsChartsCardConfig) => void;
-  addNewChartCard: (metricSectionId: string) => (type: RunsChartType) => void;
+  addNewChartCard: (metricSectionId: string) => (type: typeof RunsChartType[keyof typeof RunsChartType]) => void;
   search: string;
   groupBy: RunsGroupByConfig | null;
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
-  supportedChartTypes?: RunsChartType[] | undefined;
+  supportedChartTypes?: typeof RunsChartType[keyof typeof RunsChartType][] | undefined;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
   noRunsSelectedEmptyState?: React.ReactElement;

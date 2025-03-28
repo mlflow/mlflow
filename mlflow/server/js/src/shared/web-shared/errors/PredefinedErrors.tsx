@@ -11,8 +11,8 @@ export type HandleableError = Error | string | Record<string, unknown> | Predefi
 export type CausableError = Error | string | Record<string, unknown>;
 
 export abstract class PredefinedError extends Error {
-  abstract errorLogType: ErrorLogType;
-  abstract errorName: ErrorName;
+  abstract errorLogType: typeof ErrorLogType[keyof typeof ErrorLogType];
+  abstract errorName: typeof ErrorName[keyof typeof ErrorName];
   abstract displayMessage: React.ReactNode;
   isUserError = false;
 

@@ -11,7 +11,11 @@ interface RunVisibilityControlButtonProps {
   rowHidden: boolean;
   buttonHidden: boolean;
   disabled: boolean;
-  onClick: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string, isRowVisible?: boolean) => void;
+  onClick: (
+    runUuidOrToggle: string | typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE],
+    runUuid?: string,
+    isRowVisible?: boolean,
+  ) => void;
   label: React.ReactNode;
 }
 

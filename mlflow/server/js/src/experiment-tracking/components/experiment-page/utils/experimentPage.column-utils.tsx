@@ -146,7 +146,7 @@ export interface UseRunsColumnDefinitionsParams {
   onTogglePin: (runUuid: string) => void;
   onToggleVisibility:
     | ((runUuidOrToggle: string) => void)
-    | ((mode: RUNS_VISIBILITY_MODE, runOrGroupUuid: string) => void);
+    | ((mode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE], runOrGroupUuid: string) => void);
   compareExperiments: boolean;
   metricKeyList: string[];
   paramKeyList: string[];
@@ -157,7 +157,7 @@ export interface UseRunsColumnDefinitionsParams {
   expandRows?: boolean;
   allRunsHidden?: boolean;
   usingCustomVisibility?: boolean;
-  runsHiddenMode?: RUNS_VISIBILITY_MODE;
+  runsHiddenMode?: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE];
 }
 
 /**

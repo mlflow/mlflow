@@ -53,8 +53,7 @@ const modelGatewayRoutes = (
         return state;
       }
       const compatibleGatewayEndpoints = payload.endpoints.filter(
-        ({ endpoint_type }) =>
-          endpoint_type && compatibleEndpointTypes.includes(endpoint_type as ModelGatewayRouteTask),
+        ({ endpoint_type }) => endpoint_type && (compatibleEndpointTypes as string[]).includes(endpoint_type),
       );
       return compatibleGatewayEndpoints.reduce((newState, deploymentEndpoint) => {
         return {
@@ -64,7 +63,7 @@ const modelGatewayRoutes = (
             key: `mlflow_deployment_endpoint:${deploymentEndpoint.name}`,
             name: deploymentEndpoint.name,
             mlflowDeployment: deploymentEndpoint,
-            task: deploymentEndpoint.endpoint_type as ModelGatewayRouteTask,
+            task: deploymentEndpoint.endpoint_type,
           },
         };
       }, state);

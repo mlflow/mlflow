@@ -145,7 +145,10 @@ export interface RunsChartsRunData {
    * Set for run groups, contains aggregated metrics history for each run group.
    * It's keyed by a metric name, then by an aggregate function (min, max, average).
    */
-  aggregatedMetricsHistory?: Record<string, Record<RunGroupingAggregateFunction, MetricEntity[]>>;
+  aggregatedMetricsHistory?: Record<
+    string,
+    Record<typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction], MetricEntity[]>
+  >;
   /**
    * Object containing run's params by key
    */
@@ -386,7 +389,7 @@ export const getLineChartLegendData = (
   runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName' | 'uuid'>[],
   selectedMetricKeys: string[] | undefined,
   metricKey: string,
-  yAxisKey: RunsChartsLineChartYAxisType,
+  yAxisKey: typeof RunsChartsLineChartYAxisType[keyof typeof RunsChartsLineChartYAxisType],
   yAxisExpressions: RunsChartsLineChartExpression[],
 ): LegendLabelData[] =>
   runsData.flatMap((runEntry): LegendLabelData[] => {
@@ -444,15 +447,20 @@ export const createFadedTraceColor = (hexColor?: string, alpha = 0.1) => {
  * Enum for X axis types for line charts. Defined here to
  * avoid circular imports from runs-charts.types.ts
  */
-export enum RunsChartsLineChartXAxisType {
-  STEP = 'step',
-  TIME = 'time',
-  TIME_RELATIVE = 'time-relative',
-  TIME_RELATIVE_HOURS = 'time-relative-hours',
-  METRIC = 'metric',
-}
+export const RunsChartsLineChartXAxisType = {
+  STEP: 'step',
+  TIME: 'time',
+  TIME_RELATIVE: 'time-relative',
+  TIME_RELATIVE_HOURS: 'time-relative-hours',
+  METRIC: 'metric',
+} as const;
 
-const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>>({
+const axisKeyToLabel = defineMessages<
+  Exclude<
+    typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
+    typeof RunsChartsLineChartXAxisType.METRIC
+  >
+>({
   [RunsChartsLineChartXAxisType.TIME]: {
     defaultMessage: 'Time',
     description: 'Label for the time axis on the runs compare chart',
@@ -472,7 +480,10 @@ const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, Runs
 });
 
 export const getChartAxisLabelDescriptor = (
-  axisKey: Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>,
+  axisKey: Exclude<
+    typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
+    typeof RunsChartsLineChartXAxisType.METRIC
+  >,
 ) => {
   return axisKeyToLabel[axisKey];
 };

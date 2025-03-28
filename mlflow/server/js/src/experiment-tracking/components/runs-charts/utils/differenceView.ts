@@ -21,11 +21,11 @@ export const getDifferenceChartDisplayedValue = (val: any, places = 2) => {
   }
 };
 
-export enum DifferenceChartCellDirection {
-  POSITIVE,
-  NEGATIVE,
-  SAME,
-}
+export const DifferenceChartCellDirection = {
+  POSITIVE: 'POSITIVE',
+  NEGATIVE: 'NEGATIVE',
+  SAME: 'SAME',
+} as const;
 export const differenceView = (a: any, b: any) => {
   if (typeof a !== 'number' || typeof b !== 'number') {
     return undefined;

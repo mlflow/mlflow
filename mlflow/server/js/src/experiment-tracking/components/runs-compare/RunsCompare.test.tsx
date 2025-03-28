@@ -1204,7 +1204,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
         uuid: 'chart-difference',
         runsCountToCompare: 10,
         metricSectionId: 'metric-section-1',
-        compareGroups: [] as DifferenceCardConfigCompareGroup[],
+        compareGroups: [] as typeof DifferenceCardConfigCompareGroup[keyof typeof DifferenceCardConfigCompareGroup][],
         chartName: 'Runs difference view',
         showDifferencesOnly: true,
         deleted: false,

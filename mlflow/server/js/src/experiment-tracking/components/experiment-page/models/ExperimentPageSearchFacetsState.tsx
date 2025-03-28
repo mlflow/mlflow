@@ -36,7 +36,7 @@ export interface ExperimentPageSearchFacetsState {
   /**
    * Lifecycle filter of runs to display
    */
-  lifecycleFilter: LIFECYCLE_FILTER;
+  lifecycleFilter: typeof LIFECYCLE_FILTER[keyof typeof LIFECYCLE_FILTER];
 
   /**
    * Datasets filter of runs to display
@@ -46,7 +46,7 @@ export interface ExperimentPageSearchFacetsState {
   /**
    * Filter of model versions to display
    */
-  modelVersionFilter: MODEL_VERSION_FILTER;
+  modelVersionFilter: typeof MODEL_VERSION_FILTER[keyof typeof MODEL_VERSION_FILTER];
 }
 
 /**

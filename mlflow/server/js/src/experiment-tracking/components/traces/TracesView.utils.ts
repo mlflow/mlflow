@@ -64,21 +64,24 @@ export const EXPERIMENT_TRACES_SORTABLE_COLUMNS = ['timestamp_ms'];
 // we don't users to be able to control its visibility
 export const TRACE_TABLE_CHECKBOX_COLUMN_ID = 'select';
 
-export enum ExperimentViewTracesTableColumns {
-  requestId = 'request_id',
-  traceName = 'traceName',
-  timestampMs = 'timestamp_ms',
-  inputs = 'inputs',
-  outputs = 'outputs',
-  runName = 'runName',
-  totalTokens = 'total_tokens',
-  source = 'source',
-  latency = 'latency',
-  tags = 'tags',
-  status = 'status',
-}
+export const ExperimentViewTracesTableColumns = {
+  requestId: 'request_id',
+  traceName: 'traceName',
+  timestampMs: 'timestamp_ms',
+  inputs: 'inputs',
+  outputs: 'outputs',
+  runName: 'runName',
+  totalTokens: 'total_tokens',
+  source: 'source',
+  latency: 'latency',
+  tags: 'tags',
+  status: 'status',
+} as const;
 
-export const ExperimentViewTracesTableColumnLabels: Record<ExperimentViewTracesTableColumns, MessageDescriptor> = {
+export const ExperimentViewTracesTableColumnLabels: Record<
+  typeof ExperimentViewTracesTableColumns[keyof typeof ExperimentViewTracesTableColumns],
+  MessageDescriptor
+> = {
   [ExperimentViewTracesTableColumns.requestId]: defineMessage({
     defaultMessage: 'Request ID',
     description: 'Experiment page > traces table > request id column header',

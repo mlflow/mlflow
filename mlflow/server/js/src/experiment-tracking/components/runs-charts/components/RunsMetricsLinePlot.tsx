@@ -188,7 +188,7 @@ const getBandTraceForRun = ({
   runEntry: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags' | 'images'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   lineShape: RunsMetricsLinePlotProps['lineShape'];
-  xAxisKey: RunsChartsLineChartXAxisType;
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType];
   selectedXAxisMetricKey: RunsMetricsLinePlotProps['selectedXAxisMetricKey'];
   xAxisScaleType?: 'linear' | 'log';
 }): LineChartTraceData => {
@@ -297,7 +297,7 @@ export interface RunsCompareMultipleTracesTooltipData {
     value?: string | number;
   }[];
   xValue: string | number;
-  xAxisKey: RunsChartsLineChartXAxisType;
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType];
   xAxisKeyLabel: string;
   hoveredDataPoint?: RunsMetricsSingleTraceTooltipData;
 }
@@ -338,12 +338,12 @@ export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   /**
    * Choose X axis mode - numeric step or absolute time
    */
-  xAxisKey?: RunsChartsLineChartXAxisType;
+  xAxisKey?: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType];
 
   /**
    * Choose Y axis mode - metric or expressions
    */
-  yAxisKey?: RunsChartsLineChartYAxisType;
+  yAxisKey?: typeof RunsChartsLineChartYAxisType[keyof typeof RunsChartsLineChartYAxisType];
 
   /**
    * Array of expressions to evaluate
@@ -465,9 +465,9 @@ const prepareXAxisDataForMetricType = (
 };
 
 const getXAxisPlotlyType = (
-  xAxisKey: RunsChartsLineChartXAxisType,
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
   xAxisScaleType: 'linear' | 'log',
-  dynamicXAxisKey: RunsChartsLineChartXAxisType,
+  dynamicXAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
 ) => {
   if (
     xAxisKey === RunsChartsLineChartXAxisType.TIME ||

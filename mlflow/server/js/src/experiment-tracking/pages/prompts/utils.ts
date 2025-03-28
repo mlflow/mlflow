@@ -15,11 +15,11 @@ export type PromptsVersionsTableMetadata = {
   registeredPrompt: RegisteredPrompt;
 };
 
-export enum PromptVersionsTableMode {
-  TABLE = 'table',
-  PREVIEW = 'preview',
-  COMPARE = 'compare',
-}
+export const PromptVersionsTableMode = {
+  TABLE: 'table',
+  PREVIEW: 'preview',
+  COMPARE: 'compare',
+} as const;
 
 export const getPromptContentTagValue = (promptVersion: RegisteredPromptVersion) => {
   return promptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_CONTENT_TAG_KEY)?.value;

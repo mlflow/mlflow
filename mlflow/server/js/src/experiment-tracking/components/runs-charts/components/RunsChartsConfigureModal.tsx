@@ -50,7 +50,7 @@ import { RunsChartsConfigureScatterChartWithDatasets } from './config/RunsCharts
 import { DifferenceViewPlot } from './charts/DifferenceViewPlot';
 
 const previewComponentsMap: Record<
-  RunsChartType,
+  typeof RunsChartType[keyof typeof RunsChartType],
   React.FC<{
     previewData: RunsChartsRunData[];
     cardConfig: any;
@@ -92,17 +92,18 @@ export const RunsChartsConfigureModal = ({
   onCancel: () => void;
   groupBy: RunsGroupByConfig | null;
   onSubmit: (formData: Partial<RunsChartsCardConfig>) => void;
-  supportedChartTypes?: RunsChartType[] | undefined;
+  supportedChartTypes?: typeof RunsChartType[keyof typeof RunsChartType][] | undefined;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }) => {
-  const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
+  const isChartTypeSupported = (type: typeof RunsChartType[keyof typeof RunsChartType]) =>
+    !supportedChartTypes || supportedChartTypes.includes(type);
   const { theme } = useDesignSystemTheme();
   const borderStyle = `1px solid ${theme.colors.actionDefaultBorderDefault}`;
   const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>(config);
 
   const isEditing = Boolean(currentFormState.uuid);
 
-  const updateChartType = useCallback((type?: RunsChartType) => {
+  const updateChartType = useCallback((type?: typeof RunsChartType[keyof typeof RunsChartType]) => {
     if (!type) {
       return;
     }
@@ -124,7 +125,7 @@ export const RunsChartsConfigureModal = ({
     return Array.from(imageKeys).sort();
   }, [previewData]);
 
-  const renderConfigOptionsforChartType = (type?: RunsChartType) => {
+  const renderConfigOptionsforChartType = (type?: typeof RunsChartType[keyof typeof RunsChartType]) => {
     if (type === RunsChartType.BAR) {
       return (
         <RunsChartsConfigureBarChart
@@ -208,7 +209,7 @@ export const RunsChartsConfigureModal = ({
     return null;
   };
 
-  const renderPreviewChartType = (type?: RunsChartType) => {
+  const renderPreviewChartType = (type?: typeof RunsChartType[keyof typeof RunsChartType]) => {
     if (!type) {
       return null;
     }
@@ -307,7 +308,7 @@ export const RunsChartsConfigureModal = ({
                 css={{ width: '100%' }}
                 value={currentFormState.type}
                 onChange={({ target }) => {
-                  const chartType = target.value as RunsChartType;
+                  const chartType = target.value as typeof RunsChartType[keyof typeof RunsChartType];
                   Object.values(RunsChartType).includes(chartType) && updateChartType(chartType);
                 }}
               >

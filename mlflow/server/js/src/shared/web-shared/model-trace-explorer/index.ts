@@ -1,24 +1,24 @@
 export { ModelTraceExplorerFrameRenderer } from './ModelTraceExplorerFrameRenderer';
 
-export enum ModelSpanType {
-  LLM = 'LLM',
-  CHAIN = 'CHAIN',
-  AGENT = 'AGENT',
-  TOOL = 'TOOL',
-  FUNCTION = 'FUNCTION',
-  CHAT_MODEL = 'CHAT_MODEL',
-  RETRIEVER = 'RETRIEVER',
-  PARSER = 'PARSER',
-  EMBEDDING = 'EMBEDDING',
-  RERANKER = 'RERANKER',
-  UNKNOWN = 'UNKNOWN',
-}
+export const ModelSpanType = {
+  LLM: 'LLM',
+  CHAIN: 'CHAIN',
+  AGENT: 'AGENT',
+  TOOL: 'TOOL',
+  FUNCTION: 'FUNCTION',
+  CHAT_MODEL: 'CHAT_MODEL',
+  RETRIEVER: 'RETRIEVER',
+  PARSER: 'PARSER',
+  EMBEDDING: 'EMBEDDING',
+  RERANKER: 'RERANKER',
+  UNKNOWN: 'UNKNOWN',
+} as const;
 
-export enum ModelIconType {
-  MODELS = 'models',
-  DOCUMENT = 'document',
-  CONNECT = 'connect',
-}
+export const ModelIconType = {
+  MODELS: 'models',
+  DOCUMENT: 'document',
+  CONNECT: 'connect',
+} as const;
 
 /**
  * Represents a single model trace span.
@@ -34,7 +34,7 @@ export type ModelTraceSpan = {
   parent_span_id?: string | null;
   parent_id?: string | null;
   /* deprecated, contained in attributes['mlflow.spanType'] */
-  span_type?: ModelSpanType | string;
+  span_type?: typeof ModelSpanType[keyof typeof ModelSpanType] | string;
   /* deprecated, migrated to `status_code` and `status_message` */
   status?: ModelTraceStatus;
   status_code?: string;
@@ -47,7 +47,7 @@ export type ModelTraceSpan = {
   outputs?: any;
   attributes?: Record<string, any>;
   /* metadata for ui usage logging */
-  type: ModelSpanType;
+  type: typeof ModelSpanType[keyof typeof ModelSpanType];
 };
 
 export type ModelTraceEvent = {
@@ -104,18 +104,18 @@ export type ModelTraceStatusInProgress = {
   status_code: 3;
 };
 
-export enum ModelTraceSpanType {
-  LLM = 'LLM',
-  CHAIN = 'CHAIN',
-  AGENT = 'AGENT',
-  TOOL = 'TOOL',
-  CHAT_MODEL = 'CHAT_MODEL',
-  RETRIEVER = 'RETRIEVER',
-  PARSER = 'PARSER',
-  EMBEDDING = 'EMBEDDING',
-  RERANKER = 'RERANKER',
-  UNKNOWN = 'UNKNOWN',
-}
+export const ModelTraceSpanType = {
+  LLM: 'LLM',
+  CHAIN: 'CHAIN',
+  AGENT: 'AGENT',
+  TOOL: 'TOOL',
+  CHAT_MODEL: 'CHAT_MODEL',
+  RETRIEVER: 'RETRIEVER',
+  PARSER: 'PARSER',
+  EMBEDDING: 'EMBEDDING',
+  RERANKER: 'RERANKER',
+  UNKNOWN: 'UNKNOWN',
+} as const;
 
 export type ModelTraceStatus =
   | ModelTraceStatusUnset
@@ -123,20 +123,20 @@ export type ModelTraceStatus =
   | ModelTraceStatusError
   | ModelTraceStatusInProgress;
 
-export enum ModelTraceChildToParentFrameMessage {
-  Ready = 'READY',
-}
+export const ModelTraceChildToParentFrameMessage = {
+  Ready: 'READY',
+} as const;
 
 type ModelTraceFrameReadyMessage = {
-  type: ModelTraceChildToParentFrameMessage.Ready;
+  type: typeof ModelTraceChildToParentFrameMessage.Ready;
 };
 
-export enum ModelTraceParentToChildFrameMessage {
-  UpdateTrace = 'UPDATE_TRACE',
-}
+export const ModelTraceParentToChildFrameMessage = {
+  UpdateTrace: 'UPDATE_TRACE',
+} as const;
 
 type ModelTraceFrameUpdateTraceMessage = {
-  type: ModelTraceParentToChildFrameMessage.UpdateTrace;
+  type: typeof ModelTraceParentToChildFrameMessage.UpdateTrace;
   traceData: ModelTrace;
 };
 
