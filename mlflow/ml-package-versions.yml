@@ -491,15 +491,14 @@ paddle:
   package_info:
     pip_release: "paddlepaddle"
   models:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]
-      "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]
