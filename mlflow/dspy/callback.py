@@ -273,7 +273,7 @@ class MlflowCallback(BaseCallback):
         elif isinstance(outputs, dspy.Prediction):
             score = float(outputs)
             try:
-                mlflow.log_table(self._generate_result_table(outputs.outputs), "result_table.json")
+                mlflow.log_table(self._generate_result_table(outputs.results), "result_table.json")
             except Exception:
                 _logger.debug("Failed to log result table.", exc_info=True)
         mlflow.log_metric("eval", score)
