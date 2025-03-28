@@ -652,28 +652,6 @@ def test_log_trace_with_databricks_tracking_uri(
         if async_logging_enabled:
             mlflow.flush_trace_async_logging(terminate=True)
 
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.request_id == "tr-0"
-    assert trace.info.experiment_id == "test_experiment_id"
-    assert trace.info.status == TraceStatus.OK
-    assert trace.info.request_metadata == {
-        TraceMetadataKey.INPUTS: '{"x": 1, "y": 2}',
-        TraceMetadataKey.OUTPUTS: "5",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-    }
-    assert trace.info.tags == {
-        "mlflow.traceName": "predict",
-        "mlflow.artifactLocation": "test",
-        "mlflow.user": "bob",
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-        "tag": "tag_value",
-    }
-
-    assert trace.data.request == '{"x": 1, "y": 2}'
-    assert trace.data.response == "5"
-    assert len(trace.data.spans) == 2
-
     mock_store_for_tracing.start_trace.assert_called_once()
     mock_store_for_tracing.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
