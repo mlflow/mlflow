@@ -1,4 +1,6 @@
+import json
 import os
+from dataclasses import dataclass
 from unittest import mock
 
 import pytest
@@ -18,12 +20,34 @@ def test_get_deploy_client():
     get_deploy_client("databricks://scope:prefix")
 
 
+@dataclass
+class MockResponse:
+    url: str
+    status_code: int
+    content: str
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def ok(self):
+        return self.status_code == 200
+
+    def raise_for_status(self):
+        assert self.ok
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
 def test_create_endpoint():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.create_endpoint(
             name="test",
@@ -49,10 +73,9 @@ def test_create_endpoint():
 
 def test_create_endpoint_config_only():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.create_endpoint(
             config={
@@ -84,10 +107,9 @@ def test_create_endpoint_name_match():
     Should emit a deprecation warning about using name parameter.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.warns(
             UserWarning,
@@ -124,10 +146,9 @@ def test_create_endpoint_name_mismatch():
     Should raise an MlflowException.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
 
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.raises(
@@ -165,10 +186,9 @@ def test_create_endpoint_route_optimized_match():
     Should emit a deprecation warning.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
 
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.warns(
@@ -208,10 +228,9 @@ def test_create_endpoint_route_optimized_mismatch():
     Should raise an MlflowException.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
 
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.raises(
@@ -251,10 +270,9 @@ def test_create_endpoint_named_name():
     Should emit a deprecation warning about the old format.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
 
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.warns(
@@ -290,10 +308,9 @@ def test_create_endpoint_named_route_optimized():
     Should emit a deprecation warning about the old format.
     """
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
 
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.warns(
@@ -327,10 +344,9 @@ def test_create_endpoint_named_route_optimized():
 
 def test_get_endpoint():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"name": "test"})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.get_endpoint(endpoint="test")
         mock_request.assert_called_once()
@@ -339,10 +355,11 @@ def test_get_endpoint():
 
 def test_list_endpoints():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"endpoints": [{"name": "test"}]}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"],
+        status_code=200,
+        content=json.dumps({"endpoints": [{"name": "test"}]}),
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.list_endpoints()
         mock_request.assert_called_once()
@@ -351,10 +368,9 @@ def test_list_endpoints():
 
 def test_update_endpoint():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         with pytest.warns(
             UserWarning,
@@ -386,10 +402,9 @@ def test_update_endpoint():
 
 def test_update_endpoint_config():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_config(
             endpoint="test",
@@ -415,10 +430,9 @@ def test_update_endpoint_config():
 
 def test_update_endpoint_tags():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_tags(
             endpoint="test",
@@ -430,10 +444,9 @@ def test_update_endpoint_tags():
 
 def test_update_endpoint_rate_limits():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_rate_limits(
             endpoint="test",
@@ -445,10 +458,9 @@ def test_update_endpoint_rate_limits():
 
 def test_update_endpoint_ai_gateway():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint_ai_gateway(
             endpoint="test",
@@ -467,10 +479,9 @@ def test_update_endpoint_ai_gateway():
 
 def test_delete_endpoint():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.delete_endpoint(endpoint="test")
         mock_request.assert_called_once()
@@ -479,10 +490,9 @@ def test_delete_endpoint():
 
 def test_predict():
     client = get_deploy_client("databricks")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"foo": "bar"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
-    mock_resp.status_code = 200
+    mock_resp = MockResponse(
+        url=os.environ["DATABRICKS_HOST"], status_code=200, content=json.dumps({"foo": "bar"})
+    )
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.predict(endpoint="test", inputs={})
         mock_request.assert_called_once()
