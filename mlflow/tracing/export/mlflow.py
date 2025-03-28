@@ -13,7 +13,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import maybe_get_request_id
 from mlflow.tracking.client import MlflowClient
@@ -65,11 +65,12 @@ class MlflowSpanExporter(SpanExporter):
                 _logger.debug(f"TraceInfo for span {span} not found. Skipping export.")
                 continue
 
-            # Add the trace to the in-memory buffer
-            TRACE_BUFFER[trace.info.request_id] = trace
-            # Add evaluation trace to the in-memory buffer with eval_request_id key
+            _set_last_active_trace_id(trace.info.request_id)
+
+            # Store mapping from eval request ID to trace ID so that the evaluation
+            # harness can access to the trace using mlflow.get_trace(eval_request_id)
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                TRACE_BUFFER[eval_request_id] = trace
+                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.request_id
 
             if not maybe_get_request_id(is_evaluate=True):
                 # Display the trace in the UI if the trace is not generated from within
