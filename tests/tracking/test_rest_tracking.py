@@ -1497,6 +1497,37 @@ def test_create_model_version_with_non_local_source(mlflow_client):
     assert response.status_code == 400
     assert "Invalid model version source" in response.json()["message"]
 
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": model.artifact_location,
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": model.model_uri,
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///path/to/model",
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 400
+
 
 def test_create_model_version_with_file_uri(mlflow_client):
     name = "test"
