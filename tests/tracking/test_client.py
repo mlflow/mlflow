@@ -36,7 +36,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
