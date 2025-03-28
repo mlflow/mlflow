@@ -57,6 +57,9 @@ def _load_model_from_config(path, model_config):
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
     from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
 
+    warnings.warn("ROSHNI -- ")
+    warnings.warn(str(llms_get_type_to_cls_dict()["chat-databricks"]))
+
     try:
         from langchain.prompts.loading import type_to_loader_dict as prompts_types
     except ImportError:
@@ -73,6 +76,8 @@ def _load_model_from_config(path, model_config):
             f"Cannot load runnable without a config file. Got path {config_path}."
         )
     _type = config.get("_type")
+    warnings.warn("MALANI")
+    warnings.warn(_type)
     if _type in chains_type_to_loader_dict:
         from langchain.chains.loading import load_chain
 
