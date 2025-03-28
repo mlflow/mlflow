@@ -45,7 +45,7 @@ describe('ShowArtifactLoggedTableView', () => {
           right: 0,
           bottom: 0,
           left: 0,
-        } as DOMRect),
+        }) as DOMRect,
     );
   });
 

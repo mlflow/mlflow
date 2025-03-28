@@ -41,7 +41,7 @@ describe('useSampledMetricHistory (REST)', () => {
         ({
           payload: Promise.resolve({}),
           type: 'GET_SAMPLED_METRIC_HISTORY_API_BULK',
-        } as any),
+        }) as any,
     );
   });
 
