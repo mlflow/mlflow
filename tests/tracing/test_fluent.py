@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
+import pandas as pd
 import pytest
 
 import mlflow
@@ -871,7 +872,8 @@ def test_test_search_traces_empty(mock_client):
     mock_client.search_traces.assert_called()
 
 
-def test_search_traces(mock_client):
+@pytest.mark.parametrize("return_type", ["pandas", "list"])
+def test_search_traces(return_type, mock_client):
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
@@ -888,7 +890,14 @@ def test_search_traces(mock_client):
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
+        return_type=return_type,
     )
+
+    if return_type == "pandas":
+        assert isinstance(traces, pd.DataFrame)
+    else:
+        assert isinstance(traces, list)
+        assert all(isinstance(trace, Trace) for trace in traces)
 
     assert len(traces) == 10
     mock_client.search_traces.assert_called_once_with(
@@ -899,6 +908,14 @@ def test_search_traces(mock_client):
         order_by=["timestamp DESC"],
         page_token=None,
     )
+
+
+def test_search_traces_invalid_return_types(mock_client):
+    with pytest.raises(MlflowException, match=r"Invalid return type"):
+        mlflow.search_traces(return_type="invalid")
+
+    with pytest.raises(MlflowException, match=r"The `extract_fields`"):
+        mlflow.search_traces(extract_fields=["foo.inputs.bar"], return_type="list")
 
 
 def test_search_traces_with_pagination(mock_client):

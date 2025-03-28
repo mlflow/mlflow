@@ -893,7 +893,7 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        traces = self._tracking_client.search_traces(
+        return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -901,9 +901,6 @@ class MlflowClient:
             page_token=page_token,
             run_id=run_id,
         )
-
-        get_display_handler().display_traces(traces)
-        return traces
 
     def start_trace(
         self,

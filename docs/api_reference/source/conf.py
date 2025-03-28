@@ -348,6 +348,7 @@ nitpick_ignore = [
     ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
+    ("py:class", "pandas"),
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "pandas.DataFrame"),
