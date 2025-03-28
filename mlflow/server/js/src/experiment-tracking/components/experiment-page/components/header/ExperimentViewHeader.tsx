@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Button, GenericSkeleton, NewWindowIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, NewWindowIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PageHeader } from '../../../../../shared/building_blocks/PageHeader';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
@@ -10,8 +10,7 @@ import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
-import { InfoIcon, InfoPopover } from '@databricks/design-system';
-import { Popover } from '@databricks/design-system';
+import { InfoPopover } from '@databricks/design-system';
 import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 /**
@@ -175,7 +174,8 @@ export const ExperimentViewHeader = React.memo(
             },
             // The title itself should display elements horizontally
             h2: {
-              display: 'flex',
+              display: 'inline-grid',
+              gridTemplateColumns: 'auto auto', // title, share button
               overflow: 'hidden',
             },
           },
