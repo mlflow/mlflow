@@ -155,6 +155,9 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
     )
 
 
+@pytest.mark.skip(
+    reason="In MLflow 3.0, `log_model` does not start a run. Consider removing this test."
+)
 def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
     sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:

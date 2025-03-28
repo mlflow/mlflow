@@ -48,6 +48,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
+    _reset_last_logged_model_id,
     get_run,
     search_runs,
     set_experiment,
@@ -1687,3 +1688,101 @@ def test_runs_are_ended_by_run_id():
         mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
+
+
+def test_create_logged_model_active_run():
+    with mlflow.start_run() as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    exp_id = mlflow.create_experiment("exp")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    model = mlflow.create_logged_model()
+    assert model.source_run_id is None
+
+
+def test_create_logged_model_tags_from_context():
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: "1234",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_name",
+            return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
+        ) as m_get_source_name,
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_type",
+            return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
+        ) as m_get_source_type,
+        mock.patch(
+            "mlflow.tracking.context.git_context._get_source_version",
+            return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+        ) as m_get_source_version,
+    ):
+        model = mlflow.create_logged_model()
+        assert expected_tags.items() <= model.tags.items()
+        m_get_source_name.assert_called_once()
+        m_get_source_type.assert_called_once()
+        m_get_source_version.assert_called_once()
+
+
+def test_last_logged_model():
+    _reset_last_logged_model_id()
+    assert mlflow.last_logged_model() is None
+
+    model = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+    client = MlflowClient()
+    client.set_logged_model_tags(model.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
+
+    client.delete_logged_model_tag(model.model_id, "tag")
+    assert "tag" not in mlflow.last_logged_model().tags
+
+    another_model = mlflow.create_logged_model()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by client should be ignored
+    client.create_logged_model(experiment_id="0")
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by another thread should be ignored
+    t = threading.Thread(daemon=True, target=lambda: mlflow.create_logged_model())
+    t.start()
+    t.join()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+
+def test_last_logged_model_log_model():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    model = mlflow.pyfunc.log_model("model", python_model=Model())
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+
+def test_last_logged_model_autolog():
+    try:
+        from sklearn.linear_model import LinearRegression
+
+        mlflow.sklearn.autolog(log_models=True)
+
+        with mlflow.start_run() as run:
+            lr = LinearRegression()
+            lr.fit([[1], [2]], [3, 4])
+
+        model = mlflow.last_logged_model()
+        assert model is not None
+        assert model.source_run_id == run.info.run_id
+    finally:
+        mlflow.sklearn.autolog(disable=True)

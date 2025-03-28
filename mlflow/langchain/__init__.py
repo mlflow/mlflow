@@ -49,7 +49,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
@@ -427,7 +427,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -445,6 +445,12 @@ def log_model(
     streamable=None,
     resources: Optional[Union[list[Resource], str]] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -460,7 +466,7 @@ def log_model(
 
             .. Note:: Experimental: Using model as path may change or be removed in a future
                                     release without warning.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -571,12 +577,20 @@ def log_model(
             but dependency auto-inference is best-effort and may miss some dependencies.
         prompts: {{ prompts }}
 
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    return Model.log(
+    model = Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
         lc_model=lc_model,
@@ -596,7 +610,17 @@ def log_model(
         streamable=streamable,
         resources=resources,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
+    # if model is logged as models as code, then we cannot
+    # get the id of the model object
+    if model.model_id and not isinstance(lc_model, str):
+        _MODEL_TRACKER.set(id(lc_model), model.model_id)
+    return model
 
 
 # patch_langchain_type_to_cls_dict here as we attempt to load model
@@ -908,8 +932,14 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A LangChain model instance.
     """
+    model_uri = str(model_uri)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    return _load_model_from_local_fs(local_model_path)
+    model = _load_model_from_local_fs(local_model_path)
+    mlflow_model = Model.load(local_model_path)
+    if mlflow_model.model_id:
+        _MODEL_TRACKER.set(id(model), mlflow_model.model_id)
+
+    return model
 
 
 def _patch_runnable_cls(cls):
