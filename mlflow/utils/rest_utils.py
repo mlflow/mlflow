@@ -104,13 +104,20 @@ def http_request(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
+                # `raw` is passed to `stream` in databricks-sdk. Unfortunately, this is the only way
+                # to get the raw response object.
+                # https://github.com/databricks/databricks-sdk-py/blob/d0d3a933920090b0ef6bacbbd276f1d5886082c2/databricks/sdk/_base_client.py#L292
                 raw=True,
                 query=kwargs.get("params"),
                 body=kwargs.get("json"),
                 files=kwargs.get("files"),
                 data=kwargs.get("data"),
             )
-            return raw_response["contents"]._response
+            with raw_response["contents"]._response as resp:
+                # Exhaust the stream before closing the response
+                # https://github.com/psf/requests/blob/1764cc938efc3cc9720188dfa6c3852c45211aa0/src/requests/models.py#L890-L907
+                resp.content
+                return resp
         except DatabricksError as e:
             response = requests.Response()
             response.url = url
