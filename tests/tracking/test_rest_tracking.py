@@ -1654,6 +1654,30 @@ def test_log_input(mlflow_client, tmp_path):
     assert dataset_inputs[0].tags[1].value == "train"
 
 
+def test_create_model_version_model_id(mlflow_client):
+    name = "model"
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    mlflow_client.create_model_version(
+        name=name,
+        source=model.artifact_location,
+        model_id=model.model_id,
+    )
+    model = mlflow_client.get_logged_model(model.model_id)
+    assert model.tags["mlflow.modelVersions"] == '[{"name": "model", "version": 1}]'
+    mlflow_client.create_model_version(
+        name=name,
+        source=model.artifact_location,
+        model_id=model.model_id,
+    )
+    model = mlflow_client.get_logged_model(model.model_id)
+    assert (
+        model.tags["mlflow.modelVersions"]
+        == '[{"name": "model", "version": 1}, {"name": "model", "version": 2}]'
+    )
+
+
 def test_log_inputs(mlflow_client):
     experiment_id = mlflow_client.create_experiment("log inputs test")
     created_run = mlflow_client.create_run(experiment_id)

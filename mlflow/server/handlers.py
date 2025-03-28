@@ -1961,6 +1961,13 @@ def _create_model_version():
         model_id=request_message.model_id,
         model_params=request_message.model_params,
     )
+    if not _is_prompt_request(request_message) and request_message.model_id:
+        tracking_store = _get_tracking_store()
+        tracking_store.set_model_versions_tags(
+            name=request_message.name,
+            version=model_version.version,
+            model_id=request_message.model_id,
+        )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
