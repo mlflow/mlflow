@@ -572,7 +572,7 @@ def patch_langchain_type_to_cls_dict(func):
             return _wrapped
 
         modules_to_patch = [
-            "langchain_databricks",
+            # "langchain_databricks",
             "langchain.llms",
             "langchain_community.llms.loading",
         ]
