@@ -22,7 +22,9 @@ type Props = {
   title: React.ReactNode;
 };
 
-type State = any;
+type State = {
+  isSubmitting: boolean;
+};
 
 /**
  * Generic modal that has a title and an input field with a save/submit button.

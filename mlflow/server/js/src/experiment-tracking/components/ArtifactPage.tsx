@@ -43,7 +43,10 @@ type ArtifactPageImplProps = {
   useAutoHeight?: boolean;
 } & LoggedModelArtifactViewerProps;
 
-type ArtifactPageImplState = any;
+type ArtifactPageImplState = {
+  activeNodeIsDirectory: boolean;
+  errorThrown: boolean;
+};
 
 export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactPageImplState> {
   pollIntervalId: any;
