@@ -559,6 +559,7 @@ def search_traces(
 
         return_type: The type of the return value. The following return types are supported. Default
             is ``"pandas"``.
+
             - `"pandas"`: Returns a Pandas DataFrame containing information about traces
                 where each row represents a single trace and each column represents a field of the
                 trace e.g. request_id, spans, etc.
