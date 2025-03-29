@@ -13,17 +13,18 @@ Discover the next generation of MLflow, designed to streamline your AI experimen
 
 ## What is MLflow 3.0?
 
-The best AI experimentation platform for building high quality models and GenAI agents! MLflow 3.0 introduces a variety of exciting improvements to MLflow Tracking and Tracing, including:
-- First class model support in MLflow tracking with <APILink fn="mlflow.entities.LoggedModel">**LoggedModel**</APILink>
-- **Model-centric** information architecture for params and metrics in MLflow tracking
-- Enhanced **tracing** experience with lineage tracking for LoggedModels
+MLflow 3.0 delivers best-in-class experiment tracking, observability, and performance evaluation for machine learning models, AI applications, and generative AI agents!
+MLflow 3.0 introduces a variety of exciting improvements, including:
+- Centrally track and analyze the performance of your models and generative AI applications **across all environments**, from interactive queries in a development notebook through production batch or real-time serving deployments.
+- Gain insights into model performance with **comprehensive metrics and lineage tracking**, enabling better decision-making for production readiness.
+- Streamline the handling of model artifacts and evaluation results with a **cohesive structure** that improves observability and traceability.
 
-Model Tracking helps you create and evaluate different model/agent configurations in your experiments, LoggedModel helps you find the best ones for production usage, and tracing helps enhance observability in your model or GenAI applications.
+Model Tracking helps you create and evaluate different model/agent configurations in your experiments, <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> helps you find the best ones for production usage, and tracing helps enhance observability in your model or GenAI applications.
 
 
 ## Model Tracking with LoggedModel
 
-In MLflow 3.0, we introduce a new model-centric design, together with revamped APIs (UI will come later), tailored to enhance deep learning and generative AI workflows. 
+In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance deep learning and generative AI workflows. 
 In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment. 
 With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers. 
 
@@ -398,5 +399,5 @@ Since MLflow 3.0, those artifacts will be stored into models artifacts location.
     - fastai
     - h2o
     - mleap
-- AI gateway APIs: use deployments APIs instead
+- AI gateway client APIs: use deployments APIs instead
 
