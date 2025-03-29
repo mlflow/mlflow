@@ -56,6 +56,10 @@ def test_save_and_load_chat_databricks(model_path):
 
     mlflow.langchain.save_model(chain, path=model_path)
 
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert "databricks-langchain" in reqs
+
     loaded_model = mlflow.langchain.load_model(model_path)
     assert loaded_model == chain
 
