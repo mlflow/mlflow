@@ -1392,8 +1392,8 @@ class _ModelTracker:
     """
 
     def __init__(self):
-        # stores id(model) -> model_id of LoggedModel mapping
-        self.model_ids: dict[int, str] = {}
+        # maps model identity (id(model)) to model_id for logged models
+        self._model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
         # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
@@ -1407,7 +1407,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            return self.model_ids.get(identity)
+            return self._model_ids.get(identity)
 
     def set(self, identity: int, model_id: str) -> None:
         """
@@ -1416,7 +1416,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            self.model_ids[identity] = model_id
+            self._model_ids[identity] = model_id
 
     def set_active_model_id(self, model_id: Optional[str]) -> None:
         """
@@ -1448,7 +1448,7 @@ class _ModelTracker:
 
     def clear(self) -> None:
         with self._lock:
-            self.model_ids.clear()
+            self._model_ids.clear()
             self._model_locks.clear()
 
 

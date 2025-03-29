@@ -68,6 +68,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     autologging_is_disabled,
+    disable_autologging,
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
@@ -562,34 +563,35 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
-    mlflow_model = Model.log(
-        artifact_path=artifact_path,
-        name=name,
-        flavor=mlflow.openai,
-        registered_model_name=registered_model_name,
-        model=model,
-        task=task,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        signature=signature,
-        input_example=input_example,
-        await_registration_for=await_registration_for,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        metadata=metadata,
-        example_no_conversion=example_no_conversion,
-        prompts=prompts,
-        params=params,
-        tags=tags,
-        model_type=model_type,
-        step=step,
-        model_id=model_id,
-        **kwargs,
-    )
-    if mlflow_model.model_id:
-        model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
-        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
-    return mlflow_model
+    with disable_autologging():
+        mlflow_model = Model.log(
+            artifact_path=artifact_path,
+            name=name,
+            flavor=mlflow.openai,
+            registered_model_name=registered_model_name,
+            model=model,
+            task=task,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
+            example_no_conversion=example_no_conversion,
+            prompts=prompts,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
+            **kwargs,
+        )
+        if mlflow_model.model_id:
+            model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
+            _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
+        return mlflow_model
 
 
 def _load_model(path):
