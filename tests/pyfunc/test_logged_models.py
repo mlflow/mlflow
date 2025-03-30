@@ -96,7 +96,7 @@ def test_run_metrics_are_logged_to_model():
 
 
 def test_external_logged_model_cannot_be_loaded_with_pyfunc():
-    model = mlflow.create_logged_model(name="testmodel")
+    model = mlflow.create_logged_model(name="testmodel", external=True)
     with pytest.raises(
         MlflowException,
         match="This model's artifacts are external.*cannot be loaded",
