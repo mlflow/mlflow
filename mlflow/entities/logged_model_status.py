@@ -12,6 +12,8 @@ class LoggedModelStatus(str, Enum):
     READY = "READY"
     FAILED = "FAILED"
 
+    FINALIZED_STATUSES = ["READY", "FAILED"]
+
     def __str__(self):
         return self.value
 

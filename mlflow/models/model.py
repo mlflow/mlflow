@@ -24,7 +24,11 @@ from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -971,6 +975,13 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
+                )
+
+            if model.status in LoggedModelStatus.FINALIZED_STATUSES:
+                raise MlflowException(
+                    f"Model with id {model.model_id} is already in {model.status} status, "
+                    f"and its artifacts cannot be modified.",
+                    BAD_REQUEST,
                 )
 
             if run_id is not None:
