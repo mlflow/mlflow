@@ -1,9 +1,11 @@
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 import mlflow
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -93,6 +95,29 @@ def test_run_metrics_are_logged_to_model():
 
     model = mlflow.last_logged_model()
     assert [(m.key, m.value) for m in model.metrics] == [("a", 1), ("b", 2)]
+
+
+def test_log_model_finalizes_existing_pending_model():
+    model = mlflow.create_logged_model(name="testmodel")
+    assert model.status == LoggedModelStatus.PENDING
+    mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
+    updated_model = mlflow.get_logged_model(model.model_id)
+    assert updated_model.status == LoggedModelStatus.READY
+
+
+def test_log_model_does_not_update_artifacts_or_status_for_finalized_models(tmp_path):
+    model = mlflow.create_logged_model(name="testmodel", external=True)
+    assert model.status == LoggedModelStatus.READY
+    dst_dir_1 = os.path.join(tmp_path, "dst_1")
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_1)
+    model_artifacts = set(os.listdir(dst_dir_1))
+
+    with pytest.raises(MlflowException, match="artifacts cannot be modified"):
+        mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
+
+    dst_dir_2 = os.path.join(tmp_path, "dst_2")
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_2)
+    assert set(os.listdir(dst_dir_2)) == model_artifacts
 
 
 def test_external_logged_model_cannot_be_loaded_with_pyfunc():

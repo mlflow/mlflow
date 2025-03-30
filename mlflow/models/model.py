@@ -979,8 +979,8 @@ class Model:
 
             if model.status in LoggedModelStatus.FINALIZED_STATUSES:
                 raise MlflowException(
-                    f"Model with id {model.model_id} is already in {model.status} status, "
-                    f"and its artifacts cannot be modified.",
+                    f"Model with id {model.model_id} has the status '{model.status}', "
+                    f"so its artifacts cannot be modified.",
                     BAD_REQUEST,
                 )
 
