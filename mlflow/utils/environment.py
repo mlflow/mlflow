@@ -448,7 +448,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
                 model_uri=model_uri, flavor=flavor, fallback=fallback
             )
         _logger.warning(msg)
-        _logger.debug("", exc_info=True)
+        _logger.warning("", exc_info=True)
         return fallback
 
 
