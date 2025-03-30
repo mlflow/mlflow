@@ -5334,6 +5334,7 @@ class MlflowClient:
         tags: Optional[dict[str, str]] = None,
         params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
+        external: bool = False,
     ) -> LoggedModel:
         """
         Create a new logged model.
@@ -5345,12 +5346,21 @@ class MlflowClient:
             tags: Tags to set on the model.
             params: Parameters to set on the model.
             model_type: Type of the model.
+            external: If true, indicates that the artifacts (weights, code, etc.) for the model
+                      are stored externally and not in MLflow. If false, indicates that the model's
+                      artifacts are stored in MLflow.
 
         Returns:
             The created model.
         """
         return self._tracking_client.create_logged_model(
-            experiment_id, name, source_run_id, tags, params, model_type
+            experiment_id=experiment_id,
+            name=name,
+            source_run_id=source_run_id,
+            tags=tags,
+            params=params,
+            model_type=model_type,
+            external=external,
         )
 
     @experimental

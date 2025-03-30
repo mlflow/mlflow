@@ -2014,6 +2014,7 @@ def create_logged_model(
     params: Optional[dict[str, str]] = None,
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
+    external: bool = False,
 ) -> LoggedModel:
     """
     Create a new logged model.
@@ -2025,6 +2026,9 @@ def create_logged_model(
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
+        external: If true, indicates that the artifacts (weights, code, etc.) for the model
+                  are stored externally and not in MLflow. If false, indicates that the model's
+                  artifacts are stored in MLflow.
 
     Returns:
         The created logged model.
@@ -2043,6 +2047,7 @@ def create_logged_model(
         tags=resolved_tags,
         params=params,
         model_type=model_type,
+        external=external,
     )
     _last_logged_model_id.set(model.model_id)
     return model
