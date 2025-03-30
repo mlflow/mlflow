@@ -2047,6 +2047,9 @@ def get_external_mlflow_model_spec(logged_model: LoggedModel) -> Model:
         # of models without signatures
         signature=infer_signature(model_input=True, model_output=True),
         metadata={
+            # Add metadata to the logged model indicating that its artifacts are stored externally.
+            # This helps downstream consumers of the model, such as the Model Registry, easily
+            # and consistently identify that the model's artifacts are external
             MLFLOW_MODEL_IS_EXTERNAL: True,
         },
     )

@@ -1209,6 +1209,9 @@ class TrackingServiceClient:
 
         tags = [LoggedModelTag(str(key), str(value)) for key, value in (tags or {}).items()]
         if external:
+            # If the logged model's artifacts are stored externally, set a tag on the logged model
+            # to help with quickly filtering / identifying these logged models without inspecting
+            # their MLmodel (MLflow Model) configurations
             tags.append(LoggedModelTag(MLFLOW_MODEL_IS_EXTERNAL, "true"))
 
         logged_model = self.store.create_logged_model(
