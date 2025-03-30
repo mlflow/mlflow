@@ -1128,7 +1128,7 @@ def load_model(
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
-    if model_meta.metadata.get(MLFLOW_MODEL_IS_EXTERNAL, False) is True:
+    if model_meta.metadata and model_meta.metadata.get(MLFLOW_MODEL_IS_EXTERNAL, False) is True:
         raise MlflowException(
             "This model's artifacts are external and are not stored in the model directory."
             " This model cannot be loaded with MLflow.",

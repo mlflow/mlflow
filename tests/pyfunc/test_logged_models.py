@@ -1,7 +1,10 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TraceMetadataKey
 
 
@@ -90,3 +93,12 @@ def test_run_metrics_are_logged_to_model():
 
     model = mlflow.last_logged_model()
     assert [(m.key, m.value) for m in model.metrics] == [("a", 1), ("b", 2)]
+
+
+def test_external_logged_model_cannot_be_loaded_with_pyfunc():
+    model = mlflow.create_logged_model(name="testmodel")
+    with pytest.raises(
+        MlflowException,
+        match="This model's artifacts are external.*cannot be loaded",
+    ):
+        mlflow.pyfunc.load_model(f"models:/{model.model_id}")
