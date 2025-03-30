@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { connect } from 'react-redux';
 import qs from 'qs';
 import { getExperimentApi, getRunApi } from '../actions';
@@ -20,18 +20,19 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import Utils from '../../common/utils/Utils';
 import { injectIntl, type IntlShape } from 'react-intl';
+import type { AnyAction, Dispatch } from 'redux';
 
 type MetricPageImplProps = {
   runUuids: string[];
   metricKey: string;
   experimentIds?: string[];
-  dispatch: (...args: any[]) => any;
+  dispatch: Dispatch<AnyAction>;
   loadError?: unknown;
   intl: IntlShape;
 };
 
 export class MetricPageImpl extends Component<MetricPageImplProps> {
-  requestIds: any;
+  requestIds: string[];
 
   constructor(props: MetricPageImplProps) {
     super(props);
@@ -39,8 +40,7 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
   }
 
   fetchExperiments() {
-    // @ts-expect-error TS(2532): Object is possibly 'undefined'.
-    return this.props.experimentIds.map((experimentId) => {
+    return (this.props.experimentIds ?? []).map((experimentId) => {
       const experimentRequestId = getUUID();
       this.props.dispatch(getExperimentApi(experimentId, experimentRequestId));
       return experimentRequestId;
@@ -68,13 +68,9 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
   }
 
   renderPageContent() {
-    const { runUuids } = this.props;
-    return runUuids.length >= 1 ? (
-      <MetricView
-        runUuids={this.props.runUuids}
-        metricKey={this.props.metricKey}
-        experimentIds={this.props.experimentIds}
-      />
+    const { runUuids, experimentIds, metricKey } = this.props;
+    return runUuids.length >= 1 && experimentIds && experimentIds.length >= 1 ? (
+      <MetricView runUuids={runUuids} metricKey={metricKey} experimentIds={experimentIds} />
     ) : (
       <NotFoundPage />
     );
@@ -83,18 +79,13 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
   render() {
     return (
       <PageContainer>
-        <RequestStateWrapper
-          requestIds={this.requestIds}
-          // eslint-disable-next-line no-trailing-spaces
-        >
-          {this.renderPageContent()}
-        </RequestStateWrapper>
+        <RequestStateWrapper requestIds={this.requestIds}>{this.renderPageContent()}</RequestStateWrapper>
       </PageContainer>
     );
   }
 }
 
-const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ metricKey: string }>) => {
+const mapStateToProps = (state: unknown, ownProps: WithRouterNextProps<{ metricKey: string }>) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   try {
