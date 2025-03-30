@@ -33,6 +33,7 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -1732,6 +1733,17 @@ def test_create_logged_model_tags_from_context():
         m_get_source_name.assert_called_once()
         m_get_source_type.assert_called_once()
         m_get_source_version.assert_called_once()
+
+
+def test_create_external_logged_model():
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.create_logged_model",
+        side_effect=MlflowClient().create_logged_model,
+    ) as client_create_logged_model_spy:
+        model = mlflow.create_logged_model(external=True)
+        assert model.status == LoggedModelStatus.READY
+        assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
+        client_create_logged_model_spy.assert_called_once()
 
 
 def test_last_logged_model():

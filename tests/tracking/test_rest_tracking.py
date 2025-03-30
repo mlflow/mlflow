@@ -49,6 +49,7 @@ from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_GIT_COMMIT,
+    MLFLOW_MODEL_IS_EXTERNAL,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_SOURCE_NAME,
@@ -2513,6 +2514,17 @@ def test_create_logged_model(mlflow_client: MlflowClient):
     model = mlflow_client.create_logged_model(exp_id, tags={"tag": "value"})
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert model.tags == {"tag": "value"}
+
+
+def test_create_external_logged_model(tmp_path, mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_external_logged_model")
+    model = mlflow_client.create_logged_model(exp_id, external=True)
+    assert model.status == LoggedModelStatus.READY
+    assert model.tags.get(MLFLOW_MODEL_IS_EXTERNAL) == "true"
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=tmp_path)
+    mlflow_model: Model = Model.load(os.path.join(tmp_path, "MLmodel"))
+    assert mlflow_model.metadata is not None
+    assert mlflow_model.metadata.get(MLFLOW_MODEL_IS_EXTERNAL) is True
 
 
 def test_finalize_logged_model(mlflow_client: MlflowClient):
