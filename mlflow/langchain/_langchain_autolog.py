@@ -6,6 +6,7 @@ import mlflow
 from mlflow.langchain import FLAVOR_NAME
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.utils.autologging_utils import safe_patch
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
@@ -63,10 +64,11 @@ def _patched_invoke(original, self, *args, **kwargs):
     A patched implementation of langchain models invoke process which enables
     logging the traces.
     """
+    config = AutoLoggingConfig.init(flavor_name=mlflow.langchain.FLAVOR_NAME)
     if model_id := _MODEL_TRACKER.get(id(self)):
         _MODEL_TRACKER.set_active_model_id(model_id)
     # NB: this check ensures we don't create LoggedModels for internal components
-    elif not _MODEL_TRACKER._is_active_model_id_set:
+    elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
         logged_model = mlflow.create_logged_model(
             name=self.__class__.__name__,
         )
@@ -93,10 +95,11 @@ async def _patched_ainvoke(original, self, *args, **kwargs):
     A patched implementation of langchain models ainvoke process which enables
     logging the traces.
     """
+    config = AutoLoggingConfig.init(flavor_name=mlflow.langchain.FLAVOR_NAME)
     if model_id := _MODEL_TRACKER.get(id(self)):
         _MODEL_TRACKER.set_active_model_id(model_id)
     # NB: this check ensures we don't create LoggedModels for internal components
-    elif not _MODEL_TRACKER._is_active_model_id_set:
+    elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
         logged_model = mlflow.create_logged_model(
             name=self.__class__.__name__,
         )

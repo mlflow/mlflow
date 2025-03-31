@@ -1284,8 +1284,9 @@ def test_log_model_multiple_times_different_model_id():
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
 
 
-def test_autolog_create_logged_model_and_link_traces_invoke():
-    mlflow.langchain.autolog()
+@pytest.mark.parametrize("create_logged_model", [True, False])
+def test_autolog_create_logged_model_and_link_traces_invoke(create_logged_model):
+    mlflow.langchain.autolog(create_logged_model=create_logged_model)
     chain, input_example = create_runnable_sequence()
     with mlflow.start_run() as run:
         for _ in range(3):
@@ -1294,20 +1295,25 @@ def test_autolog_create_logged_model_and_link_traces_invoke():
     logged_models = mlflow.search_logged_models(
         filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
     )
-    assert len(logged_models) == 1
-    logged_model = logged_models[0]
     traces = get_traces()
     assert len(traces) == 3
-    for i in range(3):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-            == logged_model.model_id
-        )
+    if create_logged_model:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
 
-    assert model_info.model_id != logged_model.model_id
+    assert model_info.model_id != logged_model_id
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     loaded_model.invoke(input_example)
     traces = get_traces()
@@ -1316,8 +1322,9 @@ def test_autolog_create_logged_model_and_link_traces_invoke():
 
 
 @pytest.mark.asyncio
-async def test_autolog_create_logged_model_and_link_traces_ainvoke():
-    mlflow.langchain.autolog()
+@pytest.mark.parametrize("create_logged_model", [True, False])
+async def test_autolog_create_logged_model_and_link_traces_ainvoke(create_logged_model):
+    mlflow.langchain.autolog(create_logged_model=create_logged_model)
     chain, input_example = create_runnable_sequence()
     with mlflow.start_run() as run:
         for _ in range(3):
@@ -1326,20 +1333,25 @@ async def test_autolog_create_logged_model_and_link_traces_ainvoke():
     logged_models = mlflow.search_logged_models(
         filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
     )
-    assert len(logged_models) == 1
-    logged_model = logged_models[0]
     traces = get_traces()
     assert len(traces) == 3
-    for i in range(3):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-            == logged_model.model_id
-        )
+    if create_logged_model:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
 
-    assert model_info.model_id != logged_model.model_id
+    assert model_info.model_id != logged_model_id
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     await loaded_model.ainvoke(input_example)
     traces = get_traces()
