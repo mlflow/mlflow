@@ -436,6 +436,7 @@ nitpick_ignore = [
     ("py:class", "LiveSpan"),
     ("py:class", "ChatMessage"),
     ("py:class", "ChatTool"),
+    ("py:class", "Trace"),
     # sphinx can't resolve alias import e.g. from xyz import abc as xyz_abc in type annotations
     ("py:class", "mlflow.entities.assessment.Expectation"),
     ("py:class", "mlflow.entities.assessment.Feedback"),
