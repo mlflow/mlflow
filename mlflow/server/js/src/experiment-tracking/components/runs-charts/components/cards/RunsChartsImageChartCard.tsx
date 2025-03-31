@@ -42,18 +42,6 @@ export const RunsChartsImageChartCard = ({
   const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver((entries) => {
-      setContainerWidth(entries[0].contentRect.width);
-    });
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [containerRef]);
-
   // Optimizations for smoother slider experience. Maintain a local copy of config, and update
   // the global state only after the user has finished dragging the slider.
   const [tmpConfig, setTmpConfig] = useState(config);
@@ -110,14 +98,15 @@ export const RunsChartsImageChartCard = ({
         flexDirection: 'column',
         height: fullScreen ? '100%' : undefined,
         width: '100%',
-        overflow: 'auto',
+        overflow: 'hidden',
+        marginTop: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
       <div
         ref={containerRef}
         css={{
-          cursor: 'pointer',
-          height: `calc(100% - ${theme.spacing.md * 2}px)`,
+          flex: 1,
           overflow: 'auto',
         }}
       >
@@ -126,7 +115,6 @@ export const RunsChartsImageChartCard = ({
           groupBy={groupBy}
           cardConfig={tmpConfig}
           setCardConfig={setCardConfig}
-          containerWidth={containerWidth}
         />
       </div>
       <div
@@ -137,7 +125,7 @@ export const RunsChartsImageChartCard = ({
           gap: theme.spacing.md,
         }}
       >
-        <div css={{ width: '350px' }}>
+        <div css={{ flex: 1 }}>
           <LineSmoothSlider
             value={tmpConfig.step}
             onChange={tmpStepChange}
@@ -146,6 +134,9 @@ export const RunsChartsImageChartCard = ({
             marks={stepMarks}
             disabled={Object.keys(stepMarks).length <= 1}
             onAfterChange={updateStep}
+            css={{
+              '&[data-orientation="horizontal"]': { width: 'auto' },
+            }}
           />
         </div>
       </div>

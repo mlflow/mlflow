@@ -54,8 +54,8 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
             display: '-webkit-box',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            '-webkit-box-orient': 'vertical',
-            '-webkit-line-clamp': '7',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: '7',
             width: '100%',
             height: '100%',
           }}
