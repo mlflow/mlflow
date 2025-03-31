@@ -342,6 +342,9 @@ def test_autolog_create_logged_model_and_link_traces_index(single_index, is_asyn
         assert (
             traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
         )
+    # This is required because settings contains OpenAIEmbedding, it might introduce
+    # some side effect on tracing when multiple tests run together
+    mlflow.llama_index.autolog(disable=True)
 
 
 @pytest.mark.parametrize("is_async", [True, False])
@@ -376,7 +379,8 @@ def test_autolog_create_logged_model_and_link_traces_engine(single_index, is_asy
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
-def test_autolog_create_logged_model_and_link_traces_workflow():
+@pytest.mark.parametrize("create_logged_model", [True, False])
+def test_autolog_create_logged_model_and_link_traces_workflow(create_logged_model):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
@@ -391,22 +395,26 @@ def test_autolog_create_logged_model_and_link_traces_workflow():
     async def run_workflow(topic):
         await workflow.run(topic=topic)
 
-    mlflow.llama_index.autolog()
+    mlflow.llama_index.autolog(create_logged_model=create_logged_model)
 
     with mlflow.start_run() as run:
         for i in range(5):
             asyncio.run(run_workflow("Hello"))
             traces = get_traces()
             assert len(traces) == i + 1
+    traces = get_traces()
+    assert len(traces) == 5
     logged_models = mlflow.search_logged_models(
         filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
     )
-    assert len(logged_models) == 1
-    logged_model = logged_models[0]
-    traces = get_traces()
-    assert len(traces) == 5
-    for i in range(5):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-            == logged_model.model_id
-        )
+    if create_logged_model:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(5):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        for i in range(5):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes

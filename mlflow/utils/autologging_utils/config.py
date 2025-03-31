@@ -17,6 +17,7 @@ class AutoLoggingConfig:
     log_input_examples: bool
     log_model_signatures: bool
     log_traces: bool
+    create_logged_model: bool
     extra_tags: Optional[dict] = None
 
     def should_log_optional_artifacts(self):

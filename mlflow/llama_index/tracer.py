@@ -43,6 +43,7 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -156,13 +157,26 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 return model_id
             if model_id := _MODEL_TRACKER.get(id(instance)):
                 return model_id
-            logged_model = mlflow.create_logged_model(name=instance.__class__.__name__)
-            _MODEL_TRACKER.set(id(instance), logged_model.model_id)
-            instance._mlflow_model_id = logged_model.model_id
-            _logger.debug(
-                f"Created LoggedModel with model_id {logged_model.model_id} for {instance}"
-            )
-            return logged_model.model_id
+            autologging_config = AutoLoggingConfig.init(mlflow.llama_index.FLAVOR_NAME)
+            if autologging_config.create_logged_model:
+                logged_model = mlflow.create_logged_model(name=instance.__class__.__name__)
+                _MODEL_TRACKER.set(id(instance), logged_model.model_id)
+
+                if hasattr(instance, "__config__"):
+                    try:
+                        from pydantic.v1 import Extra
+
+                        instance.__config__.extra = Extra.allow
+                    except ImportError:
+                        pass
+                elif hasattr(instance, "model_config") and instance.model_config is not None:
+                    instance.model_config["extra"] = "allow"
+                instance._mlflow_model_id = logged_model.model_id
+                _logger.debug(
+                    f"Created LoggedModel with model_id {logged_model.model_id} "
+                    f"for {instance.__class__.__name__}"
+                )
+                return logged_model.model_id
         return None
 
     def new_span(
