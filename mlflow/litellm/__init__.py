@@ -57,6 +57,9 @@ def autolog(
         # Workaround for https://github.com/BerriAI/litellm/issues/8013
         # TODO: Add upper bound version check when the issue is fixed.
         if Version(importlib.metadata.version("litellm")) >= Version("1.59.4"):
+            litellm.success_callback = [
+                cb if cb != "mlflow" else MlflowLogger() for cb in litellm.success_callback
+            ]
             litellm.failure_callback = [
                 cb if cb != "mlflow" else MlflowLogger() for cb in litellm.failure_callback
             ]
