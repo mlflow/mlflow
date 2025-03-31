@@ -53,7 +53,7 @@ const transformMetricValues = (inputArray: UseGetRunQueryResponseDataMetrics): M
     }));
 
 // Internal util: transforms an array of dataset inputs into an array of RunDatasetWithTags objects
-const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
+export const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
   inputArray?.map((datasetInput) => ({
     dataset: {
       digest: datasetInput.dataset?.digest ?? '',
