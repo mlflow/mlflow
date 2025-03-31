@@ -434,7 +434,6 @@ class Model:
         self.resources = resources
         self.env_vars = env_vars
         self.auth_policy = auth_policy
-        self.model_id = model_id
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -672,6 +671,12 @@ class Model:
         if value and not (isinstance(value, list) and all(isinstance(x, str) for x in value)):
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
+
+    def model_id(self) -> str:
+        """
+        Alias for :py:meth:`model_uuid <mlflow.models.Model.model_uuid>`.
+        """
+        return self.model_uuid
 
     def _is_signature_from_type_hint(self):
         return self.signature._is_signature_from_type_hint if self.signature is not None else False
