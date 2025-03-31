@@ -674,9 +674,6 @@ class Model:
 
     @property
     def model_id(self) -> str:
-        """
-        Alias for :py:meth:`model_uuid <mlflow.models.Model.model_uuid>`.
-        """
         return self.model_uuid
 
     def _is_signature_from_type_hint(self):
