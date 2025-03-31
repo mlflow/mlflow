@@ -22,7 +22,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Getting Started',
+      label: '🛑🛑 Getting Started',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -185,7 +185,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MLflow Tracing (Observability)',
+      label: '🛑🛑MLflow Tracing (Observability)',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -259,7 +259,7 @@ const sidebars: SidebarsConfig = {
     // },
     {
       type: 'category',
-      label: 'MLflow Prompts',
+      label: '🛑🛑MLflow Prompts',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -483,7 +483,7 @@ const sidebars: SidebarsConfig = {
     // },
     {
       type: 'category',
-      label: 'Team Collaboration 👥',
+      label: '🛑🛑Team Collaboration 👥',
       className: 'sidebar-top-level-category',
       collapsed: true,
       items: [
@@ -511,7 +511,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'API References',
+      label: '🛑🛑API References',
       className: 'sidebar-top-level-category',
       collapsed: true,
       items: [
