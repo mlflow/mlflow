@@ -22,7 +22,11 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    disable_autologging_globally,
+    safe_patch,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -311,6 +315,7 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     llama_index_model,
     artifact_path: Optional[str] = None,
@@ -529,6 +534,7 @@ def _load_llama_model(path, flavor_conf):
 
 @experimental
 @trace_disabled  # Suppress traces while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LlamaIndex index/engine/workflow from a local file or a run.
@@ -646,6 +652,10 @@ def _autolog(
 
 def _patch_as_func(original, self, *args, **kwargs):
     engine = original(self, *args, **kwargs)
-    if model_id := _MODEL_TRACKER.get(id(self)):
-        engine._mlflow_model_id = model_id
+    engine_model_id = _MODEL_TRACKER.get(id(self))
+    if engine_model_id is None:
+        logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
+        _MODEL_TRACKER.set(id(self), logged_model.model_id)
+        _logger.debug(f"Created LoggedModel with model_id {logged_model.model_id} for index {self}")
+    engine._mlflow_model_id = engine_model_id
     return engine
