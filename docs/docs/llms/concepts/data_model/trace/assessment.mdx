@@ -1,0 +1,27 @@
+---
+sidebar_position: 3
+parent: trace
+---
+
+# Assessments
+
+[`Assessments`](assessment) describe the quality and operational performance (latency, cost, etc.) of a `Trace`. An `Assessment` can be about an entire `Trace` or a single span within the `Trace`.
+
+There are three types of `Assessments`:
+1. **`feedback`**: Annotations about the quality of this `Trace`'s outputs, including its:
+   - Final outputs (e.g., response correctness)
+   - Intermediate outputs (e.g., retrieved data quality)
+2. **`expectation`**: Annotations about the expected values the application should have produced for the `Trace`'s inputs, including its:
+   - Agent outputs
+   - Intermediate states
+3. **`operational`**: Annotations about the `Trace`'s execution, including:
+   - Token usage / cost
+   - Latency
+   - Other operational aspects (e.g., tool call sequence correctness)
+
+
+[`Assessments`](assessment) are produced by either:
+* `Scorer`: A developer-defined function that programmatically evaluates traces using either:
+  - Deterministic Logic: Rule-based evaluation using predefined criteria (e.g., response length, presence of required fields)
+  - LLM Judge-based Logic: Using another LLM to evaluate the quality of responses, simulating a human generated evaluation (e.g., checking factual accuracy, tone, or adherence to guidelines)
+* `Labeling Session`: Human-generated evaluations, done through the Review App's interactive interface.

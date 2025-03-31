@@ -1,0 +1,34 @@
+# Evaluating quality and performance
+
+MLflow provides comprehensive tools for evaluating your GenAI application's quality and performance:
+
+### Scorers
+
+Scorers are developer-defined functions that programmatically evaluate traces using either:
+- **Deterministic Logic**: Rule-based evaluation using predefined criteria (e.g., response length, presence of required fields)
+- **LLM Judge-based Logic**: Using another LLM to evaluate response quality (e.g., factual accuracy, tone, adherence to guidelines)
+
+MLflow provides built-in LLM judges for common evaluation scenarios:
+- Factual accuracy and hallucination detection
+- Response relevance and completeness
+- Safety and compliance checks
+
+In most cases, you will need to customize the out of the box metrics to meet your business requirements in order to:
+- Evaluate domain-specific requirements
+- Implement business logic validation
+- Create specialized quality checks
+
+To help with this, MLflow provides:
+- A SDK for creating your own custom llm judges
+- A SDK for defining fully custom metrics
+
+
+### Production Evaluation
+
+In production, you schedule scorers to automatically annotate your logged traces.  Once scorers are scheduled, you can:
+- Set up alerts to be notified when app quality or performance deviates from standards.  
+- Monitor metrics using the built in dashboards
+
+### Development Evaluation
+
+During development, you run scorers using the evaluation harness, which also annotates traces with the scorers. You run the evaluation harness to test changes to your application. Since LLMs are not deterministic and there is an art to prompt engineering, you often have to try many different iterations to get one that fixes issues you found and doesn't cause regressions in past examples that worked well. The outputs are saved into evaluation runs, which you can then use to see if your changes worked - you can also compare across evaluation runs easily.

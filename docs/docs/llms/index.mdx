@@ -6,9 +6,171 @@ pagination_next: tracing/index
 import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
-# LLM / GenAI
+# MLflow for GenAI
 
-LLMs (Large Language Models) have become essential in machine learning, enabling tasks like natural language understanding and code generation. However, fully leveraging their potential often involves complex processes of managing many moving pieces such as prompts, LLM providers, frameworks, knowledge base, tools, and more.
+**MLflow enables AI developers to build production-grade GenAI applications that deliver business value. To deliver business value, GenAI applications must consistently provide high quality responses while optimizing for cost and latency.**
+
+However, building GenAI applications presents unique challenges compared to both traditional software development and ML development.  Just as traditional software engineering relies on test suites and traditional ML relies on validation sets, GenAI applications need robust evaluation frameworks to ensure they deliver high-quality, performant, and cost-effective responses.  However, evaluating these aspects in GenAI is more complex:
+- Unlike traditional software or ML, GenAI most often produces plain language outputs.  These outputs are either "right" or "wrong" but there are many right answers and some "right" answers are more correct than others.  Human feedback is often required to confidently assess these outputs.
+- The non-deterministic nature of LLMs adds an extra layer of complexity - teams must evaluate not just for correctness, but for consistency and stability.
+
+MLflow provides the infrastructure and tooling to enable AI developers to address these challenges by using an **evaluation-centric development workflow.**  An evaluation-centric workflow allows teams to:
+
+- **Quickly experiment to improve quality/performance:** Iteratively refine prompts and model configurations, systematically comparing each iteration for quality, cost, and latency
+- **Monitor production quality/performance in real-time:** Identify and quickly address failure modes that surface during production
+- **Collaborate with business stakeholders:**  Define and measure quality standards based on input from key business stakeholders and domain experts
+- **Define metrics to evaluate plain language outputs:** TALK ABOUT LLM JUDGES
+
+## What is an evaluation-centric development workflow?
+
+![Evaluation Driven Workflow](/images/genai/eval-driven-dev.png)
+
+The most effective GenAI development workflows treat production as an extension of development. Teams deploy early versions to pre-production environments where beta testers can interact with the application. This traffic becomes valuable evaluation data, helping identify edge cases, failure modes, and performance bottlenecks that might not emerge in controlled testing. 
+
+This evaluation-driven workflow continues in the production deployment. Teams monitor live traffic, identify new edge cases, failure modes, and performance issues, and use this real-world data to continuously update their evaluation data and improve their models and prompts. This ensures that GenAI applications maintain high quality, stay within cost constraints, and meet latency requirements as they evolve and encounter new scenarios.
+
+Using this approach, teams can:
+- Collect and analyze production traces to understand real-world usage patterns
+- Identify problematic interactions and create targeted evaluation datasets
+- Run offline evaluations on these datasets to test potential improvements
+- Deploy refined versions and monitor their impact on key metrics
+
+Without an evaluation-driven development workflow, teams risk deploying GenAI solutions that work well in demos but fail to deliver consistent value in production. By making evaluation a cornerstone of the development process and treating production as an extension of the development environment, organizations can more effectively bridge the gap between proof-of-concept and production-ready GenAI applications.
+
+
+A developer is responsible for creating the following in code:
+* Versions
+* Scorers 
+
+A developer is responsible for configuring
+* What Alerts
+* 
+
+
+## Fundamental Elements of the Data Model
+
+* Traces 
+* Assessments
+* Datasets
+* Labeling Sessions
+* Versions
+
+## Core Development Workflows
+
+## Core Production Workflows 
+
+
+* Create and iterate on Scorers
+* Test versions by running an evaluation 
+
+
+
+
+
+* Schedule Scorers to run on Traces
+* Send Traces for Human Labeling
+* Curate Traces into Datasets
+* Configure Alerts based on Assessments
+* Identify quality and performance issues on Traces
+
+<CardGroup>
+  <PageCard
+    headerText="Assessments"
+    link="/getting-started/intro-quickstart/"
+    text={[
+      "Run MLflow server locally or use direct access mode (no server required) to run MLflow in your local environment. Click the card to learn more.",
+    ]}
+  />
+  <LogoCard
+    link="https://www.databricks.com/product/managed-mlflow"
+    description="Databricks Managed MLflow is a FREE, fully managed solution, seamlessly integrated with Databricks ML/AI ecosystem, such as Unity Catalog, Model Serving, and more."
+  >
+    <span>![Databricks Logo](/images/logos/databricks-logo.png)</span>
+  </LogoCard>
+  <LogoCard
+    link="https://aws.amazon.com/sagemaker-ai/experiments/"
+    description="MLflow on Amazon SageMaker is a fully managed service for MLflow on AWS infrastructure,integrated with SageMaker's core capabilities such as Studio, Model Registry, and Inference."
+  >
+    <span>
+      ![Amazon SageMaker Logo](/images/logos/amazon-sagemaker-logo.png)
+    </span>
+  </LogoCard>
+  <LogoCard
+    link="https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2"
+    description="Azure Machine Learning workspaces are MLflow-compatible, allows you to use an Azure Machine Learning workspace the same way you use an MLflow server."
+  >
+    <span>![AzureML Logo](/images/logos/azure-ml-logo.png)</span>
+  </LogoCard>
+  <LogoCard
+    link="https://nebius.com/services/managed-mlflow"
+    description="Nebius, a cutting-edge cloud platform for GenAI explorers, offers a fully managed service for MLflow, streamlining LLM fine-tuning with MLflow's robust experiment tracking capabilities."
+  >
+    <span>![Nebius Logo](/images/logos/nebius-logo.png)</span>
+  </LogoCard>
+  <LogoCard
+    link="https://mlflow.org/docs/latest/tracking.html#common-setups"
+    description="You can use MLflow on your on-premise or cloud-managed Kubernetes cluster. Click this card to learn how to host MLflow on your own infrastructure."
+  >
+    <span>![Kubernetes Logo](/images/logos/kubernetes-logo.png)</span>
+  </LogoCard>
+</CardGroup>
+
+
+
+* Logging versions
+
+* Traces
+
+
+Key differences
+* Evaluations have the same set of inputs over time
+* You can compare between evaluations
+
+Evaluate existing traces
+
+Data Model 
+
+* Trace
+  * Assessments
+  * Trace Data 
+  * Trace Info
+
+* Dataset 
+
+* Labeling Session 
+
+* Evaluation Runs
+
+
+
+
+Assessments
+* feedback
+* expectation
+
+
+
+
+Scorers
+
+
+Traces
+
+
+Datasets
+
+
+Monitor
+
+
+Labeling
+
+
+
+
+
+
+
 
 
 <details>
@@ -38,7 +200,7 @@ LLMs (Large Language Models) have become essential in machine learning, enabling
 
   #### Quality Assurance
 
-  Ensuring the quality of machine learning systems has always been a challenge. With LLMs, the models’ complexity and the dynamic nature of tasks make it even harder to assess and guarantee quality. Robust QA processes are essential to ensure reliability and performance.
+  Ensuring the quality of machine learning systems has always been a challenge. With LLMs, the models' complexity and the dynamic nature of tasks make it even harder to assess and guarantee quality. Robust QA processes are essential to ensure reliability and performance.
 
   #### Production Monitoring
 
