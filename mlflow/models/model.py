@@ -672,6 +672,7 @@ class Model:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
+    @property
     def model_id(self) -> str:
         """
         Alias for :py:meth:`model_uuid <mlflow.models.Model.model_uuid>`.
