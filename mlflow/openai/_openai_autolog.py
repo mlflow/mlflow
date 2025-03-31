@@ -96,9 +96,12 @@ def patched_call(original, self, *args, **kwargs):
     task = mlflow.openai._get_task_name(self.__class__)
     model_identity = _generate_model_identity({"task": task, **kwargs})
     model_id = _MODEL_TRACKER.get(model_identity)
-    # TODO: create LoggedModel if model_id is None and set into _MODEL_TRACKER
-
     if config.log_traces:
+        if model_id is None:
+            logged_model = mlflow.create_logged_model(name="openai")
+            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
+            model_id = logged_model.model_id
+
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
@@ -125,6 +128,10 @@ async def async_patched_call(original, self, *args, **kwargs):
     model_identity = _generate_model_identity({"task": task, **kwargs})
     model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
+        if model_id is None:
+            logged_model = mlflow.create_logged_model(name="openai")
+            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
+            model_id = logged_model.model_id
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
