@@ -261,17 +261,32 @@ def test_loaded_llmchain_autolog():
     mlflow.langchain.autolog()
     model = create_openai_llmchain()
     question = {"product": "MLflow"}
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model", input_example=question)
-    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-    for i in range(3):
-        loaded_model.invoke(question)
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            model.invoke(question)
+
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
+
     traces = get_traces()
     assert len(traces) == 3
     for i in range(3):
         assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
         )
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example=question)
+    assert model_info.model_id != logged_model.model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke(question)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
 
 
 @pytest.mark.skipif(
@@ -1267,3 +1282,66 @@ def test_log_model_multiple_times_different_model_id():
     assert len(traces) == 1
     # traces link to the latest model_id
     assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+
+
+def test_autolog_create_logged_model_and_link_traces_invoke():
+    mlflow.langchain.autolog()
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            chain.invoke(input_example)
+
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
+    traces = get_traces()
+    assert len(traces) == 3
+    for i in range(3):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
+
+    assert model_info.model_id != logged_model.model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+
+@pytest.mark.asyncio
+async def test_autolog_create_logged_model_and_link_traces_ainvoke():
+    mlflow.langchain.autolog()
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            await chain.ainvoke(input_example)
+
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
+    traces = get_traces()
+    assert len(traces) == 3
+    for i in range(3):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
+
+    assert model_info.model_id != logged_model.model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    await loaded_model.ainvoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
