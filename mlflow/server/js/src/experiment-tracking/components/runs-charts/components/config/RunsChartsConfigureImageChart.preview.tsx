@@ -39,13 +39,7 @@ export const RunsChartsConfigureImageChartPreview = ({
   }
 
   const chartBody = (
-    <ImageGridPlot
-      previewData={previewData}
-      cardConfig={cardConfig}
-      setCardConfig={setCardConfig}
-      containerWidth={500}
-      groupBy={groupBy}
-    />
+    <ImageGridPlot previewData={previewData} cardConfig={cardConfig} setCardConfig={setCardConfig} groupBy={groupBy} />
   );
 
   const cardBodyToRender = chartBody;

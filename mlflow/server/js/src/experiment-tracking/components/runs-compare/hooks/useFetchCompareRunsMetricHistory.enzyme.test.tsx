@@ -21,7 +21,7 @@ const flushPromises = (advance = false) =>
   });
 
 describe('useFetchCompareRunsMetricHistory', () => {
-  const getMetricHistoryApiMock = getMetricHistoryApiBulk as jest.Mock;
+  const getMetricHistoryApiMock = jest.mocked(getMetricHistoryApiBulk);
   // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
   let wrapper: ReactWrapper;
 
@@ -63,6 +63,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
 
   beforeEach(() => {
     getMetricHistoryApiMock.mockClear();
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => ({
       type: 'GET_METRIC_HISTORY_API',
       payload: Promise.resolve(),
@@ -109,6 +110,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
   it('displays loading indicator', async () => {
     jest.useFakeTimers();
     let fetchPromise: any = null;
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => {
       fetchPromise = new Promise((resolve) => setTimeout(resolve, 2000));
       return {
@@ -135,6 +137,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
   });
 
   it('displays error', async () => {
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => {
       return {
         type: 'GET_METRIC_HISTORY_API_BULK',

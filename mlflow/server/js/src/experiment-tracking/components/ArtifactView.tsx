@@ -25,6 +25,7 @@ import Utils from '../../common/utils/Utils';
 import _, { first } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import {
+  Alert,
   DesignSystemHocProps,
   Empty,
   LayerIcon,
@@ -463,7 +464,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   render() {
-    if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
+    if (!this.props.artifactNode || ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView useAutoHeight={this.props.useAutoHeight} />;
     }
     const { theme } = this.props.designSystemThemeApi;

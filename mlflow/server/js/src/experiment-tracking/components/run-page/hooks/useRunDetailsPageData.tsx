@@ -7,6 +7,8 @@ import {
   UseGetRunQueryDataApiError,
   UseGetRunQueryResponseDataMetrics,
   UseGetRunQueryResponseDatasetInputs,
+  type UseGetRunQueryResponseInputs,
+  type UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './useGetRunQuery';
 import {
@@ -81,6 +83,8 @@ interface UseRunDetailsPageDataResult {
   runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
   datasets?: RunDatasetWithTags[];
+  runInputs?: UseGetRunQueryResponseInputs;
+  runOutputs?: UseGetRunQueryResponseOutputs;
 
   // Only present in legacy implementation
   runFetchError?: Error | ErrorWrapper | undefined;
@@ -158,6 +162,8 @@ export const useRunDetailsPageData = ({
       error: detailsPageGraphqlResponse.apolloError,
       apiError: detailsPageGraphqlResponse.apiError,
       refetchRun: detailsPageGraphqlResponse.refetchRun,
+      runInputs: detailsPageGraphqlResponse.data?.inputs,
+      runOutputs: detailsPageGraphqlResponse.data?.outputs,
       registeredModelVersionSummaries,
       datasets,
       latestMetrics,
