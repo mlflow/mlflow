@@ -18,6 +18,7 @@ class AutoLoggingConfig:
     log_model_signatures: bool
     log_traces: bool
     extra_tags: Optional[dict] = None
+    create_logged_model: bool = True
 
     def should_log_optional_artifacts(self):
         """
@@ -36,4 +37,5 @@ class AutoLoggingConfig:
             log_model_signatures=config_dict.get("log_model_signatures", False),
             log_traces=config_dict.get("log_traces", True),
             extra_tags=config_dict.get("extra_tags", None),
+            create_logged_model=config_dict.get("create_logged_model", True),
         )
