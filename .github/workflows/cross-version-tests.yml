@@ -149,7 +149,7 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           pip install wheel
-          pip install .[extras]
+          pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
@@ -196,7 +196,7 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           pip install wheel
-          pip install .[extras]
+          pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
