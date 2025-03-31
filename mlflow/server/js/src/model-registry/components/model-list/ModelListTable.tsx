@@ -75,10 +75,6 @@ export const ModelListTable = ({
 
   const [sorting, setSorting] = useState<SortingState>([{ id: orderByKey, desc: !orderByAsc }]);
 
-  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
-    return model;
-  });
-
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
       {
@@ -276,7 +272,7 @@ export const ModelListTable = ({
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
   const table = useReactTable<EnrichedModelEntity>({
-    data: enrichedModelsData,
+    data: modelsData,
     columns: tableColumns,
     state: {
       sorting,

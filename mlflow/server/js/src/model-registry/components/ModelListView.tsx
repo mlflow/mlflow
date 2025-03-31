@@ -20,7 +20,7 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
+import { CursorPagination, Spacer, Typography } from '@databricks/design-system';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
@@ -147,13 +147,12 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       currentPage,
       nextPageToken,
       searchInput,
+      loading,
+      error,
     } = this.props;
-    const { loading, error } = this.props;
 
     // Determine if we use any filters at the moment
-    const isFiltered =
-      // prettier-ignore
-      Boolean(searchInput);
+    const isFiltered = !!searchInput;
 
     const title = (
       <FormattedMessage
