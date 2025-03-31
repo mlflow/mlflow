@@ -647,11 +647,12 @@ skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
 
 
 # Evaluate.call starts to return dspy.Prediction since 2.7.0
-is_result_table_available = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
+is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
 
 
 @skip_if_evaluate_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
+@pytest.mark.parametrize("return_outputs", [True, False])
 @pytest.mark.parametrize(
     ("lm", "examples", "expected_result_table"),
     [
@@ -703,10 +704,18 @@ is_result_table_available = Version(importlib.metadata.version("dspy")) >= Versi
         ),
     ],
 )
-def test_autolog_log_evals(tmp_path, log_evals, lm, examples, expected_result_table):
+def test_autolog_log_evals(
+    tmp_path, log_evals, return_outputs, lm, examples, expected_result_table
+):
     dspy.settings.configure(lm=lm)
     program = Predict("question -> answer")
-    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+    if is_2_7_or_newer:
+        evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+    else:
+        # return_outputs arg does not exist after 2.7
+        evaluator = Evaluate(
+            devset=examples, metric=answer_exact_match, return_outputs=return_outputs
+        )
 
     mlflow.dspy.autolog(log_evals=log_evals)
     evaluator(program, devset=examples)
@@ -725,7 +734,7 @@ def test_autolog_log_evals(tmp_path, log_evals, lm, examples, expected_result_ta
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
-        if is_result_table_available:
+        if is_2_7_or_newer:
             assert "result_table.json" in artifacts
             client.download_artifacts(
                 run_id=run.info.run_id, path="result_table.json", dst_path=tmp_path

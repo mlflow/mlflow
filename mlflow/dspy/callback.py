@@ -266,9 +266,10 @@ class MlflowCallback(BaseCallback):
         if exception:
             mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
             return
+        score = None
         if isinstance(outputs, float):
             score = outputs
-        elif isinstance(outputs, list):
+        elif isinstance(outputs, tuple):
             score = outputs[0]
         elif isinstance(outputs, dspy.Prediction):
             score = float(outputs)
@@ -276,7 +277,8 @@ class MlflowCallback(BaseCallback):
                 mlflow.log_table(self._generate_result_table(outputs.results), "result_table.json")
             except Exception:
                 _logger.debug("Failed to log result table.", exc_info=True)
-        mlflow.log_metric("eval", score)
+        if score is not None:
+            mlflow.log_metric("eval", score)
 
         if self._call_id_to_run_id.pop(call_id, None):
             mlflow.end_run()
@@ -284,11 +286,12 @@ class MlflowCallback(BaseCallback):
             if call_id not in self._call_id_to_metric_key:
                 return
             key, step = self._call_id_to_metric_key.pop(call_id)
-            mlflow.log_metric(
-                key,
-                score,
-                step=step,
-            )
+            if score is not None:
+                mlflow.log_metric(
+                    key,
+                    score,
+                    step=step,
+                )
 
     def reset(self):
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
