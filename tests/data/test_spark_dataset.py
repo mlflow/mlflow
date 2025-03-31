@@ -1,5 +1,6 @@
 import json
 import os
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -399,3 +400,26 @@ def test_to_evaluation_dataset(spark_session, tmp_path, df):
     assert evaluation_dataset.features_data.equals(df_spark.toPandas()[["a"]])
     assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)
     assert np.array_equal(evaluation_dataset.predictions_data, df_spark.toPandas()["b"].values)
+
+
+def test_profile_fallbacks_to_slow_count_when_rdd_count_fails(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.parquet")
+    df_spark.write.parquet(path)
+    source = SparkDatasetSource(path=path)
+    dataset = SparkDataset(df=df_spark, source=source, name="test")
+    with mock.patch.object(
+        dataset.df.rdd, "mapPartitions", side_effect=Exception("mapPartitions failed")
+    ) as mock_map_partitions:
+        assert dataset.profile == {"approx_count": 2}
+        mock_map_partitions.assert_called_once()
+
+    with (
+        mock.patch.object(
+            dataset.df.rdd, "mapPartitions", side_effect=Exception("mapPartitions failed")
+        ) as mock_map_partitions,
+        mock.patch.object(dataset.df, "count", side_effect=Exception("count failed")) as mock_count,
+    ):
+        assert dataset.profile is None
+        mock_map_partitions.assert_called_once()
+        mock_count.assert_called_once()

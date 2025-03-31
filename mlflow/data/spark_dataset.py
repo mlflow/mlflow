@@ -134,6 +134,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
+        approx_count = None
         try:
             from pyspark.rdd import BoundedFloat
 
@@ -163,15 +164,24 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 # "unknown" so that users don't think the dataset is empty
                 approx_count = "unknown"
 
-            return {
-                "approx_count": approx_count,
-            }
         except Exception as e:
-            _logger.warning(
+            _logger.debug(
                 "Encountered an unexpected exception while computing Spark dataset profile."
                 " Exception: %s",
                 e,
+                exc_info=True,
             )
+            # Fall back to the slow count() method if the approximate count fails
+            try:
+                approx_count = self.df.count()
+            except Exception as e:
+                _logger.warning(
+                    "Encountered an unexpected exception while computing Spark dataset profile."
+                    " Exception: %s",
+                    e,
+                )
+
+        return None if approx_count is None else {"approx_count": approx_count}
 
     @cached_property
     def schema(self) -> Optional[Schema]:
