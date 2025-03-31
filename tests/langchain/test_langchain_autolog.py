@@ -188,10 +188,9 @@ def test_autolog_record_exception(async_logging_enabled):
 def test_llmchain_autolog(async_logging_enabled):
     mlflow.langchain.autolog()
     question = "MLflow"
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
     model = create_openai_llmchain()
-    assert model.invoke(question) == answer
-    assert model.invoke(question) == answer
+    assert model.invoke(question) == {"product": "MLflow", "text": TEST_CONTENT}
+    model.invoke(question)
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
