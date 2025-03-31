@@ -562,7 +562,7 @@ def disable_autologging():
         _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
-def disable_autologging_dec(fn):
+def disable_autologging_globally(fn):
     """
     Decorator that temporarily disables autologging globally for all integrations
     while the decorated function is executed.
