@@ -677,7 +677,7 @@ class Model:
         """
         Alias for :py:meth:`model_uuid <mlflow.models.Model.model_uuid>`.
         """
-        return self._model_uuid
+        return self.model_uuid
 
     def _is_signature_from_type_hint(self):
         return self.signature._is_signature_from_type_hint if self.signature is not None else False
