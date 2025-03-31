@@ -87,6 +87,9 @@ def autolog(
             logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
             _MODEL_TRACKER.set(id(self), logged_model.model_id)
             _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
+        else:
+            _MODEL_TRACKER.set_active_model_id(None)
+            return original(self, *args, **kwargs)
         # This is needed because we should not create LoggedModel for internal objects
         _MODEL_TRACKER._is_active_model_id_set = True
         try:

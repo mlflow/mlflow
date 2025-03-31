@@ -1450,6 +1450,8 @@ class _ModelTracker:
         with self._lock:
             self._model_ids.clear()
             self._model_locks.clear()
+            self._active_model_id.set(None)
+            self._is_active_model_id_set = False
 
 
 _MODEL_TRACKER = _ModelTracker()
