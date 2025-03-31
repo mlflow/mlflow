@@ -113,6 +113,9 @@ def http_request(
                 files=kwargs.get("files"),
                 data=kwargs.get("data"),
             )
+            if kwargs.get("stream", False):
+                return raw_response["contents"]._response
+
             with raw_response["contents"]._response as resp:
                 # Exhaust the stream before closing the response
                 # https://github.com/psf/requests/blob/1764cc938efc3cc9720188dfa6c3852c45211aa0/src/requests/models.py#L890-L907
