@@ -14,8 +14,8 @@ from mlflow.utils.annotations import experimental
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    _, chat_agent, _ = _load_context_model_and_signature(model_path, model_config)
-    return _ResponsesAgentPyfuncWrapper(chat_agent)
+    _, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
+    return _ResponsesAgentPyfuncWrapper(responses_agent)
 
 
 @experimental
@@ -24,18 +24,14 @@ class _ResponsesAgentPyfuncWrapper:
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ResponsesAgent`.
     """
 
-    def __init__(self, chat_agent):
-        """
-        Args:
-            chat_agent: An instance of a subclass of :class:`~ResponsesAgent`.
-        """
-        self.chat_agent = chat_agent
+    def __init__(self, responses_agent):
+        self.responses_agent = responses_agent
 
     def get_raw_model(self):
         """
         Returns the underlying model.
         """
-        return self.chat_agent
+        return self.responses_agent
 
     def _convert_input(self, model_input) -> ResponsesRequest:
         import pandas
@@ -79,11 +75,12 @@ class _ResponsesAgentPyfuncWrapper:
                 `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
-            A dict with the (:py:class:`ResponsesResponse <mlflow.types.responses.ResponsesResponse>`)
-                schema.
+            A dict with the
+            (:py:class:`ResponsesResponse <mlflow.types.responses.ResponsesResponse>`)
+            schema.
         """
         request = self._convert_input(model_input)
-        response = self.chat_agent.predict(request)
+        response = self.responses_agent.predict(request)
         return self._response_to_dict(response, ResponsesResponse)
 
     def predict_stream(
@@ -92,14 +89,15 @@ class _ResponsesAgentPyfuncWrapper:
         """
         Args:
             model_input: A dict with the
-                :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+                :py:class:`ResponsesRequest <mlflow.types.responses.ResponsesRequest>` schema.
             params: Unused in this function, but required in the signature because
                 `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
 
         Returns:
             A generator over dicts with the
-                (:py:class:`ResponsesStreamEvent <mlflow.types.responses.ResponsesStreamEvent>`) schema.
+                (:py:class:`ResponsesStreamEvent <mlflow.types.responses.ResponsesStreamEvent>`)
+                schema.
         """
         request = self._convert_input(model_input)
-        for response in self.chat_agent.predict_stream(request):
+        for response in self.responses_agent.predict_stream(request):
             yield self._response_to_dict(response, ResponsesStreamEvent)
