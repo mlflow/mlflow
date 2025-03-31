@@ -85,7 +85,7 @@ def _read_log_model_allowlist_from_file(allowlist_file):
             username=url_parsed.username,
             password=url_parsed.password,
         )
-        response = http_request(host_creds=host_creds, endpoint=path, method="GET")
+        response = http_request(host_creds=host_creds, endpoint=path, method="GET", stream=True)
         augmented_raise_for_status(response)
         return _parse_allowlist_file(response.iter_lines(decode_unicode=True))
 
