@@ -22,6 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
@@ -2046,6 +2047,21 @@ def create_logged_model(
     )
     _last_logged_model_id.set(model.model_id)
     return model
+
+
+@experimental
+def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    """
+    Finalize a model by updating its status.
+
+    Args:
+        model_id: ID of the model to finalize.
+        status: Final status to set on the model.
+
+    Returns:
+        The updated model.
+    """
+    return MlflowClient().finalize_logged_model(model_id, status)
 
 
 @experimental

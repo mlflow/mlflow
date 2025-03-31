@@ -3,6 +3,7 @@ import inspect
 import logging
 
 import mlflow
+from mlflow.entities import LoggedModelStatus
 from mlflow.langchain import FLAVOR_NAME
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.utils.autologging_utils import safe_patch
@@ -72,6 +73,7 @@ def _patched_invoke(original, self, *args, **kwargs):
         logged_model = mlflow.create_logged_model(
             name=self.__class__.__name__,
         )
+        mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
         _MODEL_TRACKER.set(id(self), logged_model.model_id)
         _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
         _logger.debug(
@@ -103,6 +105,7 @@ async def _patched_ainvoke(original, self, *args, **kwargs):
         logged_model = mlflow.create_logged_model(
             name=self.__class__.__name__,
         )
+        mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
         _MODEL_TRACKER.set(id(self), logged_model.model_id)
         _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
         _logger.debug(
