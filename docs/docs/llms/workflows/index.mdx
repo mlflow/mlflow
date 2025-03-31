@@ -5,12 +5,68 @@ sidebar_position: 1
 
 # How to
 
-* Create and manage versions
+These are the core workflows - we should describe how each works.  This page for now just has the basic steps.
 
+## Across dev & prod
 * Create and iterate on Scorers
-* Test versions by running an evaluation 
-* Schedule Scorers to run on Traces
+    - Create a scorer in code
+    - Create a dataset that has the examples you wanna test for this scorer
+    - Use `evaluate()` with target=scorer + dataset + extra_metric=[some built in to help with evaluating scorers]
+    - Iterate!
 * Send Traces for Human Labeling
+     - Create & configure a labeling session
+     - Go to any UI that has a trace
+     - Click add to labeling session
+     - ALSO HAS SDK
 * Curate Traces into Datasets
+     - Create & configure a dataset
+     - Go to any UI that has a trace
+     - Click add to dataset
+     - ALSO HAS SDK
+
+## Dev-ish
+* Test versions by running an evaluation 
+    - Already has a dataset ready 
+        - Go into evaluations tab
+        - Get code to copy/paste to run an eval 
+        - Runs that code 
+        - Gets an evaluation run 
+        - TBD: Should these traces ALSO show up in the Traces tab?
+
+    - Does not have a dataset, but has identified some traces in the UI that they want to work on 
+        - Checks those traces
+        - Clicks start evaluation
+        - The UI gives them code to 
+            - Create a dataset from those traces
+            - Run the evaluation
+        - Runs that code 
+        - Gets an evaluation run 
+        - TBD: Should these traces ALSO show up in the Traces tab?
+        
+* Create and manage versions
+    - Run your code, a version is created automatically with the git hash.
+    - If your code uses Mlflow Prompts or Model config, these are added as params on the version
+
+## Prod-ish
+* Schedule Scorers to run on Traces
+    - Go to Configuration/Settings 
+    - Select a scorer
+    - Configuring sampling rate
+    - Configure which source to run on 
+        - This is REQUIRED bc all traces will be in the trace server!
+
 * Configure Alerts based on Assessments
-* Identify quality and performance issues on Traces
+    - Go to Configuration/Settings 
+    - Select a scorer
+    - Configure the alert (written out in the monitoring PRD)
+    
+* Identify quality and performance issues on Traces e.g., monitoring
+    - Use the monitoring tab 
+    - Click on the graphs to find a underpforming section 
+    - Click to see the detailed traces
+
+
+* Annotate a Trace with additional metadata (e.g., tags that you couldn't generate at inference time like the user's category OR classification of the trace's topic)
+    - to be fleshed out
+
+
