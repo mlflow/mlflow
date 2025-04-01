@@ -482,8 +482,10 @@ describe('ExperimentLoggedModelListPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
+    const expectedMessage = 'Model registered successfully';
+
     await waitFor(() => {
-      expect(Utils.displayGlobalInfoNotification).toBeCalledWith(expect.stringContaining('Model registration started'));
+      expect(Utils.displayGlobalInfoNotification).toBeCalledWith(expect.stringContaining(expectedMessage));
     });
 
     expect(registerApiSpy).toBeCalledWith(

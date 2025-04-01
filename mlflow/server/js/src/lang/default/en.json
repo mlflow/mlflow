@@ -1855,6 +1855,10 @@
     "defaultMessage": "Models",
     "description": "Breadcrumb for models tab of experiments page on the logged model details page"
   },
+  "UwpML4": {
+    "defaultMessage": "Model registered successfully",
+    "description": "Notification title for model registration succeeded on the logged model details page"
+  },
   "UzZf+2": {
     "defaultMessage": "Add chart",
     "description": "Confirm button label within a modal when adding a new runs comparison chart"
@@ -2022,10 +2026,6 @@
   "XcKgD5": {
     "defaultMessage": "Details",
     "description": "Title for the details section on the logged model details page"
-  },
-  "Xgq+G+": {
-    "defaultMessage": "Model registration started",
-    "description": "Notification title for model registration started on the logged model details page"
   },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",

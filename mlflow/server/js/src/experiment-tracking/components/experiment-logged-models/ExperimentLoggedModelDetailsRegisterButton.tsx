@@ -65,8 +65,8 @@ export const ExperimentLoggedModelDetailsRegisterButton = ({
     (data?: { value: { status?: string } }) => {
       onSuccess?.();
       const successTitle = intl.formatMessage({
-        defaultMessage: 'Model registration started',
-        description: 'Notification title for model registration started on the logged model details page',
+        defaultMessage: 'Model registered successfully',
+        description: 'Notification title for model registration succeeded on the logged model details page',
       });
       Utils.displayGlobalInfoNotification(`${successTitle} ${data?.value?.status ?? ''}`);
     },
