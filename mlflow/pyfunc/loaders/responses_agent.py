@@ -5,9 +5,7 @@ import pydantic
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.pyfunc.model import (
-    _load_context_model_and_signature,
-)
+from mlflow.pyfunc.model import _load_context_model_and_signature
 from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 from mlflow.types.type_hints import model_validate
 from mlflow.utils.annotations import experimental
@@ -21,7 +19,8 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
 @experimental
 class _ResponsesAgentPyfuncWrapper:
     """
-    Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ResponsesAgent`.
+    Wrapper class that converts dict inputs to pydantic objects accepted by
+    :class:`~ResponsesAgent`.
     """
 
     def __init__(self, responses_agent):

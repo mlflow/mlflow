@@ -799,8 +799,8 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
                     wrap_non_list_predict_pydantic(
                         attr,
                         ResponsesRequest,
-                        "Invalid dictionary input for a ResponsesAgent. Expected a dictionary with the "
-                        "ResponsesRequest schema.",
+                        "Invalid dictionary input for a ResponsesAgent. "
+                        "Expected a dictionary with the ResponsesRequest schema.",
                     ),
                 )
 

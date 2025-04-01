@@ -5,20 +5,17 @@ from pydantic import model_validator
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
-    ComputerTool,
-    FileSearchTool,
     FunctionCallOutput,
-    FunctionTool,
     Message,
     Response,
     ResponseFunctionToolCall,
     ResponseOutputMessage,
-    WebSearchTool,
+    Tools,
 )
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 
 
-class ResponsesRequest(BaseRequestPayload):
+class ResponsesRequest(BaseRequestPayload, Tools):
     input: list[
         Union[
             Message,
@@ -28,7 +25,6 @@ class ResponsesRequest(BaseRequestPayload):
             dict[str, Any],
         ]
     ]
-    tools: Optional[list[Union[FileSearchTool, FunctionTool, ComputerTool, WebSearchTool]]]
     custom_inputs: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
