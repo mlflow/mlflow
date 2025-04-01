@@ -3,6 +3,10 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
+  "+8r+vG": {
+    "defaultMessage": "Tags",
+    "description": "Label for the tags on the registered prompt details page"
+  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -74,6 +78,10 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
+  "/WoeqX": {
+    "defaultMessage": "Created at",
+    "description": "Label for the creation time on the registered prompt details page"
   },
   "/XlqZA": {
     "defaultMessage": "Service unavailable error",
@@ -931,6 +939,10 @@
     "defaultMessage": "No metric charts",
     "description": "Experiment page > compare runs > no metric charts"
   },
+  "D0jMS6": {
+    "defaultMessage": "Register model",
+    "description": "Label for a CTA button for registering a ML model version from a logged model"
+  },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
@@ -1627,6 +1639,10 @@
     "defaultMessage": "No parameters match the search filter",
     "description": "Run page > Overview > Parameters table > No results after filtering"
   },
+  "QGvFrd": {
+    "defaultMessage": "Updated at",
+    "description": "Label for the last update time on the registered prompt details page"
+  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -1882,6 +1898,10 @@
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
+  },
+  "VDkXRG": {
+    "defaultMessage": "View model",
+    "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
