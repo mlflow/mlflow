@@ -746,8 +746,10 @@ def _process_conda_env(conda_env):
             f"but got `{type(conda_env).__name__}`"
         )
 
+    _logger.warn("ROSHNIC -- " + str(conda_env))
     # User-specified `conda_env` may contain requirements/constraints file references
     pip_reqs = _get_pip_deps(conda_env)
+    _logger.warn("ROSHNIP -- " + str(pip_reqs))
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
@@ -759,6 +761,7 @@ def _process_conda_env(conda_env):
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     conda_env = _overwrite_pip_deps(conda_env, pip_reqs)
+    _logger.warn("ROSHNIE -- conda = " + str(conda_env) + "\npip_reqs = " + str(pip_reqs) + "\nconstraints = " + str(constraints))
     return conda_env, pip_reqs, constraints
 
 
