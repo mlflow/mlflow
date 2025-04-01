@@ -92,7 +92,8 @@ describe('DirectRunPage', () => {
   test('displays error if run does not exist', async () => {
     // Suppress 404 console error
     jest.spyOn(console, 'error').mockReturnThis();
-    (getRunApi as jest.Mock).mockImplementation(() => ({
+    // @ts-expect-error TODO(FEINF-4101)
+    jest.mocked(getRunApi).mockImplementation(() => ({
       type: 'getRunApi',
       payload: Promise.reject(new ErrorWrapper('', 404)),
     }));

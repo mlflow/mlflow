@@ -6,7 +6,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 
 // mock breadcrumbs
 jest.mock('@databricks/design-system', () => ({
-  ...jest.requireActual('@databricks/design-system'),
+  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
   Breadcrumb: () => <div />,
 }));
 

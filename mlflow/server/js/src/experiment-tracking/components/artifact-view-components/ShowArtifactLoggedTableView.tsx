@@ -239,8 +239,9 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                         sortable
                         sortDirection={header.column.getIsSorted() || 'none'}
                         onToggleSort={header.column.getToggleSortingHandler()}
-                        resizable={header.column.getCanResize()}
-                        resizeHandler={header.getResizeHandler()}
+                        header={header}
+                        column={header.column}
+                        setColumnSizing={table.setColumnSizing}
                         isResizing={header.column.getIsResizing()}
                         style={{ maxWidth: header.column.getSize() }}
                       >
