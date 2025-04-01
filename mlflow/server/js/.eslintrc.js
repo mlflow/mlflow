@@ -3,7 +3,7 @@ const restrictedGlobals = require('confusing-browser-globals');
 
 module.exports = {
   extends: ['prettier'],
-  plugins: ['prettier', 'no-only-tests', 'formatjs', 'react', 'import', 'jsx-a11y', 'react-hooks'],
+  plugins: ['no-only-tests', 'formatjs', 'react', 'import', 'jsx-a11y', 'react-hooks'],
   parser: '@babel/eslint-parser',
   parserOptions: {
     sourceType: 'module',
@@ -491,8 +491,8 @@ module.exports = {
     {
       // We're enabling '@typescript-eslint/parser' and its rules only for the *.ts(x) files
       files: ['*.ts', '*.tsx'],
-      extends: ['prettier', 'plugin:jsx-a11y/recommended', 'plugin:@typescript-eslint/recommended'],
-      plugins: ['prettier', '@typescript-eslint', '@emotion'],
+      extends: ['plugin:jsx-a11y/recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
+      plugins: ['@typescript-eslint', '@emotion'],
       parser: '@typescript-eslint/parser',
       parserOptions: {
         ecmaVersion: 2018,

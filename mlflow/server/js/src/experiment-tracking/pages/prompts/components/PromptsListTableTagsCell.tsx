@@ -22,9 +22,7 @@ export const PromptsListTableTagsCell: ColumnDef<RegisteredPrompt>['cell'] = ({
   return (
     <div css={{ display: 'flex' }}>
       <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex' }}>
-        {visibleTagList?.map((tag) => (
-          <KeyValueTag key={tag.key} tag={tag} />
-        ))}
+        {visibleTagList?.map((tag) => <KeyValueTag key={tag.key} tag={tag} />)}
       </div>
       <Button
         componentId="mlflow.prompts.list.tag.add"

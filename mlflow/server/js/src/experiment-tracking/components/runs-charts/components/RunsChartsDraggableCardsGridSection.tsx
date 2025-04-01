@@ -56,7 +56,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
     // If below medium breakpoint, display only 1 card per row.
     // Otherwise, use section configuration or fall back to 3 columns.
     const isCompactMode = useMediaQuery(`(max-width: ${theme.responsive.breakpoints.md}px)`);
-    const columns = isCompactMode ? 1 : sectionConfig.columns ?? 3;
+    const columns = isCompactMode ? 1 : (sectionConfig.columns ?? 3);
 
     // Use card height from the section configuration or fall back to 360 pixels.
     const cardHeight = sectionConfig.cardHeight ?? 360;

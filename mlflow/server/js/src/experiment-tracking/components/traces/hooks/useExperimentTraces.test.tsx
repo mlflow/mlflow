@@ -182,7 +182,7 @@ describe('useExperimentTraces', () => {
               },
             },
           ],
-        } as any),
+        }) as any,
     );
 
     jest.spyOn(MlflowService, 'getExperimentTraces').mockImplementation((_, __, token) => {
