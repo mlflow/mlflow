@@ -1,23 +1,18 @@
 from typing import Any, Optional, Union
 
+from pydantic import model_validator
+
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
-    ComputerCallOutput,
     ComputerTool,
-    EasyInputMessageParam,
     FileSearchTool,
     FunctionCallOutput,
     FunctionTool,
-    ItemReference,
     Message,
     Response,
-    ResponseComputerToolCall,
-    ResponseFileSearchToolCall,
     ResponseFunctionToolCall,
-    ResponseFunctionWebSearch,
     ResponseOutputMessage,
-    ResponseReasoningItem,
     WebSearchTool,
 )
 from mlflow.types.type_hints import _infer_schema_from_type_hint
@@ -26,21 +21,42 @@ from mlflow.types.type_hints import _infer_schema_from_type_hint
 class ResponsesRequest(BaseRequestPayload):
     input: list[
         Union[
-            EasyInputMessageParam,
             Message,
             ResponseOutputMessage,
-            ResponseFileSearchToolCall,
-            ResponseComputerToolCall,
-            ComputerCallOutput,
-            ResponseFunctionWebSearch,
             ResponseFunctionToolCall,
             FunctionCallOutput,
-            ResponseReasoningItem,
-            ItemReference,
+            dict[str, Any],
         ]
     ]
     tools: Optional[list[Union[FileSearchTool, FunctionTool, ComputerTool, WebSearchTool]]]
     custom_inputs: Optional[dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def check_input(self) -> "ResponsesRequest":
+        for input in self.input:
+            if isinstance(
+                input,
+                (
+                    Message,
+                    ResponseOutputMessage,
+                    ResponseFunctionToolCall,
+                    FunctionCallOutput,
+                ),
+            ):
+                continue
+            if isinstance(input, dict):
+                if "type" not in input:
+                    raise ValueError("dict must have a type key")
+                if input["type"] not in {
+                    "file_search_call",
+                    "computer_call",
+                    "web_search_call",
+                    "item_reference",
+                }:
+                    # if they are one of these types, we will not validate them
+                    # will allow the model to fail w/ bad_request w/ these message types
+                    raise ValueError(f"Invalid type: {input['type']}")
+        return self
 
 
 class ResponsesResponse(Response):

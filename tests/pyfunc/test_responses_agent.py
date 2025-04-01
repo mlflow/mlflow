@@ -23,12 +23,10 @@ def get_mock_response(request: ResponsesRequest, message=None):
                 "content": [
                     {
                         "type": "output_text",
-                        "text": message or msg.content,
+                        "text": message or request.input[0].content,
                     }
-                    for msg in request.input
                 ],
             }
-            for msg in request.input
         ],
     }
 
@@ -42,7 +40,7 @@ class SimpleResponsesAgent(ResponsesAgent):
     def predict_stream(self, request: ResponsesRequest):
         for i in range(5):
             mock_response = get_mock_response(request, f"message {i}")
-            mock_response["delta"] = mock_response["messages"][0]
+            mock_response["delta"] = mock_response["output"][0]
             mock_response["delta"]["id"] = str(i)
             yield ResponsesStreamEvent(**mock_response)
 
