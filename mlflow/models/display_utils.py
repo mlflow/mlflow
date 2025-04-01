@@ -115,7 +115,7 @@ def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
 
 
 def _generate_agent_eval_recipe(model_uri: str) -> str:
-    resources_dir = Path(__file__).parent / "resources"
+    resources_dir = Path(__file__).parent / "notebook_resources"
     pip_install_command = """%pip install -U databricks-agents
 dbutils.library.restartPython()
 ## Run the above in a separate cell ##"""
