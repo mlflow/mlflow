@@ -310,7 +310,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.36",
-            "maximum": "0.4.9"
+            "maximum": "0.2.40"
         }
     },
     "gemini": {
