@@ -1,5 +1,6 @@
 export enum ErrorName {
   BadRequestError = 'BadRequestError',
+  DatasetRunNotFoundError = 'DatasetRunNotFoundError',
   FormValidationError = 'FormInputError',
   GenericNetworkRequestError = 'GenericNetworkRequestError',
   GraphQLGenericError = 'GraphQLGenericError',

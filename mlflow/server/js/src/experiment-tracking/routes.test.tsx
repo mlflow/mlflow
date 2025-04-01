@@ -1,7 +1,7 @@
 import Routes from './routes';
 
 jest.mock('../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../common/utils/RoutingUtils')>('../common/utils/RoutingUtils'),
   createMLflowRoutePath: (route: string) => route,
 }));
 
