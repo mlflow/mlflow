@@ -53,7 +53,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         """
         Construct the full path to the artifact, given the artifact's relative path.
         """
-        return f"{self.root_path}/{artifact_path}" if artifact_path else self.root
+        return f"{self.root_path}/{artifact_path}" if artifact_path else self.root_path
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         with open(local_file, "rb") as f:
@@ -78,7 +78,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             return file_infos
 
         for directory_entry in self.files_api.list_directory_contents(dest_path):
-            relative_path = posixpath.relpath(directory_entry.path, self.root)
+            relative_path = posixpath.relpath(directory_entry.path, self.root_path)
             file_infos.append(
                 FileInfo(
                     path=relative_path,
