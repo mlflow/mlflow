@@ -8,6 +8,11 @@ import { DeepPartial } from 'redux';
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableGraphQLRunDetailsPage: jest.fn(() => false),
+}));
+
 jest.mock('../../../actions', () => ({
   getExperimentApi: jest.fn(() => mockAction('experiment_request')),
   getRunApi: jest.fn(() => mockAction('run_request')),
