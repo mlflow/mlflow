@@ -829,6 +829,7 @@ autogen:
   autologging:
     minimum: "0.2.36"
     maximum: "0.2.40"
+    # TODO: remove `pin_maximum` once supporting 0.4
     pin_maximum: True
     python:
       "== dev": "3.10"
