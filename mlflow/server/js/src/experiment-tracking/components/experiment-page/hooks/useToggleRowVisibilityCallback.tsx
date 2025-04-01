@@ -16,7 +16,11 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
   immediateTableRows.current = tableRows;
 
   const toggleRowUsingVisibilityMap = useCallback(
-    (mode: RUNS_VISIBILITY_MODE, groupOrRunUuid?: string, isCurrentlyVisible?: boolean) => {
+    (
+      mode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE],
+      groupOrRunUuid?: string,
+      isCurrentlyVisible?: boolean,
+    ) => {
       updateUIState((currentUIState) => {
         // If user has toggled a run or a group manually, we need to update the visibility map
         if (mode === RUNS_VISIBILITY_MODE.CUSTOM && groupOrRunUuid) {
@@ -51,12 +55,10 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
         // Otherwise, we're toggling a predefined visibility mode
         // and clearing the visibility map
         if (
-          [
-            RUNS_VISIBILITY_MODE.SHOWALL,
-            RUNS_VISIBILITY_MODE.HIDEALL,
-            RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
-            RUNS_VISIBILITY_MODE.FIRST_20_RUNS,
-          ].includes(mode)
+          RUNS_VISIBILITY_MODE.SHOWALL === mode ||
+          RUNS_VISIBILITY_MODE.HIDEALL === mode ||
+          RUNS_VISIBILITY_MODE.FIRST_10_RUNS === mode ||
+          RUNS_VISIBILITY_MODE.FIRST_20_RUNS === mode
         ) {
           return {
             ...currentUIState,
@@ -77,7 +79,7 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
    * This one should be removed after ramping up `runsVisibility` field.
    */
   const toggleRowVisibility = useCallback(
-    (mode: RUNS_VISIBILITY_MODE, groupOrRunUuid?: string) => {
+    (mode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE], groupOrRunUuid?: string) => {
       updateUIState((currentUIState) => {
         if (mode === RUNS_VISIBILITY_MODE.SHOWALL) {
           // Case #1: Showing all runs

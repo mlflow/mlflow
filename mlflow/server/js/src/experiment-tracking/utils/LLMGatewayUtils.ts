@@ -17,7 +17,7 @@ export class GatewayErrorWrapper extends ErrorWrapper {
 }
 export const parseEndpointEvaluationResponse = (
   response: EndpointModelGatewayResponseType,
-  task: ModelGatewayRouteTask,
+  task: typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask],
 ) => {
   // We're supporting completions and chat responses for the time being
   if (task === ModelGatewayRouteTask.LLM_V1_COMPLETIONS) {

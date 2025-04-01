@@ -7,7 +7,7 @@ import { RunPageTabName } from '../../constants';
  * - Supports multi-slash artifact paths (hence '*' catch-all param)
  * - Supports both new (/artifacts/...) and previous (/artifactPath/...) routes
  */
-export const useRunViewActiveTab = (): RunPageTabName => {
+export const useRunViewActiveTab = (): typeof RunPageTabName[keyof typeof RunPageTabName] => {
   const { '*': tabParam } = useParams<{ '*': string }>();
   if (tabParam === 'model-metrics') {
     return RunPageTabName.MODEL_METRIC_CHARTS;

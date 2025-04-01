@@ -16,7 +16,9 @@ export interface ModelGatewayQueryPayload {
   };
 }
 
-export interface ModelGatewayResponseMetadata<T extends ModelGatewayRouteTask> {
+export interface ModelGatewayResponseMetadata<
+  T extends typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask],
+> {
   mode: string;
   route_type: T;
   total_tokens: number;
@@ -32,7 +34,7 @@ export interface ModelGatewayCompletionsResponseType {
     };
   }[];
 
-  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_COMPLETIONS>;
+  metadata: ModelGatewayResponseMetadata<typeof ModelGatewayRouteTask.LLM_V1_COMPLETIONS>;
 }
 
 export interface ModelGatewayChatResponseType {
@@ -43,7 +45,7 @@ export interface ModelGatewayChatResponseType {
     };
   }[];
 
-  metadata: ModelGatewayResponseMetadata<ModelGatewayRouteTask.LLM_V1_CHAT>;
+  metadata: ModelGatewayResponseMetadata<typeof ModelGatewayRouteTask.LLM_V1_CHAT>;
 }
 
 export type ModelGatewayResponseType = ModelGatewayCompletionsResponseType | ModelGatewayChatResponseType;
@@ -101,7 +103,7 @@ export interface ModelGatewayRouteLegacy {
   /**
    * Type of route (e.g., embedding, text generation, etc.)
    */
-  route_type: ModelGatewayRouteTask;
+  route_type: typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask];
   /**
    * Underlying ML model that can be accessed via this route. Could add other types of resources in the future.
    */
@@ -110,7 +112,7 @@ export interface ModelGatewayRouteLegacy {
 
 export interface MlflowDeploymentsEndpoint {
   name: string;
-  endpoint_type: ModelGatewayRouteTask;
+  endpoint_type: typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask];
   endpoint_url: string;
   model: ModelGatewayModelInfo;
 }
@@ -128,7 +130,7 @@ export interface ModelGatewayRoute {
   /**
    * Type of route (e.g., embedding, text generation, etc.)
    */
-  task: ModelGatewayRouteTask;
+  task: typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask];
   /**
    * MLflow deployments URL of the endpoint
    */
@@ -156,7 +158,10 @@ const gatewayErrorHandler = ({
 };
 
 export class ModelGatewayService {
-  static createEvaluationTextPayload(inputText: string, task: ModelGatewayRouteTask) {
+  static createEvaluationTextPayload(
+    inputText: string,
+    task: typeof ModelGatewayRouteTask[keyof typeof ModelGatewayRouteTask],
+  ) {
     switch (task) {
       case ModelGatewayRouteTask.LLM_V1_COMPLETIONS: {
         return { prompt: inputText };

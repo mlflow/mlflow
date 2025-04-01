@@ -18,14 +18,14 @@ export const RunViewModeSwitch = () => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const currentTab = useRunViewActiveTab();
-  const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
+  const [removeTabMargin, setRemoveTabMargin] = useState((TABS_WITHOUT_MARGIN as string[]).includes(currentTab));
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
       return;
     }
 
-    setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
+    setRemoveTabMargin((TABS_WITHOUT_MARGIN as string[]).includes(newTabKey));
 
     if (newTabKey === RunPageTabName.OVERVIEW) {
       navigate(Routes.getRunPageRoute(experimentId, runUuid));

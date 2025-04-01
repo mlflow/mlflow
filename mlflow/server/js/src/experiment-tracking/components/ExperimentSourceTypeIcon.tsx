@@ -8,7 +8,7 @@ export const ExperimentSourceTypeIcon = ({
   sourceType,
   className,
 }: {
-  sourceType: SourceType | string;
+  sourceType: typeof SourceType[keyof typeof SourceType] | string;
   className?: string;
 }) => {
   if (sourceType === SourceType.NOTEBOOK) {

@@ -15,7 +15,7 @@ export interface RunsChartsTooltipBodyProps<TContext = any, TChartData = any, TH
   contextData: TContext;
   closeContextMenu: () => void;
   isHovering?: boolean;
-  mode: RunsChartsTooltipMode;
+  mode: typeof RunsChartsTooltipMode[keyof typeof RunsChartsTooltipMode];
 }
 
 export interface RunsChartsChartMouseEvent {
@@ -24,10 +24,10 @@ export interface RunsChartsChartMouseEvent {
   originalEvent?: MouseEvent;
 }
 
-export enum RunsChartsTooltipMode {
-  Simple = 1,
-  MultipleTracesWithScanline = 2,
-}
+export const RunsChartsTooltipMode = {
+  Simple: 1,
+  MultipleTracesWithScanline: 2,
+} as const;
 
 export type RunsChartsTooltipBodyComponent<C = any, T = any> = React.ComponentType<RunsChartsTooltipBodyProps<C, T>>;
 
@@ -38,18 +38,18 @@ const RunsChartsTooltipContext = React.createContext<{
   destroyTooltip: () => void;
   updateTooltip: (
     runUuid: string,
-    mode: RunsChartsTooltipMode,
+    mode: typeof RunsChartsTooltipMode[keyof typeof RunsChartsTooltipMode],
     chartData?: any,
     event?: RunsChartsChartMouseEvent,
     additionalData?: any,
   ) => void;
 } | null>(null);
 
-export enum ContextMenuVisibility {
-  HIDDEN,
-  HOVER,
-  VISIBLE,
-}
+const ContextMenuVisibility = {
+  HIDDEN: 'HIDDEN',
+  HOVER: 'HOVER',
+  VISIBLE: 'VISIBLE',
+} as const;
 
 export const containsMultipleRunsTooltipData = (
   hoverData: RunsMetricsBarPlotHoverData | RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData,
@@ -109,10 +109,14 @@ export const RunsChartsTooltipWrapper = <
   // Used instead of `currentPos` when the tooltip is in the "multiple runs" mode
   const currentSnappedCoordinates = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const [mode, setMode] = useState<RunsChartsTooltipMode>(RunsChartsTooltipMode.Simple);
+  const [mode, setMode] = useState<typeof RunsChartsTooltipMode[keyof typeof RunsChartsTooltipMode]>(
+    RunsChartsTooltipMode.Simple,
+  );
 
   // Current visibility of the tooltip/context-menu
-  const [contextMenuShown, setContextMenuShown] = useState<ContextMenuVisibility>(ContextMenuVisibility.HIDDEN);
+  const [contextMenuShown, setContextMenuShown] = useState<
+    typeof ContextMenuVisibility[keyof typeof ContextMenuVisibility]
+  >(ContextMenuVisibility.HIDDEN);
 
   const [tooltipDisplayParams, setTooltipDisplayParams] = useState<any | null>(null);
   const [hoveredRunUuid, setHoveredRunUuid] = useState<string>('');
@@ -124,7 +128,8 @@ export const RunsChartsTooltipWrapper = <
   const focusedRunData = useRef<{ x: number; y: number; runUuid: string } | null>(null);
 
   // Mutable version of certain state values, used in processes outside the React event lifecycle
-  const mutableContextMenuShownRef = useRef<ContextMenuVisibility>(contextMenuShown);
+  const mutableContextMenuShownRef =
+    useRef<typeof ContextMenuVisibility[keyof typeof ContextMenuVisibility]>(contextMenuShown);
   const mutableHoveredRunUuid = useRef(hoveredRunUuid);
   const mutableTooltipDisplayParams = useRef(tooltipDisplayParams);
   const mutableAdditionalAxisData = useRef(additionalAxisData);
@@ -226,7 +231,7 @@ export const RunsChartsTooltipWrapper = <
   const updateTooltip = useCallback(
     (
       runUuid: string,
-      mode: RunsChartsTooltipMode,
+      mode: typeof RunsChartsTooltipMode[keyof typeof RunsChartsTooltipMode],
       chartData?: any,
       event?: RunsChartsChartMouseEvent,
       additionalRunData?: any,
@@ -488,7 +493,7 @@ export const useRunsChartsTooltip = <
   TAxisData = any,
 >(
   chartData?: TChart,
-  mode = RunsChartsTooltipMode.Simple,
+  mode: typeof RunsChartsTooltipMode[keyof typeof RunsChartsTooltipMode] = RunsChartsTooltipMode.Simple,
 ) => {
   const contextValue = useContext(RunsChartsTooltipContext);
 

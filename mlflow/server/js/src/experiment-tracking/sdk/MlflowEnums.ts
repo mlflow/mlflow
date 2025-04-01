@@ -7,21 +7,22 @@
  *   place these generated enums in the correct location shortly.
  */
 
-export enum SourceType {
-  NOTEBOOK = 'NOTEBOOK',
-  JOB = 'JOB',
-  PROJECT = 'PROJECT',
-  LOCAL = 'LOCAL',
-  UNKNOWN = 'UNKNOWN',
-}
+export const SourceType = {
+  NOTEBOOK: 'NOTEBOOK',
+  JOB: 'JOB',
+  PROJECT: 'PROJECT',
+  LOCAL: 'LOCAL',
+  UNKNOWN: 'UNKNOWN',
+} as const;
 
 export const ViewType = {
   ACTIVE_ONLY: 'ACTIVE_ONLY',
   DELETED_ONLY: 'DELETED_ONLY',
   ALL: 'ALL',
-};
-export enum ModelGatewayRouteTask {
-  LLM_V1_COMPLETIONS = 'llm/v1/completions',
-  LLM_V1_CHAT = 'llm/v1/chat',
-  LLM_V1_EMBEDDINGS = 'llm/v1/embeddings',
-}
+} as const;
+
+export const ModelGatewayRouteTask = {
+  LLM_V1_COMPLETIONS: 'llm/v1/completions',
+  LLM_V1_CHAT: 'llm/v1/chat',
+  LLM_V1_EMBEDDINGS: 'llm/v1/embeddings',
+} as const;

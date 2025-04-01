@@ -37,7 +37,7 @@ export const TracesView = ({
    * Columns that should be disabled in the table.
    * Disabled columns are hidden and are not available to be toggled at all.
    */
-  disabledColumns?: ExperimentViewTracesTableColumns[];
+  disabledColumns?: typeof ExperimentViewTracesTableColumns[keyof typeof ExperimentViewTracesTableColumns][];
 }) => {
   const timeoutRef = useRef<number | undefined>(undefined);
   const [filter, setFilter] = useState<string>('');

@@ -24,9 +24,9 @@ type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number; min?: number; max?: number };
 
 export type RunsGroupByConfig = {
-  aggregateFunction: RunGroupingAggregateFunction;
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
   groupByKeys: {
-    mode: RunGroupingMode;
+    mode: typeof RunGroupingMode[keyof typeof RunGroupingMode];
     groupByData: string;
   }[];
 };
@@ -36,9 +36,9 @@ export type RunsGroupByConfig = {
  * E.g. {mode: "tags", groupByData: "some_tag", aggregateFunction: "min"} -> "tags.some_tag.min"
  */
 export const createRunsGroupByKey = (
-  mode: RunGroupingMode | undefined,
+  mode: typeof RunGroupingMode[keyof typeof RunGroupingMode] | undefined,
   groupByData: string,
-  aggregateFunction: RunGroupingAggregateFunction,
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction],
 ) => (mode ? [mode, aggregateFunction, groupByData].join('.') : '');
 
 const createGroupValueId = ({ groupByData, mode, value }: RunGroupByGroupingValue) =>
@@ -71,10 +71,11 @@ export const normalizeRunsGroupByKey = (groupBy?: string | RunsGroupByConfig | n
   }
 
   return {
-    aggregateFunction: aggregateFunction as RunGroupingAggregateFunction,
+    aggregateFunction:
+      aggregateFunction as typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction],
     groupByKeys: [
       {
-        mode: mode as RunGroupingMode,
+        mode: mode as typeof RunGroupingMode[keyof typeof RunGroupingMode],
         groupByData: groupByData,
       },
     ],
@@ -85,7 +86,7 @@ const createGroupRenderMetadata = (
   groupId: string,
   expanded: boolean,
   runsInGroup: SingleRunData[],
-  aggregateFunction: RunGroupingAggregateFunction,
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction],
   isRemainingRowsGroup: boolean,
   groupingKeys: RunGroupByGroupingValue[],
 ): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
@@ -146,12 +147,12 @@ const createGroupRenderMetadataV2 = ({
   groupId: string;
   expanded: boolean;
   runsInGroup: SingleRunData[];
-  aggregateFunction: RunGroupingAggregateFunction;
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction];
   isRemainingRowsGroup: boolean;
   groupingKeys: RunGroupByGroupingValue[];
   runsHidden: string[];
   runsVisibilityMap: Record<string, boolean>;
-  runsHiddenMode: RUNS_VISIBILITY_MODE;
+  runsHiddenMode: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE];
   rowCounter: { value: number };
   useGroupedValuesInCharts?: boolean;
 }): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
@@ -254,7 +255,7 @@ const getDatasetHash = ({ dataset }: RunDatasetWithTags) => `${dataset.name}.${d
  */
 const aggregateValues = <T extends AggregableParamEntity | AggregableMetricEntity>(
   valuesByRun: T[][],
-  aggregateFunction: RunGroupingAggregateFunction,
+  aggregateFunction: typeof RunGroupingAggregateFunction[keyof typeof RunGroupingAggregateFunction],
 ) => {
   if (
     aggregateFunction === RunGroupingAggregateFunction.Min ||
@@ -547,7 +548,7 @@ export const getGroupedRowRenderMetadata = ({
   searchFacetsState?: Readonly<ExperimentPageSearchFacetsState>;
   runsHidden?: string[];
   runsVisibilityMap?: Record<string, boolean>;
-  runsHiddenMode?: RUNS_VISIBILITY_MODE;
+  runsHiddenMode?: typeof RUNS_VISIBILITY_MODE[keyof typeof RUNS_VISIBILITY_MODE];
   useGroupedValuesInCharts?: boolean;
 }) => {
   // First, make sure we have a valid "group by" configuration.

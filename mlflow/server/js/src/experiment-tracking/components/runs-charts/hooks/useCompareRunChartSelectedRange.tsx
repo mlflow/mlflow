@@ -17,7 +17,7 @@ import { RunsChartsLineCardConfig } from '../runs-charts.types';
  */
 export const useCompareRunChartSelectedRange = (
   config: RunsChartsLineCardConfig,
-  xAxisKey: RunsChartsLineChartXAxisType,
+  xAxisKey: typeof RunsChartsLineChartXAxisType[keyof typeof RunsChartsLineChartXAxisType],
   metricKey: string,
   sampledMetricsByRunUuid: SampledMetricsByRunUuidState,
   runUuids: string[],
