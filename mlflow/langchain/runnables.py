@@ -274,6 +274,7 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
             _load_model_from_config(path, conf)
         else:
             raise Exception("Cannot save runnable without `save` or `dict` methods.")
+    warnings.warn("ROSHNIMALANI -- " + str(conf))
     return conf
 
 
