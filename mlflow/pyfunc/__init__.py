@@ -1130,7 +1130,7 @@ def load_model(
 
     if model_meta.metadata and model_meta.metadata.get(MLFLOW_MODEL_IS_EXTERNAL, False) is True:
         raise MlflowException(
-            "This model's artifacts are external and are not stored in the model directory."
+            "This model's artifacts are external and are not stored in MLflow."
             " This model cannot be loaded with MLflow.",
             BAD_REQUEST,
         )
