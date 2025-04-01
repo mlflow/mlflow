@@ -27,7 +27,7 @@ const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
 };
 
 jest.mock('../../../actions', () => ({
-  ...jest.requireActual('../../../actions'),
+  ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
   listArtifactsApi: jest.fn((runUuid: string) => {
     return {
       payload: mockArtifactsData[runUuid],

@@ -8,7 +8,7 @@ jest.mock('../../../../common/utils/RoutingUtils', () => ({
 
 describe('useActiveExperimentSpan', () => {
   let mockSearchParams = new URLSearchParams();
-  const mockSetSearchParams = jest.fn().mockImplementation((setter) => {
+  const mockSetSearchParams = jest.fn((setter) => {
     mockSearchParams = setter(mockSearchParams);
   });
 
