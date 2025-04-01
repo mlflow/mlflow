@@ -14,7 +14,7 @@ The MLflow DSPy flavor provides a convenient way to automatically track the opti
 ## Enable Autologging
 
 To enable autologging for DSPy optimization, call <APILink fn="mlflow.dspy.autolog" /> at the beginning of your script or notebook with the following parameters. This will automatically log traces for your program execution as well as other metrics and artifacts such as program states, train datasets, and evaluation results depending on the configuration.
-Note that the optimizer tracking feature is available since MLflow `2.21.1`.
+Note that the optimizer autologging feature is available since MLflow `2.21.1`.
 
 ```python
 import mlflow
@@ -68,7 +68,7 @@ mlflow.dspy.autolog(log_compiles=True, log_evals=True, log_traces_from_compile=T
     </tbody>
 </table>
 
-## Example Code of DSPy Optimizer Tracking
+## Example Code of DSPy Optimizer Autologging
 
 ```python
 import dspy
@@ -117,7 +117,7 @@ optimized_program = teleprompter.compile(
 ```
 
 ## What Gets Logged?
-MLflow optimizer tracking logs the following information:
+MLflow optimizer autologging logs the following information:
 - **Optimizer Parameters**: The hyper parameters of the optimizer (e.g. number of demonstrates).
 - **Optimized Program**: MLflow automatically saves the states of the optimized program as a json artifact.
 - **Datasets**: The train and evaluation datasets used in the optimization.
