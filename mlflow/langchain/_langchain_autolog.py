@@ -2,9 +2,12 @@ import importlib
 import inspect
 import logging
 
+import mlflow
+from mlflow.entities import LoggedModelStatus
 from mlflow.langchain import FLAVOR_NAME
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.utils.autologging_utils import safe_patch
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
@@ -17,7 +20,23 @@ def _patch_runnable_cls(cls):
     Args:
         cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
+    # NB: we only create LoggedModels for invoke/ainvoke methods
+    # Other methods (batch/stream) invocation order on sub components is not guaranteed
+    if hasattr(cls, "invoke"):
+        safe_patch(
+            FLAVOR_NAME,
+            cls,
+            "invoke",
+            _patched_invoke,
+        )
+    if hasattr(cls, "ainvoke"):
+        safe_patch(
+            FLAVOR_NAME,
+            cls,
+            "ainvoke",
+            _patched_ainvoke,
+        )
+    for func_name in ["batch", "stream", "abatch", "astream"]:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -34,8 +53,75 @@ def _patched_inference(original, self, *args, **kwargs):
 
     We patch inference functions for different models based on their usage.
     """
-    _MODEL_TRACKER.set_active_model_id_for_identity(id(self))
+    if model_id := _MODEL_TRACKER.get(id(self)):
+        _MODEL_TRACKER.set_active_model_id(model_id)
+    else:
+        _MODEL_TRACKER.set_active_model_id(None)
     return original(self, *args, **kwargs)
+
+
+def _patched_invoke(original, self, *args, **kwargs):
+    """
+    A patched implementation of langchain models invoke process which enables
+    logging the traces.
+    """
+    config = AutoLoggingConfig.init(flavor_name=mlflow.langchain.FLAVOR_NAME)
+    if model_id := _MODEL_TRACKER.get(id(self)):
+        _MODEL_TRACKER.set_active_model_id(model_id)
+    # NB: this check ensures we don't create LoggedModels for internal components
+    elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
+        logged_model = mlflow.create_logged_model(
+            name=self.__class__.__name__,
+        )
+        mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
+        _MODEL_TRACKER.set(id(self), logged_model.model_id)
+        _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
+        _logger.debug(
+            f"Created LoggedModel with model_id {logged_model.model_id} "
+            f"for {self.__class__.__name__}"
+        )
+    else:
+        _MODEL_TRACKER.set_active_model_id(None)
+        # return directly in this case to avoid mutating _is_active_model_id_set
+        return original(self, *args, **kwargs)
+
+    _MODEL_TRACKER._is_active_model_id_set = True
+    try:
+        return original(self, *args, **kwargs)
+    finally:
+        _MODEL_TRACKER._is_active_model_id_set = False
+
+
+async def _patched_ainvoke(original, self, *args, **kwargs):
+    """
+    A patched implementation of langchain models ainvoke process which enables
+    logging the traces.
+    """
+    config = AutoLoggingConfig.init(flavor_name=mlflow.langchain.FLAVOR_NAME)
+    if model_id := _MODEL_TRACKER.get(id(self)):
+        _MODEL_TRACKER.set_active_model_id(model_id)
+    # NB: this check ensures we don't create LoggedModels for internal components
+    elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
+        logged_model = mlflow.create_logged_model(
+            name=self.__class__.__name__,
+        )
+        mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
+        _MODEL_TRACKER.set(id(self), logged_model.model_id)
+        _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
+        _logger.debug(
+            f"Created LoggedModel with model_id {logged_model.model_id} "
+            f"for {self.__class__.__name__}"
+        )
+    else:
+        _MODEL_TRACKER.set_active_model_id(None)
+        # return directly in this case to avoid mutating _is_active_model_id_set
+        return await original(self, *args, **kwargs)
+
+    _MODEL_TRACKER._is_active_model_id_set = True
+    try:
+        return await original(self, *args, **kwargs)
+    finally:
+        _MODEL_TRACKER._is_active_model_id_set = False
 
 
 def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes):

@@ -1433,20 +1433,6 @@ class _ModelTracker:
         """
         return self._active_model_id.get()
 
-    def set_active_model_id_for_identity(self, identity: int) -> None:
-        """
-        Set the current active model id for the given model identity.
-        This should be default behavior for most model objects.
-        """
-        # we don't restore _active_model_id value because
-        # original function could be a coroutine.
-        # If the model identity is not stored we set active_model_id to
-        # None to avoid inheriting the previous active model id.
-        if model_id := self.get(identity):
-            self.set_active_model_id(model_id)
-        else:
-            self.set_active_model_id(None)
-
     def clear(self) -> None:
         with self._lock:
             self._model_ids.clear()
