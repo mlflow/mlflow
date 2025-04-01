@@ -20,10 +20,25 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
+      type: 'category',
       label: 'MLflow 3.0',
       className: 'sidebar-top-level-category',
-      id: 'mlflow-3/index'
+      items: [
+        {
+          type: 'doc',
+          id: 'mlflow-3/deep-learning',
+          label: 'Deep Learning',
+        },
+        {
+          type: 'doc',
+          id: 'mlflow-3/genai-agent',
+          label: 'GenAI Development',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'mlflow-3/index',
+      }
     },
     {
       type: 'category',
