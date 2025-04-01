@@ -347,6 +347,8 @@ def save_model(
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
             **model_data_kwargs,
         }
+    logger.warn("ROSHNIMODEL -- model_data_kwargs = " + str(model_data_kwargs))
+    logger.warn("ROSHNIMODEL -- flavor_conf= " + str(flavor_conf))
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -388,6 +390,7 @@ def save_model(
         streamable=streamable,
         **flavor_conf,
     )
+    warnings.warn("MALANIFLAVOR -- " + str(mlflow_model))
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
