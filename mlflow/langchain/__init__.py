@@ -403,6 +403,7 @@ def save_model(
                 if needs_databricks_auth and is_in_databricks_serverless_runtime()
                 else None
             )
+            warnings.warn("ROSHNI EXTRA ENV VARS -- " + str(extra_env_vars))
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
