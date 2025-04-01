@@ -465,6 +465,11 @@ def _patch_loader(loader_func: Callable) -> Callable:
         # via the loader APIs. Since the model is serialized by the user (or someone who has
         # access to the tracking server), it is safe to set this flag to True.
         def patched_loader(*args, **kwargs):
+            import inspect
+            code, line_no = inspect.getsourcelines(loader_func)
+            warnings.warn("ROSHMALA -- loader_func = " + ''.join(code))
+            warnings.warn("ROSHMALA -- args = " + str(*args))
+            warnings.warn("ROSHMALA -- kwards = " + str(*kwargs))
             return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
     else:
 

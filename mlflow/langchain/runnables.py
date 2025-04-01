@@ -96,6 +96,8 @@ def _load_model_from_config(path, model_config):
         warnings.warn("ROSHNILODECODE -- " + ''.join(code))
         warnings.warn("ROSHNILOADCONFIG -- " + str(_patch_loader(load_llm)(config_path)))
         warnings.warn("MALANITEST -- " + str(llms_get_type_to_cls_dict()[_type]))
+        code, line_no = inspect.getsourcelines(llms_get_type_to_cls_dict()[_type])
+        warnings.warn("MALANITEST -- " + ''.join(code))
         return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
         return custom_type_to_loader_dict()[_type](config)
