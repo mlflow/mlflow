@@ -92,13 +92,15 @@ def _flatten_dspy_module_state(
                 continue
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, Example):
-                v = v.toDict()
+                # Don't flatten Example objects further even if it has dict or list values
+                v = {key: str(value) for key, value in v.items()}
             items.update(_flatten_dspy_module_state(v, new_key, sep))
     elif isinstance(d, list):
         for i, v in enumerate(d):
             new_key = f"{parent_key}{sep}{i}" if parent_key else str(i)
             if isinstance(v, Example):
-                v = v.toDict()
+                # Don't flatten Example objects further even if it has dict or list values
+                v = {key: str(value) for key, value in v.items()}
             items.update(_flatten_dspy_module_state(v, new_key, sep))
     else:
         if d is not None:
