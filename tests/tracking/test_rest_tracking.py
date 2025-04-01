@@ -2521,6 +2521,11 @@ def test_create_external_logged_model(tmp_path, mlflow_client: MlflowClient):
     model = mlflow_client.create_logged_model(exp_id, external=True)
     assert model.status == LoggedModelStatus.READY
     assert model.tags.get(MLFLOW_MODEL_IS_EXTERNAL) == "true"
+
+    # Verify that an MLmodel file is created with metadata indicating that the model's artifacts
+    # are stored externally. This requires setting the fluent MLflow tracking URI, since we need
+    # to call the fluent `download_artifacts()` API to retrieve the MLmodel file
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=tmp_path)
     mlflow_model: Model = Model.load(os.path.join(tmp_path, "MLmodel"))
     assert mlflow_model.metadata is not None
