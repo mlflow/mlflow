@@ -373,7 +373,9 @@ def save_model(
                 "to mlflow.langchain.log_model() to ensure authorization to "
                 "dependent resources succeeds when the model is deployed."
             )
+            logger.warning("MALANI -- " + str(databricks_resources))
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
+            logger.warning("ROSHNI -- " + str(serialized_databricks_resources))
             mlflow_model.resources = serialized_databricks_resources
             needs_databricks_auth = any(
                 isinstance(r, DatabricksFunction) for r in databricks_resources
