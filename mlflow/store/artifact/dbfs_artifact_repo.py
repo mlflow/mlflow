@@ -10,6 +10,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
+    DatabricksLoggedModelArtifactRepository,
+)
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
@@ -213,6 +216,8 @@ def dbfs_artifact_repo_factory(artifact_uri):
     cleaned_artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
+        if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
+            return DatabricksLoggedModelArtifactRepository(cleaned_artifact_uri)
         return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
