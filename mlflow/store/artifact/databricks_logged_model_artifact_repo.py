@@ -20,6 +20,10 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/logged_models/(?P<model_id>[^/]+)(?P<relative_path>/.*)?$"
     )
 
+    @staticmethod
+    def is_logged_model_uri(artifact_uri: str) -> bool:
+        return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
+
     def __init__(self, artifact_uri: str) -> None:
         super().__init__(artifact_uri)
         self.wc = WorkspaceClient()
