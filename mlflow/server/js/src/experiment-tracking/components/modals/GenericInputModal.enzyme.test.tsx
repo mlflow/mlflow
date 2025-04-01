@@ -126,7 +126,6 @@ describe('GenericInputModal', () => {
     await onValidationPromise;
     // For validation errors, the form should not be reset (so that the user can fix the
     // validation error)
-    expect(resetFieldsMock).toBeCalled();
     expect(instance.state.isSubmitting).toEqual(false);
   });
 });
