@@ -35,6 +35,7 @@ from mlflow.utils.os import is_windows
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
+CUSTOM_BASE_IMAGE = "ubuntu:focal-20241011"
 
 _logger = logging.getLogger(__name__)
 
@@ -108,7 +109,9 @@ def score_model_in_sagemaker_docker_container(
         return endpoint.invoke(data, content_type)
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
+def pyfunc_generate_dockerfile(
+    output_directory, model_uri=None, extra_args=None, env=None, base_image=None
+):
     """
     Builds a dockerfile for the specified model.
 
@@ -117,6 +120,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
         env: Environment variables to use.
+        base_image: Custom base image to set in the generated Dockerfile
     """
     cmd = [
         "mlflow",
@@ -125,6 +129,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         *(["-m", model_uri] if model_uri else []),
         "-d",
         output_directory,
+        *(["--base-image", base_image] if base_image else []),
     ]
     mlflow_home = os.environ.get("MLFLOW_HOME")
     if mlflow_home:
@@ -134,7 +139,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None, base_image=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
 
@@ -142,6 +147,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
         env: Environment variables to pass to the subprocess building the image.
+        base_image: Custom base image to build the image on
     """
     name = uuid.uuid4().hex
     cmd = [
@@ -153,6 +159,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         *(["-m", model_uri] if model_uri else []),
         "-n",
         name,
+        *(["--base-image", base_image] if base_image else []),
     ]
     if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]

@@ -247,3 +247,17 @@ INSTALL_JAVA = click.option(
     "Note: This option only works with the UBUNTU base image; "
     "Python base images do not support Java installation.",
 )
+
+BASE_IMAGE = click.option(
+    "--base-image",
+    is_flag=False,
+    default=None,
+    metavar="BASE_IMAGE",
+    help="""
+Base image for the Docker image. If not specified, the default image is either
+``UBUNTU_BASE_IMAGE = "ubuntu:20.04"`` or ``PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"``
+Note: If custom image is used, there are no guarantees that the image will work. You
+may find greater compatibility by building your image on top of the ubuntu images. In
+addition, you must install Java and virtualenv to have the image work properly.
+""",
+)
