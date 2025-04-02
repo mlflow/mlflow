@@ -270,6 +270,78 @@ service ModelRegistryService {
       rpc_doc_title: "Get Model Version by Alias",
     };
   }
+
+  rpc createWebhook (CreateWebhook) returns (CreateWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/webhooks/create"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Create Webhook",
+    };
+  }
+
+  rpc renameWebhook (RenameWebhook) returns (RenameWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/webhooks/rename"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Rename Webhook",
+    };
+  }
+
+  rpc updateWebhook (UpdateWebhook) returns (UpdateWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/webhooks/update"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Update Webhook",
+    };
+  }
+
+  rpc deleteWebhook (DeleteWebhook) returns (DeleteWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/webhooks/delete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Delete Webhook",
+    };
+  }
+
+  rpc getWebhook (GetWebhook) returns (GetWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/webhooks/get"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Get Webhook",
+    };
+  }
+
+  rpc searchWebhooks (SearchWebhooks) returns (SearchWebhooks.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/webhooks/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Search Webhooks",
+    };
+  }
 }
 
 message RegisteredModel {
@@ -743,5 +815,151 @@ message GetModelVersionByAlias {
 
   message Response {
     optional ModelVersion model_version = 1;
+  }
+}
+
+// Webhooks
+message Webhook {
+  // Unique name for the webhook.
+  optional string name = 1;
+
+  // Timestamp recorded when this ``webhook`` was created.
+  optional int64 creation_timestamp = 2;
+
+  // Timestamp recorded when metadata for this ``webhook`` was last updated.
+  optional int64 last_updated_timestamp = 3;
+
+  // User that created this ``webhook``
+  // NOTE: this field is not currently returned.
+  optional string user_id = 4;
+
+  // url of the ``webhook``.
+  optional string url = 5;
+
+  // Event type of the ``webhook``.
+  optional string event_trigger = 6;
+
+  // The key of the event trigger for the ``webhook``.
+  optional string key = 7;
+
+  // The value of the event trigger for the ``webhook``.
+  optional string value = 8;
+
+  // The headers to include in the request
+  map<string, string> headers = 9;
+
+  // The payload to include in the request
+  map<string, string> payload = 10;
+
+  // Description of this ``webhook``.
+  optional string description = 11;
+}
+
+message CreateWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Create webhook under this name
+  optional string name = 1 [(validate_required) = true];
+
+  // url of the ``webhook``.
+  optional string url = 2;
+
+  // Event type of the ``webhook``.
+  optional string event_trigger = 3;
+
+  // The key of the event trigger for the ``webhook``.
+  optional string key = 4;
+
+  // The value of the event trigger for the ``webhook``.
+  optional string value = 5;
+
+  // The headers to include in the request
+  map<string, string> headers = 6;
+
+  // The payload to include in the request
+  map<string, string> payload = 7;
+
+  // Description of this ``webhook``.
+  optional string description = 8;
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+message RenameWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Webhook unique name identifier.
+  optional string name = 1 [(validate_required) = true];
+
+  // If provided, updates the name for this ``webhook``.
+  optional string new_name = 2;
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+message UpdateWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Webhook unique name identifier.
+  optional string name = 1 [(validate_required) = true];
+
+  // If provided, updates the description for this ``webhook``.
+  optional string description = 2;
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+message DeleteWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Webhook unique name identifier.
+  optional string name = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message GetWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Webhook unique name identifier.
+  optional string name = 1 [(validate_required) = true];
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+message SearchWebhooks {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // String filter condition, like "name LIKE 'my-model-name'".
+  // Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+  // Single boolean condition, with string values wrapped in single quotes.
+  optional string filter = 1;
+
+  // Maximum number of models desired. Default is 100. Max threshold is 1000.
+  optional int64 max_results = 2 [default = 100];
+
+  // List of columns for ordering search results, which can include model name and last updated
+  // timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by model name ASC.
+  repeated string order_by = 3;
+
+  // Pagination token to go to the next page based on a previous search query.
+  optional string page_token = 4;
+
+  message Response {
+    // Webhooks that match the search criteria.
+    repeated Webhook webhooks = 1;
+
+    // Pagination token to request the next page of models.
+    optional string next_page_token = 2;
   }
 }

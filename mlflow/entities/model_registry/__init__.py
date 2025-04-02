@@ -6,6 +6,7 @@ from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
 from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
+from mlflow.entities.model_registry.webhook import Webhook
 
 __all__ = [
     "Prompt",
@@ -16,4 +17,5 @@ __all__ = [
     "ModelVersionTag",
     "RegisteredModelSearch",
     "ModelVersionSearch",
+    "Webhook",
 ]
