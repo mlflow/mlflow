@@ -96,6 +96,17 @@ class SimpleResponsesAgent(ResponsesAgent):
         yield from get_stream_mock_response()
 
 
+class CustomInputsResponsesAgent(ResponsesAgent):
+    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        mock_response = get_mock_response(request)
+        return ResponsesResponse(**mock_response, custom_outputs=request.custom_inputs)
+
+    def predict_stream(self, request: ResponsesRequest):
+        for r in get_stream_mock_response():
+            r["custom_outputs"] = request.custom_inputs
+            yield r
+
+
 def test_responses_agent_save_load(tmp_path):
     model = SimpleResponsesAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -108,6 +119,16 @@ def test_responses_agent_save_load(tmp_path):
     assert output_schema == RESPONSES_AGENT_OUTPUT_SCHEMA
 
 
+def test_responses_agent_predict(tmp_path):
+    model = SimpleResponsesAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
+    assert response["output"][0]["type"] == "message"
+    assert response["output"][0]["content"][0]["type"] == "output_text"
+    assert response["output"][0]["content"][0]["text"] == "Hello!"
+
+
 def test_responses_agent_predict_stream(tmp_path):
     model = SimpleResponsesAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -118,11 +139,13 @@ def test_responses_agent_predict_stream(tmp_path):
         assert "type" in r
 
 
-def test_responses_agent_predict(tmp_path):
-    model = SimpleResponsesAgent()
+def test_responses_agent_custom_inputs(tmp_path):
+    model = CustomInputsResponsesAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
-    assert response["output"][0]["type"] == "message"
-    assert response["output"][0]["content"][0]["type"] == "output_text"
-    assert response["output"][0]["content"][0]["text"] == "Hello!"
+    payload = {**RESPONSES_AGENT_INPUT_EXAMPLE, "custom_inputs": {"asdf": "asdf"}}
+    response = loaded_model.predict(payload)
+    assert response["custom_outputs"] == {"asdf": "asdf"}
+    responses = list(loaded_model.predict_stream(payload))
+    for r in responses:
+        assert r["custom_outputs"] == {"asdf": "asdf"}

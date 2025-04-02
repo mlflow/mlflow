@@ -83,14 +83,8 @@ ResponsesStreamEvent = Union[
     StreamCatchAllEvent,
 ]
 
-x = _infer_schema_from_type_hint(ResponsesRequest).to_dict()
-properties = x[0]["properties"]
-temp = []
-for p in properties:
-    properties[p]["name"] = p
-    temp.append(properties[p])
-
-RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(temp))
-
+properties = _infer_schema_from_type_hint(ResponsesRequest).to_dict()[0]["properties"]
+formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
+RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(formatted_properties))
 RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesResponse)
 RESPONSES_AGENT_INPUT_EXAMPLE = {"input": [{"role": "user", "content": "Hello!"}]}

@@ -395,7 +395,13 @@ class BaseRequestPayload(Truncation, ToolChoice):
 #####################################
 # ResponsesStreamEvent helper classes
 #####################################
-class ResponseContentPartAddedEvent(BaseModel):
+
+
+class BaseEvent(BaseModel):
+    custom_outputs: Optional[dict[str, Any]] = None
+
+
+class ResponseContentPartAddedEvent(BaseEvent):
     content_index: int
     item_id: str
     output_index: int
@@ -403,7 +409,7 @@ class ResponseContentPartAddedEvent(BaseModel):
     type: str = "response.content_part.added"
 
 
-class ResponseContentPartDoneEvent(BaseModel):
+class ResponseContentPartDoneEvent(BaseEvent):
     content_index: int
     item_id: str
     output_index: int
@@ -411,7 +417,7 @@ class ResponseContentPartDoneEvent(BaseModel):
     type: str = "response.content_part.done"
 
 
-class ResponseTextDeltaEvent(BaseModel):
+class ResponseTextDeltaEvent(BaseEvent):
     content_index: int
     delta: str
     item_id: str
@@ -419,7 +425,7 @@ class ResponseTextDeltaEvent(BaseModel):
     type: str = "response.output_text.delta"
 
 
-class ResponseTextDoneEvent(BaseModel):
+class ResponseTextDoneEvent(BaseEvent):
     content_index: int
     item_id: str
     output_index: int
@@ -427,7 +433,7 @@ class ResponseTextDoneEvent(BaseModel):
     type: str = "response.output_text.done"
 
 
-class ResponseTextAnnotationDeltaEvent(BaseModel):
+class ResponseTextAnnotationDeltaEvent(BaseEvent):
     annotation: Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
     annotation_index: int
     content_index: int
@@ -436,14 +442,14 @@ class ResponseTextAnnotationDeltaEvent(BaseModel):
     type: str = "response.output_text.annotation.added"
 
 
-class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
+class ResponseFunctionCallArgumentsDeltaEvent(BaseEvent):
     delta: str
     item_id: str
     output_index: int
     type: str = "response.function_call_arguments.delta"
 
 
-class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
+class ResponseFunctionCallArgumentsDoneEvent(BaseEvent):
     arguments: str
     item_id: str
     output_index: int
@@ -472,29 +478,29 @@ class OutputItem(BaseModel):
         return self
 
 
-class ResponseOutputItemAddedEvent(OutputItem):
+class ResponseOutputItemAddedEvent(OutputItem, BaseEvent):
     output_index: int
     type: str = "response.output_item.added"
 
 
-class ResponseOutputItemDoneEvent(OutputItem):
+class ResponseOutputItemDoneEvent(OutputItem, BaseEvent):
     output_index: int
     type: str = "response.output_item.done"
 
 
-class ResponseErrorEvent(BaseModel):
+class ResponseErrorEvent(BaseEvent):
     code: Optional[str] = None
     message: str
     param: Optional[str] = None
     type: str = "error"
 
 
-class ResponseCompletedEvent(BaseModel):
+class ResponseCompletedEvent(BaseEvent):
     response: Response
     type: str = "response.completed"
 
 
-class StreamCatchAllEvent(BaseModel):
+class StreamCatchAllEvent(BaseEvent):
     # pydantic model that allows for all other streaming event types to pass type validation
     model_config = ConfigDict(extra="allow")
     type: str
