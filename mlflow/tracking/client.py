@@ -46,6 +46,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
@@ -74,8 +75,12 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
@@ -143,7 +148,9 @@ class MlflowClient:
     can keep the implementation of the tracking and registry clients independent from each other.
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None):
+    def __init__(
+        self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None
+    ):
         """
         Args:
             tracking_uri: Address of local or remote tracking server. If not provided, defaults
@@ -155,7 +162,9 @@ class MlflowClient:
                 no such service was set, defaults to the tracking uri of the client.
         """
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
-        self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
+        self._registry_uri = registry_utils._resolve_registry_uri(
+            registry_uri, tracking_uri
+        )
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
@@ -187,7 +196,9 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
+                registry_client = ModelRegistryClient(
+                    self._registry_uri, self.tracking_uri
+                )
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
                 # that the variable name is consistent with the variable name specified in the
@@ -415,7 +426,9 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
+        return self._tracking_client.create_run(
+            experiment_id, start_time, tags, run_name
+        )
 
     ##### Prompt Registry #####
 
@@ -511,7 +524,9 @@ class MlflowClient:
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
+                name,
+                description=commit_message,
+                tags={IS_PROMPT_TAG_KEY: "true", **tags},
             )
             is_new_prompt = True
 
@@ -531,7 +546,9 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         version_metadata = version_metadata or {}
-        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        version_metadata.update(
+            {IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template}
+        )
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -659,7 +676,10 @@ class MlflowClient:
             run_ids = [run_id]
 
         self._get_registry_client().set_model_version_tag(
-            prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+            prompt.name,
+            prompt.version,
+            PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+            ",".join(run_ids),
         )
 
     # TODO: Use model_id in MLflow 3.0
@@ -753,7 +773,9 @@ class MlflowClient:
         mv = registry_client.get_model_version(name, version)
 
         if IS_PROMPT_TAG_KEY not in mv.tags:
-            raise MlflowException(f"Prompt '{name}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                f"Prompt '{name}' does not exist.", RESOURCE_DOES_NOT_EXIST
+            )
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
@@ -773,7 +795,9 @@ class MlflowClient:
         try:
             return get_model_name_and_version(self, f"models:{parsed.path}")
         except MlflowException:
-            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST
+            )
 
     ##### Tracing #####
 
@@ -1069,7 +1093,9 @@ class MlflowClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
+        self.end_span(
+            request_id, root_span_id, outputs, attributes, status, end_time_ns
+        )
 
     @experimental
     def _log_trace(self, trace: Trace) -> str:
@@ -1962,7 +1988,9 @@ class MlflowClient:
             status: FINISHED
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         return self._tracking_client.log_metric(
             run_id, key, value, timestamp, step, synchronous=synchronous
@@ -2034,13 +2062,17 @@ class MlflowClient:
             status: FINISHED
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         if synchronous:
             self._tracking_client.log_param(run_id, key, value, synchronous=True)
             return value
         else:
-            return self._tracking_client.log_param(run_id, key, value, synchronous=False)
+            return self._tracking_client.log_param(
+                run_id, key, value, synchronous=False
+            )
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -2128,9 +2160,13 @@ class MlflowClient:
             Tags: {'nlp.framework': 'Spark NLP'}
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
-        return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
+        return self._tracking_client.set_tag(
+            run_id, key, value, synchronous=synchronous
+        )
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """Delete a tag from a run. This is irreversible.
@@ -2300,7 +2336,9 @@ class MlflowClient:
 
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
 
         # Stringify the values of the params
@@ -2458,7 +2496,9 @@ class MlflowClient:
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
+        self._tracking_client._log_artifact_async(
+            run_id, filename, artifact_dir, artifact
+        )
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -2491,7 +2531,9 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: dict[str, Any], artifact_file: str) -> None:
+    def log_dict(
+        self, run_id: str, dictionary: dict[str, Any], artifact_file: str
+    ) -> None:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
@@ -2755,9 +2797,13 @@ class MlflowClient:
                 client.log_image(run.info.run_id, image, "image.png")
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
-        if artifact_file is not None and any(arg is not None for arg in [key, step, timestamp]):
+        if artifact_file is not None and any(
+            arg is not None for arg in [key, step, timestamp]
+        ):
             raise TypeError(
                 "The `artifact_file` parameter cannot be used in conjunction with `key`, "
                 "`step`, or `timestamp` parameters. Please ensure that `artifact_file` is "
@@ -2808,9 +2854,7 @@ class MlflowClient:
             filename_uuid = uuid.uuid4()
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
-            uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
-            )
+            uncompressed_filename = f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             compressed_filename = f"{uncompressed_filename}%compressed"
 
             # Save full-resolution image
@@ -2828,10 +2872,14 @@ class MlflowClient:
                 self._log_artifact_async_helper(run_id, image_filepath, image)
 
             if synchronous:
-                with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                with self._log_artifact_helper(
+                    run_id, compressed_image_filepath
+                ) as tmp_path:
                     compressed_image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
+                self._log_artifact_async_helper(
+                    run_id, compressed_image_filepath, compressed_image
+                )
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
@@ -2846,7 +2894,9 @@ class MlflowClient:
         characters_to_check = ['"', "'", ",", ":", "[", "]", "{", "}"]
         for char in characters_to_check:
             if char in artifact_file:
-                raise ValueError(f"The artifact_file contains forbidden character: {char}")
+                raise ValueError(
+                    f"The artifact_file contains forbidden character: {char}"
+                )
 
     def _read_from_file(self, artifact_path):
         import pandas as pd
@@ -2855,7 +2905,9 @@ class MlflowClient:
             return pd.read_json(artifact_path, orient="split")
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
-        raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
+        raise ValueError(
+            f"Unsupported file type in {artifact_path}. Expected .json or .parquet"
+        )
 
     @experimental
     def log_table(
@@ -2968,7 +3020,9 @@ class MlflowClient:
                 # save compressed image to path
                 compressed_image = compress_image_size(image)
 
-                with self._log_artifact_helper(run_id, compressed_image_filepath) as artifact_path:
+                with self._log_artifact_helper(
+                    run_id, compressed_image_filepath
+                ) as artifact_path:
                     compressed_image.save(artifact_path)
 
                 # return a dictionary object indicating its an image path
@@ -3000,7 +3054,9 @@ class MlflowClient:
 
         def write_to_file(data, artifact_path):
             if artifact_path.endswith(".json"):
-                data.to_json(artifact_path, orient="split", index=False, date_format="iso")
+                data.to_json(
+                    artifact_path, orient="split", index=False, date_format="iso"
+                )
             elif artifact_path.endswith(".parquet"):
                 data.to_parquet(artifact_path, index=False)
 
@@ -3132,7 +3188,9 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        runs = mlflow.search_runs(
+            experiment_ids=[experiment_id], filter_string=filter_string
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
@@ -3147,7 +3205,9 @@ class MlflowClient:
             existing_predictions = pd.DataFrame()
 
             artifacts = [
-                f.path for f in self.list_artifacts(run_id, path=artifact_dir) if not f.is_dir
+                f.path
+                for f in self.list_artifacts(run_id, path=artifact_dir)
+                if not f.is_dir
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -3156,7 +3216,9 @@ class MlflowClient:
                         artifact_path=artifact_file,
                         dst_path=tmpdir,
                     )
-                    existing_predictions = self._read_from_file(downloaded_artifact_path)
+                    existing_predictions = self._read_from_file(
+                        downloaded_artifact_path
+                    )
                     if extra_columns is not None:
                         for column in extra_columns:
                             if column in existing_predictions:
@@ -3172,18 +3234,21 @@ class MlflowClient:
 
             else:
                 raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
+                    f"Artifact {artifact_file} not found for run {run_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
                 )
 
             return existing_predictions
 
         if not runs.empty:
             return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
+                [get_artifact_data(run) for _, run in runs.iterrows()],
+                ignore_index=True,
             )
         else:
             raise MlflowException(
-                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
+                "No runs found with the corresponding table artifact.",
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -3251,7 +3316,9 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
+    def download_artifacts(
+        self, run_id: str, path: str, dst_path: Optional[str] = None
+    ) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
@@ -3502,7 +3569,12 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
         )
 
     # Registry API
@@ -3510,7 +3582,10 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        description: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3556,9 +3631,13 @@ class MlflowClient:
 
         """
         if has_prompt_tag(tags):
-            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+            raise MlflowException.invalid_parameter_value(
+                "Prompts cannot be registered as models."
+            )
 
-        return self._get_registry_client().create_registered_model(name, tags, description)
+        return self._get_registry_client().create_registered_model(
+            name, tags, description
+        )
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """Update registered model name.
@@ -3663,7 +3742,9 @@ class MlflowClient:
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
         if description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
+            raise MlflowException(
+                "Attempting to update registered model with no new field values."
+            )
 
         self._raise_if_prompt(name)
         return self._get_registry_client().update_registered_model(
@@ -4061,7 +4142,9 @@ class MlflowClient:
         local_model_path: Optional[str] = None,
     ) -> ModelVersion:
         if has_prompt_tag(tags):
-            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+            raise MlflowException.invalid_parameter_value(
+                "Prompts cannot be registered as models."
+            )
 
         tracking_uri = self._tracking_client.tracking_uri
         if (
@@ -4352,7 +4435,9 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
         """
         if description is None:
-            raise MlflowException("Attempting to update model version with no new field values.")
+            raise MlflowException(
+                "Attempting to update model version with no new field values."
+            )
 
         self._raise_if_prompt(name)
         return self._get_registry_client().update_model_version(
@@ -4361,7 +4446,11 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def transition_model_version_stage(
-        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
+        self,
+        name: str,
+        version: str,
+        stage: str,
+        archive_existing_versions: bool = False,
     ) -> ModelVersion:
         """
         Update model version stage.
@@ -4378,7 +4467,7 @@ class MlflowClient:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
-         .. code-block:: python
+            .. code-block:: python
             :caption: Example
 
             import mlflow.sklearn
@@ -4864,7 +4953,9 @@ class MlflowClient:
             )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(f"Could not find any model version for {stage} stage")
+                raise MlflowException(
+                    f"Could not find any model version for {stage} stage"
+                )
             version = latest_versions[0].version
 
         self._get_registry_client().set_model_version_tag(name, version, key, value)
@@ -4955,7 +5046,9 @@ class MlflowClient:
             )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(f"Could not find any model version for {stage} stage")
+                raise MlflowException(
+                    f"Could not find any model version for {stage} stage"
+                )
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)
 
@@ -5244,3 +5337,168 @@ class MlflowClient:
         rm = self.get_registered_model(name)
         if has_prompt_tag(rm._tags):
             raise _model_not_found(name)
+
+    # Webhooks Methods
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        event_trigger: WebhookEventTrigger,
+        key: str,
+        value: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional[dict[str, str]] = None,
+        description=None,
+    ) -> Webhook:
+        """
+        Create a new webhook in backend store.
+
+        Args:
+            name: Name of the new webhook. This is expected to be unique in the backend store.
+            url: URL to send the webhook to.
+            event_trigger: EventTrigger object that specifies the event that triggers the webhook.
+            key: Key to filter on for the event trigger.
+            value (optional): Value to filter on for the event trigger.
+            headers (optional): Header to include in the webhook.
+            payload (optional): Payload to include in the webhook.
+            description (optional): Description of the webhook.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.Webhook`
+            created by backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+
+            def print_webhook_info(webhook):
+                print(f"name: {webhook.name}")
+                print(f"url: {webhook.url}")
+                print(f"description: {webhook.description}")
+
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_webhook(name, tags, desc)
+            print_webhook_info(client.get_webhook(name))
+
+        .. code-block:: text
+            :caption: Output
+
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+
+        """
+        return self._get_registry_client().create_webhook(
+            name, url, event_trigger, key, value, headers, payload, description
+        )
+
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
+        """Update webhook name.
+
+        Args:
+            name: Name of the webhook to update.
+            new_name: New proposed name for the webhook.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        self._get_registry_client().rename_webhook(name, new_name)
+
+    def update_webhook(self, name: str, description: Optional[str] = None) -> Webhook:
+        """
+        Updates metadata for Webhook entity. Input field ``description`` should be non-None.
+        Backend raises exception if a webhook with given name does not exist.
+
+        Args:
+            name: Name of the webhook to update.
+            description: (Optional) New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        if description is None:
+            raise MlflowException(
+                "Attempting to update webhook with no new field values."
+            )
+
+        return self._get_registry_client().update_webhook(
+            name=name, description=description
+        )
+
+    def delete_webhook(self, name: str):
+        """
+        Delete webhook.
+        Backend raises exception if a webhook with given name does not exist.
+
+        Args:
+            name: Name of the webhook to delete.
+
+        """
+        self._get_registry_client().delete_webhook(name)
+
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        Search for webhooks in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key =
+                'value1'"), defaults to searching for all webhooks. The following
+                identifiers, comparators, and logical operators are supported.
+
+                Identifiers
+                - ``name``: webhook name.
+                - ``tags.<tag_key>``: webhook tag. If ``tag_key`` contains spaces, it
+                    must be wrapped with backticks (e.g., "tags.`extra key`").
+
+                Comparators
+                - ``=``: Equal to.
+                - ``!=``: Not equal to.
+                - ``LIKE``: Case-sensitive pattern match.
+                - ``ILIKE``: Case-insensitive pattern match.
+
+                Logical operators
+                - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+            max_results: Maximum number of webhooks desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+        """
+        return self._get_registry_client().search_webhooks(
+            filter_string, max_results, order_by, page_token
+        )
+
+    def get_webhook(self, name: str) -> Webhook:
+        """Get a webhook.
+
+        Args:
+            name: Name of the webhook to get.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        return self._get_registry_client().get_webhook(name)
