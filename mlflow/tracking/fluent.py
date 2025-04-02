@@ -1150,6 +1150,24 @@ def log_params(
     )
 
 
+def _create_dataset_input(
+    dataset: Optional[Dataset],
+    context: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+) -> Optional[DatasetInput]:
+    if (context or tags) and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset` must be specified if `context` or `tags` is specified."
+        )
+    tags_to_log = []
+    if tags:
+        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
+    if context:
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+
+    return DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log) if dataset else None
+
+
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
@@ -1181,22 +1199,62 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
-    if (context or tags) and dataset is None:
-        raise MlflowException.invalid_parameter_value(
-            "`dataset` must be specified if `context` or `tags` is specified."
-        )
     run_id = _get_or_start_run().info.run_id
-    tags_to_log = []
-    if tags:
-        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
-    if context:
-        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+    dataset_input = _create_dataset_input(dataset, context, tags)
 
-    datasets = (
-        [DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)] if dataset else None
+    MlflowClient().log_inputs(
+        run_id=run_id, datasets=dataset_input and [dataset_input], models=model and [model]
     )
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=model and [model])
+
+def log_inputs(
+    datasets: list[Optional[Dataset]],
+    contexts: list[Optional[str]],
+    tags_list: list[Optional[dict[str, str]]],
+    models: list[Optional[LoggedModelInput]],
+) -> None:
+    """
+    Log a batch of datasets used in the current run.
+
+    Args:
+        datasets: List of :py:class:`mlflow.data.dataset.Dataset` object to be logged.
+        contexts: List of context in which the dataset is used. For example: "training", "testing".
+            This will be set as an input tag with key `mlflow.data.context`.
+        tags_list: List of tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
+        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
+            run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+
+        array = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
+
+        array2 = np.asarray([[-1, 2, 3], [-4, 5, 6]])
+        dataset2 = mlflow.data.from_numpy(array2, source="data2.csv")
+
+        # Log an input dataset used for training
+        with mlflow.start_run():
+            mlflow.log_input(
+                [dataset, dataset2],
+                contexts=["training", "test"],
+                tags_list=[None] * 2,
+                models=[None] * 2
+            )
+    """
+    run_id = _get_or_start_run().info.run_id
+
+    dataset_inputs = []
+    for dataset, context, tags, model in zip(datasets, contexts, tags_list):
+        dataset_inputs.append(_create_dataset_input(dataset, context, tags))
+
+    MlflowClient().log_inputs(
+        run_id=run_id, datasets=dataset_inputs, models=models
+    )
 
 
 def set_experiment_tags(tags: dict[str, Any]) -> None:
