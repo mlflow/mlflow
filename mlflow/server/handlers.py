@@ -28,6 +28,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.webhook import WebhookEventTrigger
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -55,26 +56,32 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
+    CreateWebhook,
     DeleteModelVersion,
     DeleteModelVersionTag,
     DeleteRegisteredModel,
     DeleteRegisteredModelAlias,
     DeleteRegisteredModelTag,
+    DeleteWebhook,
     GetLatestVersions,
     GetModelVersion,
     GetModelVersionByAlias,
     GetModelVersionDownloadUri,
     GetRegisteredModel,
+    GetWebhook,
     ModelRegistryService,
     RenameRegisteredModel,
+    RenameWebhook,
     SearchModelVersions,
     SearchRegisteredModels,
+    SearchWebhooks,
     SetModelVersionTag,
     SetRegisteredModelAlias,
     SetRegisteredModelTag,
     TransitionModelVersionStage,
     UpdateModelVersion,
     UpdateRegisteredModel,
+    UpdateWebhook,
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
@@ -135,6 +142,7 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
+from mlflow.webhooks.channels import EventsChannel, RegisteredModelEvent
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -144,6 +152,7 @@ STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
 MAX_RESULTS_GET_METRIC_HISTORY = 25000
+MAX_EVENTS_SIZE = 25000
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -193,6 +202,9 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 _tracking_store_registry = TrackingStoreRegistryWrapper()
 _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
 
+# Channel to be used for event dispatching
+_event_channel = EventsChannel(MAX_EVENTS_SIZE)
+
 
 def _get_artifact_repo_mlflow_artifacts():
     """
@@ -203,7 +215,9 @@ def _get_artifact_repo_mlflow_artifacts():
 
     global _artifact_repo
     if _artifact_repo is None:
-        _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
+        _artifact_repo = get_artifact_repository(
+            os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
+        )
     return _artifact_repo
 
 
@@ -294,7 +308,9 @@ def _is_servable_proxied_run_artifact_root(run_artifact_root):
     )
 
 
-def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_path=None):
+def _get_proxied_run_artifact_destination_path(
+    proxied_artifact_root, relative_path=None
+):
     """
     Resolves the specified proxied artifact location within a Run to a concrete storage location.
 
@@ -343,7 +359,9 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
     global _tracking_store
     if _tracking_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
-        artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
+        artifact_root = default_artifact_root or os.environ.get(
+            ARTIFACT_ROOT_ENV_VAR, None
+        )
         _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
         utils.set_tracking_uri(store_uri)
     return _tracking_store
@@ -402,6 +420,10 @@ def _assert_floatlike(x):
 
 def _assert_array(x):
     assert isinstance(x, list)
+
+
+def _assert_dict(x):
+    assert isinstance(x, dict)
 
 
 def _assert_map_key_present(x):
@@ -480,7 +502,8 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
                 )
             raise MlflowException(
                 message=(
-                    message + " See the API docs for more information about request parameters."
+                    message
+                    + " See the API docs for more information about request parameters."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -552,7 +575,9 @@ def _response_with_file_attachment_headers(file_path, response):
     response.mimetype = mime_type
     content_disposition_header_name = "Content-Disposition"
     if content_disposition_header_name not in response.headers:
-        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+        response.headers[content_disposition_header_name] = (
+            f"attachment; filename={filename}"
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
@@ -692,7 +717,9 @@ def _get_experiment():
 
 def get_experiment_impl(request_message):
     response_message = GetExperiment.Response()
-    experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
+    experiment = (
+        _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
+    )
     response_message.experiment.MergeFrom(experiment)
     return response_message
 
@@ -705,7 +732,9 @@ def _get_experiment_by_name():
         schema={"experiment_name": [_assert_required, _assert_string]},
     )
     response_message = GetExperimentByName.Response()
-    store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
+    store_exp = _get_tracking_store().get_experiment_by_name(
+        request_message.experiment_name
+    )
     if store_exp is None:
         raise MlflowException(
             f"Could not find experiment with name '{request_message.experiment_name}'",
@@ -806,10 +835,16 @@ def _update_run():
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
-    run_name = request_message.run_name if request_message.HasField("run_name") else None
-    end_time = request_message.end_time if request_message.HasField("end_time") else None
+    run_name = (
+        request_message.run_name if request_message.HasField("run_name") else None
+    )
+    end_time = (
+        request_message.end_time if request_message.HasField("end_time") else None
+    )
     status = request_message.status if request_message.HasField("status") else None
-    updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
+    updated_info = _get_tracking_store().update_run_info(
+        run_id, status, end_time, run_name
+    )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1068,7 +1103,9 @@ def list_artifacts_impl(request_message):
 
 
 @catch_mlflow_exception
-def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relative_path=None):
+def _list_artifacts_for_proxied_run_artifact_root(
+    proxied_artifact_root, relative_path=None
+):
     """
     Lists artifacts from the specified ``relative_path`` within the specified proxied Run artifact
     root (i.e. a Run artifact root with scheme ``http``, ``https``, or ``mlflow-artifacts``).
@@ -1091,7 +1128,9 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
     )
 
     artifact_entities = []
-    for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
+    for file_info in artifact_destination_repo.list_artifacts(
+        artifact_destination_path
+    ):
         basename = posixpath.basename(file_info.path)
         run_relative_artifact_path = (
             posixpath.join(relative_path, basename) if relative_path else basename
@@ -1115,7 +1154,9 @@ def _get_metric_history():
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id, request_message.metric_key
+    )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1287,11 +1328,14 @@ def get_metric_history_bulk_interval_impl(request_message):
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
         all_runs = [
-            [m.step for m in store.get_metric_history(run_id, metric_key)] for run_id in run_ids
+            [m.step for m in store.get_metric_history(run_id, metric_key)]
+            for run_id in run_ids
         ]
 
         # save mins and maxes to be added back later
-        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
+        all_mins_and_maxes = {
+            step for run in all_runs if run for step in [min(run), max(run)]
+        }
         all_steps = sorted({step for sublist in all_runs for step in sublist})
 
         # init start and end step if not provided in args
@@ -1300,12 +1344,16 @@ def get_metric_history_bulk_interval_impl(request_message):
             end_step = all_steps[-1] if all_steps else 0
 
         # remove any steps outside of the range
-        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
+        all_mins_and_maxes = {
+            step for step in all_mins_and_maxes if start_step <= step <= end_step
+        }
 
         # doing extra iterations here shouldn't badly affect performance,
         # since the number of steps at this point should be relatively small
         # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
-        sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results, all_steps)
+        sampled_steps = _get_sampled_steps_from_steps(
+            start_step, end_step, max_results, all_steps
+        )
         return sorted(sampled_steps.union(all_mins_and_maxes))
 
     def _default_history_bulk_interval_impl():
@@ -1389,7 +1437,9 @@ def gateway_proxy_handler():
     request_type = request.method
     json_data = args.get("json_data", None)
 
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
+    response = requests.request(
+        request_type, f"{target_uri}/{gateway_path}", json=json_data
+    )
 
     if response.status_code == 200:
         return response.json()
@@ -1423,7 +1473,8 @@ def create_promptlab_run_handler():
     raw_prompt_parameters = args.get("prompt_parameters")
     assert_arg_exists("prompt_parameters", raw_prompt_parameters)
     prompt_parameters = [
-        Param(param.get("key"), param.get("value")) for param in args.get("prompt_parameters")
+        Param(param.get("key"), param.get("value"))
+        for param in args.get("prompt_parameters")
     ]
     model_route = args.get("model_route")
     assert_arg_exists("model_route", model_route)
@@ -1436,7 +1487,8 @@ def create_promptlab_run_handler():
     model_output = args.get("model_output", None)
     raw_model_output_parameters = args.get("model_output_parameters", [])
     model_output_parameters = [
-        Param(param.get("key"), param.get("value")) for param in raw_model_output_parameters
+        Param(param.get("key"), param.get("value"))
+        for param in raw_model_output_parameters
     ]
     mlflow_version = args.get("mlflow_version")
     assert_arg_exists("mlflow_version", mlflow_version)
@@ -1510,7 +1562,9 @@ def upload_artifact_handler():
         if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
             path_to_log = (
-                os.path.join(run.info.experiment_id, run.info.run_id, "artifacts", dirname)
+                os.path.join(
+                    run.info.experiment_id, run.info.run_id, "artifacts", dirname
+                )
                 if dirname
                 else os.path.join(run.info.experiment_id, run.info.run_id, "artifacts")
             )
@@ -1595,7 +1649,9 @@ def _log_batch():
             "tags": [_assert_array, _assert_tags_fields_present],
         },
     )
-    metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
+    metrics = [
+        Metric.from_proto(proto_metric) for proto_metric in request_message.metrics
+    ]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
     _get_tracking_store().log_batch(
@@ -1625,7 +1681,9 @@ def _log_model():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    missing_fields = {"artifact_path", "flavors", "utc_time_created", "run_id"} - set(model.keys())
+    missing_fields = {"artifact_path", "flavors", "utc_time_created", "run_id"} - set(
+        model.keys()
+    )
 
     if missing_fields:
         raise MlflowException(
@@ -1666,7 +1724,9 @@ def _create_registered_model():
         tags=request_message.tags,
         description=request_message.description,
     )
-    response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
+    response_message = CreateRegisteredModel.Response(
+        registered_model=registered_model.to_proto()
+    )
     return _wrap_response(response_message)
 
 
@@ -1676,8 +1736,12 @@ def _get_registered_model():
     request_message = _get_request_message(
         GetRegisteredModel(), schema={"name": [_assert_string, _assert_required]}
     )
-    registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
-    response_message = GetRegisteredModel.Response(registered_model=registered_model.to_proto())
+    registered_model = _get_model_registry_store().get_registered_model(
+        name=request_message.name
+    )
+    response_message = GetRegisteredModel.Response(
+        registered_model=registered_model.to_proto()
+    )
     return _wrap_response(response_message)
 
 
@@ -1696,7 +1760,9 @@ def _update_registered_model():
     registered_model = _get_model_registry_store().update_registered_model(
         name=name, description=new_description
     )
-    response_message = UpdateRegisteredModel.Response(registered_model=registered_model.to_proto())
+    response_message = UpdateRegisteredModel.Response(
+        registered_model=registered_model.to_proto()
+    )
     return _wrap_response(response_message)
 
 
@@ -1715,7 +1781,9 @@ def _rename_registered_model():
     registered_model = _get_model_registry_store().rename_registered_model(
         name=name, new_name=new_name
     )
-    response_message = RenameRegisteredModel.Response(registered_model=registered_model.to_proto())
+    response_message = RenameRegisteredModel.Response(
+        registered_model=registered_model.to_proto()
+    )
     return _wrap_response(response_message)
 
 
@@ -1788,7 +1856,18 @@ def _set_registered_model_tag():
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
-    _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
+    _get_model_registry_store().set_registered_model_tag(
+        name=request_message.name, tag=tag
+    )
+    _event_channel.send(
+        message=RegisteredModelEvent(
+            model_name=request_message.name,
+            model_version=None,
+            event_trigger=WebhookEventTrigger.TAG,
+            key=tag.key,
+            value=tag.value,
+        )
+    )
     return _wrap_response(SetRegisteredModelTag.Response())
 
 
@@ -1898,7 +1977,9 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
     )
-    response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
+    response_message = CreateModelVersion.Response(
+        model_version=model_version.to_proto()
+    )
     return _wrap_response(response_message)
 
 
@@ -1913,7 +1994,9 @@ def get_model_version_artifact_handler():
     version = request.args.get("version")
     path = request.args["path"]
     path = validate_path_is_safe(path)
-    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    artifact_uri = _get_model_registry_store().get_model_version_download_uri(
+        name, version
+    )
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
@@ -1964,7 +2047,9 @@ def _update_model_version():
         version=request_message.version,
         description=new_description,
     )
-    return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
+    return _wrap_response(
+        UpdateModelVersion.Response(model_version=model_version.to_proto())
+    )
 
 
 @catch_mlflow_exception
@@ -2067,6 +2152,15 @@ def _set_model_version_tag():
     _get_model_registry_store().set_model_version_tag(
         name=request_message.name, version=request_message.version, tag=tag
     )
+    _event_channel.send(
+        message=RegisteredModelEvent(
+            model_name=request_message.name,
+            model_version=request_message.version,
+            event_trigger=WebhookEventTrigger.TAG,
+            key=tag.key,
+            value=tag.value,
+        )
+    )
     return _wrap_response(SetModelVersionTag.Response())
 
 
@@ -2105,6 +2199,15 @@ def _set_registered_model_alias():
         alias=request_message.alias,
         version=request_message.version,
     )
+    _event_channel.send(
+        message=RegisteredModelEvent(
+            model_name=request_message.name,
+            model_version=request_message.version,
+            event_trigger=WebhookEventTrigger.ALIAS,
+            key=request_message.alias,
+            value=None,
+        )
+    )
     return _wrap_response(SetRegisteredModelAlias.Response())
 
 
@@ -2139,6 +2242,123 @@ def _get_model_version_by_alias():
     )
     response_proto = model_version.to_proto()
     response_message = GetModelVersionByAlias.Response(model_version=response_proto)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_webhook():
+    request_message = _get_request_message(
+        CreateWebhook(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "url": [_assert_string, _assert_required],
+            "event_trigger": [_assert_string, _assert_required],
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string],
+            "headers": [_assert_dict],
+            "payload": [_assert_dict],
+            "description": [_assert_string],
+        },
+    )
+
+    webhook = _get_model_registry_store().create_webhook(
+        name=request_message.name,
+        url=request_message.url,
+        event_trigger=request_message.event_trigger,
+        key=request_message.key,
+        value=request_message.value,
+        headers=request_message.headers,
+        payload=request_message.payload,
+        description=request_message.description,
+    )
+    response_message = CreateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_webhook():
+    request_message = _get_request_message(
+        GetWebhook(), schema={"name": [_assert_string, _assert_required]}
+    )
+    webhook = _get_model_registry_store().get_webhook(name=request_message.name)
+    response_message = GetWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_webhook():
+    request_message = _get_request_message(
+        UpdateWebhook(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "description": [_assert_string],
+        },
+    )
+    name = request_message.name
+    new_description = request_message.description
+    webhook = _get_model_registry_store().update_webhook(
+        name=name, description=new_description
+    )
+    response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _rename_webhook():
+    request_message = _get_request_message(
+        RenameWebhook(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "new_name": [_assert_string, _assert_required],
+        },
+    )
+    name = request_message.name
+    new_name = request_message.new_name
+    webhook = _get_model_registry_store().rename_webhook(name=name, new_name=new_name)
+    response_message = RenameWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_webhook():
+    request_message = _get_request_message(
+        DeleteWebhook(), schema={"name": [_assert_string, _assert_required]}
+    )
+    _get_model_registry_store().delete_webhook(name=request_message.name)
+    return _wrap_response(DeleteWebhook.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_webhooks():
+    request_message = _get_request_message(
+        SearchWebhooks(),
+        schema={
+            "filter": [_assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 1000),
+            ],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    store = _get_model_registry_store()
+    webhooks = store.search_webhooks(
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
+    response_message = SearchWebhooks.Response()
+    response_message.webhooks.extend([e.to_proto() for e in webhooks])
+    if webhooks.token:
+        response_message.next_page_token = webhooks.token
     return _wrap_response(response_message)
 
 
@@ -2203,7 +2423,11 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
+    path = (
+        validate_path_is_safe(request_message.path)
+        if request_message.HasField("path")
+        else None
+    )
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -2518,7 +2742,9 @@ def _set_trace_tag(request_id):
             "value": [_assert_string],
         },
     )
-    _get_tracking_store().set_trace_tag(request_id, request_message.key, request_message.value)
+    _get_tracking_store().set_trace_tag(
+        request_id, request_message.key, request_message.value
+    )
     return _wrap_response(SetTraceTag.Response())
 
 
@@ -2564,7 +2790,9 @@ def get_trace_artifact_handler():
         as_attachment=True,
         download_name=TRACE_DATA_FILE_NAME,
     )
-    return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+    return _response_with_file_attachment_headers(
+        TRACE_DATA_FILE_NAME, file_sender_response
+    )
 
 
 def _get_rest_path(base_path):
@@ -2684,6 +2912,12 @@ HANDLERS = {
     SetRegisteredModelAlias: _set_registered_model_alias,
     DeleteRegisteredModelAlias: _delete_registered_model_alias,
     GetModelVersionByAlias: _get_model_version_by_alias,
+    CreateWebhook: _create_webhook,
+    GetWebhook: _get_webhook,
+    DeleteWebhook: _delete_webhook,
+    UpdateWebhook: _update_webhook,
+    RenameWebhook: _rename_webhook,
+    SearchWebhooks: _search_webhooks,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
