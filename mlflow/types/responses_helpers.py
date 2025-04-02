@@ -1,5 +1,7 @@
 from typing import Any, Optional, Union
 
+from pydantic import ConfigDict
+
 from mlflow.types.chat import BaseModel
 from mlflow.utils.pydantic_utils import model_validator
 
@@ -58,8 +60,30 @@ class ResponseError(BaseModel):
         return self
 
 
+class AnnotationFileCitation(BaseModel):
+    file_id: str
+    index: int
+    type: str = "file_citation"
+
+
+class AnnotationURLCitation(BaseModel):
+    end_index: int
+    start_index: int
+    title: str
+    type: str = "url_citation"
+    url: str
+
+
+class AnnotationFilePath(BaseModel):
+    file_id: str
+    index: int
+    type: str = "file_path"
+
+
 class ResponseOutputText(BaseModel):
-    annotations: Optional[Any] = None
+    annotations: Optional[
+        Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
+    ] = None
     text: str
     type: str = "output_text"
 
@@ -140,9 +164,7 @@ class Tools(BaseModel):
     def check_tools(self) -> "Tools":
         if self.tools is not None:
             for tool in self.tools:
-                if isinstance(tool, FunctionTool):
-                    continue
-                elif isinstance(tool, dict):
+                if isinstance(tool, dict):
                     if "type" not in tool:
                         raise ValueError("dict must have a type key")
                     tool_type = tool["type"]
@@ -295,10 +317,7 @@ class Response(Tools, Truncation, ToolChoice):
                     "computer_call",
                     "web_search_call",
                 }:
-                    raise ValueError(
-                        f"Invalid type: {output['type']}. Must be one of "
-                        "file_search_call, computer_call, web_search_call"
-                    )
+                    raise ValueError(f"Invalid type: {output['type']}.")
         return self
 
     @model_validator(mode="after")
@@ -319,8 +338,6 @@ class Response(Tools, Truncation, ToolChoice):
 #################################
 # ResponsesRequest helper classes
 #################################
-
-
 class ResponseInputTextParam(BaseModel):
     text: str
     type: str = "input_text"
@@ -335,19 +352,13 @@ class Message(Status):
 
     @model_validator(mode="after")
     def check_content(self) -> "Message":
-        if isinstance(self.content, str):
-            return self
-        elif isinstance(self.content, list):
+        if isinstance(self.content, list):
             for item in self.content:
-                if isinstance(item, ResponseInputTextParam):
-                    continue
-                elif isinstance(item, dict):
+                if isinstance(item, dict):
                     if "type" not in item:
                         raise ValueError("dict must have a type key")
                     if item["type"] not in {"input_image", "input_file"}:
-                        raise ValueError(
-                            f"Invalid type: {item['type']}. Must be 'input_image' or 'input_file'."
-                        )
+                        raise ValueError(f"Invalid type: {item['type']}.")
         return self
 
     @model_validator(mode="after")
@@ -379,3 +390,95 @@ class BaseRequestPayload(Truncation, ToolChoice):
     text: Optional[Any] = None
     top_p: Optional[float] = None
     user: Optional[str] = None
+
+
+#####################################
+# ResponsesStreamEvent helper classes
+#####################################
+class ResponseTextDeltaEvent(BaseModel):
+    content_index: int
+    delta: str
+    item_id: str
+    output_index: int
+    type: str = "response.output_text.delta"
+
+
+class ResponseTextDoneEvent(BaseModel):
+    content_index: int
+    item_id: str
+    output_index: int
+    text: str
+    type: str = "response.output_text.done"
+
+
+class ResponseTextAnnotationDeltaEvent(BaseModel):
+    annotation: Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
+    annotation_index: int
+    content_index: int
+    item_id: str
+    output_index: int
+    type: str = "response.output_text.annotation.added"
+
+
+class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
+    delta: str
+    item_id: str
+    output_index: int
+    type: str = "response.function_call_arguments.delta"
+
+
+class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
+    arguments: str
+    item_id: str
+    output_index: int
+    type: str = "response.function_call_arguments.done"
+
+
+class OutputItem(BaseModel):
+    item: Union[
+        ResponseOutputMessage,
+        ResponseFunctionToolCall,
+        ResponseReasoningItem,
+        dict[str, Any],
+    ]
+
+    @model_validator(mode="after")
+    def check_item(self) -> "OutputItem":
+        if isinstance(self.item, dict):
+            if "type" not in self.item:
+                raise ValueError("dict must have a type key")
+            if self.item["type"] not in {
+                "file_search_call",
+                "computer_call",
+                "web_search_call",
+            }:
+                raise ValueError(f"Invalid type: {self.item['type']}.")
+        return self
+
+
+class ResponseOutputItemAddedEvent(OutputItem):
+    output_index: int
+    type: str = "response.output_item.added"
+
+
+class ResponseOutputItemDoneEvent(OutputItem):
+    output_index: int
+    type: str = "response.output_item.done"
+
+
+class ResponseErrorEvent(BaseModel):
+    code: Optional[str] = None
+    message: str
+    param: Optional[str] = None
+    type: str = "error"
+
+
+class ResponseCompletedEvent(BaseModel):
+    response: Response
+    type: str = "response.completed"
+
+
+class StreamCatchAllEvent(BaseModel):
+    # pydantic model that allows for all other streaming event types to pass type validation
+    model_config = ConfigDict(extra="allow")
+    type: str
