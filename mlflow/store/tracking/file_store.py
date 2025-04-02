@@ -289,6 +289,7 @@ class FileStore(AbstractStore):
             for exp in exp_list
             if not exp.endswith(FileStore.TRASH_FOLDER_NAME)
             and exp != ModelRegistryFileStore.MODELS_FOLDER_NAME
+            and exp != ModelRegistryFileStore.WEBHOOKS_FOLDER_NAME
         ]
 
     def _get_deleted_experiments(self, full_path=False):
