@@ -543,7 +543,7 @@ rstcheck==6.1.1
     # via -r lint-requirements.txt
 rstcheck-core==1.2.1
     # via rstcheck
-ruff==0.6.4
+ruff==0.9.3
     # via -r lint-requirements.txt
 s3transfer==0.10.3
     # via boto3
