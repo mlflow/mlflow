@@ -384,7 +384,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     parallel_tool_calls: Optional[bool] = None
     reasoning: Optional[Reasoning] = None
     store: Optional[bool] = None
-    stream: Optional[bool] = False
+    stream: Optional[bool] = None
     temperature: Optional[float] = None
     # TODO bbqiu revisit this ResponseFormatTextConfig: TypeAlias
     text: Optional[Any] = None
@@ -395,6 +395,22 @@ class BaseRequestPayload(Truncation, ToolChoice):
 #####################################
 # ResponsesStreamEvent helper classes
 #####################################
+class ResponseContentPartAddedEvent(BaseModel):
+    content_index: int
+    item_id: str
+    output_index: int
+    part: Union[ResponseOutputText, ResponseOutputRefusal]
+    type: str = "response.content_part.added"
+
+
+class ResponseContentPartDoneEvent(BaseModel):
+    content_index: int
+    item_id: str
+    output_index: int
+    part: Union[ResponseOutputText, ResponseOutputRefusal]
+    type: str = "response.content_part.done"
+
+
 class ResponseTextDeltaEvent(BaseModel):
     content_index: int
     delta: str

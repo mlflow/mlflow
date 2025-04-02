@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Generator, Optional
 
 import pydantic
@@ -65,6 +66,26 @@ class _ResponsesAgentPyfuncWrapper:
             ) from e
         return response
 
+    def _response_to_dict_stream(self, response) -> dict[str, Any]:
+        if isinstance(response, ResponsesStreamEvent):
+            return response.model_dump_compat(exclude_none=True)
+        try:
+            from pydantic import TypeAdapter
+
+            TypeAdapter(ResponsesStreamEvent).validate_python(response)
+        except ImportError:
+            warnings.warn(message="Pydantic>=2.0.0 is not installed. Skipping output validation.")
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    f"Model returned an invalid response. "
+                    f"Expected a {ResponsesStreamEvent.__name__} object or "
+                    f"dictionary with the same schema. Pydantic validation error: {e}"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        return response
+
     def predict(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
         """
         Args:
@@ -99,4 +120,4 @@ class _ResponsesAgentPyfuncWrapper:
         """
         request = self._convert_input(model_input)
         for response in self.responses_agent.predict_stream(request):
-            yield self._response_to_dict(response, ResponsesStreamEvent)
+            yield self._response_to_dict_stream(response)

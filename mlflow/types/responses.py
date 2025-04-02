@@ -1,3 +1,4 @@
+import json
 from typing import Any, Optional, Union
 
 from pydantic import model_validator
@@ -21,6 +22,7 @@ from mlflow.types.responses_helpers import (
     StreamCatchAllEvent,
     Tools,
 )
+from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 
 
@@ -81,7 +83,14 @@ ResponsesStreamEvent = Union[
     StreamCatchAllEvent,
 ]
 
+x = _infer_schema_from_type_hint(ResponsesRequest).to_dict()
+properties = x[0]["properties"]
+temp = []
+for p in properties:
+    properties[p]["name"] = p
+    temp.append(properties[p])
 
-RESPONSES_AGENT_INPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesRequest)
+RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(temp))
+
 RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesResponse)
 RESPONSES_AGENT_INPUT_EXAMPLE = {"input": [{"role": "user", "content": "Hello!"}]}
