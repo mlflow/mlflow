@@ -119,9 +119,10 @@ def _register_model(
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
     )
+    model_link = f"{client._registry_uri}/#/models/{create_version_response.name}/versions/{create_version_response.version}"
     eprint(
         f"Created version '{create_version_response.version}' of model "
-        f"'{create_version_response.name}'."
+        f"'{create_version_response.name}'. View model at: {model_link}"
     )
     return create_version_response
 
