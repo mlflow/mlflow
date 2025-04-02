@@ -14,11 +14,13 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -37,7 +39,13 @@ def newModelRegistryClient():
 
 
 def _model_version(
-    name, version, stage, source="some:/source", run_id="run13579", tags=None, aliases=None
+    name,
+    version,
+    stage,
+    source="some:/source",
+    run_id="run13579",
+    tags=None,
+    aliases=None,
 ):
     return ModelVersion(
         name,
@@ -143,7 +151,11 @@ def test_search_registered_models(mock_store):
     assert result.token == ""
 
     mock_store.search_registered_models.return_value = PagedList(
-        [RegisteredModel("model A"), RegisteredModel("Model zz"), RegisteredModel("Model b")],
+        [
+            RegisteredModel("model A"),
+            RegisteredModel("Model zz"),
+            RegisteredModel("Model b"),
+        ],
         "page 2 token",
     )
     result = newModelRegistryClient().search_registered_models(max_results=5)
@@ -208,7 +220,10 @@ def test_await_model_version_creation(mock_store, await_time):
     version = "1"
 
     mv = ModelVersion(
-        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+        name=name,
+        version=version,
+        creation_timestamp=123,
+        status="PENDING_REGISTRATION",
     )
     mock_store.create_model_version.return_value = mv
 
@@ -221,12 +236,17 @@ def test_await_model_version_creation(mock_store, await_time):
         mock_store._await_model_version_creation.assert_not_called()
 
 
-def test_create_model_version_does_not_wait_when_await_creation_param_is_false(mock_store):
+def test_create_model_version_does_not_wait_when_await_creation_param_is_false(
+    mock_store,
+):
     name = "Model 1"
     version = "1"
 
     mock_store.create_model_version.return_value = ModelVersion(
-        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+        name=name,
+        version=version,
+        creation_timestamp=123,
+        status="PENDING_REGISTRATION",
     )
 
     result = newModelRegistryClient().create_model_version(
@@ -261,7 +281,13 @@ def test_create_model_version(mock_store):
         name, "uri:/for/source", "run123", tags_dict, None, description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", "run123", tags, None, description, local_model_path=None
+        name,
+        "uri:/for/source",
+        "run123",
+        tags,
+        None,
+        description,
+        local_model_path=None,
     )
 
     assert result.name == name
@@ -334,7 +360,10 @@ def test_delete_model_version(mock_store):
 
 
 def test_get_model_version_details(mock_store):
-    tags = [ModelVersionTag("key", "value"), ModelVersionTag("another key", "some other value")]
+    tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("another key", "some other value"),
+    ]
     mock_store.get_model_version.return_value = _model_version(
         "Model 1", "12", "Production", tags=tags
     )
@@ -354,13 +383,22 @@ def test_get_model_version_download_uri(mock_store):
 def test_search_model_versions(mock_store):
     mvs = [
         ModelVersion(
-            name="Model 1", version="1", creation_timestamp=123, last_updated_timestamp=123
+            name="Model 1",
+            version="1",
+            creation_timestamp=123,
+            last_updated_timestamp=123,
         ),
         ModelVersion(
-            name="Model 1", version="2", creation_timestamp=124, last_updated_timestamp=124
+            name="Model 1",
+            version="2",
+            creation_timestamp=124,
+            last_updated_timestamp=124,
         ),
         ModelVersion(
-            name="Model 2", version="1", creation_timestamp=125, last_updated_timestamp=125
+            name="Model 2",
+            version="1",
+            creation_timestamp=125,
+            last_updated_timestamp=125,
         ),
     ]
     mock_store.search_model_versions.return_value = PagedList(mvs[:2][::-1], "")
@@ -417,3 +455,196 @@ def test_get_model_version_by_alias(mock_store):
     mock_store.get_model_version_by_alias.assert_called_once()
     assert result.name == "Model 1"
     assert result.aliases == ["test_alias"]
+
+
+# Webhook API
+def test_create_webhook(mock_store):
+    description = "making webhooks great again"
+    mock_store.create_webhook.return_value = Webhook(
+        name="Webhook 1",
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+        value="staging",
+        headers={"X-HEADER": "header_value"},
+        payload=None,
+        description=description,
+    )
+    result = newModelRegistryClient().create_webhook(
+        "Webhook 1",
+        "http://localhost:8080",
+        WebhookEventTrigger.TAG,
+        "stage",
+        "staging",
+        {"X-HEADER": "header_value"},
+        None,
+        description,
+    )
+    mock_store.create_webhook.assert_called_once_with(
+        "Webhook 1",
+        "http://localhost:8080",
+        WebhookEventTrigger.TAG,
+        "stage",
+        "staging",
+        {"X-HEADER": "header_value"},
+        None,
+        description,
+    )
+    assert result.name == "Webhook 1"
+    assert result.url == "http://localhost:8080"
+    assert result.event_trigger == WebhookEventTrigger.TAG.value
+    assert result.key == "stage"
+    assert result.value == "staging"
+    assert result.headers == {"X-HEADER": "header_value"}
+    assert result.payload is None
+    assert result.description == description
+
+
+def test_update_webhook(mock_store):
+    name = "Webhook 1"
+    new_description = "New Description"
+    new_description_2 = "New Description 2"
+    mock_store.update_webhook.return_value = Webhook(
+        name,
+        description=new_description,
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+    )
+
+    result = newModelRegistryClient().update_webhook(name=name, description=new_description)
+    mock_store.update_webhook.assert_called_with(name=name, description=new_description)
+    assert result.description == new_description
+
+    mock_store.update_webhook.return_value = Webhook(
+        name,
+        description=new_description_2,
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+    )
+    result = newModelRegistryClient().update_webhook(name=name, description=new_description_2)
+    mock_store.update_webhook.assert_called_with(name=name, description="New Description 2")
+    assert result.description == new_description_2
+
+
+def test_rename_webhook(mock_store):
+    name = "Webhook 1"
+    new_name = "New Name"
+    mock_store.rename_webhook.return_value = Webhook(
+        new_name,
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+    )
+    result = newModelRegistryClient().rename_webhook(name=name, new_name=new_name)
+    mock_store.rename_webhook.assert_called_with(name=name, new_name=new_name)
+    assert result.name == "New Name"
+
+    mock_store.rename_webhook.return_value = Webhook(
+        "New Name 2",
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+    )
+    result = newModelRegistryClient().rename_webhook(name=name, new_name="New Name 2")
+    mock_store.rename_webhook.assert_called_with(name=name, new_name="New Name 2")
+    assert result.name == "New Name 2"
+
+
+def test_update_webhook_validation_errors_on_empty_new_name(mock_store):
+    with pytest.raises(MlflowException, match="The name must not be an empty string"):
+        newModelRegistryClient().rename_webhook("Webhook 1", " ")
+
+
+def test_delete_webhook(mock_store):
+    newModelRegistryClient().delete_webhook("Webhook 1")
+    mock_store.delete_webhook.assert_called_once()
+
+
+def test_search_webhooks(mock_store):
+    mock_store.search_webhooks.return_value = PagedList(
+        [
+            Webhook(
+                "Model 1",
+                url="http://localhost:8080",
+                event_trigger=WebhookEventTrigger.TAG,
+                key="stage",
+            ),
+            Webhook(
+                "Model 2",
+                url="http://localhost:8080",
+                event_trigger=WebhookEventTrigger.TAG,
+                key="stage",
+            ),
+        ],
+        "",
+    )
+    result = newModelRegistryClient().search_webhooks(filter_string="test filter")
+    mock_store.search_webhooks.assert_called_with(
+        "test filter", SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT, None, None
+    )
+    assert len(result) == 2
+    assert result.token == ""
+
+    result = newModelRegistryClient().search_webhooks(
+        filter_string="another filter",
+        max_results=12,
+        order_by=["A", "B DESC"],
+        page_token="next one",
+    )
+    mock_store.search_webhooks.assert_called_with("another filter", 12, ["A", "B DESC"], "next one")
+    assert len(result) == 2
+    assert result.token == ""
+
+    mock_store.search_webhooks.return_value = PagedList(
+        [
+            Webhook(
+                "webhook A",
+                url="http://localhost:8080",
+                event_trigger=WebhookEventTrigger.TAG,
+                key="stage",
+            ),
+            Webhook(
+                "Webhook zz",
+                url="http://localhost:8080",
+                event_trigger=WebhookEventTrigger.TAG,
+                key="stage",
+            ),
+            Webhook(
+                "Webhook b",
+                url="http://localhost:8080",
+                event_trigger=WebhookEventTrigger.TAG,
+                key="stage",
+            ),
+        ],
+        "page 2 token",
+    )
+    result = newModelRegistryClient().search_webhooks(max_results=5)
+    mock_store.search_webhooks.assert_called_with(None, 5, None, None)
+    assert [webhook.name for webhook in result] == [
+        "webhook A",
+        "Webhook zz",
+        "Webhook b",
+    ]
+    assert result.token == "page 2 token"
+
+
+def test_get_webhook_details(mock_store):
+    name = "Webhook 1"
+    mock_store.get_webhook.return_value = Webhook(
+        name,
+        url="http://localhost:8080",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="stage",
+    )
+    result = newModelRegistryClient().get_webhook(name)
+    mock_store.get_webhook.assert_called_once()
+    assert result.name == name
+    assert result.url == "http://localhost:8080"
+    assert result.event_trigger == WebhookEventTrigger.TAG.value
+    assert result.key == "stage"
+    assert result.value is None
+    assert result.headers is None
+    assert result.payload is None
+    assert result.description is None

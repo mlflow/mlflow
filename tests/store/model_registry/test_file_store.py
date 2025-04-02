@@ -11,6 +11,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.webhook import WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -20,7 +21,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
 from mlflow.utils.time import get_current_time_millis
-
 from tests.helper_functions import random_int, random_str
 
 
@@ -59,9 +59,13 @@ def rm_data(registered_model_names, tmp_path):
 
 def test_create_registered_model(store):
     # Error cases
-    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
         store.create_registered_model(None)
-    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
         store.create_registered_model("")
 
     name = random_str()
@@ -84,7 +88,7 @@ def test_create_registered_model_with_percent_in_name(store, tmp_path):
     with pytest.raises(
         MlflowException, match=r"Registered model name cannot contain '%' character"
     ):
-        store.get_registered_model("m%6fdel")
+        store.create_registered_model("m%6fdel")
 
 
 def _verify_registered_model(fs, name, rm_data):
@@ -103,7 +107,9 @@ def test_get_registered_model(store, registered_model_names, rm_data):
 
     # test that fake registered models dont exist.
     name = random_str()
-    with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
+    with pytest.raises(
+        MlflowException, match=f"Registered Model with name={name} not found"
+    ):
         store.get_registered_model(name)
 
     name = "../../path"
@@ -124,7 +130,9 @@ def test_list_registered_model(store, registered_model_names, rm_data):
 def test_rename_registered_model(store, registered_model_names):
     # Error cases
     model_name = registered_model_names[0]
-    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
         store.rename_registered_model(model_name, None)
 
     # test that names of existing registered models are checked before renaming
@@ -159,7 +167,9 @@ def test_delete_registered_model(store, registered_model_names):
         store.list_registered_models(max_results=10, page_token=None)
     )
     # Cannot delete a deleted model
-    with pytest.raises(MlflowException, match=f"Registered Model with name={model_name} not found"):
+    with pytest.raises(
+        MlflowException, match=f"Registered Model with name={model_name} not found"
+    ):
         store.delete_registered_model(model_name)
 
 
@@ -295,15 +305,15 @@ def test_get_latest_versions(store):
         "Production": 3,
         "Staging": 4,
     }
-    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["Production"])) == {
-        "Production": 3
-    }
-    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["production"])) == {
-        "Production": 3
-    }  # The stages are case insensitive.
-    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["pROduction"])) == {
-        "Production": 3
-    }  # The stages are case insensitive.
+    assert _stage_to_version_map(
+        store.get_latest_versions(name=name, stages=["Production"])
+    ) == {"Production": 3}
+    assert _stage_to_version_map(
+        store.get_latest_versions(name=name, stages=["production"])
+    ) == {"Production": 3}  # The stages are case insensitive.
+    assert _stage_to_version_map(
+        store.get_latest_versions(name=name, stages=["pROduction"])
+    ) == {"Production": 3}  # The stages are case insensitive.
     assert _stage_to_version_map(
         store.get_latest_versions(name=name, stages=["None", "Production"])
     ) == {"None": 1, "Production": 3}
@@ -321,9 +331,9 @@ def test_get_latest_versions(store):
         "Production": 2,
         "Staging": 4,
     }
-    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["Production"])) == {
-        "Production": 2
-    }
+    assert _stage_to_version_map(
+        store.get_latest_versions(name=name, stages=["Production"])
+    ) == {"Production": 2}
 
 
 def test_set_registered_model_tag(store):
@@ -379,7 +389,9 @@ def test_set_registered_model_tag(store):
     with pytest.raises(
         MlflowException, match=r"Missing value for required parameter 'name'\."
     ) as exception_context:
-        store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
+        store.set_registered_model_tag(
+            None, RegisteredModelTag(key="key", value="value")
+        )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -521,7 +533,9 @@ def test_update_model_version(store):
     assert mvd2.description is None
 
     # update description
-    store.update_model_version(name=mv1.name, version=mv1.version, description="test model version")
+    store.update_model_version(
+        name=mv1.name, version=mv1.version, description="test model version"
+    )
     mvd3 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd3.name == name
     assert mvd3.version == 1
@@ -635,7 +649,9 @@ def test_transition_model_version_stage_when_archive_existing_versions_is_true(s
         store.transition_model_version_stage(mv2.name, mv2.version, "None", False)
 
         # stage names are case-insensitive and auto-corrected to system stage names
-        store.transition_model_version_stage(mv2.name, mv2.version, uncanonical_stage_name, True)
+        store.transition_model_version_stage(
+            mv2.name, mv2.version, uncanonical_stage_name, True
+        )
 
         mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
         mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
@@ -681,7 +697,9 @@ def test_delete_model_version(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def _search_model_versions(fs, filter_string=None, max_results=10, order_by=None, page_token=None):
+def _search_model_versions(
+    fs, filter_string=None, max_results=10, order_by=None, page_token=None
+):
     return fs.search_model_versions(
         filter_string=filter_string,
         max_results=max_results,
@@ -736,7 +754,9 @@ def test_search_model_versions(store):
 
     # search IN operator with other conditions
     assert set(
-        search_versions(f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')")
+        search_versions(
+            f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')"
+        )
     ) == {2}
 
     # search using the IN operator with bad lists should return exceptions
@@ -852,7 +872,9 @@ def test_search_model_versions_order_by_simple(store):
     for name in set(names):
         store.create_registered_model(name)
     for i in range(6):
-        _create_model_version(store, name=names[i], source=sources[i], run_id=run_ids[i])
+        _create_model_version(
+            store, name=names[i], source=sources[i], run_id=run_ids[i]
+        )
         time.sleep(0.001)  # sleep for windows fs timestamp precision issues
 
     # by default order by last_updated_timestamp DESC
@@ -1200,7 +1222,9 @@ def test_search_registered_model_pagination(store):
     res = _search_registered_models(store, query, page_token=None, max_results=5)
     returned_rms.extend(res.names)
     while res.token:
-        res = _search_registered_models(store, query, page_token=res.token, max_results=5)
+        res = _search_registered_models(
+            store, query, page_token=res.token, max_results=5
+        )
         returned_rms.extend(res.names)
     assert returned_rms == rms
 
@@ -1312,7 +1336,9 @@ def test_search_registered_model_order_by(store):
     )
     assert res.names == [rm2, rm1, rm4, rm3]
     # confirm that name ascending is the default, even if ties exist on other fields
-    res = _search_registered_models(store, query, page_token=None, order_by=[], max_results=100)
+    res = _search_registered_models(
+        store, query, page_token=None, order_by=[], max_results=100
+    )
     assert res.names == [rm1, rm2, rm3, rm4]
     # test default tiebreak with descending timestamps
     res = _search_registered_models(
@@ -1341,7 +1367,9 @@ def test_search_registered_model_order_by_errors(store):
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # test that invalid columns with random text throw even if they come after valid columns
-    with pytest.raises(MlflowException, match=r"Invalid order_by clause '.+'") as exception_context:
+    with pytest.raises(
+        MlflowException, match=r"Invalid order_by clause '.+'"
+    ) as exception_context:
         _search_registered_models(
             store,
             query,
@@ -1480,7 +1508,8 @@ def test_delete_model_version_tag(store):
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'\."
+        MlflowException,
+        match=r"Parameter 'version' must be an integer, got 'I am not a version'\.",
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1513,7 +1542,9 @@ def test_delete_registered_model_alias(store):
     assert model.aliases == {}
     mv2 = store.get_model_version(model_name, 2)
     assert mv2.aliases == []
-    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+    with pytest.raises(
+        MlflowException, match=r"Registered model alias test_alias not found."
+    ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1530,7 +1561,9 @@ def test_delete_model_version_deletes_alias(store):
     store.delete_model_version(model_name, 2)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
-    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+    with pytest.raises(
+        MlflowException, match=r"Registered model alias test_alias not found."
+    ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1555,9 +1588,15 @@ def test_pyfunc_model_registry_with_file_store(store):
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model1")
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model2")
-        mlflow.pyfunc.log_model("model", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(
+            "foo", python_model=MyModel(), registered_model_name="model1"
+        )
+        mlflow.pyfunc.log_model(
+            "foo", python_model=MyModel(), registered_model_name="model2"
+        )
+        mlflow.pyfunc.log_model(
+            "model", python_model=MyModel(), registered_model_name="model1"
+        )
 
     with mlflow.start_run():
         mlflow.log_param("A", "B")
@@ -1610,7 +1649,10 @@ def test_copy_model_version(store, copy_to_same_model):
     assert copied_mv.last_updated_timestamp >= timestamp
     assert copied_mv.description == "test description"
     assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
-    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert (
+        store.get_model_version_download_uri(dst_mv.name, dst_mv.version)
+        == src_mv.source
+    )
     assert copied_mv.run_link == "dummylink"
     assert copied_mv.run_id == src_mv.run_id
     assert copied_mv.status == "READY"
@@ -1620,7 +1662,10 @@ def test_copy_model_version(store, copy_to_same_model):
     # Copy a model version copy
     double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
     assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
-    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert (
+        store.get_model_version_download_uri(dst_mv.name, dst_mv.version)
+        == src_mv.source
+    )
 
 
 def test_writing_model_version_preserves_storage_location(store):
@@ -1632,21 +1677,29 @@ def test_writing_model_version_preserves_storage_location(store):
 
     # Run through all the operations that modify model versions and make sure that the
     # `storage_location` property is not dropped.
-    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=False)
+    store.transition_model_version_stage(
+        name, 1, "Production", archive_existing_versions=False
+    )
     assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
     store.update_model_version(name, 1, description="test description")
     assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
-    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=True)
+    store.transition_model_version_stage(
+        name, 1, "Production", archive_existing_versions=True
+    )
     assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
     store.rename_registered_model(name, "test_storage_location_new")
     assert (
-        store._fetch_file_model_version_if_exists("test_storage_location_new", 1).storage_location
+        store._fetch_file_model_version_if_exists(
+            "test_storage_location_new", 1
+        ).storage_location
         == source
     )
 
 
 def test_search_prompts(store):
-    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+    store.create_registered_model(
+        "model", tags=[RegisteredModelTag(key="fruit", value="apple")]
+    )
 
     store.create_registered_model(
         "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
@@ -1664,11 +1717,15 @@ def test_search_prompts(store):
     assert len(rms) == 1
     assert rms[0].name == "model"
 
-    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
+    rms = store.search_registered_models(
+        filter_string="tags.fruit = 'apple'", max_results=10
+    )
     assert len(rms) == 1
     assert rms[0].name == "model"
 
-    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
+    rms = store.search_registered_models(
+        filter_string="name = 'prompt_1'", max_results=10
+    )
     assert len(rms) == 0
 
     rms = store.search_registered_models(
@@ -1717,7 +1774,10 @@ def test_search_prompts_versions(store):
         "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
     )
     store.create_model_version(
-        "prompt_1", "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")]
+        "prompt_1",
+        "1",
+        "dummy_source",
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")],
     )
 
     # A Prompt with 2 versions
@@ -1749,7 +1809,9 @@ def test_search_prompts_versions(store):
     assert len(mvs) == 1
     assert mvs[0].name == "model"
 
-    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
+    mvs = store.search_model_versions(
+        filter_string="tags.fruit = 'apple'", max_results=10
+    )
     assert len(mvs) == 1
     assert mvs[0].name == "model"
 
@@ -1792,7 +1854,9 @@ def test_create_registered_model_handle_prompt_properly(store):
 
     store.create_registered_model("prompt", tags=prompt_tags)
 
-    with pytest.raises(MlflowException, match=r"Registered Model \(name=model\) already exists"):
+    with pytest.raises(
+        MlflowException, match=r"Registered Model \(name=model\) already exists"
+    ):
         store.create_registered_model("model")
 
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt\) already exists"):
@@ -1811,3 +1875,235 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+@pytest.fixture
+def webhook_names():
+    return [random_str() for _ in range(3)]
+
+
+@pytest.fixture
+def webhook_data(webhook_names, tmp_path):
+    webhook_data = {}
+    for name in webhook_names:
+        # create webhook
+        webhooks_folder = tmp_path.joinpath(FileStore.WEBHOOKS_FOLDER_NAME, name)
+        webhooks_folder.mkdir(parents=True, exist_ok=True)
+        creation_time = get_current_time_millis()
+        webhook = {
+            "name": name,
+            "creation_timestamp": creation_time,
+            "last_updated_timestamp": creation_time,
+            "description": None,
+            "url": "http://example.com",
+            "event_trigger": WebhookEventTrigger.TAG.value,
+            "key": "key",
+            "value": "value",
+            "headers": {"header1": "value1"},
+            "payload": {"key": "value"},
+        }
+        webhook_data[name] = webhook
+        write_yaml(webhooks_folder, FileStore.META_DATA_FILE_NAME, webhook)
+    return webhook_data
+
+
+def test_create_webhook(store):
+    # Error cases
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
+        store.create_webhook(None, None, None, None)
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
+        store.create_webhook("", None, None, None)
+    with pytest.raises(
+        TypeError,
+        match=r"""create_webhook\(\) missing 3 required positional arguments: 'url',
+                'event_trigger', and 'key'""",
+    ):
+        store.create_webhook("webhook")
+    with pytest.raises(
+        TypeError,
+        match=r"""create_webhook\(\) missing 2 required positional arguments: 'event_trigger'
+                and 'key'""",
+    ):
+        store.create_webhook("le webhook", None)
+    with pytest.raises(
+        TypeError,
+        match=r"create_webhook\(\) missing 1 required positional argument: 'key'",
+    ):
+        store.create_webhook("el webhook", None, None)
+
+    name = random_str()
+    webhook = store.create_webhook(
+        name,
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="key",
+        value="value",
+        headers={"header1": "value1"},
+        payload={"key": "value"},
+    )
+    assert webhook.name == name
+    assert webhook.creation_timestamp == webhook.last_updated_timestamp
+    assert webhook.url == "http://example.com"
+    assert WebhookEventTrigger(webhook.event_trigger) == WebhookEventTrigger.TAG
+    assert webhook.key == "key"
+    assert webhook.value == "value"
+    assert webhook.headers == {"header1": "value1"}
+    assert webhook.payload == {"key": "value"}
+
+
+def test_create_webhook_with_name_that_looks_like_path(store, tmp_path):
+    name = str(tmp_path.joinpath("test"))
+    with pytest.raises(MlflowException, match=r"name cannot contain path separator"):
+        store.get_webhook(name)
+
+
+def test_create_webhook_with_percent_in_name(store, tmp_path):
+    with pytest.raises(MlflowException, match=r"name cannot contain '%' character"):
+        store.create_webhook("m%6fdel", None, None, None)
+
+
+def _verify_webhook(fs, name, webhook_data):
+    webhook = fs.get_webhook(name)
+    assert webhook.name == name
+    assert webhook.creation_timestamp == webhook_data[name]["creation_timestamp"]
+    assert (
+        webhook.last_updated_timestamp == webhook_data[name]["last_updated_timestamp"]
+    )
+    assert webhook.description == webhook_data[name]["description"]
+    assert webhook.url == webhook_data[name]["url"]
+    assert webhook.event_trigger == webhook_data[name]["event_trigger"]
+    assert webhook.key == webhook_data[name]["key"]
+    assert webhook.value == webhook_data[name]["value"]
+    assert webhook.headers == webhook_data[name]["headers"]
+    assert webhook.payload == webhook_data[name]["payload"]
+
+
+def test_get_webhook(store, webhook_names, webhook_data):
+    for name in webhook_names:
+        _verify_webhook(store, name, webhook_data)
+
+    # test that fake webhooks dont exist.
+    name = random_str()
+    with pytest.raises(MlflowException, match=f"Webhook with name={name} not found"):
+        store.get_webhook(name)
+
+    name = "../../path"
+    with pytest.raises(MlflowException, match="name cannot contain path separator"):
+        store.get_webhook(name)
+
+
+def test_list_webhook(store, webhook_names, webhook_data):
+    for webhook in store.list_webhooks(max_results=10, page_token=None):
+        name = webhook.name
+        assert name in webhook_names
+        assert name == webhook_data[name]["name"]
+
+
+@pytest.mark.usefixtures(webhook_data.__name__)
+def test_rename_webhook(store, webhook_names):
+    # Error cases
+    webhook_name = webhook_names[0]
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'name'\."
+    ):
+        store.rename_webhook(webhook_name, None)
+
+    # test that names of existing webhooks are checked before renaming
+    other_webhook_name = webhook_names[1]
+    with pytest.raises(
+        MlflowException,
+        match=rf"Webhook \(name={other_webhook_name}\) already exists\.",
+    ):
+        store.rename_webhook(webhook_name, other_webhook_name)
+
+    new_name = webhook_name + "!!!"
+    store.rename_webhook(webhook_name, new_name)
+    assert store.get_webhook(new_name).name == new_name
+
+
+@pytest.mark.usefixtures(webhook_data.__name__)
+def test_delete_webhook(store, webhook_names):
+    model_name = webhook_names[random_int(0, len(webhook_names) - 1)]
+
+    # Error cases
+    with pytest.raises(
+        MlflowException, match=f"Webhook with name={model_name}!!! not found"
+    ):
+        store.delete_webhook(model_name + "!!!")
+
+    store.delete_webhook(model_name)
+    assert model_name not in _extract_names(
+        store.list_webhooks(max_results=10, page_token=None)
+    )
+    # Cannot delete a deleted model
+    with pytest.raises(
+        MlflowException, match=f"Webhook with name={model_name} not found"
+    ):
+        store.delete_webhook(model_name)
+
+
+def test_list_webhook_paginated(store):
+    for _ in range(10):
+        store.create_webhook(random_str(), None, None, None)
+    webhooks1 = store.list_webhooks(max_results=4, page_token=None)
+    assert len(webhooks1) == 4
+    assert webhooks1.token is not None
+    webhooks2 = store.list_webhooks(max_results=4, page_token=None)
+    assert len(webhooks2) == 4
+    assert webhooks2.token is not None
+    assert webhooks1 == webhooks2
+    webhhoks3 = store.list_webhooks(max_results=500, page_token=webhooks2.token)
+    assert len(webhhoks3) == 6
+    assert webhhoks3.token is None
+
+
+def test_list_webhook_paginated_returns_in_correct_order(store):
+    webhooks = [
+        store.create_webhook(f"WEBHOOK{i:03}", None, None, None).name for i in range(50)
+    ]
+
+    # test that pagination will return all valid results in sorted order
+    # by name ascending
+    result = store.list_webhooks(max_results=5, page_token=None)
+    assert result.token is not None
+    assert _extract_names(result) == webhooks[0:5]
+
+    result = store.list_webhooks(page_token=result.token, max_results=10)
+    assert result.token is not None
+    assert _extract_names(result) == webhooks[5:15]
+
+    result = store.list_webhooks(page_token=result.token, max_results=20)
+    assert result.token is not None
+    assert _extract_names(result) == webhooks[15:35]
+
+    result = store.list_webhooks(page_token=result.token, max_results=100)
+    assert result.token is None
+    assert _extract_names(result) == webhooks[35:]
+
+
+def test_list_webhook_paginated_errors(store):
+    webhooks = [
+        store.create_webhook(f"WEBHOOK{i:03}", None, None, None).name for i in range(50)
+    ]
+    # test that providing a completely invalid page token throws
+    with pytest.raises(
+        MlflowException, match=r"Invalid page token, could not base64-decode"
+    ) as exception_context:
+        store.list_webhooks(page_token="evilhax", max_results=20)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # test that providing too large of a max_results throws
+    with pytest.raises(
+        MlflowException, match=r"Invalid value for max_results"
+    ) as exception_context:
+        store.list_webhooks(page_token="evilhax", max_results=1e15)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    # list should not return deleted models
+    store.delete_webhook(name="WEBHOOK000")
+    assert set(
+        _extract_names(store.list_webhooks(max_results=100, page_token=None))
+    ) == set(webhooks[1:])

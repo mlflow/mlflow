@@ -29,14 +29,24 @@ from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.store.tracking.sqlalchemy_store import (
+    SqlAlchemyStore as SqlAlchemyTrackingStore,
+)
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+)
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -56,7 +66,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
-
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import create_test_trace_info
@@ -70,7 +79,9 @@ def reset_registry_uri():
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._get_store"
+    ) as mock_get_store:
         yield mock_get_store.return_value
 
 
@@ -88,7 +99,9 @@ def mock_registry_store():
     mock_store.create_model_version = mock.create_autospec(
         SqlAlchemyModelRegistryStore.create_model_version
     )
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store", return_value=mock_store):
+    with mock.patch(
+        "mlflow.tracking._model_registry.utils._get_store", return_value=mock_store
+    ):
         yield mock_store
 
 
@@ -104,7 +117,10 @@ def mock_databricks_tracking_store():
 
         def get_run(self, *args, **kwargs):
             return Run(
-                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
+                RunInfo(
+                    self.run_id, self.experiment_id, "userid", "status", 0, 1, None
+                ),
+                None,
             )
 
     mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
@@ -224,7 +240,9 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
-def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
+def test_client_get_trace_throws_for_missing_or_corrupted_data(
+    mock_store, mock_artifact_repo
+):
     mock_store.get_trace_info.return_value = TraceInfo(
         request_id="1234567",
         experiment_id="0",
@@ -233,7 +251,9 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         status=TraceStatus.OK,
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
-    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound(
+        "1234567"
+    )
 
     with pytest.raises(
         MlflowException,
@@ -241,7 +261,9 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
     ):
         MlflowClient().get_trace("1234567")
 
-    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted("1234567")
+    mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataCorrupted(
+        "1234567"
+    )
     with pytest.raises(
         MlflowException,
         match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
@@ -345,9 +367,9 @@ def tracking_uri(request, tmp_path):
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = (
+            "sqlite://" if sys.platform == "win32" else "sqlite:////"
+        ) + path[len("file://") :]
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -529,7 +551,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
             return res
 
         def square(self, t, request_id, parent_id):
-            self._client.start_span("non-ended-span", request_id=request_id, parent_id=parent_id)
+            self._client.start_span(
+                "non-ended-span", request_id=request_id, parent_id=parent_id
+            )
             time.sleep(0.1)
             # The span created above is not ended
             return t**2
@@ -553,7 +577,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     trace_data = traces[0].data
     assert trace_data.request is None
     assert trace_data.response is None
-    assert len(trace_data.spans) == 3  # The non-ended span should be also included in the trace
+    assert (
+        len(trace_data.spans) == 3
+    )  # The non-ended span should be also included in the trace
 
     span_name_to_span = {span.name: span for span in trace_data.spans}
     root_span = span_name_to_span["predict"]
@@ -573,13 +599,18 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
+@mock.patch(
+    "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+    return_value="databricks",
+)
 def test_log_trace_with_databricks_tracking_uri(
     databricks_tracking_uri, mock_store_for_tracing, monkeypatch, async_logging_enabled
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setattr(
+        mlflow.tracking.context.default_context, "_get_source_name", lambda: "test"
+    )
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
@@ -740,7 +771,9 @@ def test_start_trace_within_active_run(async_logging_enabled):
 
 def test_start_trace_raise_error_when_active_trace_exists():
     with mlflow.start_span("fluent_span"):
-        with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
+        with pytest.raises(
+            MlflowException, match=r"Another trace is already set in the global"
+        ):
             mlflow.tracking.MlflowClient().start_trace("test")
 
 
@@ -782,7 +815,9 @@ def test_end_trace_raise_error_for_trace_in_end_status(status):
 
 def test_trace_status_either_pending_or_end():
     all_statuses = {status.value for status in TraceStatus}
-    pending_or_end_statuses = TraceStatus.pending_statuses() | TraceStatus.end_statuses()
+    pending_or_end_statuses = (
+        TraceStatus.pending_statuses() | TraceStatus.end_statuses()
+    )
     unclassified_statuses = all_statuses - pending_or_end_statuses
     assert len(unclassified_statuses) == 0, (
         f"Please add {unclassified_statuses} to "
@@ -792,7 +827,9 @@ def test_trace_status_either_pending_or_end():
 
 def test_start_span_raise_error_when_parent_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
-        mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
+        mlflow.tracking.MlflowClient().start_span(
+            "span_name", request_id="test", parent_id=None
+        )
 
 
 def test_log_trace(tracking_uri):
@@ -810,7 +847,9 @@ def test_log_trace(tracking_uri):
     trace = mlflow.get_last_active_trace()
 
     # Purge all traces in the backend once
-    client.delete_traces(experiment_id=experiment_id, request_ids=[trace.info.request_id])
+    client.delete_traces(
+        experiment_id=experiment_id, request_ids=[trace.info.request_id]
+    )
     assert client.search_traces(experiment_ids=[experiment_id]) == []
 
     # Log the trace manually
@@ -819,7 +858,9 @@ def test_log_trace(tracking_uri):
     # Validate the trace is added to the backend
     backend_traces = client.search_traces(experiment_ids=[experiment_id])
     assert len(backend_traces) == 1
-    assert backend_traces[0].info.request_id == new_request_id  # new request ID is assigned
+    assert (
+        backend_traces[0].info.request_id == new_request_id
+    )  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
@@ -874,7 +915,9 @@ def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled)
 
 def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setattr(
+        mlflow.tracking.context.default_context, "_get_source_name", lambda: "test"
+    )
 
     client = mlflow.tracking.MlflowClient()
 
@@ -894,7 +937,9 @@ def test_set_trace_tag_on_logged_trace(mock_store):
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+    monkeypatch.setattr(
+        mlflow.tracking.context.default_context, "_get_source_name", lambda: "test"
+    )
 
     client = mlflow.tracking.MlflowClient()
     root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
@@ -913,7 +958,9 @@ def test_delete_trace_tag_on_logged_trace(mock_store):
 
 
 def test_client_create_experiment(mock_store):
-    MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
+    MlflowClient().create_experiment(
+        "someName", "someLocation", {"key1": "val1", "key2": "val2"}
+    )
 
     mock_store.create_experiment.assert_called_once_with(
         artifact_location="someLocation",
@@ -1118,11 +1165,13 @@ def test_transition_model_version_stage(mock_registry_store):
     name = "Model 1"
     version = "12"
     stage = "Production"
-    expected_result = ModelVersion(name, version, creation_timestamp=123, current_stage=stage)
-    mock_registry_store.transition_model_version_stage.return_value = expected_result
-    actual_result = MlflowClient(registry_uri="sqlite:///somedb.db").transition_model_version_stage(
-        name, version, stage
+    expected_result = ModelVersion(
+        name, version, creation_timestamp=123, current_stage=stage
     )
+    mock_registry_store.transition_model_version_stage.return_value = expected_result
+    actual_result = MlflowClient(
+        registry_uri="sqlite:///somedb.db"
+    ).transition_model_version_stage(name, version, stage)
     mock_registry_store.transition_model_version_stage.assert_called_once_with(
         name=name, version=version, stage=stage, archive_existing_versions=False
     )
@@ -1217,14 +1266,18 @@ def test_create_model_version_explicitly_set_run_link(
 
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with (
-        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
+        ),
         mock.patch(
             "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
             return_value=(hostname, workspace_id),
         ),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
-        model_version = client.create_model_version("name", "source", "runid", run_link=run_link)
+        model_version = client.create_model_version(
+            "name", "source", "runid", run_link=run_link
+        )
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
@@ -1245,7 +1298,9 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
     )
 
     with (
-        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
+        ),
         mock.patch(
             "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
             return_value=(hostname, workspace_id),
@@ -1286,7 +1341,9 @@ def test_creation_default_values_in_unity_catalog(mock_registry_store):
     )
     client.create_registered_model(name="name", description="description")
     # verify that registry store was called with tags=[]
-    mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description")
+    mock_registry_store.create_registered_model.assert_called_once_with(
+        "name", [], "description"
+    )
 
 
 def test_await_model_version_creation(mock_registry_store):
@@ -1319,7 +1376,10 @@ def test_create_model_version_run_link_with_configured_profile(
     )
 
     with (
-        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+            return_value=False,
+        ),
         mock.patch(
             "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
             return_value=(hostname, workspace_id),
@@ -1349,7 +1409,9 @@ def test_create_model_version_copy_called_db_to_db(mock_registry_store):
         registry_uri="databricks://registry:workspace",
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch(
+        "mlflow.tracking.client._upload_artifacts_to_databricks"
+    ) as upload_mock:
         client.create_model_version(
             "model name",
             "dbfs:/source",
@@ -1369,7 +1431,9 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
         tracking_uri="https://tracking", registry_uri="databricks://registry:workspace"
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch(
+        "mlflow.tracking.client._upload_artifacts_to_databricks"
+    ) as upload_mock:
         client.create_model_version(
             "model name", "s3:/source", "run_12345", run_link="not:/important/for/test"
         )
@@ -1387,7 +1451,9 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
         registry_uri="databricks://registry:workspace",
     )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch(
+        "mlflow.tracking.client._upload_artifacts_to_databricks"
+    ) as upload_mock:
         client.create_model_version(
             "model name",
             "dbfs:/source",
@@ -1398,9 +1464,13 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
 
 
 def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
-    client = MlflowClient(tracking_uri="databricks://tracking", registry_uri="https://registry")
+    client = MlflowClient(
+        tracking_uri="databricks://tracking", registry_uri="https://registry"
+    )
     mock_registry_store.create_model_version.return_value = _default_model_version()
-    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
+    with mock.patch(
+        "mlflow.tracking.client._upload_artifacts_to_databricks"
+    ) as upload_mock:
         client.create_model_version(
             "model name",
             "dbfs:/source",
@@ -1441,7 +1511,9 @@ def test_client_can_be_serialized_with_pickle(tmp_path):
     with pytest.raises(AttributeError, match="<locals>.MockUnpickleableTrackingStore'"):
         pickle.dumps(mock_tracking_store)
 
-    with pytest.raises(AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"):
+    with pytest.raises(
+        AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"
+    ):
         pickle.dumps(mock_model_registry_store)
 
     _register("pickle", lambda *args, **kwargs: mock_tracking_store)
@@ -1482,14 +1554,20 @@ def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
     mock_registry_store_with_get_latest_version.set_model_version_tag.reset_mock()
 
     # set_model_version_tag using stage
-    MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
+    MlflowClient().set_model_version_tag(
+        "model_name", key="tag1", value="foobar", stage="Staging"
+    )
     mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
         "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
     )
 
     # set_model_version_tag with version and stage set
-    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
-        MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar", stage="Staging")
+    with pytest.raises(
+        MlflowException, match="version and stage cannot be set together"
+    ):
+        MlflowClient().set_model_version_tag(
+            "model_name", 1, "tag1", "foobar", stage="Staging"
+        )
 
     # set_model_version_tag with version and stage not set
     with pytest.raises(MlflowException, match="version or stage must be set"):
@@ -1512,7 +1590,9 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
     )
 
     # delete_model_version_tag with version and stage set
-    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
+    with pytest.raises(
+        MlflowException, match="version and stage cannot be set together"
+    ):
         MlflowClient().delete_model_version_tag(
             "model_name", version=1, key="tag1", stage="staging"
         )
@@ -1537,7 +1617,9 @@ def test_delete_registered_model_alias(mock_registry_store):
 
 
 def test_get_model_version_by_alias(mock_registry_store):
-    mock_registry_store.get_model_version_by_alias.return_value = _default_model_version()
+    mock_registry_store.get_model_version_by_alias.return_value = (
+        _default_model_version()
+    )
     res = MlflowClient().get_model_version_by_alias("model_name", "test_alias")
     assert res == _default_model_version()
     mock_registry_store.get_model_version_by_alias.assert_called_once_with(
@@ -1559,10 +1641,14 @@ def test_client_log_metric_params_tags_overrides(mock_store):
     experiment_id = mock.Mock()
     start_time = mock.Mock()
     run_name = mock.Mock()
-    run = MlflowClient().create_run(experiment_id, start_time, tags={}, run_name=run_name)
+    run = MlflowClient().create_run(
+        experiment_id, start_time, tags={}, run_name=run_name
+    )
     run_id = run.info.run_id
 
-    run_operation = MlflowClient().log_metric(run_id, "m1", 0.87, 123456789, 1, synchronous=False)
+    run_operation = MlflowClient().log_metric(
+        run_id, "m1", 0.87, 123456789, 1, synchronous=False
+    )
     run_operation.wait()
 
     run_operation = MlflowClient().log_param(run_id, "p1", "pv1", synchronous=False)
@@ -1571,7 +1657,9 @@ def test_client_log_metric_params_tags_overrides(mock_store):
     run_operation = MlflowClient().set_tag(run_id, "t1", "tv1", synchronous=False)
     run_operation.wait()
 
-    mock_store.log_metric_async.assert_called_once_with(run_id, Metric("m1", 0.87, 123456789, 1))
+    mock_store.log_metric_async.assert_called_once_with(
+        run_id, Metric("m1", 0.87, 123456789, 1)
+    )
     mock_store.log_param_async.assert_called_once_with(run_id, Param("p1", "pv1"))
     mock_store.set_tag_async.assert_called_once_with(run_id, RunTag("t1", "tv1"))
 
@@ -1582,7 +1670,9 @@ def test_client_log_metric_params_tags_overrides(mock_store):
     metrics = [Metric("m1", 0.87, 123456789, 1), Metric("m2", 0.87, 123456789, 1)]
     tags = [RunTag("t1", "tv1"), RunTag("t2", "tv2")]
     params = [Param("p1", "pv1"), Param("p2", "pv2")]
-    run_operation = MlflowClient().log_batch(run_id, metrics, params, tags, synchronous=False)
+    run_operation = MlflowClient().log_batch(
+        run_id, metrics, params, tags, synchronous=False
+    )
     run_operation.wait()
 
     mock_store.log_batch_async.assert_called_once_with(
@@ -1602,8 +1692,12 @@ def test_enable_async_logging(mock_store, setup_async_logging):
     MlflowClient().log_param(run_id="run_id", key="key", value="val")
     mock_store.log_param_async.assert_called_once_with("run_id", Param("key", "val"))
 
-    MlflowClient().log_metric(run_id="run_id", key="key", value="val", step=1, timestamp=1)
-    mock_store.log_metric_async.assert_called_once_with("run_id", Metric("key", "val", 1, 1))
+    MlflowClient().log_metric(
+        run_id="run_id", key="key", value="val", step=1, timestamp=1
+    )
+    mock_store.log_metric_async.assert_called_once_with(
+        "run_id", Metric("key", "val", 1, 1)
+    )
 
 
 def test_file_store_download_upload_trace_data(tmp_path):
@@ -1629,9 +1723,9 @@ def registry_uri(request, tmp_path):
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = (
+            "sqlite://" if sys.platform == "win32" else "sqlite:////"
+        ) + path[len("file://") :]
 
     yield tracking_uri
 
@@ -1674,7 +1768,9 @@ def test_crud_prompts(tracking_uri):
 
     client.delete_prompt("prompt_1", version=2)
 
-    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"
+    ):
         client.load_prompt("prompt_1", version=2)
 
     client.delete_prompt("prompt_1", version=1)
@@ -1755,10 +1851,14 @@ def test_create_prompt_error_handling(tracking_uri):
 def test_create_prompt_with_invalid_name(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt name must be a non-empty string"
+    ):
         client.register_prompt(name="", template="Hi, {{name}}!")
 
-    with pytest.raises(MlflowException, match=r"Prompt name must be a non-empty string"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt name must be a non-empty string"
+    ):
         client.register_prompt(name=123, template="Hi, {{name}}!")
 
     for invalid_pattern in [
@@ -1767,12 +1867,16 @@ def test_create_prompt_with_invalid_name(tracking_uri):
         "prompt?!?",
         "prompt with space",
     ]:
-        with pytest.raises(MlflowException, match=r"Prompt name can only contain alphanumeric"):
+        with pytest.raises(
+            MlflowException, match=r"Prompt name can only contain alphanumeric"
+        ):
             client.register_prompt(name=invalid_pattern, template="Hi, {{name}}!")
 
     # Name conflicts with a model
     client.create_registered_model("model")
-    with pytest.raises(MlflowException, match=r"Model 'model' exists with the same name."):
+    with pytest.raises(
+        MlflowException, match=r"Model 'model' exists with the same name."
+    ):
         client.register_prompt(name="model", template="Hi, {{name}}!")
 
 
@@ -1821,7 +1925,9 @@ def test_delete_prompt_error(tracking_uri):
 
     client.register_prompt(name="prompt", template="Hi, {{name}}!")
 
-    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"
+    ):
         client.delete_prompt("prompt", version=2)
 
 
@@ -1845,11 +1951,15 @@ def test_log_prompt(tracking_uri):
         client.log_prompt("run3", 123)
 
 
-@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+@pytest.mark.parametrize(
+    "registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"]
+)
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
+    with pytest.raises(
+        MlflowException, match=r"The 'register_prompt' API is only available"
+    ):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
@@ -1857,10 +1967,14 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
             tags={"model": "my-model"},
         )
 
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
+    with pytest.raises(
+        MlflowException, match=r"The 'load_prompt' API is only available"
+    ):
         client.load_prompt("prompt_1")
 
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
+    with pytest.raises(
+        MlflowException, match=r"The 'delete_prompt' API is only available"
+    ):
         client.delete_prompt("prompt_1")
 
 
@@ -1925,10 +2039,14 @@ def test_block_handling_prompt_with_model_apis(tracking_uri):
     ]
 
     for api, args in apis_to_args:
-        with pytest.raises(MlflowException, match=r"Registered Model with name='prompt' not found"):
+        with pytest.raises(
+            MlflowException, match=r"Registered Model with name='prompt' not found"
+        ):
             api(*args)
 
-    with pytest.raises(MlflowException, match=r"Model with uri 'models:/prompt/1' not found"):
+    with pytest.raises(
+        MlflowException, match=r"Model with uri 'models:/prompt/1' not found"
+    ):
         client.copy_model_version("models:/prompt/1", "new_model")
 
 
@@ -1953,3 +2071,21 @@ def test_log_and_detach_prompt(tracking_uri):
     client.detach_prompt_from_run(run_id, "prompts:/p1/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p2"]
+
+
+def test_update_webhook(mock_registry_store):
+    """
+    Update webhook no longer supports name change.
+    """
+    expected_return_value = "some expected return value."
+    mock_registry_store.rename_webhook.return_value = expected_return_value
+    expected_return_value_2 = "other expected return value."
+    mock_registry_store.update_webhook.return_value = expected_return_value_2
+    res = MlflowClient(registry_uri="sqlite:///somedb.db").update_webhook(
+        name="orig name", description="new description"
+    )
+    assert expected_return_value_2 == res
+    mock_registry_store.update_webhook.assert_called_once_with(
+        name="orig name", description="new description"
+    )
+    mock_registry_store.rename_webhook.assert_not_called()
