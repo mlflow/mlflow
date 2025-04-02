@@ -519,7 +519,10 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             session.add(run)
 
-            return run.to_mlflow_entity()
+            run = run.to_mlflow_entity()
+            inputs_list = self._get_run_inputs(session, [run_id])
+            dataset_inputs = inputs_list[0] if inputs_list else []
+            return Run(run.info, run.data, RunInputs(dataset_inputs=dataset_inputs))
 
     def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """

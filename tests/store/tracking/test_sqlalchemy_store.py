@@ -851,6 +851,7 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
     assert actual.info.start_time == expected["start_time"]
     assert len(actual.data.tags) == len(tags)
     assert actual.data.tags == {tag.key: tag.value for tag in tags}
+    assert actual.inputs.dataset_inputs == []
 
 
 def test_create_run_sets_name(store: SqlAlchemyStore):
@@ -870,6 +871,7 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
     ).info.run_id
     run = store.get_run(run_id)
     assert run.info.run_name == "test"
+    assert run.inputs.dataset_inputs == []
 
     with pytest.raises(
         MlflowException,

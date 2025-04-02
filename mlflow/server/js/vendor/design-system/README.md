@@ -4,7 +4,9 @@ DuBois is a shared language for building products at Databricks. You can find th
 
 ## Running Locally
 
-`yarn && yarn storybook`
+`cd js/packages/du-bois && yarn storybook`
+
+The storybook will be running on localhost:6007. Note that the source code lives in ~/universe/design-system, while the storybook is in a central location to allow imports from other projects.
 
 ## Installation
 

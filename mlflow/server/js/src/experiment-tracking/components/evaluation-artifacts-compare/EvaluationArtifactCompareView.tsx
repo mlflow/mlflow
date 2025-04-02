@@ -50,6 +50,7 @@ import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/Expe
 import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
 import { RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
 import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
+import { EvaluationTableParseError } from '../../sdk/EvaluationArtifactService';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
@@ -201,7 +202,12 @@ const EvaluationArtifactCompareViewImpl = ({
       const tablesToFetch = (tablesByRun[run.runUuid] || []).filter((table) => selectedTables.includes(table));
       for (const table of tablesToFetch) {
         dispatch(getEvaluationTableArtifact(run.runUuid, table, false)).catch((e) => {
-          Utils.logErrorAndNotifyUser(e.message || e);
+          if (e instanceof EvaluationTableParseError) {
+            // In case of table parse errors, just display the error to the user without propagating it upstream
+            Utils.displayGlobalErrorNotification(e.message);
+          } else {
+            Utils.logErrorAndNotifyUser(e.message || e);
+          }
         });
       }
     }
