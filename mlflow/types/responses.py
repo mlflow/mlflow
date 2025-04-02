@@ -2,14 +2,23 @@ from typing import Any, Optional, Union
 
 from pydantic import model_validator
 
-from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
     FunctionCallOutput,
     Message,
     Response,
+    ResponseCompletedEvent,
+    ResponseErrorEvent,
+    ResponseFunctionCallArgumentsDeltaEvent,
+    ResponseFunctionCallArgumentsDoneEvent,
     ResponseFunctionToolCall,
+    ResponseOutputItemAddedEvent,
+    ResponseOutputItemDoneEvent,
     ResponseOutputMessage,
+    ResponseTextAnnotationDeltaEvent,
+    ResponseTextDeltaEvent,
+    ResponseTextDoneEvent,
+    StreamCatchAllEvent,
     Tools,
 )
 from mlflow.types.type_hints import _infer_schema_from_type_hint
@@ -59,8 +68,18 @@ class ResponsesResponse(Response):
     custom_outputs: Optional[dict[str, Any]] = None
 
 
-class ResponsesStreamEvent(BaseModel):
-    TODO: str
+ResponsesStreamEvent = Union[
+    ResponseTextDeltaEvent,
+    ResponseTextDoneEvent,
+    ResponseTextAnnotationDeltaEvent,
+    ResponseFunctionCallArgumentsDeltaEvent,
+    ResponseFunctionCallArgumentsDoneEvent,
+    ResponseOutputItemAddedEvent,
+    ResponseOutputItemDoneEvent,
+    ResponseErrorEvent,
+    ResponseCompletedEvent,
+    StreamCatchAllEvent,
+]
 
 
 RESPONSES_AGENT_INPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesRequest)
