@@ -56,7 +56,7 @@ export const isUnstableNestedComponentsMigrated = () => true;
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
-export const isExperimentLoggedModelsUIEnabled = () => false;
+export const isExperimentLoggedModelsUIEnabled = () => true;
 export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
 
 /**
@@ -67,7 +67,7 @@ export const isExperimentEvalResultsMonitoringUIEnabled = () => false;
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 
