@@ -58,8 +58,7 @@ from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_t
 from mlflow.utils import chunk_list, is_uuid
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_MODEL_IS_EXTERNAL, MLFLOW_USER
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
@@ -1202,45 +1201,19 @@ class TrackingServiceClient:
         tags: Optional[dict[str, str]] = None,
         params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
-        external: bool = False,
     ) -> LoggedModel:
-        from mlflow.models.model import MLMODEL_FILE_NAME, Model
-        from mlflow.models.utils import get_external_mlflow_model_spec
-
-        tags = [LoggedModelTag(str(key), str(value)) for key, value in (tags or {}).items()]
-        if external:
-            # If the logged model's artifacts are stored externally, set a tag on the logged model
-            # to help with quickly filtering / identifying these logged models without inspecting
-            # their MLmodel (MLflow Model) configurations
-            tags.append(LoggedModelTag(MLFLOW_MODEL_IS_EXTERNAL, "true"))
-
-        logged_model = self.store.create_logged_model(
+        return self.store.create_logged_model(
             experiment_id=experiment_id,
             name=name,
             source_run_id=source_run_id,
-            tags=tags,
+            tags=[LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
+            if tags is not None
+            else tags,
             params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()]
             if params is not None
             else params,
             model_type=model_type,
         )
-        if external:
-            # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.
-            # Accordingly, we finalize the model immediately after creation, since there aren't
-            # any model artifacts for the client to upload to MLflow. Additionally, we create a
-            # dummy MLModel file to ensure that the model can be registered to the Model Registry
-            mlflow_model: Model = get_external_mlflow_model_spec(logged_model)
-            with TempDir() as tmp:
-                mlflow_model_path = tmp.path(MLMODEL_FILE_NAME)
-                mlflow_model.save(mlflow_model_path)
-                self._get_artifact_repo(
-                    resource_id=logged_model.model_id, resource="logged_model"
-                ).log_artifact(mlflow_model_path)
-            return self.finalize_logged_model(
-                model_id=logged_model.model_id, status=LoggedModelStatus.READY
-            )
-        else:
-            return logged_model
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
