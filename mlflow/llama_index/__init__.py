@@ -654,7 +654,8 @@ def _autolog(
             logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
             _MODEL_TRACKER.set(id(self), logged_model.model_id)
             _logger.debug(
-                f"Created LoggedModel with model_id {logged_model.model_id} for index {self}"
+                f"Created LoggedModel with model_id {logged_model.model_id} for index "
+                f"{self.__class__.__name__}"
             )
         if engine_model_id is not None:
             engine._mlflow_model_id = engine_model_id

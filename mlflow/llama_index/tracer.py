@@ -161,17 +161,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             if autologging_config.create_logged_model:
                 logged_model = mlflow.create_logged_model(name=instance.__class__.__name__)
                 _MODEL_TRACKER.set(id(instance), logged_model.model_id)
-
-                if hasattr(instance, "__config__"):
-                    try:
-                        from pydantic.v1 import Extra
-
-                        instance.__config__.extra = Extra.allow
-                    except ImportError:
-                        pass
-                elif hasattr(instance, "model_config") and instance.model_config is not None:
-                    instance.model_config["extra"] = "allow"
-                instance._mlflow_model_id = logged_model.model_id
                 _logger.debug(
                     f"Created LoggedModel with model_id {logged_model.model_id} "
                     f"for {instance.__class__.__name__}"
