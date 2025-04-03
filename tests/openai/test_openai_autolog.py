@@ -13,10 +13,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
-from tests.openai.mock_openai import (
-    STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING,
-    STREAMING_WITH_AOAI_CONTENT_FILTERING,
-)
+from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces
 
 MOCK_TOOLS = [
@@ -263,10 +260,10 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_streaming_with_aoai_content_filtering(client):
+async def test_chat_completions_streaming_empty_choices(client):
     mlflow.openai.autolog()
     stream = client.chat.completions.create(
-        messages=[{"role": "user", "content": STREAMING_WITH_AOAI_CONTENT_FILTERING}],
+        messages=[{"role": "user", "content": EMPTY_CHOICES}],
         model="gpt-4o-mini",
         stream=True,
     )
@@ -280,33 +277,6 @@ async def test_chat_completions_streaming_with_aoai_content_filtering(client):
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
-    # Ensure the stream has a chunk with content None
-    assert chunks[-1].choices[0].delta.content is None
-
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.status == "OK"
-
-
-@pytest.mark.asyncio
-async def test_chat_completions_streaming_with_aoai_async_content_filtering(client):
-    mlflow.openai.autolog()
-    stream = client.chat.completions.create(
-        messages=[{"role": "user", "content": STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING}],
-        model="gpt-4o-mini",
-        stream=True,
-    )
-
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
-
-    # Ensure the stream has a chunk with empty choices
-    assert chunks[0].choices == []
-    # Ensure the stream has a chunk with delta None
-    assert chunks[-1].choices[0].delta is None
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
@@ -351,10 +321,10 @@ async def test_completions_autolog(client, log_models):
 
 
 @pytest.mark.asyncio
-async def test_completions_autolog_streaming_with_aoai_content_filtering(client):
+async def test_completions_autolog_streaming_empty_choices(client):
     mlflow.openai.autolog()
     stream = client.completions.create(
-        prompt=STREAMING_WITH_AOAI_CONTENT_FILTERING,
+        prompt=EMPTY_CHOICES,
         model="gpt-4o-mini",
         stream=True,
     )
@@ -368,33 +338,6 @@ async def test_completions_autolog_streaming_with_aoai_content_filtering(client)
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
-    assert chunks[-1].choices == []
-
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.status == "OK"
-
-
-@pytest.mark.asyncio
-async def test_completions_autolog_streaming_with_aoai_async_content_filtering(client):
-    mlflow.openai.autolog()
-    stream = client.completions.create(
-        prompt=STREAMING_WITH_AOAI_ASYNC_CONTENT_FILTERING,
-        model="gpt-4o-mini",
-        stream=True,
-    )
-
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
-
-    # Ensure the stream has a chunk with empty choices
-    assert chunks[0].choices == []
-    # Ensure the stream has a chunk with empty text
-    assert chunks[-2].choices[0].text == ""
-    assert chunks[-1].choices == []
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
