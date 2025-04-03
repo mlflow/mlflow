@@ -713,7 +713,7 @@ def _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir):
                 "UC volume path must be provided to save, log or load SparkML models "
                 "in Databricks shared or serverless clusters. "
                 "Specify environment variable 'MLFLOW_DFS_TMP' "
-                "or 'dfs_tmpdir' argument to a UC volume path like '/Volumes/...' "
+                "or 'dfs_tmpdir' argument that uses a UC volume path starting with '/Volumes/...' "
                 "when saving, logging or loading a model."
             )
 
