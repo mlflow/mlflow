@@ -2056,8 +2056,8 @@ def create_external_model(
 ) -> LoggedModel:
     """
     Create a new LoggedModel whose artifacts are stored outside of MLflow. This is useful for
-    tracking parameters and performance data (metrics, tracesm etc.) for a version of a model,
-    application, or generative AI agent that is not packaged using the MLflow Model format.
+    tracking parameters and performance data (metrics, traces etc.) for a model, application, or
+    generative AI agent that is not packaged using the MLflow Model format.
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
