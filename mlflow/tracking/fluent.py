@@ -1270,9 +1270,7 @@ def log_inputs(
     for dataset, context, tags in zip(datasets, contexts, tags_list):
         dataset_inputs.append(_create_dataset_input(dataset, context, tags))
 
-    MlflowClient().log_inputs(
-        run_id=run_id, datasets=dataset_inputs, models=models
-    )
+    MlflowClient().log_inputs(run_id=run_id, datasets=dataset_inputs, models=models)
 
 
 def set_experiment_tags(tags: dict[str, Any]) -> None:

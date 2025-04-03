@@ -23,7 +23,6 @@ from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
-    LoggedModelInput,
     Metric,
     Param,
     Run,
@@ -1347,7 +1346,6 @@ def test_log_inputs(tmp_path):
     assert json.loads(dataset_inputs[2].dataset.source) == {"uri": str(path3)}
     assert dataset_inputs[2].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[2].tags[0].value == "train3"
-
 
 
 def test_log_input_metadata_only():
