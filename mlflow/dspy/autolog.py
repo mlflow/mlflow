@@ -219,10 +219,9 @@ def _autolog(
     log_evals: bool,
     disable: bool = False,
     silent: bool = False,
+    log_models: bool = True,
 ):
-    """
-    TODO: Implement patching logic for autologging artifacts.
-    """
+    pass
 
 
 def _active_callback():
