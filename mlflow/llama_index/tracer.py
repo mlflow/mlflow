@@ -158,8 +158,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             if model_id := _MODEL_TRACKER.get(id(instance)):
                 return model_id
             autologging_config = AutoLoggingConfig.init(mlflow.llama_index.FLAVOR_NAME)
-            if autologging_config.create_logged_model:
-                logged_model = mlflow.create_logged_model(name=instance.__class__.__name__)
+            if autologging_config.log_models:
+                logged_model = mlflow.create_external_model(name=instance.__class__.__name__)
                 mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
                 _MODEL_TRACKER.set(id(instance), logged_model.model_id)
                 _logger.debug(
