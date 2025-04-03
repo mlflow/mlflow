@@ -1142,16 +1142,15 @@ def test_load_context_type_hint():
                 input_example=input_example,
                 signature=signature,
             )
-        for call in mock_warning.call_args_list:
-            assert "Failed to run the predict function on input example" not in call[0][0]
+        assert not any("Failed to run the predict function on input example" in call[0][0] for call in mock_warning.call_args_list)
         model_uri = f"runs:/{run.info.run_id}/model"
 
     pyfunc_model = mlflow.pyfunc.load_model(model_uri)
     underlying_model = pyfunc_model._model_impl.python_model
-    assert getattr(underlying_model, "context_loaded", False) is True, (
+    assert getattr(underlying_model, "context_loaded", False), (
         "load_context was not called as expected."
     )
 
     new_data = ["New", "Data"]
     prediction = pyfunc_model.predict(new_data)
-    assert prediction == new_data, "The model did not return the expected output."
+    assert prediction == new_data
