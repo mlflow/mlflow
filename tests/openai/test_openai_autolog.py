@@ -902,9 +902,9 @@ def test_generate_model_identity_different(model_dict1, model_dict2):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("create_logged_model", [True, False])
-async def test_autolog_create_logged_model_and_link_traces(client, create_logged_model):
-    mlflow.openai.autolog(create_logged_model=create_logged_model)
+@pytest.mark.parametrize("log_models", [True, False])
+async def test_autolog_log_models_and_link_traces(client, log_models):
+    mlflow.openai.autolog(log_models=log_models)
 
     with mlflow.start_run() as run:
         for _ in range(3):
@@ -921,7 +921,7 @@ async def test_autolog_create_logged_model_and_link_traces(client, create_logged
     logged_models = mlflow.search_logged_models(
         filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
     )
-    if create_logged_model:
+    if log_models:
         assert len(logged_models) == 1
         logged_model_id = logged_models[0].model_id
         for i in range(3):
