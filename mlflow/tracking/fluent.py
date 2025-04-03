@@ -22,6 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
@@ -2031,17 +2032,36 @@ def create_logged_model(
     """
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
-    experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
+    if experiment_id is None and (run := active_run()):
+        experiment_id = run.info.experiment_id
+    elif experiment_id is None:
+        experiment_id = _get_experiment_id()
+    resolved_tags = context_registry.resolve_tags(tags)
     model = MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
-        tags=tags,
+        tags=resolved_tags,
         params=params,
         model_type=model_type,
     )
     _last_logged_model_id.set(model.model_id)
     return model
+
+
+@experimental
+def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    """
+    Finalize a model by updating its status.
+
+    Args:
+        model_id: ID of the model to finalize.
+        status: Final status to set on the model.
+
+    Returns:
+        The updated model.
+    """
+    return MlflowClient().finalize_logged_model(model_id, status)
 
 
 @experimental
@@ -2097,7 +2117,25 @@ def search_logged_models(
     Args:
         experiment_ids: List of experiment IDs to search for logged models. If not specified,
             the active experiment will be used.
-        filter_string: Filter query string, defaults to searching all logged models.
+        filter_string: A SQL-like filter string to parse. The filter string syntax supports:
+
+            - Entity specification:
+                - attributes: `attribute_name` (default if no prefix is specified)
+                - metrics: `metrics.metric_name`
+                - parameters: `params.param_name`
+                - tags: `tags.tag_name`
+            - Comparison operators:
+                - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
+                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+            - Multiple conditions can be joined with 'AND'
+            - String values must be enclosed in single quotes
+
+            Example filter strings:
+                - `creation_time > 100`
+                - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
+                - `tags.release LIKE 'v1.%'`
+                - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
+
         max_results: The maximum number of logged models to return.
         order_by: List of dictionaries to specify the ordering of the search results. The following
             fields are supported:

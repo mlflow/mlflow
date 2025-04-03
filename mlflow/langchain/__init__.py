@@ -12,7 +12,6 @@ LangChain (native) format
     https://python.langchain.com/en/latest/index.html
 """
 
-import functools
 import importlib
 import inspect
 import logging
@@ -43,7 +42,7 @@ from mlflow.langchain.utils import (
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
-from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
     _get_dependencies_schema_from_model,
@@ -65,7 +64,7 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
-    autologging_is_disabled,
+    disable_autologging_globally,
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
@@ -424,6 +423,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
+@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     lc_model,
     artifact_path: Optional[str] = None,
@@ -618,7 +618,7 @@ def log_model(
     # if model is logged as models as code, then we cannot
     # get the id of the model object
     if model.model_id and not isinstance(lc_model, str):
-        _MODEL_TRACKER.set(lc_model, model.model_id)
+        _MODEL_TRACKER.set(id(lc_model), model.model_id)
     return model
 
 
@@ -643,8 +643,6 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 @patch_langchain_type_to_cls_dict
 def _load_model(local_model_path, flavor_conf):
-    from mlflow.langchain._langchain_autolog import _update_langchain_model_config
-
     # model_type is not accurate as the class can be subclass
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
@@ -659,12 +657,6 @@ def _load_model(local_model_path, flavor_conf):
                 "Failed to load LangChain model. Unknown model type: "
                 f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
             )
-    # To avoid double logging, we set _mlflow_model_logged to True
-    # when the model is loaded
-    if not autologging_is_disabled(FLAVOR_NAME):
-        if _update_langchain_model_config(model):
-            model._mlflow_model_logged = True
-            model.run_id = get_model_info(local_model_path).run_id
     return model
 
 
@@ -909,6 +901,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.
@@ -936,97 +929,26 @@ def load_model(model_uri, dst_path=None):
     model = _load_model_from_local_fs(local_model_path)
     mlflow_model = Model.load(local_model_path)
     if mlflow_model.model_id:
-        _MODEL_TRACKER.set(model, mlflow_model.model_id)
+        _MODEL_TRACKER.set(id(model), mlflow_model.model_id)
 
     return model
-
-
-def _patch_runnable_cls(cls):
-    """
-    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, `stream` and
-    `ainvoke`, `abatch`, `astream` methods for autologging.
-
-    Args:
-        cls: The class to patch.
-    """
-    from mlflow.langchain._langchain_autolog import patched_inference
-
-    patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
-    for func_name in patch_functions:
-        if hasattr(cls, func_name):
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                func_name,
-                functools.partial(patched_inference, func_name),
-            )
-
-
-def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes):
-    """
-    Internal method to inspect the module and patch classes that are
-    subclasses of Runnable for autologging.
-    """
-    from langchain_core.runnables import Runnable
-
-    if module_name not in inspected_modules:
-        inspected_modules.add(module_name)
-
-        try:
-            for _, obj in inspect.getmembers(importlib.import_module(module_name)):
-                if inspect.ismodule(obj) and (
-                    obj.__name__.startswith("langchain") or obj.__name__.startswith("langgraph")
-                ):
-                    _inspect_module_and_patch_cls(obj.__name__, inspected_modules, patched_classes)
-                elif (
-                    inspect.isclass(obj)
-                    and obj.__name__ not in patched_classes
-                    and issubclass(obj, Runnable)
-                ):
-                    _patch_runnable_cls(obj)
-                    patched_classes.add(obj.__name__)
-        except Exception as e:
-            logger.debug(f"Failed to patch module {module_name}. Error: {e}", exc_info=True)
 
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_input_examples=False,
-    log_model_signatures=False,
-    log_models=False,
-    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    registered_model_name=None,
-    extra_tags=None,
     extra_model_classes=None,
     log_traces=True,
+    create_logged_model=True,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
 
     Args:
-        log_input_examples: If ``True``, input examples from inference data are collected and
-            logged along with Langchain model artifacts during inference. If
-            ``False``, input examples are not logged.
-            Note: Input examples are MLflow model attributes
-            and are only collected if ``log_models`` is also ``True``.
-        log_model_signatures: If ``True``,
-            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-            describing model inputs and outputs are collected and logged along
-            with Langchain model artifacts during inference. If ``False``,
-            signatures are not logged.
-            Note: Model signatures are MLflow model attributes
-            and are only collected if ``log_models`` is also ``True``.
-        log_models: If ``True``, langchain models are logged as MLflow model artifacts.
-            If ``False``, langchain models are not logged.
-            Input examples and model signatures, which are attributes of MLflow models,
-            are also omitted when ``log_models`` is ``False``.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
-            if applicable. If ``False``, dataset information is not logged.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1038,10 +960,6 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
             autologging. If ``False``, show all events and warnings during Langchain
             autologging.
-        registered_model_name: If given, each time a model is trained, it is registered as a
-            new model version of the registered model with this name.
-            The registered model is created if it does not already exist.
-        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
         extra_model_classes: A list of langchain classes to log in addition to the default classes.
             We do not guarantee classes specified in this list can be logged as a model, but tracing
             will be supported. Note that all classes within the list must be subclasses of Runnable,
@@ -1049,7 +967,18 @@ def autolog(
         log_traces: If ``True``, traces are logged for Langchain models by using
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        create_logged_model: If ``True``, automatically create a LoggedModel when the model
+            used for inference is not already logged. The created LoggedModel contains no model
+            artifacts, but it will be used to associate all traces generated by the model. If
+            ``False``, no LoggedModel is created and the traces will not be associated with any
+            model. Default to ``True``.
+            .. Note:: Experimental: This argument may change or be removed in a future release
+            without warning.
     """
+    from mlflow.langchain._langchain_autolog import (
+        _inspect_module_and_patch_cls,
+        _patch_runnable_cls,
+    )
     from mlflow.langchain.langchain_tracer import (
         patched_callback_manager_init,
         patched_callback_manager_merge,

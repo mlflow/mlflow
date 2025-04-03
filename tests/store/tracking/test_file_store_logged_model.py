@@ -1,5 +1,6 @@
 import time
 import uuid
+from dataclasses import dataclass
 from unittest import mock
 
 import pytest
@@ -8,6 +9,7 @@ import mlflow
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT, FileStore
 
@@ -15,6 +17,12 @@ from mlflow.store.tracking.file_store import SEARCH_LOGGED_MODEL_MAX_RESULTS_DEF
 @pytest.fixture
 def store(tmp_path):
     return FileStore(str(tmp_path.joinpath("mlruns")))
+
+
+@dataclass
+class DummyDataset:
+    name: str
+    digest: str
 
 
 def assert_logged_model_attributes(
@@ -36,7 +44,11 @@ def assert_logged_model_attributes(
         assert logged_model.source_run_id is None
     else:
         assert logged_model.source_run_id == source_run_id
-    assert logged_model.tags == (tags or {})
+    # NB: In many cases, there are default tags populated from the context in which a model
+    # is created, such as the notebook ID or git hash. We don't want to assert that these
+    # tags are present in the model's tags field (because it's complicated and already tested
+    # elsewhere), so we only check that the tags we specify are present
+    assert (tags or {}).items() <= logged_model.tags.items()
     assert logged_model.params == (params or {})
     assert logged_model.model_type == model_type
     assert logged_model.status == status
@@ -133,7 +145,18 @@ def test_create_logged_model_errors(store):
         store.create_logged_model(params=[LoggedModelParameter("a" * 256, "b")])
 
 
-@pytest.mark.parametrize("name", ["", "my/model", "my.model", "my:model"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "my/model",
+        "my.model",
+        "my:model",
+        "my%model",
+        "my'model",
+        'my"model',
+    ],
+)
 def test_create_logged_model_invalid_name(store: FileStore, name: str):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match="Invalid model name"):
@@ -200,6 +223,17 @@ def test_get_logged_model(store):
     fetched_model = store.get_logged_model(logged_model.model_id)
     assert logged_model.model_uri == fetched_model.model_uri
     assert logged_model.to_dictionary() == fetched_model.to_dictionary()
+
+
+def test_delete_logged_model(store: FileStore):
+    logged_model = store.create_logged_model()
+    assert store.get_logged_model(logged_model.model_id) is not None
+    store.delete_logged_model(logged_model.model_id)
+    with pytest.raises(MlflowException, match=r"not found"):
+        store.get_logged_model(logged_model.model_id)
+
+    models = store.search_logged_models(experiment_ids=["0"])
+    assert len(models) == 0
 
 
 def test_get_logged_model_errors(store):
@@ -507,21 +541,31 @@ def test_search_logged_models_order_by(store):
     )
 
     # model_id
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["model_id ASC"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "model_id"}]
+    )
     assert_models_match(models, sorted(logged_models, key=lambda x: x.model_id))
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["model_id DESC"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "model_id", "ascending": False}]
+    )
     assert_models_match(
         models,
         sorted(logged_models, key=lambda x: x.model_id, reverse=True),
     )
 
     # name
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["name"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "name", "ascending": True}]
+    )
     assert_models_match(
         models, sorted(logged_models, key=lambda x: (x.name, -x.creation_timestamp, x.model_id))
     )
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=["name DESC", "model_id DESC"]
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "name", "ascending": False},
+            {"field_name": "model_id", "ascending": False},
+        ],
     )
     assert_models_match(
         models,
@@ -529,12 +573,16 @@ def test_search_logged_models_order_by(store):
     )
 
     # model_type
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["model_type"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "model_type", "ascending": True}]
+    )
     assert_models_match(
         models,
         sorted(logged_models, key=lambda x: x.model_type),
     )
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["model_type DESC"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "model_type", "ascending": False}]
+    )
     assert_models_match(
         models,
         sorted(
@@ -545,12 +593,16 @@ def test_search_logged_models_order_by(store):
     )
 
     # status
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["status"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "status", "ascending": True}]
+    )
     assert_models_match(
         models,
         sorted(logged_models, key=lambda x: (x.status, -x.creation_timestamp, x.model_id)),
     )
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["status DESC"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "status", "ascending": False}]
+    )
     assert_models_match(
         models,
         sorted(
@@ -561,13 +613,19 @@ def test_search_logged_models_order_by(store):
     )
 
     # source_run_id
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["source_run_id"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "source_run_id", "ascending": True}]
+    )
     assert_models_match(
         models,
         sorted(logged_models, key=lambda x: (x.source_run_id, -x.creation_timestamp, x.model_id)),
     )
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=["source_run_id DESC", "model_id DESC"]
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "source_run_id", "ascending": False},
+            {"field_name": "model_id", "ascending": False},
+        ],
     )
     assert_models_match(
         models,
@@ -579,13 +637,24 @@ def test_search_logged_models_order_by(store):
     )
 
     # creation_timestamp
-    models = store.search_logged_models(experiment_ids=[exp_id], order_by=["creation_timestamp"])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": True}]
+    )
     assert_models_match(
         models,
         sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
     )
+    # Alias for creation_timestamp
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=["creation_timestamp DESC"]
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_time", "ascending": True}]
+    )
+    assert_models_match(
+        models,
+        sorted(logged_models, key=lambda x: (x.creation_timestamp, x.model_id)),
+    )
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
     )
     assert_models_match(
         models,
@@ -594,7 +663,7 @@ def test_search_logged_models_order_by(store):
 
     # last_updated_timestamp
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=["last_updated_timestamp"]
+        experiment_ids=[exp_id], order_by=[{"field_name": "last_updated_timestamp"}]
     )
     assert_models_match(
         models,
@@ -604,7 +673,8 @@ def test_search_logged_models_order_by(store):
         ),
     )
     models = store.search_logged_models(
-        experiment_ids=[exp_id], order_by=["last_updated_timestamp DESC"]
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "last_updated_timestamp", "ascending": False}],
     )
     assert_models_match(
         models,
@@ -613,6 +683,245 @@ def test_search_logged_models_order_by(store):
             key=lambda x: (-x.last_updated_timestamp, -x.creation_timestamp, x.model_id),
         ),
     )
+
+
+def test_search_logged_models_order_by_metrics(store):
+    exp_id = store.create_experiment("test")
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
+    model1 = store.create_logged_model(exp_id, source_run_id=run_id)
+    # model1:
+    # metric1+dataset1+digest1+timestamp0: 0.1
+    # metric1+dataset1+digest2+timestamp1: 1.0
+    # metric2+dataset2+digest2: timestamp 0 - 0.2; timestamp 1 - 1.0
+    store.log_batch(
+        run_id,
+        metrics=[
+            Metric(
+                key="metric1",
+                value=0.1,
+                timestamp=0,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest1",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric1",
+                value=1.0,
+                timestamp=1,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest2",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric2",
+                value=0.2,
+                timestamp=0,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset2",
+                dataset_digest="digest2",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric2",
+                value=1.0,
+                timestamp=1,
+                step=1,
+                model_id=model1.model_id,
+                dataset_name="dataset2",
+                dataset_digest="digest2",
+                run_id=run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+
+    model2 = store.create_logged_model(exp_id, source_run_id=run_id)
+    # model2:
+    # metric1+dataset1+digest1+timestamp0: 0.2
+    # metric1+dataset1+digest2+timestamp1: 0.1
+    # metric2+dataset2+digest2+timestamp0: 0.5
+    # metric2+dataset3+digest3+timestamp1: 0.1
+    # metric3: 1.0
+    store.log_batch(
+        run_id,
+        metrics=[
+            Metric(
+                key="metric1",
+                value=0.2,
+                timestamp=0,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest1",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric1",
+                value=0.1,
+                timestamp=1,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest2",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric2",
+                value=0.5,
+                timestamp=0,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset2",
+                dataset_digest="digest2",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric2",
+                value=0.1,
+                timestamp=1,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset3",
+                dataset_digest="digest3",
+                run_id=run_id,
+            ),
+            Metric(
+                key="metric3",
+                value=1.0,
+                timestamp=0,
+                step=1,
+                model_id=model2.model_id,
+                dataset_name=None,
+                dataset_digest=None,
+                run_id=run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+    model1 = store.get_logged_model(model1.model_id)
+    model2 = store.get_logged_model(model2.model_id)
+
+    # order by metric key only
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric1"}]
+    )
+    assert_models_match(models, [model2, model1])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric1", "ascending": False}]
+    )
+    assert_models_match(models, [model1, model2])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric1", "dataset_name": ""}]
+    )
+    assert_models_match(models, [model2, model1])
+    # only model2 has metric3
+    # no matter it's ASC or DESC, model2 should be first
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric3"}]
+    )
+    assert_models_match(models, [model2, model1])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "metrics.metric3", "ascending": False}]
+    )
+    assert_models_match(models, [model2, model1])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "metrics.metric1", "ascending": False},
+            {"field_name": "metrics.metric3"},
+        ],
+    )
+    assert_models_match(models, [model1, model2])
+
+    # order by metric key + dataset_name
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "metrics.metric1", "dataset_name": "dataset1", "ascending": False}
+        ],
+    )
+    assert_models_match(models, [model1, model2])
+    # neither of them have metric1 + dataset2, so the order is by creation_timestamp DESC
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "metrics.metric1", "dataset_name": "dataset2", "ascending": False}
+        ],
+    )
+    assert_models_match(models, [model2, model1])
+    # only model2 has metric2+dataset3, so it always comes first
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "metrics.metric2", "dataset_name": "dataset3", "ascending": True}],
+    )
+    assert_models_match(models, [model2, model1])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {"field_name": "metrics.metric2", "dataset_name": "dataset3", "ascending": False}
+        ],
+    )
+    assert_models_match(models, [model2, model1])
+
+    # order by metric key + dataset_name + dataset_digest
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.metric1",
+                "dataset_name": "dataset1",
+                "dataset_digest": "digest1",
+            }
+        ],
+    )
+    assert_models_match(models, [model1, model2])
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.metric1",
+                "dataset_name": "dataset1",
+                "dataset_digest": "digest2",
+            }
+        ],
+    )
+    assert_models_match(models, [model2, model1])
+    # max value of different steps is taken, so metric2's value of model1 > model2
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.metric2",
+                "dataset_name": "dataset2",
+                "dataset_digest": "digest2",
+                "ascending": False,
+            }
+        ],
+    )
+    assert_models_match(models, [model1, model2])
+    # neither of them have metric4, so it's sorted based on second condition
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.metric4",
+            },
+            {
+                "field_name": "metrics.metric2",
+                "dataset_name": "dataset2",
+                "dataset_digest": "digest2",
+                "ascending": False,
+            },
+        ],
+    )
+    assert_models_match(models, [model1, model2])
 
 
 def test_search_logged_models_pagination(store):
@@ -640,6 +949,14 @@ def test_search_logged_models_errors(store):
     with pytest.raises(MlflowException, match=r"Invalid attribute key 'artifact_location'"):
         store.search_logged_models(experiment_ids=[exp_id], filter_string="artifact_location='abc'")
     with pytest.raises(
-        MlflowException, match=r"Invalid order by key 'artifact_location' specified."
+        MlflowException, match=r"`field_name` in the `order_by` clause must be specified"
     ):
-        store.search_logged_models(experiment_ids=[exp_id], order_by=["artifact_location"])
+        store.search_logged_models(experiment_ids=[exp_id], order_by=[{}])
+    with pytest.raises(MlflowException, match=r"`order_by` must be a list of dictionaries."):
+        store.search_logged_models(experiment_ids=[exp_id], order_by=["model_id"])
+    with pytest.raises(MlflowException, match=r"Invalid order by field name: artifact_location"):
+        store.search_logged_models(
+            experiment_ids=[exp_id], order_by=[{"field_name": "artifact_location"}]
+        )
+    with pytest.raises(MlflowException, match=r"Invalid order by field name: params"):
+        store.search_logged_models(experiment_ids=[exp_id], order_by=[{"field_name": "params.x"}])

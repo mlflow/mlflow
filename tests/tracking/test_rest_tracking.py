@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
@@ -1496,6 +1497,37 @@ def test_create_model_version_with_non_local_source(mlflow_client):
     assert response.status_code == 400
     assert "Invalid model version source" in response.json()["message"]
 
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": model.artifact_location,
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": model.model_uri,
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///path/to/model",
+            "model_id": model.model_id,
+        },
+    )
+    assert response.status_code == 400
+
 
 def test_create_model_version_with_file_uri(mlflow_client):
     name = "test"
@@ -1620,6 +1652,30 @@ def test_log_input(mlflow_client, tmp_path):
     assert dataset_inputs[0].tags[0].value == "baz"
     assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[0].tags[1].value == "train"
+
+
+def test_create_model_version_model_id(mlflow_client):
+    name = "model"
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    mlflow_client.create_model_version(
+        name=name,
+        source=model.artifact_location,
+        model_id=model.model_id,
+    )
+    model = mlflow_client.get_logged_model(model.model_id)
+    assert model.tags["mlflow.modelVersions"] == '[{"name": "model", "version": 1}]'
+    mlflow_client.create_model_version(
+        name=name,
+        source=model.artifact_location,
+        model_id=model.model_id,
+    )
+    model = mlflow_client.get_logged_model(model.model_id)
+    assert (
+        model.tags["mlflow.modelVersions"]
+        == '[{"name": "model", "version": 1}, {"name": "model", "version": 2}]'
+    )
 
 
 def test_log_inputs(mlflow_client):
@@ -2469,6 +2525,17 @@ def test_finalize_logged_model(mlflow_client: MlflowClient):
         mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.UNSPECIFIED)
 
 
+def test_delete_logged_model(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("delete_logged_model")
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    mlflow_client.delete_logged_model(model.model_id)
+    with pytest.raises(MlflowException, match="not found"):
+        mlflow_client.get_logged_model(model.model_id)
+
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert len(models) == 0
+
+
 def test_set_logged_model_tags(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
@@ -2491,3 +2558,77 @@ def test_delete_logged_model_tag(mlflow_client: MlflowClient):
 
     with pytest.raises(MlflowException, match="No tag with key"):
         mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
+
+
+def test_search_logged_models(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model_1 = mlflow_client.create_logged_model(exp_id)
+    time.sleep(0.001)  # to ensure different created time
+    models = mlflow_client.search_logged_models(experiment_ids=[exp_id])
+    assert [m.name for m in models] == [model_1.name]
+
+    # max_results
+    model_2 = mlflow_client.create_logged_model(exp_id)
+    page_1 = mlflow_client.search_logged_models(experiment_ids=[exp_id], max_results=1)
+    assert [m.name for m in page_1] == [model_2.name]
+    assert page_1.token is not None
+
+    # pagination
+    page_2 = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], max_results=1, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    # filter_string
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], filter_string=f"name = {model_1.name!r}"
+    )
+    assert [m.name for m in models] == [model_1.name]
+
+    # order_by
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+
+def test_log_outputs(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("log_outputs")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    model = mlflow_client.create_logged_model(experiment_id=exp_id)
+    model_outputs = [LoggedModelOutput(model.model_id, 1)]
+    mlflow_client.log_outputs(run.info.run_id, model_outputs)
+    run = mlflow_client.get_run(run.info.run_id)
+    assert run.outputs.model_outputs == model_outputs
+
+
+def test_list_logged_model_artifacts(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    resp = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/logged-models/{model_info.model_id}/artifacts/directories"
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    paths = [f["path"] for f in data["files"]]
+    assert "MLmodel" in paths
+
+
+def test_get_logged_model_artifact(mlflow_client: MlflowClient):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    resp = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/logged-models/{model_info.model_id}/artifacts/files",
+        params={"artifact_file_path": "MLmodel"},
+    )
+    assert resp.status_code == 200
+    assert model_info.model_id in resp.text

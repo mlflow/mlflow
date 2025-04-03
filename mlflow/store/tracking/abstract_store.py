@@ -1,3 +1,4 @@
+import json
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional
 
@@ -17,6 +18,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -797,6 +799,24 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def set_model_versions_tags(self, name: str, version: str, model_id: str) -> None:
+        mvs = [{"name": name, "version": version}]
+        model = self.get_logged_model(model_id)
+        if existing_mvs := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+            existing_mvs = json.loads(existing_mvs)
+            if mvs[0] not in existing_mvs:
+                mvs = existing_mvs + mvs
+
+        self.set_logged_model_tags(
+            model_id,
+            [
+                LoggedModelTag(
+                    key=mlflow_tags.MLFLOW_MODEL_VERSIONS,
+                    value=json.dumps(mvs),
+                )
+            ],
+        )
+
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """
         Delete a tag from the specified logged model.
@@ -816,5 +836,14 @@ class AbstractStore:
 
         Returns:
             The fetched model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
         """
         raise NotImplementedError(self.__class__.__name__)

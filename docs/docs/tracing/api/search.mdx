@@ -11,23 +11,123 @@ import TabItem from "@theme/TabItem";
 
 # Query Traces
 
-This page describes how to query traces logged to MLflow.
+This page describes how to query traces logged to MLflow in both UI and API.
 
-## Client vs High-Level API
+<Tabs>
+<TabItem value="ui" label="Filtering Traces on UI">
 
-MLflow provides two APIs for searching and retrieving traces:
+Use the search box in the MLflow Trace UI to filter traces by various criteria.
 
-- **<APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink>**: Query traces using experiment IDs, filter strings, and other parameters. This API returns **a list of <APILink fn="mlflow.entities.Trace">`Trace`</APILink> objects** that matches with the given search criteria.
+![Search Traces UI](/images/llms/tracing/search-traces-on-ui.png)
 
-- **<APILink fn="mlflow.search_traces" />**: A higher-level API that supports the same filtering functionalities as the client APIs, but instead returns a pre-formatted **Pandas DataFrame** with each row representing a trace, simplifying the process of creating an evaluation dataset for [MLflow LLM Evaluation](/llms/llm-evaluate).
+</TabItem>
+<TabItem value="api" label="Filtering Traces on API">
 
-The following screenshot shows example of the returned traces from these APIs:
+The <APILink fn="mlflow.search_traces" /> API allows you to programmatically search for traces across experiments:
 
-![Search Traces Output](/images/llms/tracing/search-traces.png)
+```python
+import mlflow
 
-## Example Usage of Search Traces
+# Search traces in the current experiment
+traces = mlflow.search_traces(filter_string="status = 'ERROR'")
 
-First, create several traces using the following code:
+# Search traces in specific experiments
+traces = mlflow.search_traces(
+    experiment_ids=["experiment_id_1", "experiment_id_2"],
+    filter_string="name = 'predict'",
+)
+```
+
+See the [Filter Syntax](#filter-syntax) section below for more details on filtering options.
+
+</TabItem>
+</Tabs>
+
+
+## Filter Syntax
+
+The `filter_string` argument allows you to create powerful search queries using a SQL-like syntax. Here are the most common filter patterns:
+
+### Filter by Name
+
+Search for traces by their name:
+
+```python
+mlflow.search_traces(filter_string="trace.name = 'predict'")
+```
+
+### Filter by Timestamp
+
+Search traces created within a specific time range:
+
+```python
+# Get traces created after a specific timestamp (in milliseconds)
+timestamp = int(time.time() * 1000)
+mlflow.search_traces(
+    filter_string=f"trace.timestamp > {timestamp - 3600000}"  # Last hour
+)
+```
+
+### Filter by Status
+
+Search for traces by their execution status:
+
+```python
+# Get successful traces
+mlflow.search_traces(filter_string="trace.status = 'OK'")
+
+# Get failed traces
+mlflow.search_traces(filter_string="trace.status = 'ERROR'")
+```
+
+Trace status must be one of `["OK", "ERROR", "IN_PROGRESS"]`.
+
+### Filter by Tags
+
+Filter traces that have specific tag values:
+
+```python
+mlflow.search_traces(filter_string="tag.model_name = 'gpt-4'")
+```
+
+### Combine Multiple Conditions
+
+Combine multiple filters using logical operators:
+
+```python
+mlflow.search_traces(filter_string="trace.status = 'OK' AND tag.importance = 'high'")
+```
+
+## Find Traces associated with an MLflow Run
+
+
+<Tabs>
+<TabItem value="ui-run" label="UI">
+
+To view traces associated with a specific run:
+1. Navigate to the run details page
+2. Click on the "Traces" tab to see all traces associated with that run
+
+</TabItem>
+<TabItem value="api-run" label="API">
+
+Use the `run_id` parameter to search for traces associated with a specific run:
+
+```python
+import mlflow
+
+# Search traces associated with a specific run
+traces = mlflow.search_traces(run_id="run_id_123456")
+```
+
+</TabItem>
+</Tabs>
+
+## Searching Traces via API
+
+This section provides a detailed guide on using the <APILink fn="mlflow.search_traces" /> API for programmatic trace retrieval.
+
+First, let's create some sample traces to demonstrate the search functionality:
 
 ```python
 import time
@@ -68,156 +168,68 @@ evening_greeting("Mary")
 goodbye()
 ```
 
-The code above creates the following traces:
+### Return Types
 
-| Experiment         | Name               | Tags.person | Status  |
-| ------------------ | ------------------ | ----------- | ------- |
-| Morning Experiment | `morning_greeting` | `Tom`       | `OK`    |
-| Evening Experiment | `evening_greeting` | `Mary`      | `OK`    |
-| Evening Experiment | `goodbye`          | `N/A`       | `ERROR` |
-
-Searching the traces with <APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> gives you a list of <APILink fn="mlflow.entities.Trace">`Trace`</APILink> objects.
+The <APILink fn="mlflow.search_traces" /> API can return results in two formats, controlled by the `return_type` parameter:
 
 ```python
-from mlflow import MlflowClient
+# Default: Return as Pandas DataFrame
+trace_df = mlflow.search_traces(experiment_ids=[morning_experiment.experiment_id])
 
-client = MlflowClient()
-
-client.search_traces(experiment_ids=[morning_experiment.experiment_id])
-# [Trace #1]
-```
-
-The <APILink fn="mlflow.search_traces" /> fluent API returns a Pandas DataFrame instead.
-
-```python
-mlflow.search_traces(experiment_ids=[morning_experiment.experiment_id])
-#     request_id     status          ...    response
-# 0   [trace #1 ID]  TraceStatus.OK  ...    Good morning Tom.
-
-# If an experiment ID is not specified, MLflow uses the current active experiment ("Evening Experiment")
-mlflow.search_traces()
-#     request_id     status          ...    response
-# 0   [trace #2 ID]  TraceStatus.OK  ...    Good evening Tom.
-# 1   [trace #3 ID]  TraceStatus.OK  ...    NA
+# Return as list of Trace objects
+trace_list = mlflow.search_traces(
+    experiment_ids=[morning_experiment.experiment_id], return_type="list"
+)
 ```
 
 :::note
-
-<APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> requires experiment IDs to be specified for searching traces from, whereas <APILink fn="mlflow.search_traces" /> does not require it and defaults to the current active experiment.
-
+The `return_type` parameter is only available in MLflow version 2.21.1 and later. If you are using an older version, the <APILink fn="mlflow.search_traces" />
+API will always return a Pandas DataFrame. To get a list of Trace objects, you can use the <APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> API instead.
 :::
 
-## DataFrame Schema
+#### DataFrame Schema
 
-The pandas DataFrame returned by the <APILink fn="mlflow.search_traces" /> API consists of the following columns by default:
+When using `return_type="pandas"` (default), the returned DataFrame includes these columns:
 
 - **request_id**: A primary identifier of a trace
-- **trace**: A trace object.
-- **timestamp_ms**: The start time of the trace in milliseconds.
-- **status**: The status of the trace.
-- **execution_time_ms**: The duration of the trace in milliseconds.
-- **request**: The input to the traced logic.
-- **response**: The output of the traced logic.
-- **request_metadata**: Key-value pairs associated with the trace.
-- **spans**: Spans in the trace.
-- **tags**: Tags associated with the trace.
+- **trace**: A trace object
+- **timestamp_ms**: The start time of the trace in milliseconds
+- **status**: The status of the trace
+- **execution_time_ms**: The duration of the trace in milliseconds
+- **request**: The input to the traced logic
+- **response**: The output of the traced logic
+- **request_metadata**: Key-value pairs associated with the trace
+- **spans**: Spans in the trace
+- **tags**: Tags associated with the trace
 
-Furthermore, you can extract span fields into additional columns using the [extract_fields](#extract-specific-fields) parameter.
+### Order Traces
 
-## Filtering Traces
-
-The `filter_string` argument in the search APIs provides a flexible way to query traces using a SQL-like Domain-Specific Language (DSL). The syntax supports searching traces with various metadata and allows for combining multiple conditions.
-
-:::note
-The `filter_string` argument is supported in both client and fluent APIs and there is no syntax difference. The example below uses client API for demonstration purpose only.
-:::
-
-### Filter Traces by Name
-
-Search for traces by name using the `trace.name` key:
+You can order the search results using the `order_by` parameter:
 
 ```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    filter_string="trace.name = 'morning_greeting'",
+mlflow.search_traces(
+    experiment_ids=experiment_ids, order_by=["timestamp_ms DESC"]  # Most recent first
 )
-# [Trace #1]
 ```
 
-### Filter Traces by Timestamp
-
-Search traces created after a specific timestamp:
+Pass multiple columns to the `order_by` parameter to sort by multiple fields:
 
 ```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    filter_string=f"trace.timestamp > {morning_time}",
+mlflow.search_traces(
+    experiment_ids=experiment_ids, order_by=["timestamp_ms DESC", "status ASC"]
 )
-# [Trace #2, Trace #3]
 ```
 
-### Filter Traces by Tags
+### Unpack Span Fields into DataFrame
 
-Filter traces by specific tag values using `tag.[tag name]`:
-
-```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    filter_string="tag.person = 'Tom'",
-)
-# [Trace #1]
-```
-
-The timestamp is recorded as a UNIX timestamp in milliseconds.
-
-### Filter Traces by Status
-
-Search for traces by their status:
-
-```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    filter_string="trace.status = 'OK'",
-)
-# [Trace #1, Trace #2]
-```
-
-Trace status must be one of `["OK", "ERROR", "IN_PROGRESS"]`.
-
-### Combine Multiple Conditions
-
-The `filter_string` DSL allows you to combine multiple filters together by using `AND`.
-
-```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    filter_string=f"attributes.status = 'OK' AND attributes.timestamp > {morning_time}",
-)
-# [Trace #2]
-```
-
-## Order Traces
-
-The `order_by` argument allows you to sort traces based on one or more fields. Each `order_by` clause follows the format `[attribute name] [ASC or DESC]`.
-
-```python
-client.search_traces(
-    experiment_ids=experiment_ids,
-    order_by=["timestamp DESC"],
-)
-# [Trace #3, Trace #2, Trace #1]
-```
-
-## Extract Specific Fields
-
-The <APILink fn="mlflow.search_traces" /> API allows you to extract specific fields from spans with `extract_fields` argument. The span fields can be specifie in the format of `span_name.[inputs|outputs]` or `span_name.[inputs|outputs].field_name`:
+When using the DataFrame return type, you can extract specific fields from spans into separate columns using the `extract_fields` parameter:
 
 ```python
 traces = mlflow.search_traces(
     extract_fields=[
-        # Extract the "name" field in the "morning_greeting" span inputs.
+        # Extract the "name" field in the "morning_greeting" span inputs
         "morning_greeting.inputs.name",
-        # Extract the all output fields in the "morning_greeting" span.
+        # Extract all output fields in the "morning_greeting" span
         "morning_greeting.outputs",
     ],
     experiment_ids=[morning_experiment.experiment_id],
@@ -226,14 +238,14 @@ traces = mlflow.search_traces(
 print(traces)
 ```
 
-The output Pandas DataFrame contains the additional columns for the extracted span fields:
+The output Pandas DataFrame will contain additional columns for the extracted span fields:
 
 ```text
     request_id                              ...     morning_greeting.inputs.name   morning_greeting.outputs
 0   053adf2f5f5e4ad68d432e06e254c8a4        ...     'Tom'                          'Good morning Tom.'
 ```
 
-This feature is particularly useful for building an evaluation dataset for your application. You can convert the returned Pandas DataFrame into an MLflow LLM evaluation dataset format by renaming fields, and evaluate your language model using the [mlflow.evaluate()](/llms/llm-evaluate) API.
+This feature is particularly useful for creating evaluation datasets:
 
 ```python
 eval_data = traces.rename(
@@ -248,4 +260,39 @@ results = mlflow.evaluate(
     targets="ground_truth",
     model_type="question-answering",
 )
+```
+
+:::note
+The `extract_fields` parameter is only supported when using `return_type="pandas"`.
+:::
+
+
+
+### Pagination
+
+For large result sets, use the <APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> API for pagination:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+page_token = None
+
+while True:
+    results = client.search_traces(
+        experiment_ids=experiment_ids,
+        page_token=page_token,
+        max_results=100,  # Number of results per page
+    )
+
+    # Process the current page of results
+    for trace in results:
+        # Do something with each trace
+        print(trace.request_id)
+
+    # Check if there are more pages
+    if not results.token:
+        break
+
+    page_token = results.token
 ```

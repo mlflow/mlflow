@@ -2,7 +2,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
-import { Button, FileIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, FileIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
 import type { ReduxState } from '../../../redux-types';
@@ -25,9 +25,16 @@ import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
 import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
-import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
+import type {
+  UseGetRunQueryResponseInputs,
+  UseGetRunQueryResponseOutputs,
+  UseGetRunQueryResponseRunInfo,
+} from './hooks/useGetRunQuery';
 import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { isEmpty, uniqBy } from 'lodash';
+import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
+import { isRunPageLoggedModelsTableEnabled } from '../../../common/utils/FeatureUtils';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -39,6 +46,8 @@ export const RunViewOverview = ({
   datasets,
   params,
   latestMetrics,
+  runInputs,
+  runOutputs,
   registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
   isLoadingLoggedModels = false,
 }: {
@@ -47,6 +56,8 @@ export const RunViewOverview = ({
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
   latestMetrics: MetricEntitiesByName;
+  runInputs?: UseGetRunQueryResponseInputs;
+  runOutputs?: UseGetRunQueryResponseOutputs;
   datasets?: RunDatasetWithTags[];
   params: Record<string, KeyValueEntity>;
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
@@ -56,11 +67,13 @@ export const RunViewOverview = ({
   const { search } = useLocation();
   const intl = useIntl();
 
-  const loggedModels = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
+  const loggedModelsFromTags = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
+  const containsLoggedModelsFromInputsOutputs = !isEmpty(runInputs?.modelInputs) || !isEmpty(runOutputs?.modelOutputs);
+  const shouldRenderLoggedModelsBox = !isRunPageLoggedModelsTableEnabled() || !containsLoggedModelsFromInputsOutputs;
 
   const registeredModelVersionSummaries = registeredModelVersionSummariesForRun;
-  const shouldDisplayLoggedModelsBox = loggedModels?.length > 0;
+  const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0;
 
   const renderPromptMetadataRow = () => (
     <DetailsOverviewMetadataRow
@@ -150,27 +163,29 @@ export const RunViewOverview = ({
           }
           value={<RunViewSourceBox tags={tags} search={search} runUuid={runUuid} />}
         />
-        <DetailsOverviewMetadataRow
-          title={
-            <FormattedMessage
-              defaultMessage="Logged models"
-              description="Run page > Overview > Run models section label"
-            />
-          }
-          value={
-            isLoadingLoggedModels ? (
-              <Spinner />
-            ) : shouldDisplayLoggedModelsBox ? (
-              <RunViewLoggedModelsBox
-                // Pass the run info and logged models
-                runInfo={runInfo}
-                loggedModels={loggedModels}
+        {shouldRenderLoggedModelsBox && (
+          <DetailsOverviewMetadataRow
+            title={
+              <FormattedMessage
+                defaultMessage="Logged models"
+                description="Run page > Overview > Run models section label"
               />
-            ) : (
-              <EmptyValue />
-            )
-          }
-        />
+            }
+            value={
+              isLoadingLoggedModels ? (
+                <Spinner />
+              ) : shouldDisplayContentsOfLoggedModelsBox ? (
+                <RunViewLoggedModelsBox
+                  // Pass the run info and logged models
+                  runInfo={runInfo}
+                  loggedModels={loggedModelsFromTags}
+                />
+              ) : (
+                <EmptyValue />
+              )
+            }
+          />
+        )}
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
@@ -206,6 +221,15 @@ export const RunViewOverview = ({
         {renderParams()}
         <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} />
       </div>
+      {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
+        <>
+          <Spacer />
+          <div css={{ minHeight: 360, maxHeight: 760, overflow: 'hidden', display: 'flex' }}>
+            <RunViewLoggedModelsTable inputs={runInputs} outputs={runOutputs} runInfo={runInfo} />
+          </div>
+        </>
+      )}
+      <Spacer />
     </div>
   );
 };

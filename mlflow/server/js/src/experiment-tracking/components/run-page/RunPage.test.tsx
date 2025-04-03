@@ -19,13 +19,13 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
 import { GetRun, GetRunVariables, MlflowRunStatus } from '../../../graphql/__generated__/graphql';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import Utils from '../../../common/utils/Utils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableGraphQLRunDetailsPage: jest.fn(),
-  isExperimentLoggedModelsUIEnabled: jest.fn().mockImplementation(() => false),
+  isExperimentLoggedModelsUIEnabled: jest.fn(() => false),
   isModelsInUCEnabled: jest.fn(),
   isRegisterUCModelFromUIEnabled: jest.fn(),
 }));
@@ -242,6 +242,7 @@ describe('RunPage (GraphQL API)', () => {
                 },
                 inputs: {
                   __typename: 'MlflowRunInputs',
+                  modelInputs: null,
                   datasetInputs: [
                     {
                       __typename: 'MlflowDatasetInput',
@@ -258,6 +259,7 @@ describe('RunPage (GraphQL API)', () => {
                     },
                   ],
                 },
+                outputs: null,
                 modelVersions: [],
               },
             },
@@ -352,6 +354,7 @@ describe('RunPage (GraphQL API)', () => {
                   endTime: '0',
                 },
                 inputs: null,
+                outputs: null,
                 modelVersions: [],
               },
             },

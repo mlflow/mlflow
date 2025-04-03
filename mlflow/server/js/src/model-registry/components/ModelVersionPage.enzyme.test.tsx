@@ -29,7 +29,7 @@ jest.mock('../../common/utils/ActionUtils', () => ({
 }));
 
 jest.mock('../actions', () => ({
-  ...jest.requireActual('../actions'),
+  ...jest.requireActual<typeof import('../actions')>('../actions'),
   getModelVersionApi: jest.fn(),
 }));
 
@@ -59,7 +59,9 @@ describe('ModelVersionPage', () => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
-    jest.mocked(getModelVersionApi).mockImplementation(jest.requireActual('../actions').getModelVersionApi);
+    jest
+      .mocked(getModelVersionApi)
+      .mockImplementation(jest.requireActual<typeof import('../actions')>('../actions').getModelVersionApi);
     minimalProps = {
       params: {
         modelName: encodeURIComponent('Model A'),

@@ -855,6 +855,19 @@ class SqlLoggedModel(Base):
             metrics=[m.to_mlflow_entity() for m in self.metrics] if self.metrics else None,
         )
 
+    ALIASES = {
+        "creation_time": "creation_timestamp_ms",
+        "creation_timestamp": "creation_timestamp_ms",
+        "last_updated_timestamp": "last_updated_timestamp_ms",
+    }
+
+    @staticmethod
+    def is_numeric(s: str) -> bool:
+        return SqlLoggedModel.ALIASES.get(s, s) in {
+            "creation_timestamp_ms",
+            "last_updated_timestamp_ms",
+        }
+
 
 class SqlLoggedModelMetric(Base):
     __tablename__ = "logged_model_metrics"

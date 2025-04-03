@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Any, Optional
 
 import sqlalchemy
+import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
@@ -535,7 +536,10 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             session.add(run)
 
-            return run.to_mlflow_entity()
+            run = run.to_mlflow_entity()
+            inputs_list = self._get_run_inputs(session, [run_id])
+            dataset_inputs = inputs_list[0] if inputs_list else []
+            return Run(run.info, run.data, RunInputs(dataset_inputs=dataset_inputs))
 
     def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """
@@ -1773,13 +1777,26 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             logged_model = (
                 session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.model_id == model_id)
-                .one_or_none()
+                .filter(
+                    SqlLoggedModel.model_id == model_id,
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .first()
             )
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
             return logged_model.to_mlflow_entity()
+
+    def delete_logged_model(self, model_id):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            logged_model.lifecycle_stage = LifecycleStage.DELETED
+            logged_model.last_updated_timestamp_ms = get_current_time_millis()
+            session.commit()
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         if status != LoggedModelStatus.READY:
@@ -1835,6 +1852,127 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
+    def _apply_order_by_search_logged_models(
+        self,
+        models: sqlalchemy.orm.Query,
+        session: sqlalchemy.orm.Session,
+        order_by: Optional[list[dict[str, Any]]] = None,
+    ) -> sqlalchemy.orm.Query:
+        order_by_clauses = []
+        has_creation_timestamp = False
+        for ob in order_by or []:
+            field_name = ob.get("field_name")
+            ascending = ob.get("ascending", True)
+            if "." not in field_name:
+                name = SqlLoggedModel.ALIASES.get(field_name, field_name)
+                if name == "creation_timestamp_ms":
+                    has_creation_timestamp = True
+                try:
+                    col = getattr(SqlLoggedModel, name)
+                except AttributeError:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid order by field name: {field_name}"
+                    )
+                ob = col.asc() if ascending else col.desc()
+                order_by_clauses.append(ob.nulls_last())
+                continue
+
+            entity, name = field_name.split(".", 1)
+            # TODO: Support filtering by other entities such as params if needed
+            if entity != "metrics":
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid order by field name: {field_name}. Only metrics are supported."
+                )
+
+            # Sub query to get the latest metrics value for each (model_id, metric_name) pair
+            dataset_filter = []
+            if dataset_name := ob.get("dataset_name"):
+                dataset_filter.append(SqlLoggedModelMetric.dataset_name == dataset_name)
+            if dataset_digest := ob.get("dataset_digest"):
+                dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
+
+            subquery = (
+                session.query(
+                    SqlLoggedModelMetric.model_id,
+                    SqlLoggedModelMetric.metric_value,
+                    func.rank()
+                    .over(
+                        partition_by=[
+                            SqlLoggedModelMetric.model_id,
+                            SqlLoggedModelMetric.metric_name,
+                        ],
+                        order_by=[
+                            SqlLoggedModelMetric.metric_timestamp_ms.desc(),
+                            SqlLoggedModelMetric.metric_step.desc(),
+                        ],
+                    )
+                    .label("rank"),
+                )
+                .filter(
+                    SqlLoggedModelMetric.metric_name == name,
+                    *dataset_filter,
+                )
+                .subquery()
+            )
+            subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
+
+            models = models.outerjoin(subquery)
+            ob = subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc()
+            order_by_clauses.append(ob.nulls_last())
+
+        if not has_creation_timestamp:
+            order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
+
+        return models.order_by(*order_by_clauses)
+
+    def _apply_filter_string_search_logged_models(
+        self,
+        models: sqlalchemy.orm.Query,
+        session: sqlalchemy.orm.Session,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+    ):
+        from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
+
+        comparisons = parse_filter_string(filter_string)
+        dialect = self._get_dialect()
+        filters: list[sqlalchemy.BinaryExpression] = []
+        for comp in comparisons:
+            comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
+            if comp.entity.type == EntityType.ATTRIBUTE:
+                filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                continue
+
+            if comp.entity.type == EntityType.METRIC:
+                subquery = (
+                    session.query(SqlLoggedModelMetric)
+                    .filter(SqlLoggedModelMetric.metric_name == comp.entity.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.value))
+            elif comp.entity.type == EntityType.PARAM:
+                subquery = (
+                    session.query(SqlLoggedModelParam)
+                    .filter(SqlLoggedModelParam.param_key == comp.entity.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
+            elif comp.entity.type == EntityType.TAG:
+                subquery = (
+                    session.query(SqlLoggedModelTag)
+                    .filter(SqlLoggedModelTag.tag_key == comp.entity.key)
+                    .subquery()
+                )
+                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
+
+            models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
+
+        return models.filter(
+            SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+            SqlLoggedModel.experiment_id.in_(experiment_ids),
+            *filters,
+        )
+
     def search_logged_models(
         self,
         experiment_ids: list[str],
@@ -1843,7 +1981,6 @@ class SqlAlchemyStore(AbstractStore):
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
-        # TODO: Support filtering and order_by
         if page_token:
             token = SearchLoggedModelsPaginationToken.decode(page_token)
             token.validate(experiment_ids, filter_string, order_by)
@@ -1853,14 +1990,12 @@ class SqlAlchemyStore(AbstractStore):
 
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         with self.ManagedSessionMaker() as session:
-            models = (
-                session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.experiment_id.in_(experiment_ids))
-                .order_by(SqlLoggedModel.creation_timestamp_ms.desc())
-                .offset(offset)
-                .limit(max_results + 1)
-                .all()
+            models = session.query(SqlLoggedModel)
+            models = self._apply_filter_string_search_logged_models(
+                models, session, experiment_ids, filter_string
             )
+            models = self._apply_order_by_search_logged_models(models, session, order_by)
+            models = models.offset(offset).limit(max_results + 1).all()
 
             if len(models) > max_results:
                 token = SearchLoggedModelsPaginationToken(

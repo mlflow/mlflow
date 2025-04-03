@@ -633,6 +633,18 @@ service MlflowService {
     };
   }
 
+  rpc deleteLoggedModel(DeleteLoggedModel) returns (DeleteLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/logged-models/{model_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete a Logged Model",
+    };
+  }
+
   // Search for Logged Models that satisfy specified search criteria.
   rpc searchLoggedModels (SearchLoggedModels) returns (SearchLoggedModels.Response) {
     option (rpc) = {
@@ -2109,6 +2121,15 @@ message GetLoggedModel {
     // The retrieved LoggedModel.
     optional LoggedModel model = 1;
   }
+}
+
+message DeleteLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to delete.
+  optional string model_id = 1 [(validate_required) = true];
+
+  message Response {}
 }
 
 message SearchLoggedModels {

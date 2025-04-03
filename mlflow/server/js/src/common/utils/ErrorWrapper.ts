@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { NotFoundError, BadRequestError, InternalServerError, PermissionError } from '@databricks/web-shared/errors';
 import { ErrorCodes } from '../constants';
 
 export class ErrorWrapper {
@@ -65,5 +66,29 @@ export class ErrorWrapper {
   is4xxError() {
     const status = parseInt(this.getStatus(), 10);
     return status >= 400 && status <= 499;
+  }
+
+  // Tries to parse the error message from the response and convert it to matching PredefinedError instance
+  translateToErrorInstance() {
+    let error = null;
+    if (this.status === 404 || this.textJson?.error_code === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+      error = new NotFoundError({});
+    } else if (this.status === 400 || this.textJson?.error_code === ErrorCodes.INVALID_PARAMETER_VALUE) {
+      error = new BadRequestError({});
+    } else if (this.status === 403 || this.textJson?.error_code === ErrorCodes.PERMISSION_DENIED) {
+      error = new PermissionError({});
+    } else if (this.status === 500 || this.textJson?.error_code === ErrorCodes.INTERNAL_ERROR) {
+      error = new InternalServerError({});
+    }
+
+    if (error) {
+      if (this.getMessageField()) {
+        error.message = this.getMessageField();
+      }
+
+      return error;
+    }
+
+    return new Error(this.getMessageField());
   }
 }

@@ -183,12 +183,13 @@ class FileStore(AbstractStore):
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    MODELS_FOLDER_NAME = "models"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
+        MODELS_FOLDER_NAME,
     ]
-    MODELS_FOLDER_NAME = "models"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -2014,6 +2015,7 @@ class FileStore(AbstractStore):
         model_dir = self._get_model_dir(experiment_id, model_id)
         mkdir(model_dir)
         model_info_dict: dict[str, Any] = self._make_persisted_model_dict(model)
+        model_info_dict["lifecycle_stage"] = LifecycleStage.ACTIVE
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
         self.set_logged_model_tags(model_id=model_id, tags=tags or [])
@@ -2105,6 +2107,18 @@ class FileStore(AbstractStore):
         """
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
+    def delete_logged_model(self, model_id: str) -> None:
+        model = self.get_logged_model(model_id)
+        model_dir = self._get_model_dir(model.experiment_id, model_id)
+        if not exists(model_dir):
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
+        model_dict = self._get_model_dict(model_id)
+        model_dict["lifecycle_stage"] = LifecycleStage.DELETED
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_dict, overwrite=True)
+
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
             self.get_experiment(experiment_id).artifact_location,
@@ -2126,6 +2140,11 @@ class FileStore(AbstractStore):
                 f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
             )
         model_dict: dict[str, Any] = self._get_model_info_from_dir(model_dir)
+        if model_dict.get("lifecycle_stage") == LifecycleStage.DELETED:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
         if model_dict["experiment_id"] != exp_id:
             raise MlflowException(
                 f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
@@ -2243,7 +2262,7 @@ class FileStore(AbstractStore):
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
-        order_by: Optional[list[list[str, Any]]] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
         """
@@ -2256,9 +2275,16 @@ class FileStore(AbstractStore):
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
 
-                field_name (str): Required. Name of the field to order by, e.g. "model_id".
-                ascending or descending: (str): Optional. Whether the order is ascending or not.
-                    Default is ascending. e.g. "ASC" or "DESC".
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
             page_token: Token specifying the next page of results.
 
         Returns:
@@ -2298,7 +2324,10 @@ class FileStore(AbstractStore):
         for m_dir in model_dirs:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
-                model = self._get_model_from_dir(m_dir)
+                m_dict = self._get_model_info_from_dir(m_dir)
+                if m_dict.get("lifecycle_stage") == LifecycleStage.DELETED:
+                    continue
+                model = LoggedModel.from_dictionary(m_dict)
                 if model.experiment_id != experiment_id:
                     logging.warning(
                         "Wrong experiment ID (%s) recorded for model '%s'. "

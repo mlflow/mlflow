@@ -1690,6 +1690,50 @@ def test_runs_are_ended_by_run_id():
     assert mlflow.active_run() is None
 
 
+def test_create_logged_model_active_run():
+    with mlflow.start_run() as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    exp_id = mlflow.create_experiment("exp")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        model = mlflow.create_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    model = mlflow.create_logged_model()
+    assert model.source_run_id is None
+
+
+def test_create_logged_model_tags_from_context():
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: "1234",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_name",
+            return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
+        ) as m_get_source_name,
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_type",
+            return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
+        ) as m_get_source_type,
+        mock.patch(
+            "mlflow.tracking.context.git_context._get_source_version",
+            return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+        ) as m_get_source_version,
+    ):
+        model = mlflow.create_logged_model()
+        assert expected_tags.items() <= model.tags.items()
+        m_get_source_name.assert_called_once()
+        m_get_source_type.assert_called_once()
+        m_get_source_version.assert_called_once()
+
+
 def test_last_logged_model():
     _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
@@ -1699,10 +1743,10 @@ def test_last_logged_model():
 
     client = MlflowClient()
     client.set_logged_model_tags(model.model_id, {"tag": "value"})
-    assert mlflow.last_logged_model().tags == {"tag": "value"}
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
 
     client.delete_logged_model_tag(model.model_id, "tag")
-    assert mlflow.last_logged_model().tags == {}
+    assert "tag" not in mlflow.last_logged_model().tags
 
     another_model = mlflow.create_logged_model()
     assert mlflow.last_logged_model().model_id == another_model.model_id

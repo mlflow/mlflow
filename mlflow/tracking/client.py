@@ -925,7 +925,7 @@ class MlflowClient:
                 else None
             )
 
-        traces = self._tracking_client.search_traces(
+        return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -935,9 +935,6 @@ class MlflowClient:
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
         )
-
-        get_display_handler().display_traces(traces)
-        return traces
 
     def start_trace(
         self,
@@ -5381,6 +5378,16 @@ class MlflowClient:
         return self._tracking_client.get_logged_model(model_id)
 
     @experimental
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        return self._tracking_client.delete_logged_model(model_id)
+
+    @experimental
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags on the specified logged model.
@@ -5423,7 +5430,25 @@ class MlflowClient:
 
         Args:
             experiment_ids: List of experiment ids to scope the search.
-            filter_string: A search filter string.
+            filter_string: A SQL-like filter string to parse. The filter string syntax supports:
+
+                - Entity specification:
+                    - attributes: `attribute_name` (default if no prefix is specified)
+                    - metrics: `metrics.metric_name`
+                    - parameters: `params.param_name`
+                    - tags: `tags.tag_name`
+                - Comparison operators:
+                    - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
+                    - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - Multiple conditions can be joined with 'AND'
+                - String values must be enclosed in single quotes
+
+                Example filter strings:
+                    - `creation_time > 100`
+                    - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
+                    - `tags.release LIKE 'v1.%'`
+                    - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
+
             max_results: Maximum number of logged models desired.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:

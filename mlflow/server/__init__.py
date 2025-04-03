@@ -18,6 +18,7 @@ from mlflow.server.handlers import (
     create_promptlab_run_handler,
     gateway_proxy_handler,
     get_artifact_handler,
+    get_logged_model_artifact_handler,
     get_metric_history_bulk_handler,
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
@@ -122,6 +123,14 @@ def serve_upload_artifact():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
 def serve_get_trace_artifact():
     return get_trace_artifact_handler()
+
+
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/logged-models/<model_id>/artifacts/files"),
+    methods=["GET"],
+)
+def serve_get_logged_model_artifact(model_id: str):
+    return get_logged_model_artifact_handler(model_id)
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
