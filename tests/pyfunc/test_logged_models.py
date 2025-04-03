@@ -98,7 +98,7 @@ def test_run_metrics_are_logged_to_model():
 
 
 def test_log_model_finalizes_existing_pending_model():
-    model = mlflow.create_model(name="testmodel")
+    model = mlflow.initialize_logged_model(name="testmodel")
     assert model.status == LoggedModelStatus.PENDING
     mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
     updated_model = mlflow.get_logged_model(model.model_id)
@@ -106,7 +106,7 @@ def test_log_model_finalizes_existing_pending_model():
 
 
 def test_log_model_does_not_update_artifacts_or_status_for_finalized_models(tmp_path):
-    model = mlflow.create_model(name="testmodel", external=True)
+    model = mlflow.initialize_logged_model(name="testmodel", external=True)
     assert model.status == LoggedModelStatus.READY
     dst_dir_1 = os.path.join(tmp_path, "dst_1")
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_1)
@@ -121,7 +121,7 @@ def test_log_model_does_not_update_artifacts_or_status_for_finalized_models(tmp_
 
 
 def test_external_logged_model_cannot_be_loaded_with_pyfunc():
-    model = mlflow.create_model(name="testmodel", external=True)
+    model = mlflow.initialize_logged_model(name="testmodel", external=True)
     with pytest.raises(
         MlflowException,
         match="This model's artifacts are external.*cannot be loaded",

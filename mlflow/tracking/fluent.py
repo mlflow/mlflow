@@ -2007,7 +2007,77 @@ def delete_experiment(experiment_id: str) -> None:
 
 
 @experimental
-def create_model(
+def initialize_logged_model(
+    name: Optional[str] = None,
+    source_run_id: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> LoggedModel:
+    """
+    Initialize a LoggedModel. Creates a LoggedModel with status ``PENDING`` and no artifacts. You
+    must add artifacts to the model and finalize it to the ``READY`` state, for example by calling
+    a flavor-specific ``log_model()`` method such as :py:func:`mlflow.pyfunc.log_model()`.
+
+    Args:
+        name: The name of the model. If not specified, a random name will be generated.
+        source_run_id: The ID of the run that the model is associated with.
+        tags: A dictionary of string keys and values to set as tags on the model.
+        params: A dictionary of string keys and values to set as parameters on the model.
+        model_type: The type of the model.
+        experiment_id: The experiment ID of the experiment to which the model belongs.
+
+    Returns:
+        A new LoggedModel object with status ``PENDING``.
+    """
+    return _create_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+        external=False,
+    )
+
+
+def create_external_model(
+    name: Optional[str] = None,
+    source_run_id: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> LoggedModel:
+    """
+    Create a new LoggedModel whose artifacts are stored outside of MLflow. This is useful for
+    tracking parameters and performance data (metrics, tracesm etc.) for a version of a model,
+    application, or generative AI agent that is not packaged using the MLflow Model format.
+
+    Args:
+        name: The name of the model. If not specified, a random name will be generated.
+        source_run_id: The ID of the run that the model is associated with.
+        tags: A dictionary of string keys and values to set as tags on the model.
+        params: A dictionary of string keys and values to set as parameters on the model.
+        model_type: The type of the model.
+        experiment_id: The experiment ID of the experiment to which the model belongs.
+
+    Returns:
+        A new LoggedModel object with status ``READY``.
+    """
+    return _create_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+        external=True,
+    )
+
+
+def _create_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
@@ -2090,7 +2160,8 @@ def last_logged_model() -> Optional[LoggedModel]:
 
         import mlflow
 
-        model = mlflow.create_model()
+        # TODO: UPDATE THIS TO A PYFUNC EXAMPLE!!!
+        model = mlflow.initialize_logged_model()
         last_model = mlflow.last_logged_model()
         assert last_model.model_id == model.model_id
 
