@@ -3127,9 +3127,16 @@ def save_model(
             type_hints = python_model.predict_type_hints
             model_for_signature_inference = python_model
             predict_func = python_model.predict
+        # Load context before calling predict to ensure necessary artifacts are available
+        try:
+            context = PythonModelContext(artifacts, model_config)
+            model_for_signature_inference.load_context(context)
+        except Exception as e:
+            _logger.warning(
+                "Failed to load context for Python model. This may affect the "
+                f"signature inference process. Error: {e}"
+            )
 
-        context = PythonModelContext(artifacts, model_config)
-        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
@@ -3150,8 +3157,6 @@ def save_model(
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
-                    context = PythonModelContext(artifacts, model_config)
-                    model_for_signature_inference.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         saved_example,
                         _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),
