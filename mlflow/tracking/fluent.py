@@ -1184,8 +1184,8 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
-            run.
+        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
+            to the run.
 
     .. code-block:: python
         :test:
@@ -1226,9 +1226,10 @@ def log_inputs(
         datasets: List of :py:class:`mlflow.data.dataset.Dataset` object to be logged.
         contexts: List of context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
-        tags_list: List of tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
-            run.
+        tags_list: List of tags to be associated with the dataset. Dictionary of
+            tag_key -> tag_value.
+        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
+            to the run.
 
     .. code-block:: python
         :test:

@@ -296,6 +296,7 @@ __all__ = [
     "log_figure",
     "log_image",
     "log_input",
+    "log_inputs",
     "log_outputs",
     "log_metric",
     "log_metrics",
