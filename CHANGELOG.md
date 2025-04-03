@@ -2,12 +2,12 @@
 
 ## 2.21.3 (2025-04-03)
 
-MLflow 2.21.3 includes several major features and improvements
+MLflow 2.21.3 includes a few bugi
 
 Bug fixes:
 
 - [Tracking] Fix spark ML save model error in Databricks shared or serverless cluster (#15198, @WeichenXu123)
-- [] Fix Spark model logging / loading in Databricks shared cluster and serverless (#15075, @WeichenXu123)
+- [Tracking] Fix Spark model logging / loading in Databricks shared cluster and serverless (#15075, @WeichenXu123)
 
 Documentation updates:
 
