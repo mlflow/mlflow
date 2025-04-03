@@ -42,7 +42,9 @@ Specifically, you will be able to:
 - Holistically track all performance metrics related to your logged models with links to training and evaluation jobs
 - Search for and rank existing models based on a set of certain criteria, such as performance metrics on training or evaluation datasets
 
-Simple example:
+### Quickstart
+
+This quickstart example demonstrates how to use the LoggedModel lineage feature in MLflow 3.0 with a custom Python model, showcasing its integration with runs and traces.
 
 ```python
 import mlflow
@@ -69,6 +71,25 @@ print(traces)
 #                          request_id                                              trace   timestamp_ms  ...                                              spans                                               tags assessments
 # 0  af5da8c78a6f49c793f57ebb19dcb6c7  Trace(request_id=af5da8c78a6f49c793f57ebb19dcb...  1742781867233  ...  [{'name': 'predict', 'context': {'span_id': '0...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 ```
+
+Navigate to the run's page to view the LoggedModel:
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the run and logged model](/images/mlflow-3/simple_example_run_page.png)
+</div>
+
+Clicking on the logged model takes you to the model page, where you can view its details, including the model ID, source run, associated metrics, traces and artifacts:
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the logged model](/images/mlflow-3/simple_example_model.png)
+</div>
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the logged model traces](/images/mlflow-3/simple_example_traces.png)
+</div>
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the logged model artifacts](/images/mlflow-3/simple_example_artifacts.png)
+</div>
+
 
 ## MLflow 3.0 Showcases
 
