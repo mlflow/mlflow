@@ -232,6 +232,7 @@ from mlflow.tracking.fluent import (
     log_figure,
     log_image,
     log_input,
+    log_inputs,
     log_metric,
     log_metrics,
     log_outputs,
