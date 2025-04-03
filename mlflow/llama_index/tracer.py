@@ -34,7 +34,7 @@ from llama_index.core.tools import BaseTool
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import LiveSpan, SpanEvent, SpanType
+from mlflow.entities import LiveSpan, LoggedModelStatus, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
@@ -160,6 +160,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             autologging_config = AutoLoggingConfig.init(mlflow.llama_index.FLAVOR_NAME)
             if autologging_config.create_logged_model:
                 logged_model = mlflow.create_logged_model(name=instance.__class__.__name__)
+                mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
                 _MODEL_TRACKER.set(id(instance), logged_model.model_id)
                 _logger.debug(
                     f"Created LoggedModel with model_id {logged_model.model_id} "

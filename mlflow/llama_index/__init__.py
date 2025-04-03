@@ -7,6 +7,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities import LoggedModelStatus
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
@@ -652,6 +653,7 @@ def _autolog(
         engine_model_id = _MODEL_TRACKER.get(id(self))
         if engine_model_id is None and create_logged_model:
             logged_model = mlflow.create_logged_model(name=self.__class__.__name__)
+            mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(id(self), logged_model.model_id)
             _logger.debug(
                 f"Created LoggedModel with model_id {logged_model.model_id} for index "
