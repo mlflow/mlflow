@@ -398,7 +398,7 @@ def log_model(
             model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    logged_model = mlflow.create_logged_model(
+    logged_model = mlflow.initialize_logged_model(
         name=name,
         source_run_id=run.info.run_id if (run := mlflow.active_run()) else None,
         model_type=model_type,

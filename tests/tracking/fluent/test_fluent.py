@@ -33,6 +33,7 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -40,6 +41,7 @@ from mlflow.environment_variables import (
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -1690,23 +1692,23 @@ def test_runs_are_ended_by_run_id():
     assert mlflow.active_run() is None
 
 
-def test_create_logged_model_active_run():
+def test_initialize_logged_model_active_run():
     with mlflow.start_run() as run:
-        model = mlflow.create_logged_model()
+        model = mlflow.initialize_logged_model()
         assert model.source_run_id == run.info.run_id
         assert model.experiment_id == run.info.experiment_id
 
     exp_id = mlflow.create_experiment("exp")
     with mlflow.start_run(experiment_id=exp_id) as run:
-        model = mlflow.create_logged_model()
+        model = mlflow.initialize_logged_model()
         assert model.source_run_id == run.info.run_id
         assert model.experiment_id == run.info.experiment_id
 
-    model = mlflow.create_logged_model()
+    model = mlflow.initialize_logged_model()
     assert model.source_run_id is None
 
 
-def test_create_logged_model_tags_from_context():
+def test_initialize_logged_model_tags_from_context():
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
@@ -1727,18 +1729,31 @@ def test_create_logged_model_tags_from_context():
             return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
         ) as m_get_source_version,
     ):
-        model = mlflow.create_logged_model()
+        model = mlflow.initialize_logged_model()
         assert expected_tags.items() <= model.tags.items()
         m_get_source_name.assert_called_once()
         m_get_source_type.assert_called_once()
         m_get_source_version.assert_called_once()
 
 
+def test_create_external_model(tmp_path):
+    model = mlflow.create_external_model()
+    assert model.status == LoggedModelStatus.READY
+    assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
+
+    # Verify that an MLmodel file is created with metadata indicating that the model's artifacts
+    # are stored externally
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=tmp_path)
+    mlflow_model: Model = Model.load(os.path.join(tmp_path, MLMODEL_FILE_NAME))
+    assert mlflow_model.metadata is not None
+    assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
+
+
 def test_last_logged_model():
     _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
 
-    model = mlflow.create_logged_model()
+    model = mlflow.initialize_logged_model()
     assert mlflow.last_logged_model().model_id == model.model_id
 
     client = MlflowClient()
@@ -1748,7 +1763,10 @@ def test_last_logged_model():
     client.delete_logged_model_tag(model.model_id, "tag")
     assert "tag" not in mlflow.last_logged_model().tags
 
-    another_model = mlflow.create_logged_model()
+    external_model = mlflow.create_external_model()
+    assert mlflow.last_logged_model().model_id == external_model.model_id
+
+    another_model = mlflow.initialize_logged_model()
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by client should be ignored
@@ -1756,7 +1774,7 @@ def test_last_logged_model():
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by another thread should be ignored
-    t = threading.Thread(daemon=True, target=lambda: mlflow.create_logged_model())
+    t = threading.Thread(daemon=True, target=lambda: mlflow.initialize_logged_model())
     t.start()
     t.join()
     assert mlflow.last_logged_model().model_id == another_model.model_id
