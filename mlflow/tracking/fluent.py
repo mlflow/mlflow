@@ -1245,14 +1245,14 @@ def log_inputs(
         dataset2 = mlflow.data.from_numpy(array2, source="data2.csv")
 
         # Log 2 input datasets used for training and test,
-        # the training dataset has no tag, but has `model1` reference,
-        # the test dataset has tags `{"my_tag": "tag_value"}`, but has no model reference.
+        # the training dataset has no tag.
+        # the test dataset has tags `{"my_tag": "tag_value"}`.
         with mlflow.start_run():
             mlflow.log_inputs(
                 [dataset, dataset2],
                 contexts=["training", "test"],
                 tags_list=[None, {"my_tag": "tag_value"},
-                models=[model1]
+                models=None
             )
     """
     run_id = _get_or_start_run().info.run_id
