@@ -71,6 +71,7 @@ def autolog(
         log_evals=log_evals,
         disable=disable,
         silent=silent,
+        log_models=log_models,
     )
 
     import dspy
