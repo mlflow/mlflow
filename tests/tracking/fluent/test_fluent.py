@@ -1750,7 +1750,7 @@ def test_last_logged_model():
     _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
 
-    model = mlflow.initialized_logged_model()
+    model = mlflow.initialize_logged_model()
     assert mlflow.last_logged_model().model_id == model.model_id
 
     client = MlflowClient()
