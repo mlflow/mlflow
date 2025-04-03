@@ -1403,13 +1403,14 @@ class _ModelTracker:
     """
 
     def __init__(self):
-        # stores id(model) -> model_id of LoggedModel mapping
-        self.model_ids: dict[int, str] = {}
+        # maps model identity (id(model)) to model_id for logged models
+        self._model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
         # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
         # thread-safe variable to track active model_id
         self._active_model_id = ContextVar("_active_model_id", default=None)
+        self._is_active_model_id_set = False
 
     def get(self, identity: int) -> Optional[str]:
         """
@@ -1418,7 +1419,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            return self.model_ids.get(identity)
+            return self._model_ids.get(identity)
 
     def set(self, identity: int, model_id: str) -> None:
         """
@@ -1427,7 +1428,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            self.model_ids[identity] = model_id
+            self._model_ids[identity] = model_id
 
     def set_active_model_id(self, model_id: Optional[str]) -> None:
         """
@@ -1443,24 +1444,12 @@ class _ModelTracker:
         """
         return self._active_model_id.get()
 
-    def set_active_model_id_for_identity(self, identity: int) -> None:
-        """
-        Set the current active model id for the given model identity.
-        This should be default behavior for most model objects.
-        """
-        # we don't restore _active_model_id value because
-        # original function could be a coroutine.
-        # If the model identity is not stored we set active_model_id to
-        # None to avoid inheriting the previous active model id.
-        if model_id := self.get(identity):
-            self.set_active_model_id(model_id)
-        else:
-            self.set_active_model_id(None)
-
     def clear(self) -> None:
         with self._lock:
-            self.model_ids.clear()
+            self._model_ids.clear()
             self._model_locks.clear()
+            self._active_model_id.set(None)
+            self._is_active_model_id_set = False
 
 
 _MODEL_TRACKER = _ModelTracker()

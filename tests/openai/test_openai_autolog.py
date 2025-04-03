@@ -899,3 +899,57 @@ def test_generate_model_identity_same(model_dict1, model_dict2):
 )
 def test_generate_model_identity_different(model_dict1, model_dict2):
     assert _generate_model_identity(model_dict1) != _generate_model_identity(model_dict2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("create_logged_model", [True, False])
+async def test_autolog_create_logged_model_and_link_traces(client, create_logged_model):
+    mlflow.openai.autolog(create_logged_model=create_logged_model)
+
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": "test"}],
+                model="gpt-4o-mini",
+                temperature=0.1,
+            )
+            if client._is_async:
+                await response
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if create_logged_model:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "chat.completions",
+            "model",
+            temperature=0.1,
+            messages=[{"role": "system", "content": "test"}],
+        )
+    assert model_info.model_id != logged_model_id
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+    )
+    if client._is_async:
+        await response
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id

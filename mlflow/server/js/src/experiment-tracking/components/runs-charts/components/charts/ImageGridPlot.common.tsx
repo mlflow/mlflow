@@ -7,18 +7,10 @@ import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 
-const MAX_IMAGE_SIZE = 225;
-const MIN_IMAGE_SIZE = 120;
-export const IMAGE_GAP_SIZE = 10;
-
-export const getImageSize = (numImages: number, width: number) => {
-  // Scale image size based on number of images
-  const maxImagesPerRow = Math.floor(width / MIN_IMAGE_SIZE);
-  if (numImages < maxImagesPerRow) {
-    return Math.min(width / numImages - IMAGE_GAP_SIZE, MAX_IMAGE_SIZE);
-  }
-  return width / maxImagesPerRow - IMAGE_GAP_SIZE;
-};
+/**
+ * Despite image size being dynamic, we want to set a minimum size for the grid images.
+ */
+export const MIN_GRID_IMAGE_SIZE = 200;
 
 type ImagePlotProps = {
   imageUrl: string;
@@ -46,14 +38,15 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   }, [compressedImageUrl]);
 
   return (
-    <div css={{ width: imageSize, height: imageSize || '100%' }}>
-      <div css={{ height: imageSize || '100%' }}>
+    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+      <div css={{ display: 'contents' }}>
         {compressedImageUrl === undefined || imageLoading ? (
           <div
             css={{
-              height: '100%',
+              width: '100%',
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
+              aspectRatio: '1',
               justifyContent: 'center',
               alignItems: 'center',
             }}
@@ -67,14 +60,12 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               alignItems: 'center',
               justifyContent: 'center',
               width: imageSize || '100%',
-              height: imageSize || '100%',
+              aspectRatio: '1',
               maxWidth: maxImageSize,
               maxHeight: maxImageSize,
               backgroundColor: theme.colors.backgroundSecondary,
-              '& .ant-image': {
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
+              '.rc-image': {
+                cursor: 'pointer',
               },
             }}
           >
@@ -115,9 +106,9 @@ export const ImagePlotWithHistory = ({
           justifyContent: 'center',
           textAlign: 'center',
           width: imageSize,
-          height: imageSize,
           backgroundColor: theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
+          aspectRatio: '1',
         }}
       >
         <ImageIcon />

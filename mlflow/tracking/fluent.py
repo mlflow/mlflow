@@ -2147,6 +2147,21 @@ def _create_logged_model(
 
 
 @experimental
+def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    """
+    Finalize a model by updating its status.
+
+    Args:
+        model_id: ID of the model to finalize.
+        status: Final status to set on the model.
+
+    Returns:
+        The updated model.
+    """
+    return MlflowClient().finalize_logged_model(model_id, status)
+
+
+@experimental
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.

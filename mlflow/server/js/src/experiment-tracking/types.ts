@@ -8,6 +8,7 @@ import { type CSSProperties } from 'react';
 import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
+import { GetRun } from '../graphql/__generated__/graphql';
 
 export interface RunItem {
   runId: string;
@@ -125,7 +126,7 @@ export type MetricEntitiesByName = Record<string, MetricEntity>;
 export type MetricHistoryByName = Record<string, MetricEntity[]>;
 
 export interface ExperimentEntity {
-  allowedActions: string[];
+  allowedActions?: string[];
   artifactLocation: string;
   creationTime: number;
   experimentId: string;
@@ -430,3 +431,53 @@ export interface SearchExperimentsApiResponse {
 export interface GetExperimentApiResponse {
   experiment: ExperimentEntity;
 }
+export type GraphQLExperimentRun = NonNullable<GetRun['mlflowGetRun']>['run'];
+
+export enum LoggedModelStatusProtoEnum {
+  LOGGED_MODEL_PENDING = 'LOGGED_MODEL_PENDING',
+  LOGGED_MODEL_READY = 'LOGGED_MODEL_READY',
+  LOGGED_MODEL_STATUS_UNSPECIFIED = 'LOGGED_MODEL_STATUS_UNSPECIFIED',
+  LOGGED_MODEL_UPLOAD_FAILED = 'LOGGED_MODEL_UPLOAD_FAILED',
+}
+
+export interface LoggedModelMetricProto {
+  dataset_digest?: string;
+  dataset_name?: string;
+  key?: string;
+  model_id?: string;
+  run_id?: string;
+  step?: number;
+  timestamp?: number;
+  value?: number;
+}
+
+export interface LoggedModelKeyValueProto {
+  key?: string;
+  value?: string;
+}
+export interface LoggedModelRegistrationProto {
+  name?: string;
+  version?: string;
+}
+
+export type LoggedModelProto = {
+  data?: {
+    metrics?: LoggedModelMetricProto[];
+    params?: LoggedModelKeyValueProto[];
+  };
+  info?: {
+    artifact_uri?: string;
+    creation_timestamp_ms?: number;
+    creator_id?: string;
+    experiment_id?: string;
+    last_updated_timestamp_ms?: number;
+    model_id?: string;
+    model_type?: string;
+    name?: string;
+    source_run_id?: string;
+    status?: LoggedModelStatusProtoEnum;
+    status_message?: string;
+    registrations?: LoggedModelRegistrationProto[];
+    tags?: LoggedModelKeyValueProto[];
+  };
+};
