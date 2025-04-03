@@ -23,19 +23,19 @@ MLflow 3.0 introduces a variety of exciting improvements, including:
 Model Tracking helps you create and evaluate different model/agent configurations in your experiments, <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> helps you find the best ones for production usage, and tracing helps enhance observability in your model or GenAI applications.
 
 
-## Model Tracking with LoggedModel
+## Enhanced Model Tracking
 
-In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance deep learning and generative AI workflows. 
+In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance generative AI and deep learning workflows. 
+With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers.
 In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment. 
-With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers. 
 
-We are introducing a new first-class object, the Logged Model entity, into MLflow Tracking to streamline these processes. As your deep learning jobs create and evaluate models, 
-or you define and evaluate your GenAI agents in code, they will be automatically stored as MLflow Logged Models in your MLflow Experiment. 
+We are introducing a new first-class object, the <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity, into MLflow Tracking to streamline these processes. As you define and evaluate your GenAI agents in code, 
+or your deep learning jobs create and evaluate models, they will be automatically stored as MLflow Logged Models in your MLflow Experiment. 
 
-Every deep learning checkpoint is stored as a Logged Model with direct links to its own metrics. There is no longer any need to carefully log evaluation metrics for each checkpoint
-at its epoch all within the same Run, or to later query all metrics at a certain epoch just to retrieve metrics for one checkpoint. 
-Similarly, each GenAI agent consolidates its evaluation metrics from both offline jobs and online interactions if you use managed MLflow with Databricks. 
+Each GenAI agent consolidates its evaluation metrics from both offline jobs and online interactions if you use managed MLflow with Databricks. 
 This feature removes the need to query Runs for traces from different environments (batch jobs, different notebook sessions etc.) to gain a full understanding of the agent’s performance.
+Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> with direct links to its own metrics. There is no longer any need to carefully log evaluation metrics for each checkpoint
+at its epoch all within the same Run, or to later query all metrics at a certain epoch just to retrieve metrics for one checkpoint. 
 
 Specifically, you will be able to:
 - View Logged Models alongside key information, including code and weights as artifacts and configurable parameters that affect model behavior
@@ -96,8 +96,8 @@ Clicking on the logged model takes you to the model page, where you can view its
 Explore the examples below to see how MLflow 3.0's powerful features can be applied across various domains.
 
 <CardGroup>
-  <PageCard headerText="Deep Learning with MLflow 3.0" link="/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
   <PageCard headerText="GenAI with MLflow 3.0" link="/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3.0." />
+  <PageCard headerText="Deep Learning with MLflow 3.0" link="/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
 </CardGroup>
 
 ## Migration Guide

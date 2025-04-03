@@ -2,11 +2,13 @@
 sidebar_position: 2
 ---
 
+import { APILink } from "@site/src/components/APILink";
+
 # Deep Learning with MLflow 3.0
 
 In this example, we demonstrate how to use MLflow 3.0 to track and evaluate deep learning models with a PyTorch-based Iris classifier.
 The example showcases how to log checkpoints, link metrics to datasets, and rank models based on performance metrics.
-With ``mlflow.search_logged_models`` you can easily find the best model based on the metric value.
+With <APILink fn="mlflow.search_logged_models" /> you can easily find the best model based on the metric value.
 
 ```python
 import pandas as pd
@@ -126,7 +128,7 @@ The logged models also show up in the **Models** tab of the experiment, includin
     ![The MLflow UI showing the logged models tab](/images/mlflow-3/deep-learning/logged_models.png)
 </div>
 
-Use **mlflow.search_logged_models** to search the logged models attached to the run, ordering them by the `accuracy` metric value to easily fetch the best and worst models:
+Use **<APILink fn="mlflow.search_logged_models" />** to search the logged models attached to the run, ordering them by the `accuracy` metric value to easily fetch the best and worst models:
 
 ```python
 ranked_checkpoints = mlflow.search_logged_models(

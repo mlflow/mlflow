@@ -26,13 +26,13 @@ const sidebars: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'mlflow-3/deep-learning',
-          label: 'Deep Learning',
+          id: 'mlflow-3/genai-agent',
+          label: 'GenAI Development',
         },
         {
           type: 'doc',
-          id: 'mlflow-3/genai-agent',
-          label: 'GenAI Development',
+          id: 'mlflow-3/deep-learning',
+          label: 'Deep Learning',
         },
       ],
       link: {
