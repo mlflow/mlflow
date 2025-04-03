@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Iterator, Optional
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import LoggedModelStatus, SpanType
+from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
@@ -99,7 +99,6 @@ def patched_call(original, self, *args, **kwargs):
     if config.log_traces:
         if model_id is None and config.log_models:
             logged_model = mlflow.create_external_model(name="openai")
-            mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(model_identity, logged_model.model_id)
             model_id = logged_model.model_id
 
@@ -131,7 +130,6 @@ async def async_patched_call(original, self, *args, **kwargs):
     if config.log_traces:
         if model_id is None and config.log_models:
             logged_model = mlflow.create_external_model(name="openai")
-            mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(model_identity, logged_model.model_id)
             model_id = logged_model.model_id
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
