@@ -46,6 +46,22 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE webhooks (
+	name VARCHAR(256) NOT NULL,
+	creation_time BIGINT,
+	last_updated_time BIGINT,
+	description VARCHAR(5000),
+	url VARCHAR(2048) NOT NULL,
+	event_trigger VARCHAR(10) NOT NULL,
+	key VARCHAR(256) NOT NULL,
+	value VARCHAR(5000),
+	headers JSON,
+	payload JSON,
+	CONSTRAINT webhook_pk PRIMARY KEY (name),
+	UNIQUE (name)
+)
+
+
 CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,

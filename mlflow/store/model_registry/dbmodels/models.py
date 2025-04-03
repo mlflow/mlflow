@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Column,
     ForeignKey,
@@ -16,8 +17,12 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
-from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
+from mlflow.entities.model_registry.model_version_stages import (
+    STAGE_DELETED_INTERNAL,
+    STAGE_NONE,
+)
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.webhook import Webhook
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
 
@@ -203,3 +208,46 @@ class SqlRegisteredModelAlias(Base):
     # entity mappers
     def to_mlflow_entity(self):
         return RegisteredModelAlias(self.alias, self.version)
+
+
+class SqlWebhook(Base):
+    __tablename__ = "webhooks"
+
+    name = Column(String(256), unique=True, nullable=False)
+
+    description = Column(String(5000), nullable=True)
+
+    url = Column(String(2048), nullable=False)
+
+    event_trigger = Column(String(10), nullable=False)
+
+    key = Column(String(256), nullable=False)
+
+    value = Column(String(5000), nullable=True)
+
+    headers = Column(JSON, nullable=True)
+
+    payload = Column(JSON, nullable=True)
+
+    creation_time = Column(BigInteger, default=get_current_time_millis)
+
+    last_updated_time = Column(BigInteger, nullable=True, default=None)
+
+    __table_args__ = (PrimaryKeyConstraint("name", name="webhook_pk"),)
+
+    def __repr__(self):
+        return f"<SqlWebhook ({self.name}, {self.description})>"
+
+    def to_mlflow_entity(self):
+        return Webhook(
+            self.name,
+            self.description,
+            self.url,
+            self.event_trigger,
+            self.key,
+            self.value,
+            self.headers,
+            self.payload,
+            self.creation_time,
+            self.last_updated_time,
+        )

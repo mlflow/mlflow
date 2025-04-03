@@ -1,6 +1,6 @@
 import logging
 import urllib
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -14,8 +14,12 @@ from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
 )
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.webhook import WebhookEventTrigger
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
+from mlflow.prompt.registry_utils import (
+    handle_resource_already_exist_error,
+    has_prompt_tag,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -29,6 +33,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
@@ -37,8 +43,13 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
+    SqlWebhook,
 )
-from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
+from mlflow.utils.search_utils import (
+    SearchModelUtils,
+    SearchModelVersionUtils,
+    SearchUtils,
+)
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
@@ -127,7 +138,9 @@ class SqlAlchemyStore(AbstractStore):
             # TODO: Replace the MlflowException with the following line once it's possible to run
             # the registry against a different DB than the tracking server:
             # mlflow.store.db.utils._initialize_tables(self.engine)
-            raise MlflowException("Database migration in unexpected state. Run manual upgrade.")
+            raise MlflowException(
+                "Database migration in unexpected state. Run manual upgrade."
+            )
 
     @staticmethod
     def _get_eager_registered_model_query_options():
@@ -185,7 +198,8 @@ class SqlAlchemyStore(AbstractStore):
                 for tag in tags or []:
                     tags_dict[tag.key] = tag.value
                 registered_model.registered_model_tags = [
-                    SqlRegisteredModelTag(key=key, value=value) for key, value in tags_dict.items()
+                    SqlRegisteredModelTag(key=key, value=value)
+                    for key, value in tags_dict.items()
                 ]
                 session.add(registered_model)
                 session.flush()
@@ -267,7 +281,9 @@ class SqlAlchemyStore(AbstractStore):
                     sql_model_version.name = new_name
                     sql_model_version.last_updated_time = updated_time
                 sql_registered_model.last_updated_time = updated_time
-                session.add_all([sql_registered_model] + sql_registered_model.model_versions)
+                session.add_all(
+                    [sql_registered_model] + sql_registered_model.model_versions
+                )
                 session.flush()
                 return sql_registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
@@ -291,7 +307,9 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
-    def _compute_next_token(self, max_results_for_query, current_size, offset, max_results):
+    def _compute_next_token(
+        self, max_results_for_query, current_size, offset, max_results
+    ):
         next_token = None
         if max_results_for_query == current_size:
             final_offset = offset + max_results
@@ -348,11 +366,15 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_registered_models = session.execute(query).scalars(SqlRegisteredModel).all()
+            sql_registered_models = (
+                session.execute(query).scalars(SqlRegisteredModel).all()
+            )
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_registered_models), offset, max_results
             )
-            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
+            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][
+                :max_results
+            ]
             return PagedList(rm_entities, next_page_token)
 
     @classmethod
@@ -367,7 +389,8 @@ class SqlAlchemyStore(AbstractStore):
             if type_ == "attribute":
                 if key != "name":
                     raise MlflowException(
-                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
+                        f"Invalid attribute name: {key}",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException(
@@ -375,7 +398,9 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 attr = getattr(SqlRegisteredModel, key)
-                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    attr, value
+                )
                 attribute_filters.append(attr_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -401,7 +426,11 @@ class SqlAlchemyStore(AbstractStore):
 
         if not cls._is_querying_prompt(parsed_filters):
             rm_query = cls._update_query_to_exclude_prompts(
-                rm_query, tag_filters, dialect, SqlRegisteredModel, SqlRegisteredModelTag
+                rm_query,
+                tag_filters,
+                dialect,
+                SqlRegisteredModel,
+                SqlRegisteredModelTag,
             )
 
         if tag_filters:
@@ -410,7 +439,9 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlRegisteredModelTag.name)
-                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
+                .having(
+                    sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)
+                )
                 .subquery()
             )
 
@@ -432,7 +463,8 @@ class SqlAlchemyStore(AbstractStore):
             if type_ == "attribute":
                 if key not in SearchModelVersionUtils.VALID_SEARCH_ATTRIBUTE_KEYS:
                     raise MlflowException(
-                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
+                        f"Invalid attribute name: {key}",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 if key in SearchModelVersionUtils.NUMERIC_ATTRIBUTES:
                     if (
@@ -444,7 +476,8 @@ class SqlAlchemyStore(AbstractStore):
                             error_code=INVALID_PARAMETER_VALUE,
                         )
                 elif (
-                    comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
+                    comparator
+                    not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
                     or (comparator == "IN" and key != "run_id")
                 ):
                     raise MlflowException(
@@ -465,9 +498,9 @@ class SqlAlchemyStore(AbstractStore):
                     # in-sensitive issue.
                     val_filter = attr.in_(value)
                 else:
-                    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                        attr, value
-                    )
+                    val_filter = SearchUtils.get_sql_comparison_func(
+                        comparator, dialect
+                    )(attr, value)
                 attribute_filters.append(val_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -502,7 +535,9 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
-                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
+                .having(
+                    sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)
+                )
                 .subquery()
             )
             return mv_query.join(
@@ -552,7 +587,9 @@ class SqlAlchemyStore(AbstractStore):
             .subquery()
         )
         return query.join(
-            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+            prompts_subquery,
+            main_db_model.name == prompts_subquery.c.name,
+            isouter=True,
         ).filter(prompts_subquery.c.name.is_(None))
 
     @classmethod
@@ -580,7 +617,9 @@ class SqlAlchemyStore(AbstractStore):
                 (
                     attribute_token,
                     ascending,
-                ) = SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
+                ) = SearchUtils.parse_order_by_for_search_registered_models(
+                    order_by_clause
+                )
                 if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
                 elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
@@ -593,7 +632,9 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 if field.key in observed_order_by_clauses:
-                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                    raise MlflowException(
+                        f"`order_by` contains duplicate fields: {order_by_list}"
+                    )
                 observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
@@ -615,7 +656,9 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
-            return self._get_registered_model(session, name, eager=True).to_mlflow_entity()
+            return self._get_registered_model(
+                session, name, eager=True
+            ).to_mlflow_entity()
 
     def get_latest_versions(self, name, stages=None):
         """
@@ -644,7 +687,11 @@ class SqlAlchemyStore(AbstractStore):
             # Populate aliases for each model version
             for mv in mvs:
                 model_aliases = sql_registered_model.registered_model_aliases
-                mv.aliases = [alias.alias for alias in model_aliases if alias.version == mv.version]
+                mv.aliases = [
+                    alias.alias
+                    for alias in model_aliases
+                    if alias.version == mv.version
+                ]
 
             return mvs
 
@@ -652,7 +699,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_registered_model_tag(cls, session, name, key):
         tags = (
             session.query(SqlRegisteredModelTag)
-            .filter(SqlRegisteredModelTag.name == name, SqlRegisteredModelTag.key == key)
+            .filter(
+                SqlRegisteredModelTag.name == name, SqlRegisteredModelTag.key == key
+            )
             .all()
         )
         if len(tags) == 0:
@@ -681,7 +730,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
             self._get_registered_model(session, name)
-            session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+            session.merge(
+                SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value)
+            )
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -736,7 +787,9 @@ class SqlAlchemyStore(AbstractStore):
 
         def next_version(sql_registered_model):
             if sql_registered_model.model_versions:
-                return max([mv.version for mv in sql_registered_model.model_versions]) + 1
+                return (
+                    max([mv.version for mv in sql_registered_model.model_versions]) + 1
+                )
             else:
                 return 1
 
@@ -777,7 +830,8 @@ class SqlAlchemyStore(AbstractStore):
                     for tag in tags or []:
                         tags_dict[tag.key] = tag.value
                     model_version.model_version_tags = [
-                        SqlModelVersionTag(key=key, value=value) for key, value in tags_dict.items()
+                        SqlModelVersionTag(key=key, value=value)
+                        for key, value in tags_dict.items()
                     ]
                     session.add_all([sql_registered_model, model_version])
                     session.flush()
@@ -799,17 +853,26 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _populate_model_version_aliases(cls, session, name, version):
-        model_aliases = cls._get_registered_model(session, name).registered_model_aliases
+        model_aliases = cls._get_registered_model(
+            session, name
+        ).registered_model_aliases
         version.aliases = [
             alias.alias for alias in model_aliases if alias.version == version.version
         ]
         return version
 
     @classmethod
-    def _get_model_version_from_db(cls, session, name, version, conditions, query_options=None):
+    def _get_model_version_from_db(
+        cls, session, name, version, conditions, query_options=None
+    ):
         if query_options is None:
             query_options = []
-        versions = session.query(SqlModelVersion).options(*query_options).filter(*conditions).all()
+        versions = (
+            session.query(SqlModelVersion)
+            .options(*query_options)
+            .filter(*conditions)
+            .all()
+        )
 
         if len(versions) == 0:
             raise MlflowException(
@@ -841,7 +904,9 @@ class SqlAlchemyStore(AbstractStore):
             SqlModelVersion.version == version,
             SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
         ]
-        return cls._get_model_version_from_db(session, name, version, conditions, query_options)
+        return cls._get_model_version_from_db(
+            session, name, version, conditions, query_options
+        )
 
     def _get_sql_model_version_including_deleted(self, name, version):
         """
@@ -860,7 +925,9 @@ class SqlAlchemyStore(AbstractStore):
                 SqlModelVersion.name == name,
                 SqlModelVersion.version == version,
             ]
-            sql_model_version = self._get_model_version_from_db(session, name, version, conditions)
+            sql_model_version = self._get_model_version_from_db(
+                session, name, version, conditions
+            )
             return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
@@ -880,7 +947,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             updated_time = get_current_time_millis()
-            sql_model_version = self._get_sql_model_version(session, name=name, version=version)
+            sql_model_version = self._get_sql_model_version(
+                session, name=name, version=version
+            )
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
             session.add(sql_model_version)
@@ -888,7 +957,9 @@ class SqlAlchemyStore(AbstractStore):
                 session, name, sql_model_version.to_mlflow_entity()
             )
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions
+    ):
         """
         Update model version stage.
 
@@ -905,13 +976,17 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
         """
-        is_active_stage = get_canonical_stage(stage) in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
+        is_active_stage = (
+            get_canonical_stage(stage) in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
+        )
         if archive_existing_versions and not is_active_stage:
             msg_tpl = (
                 "Model version transition cannot archive existing model versions "
                 "because '{}' is not an Active stage. Valid stages are {}"
             )
-            raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
+            raise MlflowException(
+                msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS)
+            )
 
         with self.ManagedSessionMaker() as session:
             last_updated_time = get_current_time_millis()
@@ -923,7 +998,9 @@ class SqlAlchemyStore(AbstractStore):
                     SqlModelVersion.version != version,
                     SqlModelVersion.current_stage == get_canonical_stage(stage),
                 ]
-                model_versions = session.query(SqlModelVersion).filter(*conditions).all()
+                model_versions = (
+                    session.query(SqlModelVersion).filter(*conditions).all()
+                )
                 for mv in model_versions:
                     mv.current_stage = STAGE_ARCHIVED
                     mv.last_updated_time = last_updated_time
@@ -983,7 +1060,9 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         with self.ManagedSessionMaker() as session:
-            sql_model_version = self._get_sql_model_version(session, name, version, eager=True)
+            sql_model_version = self._get_sql_model_version(
+                session, name, version, eager=True
+            )
             return self._populate_model_version_aliases(
                 session, name, sql_model_version.to_mlflow_entity()
             )
@@ -1052,7 +1131,8 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         parsed_orderby = self._parse_search_model_versions_order_by(
-            order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]
+            order_by
+            or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]
         )
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         # we query for max_results + 1 items to check whether there is another page to return.
@@ -1072,7 +1152,9 @@ class SqlAlchemyStore(AbstractStore):
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_model_versions), offset, max_results
             )
-            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions][:max_results]
+            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions][
+                :max_results
+            ]
             return PagedList(model_versions, next_page_token)
 
     @classmethod
@@ -1109,7 +1191,9 @@ class SqlAlchemyStore(AbstractStore):
                     else:
                         field = getattr(SqlModelVersion, key)
                 if field.key in observed_order_by_clauses:
-                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                    raise MlflowException(
+                        f"`order_by` contains duplicate fields: {order_by_list}"
+                    )
                 observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
@@ -1162,7 +1246,9 @@ class SqlAlchemyStore(AbstractStore):
             # check if model version exists
             self._get_sql_model_version(session, name, version)
             session.merge(
-                SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+                SqlModelVersionTag(
+                    name=name, version=version, key=tag.key, value=tag.value
+                )
             )
 
     def delete_model_version_tag(self, name, version, key):
@@ -1216,7 +1302,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
-            session.merge(SqlRegisteredModelAlias(name=name, alias=alias, version=version))
+            session.merge(
+                SqlRegisteredModelAlias(name=name, alias=alias, version=version)
+            )
 
     def delete_registered_model_alias(self, name, alias):
         """
@@ -1262,7 +1350,8 @@ class SqlAlchemyStore(AbstractStore):
                 )
             else:
                 raise MlflowException(
-                    f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
+                    f"Registered model alias {alias} not found.",
+                    INVALID_PARAMETER_VALUE,
                 )
 
     def _await_model_version_creation(self, mv, await_creation_for):
@@ -1270,3 +1359,277 @@ class SqlAlchemyStore(AbstractStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # CRUD API for Webhooks objects
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        event_trigger: WebhookEventTrigger,
+        key: str,
+        value: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional[dict[str, str]] = None,
+        description=None,
+    ):
+        """
+        Create a new Webhook in backend store.
+
+        Args:
+            name: Name of the new webhook. This is expected to be unique in the backend store.
+            url: URL to send the webhook to.
+            event_trigger: EventTrigger object that specifies the event that triggers the webhook.
+            key (optional): Key to filter on for the event trigger.
+            value (optional): Value to filter on for the event trigger.
+            headers (optional): Header to include in the webhook.
+            payload (optional): Payload to include in the webhook.
+            description (optional): Description of the webhook.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.Webhook`
+            created in the backend.
+        """
+        _validate_model_name(name)
+        with self.ManagedSessionMaker() as session:
+            try:
+                creation_time = get_current_time_millis()
+                webhook = SqlWebhook(
+                    name=name,
+                    creation_time=creation_time,
+                    last_updated_time=creation_time,
+                    description=description,
+                    url=url,
+                    event_trigger=event_trigger.value,
+                    key=key,
+                    value=value,
+                    headers=headers,
+                    payload=payload,
+                )
+                session.add(webhook)
+                session.flush()
+                return webhook.to_mlflow_entity()
+            except sqlalchemy.exc.IntegrityError as e:
+                raise MlflowException(
+                    f"Webhook (name={name}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    @classmethod
+    def _get_webhook(cls, session, name):
+        _validate_model_name(name)
+        webhooks = session.query(SqlWebhook).filter(SqlWebhook.name == name).all()
+
+        if len(webhooks) == 0:
+            raise MlflowException(
+                f"Webhook with name={name} not found", RESOURCE_DOES_NOT_EXIST
+            )
+        if len(webhooks) > 1:
+            raise MlflowException(
+                f"Expected only 1 webhook with name={name}. Found {len(webhooks)}.",
+                INVALID_STATE,
+            )
+        return webhooks[0]
+
+    def update_webhook(self, name, description):
+        """
+        Update description of the Webhook.
+
+        Args:
+            name: Webhook name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            updated_time = get_current_time_millis()
+            sql_webhook.description = description
+            sql_webhook.last_updated_time = updated_time
+            session.add(sql_webhook)
+            session.flush()
+            return sql_webhook.to_mlflow_entity()
+
+    def rename_webhook(self, name, new_name):
+        """
+        Rename the Webhook.
+
+        Args:
+            name: Webhook name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        _validate_model_renaming(new_name)
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            try:
+                updated_time = get_current_time_millis()
+                sql_webhook.name = new_name
+                sql_webhook.last_updated_time = updated_time
+                session.add(sql_webhook)
+                session.flush()
+                return sql_webhook.to_mlflow_entity()
+            except sqlalchemy.exc.IntegrityError as e:
+                raise MlflowException(
+                    f"Webhook (name={new_name}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    def delete_webhook(self, name):
+        """
+        Delete the Webhook.
+        Backend raises exception if a Webhook with given name does not exist.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            None
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            session.delete(sql_webhook)
+
+    @classmethod
+    def _get_search_webhooks_filter_query(cls, parsed_filters, dialect):
+        attribute_filters = []
+        for f in parsed_filters:
+            type_ = f["type"]
+            key = f["key"]
+            comparator = f["comparator"]
+            value = f["value"]
+            if type_ == "attribute":
+                if key != "name":
+                    raise MlflowException(
+                        f"Invalid attribute name: {key}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException(
+                        f"Invalid comparator for attribute: {comparator}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                attr = getattr(SqlWebhook, key)
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    attr, value
+                )
+                attribute_filters.append(attr_filter)
+            else:
+                raise MlflowException(
+                    f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
+                )
+
+        return select(SqlWebhook).filter(*attribute_filters)
+
+    @classmethod
+    def _parse_search_webhooks_order_by(cls, order_by_list):
+        """Sorts a set of webhooks based on their natural ordering and an overriding set
+        of order_bys. webhooks are naturally ordered first by name ascending.
+        """
+        clauses = []
+        observed_order_by_clauses = set()
+        if order_by_list:
+            for order_by_clause in order_by_list:
+                (
+                    attribute_token,
+                    ascending,
+                ) = SearchUtils.parse_order_by_for_search_registered_models(
+                    order_by_clause
+                )
+                if attribute_token == SqlWebhook.name.key:
+                    field = SqlWebhook.name
+                elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
+                    field = SqlWebhook.last_updated_time
+                else:
+                    raise MlflowException(
+                        f"Invalid order by key '{attribute_token}' specified."
+                        + "Valid keys are "
+                        + f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if field.key in observed_order_by_clauses:
+                    raise MlflowException(
+                        f"`order_by` contains duplicate fields: {order_by_list}"
+                    )
+                observed_order_by_clauses.add(field.key)
+                if ascending:
+                    clauses.append(field.asc())
+                else:
+                    clauses.append(field.desc())
+
+        if SqlWebhook.name.key not in observed_order_by_clauses:
+            clauses.append(SqlWebhook.name.asc())
+        return clauses
+
+    def search_webhooks(
+        self,
+        filter_string=None,
+        max_results=SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
+        """
+        Search for Webhooks in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string, defaults to searching all Webhooks.
+            max_results: Maximum number of Webhooks desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+        """
+        if max_results > SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
+
+        filter_query = self._get_search_webhooks_filter_query(
+            parsed_filters, self.engine.dialect.name
+        )
+
+        parsed_orderby = self._parse_search_webhooks_order_by(order_by)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        # we query for max_results + 1 items to check whether there is another page to return.
+        # this remediates having to make another query which returns no items.
+        max_results_for_query = max_results + 1
+
+        with self.ManagedSessionMaker() as session:
+            query = filter_query.order_by(*parsed_orderby).limit(max_results_for_query)
+            if page_token:
+                query = query.offset(offset)
+            sql_webhooks = session.execute(query).scalars(SqlWebhook).all()
+            next_page_token = self._compute_next_token(
+                max_results_for_query, len(sql_webhooks), offset, max_results
+            )
+            webhook_entities = [webhook.to_mlflow_entity() for webhook in sql_webhooks][
+                :max_results
+            ]
+            return PagedList(webhook_entities, next_page_token)
+
+    def get_webhook(self, name):
+        """
+        Get Webhook instance by name.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        with self.ManagedSessionMaker() as session:
+            return self._get_webhook(session, name).to_mlflow_entity()
