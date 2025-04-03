@@ -562,6 +562,7 @@ from mlflow.utils.file_utils import (
     get_total_file_size,
     write_to,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -1126,6 +1127,13 @@ def load_model(
         warn_dependency_requirement_mismatches(model_requirements)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    if model_meta.metadata and model_meta.metadata.get(MLFLOW_MODEL_IS_EXTERNAL, False) is True:
+        raise MlflowException(
+            "This model's artifacts are external and are not stored in the model directory."
+            " This model cannot be loaded with MLflow.",
+            BAD_REQUEST,
+        )
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:

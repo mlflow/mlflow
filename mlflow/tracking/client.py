@@ -5341,7 +5341,10 @@ class MlflowClient:
             source_run_id: ID of the run that produced the model.
             tags: Tags to set on the model.
             params: Parameters to set on the model.
-            model_type: Type of the model.
+            model_type: The type of the model. This is a user-defined string that can be used to
+                        search and compare related models. For example, setting
+                        ``model_type="agent"`` enables you to easily search for this model and
+                        compare it to other models of type ``"agent"`` in the future.
 
         Returns:
             The created model.

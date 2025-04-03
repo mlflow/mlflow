@@ -97,8 +97,8 @@ def patched_call(original, self, *args, **kwargs):
     model_identity = _generate_model_identity({"task": task, **kwargs})
     model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
-        if model_id is None and config.create_logged_model:
-            logged_model = mlflow.create_logged_model(name="openai")
+        if model_id is None and config.log_models:
+            logged_model = mlflow.create_external_model(name="openai")
             mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(model_identity, logged_model.model_id)
             model_id = logged_model.model_id
@@ -129,8 +129,8 @@ async def async_patched_call(original, self, *args, **kwargs):
     model_identity = _generate_model_identity({"task": task, **kwargs})
     model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
-        if model_id is None and config.create_logged_model:
-            logged_model = mlflow.create_logged_model(name="openai")
+        if model_id is None and config.log_models:
+            logged_model = mlflow.create_external_model(name="openai")
             mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(model_identity, logged_model.model_id)
             model_id = logged_model.model_id

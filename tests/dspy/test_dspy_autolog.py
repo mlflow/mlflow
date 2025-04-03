@@ -929,9 +929,9 @@ def test_autolog_with_pyfunc_model_link_traces():
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
 
 
-@pytest.mark.parametrize("create_logged_model", [False, True])
-def test_autolog_create_logged_model_and_link_traces(create_logged_model):
-    mlflow.dspy.autolog(create_logged_model=create_logged_model)
+@pytest.mark.parametrize("log_models", [False, True])
+def test_autolog_log_models_and_link_traces(log_models):
+    mlflow.dspy.autolog(log_models=log_models)
 
     dspy.settings.configure(
         lm=DummyLM(
@@ -955,7 +955,7 @@ def test_autolog_create_logged_model_and_link_traces(create_logged_model):
     logged_models = mlflow.search_logged_models(
         filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
     )
-    if create_logged_model:
+    if log_models:
         assert len(logged_models) == 1
         logged_model = logged_models[0]
         for i in range(5):
