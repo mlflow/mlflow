@@ -17,7 +17,9 @@ type Props = {
   notificationContextHolder?: React.ReactNode;
 };
 
-type State = any;
+type State = {
+  hasError: boolean
+};
 
 class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> {
   constructor(props: Props) {
@@ -40,7 +42,6 @@ class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> 
   render() {
     return (
       <>
-        {/* @ts-expect-error TS(4111): Property 'hasError' comes from an index signature,... Remove this comment to see the full error message */}
         {this.state.hasError ? (
           <div>
             <img className="error-image" alt="Error" src={defaultErrorImg} />

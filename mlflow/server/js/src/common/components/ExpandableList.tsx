@@ -12,7 +12,9 @@ type Props = {
   showLines?: number;
 };
 
-type State = any;
+type State = {
+  toggled: boolean;
+};
 
 class ExpandableList extends Component<Props, State> {
   state = {

@@ -70,7 +70,12 @@ type ModelVersionViewImplProps = {
   usingNextModelsUI: boolean;
 };
 
-type ModelVersionViewImplState = any;
+type ModelVersionViewImplState = {
+  isDeleteModalVisible: boolean;
+  isDeleteModalConfirmLoading: boolean;
+  showDescriptionEditor: boolean;
+  isTagsRequestPending: boolean;
+};
 
 export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplProps, ModelVersionViewImplState> {
   state = {

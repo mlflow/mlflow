@@ -12,7 +12,9 @@ type Props = {
   showServerError?: boolean;
 };
 
-type State = any;
+type State = {
+  error: any;
+};
 
 export class SectionErrorBoundary extends React.Component<Props, State> {
   state = { error: null };

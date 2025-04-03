@@ -17,7 +17,9 @@ type Props = {
   confirmButtonText: React.ReactNode;
 };
 
-type State = any;
+type State = {
+  isSubmitting: boolean;
+};
 
 export class ConfirmModal extends Component<Props, State> {
   constructor(props: Props) {

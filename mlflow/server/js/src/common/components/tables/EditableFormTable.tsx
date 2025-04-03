@@ -81,7 +81,11 @@ type EditableTableProps = {
   intl?: any;
 };
 
-type EditableTableState = any;
+type EditableTableState = {
+  deletingKey: string;
+  editingKey: string;
+  isRequestPending: boolean;
+};
 
 export class EditableTable extends React.Component<EditableTableProps, EditableTableState> {
   columns: any;
@@ -177,7 +181,6 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
     },
   ];
 
-  // @ts-expect-error TS(4111): Property 'editingKey' comes from an index signatur... Remove this comment to see the full error message
   isEditing = (record: any) => record.key === this.state.editingKey;
 
   cancel = () => {
@@ -260,9 +263,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
                      table in MLflow"
             />
           }
-          // @ts-expect-error TS(4111): Property 'isRequestPending' comes from an index si... Remove this comment to see the full error message
           confirmLoading={this.state.isRequestPending}
-          // @ts-expect-error TS(4111): Property 'deletingKey' comes from an index signatu... Remove this comment to see the full error message
           onOk={() => this.delete(this.state.deletingKey)}
           onCancel={() => this.setState({ deletingKey: '' })}
         />
