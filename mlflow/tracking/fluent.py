@@ -22,6 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
@@ -60,11 +61,13 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+    MLFLOW_MODEL_IS_EXTERNAL,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
@@ -2031,15 +2034,16 @@ def initialize_logged_model(
     Returns:
         A new LoggedModel object with status ``PENDING``.
     """
-    return _create_logged_model(
+    model = _create_logged_model(
         name=name,
         source_run_id=source_run_id,
         tags=tags,
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
-        external=False,
     )
+    _last_logged_model_id.set(model.model_id)
+    return model
 
 
 def create_external_model(
@@ -2066,15 +2070,36 @@ def create_external_model(
     Returns:
         A new LoggedModel object with status ``READY``.
     """
-    return _create_logged_model(
+    from mlflow.models.model import MLMODEL_FILE_NAME, Model
+    from mlflow.models.utils import get_external_mlflow_model_spec
+
+    tags = dict(tags) if tags else {}
+    tags[MLFLOW_MODEL_IS_EXTERNAL] = "true"
+
+    client = MlflowClient()
+    model = _create_logged_model(
         name=name,
         source_run_id=source_run_id,
         tags=tags,
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
-        external=True,
     )
+    # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.
+    # Accordingly, we finalize the model immediately after creation, since there aren't
+    # any model artifacts for the client to upload to MLflow. Additionally, we create a
+    # dummy MLModel file to ensure that the model can be registered to the Model Registry
+    mlflow_model: Model = get_external_mlflow_model_spec(model)
+    with TempDir() as tmp:
+        mlflow_model.save(tmp.path(MLMODEL_FILE_NAME))
+        MlflowClient().log_model_artifacts(
+            model_id=model.model_id,
+            local_dir=tmp.path(),
+        )
+    model = client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+
+    _last_logged_model_id.set(model.model_id)
+    return model
 
 
 def _create_logged_model(
@@ -2084,17 +2109,9 @@ def _create_logged_model(
     params: Optional[dict[str, str]] = None,
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
-    external: bool = False,
 ) -> LoggedModel:
     """
-    Create a new model.
-
-    If ``external`` is set to ``False`` (default), a LoggedModel with status ``PENDING`` is created.
-    You must call a flavor-specific ``log_model()`` method to add artifacts to the LoggedModel and
-    finalize it to the ``READY`` state.
-
-    If ``external`` is set to ``True, a LoggedModel with status ``READY`` is created, and the
-    LoggedModel's artifacts are expected to be stored outside of MLflow.
+    Create a new LoggedModel in the ``PENDING`` state.
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
@@ -2117,17 +2134,14 @@ def _create_logged_model(
     elif experiment_id is None:
         experiment_id = _get_experiment_id()
     resolved_tags = context_registry.resolve_tags(tags)
-    model = MlflowClient().create_logged_model(
+    return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
         tags=resolved_tags,
         params=params,
         model_type=model_type,
-        external=external,
     )
-    _last_logged_model_id.set(model.model_id)
-    return model
 
 
 @experimental
@@ -2158,13 +2172,19 @@ def last_logged_model() -> Optional[LoggedModel]:
         :test:
         :caption: Example
 
+        from typing import List
+
         import mlflow
 
-        # TODO: UPDATE THIS TO A PYFUNC EXAMPLE!!!
-        model = mlflow.initialize_logged_model()
-        last_model = mlflow.last_logged_model()
-        assert last_model.model_id == model.model_id
 
+        class Model(mlflow.pyfunc.PythonModel):
+            def predict(self, integers: List[int]) -> List[int]:
+                return integers * 2
+
+
+        logged_model = mlflow.pyfunc.log_model(python_model=Model())
+        last_model = mlflow.last_logged_model()
+        assert last_model.model_id == logged_model.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)

@@ -41,6 +41,7 @@ from mlflow.environment_variables import (
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -1735,15 +1736,17 @@ def test_initialize_logged_model_tags_from_context():
         m_get_source_version.assert_called_once()
 
 
-def test_create_external_logged_model():
-    with mock.patch(
-        "mlflow.tracking.client.MlflowClient.create_logged_model",
-        side_effect=MlflowClient().create_logged_model,
-    ) as client_create_logged_model_spy:
-        model = mlflow.create_external_model()
-        assert model.status == LoggedModelStatus.READY
-        assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
-        client_create_logged_model_spy.assert_called_once()
+def test_create_external_model(tmp_path):
+    model = mlflow.create_external_model()
+    assert model.status == LoggedModelStatus.READY
+    assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
+
+    # Verify that an MLmodel file is created with metadata indicating that the model's artifacts
+    # are stored externally
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=tmp_path)
+    mlflow_model: Model = Model.load(os.path.join(tmp_path, MLMODEL_FILE_NAME))
+    assert mlflow_model.metadata is not None
+    assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
 
 
 def test_last_logged_model():
