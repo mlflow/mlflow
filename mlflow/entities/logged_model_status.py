@@ -15,14 +15,11 @@ class LoggedModelStatus(str, Enum):
     def __str__(self):
         return self.value
 
-    @classmethod
-    def _finalized_statuses(cls) -> list[str]:
+    @staticmethod
+    def is_finalized(status) -> bool:
         """
-        A list of statuses that indicate a LoggedModel is finalized and no further
-        status updates will occur.
-
-        NB: This method is prefixed with an underscore so that it is not included in the
-        public API documentation.
+        Determines whether or not a LoggedModelStatus is a finalized status.
+        A finalized status indicates that no further status updates will occur.
         """
         return [LoggedModelStatus.READY, LoggedModelStatus.FAILED]
 
