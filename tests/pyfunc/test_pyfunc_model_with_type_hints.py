@@ -1142,7 +1142,10 @@ def test_load_context_type_hint():
                 input_example=input_example,
                 signature=signature,
             )
-        assert not any("Failed to run the predict function on input example" in call[0][0] for call in mock_warning.call_args_list)
+        assert not any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
         model_uri = f"runs:/{run.info.run_id}/model"
 
     pyfunc_model = mlflow.pyfunc.load_model(model_uri)
