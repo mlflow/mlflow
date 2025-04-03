@@ -1216,7 +1216,7 @@ def log_inputs(
     """
     Log a batch of datasets used in the current run.
 
-    The lists of `datasets`, `contexts`, `tags_list` and `models` must have the same length.
+    The lists of `datasets`, `contexts`, `tags_list` must have the same length.
     The entries in these lists can be ``None``, which represents empty value to the
     corresponding input.
 
@@ -1249,7 +1249,7 @@ def log_inputs(
                 [dataset, dataset2],
                 contexts=["training", "test"],
                 tags_list=[None, {"my_tag": "tag_value"},
-                models=[model1, None]
+                models=[model1]
             )
     """
     run_id = _get_or_start_run().info.run_id
@@ -1258,11 +1258,10 @@ def log_inputs(
         datasets is not None
         and contexts is not None
         and tags_list is not None
-        and models is not None
-        and len(datasets) == len(contexts) == len(tags_list) == len(models)
+        and len(datasets) == len(contexts) == len(tags_list)
     ):
         raise MlflowException(
-            "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list`, and `models` to be "
+            "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
             "non-empty list and have the same length."
         )
     dataset_inputs = []

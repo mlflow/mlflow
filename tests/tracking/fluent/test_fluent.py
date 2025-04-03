@@ -1325,7 +1325,7 @@ def test_log_inputs(tmp_path):
             [dataset1, dataset2, dataset3],
             ["train1", "train2", "train3"],
             [{"foo": "baz"}, None, None],
-            [None, None, LoggedModelInput("model-1")]
+            None,
         )
 
     logged_inputs = MlflowClient().get_run(run.info.run_id).inputs
