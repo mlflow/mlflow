@@ -12,7 +12,7 @@ import mlflow
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
-from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.fluent import _last_active_run_id, _reset_last_logged_model_id
@@ -60,7 +60,7 @@ def reset_tracing():
     mlflow.tracing.reset()
 
     # Clear other global state and singletons
-    TRACE_BUFFER.clear()
+    _set_last_active_trace_id(None)
     _TRACE_BUFFER.clear()
     InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
