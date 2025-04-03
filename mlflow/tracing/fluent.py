@@ -6,6 +6,7 @@ import importlib
 import inspect
 import json
 import logging
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
@@ -17,10 +18,6 @@ from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
-    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -48,7 +45,6 @@ from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_d
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -56,13 +52,13 @@ if TYPE_CHECKING:
     import pandas
 
 
-# Traces are stored in memory after completion so they can be retrieved conveniently.
-# For example, Databricks model serving fetches the trace data from the buffer after
-# making the prediction request, and logging them into the Inference Table.
-TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-    ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-)
+_LAST_ACTIVE_TRACE_ID_GLOBAL = None
+_LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=None)
+
+# Cache mapping between evaluation request ID to MLflow backend request ID.
+# This is necessary for evaluation harness to access generated traces during
+# evaluation using the dataset row ID (evaluation request ID).
+_EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
 
 def trace(
@@ -420,13 +416,6 @@ def start_span(
         :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`
         and pass the parent span ID explicitly.
 
-    .. note::
-
-        All spans created under the root span (i.e. a single trace) are buffered in memory and
-        not exported until the root span is ended. The buffer has a default size of 1000 traces
-        and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables
-        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
-
     Args:
         name: The name of the span.
         span_type: The type of the span. Can be either a string or
@@ -495,9 +484,8 @@ def get_trace(request_id: str) -> Optional[Trace]:
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
-    # Try to get the trace from the in-memory buffer first
-    if trace := TRACE_BUFFER.get(request_id, None):
-        return trace
+    # Special handling for evaluation request ID.
+    request_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(request_id) or request_id
 
     try:
         return MlflowClient().get_trace(request_id, display=False)
@@ -730,7 +718,7 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-def get_last_active_trace() -> Optional[Trace]:
+def get_last_active_trace(thread_local=False) -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
 
@@ -738,11 +726,11 @@ def get_last_active_trace() -> Optional[Trace]:
 
         This function DOES NOT work in the model deployed in Databricks model serving.
 
-    .. note::
+    .. warning::
 
-        The last active trace is only stored in-memory for the time defined by the TTL
-        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured
-        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.
+        This function is not thread-safe by default, returns the last active trace in
+        the same process. If you want to get the last active trace in the current thread,
+        set the `thread_local` parameter to True.
 
     .. note::
 
@@ -752,6 +740,11 @@ def get_last_active_trace() -> Optional[Trace]:
         immutable after the trace is ended, you can still edit some fields such as `tags`),
         please use the respective MlflowClient APIs with the request ID of the trace, as
         shown in the example below.
+
+    Args:
+
+        thread_local: If True, returns the last active trace in the current thread. Otherwise,
+            returns the last active trace in the same process. Default is False.
 
     .. code-block:: python
         :test:
@@ -775,18 +768,27 @@ def get_last_active_trace() -> Optional[Trace]:
     Returns:
         The last active trace if exists, otherwise None.
     """
-    if is_in_databricks_model_serving_environment():
-        raise MlflowException(
-            "The function `mlflow.get_last_active_trace` is not supported in "
-            "Databricks model serving.",
-            error_code=BAD_REQUEST,
-        )
-
-    if len(TRACE_BUFFER) > 0:
-        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
-        return TRACE_BUFFER.get(last_active_request_id)
+    trace_id = (
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
+    )
+    if trace_id is not None:
+        try:
+            return MlflowClient().get_trace(trace_id, display=False)
+        except:
+            _logger.debug(
+                f"Failed to get the last active trace with request ID {trace_id}.",
+                exc_info=True,
+            )
+            raise
     else:
         return None
+
+
+def _set_last_active_trace_id(trace_id: str):
+    """Internal function to set the last active trace ID."""
+    global _LAST_ACTIVE_TRACE_ID_GLOBAL
+    _LAST_ACTIVE_TRACE_ID_GLOBAL = trace_id
+    _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.set(trace_id)
 
 
 def update_current_trace(
