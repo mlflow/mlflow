@@ -249,6 +249,8 @@ from mlflow.tracking.fluent import (
     set_tag,
     set_tags,
     start_run,
+    set_logged_model_tags,
+    delete_logged_model_tag,
 )
 from mlflow.tracking.multimedia import Image
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
@@ -346,6 +348,8 @@ __all__ = [
     "register_prompt",
     "set_prompt_alias",
     "delete_prompt_alias",
+    "set_logged_model_tags",
+    "delete_logged_model_tag",
 ]
 
 

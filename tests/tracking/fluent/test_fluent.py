@@ -1804,3 +1804,16 @@ def test_last_logged_model_autolog():
         assert model.source_run_id == run.info.run_id
     finally:
         mlflow.sklearn.autolog(disable=True)
+
+
+def test_set_and_delete_model_tag():
+    _reset_last_logged_model_id()
+
+    model = mlflow.initialize_logged_model()
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+    mlflow.set_logged_model_tags(model.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
+
+    mlflow.delete_logged_model_tag(model.model_id, "tag")
+    assert "tag" not in mlflow.last_logged_model().tags
