@@ -1216,6 +1216,10 @@ def log_inputs(
     """
     Log a batch of datasets used in the current run.
 
+    The lists of `datasets`, `contexts`, `tags_list` and `models` must have the same length.
+    The entries in these lists can be ``None``, which represents empty value to the
+    corresponding input.
+
     Args:
         datasets: List of :py:class:`mlflow.data.dataset.Dataset` object to be logged.
         contexts: List of context in which the dataset is used. For example: "training", "testing".
@@ -1237,19 +1241,32 @@ def log_inputs(
         array2 = np.asarray([[-1, 2, 3], [-4, 5, 6]])
         dataset2 = mlflow.data.from_numpy(array2, source="data2.csv")
 
-        # Log an input dataset used for training
+        # Log 2 input datasets used for training and test,
+        # the training dataset has no tag, but has `model1` reference,
+        # the test dataset has tags `{"my_tag": "tag_value"}`, but has no model reference.
         with mlflow.start_run():
-            mlflow.log_input(
+            mlflow.log_inputs(
                 [dataset, dataset2],
                 contexts=["training", "test"],
-                tags_list=[None] * 2,
-                models=[None] * 2
+                tags_list=[None, {"my_tag": "tag_value"},
+                models=[model1, None]
             )
     """
     run_id = _get_or_start_run().info.run_id
 
+    if not (
+        datasets is not None
+        and contexts is not None
+        and tags_list is not None
+        and models is not None
+        and len(datasets) == len(contexts) == len(tags_list) == len(models)
+    ):
+        raise MlflowException(
+            "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list`, and `models` to be "
+            "non-empty list and have the same length."
+        )
     dataset_inputs = []
-    for dataset, context, tags, model in zip(datasets, contexts, tags_list):
+    for dataset, context, tags in zip(datasets, contexts, tags_list):
         dataset_inputs.append(_create_dataset_input(dataset, context, tags))
 
     MlflowClient().log_inputs(
