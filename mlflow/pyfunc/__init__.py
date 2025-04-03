@@ -3128,15 +3128,8 @@ def save_model(
             model_for_signature_inference = python_model
             predict_func = python_model.predict
         # Load context before calling predict to ensure necessary artifacts are available
-        try:
-            context = PythonModelContext(artifacts, model_config)
-            model_for_signature_inference.load_context(context)
-        except Exception as e:
-            _logger.warning(
-                "Failed to load context for Python model. This may affect the "
-                f"signature inference process. Error: {e}"
-            )
-
+        context = PythonModelContext(artifacts, model_config)
+        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
