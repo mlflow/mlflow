@@ -70,7 +70,7 @@ def _patched_invoke(original, self, *args, **kwargs):
         _MODEL_TRACKER.set_active_model_id(model_id)
     # NB: this check ensures we don't create LoggedModels for internal components
     elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
-        logged_model = mlflow.create_logged_model(
+        logged_model = mlflow.create_external_model(
             name=self.__class__.__name__,
         )
         mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
@@ -102,7 +102,7 @@ async def _patched_ainvoke(original, self, *args, **kwargs):
         _MODEL_TRACKER.set_active_model_id(model_id)
     # NB: this check ensures we don't create LoggedModels for internal components
     elif not _MODEL_TRACKER._is_active_model_id_set and config.create_logged_model:
-        logged_model = mlflow.create_logged_model(
+        logged_model = mlflow.create_external_model(
             name=self.__class__.__name__,
         )
         mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
