@@ -123,14 +123,13 @@ def _register_model(
     message = f"Created version '{create_version_response.version}' of model '{create_version_response.name}'"
     
     # Only add link for Databricks environments
-    registry_uri = client._registry_uri
-    if registry_uri and "databricks" in registry_uri:
-        workspace_url = registry_uri.split('/api')[0]
+    if client.tracking_uri and "databricks" in client.tracking_uri:
+        host_url = client._registry_uri.split('/api')[0]
         if '.' in name:  # Unity Catalog format (catalog.schema.model)
-            model_link = f"{workspace_url}/ml/models/{name}/versions/{create_version_response.version}"
+            model_link = f"{host_url}/ml/models/{name}/versions/{create_version_response.version}"
         else:  # Workspace model registry format
-            model_link = f"{workspace_url}/#/mlflow/models/{name}/versions/{create_version_response.version}"
-        message += f". View model at: {model_link}"
+            model_link = f"{host_url}/#/mlflow/models/{name}/versions/{create_version_response.version}"
+        message += f"\n🔗 View model at: {model_link}"
     
     eprint(message + ".")
     return create_version_response
