@@ -21,7 +21,7 @@ class LoggedModelStatus(str, Enum):
         Determines whether or not a LoggedModelStatus is a finalized status.
         A finalized status indicates that no further status updates will occur.
         """
-        return [LoggedModelStatus.READY, LoggedModelStatus.FAILED]
+        return status in [LoggedModelStatus.READY, LoggedModelStatus.FAILED]
 
     def to_proto(self):
         if self == LoggedModelStatus.UNSPECIFIED:
