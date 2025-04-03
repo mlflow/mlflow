@@ -2085,6 +2085,7 @@ def create_external_model(
         model_type=model_type,
         experiment_id=experiment_id,
     )
+
     # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.
     # Accordingly, we finalize the model immediately after creation, since there aren't
     # any model artifacts for the client to upload to MLflow. Additionally, we create a
@@ -2096,9 +2097,10 @@ def create_external_model(
             model_id=model.model_id,
             local_dir=tmp.path(),
         )
-    model = client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
 
+    model = client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
     _last_logged_model_id.set(model.model_id)
+
     return model
 
 
