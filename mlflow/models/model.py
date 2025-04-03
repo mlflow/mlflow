@@ -966,7 +966,7 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
-                model = mlflow.create_logged_model(
+                model = mlflow.create_model(
                     # TODO: Update model name
                     name=name,
                     source_run_id=run_id,

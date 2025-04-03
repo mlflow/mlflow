@@ -2007,7 +2007,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 
 @experimental
-def create_logged_model(
+def create_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
@@ -2017,7 +2017,14 @@ def create_logged_model(
     external: bool = False,
 ) -> LoggedModel:
     """
-    Create a new logged model.
+    Create a new model.
+
+    If ``external`` is set to ``False`` (default), a LoggedModel with status ``PENDING`` is created.
+    You must call a flavor-specific ``log_model()`` method to add artifacts to the LoggedModel and
+    finalize it to the ``READY`` state.
+
+    If ``external`` is set to ``True, a LoggedModel with status ``READY`` is created, and the
+    LoggedModel's artifacts are expected to be stored outside of MLflow.
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
@@ -2083,7 +2090,7 @@ def last_logged_model() -> Optional[LoggedModel]:
 
         import mlflow
 
-        model = mlflow.create_logged_model()
+        model = mlflow.create_model()
         last_model = mlflow.last_logged_model()
         assert last_model.model_id == model.model_id
 

@@ -1693,17 +1693,17 @@ def test_runs_are_ended_by_run_id():
 
 def test_create_logged_model_active_run():
     with mlflow.start_run() as run:
-        model = mlflow.create_logged_model()
+        model = mlflow.create_model()
         assert model.source_run_id == run.info.run_id
         assert model.experiment_id == run.info.experiment_id
 
     exp_id = mlflow.create_experiment("exp")
     with mlflow.start_run(experiment_id=exp_id) as run:
-        model = mlflow.create_logged_model()
+        model = mlflow.create_model()
         assert model.source_run_id == run.info.run_id
         assert model.experiment_id == run.info.experiment_id
 
-    model = mlflow.create_logged_model()
+    model = mlflow.create_model()
     assert model.source_run_id is None
 
 
@@ -1728,7 +1728,7 @@ def test_create_logged_model_tags_from_context():
             return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
         ) as m_get_source_version,
     ):
-        model = mlflow.create_logged_model()
+        model = mlflow.create_model()
         assert expected_tags.items() <= model.tags.items()
         m_get_source_name.assert_called_once()
         m_get_source_type.assert_called_once()
@@ -1740,7 +1740,7 @@ def test_create_external_logged_model():
         "mlflow.tracking.client.MlflowClient.create_logged_model",
         side_effect=MlflowClient().create_logged_model,
     ) as client_create_logged_model_spy:
-        model = mlflow.create_logged_model(external=True)
+        model = mlflow.create_model(external=True)
         assert model.status == LoggedModelStatus.READY
         assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
         client_create_logged_model_spy.assert_called_once()
@@ -1750,7 +1750,7 @@ def test_last_logged_model():
     _reset_last_logged_model_id()
     assert mlflow.last_logged_model() is None
 
-    model = mlflow.create_logged_model()
+    model = mlflow.create_model()
     assert mlflow.last_logged_model().model_id == model.model_id
 
     client = MlflowClient()
@@ -1760,7 +1760,7 @@ def test_last_logged_model():
     client.delete_logged_model_tag(model.model_id, "tag")
     assert "tag" not in mlflow.last_logged_model().tags
 
-    another_model = mlflow.create_logged_model()
+    another_model = mlflow.create_model()
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by client should be ignored
@@ -1768,7 +1768,7 @@ def test_last_logged_model():
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by another thread should be ignored
-    t = threading.Thread(daemon=True, target=lambda: mlflow.create_logged_model())
+    t = threading.Thread(daemon=True, target=lambda: mlflow.create_model())
     t.start()
     t.join()
     assert mlflow.last_logged_model().model_id == another_model.model_id
