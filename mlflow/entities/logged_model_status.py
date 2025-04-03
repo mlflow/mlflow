@@ -12,10 +12,16 @@ class LoggedModelStatus(str, Enum):
     READY = "READY"
     FAILED = "FAILED"
 
-    FINALIZED_STATUSES = ["READY", "FAILED"]
-
     def __str__(self):
         return self.value
+
+    @classmethod
+    def finalized_statuses(cls) -> list[str]:
+        """
+        A list of statuses that indicate a LoggedModel is finalized and no further
+        status updates will occur.
+        """
+        return [LoggedModelStatus.READY, LoggedModelStatus.FAILED]
 
     def to_proto(self):
         if self == LoggedModelStatus.UNSPECIFIED:

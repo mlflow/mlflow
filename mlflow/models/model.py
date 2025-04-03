@@ -977,7 +977,7 @@ class Model:
                     else None,
                 )
 
-            if model.status in LoggedModelStatus.FINALIZED_STATUSES:
+            if model.status in LoggedModelStatus.finalized_statuses:
                 raise MlflowException(
                     f"Model with id {model.model_id} has the status '{model.status}', "
                     f"so its artifacts cannot be modified.",
