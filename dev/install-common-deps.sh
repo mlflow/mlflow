@@ -44,7 +44,7 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip wheel<0.46
+pip install --upgrade pip "wheel<0.46"
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
