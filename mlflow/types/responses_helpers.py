@@ -504,3 +504,25 @@ class StreamCatchAllEvent(BaseEvent):
     # pydantic model that allows for all other streaming event types to pass type validation
     model_config = ConfigDict(extra="allow")
     type: str
+
+    @model_validator(mode="after")
+    def check_type(self) -> "StreamCatchAllEvent":
+        if self.type not in {
+            "response.created",
+            "response.in_progress",
+            "response.completed",
+            "response.failed",
+            "response.incomplete",
+            "response.content_part.added",
+            "response.content_part.done",
+            "response.refusal.delta",
+            "response.refusal.done",
+            "response.file_search_call.in_progress",
+            "response.file_search_call.searching",
+            "response.file_search_call.completed",
+            "response.web_search_call.in_progress",
+            "response.web_search_call.searching",
+            "response.web_search_call.completed",
+        }:
+            raise ValueError(f"Invalid type: {self.type}.")
+        return self

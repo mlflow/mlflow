@@ -1,8 +1,6 @@
 import json
 from typing import Any, Optional, Union
 
-from pydantic import model_validator
-
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
     FunctionCallOutput,
@@ -24,6 +22,7 @@ from mlflow.types.responses_helpers import (
 )
 from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
+from mlflow.utils.pydantic_utils import model_validator
 
 
 class ResponsesRequest(BaseRequestPayload, Tools):

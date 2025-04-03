@@ -146,6 +146,10 @@ def test_responses_agent_custom_inputs(tmp_path):
     payload = {**RESPONSES_AGENT_INPUT_EXAMPLE, "custom_inputs": {"asdf": "asdf"}}
     response = loaded_model.predict(payload)
     assert response["custom_outputs"] == {"asdf": "asdf"}
-    responses = list(loaded_model.predict_stream(payload))
+    responses = list(
+        loaded_model.predict_stream(
+            {**RESPONSES_AGENT_INPUT_EXAMPLE, "custom_inputs": {"asdf": "asdf"}}
+        )
+    )
     for r in responses:
         assert r["custom_outputs"] == {"asdf": "asdf"}
