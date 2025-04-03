@@ -2025,14 +2025,15 @@ def initialize_logged_model(
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
-        source_run_id: The ID of the run that the model is associated with.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
 
     Returns:
-        A new LoggedModel object with status ``PENDING``.
+        A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
     """
     model = _create_logged_model(
         name=name,
@@ -2061,14 +2062,18 @@ def create_external_model(
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
-        source_run_id: The ID of the run that the model is associated with.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
-        model_type: The type of the model.
+        model_type: The type of the model. This is a user-defined string that can be used to
+                    search and compare related models. For example, setting ``model_type="agent"``
+                    enables you to easily search for this model and compare it to other models of
+                    type ``"agent"`` in the future.
         experiment_id: The experiment ID of the experiment to which the model belongs.
 
     Returns:
-        A new LoggedModel object with status ``READY``.
+        A new :py:class:`mlflow.entities.LoggedModel` object with status ``READY``.
     """
     from mlflow.models.model import MLMODEL_FILE_NAME, Model
     from mlflow.models.utils import get_external_mlflow_model_spec
@@ -2117,17 +2122,18 @@ def _create_logged_model(
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
-        source_run_id: The ID of the run that the model is associated with.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
-        model_type: The type of the model.
+        model_type: The type of the model. This is a user-defined string that can be used to
+                    search and compare related models. For example, setting ``model_type="agent"``
+                    enables you to easily search for this model and compare it to other models of
+                    type ``"agent"`` in the future.
         experiment_id: The experiment ID of the experiment to which the model belongs.
-        external: If true, indicates that the artifacts (weights, code, etc.) for the model
-                  are stored externally and not in MLflow. If false, indicates that the model's
-                  artifacts are stored in MLflow.
 
     Returns:
-        The created logged model.
+        A new LoggedModel in the ``PENDING`` state.
     """
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
