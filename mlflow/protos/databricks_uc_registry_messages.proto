@@ -429,9 +429,6 @@ message CreateModelVersionRequest {
 
   // Optional `model_id` for model version that is used to link the registered model to the source logged model
   optional string model_id = 9;
-
-  // Optional parameters for the model.
-  repeated ModelParam model_params = 10;
 }
 
 message CreateModelVersionResponse {
