@@ -35,7 +35,11 @@ type RequestStateWrapperProps = {
   ) => void;
 };
 
-type RequestStateWrapperState = any;
+type RequestStateWrapperState = {
+  shouldRender: boolean;
+  shouldRenderError: boolean;
+  requestErrors: any[];
+};
 
 export class RequestStateWrapper extends Component<RequestStateWrapperProps, RequestStateWrapperState> {
   static defaultProps = {
@@ -47,6 +51,7 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
   state = {
     shouldRender: false,
     shouldRenderError: false,
+    requestErrors: [],
   };
 
   static getErrorRequests(requests: any, requestIdsWith404sToIgnore: any) {
@@ -82,7 +87,6 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
   getRenderedContent() {
     const { children, requests, customSpinner, permissionDeniedView, suppressErrorThrow, customRequestErrorHandlerFn } =
       this.props;
-    // @ts-expect-error TS(2339): Property 'requestErrors' does not exist on type '{... Remove this comment to see the full error message
     const { shouldRender, shouldRenderError, requestErrors } = this.state;
     const permissionDeniedErrors = requestErrors.filter((failedRequest: any) => {
       return failedRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED;

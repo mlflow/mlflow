@@ -74,13 +74,18 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   useAutoHeight?: boolean;
 } & LoggedModelArtifactViewerProps;
 
-type ArtifactViewImplState = any;
+type ArtifactViewImplState = {
+  activeNodeId?: string;
+  toggledNodeIds: Record<string, boolean>;
+  requestedNodeIds: Set<string>;
+  viewAsTable: boolean;
+};
 
 export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactViewImplState> {
   state = {
     activeNodeId: undefined,
     toggledNodeIds: {},
-    requestedNodeIds: new Set(),
+    requestedNodeIds: new Set<string>(),
     viewAsTable: true,
   };
 
