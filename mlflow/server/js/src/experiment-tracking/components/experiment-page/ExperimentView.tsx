@@ -2,7 +2,6 @@ import { LegacySkeleton } from '@databricks/design-system';
 
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
-import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
@@ -31,6 +30,7 @@ import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
+import { NoExperimentView } from '../NoExperimentView';
 
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
@@ -98,17 +98,17 @@ export const ExperimentView = () => {
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
-  if (!isViewInitialized) {
-    // In the new view state model, wait for search facets to initialize
-    return <LegacySkeleton />;
-  }
-
   if (requestError && requestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
     return <PermissionDeniedView errorMessage={requestError.getMessageField()} />;
   }
 
   if (requestError && requestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-    return <NotFoundPage />;
+    return <NoExperimentView />;
+  }
+
+  if (!isViewInitialized) {
+    // In the new view state model, wait for search facets to initialize
+    return <LegacySkeleton />;
   }
 
   invariant(searchFacets, 'searchFacets should be initialized at this point');
