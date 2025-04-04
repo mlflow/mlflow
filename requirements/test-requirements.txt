@@ -41,6 +41,7 @@ typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
 botocore>=1.34
 pyspark
+polars>=1
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
