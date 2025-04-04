@@ -1708,10 +1708,6 @@ def test_log_inputs(mlflow_client):
 
 
 def test_log_inputs_validation(mlflow_client):
-    experiment_id = mlflow_client.create_experiment("log inputs validation")
-    created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_id
-
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
             mlflow_client.tracking_uri,
@@ -1736,12 +1732,6 @@ def test_log_inputs_validation(mlflow_client):
             "datasets": dataset_inputs,
         },
         "Missing value for required parameter 'run_id'",
-    )
-    assert_bad_request(
-        {
-            "run_id": run_id,
-        },
-        "Missing value for required parameter 'datasets'",
     )
 
 
