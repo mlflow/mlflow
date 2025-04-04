@@ -1675,7 +1675,7 @@ class SqlAlchemyStore(AbstractStore):
 
             if models:
                 for model in models:
-                    objs_to_write.append(
+                    session.merge(
                         SqlInput(
                             input_uuid=uuid.uuid4().hex,
                             source_type="RUN_INPUT",
