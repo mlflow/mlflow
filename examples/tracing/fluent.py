@@ -37,8 +37,9 @@ def f2(x: int) -> int:
 
 assert f2(1) == 16
 
-# You can access the last trace via get_last_active_trace API.
-trace = mlflow.get_last_active_trace()
+# You can access the last trace via get_last_active_trace_id API.
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
 
 # Alternatively, you can use `search_traces` API to retrieve
 # traces that meet certain criteria.

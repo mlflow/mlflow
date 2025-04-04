@@ -6,10 +6,15 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
+<<<<<<< HEAD
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+=======
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.tracing.fluent import _set_last_active_trace_id
+>>>>>>> 585e781ee (Make get_last_active_trace_id works in model serving / monitoring)
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -57,6 +62,8 @@ class DatabricksSpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            _set_last_active_trace_id(trace.info.request_id)
+
             if self._is_async:
                 self._async_queue.put(
                     task=Task(
@@ -67,6 +74,7 @@ class DatabricksSpanExporter(SpanExporter):
                 )
             else:
                 self._log_trace(trace)
+
 
     def _log_trace(self, trace: Trace):
         """Create a new Trace record in the Databricks Tracing Server."""

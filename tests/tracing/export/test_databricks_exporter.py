@@ -133,6 +133,9 @@ def test_export(experiment_id, is_async, monkeypatch):
         },
     }
 
+    # Last active trace ID should be set
+    assert mlflow.get_last_active_trace_id() == trace_id
+
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_export_catch_failure(is_async, monkeypatch):

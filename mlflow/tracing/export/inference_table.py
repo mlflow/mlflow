@@ -2,6 +2,7 @@ import logging
 from typing import Any, Optional, Sequence
 
 from cachetools import TTLCache
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -66,6 +67,8 @@ class InferenceTableSpanExporter(SpanExporter):
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
+
+            _set_last_active_trace_id(trace.info.request_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()
