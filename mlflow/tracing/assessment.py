@@ -1,7 +1,7 @@
 from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import (
-    Assessment,
+    Assessment as LoggedAssessment,
     AssessmentError,
     AssessmentValueType,
     Expectation,
@@ -9,6 +9,7 @@ from mlflow.entities.assessment import (
     experimental,
 )
 from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.evaluation.assessment import Assessment
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 
@@ -21,7 +22,7 @@ def log_expectation(
     value: AssessmentValueType,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
-) -> Assessment:
+) -> LoggedAssessment:
     """
     .. important::
 
@@ -81,7 +82,7 @@ def update_expectation(
     name: Optional[str] = None,
     value: Optional[AssessmentValueType] = None,
     metadata: Optional[dict[str, Any]] = None,
-) -> Assessment:
+) -> LoggedAssessment:
     """
     .. important::
 
@@ -151,15 +152,17 @@ def delete_expectation(trace_id: str, assessment_id: str):
 
 @experimental
 def log_feedback(
+    *,
     trace_id: str,
-    name: str,
-    source: Union[str, AssessmentSource],
+    assessment: Optional[Assessment] = None,
+    name: Optional[str] = None,
+    source: Optional[Union[str, AssessmentSource]] = None,
     value: Optional[AssessmentValueType] = None,
     error: Optional[AssessmentError] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
-) -> Assessment:
+) -> LoggedAssessment:
     """
     .. important::
 
@@ -169,6 +172,8 @@ def log_feedback(
 
     Args:
         trace_id: The ID of the trace.
+        assessment: An instance of mlflow.evaluation.Assessment. If provided, fields like name,
+            source, value, error, rationale, metadata, and span_id will be derived from assessment.
         name: The name of the feedback assessment e.g., "faithfulness"
         source: The source of the expectation assessment. Must be either an instance of
                 :py:class:`~mlflow.entities.AssessmentSource` or a string that
@@ -209,6 +214,26 @@ def log_feedback(
             metadata={"model": "gpt-4o-mini"},
         )
 
+    ... code.block:: python
+
+        import mlflow
+        from mlflow.evaluation.assessment import Assessment
+
+        mlflow.log_feedback(
+            trace_id="1234",
+            assessment=Assessment(
+                name="faithfulness",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE,
+                    source_id="faithfulness-judge",
+                ),
+                value=0.9,
+                rationale="The model is faithful to the input.",
+                metadata={"model": "gpt-4o-mini"},
+                span_id="1234567812345678",
+            ),
+        )
+
     You can also log an error information during the feedback generation process. To do so,
     provide an instance of :py:class:`~mlflow.entities.AssessmentError` to the `error`
     parameter, and leave the `value` parameter as `None`.
@@ -236,8 +261,36 @@ def log_feedback(
         )
 
     """
-    if value is None and error is None:
-        raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
+    if assessment is not None:
+        if any(
+            arg is not None for arg in (name, source, value, error, rationale, metadata, span_id)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "When `assessment` is provided, only `trace_id` may be specified."
+            )
+        name = assessment.name
+        source = assessment.source
+        value = assessment.value
+        error = (
+            AssessmentError(
+                error_code=assessment.error_code, error_message=assessment.error_message
+            )
+            if (assessment.error_code is not None or assessment.error_message is not None)
+            else None
+        )
+        rationale = assessment.rationale
+        metadata = assessment.metadata
+        span_id = assessment.span_id
+    else:
+        if value is None and error is None:
+            raise MlflowException.invalid_parameter_value(
+                "Either `value` or `error` must be provided."
+            )
+        if name is None:
+            raise MlflowException.invalid_parameter_value("`name` must be provided.")
+        if source is None:
+            raise MlflowException.invalid_parameter_value("`source` must be provided.")
+
     return MlflowClient().log_assessment(
         trace_id=trace_id,
         name=name,
@@ -258,7 +311,7 @@ def update_feedback(
     value: Optional[AssessmentValueType] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
-) -> Assessment:
+) -> LoggedAssessment:
     """
     .. important::
 

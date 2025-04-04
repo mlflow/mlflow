@@ -5,6 +5,7 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+import mlflow.evaluation
 from mlflow.exceptions import MlflowException
 
 
@@ -197,6 +198,41 @@ def test_log_feedback_invalid_parameters():
             value=1.0,
             source=None,
         )
+
+
+
+def test_log_feedback_with_assessment(store):
+    mlflow.set_tracking_uri("databricks")
+
+    mlflow.log_feedback(
+        trace_id="1234",
+        assessment=mlflow.evaluation.Assessment(
+            name="faithfulness",
+            value=1.0,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="faithfulness-judge",
+            ),
+            rationale="This answer is very faithful.",
+            metadata={"model": "gpt-4o-mini"},
+            span_id="1234123412341234",
+        )
+    )
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "1234"
+    assert assessment.source.source_type == "LLM_JUDGE"
+    assert assessment.source.source_id == "faithfulness-judge"
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.feedback.value == 1.0
+    assert assessment.expectation is None
+    assert assessment.rationale == "This answer is very faithful."
+    assert assessment.metadata == {"model": "gpt-4o-mini"}
+    assert assessment.error is None
+    assert assessment.span_id == "1234123412341234"
 
 
 def test_update_feedback(store):
