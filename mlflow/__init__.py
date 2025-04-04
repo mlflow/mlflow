@@ -210,6 +210,7 @@ from mlflow.tracking.fluent import (
     create_experiment,
     create_external_model,
     delete_experiment,
+    delete_logged_model_tag,
     delete_run,
     delete_tag,
     end_run,
@@ -246,11 +247,10 @@ from mlflow.tracking.fluent import (
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
+    set_logged_model_tags,
     set_tag,
     set_tags,
     start_run,
-    set_logged_model_tags,
-    delete_logged_model_tag,
 )
 from mlflow.tracking.multimedia import Image
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
