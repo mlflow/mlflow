@@ -868,6 +868,9 @@ def _log_metric():
             "value": [_assert_required, _assert_floatlike],
             "timestamp": [_assert_intlike, _assert_required],
             "step": [_assert_intlike],
+            "model_id": [_assert_string],
+            "dataset_name": [_assert_string],
+            "dataset_digest": [_assert_string],
         },
     )
     metric = Metric(
@@ -875,6 +878,10 @@ def _log_metric():
         request_message.value,
         request_message.timestamp,
         request_message.step,
+        request_message.model_id or None,
+        request_message.dataset_name or None,
+        request_message.dataset_digest or None,
+        request_message.run_id or None,
     )
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_metric(run_id, metric)
