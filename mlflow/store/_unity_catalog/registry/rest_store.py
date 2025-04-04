@@ -740,10 +740,6 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return mlflow.get_logged_model(model_id)
 
-    def _get_model_params_from_model_id(self, model: LoggedModel):
-        # extract the model parameters and return as ModelParam objects
-        return [ModelParam(name=name, value=value) for name, value in model.params.items()]
-
     def create_model_version(
         self,
         name,
@@ -807,7 +803,6 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        model_params = self._get_model_params_from_model_id(logged_model) if logged_model else []
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
@@ -823,8 +818,7 @@ class UcModelRegistryStore(BaseRestStore):
                     run_tracking_server_id=source_workspace_id,
                     feature_deps=feature_deps,
                     model_version_dependencies=other_model_deps,
-                    model_id=model_id,
-                    model_params=model_params,
+                    model_id=model_id
                 )
             )
             model_version = self._call_endpoint(
