@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Optional, Union
 
 from pydantic import ConfigDict
@@ -80,10 +81,25 @@ class AnnotationFilePath(BaseModel):
     type: str = "file_path"
 
 
+class Annotation(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+    @model_validator(mode="after")
+    def check_type(self) -> "Annotation":
+        if self.type == "file_citation":
+            AnnotationFileCitation(**self.model_dump_compat())
+        elif self.type == "url_citation":
+            AnnotationURLCitation(**self.model_dump_compat())
+        elif self.type == "file_path":
+            AnnotationFilePath(**self.model_dump_compat())
+        else:
+            raise ValueError(f"Invalid annotation type: {self.type}")
+        return self
+
+
 class ResponseOutputText(BaseModel):
-    annotations: Optional[
-        Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
-    ] = None
+    annotations: Optional[list[Annotation]] = None
     text: str
     type: str = "output_text"
 
@@ -93,9 +109,24 @@ class ResponseOutputRefusal(BaseModel):
     type: str = "refusal"
 
 
+class Content(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+    @model_validator(mode="after")
+    def check_type(self) -> "Content":
+        if self.type == "output_text":
+            ResponseOutputText(**self.model_dump_compat())
+        elif self.type == "refusal":
+            ResponseOutputRefusal(**self.model_dump_compat())
+        else:
+            raise ValueError(f"Invalid content type: {self.type}")
+        return self
+
+
 class ResponseOutputMessage(Status):
     id: str
-    content: list[Union[ResponseOutputText, ResponseOutputRefusal]]
+    content: list[Content]
     role: str = "assistant"
     type: str = "message"
 
@@ -117,6 +148,27 @@ class ResponseReasoningItem(Status):
     id: str
     summary: list[Summary]
     type: str = "reasoning"
+
+
+class OutputItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+    @model_validator(mode="after")
+    def check_type(self) -> "OutputItem":
+        if self.type == "message":
+            ResponseOutputMessage(**self.model_dump_compat())
+        elif self.type == "function_call":
+            ResponseFunctionToolCall(**self.model_dump_compat())
+        elif self.type == "reasoning":
+            ResponseReasoningItem(**self.model_dump_compat())
+        elif self.type not in {
+            "file_search_call",
+            "computer_call",
+            "web_search_call",
+        }:
+            warnings.warn(f"Invalid type: {self.type}.")
+        return self
 
 
 class IncompleteDetails(BaseModel):
@@ -157,23 +209,21 @@ class FunctionTool(BaseModel):
     """
 
 
-class Tools(BaseModel):
-    tools: Optional[list[Union[FunctionTool, dict[str, Any]]]] = None
+class Tool(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    type: str
 
     @model_validator(mode="after")
-    def check_tools(self) -> "Tools":
-        if self.tools is not None:
-            for tool in self.tools:
-                if isinstance(tool, dict):
-                    if "type" not in tool:
-                        raise ValueError("dict must have a type key")
-                    tool_type = tool["type"]
-                    if not any(
-                        tool_type.startswith(tool_name)
-                        for tool_name in {"file_search", "computer_use", "web_search"}
-                    ):
-                        raise ValueError(f"Invalid tool type: {tool_type}")
+    def check_type(self) -> "Tool":
+        if self.type == "function":
+            FunctionTool(**self.model_dump_compat())
+        elif self.type not in {"file_search", "computer_use", "web_search"}:
+            warnings.warn(f"Invalid tool type: {self.type}")
         return self
+
+
+class Tools(BaseModel):
+    tools: Optional[list[Tool]] = None
 
 
 class ToolChoice(BaseModel):
@@ -186,16 +236,8 @@ class ToolChoice(BaseModel):
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
-        if isinstance(self.tool_choice, str) and self.tool_choice not in {
-            "none",
-            "auto",
-            "required",
-            "file_search",
-            "web_search_preview",
-            "computer_use_preview",
-            "web_search_preview_2025_03_11",
-        }:
-            raise ValueError(f"Invalid tool_choice: {self.tool_choice}")
+        if isinstance(self.tool_choice, str):
+            warnings.warn(f"Not validating tool choice: {self.tool_choice}")
         return self
 
 
@@ -264,14 +306,7 @@ class Response(Tools, Truncation, ToolChoice):
     metadata: Optional[dict[str, str]] = None
     model: Optional[str] = None
     object: str = "response"
-    output: list[
-        Union[
-            ResponseOutputMessage,
-            ResponseFunctionToolCall,
-            ResponseReasoningItem,
-            dict[str, Any],
-        ]
-    ]
+    output: list[OutputItem]
     parallel_tool_calls: Optional[bool] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -397,27 +432,23 @@ class BaseRequestPayload(Truncation, ToolChoice):
 #####################################
 
 
-class BaseEvent(BaseModel):
-    custom_outputs: Optional[dict[str, Any]] = None
-
-
-class ResponseContentPartAddedEvent(BaseEvent):
+class ResponseContentPartAddedEvent(BaseModel):
     content_index: int
     item_id: str
     output_index: int
-    part: Union[ResponseOutputText, ResponseOutputRefusal]
+    part: Content
     type: str = "response.content_part.added"
 
 
-class ResponseContentPartDoneEvent(BaseEvent):
+class ResponseContentPartDoneEvent(BaseModel):
     content_index: int
     item_id: str
     output_index: int
-    part: Union[ResponseOutputText, ResponseOutputRefusal]
+    part: Content
     type: str = "response.content_part.done"
 
 
-class ResponseTextDeltaEvent(BaseEvent):
+class ResponseTextDeltaEvent(BaseModel):
     content_index: int
     delta: str
     item_id: str
@@ -425,7 +456,7 @@ class ResponseTextDeltaEvent(BaseEvent):
     type: str = "response.output_text.delta"
 
 
-class ResponseTextDoneEvent(BaseEvent):
+class ResponseTextDoneEvent(BaseModel):
     content_index: int
     item_id: str
     output_index: int
@@ -433,7 +464,7 @@ class ResponseTextDoneEvent(BaseEvent):
     type: str = "response.output_text.done"
 
 
-class ResponseTextAnnotationDeltaEvent(BaseEvent):
+class ResponseTextAnnotationDeltaEvent(BaseModel):
     annotation: Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
     annotation_index: int
     content_index: int
@@ -442,87 +473,39 @@ class ResponseTextAnnotationDeltaEvent(BaseEvent):
     type: str = "response.output_text.annotation.added"
 
 
-class ResponseFunctionCallArgumentsDeltaEvent(BaseEvent):
+class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
     delta: str
     item_id: str
     output_index: int
     type: str = "response.function_call_arguments.delta"
 
 
-class ResponseFunctionCallArgumentsDoneEvent(BaseEvent):
+class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
     arguments: str
     item_id: str
     output_index: int
     type: str = "response.function_call_arguments.done"
 
 
-class OutputItem(BaseModel):
-    item: Union[
-        ResponseOutputMessage,
-        ResponseFunctionToolCall,
-        ResponseReasoningItem,
-        dict[str, Any],
-    ]
-
-    @model_validator(mode="after")
-    def check_item(self) -> "OutputItem":
-        if isinstance(self.item, dict):
-            if "type" not in self.item:
-                raise ValueError("dict must have a type key")
-            if self.item["type"] not in {
-                "file_search_call",
-                "computer_call",
-                "web_search_call",
-            }:
-                raise ValueError(f"Invalid type: {self.item['type']}.")
-        return self
-
-
-class ResponseOutputItemAddedEvent(OutputItem, BaseEvent):
+class ResponseOutputItemAddedEvent(BaseModel):
+    item: OutputItem
     output_index: int
     type: str = "response.output_item.added"
 
 
-class ResponseOutputItemDoneEvent(OutputItem, BaseEvent):
+class ResponseOutputItemDoneEvent(BaseModel):
+    item: OutputItem
     output_index: int
     type: str = "response.output_item.done"
 
 
-class ResponseErrorEvent(BaseEvent):
+class ResponseErrorEvent(BaseModel):
     code: Optional[str] = None
     message: str
     param: Optional[str] = None
     type: str = "error"
 
 
-class ResponseCompletedEvent(BaseEvent):
+class ResponseCompletedEvent(BaseModel):
     response: Response
     type: str = "response.completed"
-
-
-class StreamCatchAllEvent(BaseEvent):
-    # pydantic model that allows for all other streaming event types to pass type validation
-    model_config = ConfigDict(extra="allow")
-    type: str
-
-    @model_validator(mode="after")
-    def check_type(self) -> "StreamCatchAllEvent":
-        if self.type not in {
-            "response.created",
-            "response.in_progress",
-            "response.completed",
-            "response.failed",
-            "response.incomplete",
-            "response.content_part.added",
-            "response.content_part.done",
-            "response.refusal.delta",
-            "response.refusal.done",
-            "response.file_search_call.in_progress",
-            "response.file_search_call.searching",
-            "response.file_search_call.completed",
-            "response.web_search_call.in_progress",
-            "response.web_search_call.searching",
-            "response.web_search_call.completed",
-        }:
-            raise ValueError(f"Invalid type: {self.type}.")
-        return self
